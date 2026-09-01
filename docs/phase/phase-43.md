@@ -2,7 +2,9 @@
 
 Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel,
 LUI43-02 UseCase-to-Screen and Component Projection, and LUI43-03 Pattern,
-Constraint, and State Semantics are complete.
+Constraint, and State Semantics are complete; LUI43-03W Workflow Subject and
+Pattern Semantics and LUI43-04 Logical UI Review HTML and Currentness are
+complete; LUI43-05 SalesOrder Driver Acceptance and Closure is not started.
 
 Plan date: 2026-09-01
 
@@ -73,13 +75,20 @@ Stage Status:
 
 ## Phase Hygiene Ledger
 
-- `HYG-LUI43-02-001` (OPEN): `CozyLogicalUi.scala` is 1,221 lines and exceeds
+- `HYG-LUI43-02-001` (OPEN): `CozyLogicalUi.scala` is 1,225 lines and exceeds
   the repository's 1,000-line source-size threshold. Owner: Cozy Logical UI
   normalization. Target: a separately authorized hygiene batch that may add a
   source path and perform the physical split. Rationale: the split is
   structural work outside this frozen behavior repair and must preserve the
   current projection contract. This disposition makes no current behavior
   change and does not resolve the hygiene item.
+- `HYG-LUI43-RR-001` (OPEN; separate follow-up; not a Current Boundary
+  Blocker): keep review Spec fixtures under `target/` and clean them
+  deterministically. This does not change LUI43-03W/LUI43-04 behavior or the
+  LUI43-04 security closure.
+- `HYG-LUI43-RR-002` (OPEN; separate follow-up; not a Current Boundary
+  Blocker): add `which` grouping to improve review Spec navigation. This does
+  not change LUI43-03W/LUI43-04 behavior or the LUI43-04 security closure.
 
 ## LUI43-03: Pattern, Constraint, and State Semantics
 
@@ -100,11 +109,36 @@ Stage Status:
 - Require both public Operation and UI UseCase admission before exposing a
   StateMachine transition as an action.
 
+## LUI43-03W: Workflow Subject and Pattern Semantics
+
+Stage Status:
+
+- Current status: DONE
+- Owner: Cozy Logical UI Workflow subject boundary
+- Update rule: complete only when Workflow is admitted as an exact public
+  Component screen subject and pattern source without expanding client-side
+  Workflow authority.
+
+- Add `Workflow` as a closed public Component role and as a Logical Screen
+  pattern source peer of Entity, Aggregate, and View.
+- Retain the same exact public `ComponentBinding` admission and deterministic
+  canonical identity rules used by its peer screen subjects.
+- Keep Workflow out of renderers, executors, local authority, client-side
+  state machines, and every replacement for server Workflow, authorization,
+  and observability.
+- Retain separate Domain StateMachine, opaque Workflow state evidence, and UI
+  interaction-state domains; Workflow does not become an Aggregate mutation
+  root or a public Operation replacement.
+- Completion evidence: Workflow public subject and pattern semantics are
+  complete. Focused Executable Specification receipt
+  `P43-LUI43-03W-TEST-002` reports 34 succeeded and 0 failed; focused closure
+  review `P43-LUI43-03W-04J-RR-005` reports no Current Boundary Blocker.
+
 ## LUI43-04: Logical UI Review HTML and Currentness
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: Cozy deterministic Logical UI review projection
 - Update rule: complete only when overview/detail projection, diagnostics,
   accessibility, deterministic bytes, atomic output, and currentness receipts
@@ -120,6 +154,15 @@ Stage Status:
   identities, renderer/profile, and output hash into a versioned receipt.
 - Keep HTML/CSS/inline-SVG/optional interaction read-only and below the
   Logical UI semantic boundary.
+- Approved security decision `CB-LUI43-04-RR-006`: admit an output only when
+  its parent path equals the explicit parent exactly as written; reject
+  intermediate traversal, including symlink-plus-`..`, before temporary output
+  creation or replacement.
+- Completion evidence: focused receipt `P43-LUI43-04J-TEST-007` reports 6
+  succeeded and 0 failed for the direct-child escape closure;
+  `P43-LUI43-03W-TEST-002` reports 34 succeeded and 0 failed for the combined
+  Workflow/review behavior; focused closure review
+  `P43-LUI43-03W-04J-RR-005` reports no Current Boundary Blocker.
 
 ## LUI43-05: SalesOrder Driver Acceptance and Closure
 

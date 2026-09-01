@@ -142,7 +142,8 @@ screen may be reused by several catalog UI UseCases. Duplicate mappings fail
 closed.
 
 `LogicalScreen` has a globally unique ID, a nonempty primary purpose and
-unique optional secondary purposes, one `Entity`, `Aggregate`, or `View`
+unique optional secondary purposes, one `Entity`, `Aggregate`, `View`, or
+`Workflow`
 subject, a nonempty semantic region tree with one root, existing parents, and
 deterministic sibling order, named interactions, feedback states, and logical
 navigation endpoints. Interaction kinds are closed to `entry`, `input`,
@@ -154,7 +155,7 @@ closed to `normal`, `loading`, `empty`, `unavailable`, `validation-failed`,
 state.
 
 Component roles are closed to `Entity`, `Aggregate`, `Service`, `Operation`,
-`Value`, `Datatype`, `View`, `Powertype`, and `StateMachine`. Every
+`Value`, `Datatype`, `View`, `Workflow`, `Powertype`, and `StateMachine`. Every
 role-bearing reference is an exact existing public `ComponentBinding` from
 `candidate.input.componentBindings`; no parallel Component declaration,
 unexported binding, or unused candidate binding is admitted. Every screen and
@@ -171,6 +172,17 @@ member cannot be a mutation target; a root mutation must use one of its
 boundary's declared public Operations. Unknown or unexported references,
 malformed regions/navigation, invalid paths/kinds/feedback, and missing
 Operation bindings fail closed with stable `LUI43_` diagnostics.
+
+`Workflow` is a public Component role and a Logical Screen pattern-source peer
+of `Entity`, `Aggregate`, and `View`. Its screen subject uses the same exact
+public `ComponentBinding` admission and canonical subject identity rules as
+those peers. It adds no parallel Workflow declaration, CML reader, source
+lookup, renderer, route, widget, client state machine, Workflow runner, or
+Workflow execution API. It adds no Workflow-specific constraint category,
+multiplicity, or StateMachine rule. A public `Operation` remains the executable
+server-side request boundary; Workflow is never an Aggregate mutation-root
+substitute or a client-side replacement for server Workflow, authorization, or
+observability.
 
 Projection construction normalizes catalogs, steps, screens, interactions,
 regions, mappings, usages, feedback, and Aggregate boundaries before computing
@@ -214,6 +226,11 @@ Operation semantic binding has separate precondition and postcondition
 identities. Feedback associations reference the whole declared pair and never
 reconstruct a detail code from a copied string.
 
+A `Workflow` semantic binding records only its exact public role and binding
+admitted by the Logical Screen projection. It carries no multiplicity,
+constraint category, Domain StateMachine state, inferred Workflow transition,
+or client-owned Workflow state semantics.
+
 `DomainStateReference`, `WorkflowStateReference`, and `UiInteractionState` are
 different typed domains. A StateMachine transition action is admission evidence
 only: it must name a non-system declared UI UseCase step, an exact mapped screen
@@ -230,3 +247,61 @@ transition identities fail closed under `LUI43_SEMANTICS_*` diagnostics.
 Equivalent permutations therefore produce identical canonical content and
 semantic identity. The executable specification is
 `src/test/scala/cozy/ui/CozyLogicalUiSemanticsSpec.scala`.
+
+## 8. Read-only review HTML and currentness
+
+`cozy.logical-ui-review.v1` is a typed, package-local review projection over
+exactly one `AcceptedLogicalUi`, its `LogicalUiProjection`, and the semantic
+projection bound to that projection. `CozyLogicalUiReview.render` rejects
+missing values and every reused-identity mismatch before rendering. It does
+not construct or change candidate/accepted authority, normalize semantics,
+evaluate a constraint, execute an Operation or transition, or perform target
+realization.
+
+The result contains deterministic UTF-8, self-contained accessible HTML, typed
+review diagnostics, and a `ReviewReceipt`. The receipt has schema
+`cozy.logical-ui-review.v1`, version `1`, and the closed renderer profile
+`cozy.logical-ui-review.renderer.v1`. Its canonical identity binds, in a fixed
+order, the accepted identity, candidate identity, consumed-input identity,
+the candidate's exact three-layer UseCase identity, normalized catalog
+identity, projection identity, semantic projection identity, renderer profile,
+and SHA-256 identity of the emitted HTML bytes. Receipt identity is distinct
+from every reused authority identity and is not emitted into the HTML.
+The UseCase and catalog identities are SHA-256 values over local canonical JSON
+objects and arrays with fully JSON-escaped dynamic layer and ID strings; no
+delimiter-derived encoding is used, so valid delimiter-, quote-, and
+control-character-bearing IDs remain injectively distinct.
+
+The HTML shows Business/System/UI realization and catalog membership, every
+UseCase step and screen-interaction mapping (including system-only steps),
+navigation edges and reachability, per-screen purpose/subject/regions,
+Display mappings, interaction Patterns and UI lifecycle states, feedback,
+exact Component bindings and multiplicity/Powertype/StateMachine data,
+constraint `(constraintId, detailCode)` pairs and validation authority,
+feedback associations, and StateMachine transition admission evidence. Each
+screen labels logical primary purpose, logical secondary purposes, and semantic
+Purpose separately. Transition evidence keeps domain state and UI state
+separate and includes optional Workflow ID/state ID evidence or a deterministic
+missing representation. Dynamic text is escaped, all ordering uses already
+normalized values or injective structural keys, and CSS is inline. No external
+resource, script, form/action, route, widget, or target-framework contract is
+included.
+
+Review diagnostics are informational and deterministic. They can identify
+coverage/reference issues, unreachable screens, Aggregate mutation boundary
+discrepancies, missing StateMachine action evidence, missing Powertype
+variants, and missing expected failure feedback. These conditions do not make
+the renderer execute behavior or alter semantic acceptance. Identity and
+currentness errors fail closed with `LogicalUiError` diagnostics, including
+`LUI43_REVIEW_IDENTITY_MISMATCH` and
+`LUI43_REVIEW_CURRENTNESS_INVALID`.
+
+`verifyCurrent` recomputes the tuple and requires exact receipt fields,
+identity, and HTML bytes. `write` verifies currentness first and accepts only
+an existing non-symlink parent directory and a regular-or-absent non-symlink
+`*.html` target whose `target.getParent` is exactly the supplied parent path as
+written. It rejects `.`/`..` and every intermediate component, including
+symlink-plus-`..` traversal, before temporary output creation or replacement.
+It writes only the HTML through a same-parent temporary file and an atomic move.
+Rejected validation or staging leaves an existing target unchanged; receipts
+are not persisted to a second file.

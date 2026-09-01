@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 1, 2026
+ * @version Sep. 2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -433,6 +433,33 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
       normalized.input.aggregateBoundaries should have size 1
     }
 
+    "admit a public Workflow binding as a deterministic Logical Screen subject and reject closed Workflow bindings" in {
+      Given("a Workflow public Component binding, a mapped Workflow screen, and unknown and unexported Workflow binding variants")
+      val candidate = _right(CozyLogicalUi.candidate(_workflow_projection_input))
+      val workflowprojection = _workflow_projection(candidate)
+      val unexportedinput = _workflow_projection_input.copy(componentBindings = _workflow_projection_bindings :+ _unknown_binding)
+      val unknownsubject = workflowprojection.copy(screens = workflowprojection.screens.map(screen =>
+        screen.copy(subject = ScreenSubject(WorkflowRole, _unknown_binding))
+      ))
+
+      When("the Workflow subject is normalized and exact public Component admission is challenged")
+      val normalized = _right(CozyLogicalUi.project(candidate, workflowprojection))
+      val unexportedresult = CozyLogicalUi.candidate(unexportedinput)
+      val unknownresult = CozyLogicalUi.project(candidate, unknownsubject)
+      val permuted = _right(CozyLogicalUi.project(candidate, workflowprojection.copy(
+        screens = workflowprojection.screens.reverse,
+        mappings = workflowprojection.mappings.reverse
+      )))
+
+      Then("Workflow remains a mapped Logical Screen pattern source under one exact public binding and canonical identity")
+      normalized.input.screens.head.subject shouldBe ScreenSubject(WorkflowRole, _workflow_binding)
+      normalized.input.screens.head.subject.binding shouldBe _workflow_binding
+      normalized.input.mappings should contain allElementsOf _projection_mappings
+      normalized.identity shouldBe permuted.identity
+      _left(unexportedresult).code shouldBe "LUI43_COMPONENT_EXPORT_CLOSED"
+      _left(unknownresult).code shouldBe "LUI43_PROJECTION_COMPONENT_CLOSED"
+    }
+
     "normalize catalog, step, screen, mapping, and boundary permutations to one projection identity" in {
       Given("a valid projection and a permutation generator over its canonical vectors")
       val candidate = _right(CozyLogicalUi.candidate(_projection_input))
@@ -499,6 +526,7 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
   private val _value_binding = ComponentBinding(_sales_order, "value")
   private val _datatype_binding = ComponentBinding(_sales_order, "datatype")
   private val _view_binding = ComponentBinding(_sales_order, "view")
+  private val _workflow_binding = ComponentBinding(_sales_order, "workflow")
   private val _powertype_binding = ComponentBinding(_sales_order, "powertype")
   private val _state_machine_binding = ComponentBinding(_sales_order, "state-machine")
   private val _unknown_binding = ComponentBinding(_sales_order, "unknown")
@@ -516,6 +544,12 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
   private val _projection_input = CandidateInput(
     Vector(ComponentSurface(_sales_order, _projection_bindings.map(_.exportId))),
     _projection_bindings,
+    _valid_use_cases
+  )
+  private val _workflow_projection_bindings = _projection_bindings :+ _workflow_binding
+  private val _workflow_projection_input = CandidateInput(
+    Vector(ComponentSurface(_sales_order, _workflow_projection_bindings.map(_.exportId))),
+    _workflow_projection_bindings,
     _valid_use_cases
   )
   private val _other_business_use_case = UseCaseReference(Business, "business-review-sales-order")
@@ -609,6 +643,13 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
     _projection_mappings,
     Vector(_projection_boundary)
   )
+
+  private def _workflow_projection(candidate: LogicalUiCandidate): UseCaseScreenProjection = {
+    val projection = _projection(candidate)
+    projection.copy(screens = projection.screens.map(screen =>
+      screen.copy(subject = ScreenSubject(WorkflowRole, _workflow_binding))
+    ))
+  }
 
   private def _right[A](value: Either[LogicalUiError, A]): A = value match {
     case Right(result) => result

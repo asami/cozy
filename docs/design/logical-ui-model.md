@@ -99,7 +99,7 @@ system-only steps. Every non-system step is covered exactly by at least one
 mapping, and duplicate mappings fail closed.
 
 The logical screen is semantic rather than visual. It has a unique identity,
-purpose values, one Entity/Aggregate/View subject, a rooted region tree with
+purpose values, one Entity/Aggregate/View/Workflow subject, a rooted region tree with
 parent and sibling order, named interactions, feedback states, and logical
 navigation. Interaction kinds, Component roles, and feedback states are closed
 typed alternatives. Every mapping must justify its screen and interaction;
@@ -107,6 +107,15 @@ every candidate binding selected by the projection must be used by a subject,
 interaction usage, or mutation action. All binding references are exact public
 candidate bindings, so this projection cannot perform source lookup, private
 name parsing, export inference, or fallback version resolution.
+
+Workflow is a closed public Component role and a Logical Screen pattern source
+peer of Entity, Aggregate, and View. A Workflow subject uses the same exact
+public `ComponentBinding` admission and canonical subject identity rules as
+those peers. It does not introduce a Workflow renderer, executor, source
+reader, local authority, client-side state machine, or a client-side replacement
+for server Workflow, authorization, or observability. Public `Operation`
+remains the executable server-side request boundary, and Workflow never becomes
+an Aggregate mutation-root substitute.
 
 Aggregate boundaries are explicit values containing an Aggregate reference,
 root, members, and public Operation bindings. Each public Operation binding is
@@ -162,3 +171,47 @@ uses structural tuple ordering for all opaque identities. No delimiter-derived
 identity key is used. Thus vector permutations cannot alter the semantic
 identity, while duplicate, missing, incompatible, or unadmitted values fail
 closed with stable `LUI43_SEMANTICS_*` diagnostics.
+
+## 8. Review projection and receipt boundary
+
+`CozyLogicalUiReview` is deliberately below the accepted Logical UI and
+semantic authorities. It receives the exact accepted candidate, normalized
+screen projection, and semantic projection as an identity-pinned tuple. It is
+read-only with respect to those values: the renderer does not create
+acceptance, evaluate DbC or validation, run Operations or StateMachine
+transitions, infer Workflow state, or select target widgets/routes.
+
+The review HTML is a deterministic inspection surface, not an application.
+It uses escaped text, stable normalized ordering, an inline stylesheet, and
+semantic headings/tables for accessible reading. Its sections expose the
+three-layer UseCase realization, catalog/step coverage, navigation graph and
+reachability, screen composition, exact public Component bindings, pattern and
+UI-state classifications, constraints and feedback identities, and explicit
+transition admission evidence. Each screen explicitly shows logical primary
+purpose, logical secondary purposes, and semantic Purpose. Transition evidence
+separately shows domain state, optional Workflow ID/state ID evidence (or a
+deterministic missing representation), and UI state. Review diagnostics make
+omissions visible but do not become acceptance decisions. Receipt identity is
+kept out of HTML so a review page cannot be mistaken for its currentness
+authority.
+
+The receipt binds all reused authority identities plus the closed renderer
+profile and emitted-byte hash under `cozy.logical-ui-review.v1`. Its identity
+is a separate deterministic value. UseCase and catalog receipt identities use
+local canonical JSON object/array framing with fully JSON-escaped dynamic
+strings, preserving injective identity for valid delimiter-, quote-, and
+control-character-bearing IDs. Recomputing the same normalized tuple must
+produce equal HTML and receipt bytes; changing accepted/projection/semantic
+inputs, receipt fields, renderer evidence, or HTML bytes makes currentness fail
+closed.
+
+The only filesystem operation is an explicit `write` of the already validated
+HTML. It requires an existing non-symlink parent and a regular-or-absent
+non-symlink `*.html` target whose parent path is exactly the supplied parent
+path as written. The direct-child equality gate rejects `.`/`..` and every
+intermediate component, including symlink-plus-`..` traversal, before it
+creates a temporary file or replaces output. It stages only an admitted target
+in that parent and uses an atomic move. It never stores a receipt beside the
+page, reads an HTML page as authority, or publishes/registers an artifact.
+Renderer changes therefore remain a non-authoritative review concern and
+cannot stale Logical UI semantic authority by mutation.

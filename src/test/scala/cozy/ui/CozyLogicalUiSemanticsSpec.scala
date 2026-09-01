@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 1, 2026
+ * @version Sep. 2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -176,6 +176,38 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
     }
   }
 
+  "Cozy Logical UI Workflow subject semantics" should {
+    "admit Workflow as a typed screen subject and retain pattern and state domains separately" in {
+      Given("a mapped Workflow screen with its exact public semantic binding, existing Purpose/Display/Interaction selections, and opaque Workflow state evidence")
+      val candidatevalue = _right(CozyLogicalUi.candidate(_workflow_candidate_input))
+      val projectionvalue = _right(CozyLogicalUi.project(candidatevalue, _workflow_projection(candidatevalue)))
+      val inputvalue = _valid_semantics_input(projectionvalue).copy(componentBindings =
+        _valid_semantics_input(projectionvalue).componentBindings :+ ComponentSemanticBinding(WorkflowRole, _workflow_binding)
+      )
+
+      When("semantic bindings and equivalent vector orderings are normalized without Workflow execution")
+      val resultvalue = _right(CozyLogicalUiSemantics.project(projectionvalue, inputvalue))
+      val permutedvalue = _right(CozyLogicalUiSemantics.project(projectionvalue, _reverse_semantics(inputvalue)))
+      val workflowbinding = resultvalue.input.componentBindings.find(item => item.role == WorkflowRole).get
+      val screenvalue = resultvalue.input.screens.head
+      val transitionvalue = resultvalue.input.transitionActions.head
+
+      Then("Workflow is a deterministic semantic binding and pattern source, not a Domain StateMachine, Workflow-state, or UI-lifecycle value")
+      projectionvalue.input.screens.head.subject shouldBe ScreenSubject(WorkflowRole, _workflow_binding)
+      workflowbinding.binding shouldBe _workflow_binding
+      workflowbinding.multiplicity shouldBe None
+      workflowbinding.powertypeVariantId shouldBe None
+      workflowbinding.domainStates shouldBe Vector.empty
+      screenvalue.purpose shouldBe ConfirmPurpose
+      screenvalue.regions.map(_.display).toSet shouldBe Set(CollectionDisplay, DetailDisplay)
+      screenvalue.interactions.map(_.pattern).toSet shouldBe Set(NavigatePattern, SelectPattern, InputPattern, CommandPattern, ObservePattern)
+      transitionvalue.from shouldBe DomainStateReference(_state_machine_binding, "draft")
+      transitionvalue.workflowState shouldBe Some(WorkflowStateReference("sales-order-workflow", "awaiting"))
+      transitionvalue.interactionState shouldBe SucceededInteractionState
+      resultvalue.identity shouldBe permutedvalue.identity
+    }
+  }
+
   "Cozy Logical UI semantic identity" should {
     "remain deterministic for every admitted semantic vector permutation" in {
       Given("a valid semantic input and a ScalaCheck generator selecting canonical or reversed vectors")
@@ -220,6 +252,7 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
   private val _value_binding = ComponentBinding(_sales_order, "value")
   private val _datatype_binding = ComponentBinding(_sales_order, "datatype")
   private val _view_binding = ComponentBinding(_sales_order, "view")
+  private val _workflow_binding = ComponentBinding(_sales_order, "workflow")
   private val _powertype_binding = ComponentBinding(_sales_order, "powertype")
   private val _state_machine_binding = ComponentBinding(_sales_order, "state-machine")
   private val _unknown_binding = ComponentBinding(_sales_order, "unknown")
@@ -237,6 +270,11 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
   private val _candidate_input = CandidateInput(
     Vector(ComponentSurface(_sales_order, _all_bindings.map(_.exportId))),
     _all_bindings,
+    _valid_use_cases
+  )
+  private val _workflow_candidate_input = CandidateInput(
+    Vector(ComponentSurface(_sales_order, _all_bindings.map(_.exportId) :+ _workflow_binding.exportId)),
+    _all_bindings :+ _workflow_binding,
     _valid_use_cases
   )
 
@@ -281,6 +319,13 @@ final class CozyLogicalUiSemanticsSpec extends AnyWordSpec with Matchers with Gi
 
   private def _projection(candidatevalue: LogicalUiCandidate): UseCaseScreenProjection =
     _projection_input_template.copy(candidateIdentity = candidatevalue.identity)
+
+  private def _workflow_projection(candidatevalue: LogicalUiCandidate): UseCaseScreenProjection = {
+    val projectionvalue = _projection(candidatevalue)
+    projectionvalue.copy(screens = projectionvalue.screens.map(screen =>
+      screen.copy(subject = ScreenSubject(WorkflowRole, _workflow_binding))
+    ))
+  }
 
   private def _valid_semantics_input(projectionvalue: LogicalUiProjection): LogicalUiSemanticsInput = {
     val screenvalue = ScreenSemantics(

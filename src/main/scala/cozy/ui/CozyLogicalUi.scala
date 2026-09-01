@@ -5,7 +5,7 @@ import java.security.MessageDigest
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 1, 2026
+ * @version Sep. 2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUi {
@@ -134,6 +134,10 @@ private[cozy] object CozyLogicalUi {
 
   case object ViewRole extends ComponentRole {
     val id = "View"
+  }
+
+  case object WorkflowRole extends ComponentRole {
+    val id = "Workflow"
   }
 
   case object PowertypeRole extends ComponentRole {
@@ -480,9 +484,9 @@ private[cozy] object CozyLogicalUi {
       else if (purposes.distinct.size != purposes.size)
         Some(LogicalUiError("LUI43_PROJECTION_SCREEN_INVALID", s"$path.secondaryPurposes", "secondary purposes must be unique"))
       else if (value.subject == null || value.subject.role == null)
-        Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_ROLE_INVALID", s"$path.subject", "screen subject must be Entity, Aggregate, or View"))
-      else if (!Set[ComponentRole](EntityRole, AggregateRole, ViewRole).contains(value.subject.role))
-        Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_ROLE_INVALID", s"$path.subject.role", "screen subject must be Entity, Aggregate, or View"))
+        Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_ROLE_INVALID", s"$path.subject", "screen subject must be Entity, Aggregate, View, or Workflow"))
+      else if (!Set[ComponentRole](EntityRole, AggregateRole, ViewRole, WorkflowRole).contains(value.subject.role))
+        Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_ROLE_INVALID", s"$path.subject.role", "screen subject must be Entity, Aggregate, View, or Workflow"))
       else if (value.subject.binding == null)
         Some(LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"$path.subject.binding", "screen subject must use an exact public Component binding"))
       else
