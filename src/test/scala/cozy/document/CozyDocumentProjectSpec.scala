@@ -1,9 +1,11 @@
 package cozy.document
 
 import cozy.scaffold.CozyHelpText
+import cozy.media.CozyMedia
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
+import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.scalatest.GivenWhenThen
@@ -12,7 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 31, 2026
- * @version Aug. 31, 2026
+ * @version Sep. 1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -83,7 +85,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         firststate should include("readiness: ready")
         firststate should include("coverage: not-applicable")
         firststate should include("readiness: omitted")
-        firststate should include("reason: profile standard disables video branch")
+        firststate should include("reason: \"profile standard disables video branch\"")
         Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         val descriptor = project.resolve("document-project.yaml")
         val descriptorbytes = Files.readAllBytes(descriptor)
@@ -428,8 +430,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboardtext should include("Producer operation")
         dashboardtext should include("Consumer operations")
         dashboardtext should include("no receipt or currentness authority")
-        dashboardtext should include("core-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
-        dashboardtext should include("slide-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        dashboardtext should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        dashboardtext should include("slide-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
         dashboardtext should include("<a href=\"core-review.html\">core-review.html</a>")
         dashboardtext should include("<a href=\"slides-review.html\">slides-review.html</a>")
         dashboardtext should include("<a href=\"../../infographic/infographic.svg\">../../infographic/infographic.svg</a>")
@@ -481,6 +483,18 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val existinginfographichref = existing.getParent.relativize(project.resolve("infographic/infographic.svg")).toString.replace('\\', '/')
         existingtext should include("<h1>Cozy Document Project Dashboard</h1>")
         existingtext should include(s"""<a href="$existinginfographichref">$existinginfographichref</a>""")
+
+        When("the disposable state is rebuilt after its cache directory is deleted")
+        _execute(List("document-project", "inspect", project.toString))
+        val firststatebytes = Files.readAllBytes(project.resolve("target/document-project/state.yaml"))
+        _delete(project.resolve("target/document-project"))
+        _execute(List("document-project", "inspect", project.toString))
+        val secondstatebytes = Files.readAllBytes(project.resolve("target/document-project/state.yaml"))
+
+        Then("the source-derived state remains byte-identical without generated review cache evidence")
+        firststatebytes shouldBe secondstatebytes
+        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("core-review-html")
+        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("currentness: missing")
       }
     }
 
@@ -674,7 +688,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("explanation-structure-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
         dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
-        dashboardtext should include("video-logical-chart-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        dashboardtext should include("video-logical-chart-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
         dashboardtext should include("phase-41-explanation-structure")
         dashboardtext should include("content-core")
         dashboardtext should include("slide-logical-chart")
@@ -1245,6 +1259,241 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "derive current sidecar evidence and a safe public-source dashboard projection" in {
+      _with_temp_dir("cozy-document-project-sidecar-current") { root =>
+        Given("a scaffolded project, direct public media mapping, and accepted Core dialogue evidence")
+        val project = _scaffolded_project(root, "sidecar-current")
+        val request = project.resolve("evidence/dialogue/request.txt")
+        val response = project.resolve("evidence/dialogue/response.txt")
+        Files.createDirectories(request.getParent)
+        Files.writeString(request, "request", StandardCharsets.UTF_8)
+        Files.writeString(response, "response", StandardCharsets.UTF_8)
+        val core = "content/core-en.yaml"
+        Files.writeString(project.resolve(core), _core_yaml("sidecar-current", "en", "accepted Core"), StandardCharsets.UTF_8)
+        _write_sidecar(
+          project,
+          Map(
+            "content-core" -> _file_evidence(project, core, "source"),
+            "article-source" -> _file_evidence(project, "index.dox", "source"),
+            "visual-pages" -> _file_evidence(project, "presentation/visual-pages.yaml", "source"),
+            "infographic-svg" -> _file_evidence(project, "infographic/infographic.svg", "source")
+          ),
+          Map("content-core" -> _accepted_review(project, core, request, response))
+        )
+
+        When("inspect and dashboard consume the one evidence-derived model")
+        _execute(List("document-project", "inspect", project.toString))
+        _execute(List("document-project", "dashboard", project.toString))
+
+        Then("state records sidecar identity, current declared evidence, and accepted review")
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        state should include("evidence:")
+        state should include("path: evidence/document-project.yaml")
+        state should include("article-source")
+        state should include("review: accepted")
+
+        And("the dashboard exposes only the safe SmartDox source mapping")
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        dashboard should include("Safe public source")
+        dashboard should include("public-article")
+        dashboard should include("index.dox")
+        dashboard should not include("media/article-media.yaml")
+        dashboard should include("Workspace integration")
+        dashboard should include("Aggregate build")
+        dashboard should include("External delivery")
+      }
+    }
+
+    "propagate stale sidecar evidence from a changed infographic and artifact hash mismatch" in {
+      _with_temp_dir("cozy-document-project-sidecar-stale") { root =>
+        Given("a sidecar that records the current infographic, a missing article source, and a retained receipt-backed PDF")
+        val project = _scaffolded_project(root, "sidecar-stale")
+        _write_receipt_media_descriptor(project)
+        val pdf = project.resolve("target/cozy-media/article.pdf")
+        _write_sidecar(
+          project,
+          Map(
+            "article-source" -> "kind: none",
+            "infographic-svg" -> _file_evidence(project, "infographic/infographic.svg", "source"),
+            "article-pdf" -> _receipt_evidence("receipt-media.json", "article-pdf")
+          )
+        )
+        Files.writeString(project.resolve("infographic/infographic.svg"), "<svg>changed</svg>\n", StandardCharsets.UTF_8)
+        Files.writeString(pdf, "changed PDF", StandardCharsets.UTF_8)
+
+        When("the immutable source and artifact identities no longer match current bytes")
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("hash mismatch and non-current receipt are stale, and the changed infographic stales its declared article consumer")
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        state should include("id: infographic-svg\n    role: authority\n    disposition: required\n    criterion: infographic-svg-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale\n    review: pending\n    readiness: blocked\n    reason: \"a declared dependency is stale\"")
+        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
+      }
+    }
+
+    "keep a retained failed attempt separate from later current product evidence" in {
+      _with_temp_dir("cozy-document-project-sidecar-attempt") { root =>
+        Given("a retained failed article PDF attempt, a current direct artifact identity, and a later stale infographic dependency")
+        val project = _scaffolded_project(root, "sidecar-attempt")
+        val pdf = project.resolve("target/article.pdf")
+        Files.createDirectories(pdf.getParent)
+        Files.writeString(pdf, "current PDF", StandardCharsets.UTF_8)
+        _write_sidecar(project, Map(
+          "article-source" -> _file_evidence(project, "index.dox", "source"),
+          "infographic-svg" -> _file_evidence(project, "infographic/infographic.svg", "source"),
+          "article-pdf" -> _file_evidence(project, "target/article.pdf", "artifact")
+        ))
+        Files.writeString(project.resolve("infographic/infographic.svg"), "<svg>changed</svg>\n", StandardCharsets.UTF_8)
+        val attemptid = "11111111-1111-4111-8111-111111111111"
+        val attempt = project.resolve(s"evidence/attempts/$attemptid.yaml")
+        Files.createDirectories(attempt.getParent)
+        Files.writeString(attempt, _failed_attempt_yaml(project, attemptid, "article.render-pdf", "smartdox-rendering", "standard"), StandardCharsets.UTF_8)
+
+        When("inspect derives current product evidence alongside historical failure evidence")
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("the current artifact becomes stale from its changed dependency rather than becoming failed")
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
+        state should not include("id: article-pdf\n    role: deliverable\n    disposition: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: failed")
+        state should include(s"path: evidence/attempts/$attemptid.yaml")
+
+        And("the dashboard retains the failure as historical evidence")
+        _execute(List("document-project", "dashboard", project.toString))
+        Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("failed; historical attempt")
+
+        When("a retained attempt with reordered top-level keys is added")
+        val reorderedid = "33333333-3333-4333-8333-333333333333"
+        val reorderedattempt = project.resolve(s"evidence/attempts/$reorderedid.yaml")
+        val reorderedyaml = _reorder_attempt_top_level(_failed_attempt_yaml(project, reorderedid, "article.render-pdf", "smartdox-rendering", "standard"))
+        Files.writeString(reorderedattempt, reorderedyaml, StandardCharsets.UTF_8)
+        val previousstateafterorder = Files.readAllBytes(project.resolve("target/document-project/state.yaml"))
+        val reorderedfailure = _failure(List("document-project", "inspect", project.toString))
+
+        Then("reordered retained evidence is rejected before it can influence the disposable state")
+        reorderedfailure should include("DP-DESC-002")
+        Files.readAllBytes(project.resolve("target/document-project/state.yaml")) shouldBe previousstateafterorder
+
+        When("a retained attempt with a mismatched filename is added")
+        val malformedattempt = project.resolve("evidence/attempts/malformed.yaml")
+        Files.writeString(malformedattempt, _failed_attempt_yaml(project, "22222222-2222-4222-8222-222222222222", "article.render-pdf", "smartdox-rendering", "standard"), StandardCharsets.UTF_8)
+        val previousstate = Files.readAllBytes(project.resolve("target/document-project/state.yaml"))
+        val malformedfailure = _failure(List("document-project", "inspect", project.toString))
+
+        Then("malformed retained evidence is rejected before it can influence the disposable state")
+        malformedfailure should include("DP-DESC-002")
+        Files.readAllBytes(project.resolve("target/document-project/state.yaml")) shouldBe previousstate
+      }
+    }
+
+    "derive accepted, rejected, and stale Core dialogue review without autonomous authority" in {
+      _with_temp_dir("cozy-document-project-sidecar-review") { root =>
+        Given("direct request and response evidence for an accepted Core dialogue")
+        val project = _scaffolded_project(root, "sidecar-review")
+        val request = project.resolve("evidence/dialogue/request.txt")
+        val response = project.resolve("evidence/dialogue/response.txt")
+        Files.createDirectories(request.getParent)
+        Files.writeString(request, "request", StandardCharsets.UTF_8)
+        Files.writeString(response, "response", StandardCharsets.UTF_8)
+        val core = "content/core-en.yaml"
+        _write_sidecar(project, Map("content-core" -> _file_evidence(project, core, "source")), Map("content-core" -> _accepted_review(project, core, request, response)))
+
+        When("the accepted authority identity is current")
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("the Core review is accepted without executing a provider")
+        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("review: accepted")
+
+        When("the descriptor Core changes after that acceptance evidence")
+        Files.writeString(project.resolve(core), _core_yaml("sidecar-review", "en", "changed accepted Core"), StandardCharsets.UTF_8)
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("the prior acceptance is stale")
+        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("review: stale")
+
+        When("a replacement sidecar records an explicit rejection with current request and response")
+        _write_sidecar(project, Map("content-core" -> _file_evidence(project, core, "source")), Map("content-core" -> _rejected_review(project, request, response, "editor rejected the proposal")))
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("the project records rejected review separately from Core authority")
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        state should include("review: rejected")
+        state should include("readiness: failed")
+
+        When("a replacement sidecar records a rejection reason containing YAML-special characters and line breaks")
+        val rejectionreason = "editor: rejected # unsafe" + 0.toChar + 8.toChar + 12.toChar + 27.toChar + "\nnext\tline with \"quotes\" and \\slash"
+        _write_sidecar(project, Map("content-core" -> _file_evidence(project, core, "source")), Map("content-core" -> _rejected_review(project, request, response, rejectionreason)))
+        _execute(List("document-project", "inspect", project.toString))
+
+        Then("the rejected reason remains one deterministic YAML double-quoted scalar")
+        val rejectedstate = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        rejectedstate should include("reason: \"review rejected: editor: rejected # unsafe\\u0000\\u0008\\u000c\\u001b\\nnext\\tline with \\\"quotes\\\" and \\\\slash\"")
+        rejectedstate.linesIterator.count(_.contains("reason: \"review rejected:")) shouldBe 1
+      }
+    }
+
+    "reject invalid, mismatched, and unsafe evidence sidecars" in {
+      _with_temp_dir("cozy-document-project-sidecar-invalid") { root =>
+        Given("an admitted project with a generated sidecar fixture")
+        val project = _scaffolded_project(root, "sidecar-invalid")
+        _write_sidecar(project)
+
+        When("the public mapping project id, current source hash, or product path is invalid")
+        val sidecar = project.resolve("evidence/document-project.yaml")
+        val projectmismatch = Files.readString(sidecar, StandardCharsets.UTF_8).replace("project: sidecar-invalid", "project: another-project")
+        Files.writeString(sidecar, projectmismatch, StandardCharsets.UTF_8)
+        val projectfailure = _failure(List("document-project", "inspect", project.toString))
+        _write_sidecar(project)
+        val hashmismatch = Files.readString(sidecar, StandardCharsets.UTF_8).replaceFirst("sha256: [0-9a-f]{64}", "sha256: " + ("0" * 64))
+        Files.writeString(sidecar, hashmismatch, StandardCharsets.UTF_8)
+        val hashfailure = _failure(List("document-project", "inspect", project.toString))
+        _write_sidecar(project, Map("article-source" -> ("kind: source\npath: ../outside.dox\nsha256: \"" + ("0" * 64) + "\"")))
+        val unsafefailure = _failure(List("document-project", "inspect", project.toString))
+        _write_sidecar(project, Map("article-pdf" -> _file_evidence(project, "index.dox", "artifact")))
+        val authoredartifactfailure = _failure(List("document-project", "inspect", project.toString))
+        _write_sidecar(project, Map("article-pdf" -> ("kind: artifact\npath: target/document-project/state.yaml\nsha256: \"" + ("0" * 64) + "\"")))
+        val cacheartifactfailure = _failure(List("document-project", "inspect", project.toString))
+        val media = project.resolve("media/article-media.yaml")
+        Files.writeString(media, "schema: cozy.media.v0\narticleMedia:\n  articleIdentity: public-article\n", StandardCharsets.UTF_8)
+        val mediaschemafailure = _failure(List("document-project", "inspect", project.toString))
+
+        val realsidecar = project.resolve("evidence/document-project-real.yaml")
+        Files.move(sidecar, realsidecar)
+        Files.createSymbolicLink(sidecar, realsidecar)
+        val sidecarsymlinkfailure = _failure(List("document-project", "inspect", project.toString))
+
+        Then("the closed sidecar admission rejects each condition before a state cache is written")
+        projectfailure should include("DP-DESC-002")
+        hashfailure should include("DP-DESC-002")
+        unsafefailure should include("DP-PATH-001")
+        authoredartifactfailure should include("DP-PATH-001")
+        cacheartifactfailure should include("DP-PATH-001")
+        mediaschemafailure should include("DP-DESC-002")
+        sidecarsymlinkfailure should include("DP-PATH-001")
+        Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "preserve legacy no-sidecar state and dashboard compatibility" in {
+      _with_temp_dir("cozy-document-project-sidecar-legacy") { root =>
+        Given("a scaffolded project with no evidence sidecar")
+        val project = _scaffolded_project(root, "sidecar-legacy")
+
+        When("inspect and dashboard are requested")
+        _execute(List("document-project", "inspect", project.toString))
+        _execute(List("document-project", "dashboard", project.toString))
+
+        Then("the cache records no sidecar and the dashboard retains the missing/pending legacy projection")
+        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("sidecar: none")
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        dashboard should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        dashboard should not include("Safe public source")
+      }
+    }
+
     "publish the frozen public Document Project help forms" in {
       Given("the Cozy public help text")
 
@@ -1269,6 +1518,116 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       help should include("A non-video profile requires a not-applicable video item")
     }
   }
+
+  private def _scaffolded_project(root: Path, slug: String): Path = {
+    val parent = Files.createDirectory(root.resolve(s"$slug-parent"))
+    _execute(List("document-project", "scaffold", slug, "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+    parent.resolve(s"$slug.dox")
+  }
+
+  private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, review: Map[String, String] = Map.empty): Unit = {
+    val media = project.resolve("media/article-media.yaml")
+    Files.createDirectories(media.getParent)
+    Files.writeString(media, "schema: cozy.media.v1\narticleMedia:\n  articleIdentity: public-article\n", StandardCharsets.UTF_8)
+    val products = _resolved("standard").workProducts.filter(_.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled).map { value =>
+      val id = value.workProduct.id
+      val itemevidence = evidence.getOrElse(id, "kind: none")
+      val itemreview = review.getOrElse(id, "kind: none")
+      s"  - id: $id\n    evidence:\n${_indent(itemevidence, 6)}\n    review:\n${_indent(itemreview, 6)}"
+    }
+    val sidecar = project.resolve("evidence/document-project.yaml")
+    Files.createDirectories(sidecar.getParent)
+    Files.writeString(
+      sidecar,
+      s"schema: cozy.document-project-evidence.v1\nproject: ${project.getFileName.toString.stripSuffix(".dox")}\npublicSource:\n  kind: smartdox\n  identity: public-article\n  path: index.dox\n  sha256: ${_sha256(project.resolve("index.dox"))}\n  mediaDescriptor: media/article-media.yaml\nproducts:\n${products.mkString("\n")}\n",
+      StandardCharsets.UTF_8
+    )
+  }
+
+  private def _file_evidence(project: Path, path: String, kind: String): String =
+    s"kind: $kind\npath: $path\nsha256: ${_sha256(project.resolve(path))}"
+
+  private def _receipt_evidence(media: String, resource: String): String =
+    s"kind: receipt\nmediaDescriptor: $media\nresourceId: $resource"
+
+  private def _write_receipt_media_descriptor(project: Path): Unit = {
+    val knowledge = project.resolve("knowledge/article.dox")
+    val source = project.resolve("media/source.txt")
+    val descriptor = project.resolve("receipt-media.json")
+    Files.createDirectories(knowledge.getParent)
+    Files.createDirectories(source.getParent)
+    Files.writeString(knowledge, "knowledge", StandardCharsets.UTF_8)
+    Files.writeString(source, "source", StandardCharsets.UTF_8)
+    Files.writeString(
+      descriptor,
+      "{\n  \"schema\": \"cozy.media.v1\",\n  \"knowledge\": {\"id\": \"document-project/article\", \"source\": \"knowledge/article.dox\"},\n  \"profiles\": {\"site\": {\"root\": \"publication\"}},\n  \"resources\": [{\"id\": \"article-pdf\", \"kind\": \"document\", \"source\": \"media/source.txt\", \"output\": \"target/cozy-media/article.pdf\", \"build\": \"copy\", \"publications\": {\"site\": \"article.pdf\"}}]\n}\n",
+      StandardCharsets.UTF_8
+    )
+    CozyMedia.build(CozyMedia.CommandConfig(descriptor.toRealPath()))
+  }
+
+  private def _accepted_review(project: Path, core: String, request: Path, response: Path): String =
+    s"kind: core-dialogue\nprovider: human-editor\nmodel: editorial-record\nrequest:\n  path: ${_project_relative(project, request)}\n  sha256: ${_sha256(request)}\nresponse:\n  path: ${_project_relative(project, response)}\n  sha256: ${_sha256(response)}\naccepted:\n  acceptedAuthority:\n    path: $core\n    sha256: ${_sha256(project.resolve(core))}"
+
+  private def _rejected_review(project: Path, request: Path, response: Path, reason: String): String =
+    s"kind: core-dialogue\nprovider: human-editor\nmodel: editorial-record\nrequest:\n  path: ${_project_relative(project, request)}\n  sha256: ${_sha256(request)}\nresponse:\n  path: ${_project_relative(project, response)}\n  sha256: ${_sha256(response)}\nrejected:\n  rejectionReason: ${_yaml_double_quoted(reason)}"
+
+  private def _reorder_attempt_top_level(value: String): String = {
+    val lines = value.linesIterator.toVector
+    (lines.slice(1, 2) ++ lines.slice(0, 1) ++ lines.drop(2)).mkString("\n") + "\n"
+  }
+
+  private def _yaml_double_quoted(value: String): String = {
+    val builder = new StringBuilder("\"")
+    value.foreach {
+      case '\\' => builder.append("\\\\")
+      case '"' => builder.append("\\\"")
+      case '\r' => builder.append("\\r")
+      case '\n' => builder.append("\\n")
+      case '\t' => builder.append("\\t")
+      case character if Character.isISOControl(character) => builder.append(f"\\u${character.toInt}%04x")
+      case character => builder.append(character)
+    }
+    builder.append('"').result()
+  }
+
+  private def _failed_attempt_yaml(project: Path, attemptid: String, operation: String, provider: String, profile: String): String = {
+    val descriptor = CozyDocumentProject.Descriptor(
+      project.getFileName.toString.stripSuffix(".dox"),
+      profile,
+      "en",
+      "directory",
+      "content/core-en.yaml"
+    )
+    val inputs = CozyDocumentProject._state_sources(project, descriptor).map { case (path, source) =>
+      s"  - path: $path\n    sha256: ${_sha256(source)}"
+    }
+    (Vector(
+      "schema: cozy.document-operation-attempt.v1",
+      s"id: $attemptid",
+      s"operation: $operation",
+      s"provider: $provider",
+      s"profile: $profile",
+      "inputs:"
+    ) ++ inputs ++ Vector(
+      "outcome: failed",
+      "diagnostics: [retained failure]",
+      "outputs: []",
+      "receipt: none"
+    )).mkString("\n") + "\n"
+  }
+
+  private def _core_yaml(slug: String, language: String, text: String): String =
+    s"schema: cozy.content-core.v1\nid: $slug:core:$language\nlanguage: $language\naccepted:\n  - id: accepted-core\n    text: $text\n"
+
+  private def _project_relative(project: Path, path: Path): String =
+    project.relativize(path).toString.replace('\\', '/')
+
+  private def _indent(value: String, spaces: Int): String =
+    value.linesIterator.map(line => (" " * spaces) + line).mkString("\n")
+
+  private def _sha256(path: Path): String =
+    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _resolved(profile: String): CozyDocumentWorkflow.ResolvedWorkflow =
     CozyDocumentWorkflow.resolve(profile) match {

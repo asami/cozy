@@ -405,11 +405,12 @@ private[cozy] object CozyDocumentProject {
     val state = statedirectory.resolve("state.yaml")
     if (Files.isSymbolicLink(state))
       _failure("DP-PATH-001", "state cache file must not be a symbolic link")
+    val stateyaml = _state_yaml(project, descriptor)
     try {
       Files.createDirectories(statedirectory)
       val temporary = Files.createTempFile(statedirectory, ".state-", ".tmp")
       try {
-        Files.writeString(temporary, _state_yaml(project, descriptor), StandardCharsets.UTF_8)
+        Files.writeString(temporary, stateyaml, StandardCharsets.UTF_8)
         Files.move(temporary, state, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         state
       } finally {
@@ -421,50 +422,7 @@ private[cozy] object CozyDocumentProject {
   }
 
   private def _state_yaml(project: Path, descriptor: Descriptor): String = {
-    val sources = _state_sources(project, descriptor)
-    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
-      case Right(value) => value
-      case Left(cause) => _descriptor_failure(cause)
-    }
-    val coreaccepted = _core_has_accepted_entries(project, descriptor)
-    val sourcepaths = sources.map(_._1).toSet
-    val sourceproducts = Map(
-      "content-core" -> (sourcepaths.contains(descriptor.contentCore), coreaccepted),
-      "article-source" -> (sourcepaths.contains("index.dox"), sourcepaths.contains("index.dox")),
-      "infographic-svg" -> (sourcepaths.contains("infographic/infographic.svg"), sourcepaths.contains("infographic/infographic.svg")),
-      "video-storyboard" -> (sourcepaths.contains("video/storyboard.md"), sourcepaths.contains("video/storyboard.md"))
-    )
-    val sourceyaml = sources.map { case (relative, path) =>
-      s"  - path: $relative\n    sha256: ${_sha256(path)}"
-    }
-    val productyaml = resolved.workProducts.map { value =>
-      val product = value.workProduct
-      val binding = value.binding
-      val disabled = binding.disposition == CozyDocumentWorkflow.WorkProductDisposition.Disabled
-      val sourcepresent = sourceproducts.get(product.id).map(_._1).getOrElse(false)
-      val sourcecovered = sourceproducts.get(product.id).map(_._2).getOrElse(false)
-      val coverage = if (disabled) "not-applicable" else if (sourcecovered) "satisfied" else "missing"
-      val currentness = if (!disabled && sourcepresent) "current" else "missing"
-      val readiness = if (disabled) "omitted" else if (sourcepresent) "ready" else "blocked"
-      val lines = Vector(
-        s"  - id: ${product.id}",
-        s"    role: ${product.role.value}",
-        s"    disposition: ${binding.disposition.value}",
-        s"    criterion: ${product.criteria.head}",
-        s"    coverage: $coverage",
-        s"    currentness: $currentness",
-        "    review: pending",
-        s"    readiness: $readiness"
-      ) ++ binding.reason.map(reason => s"    reason: $reason").toVector
-      lines.mkString("\n")
-    }
-    (Vector(
-      "schema: cozy.document-project-state.v1",
-      s"project: ${descriptor.id}",
-      s"profile: ${descriptor.profile}",
-      s"workspace: ${descriptor.workspace}",
-      "sources:"
-    ) ++ sourceyaml ++ Vector("workProducts:") ++ productyaml).mkString("\n") + "\n"
+    CozyDocumentProjectEvidence.stateYaml(project, descriptor)
   }
 
   private[cozy] def _state_sources(project: Path, descriptor: Descriptor): Vector[(String, Path)] = {

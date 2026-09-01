@@ -2,7 +2,6 @@ package cozy.document
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
@@ -11,17 +10,9 @@ import scala.util.control.NonFatal
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectProjection {
-  private final case class ProjectionProduct(
-    value: CozyDocumentWorkflow.ResolvedWorkProduct,
-    coverage: String,
-    currentness: String,
-    review: String,
-    readiness: String,
-    reason: Option[String]
-  )
-
   private[cozy] def dashboardHtml(project: Path, descriptor: CozyDocumentProject.Descriptor, dashboardDestination: Path): String = {
-    val products = _projection_products(project, descriptor)
+    val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
+    val products = snapshot.products
     val definition = CozyDocumentWorkflow.documentProduction
     val workflowrows = products.map { item =>
       val product = item.value.workProduct
@@ -41,10 +32,14 @@ private[cozy] object CozyDocumentProjectProjection {
     val coreentryrows = if (coreentries.isEmpty) "<tr><td colspan=\"2\">none accepted</td></tr>" else coreentries.map { case (id, text) =>
       s"""<tr><th scope="row">${_html_escape(id)}</th><td>${_html_escape(text)}</td></tr>"""
     }.mkString("\n")
-    val attempts = _retained_attempts(project)
-    val attemptrows = if (attempts.isEmpty) "<tr><td colspan=\"2\">none retained</td></tr>" else attempts.map { path =>
-      s"""<tr><th scope="row">${_html_escape(CozyDocumentProject._project_relative(project, path))}</th><td>historical attempt; no receipt/currentness authority</td></tr>"""
+    val attemptrows = if (snapshot.attempts.isEmpty) "<tr><td colspan=\"2\">none retained</td></tr>" else snapshot.attempts.map { attempt =>
+      s"""<tr><th scope="row">${_html_escape(attempt.path.path)}</th><td>${_html_escape(attempt.outcome)}; historical attempt; no receipt/currentness authority</td></tr>"""
     }.mkString("\n")
+    val publicsource = snapshot.sidecar match {
+      case Some(sidecar) =>
+        s"""<h2>Safe public source</h2><table aria-label="Safe public source"><thead><tr><th scope="col">Kind</th><th scope="col">Identity</th><th scope="col">Project-local path</th><th scope="col">SHA-256</th></tr></thead><tbody><tr><td>smartdox</td><td>${_html_escape(sidecar.publicSource.identity)}</td><td>${_html_escape(sidecar.publicSource.path.path)}</td><td>${_html_escape(sidecar.publicSource.path.sha256)}</td></tr></tbody></table><p class="notice">This safe mapping intentionally excludes Content Core, media source, review material, receipt content, and target files.</p>"""
+      case None => ""
+    }
     val dashboardparent = dashboardDestination.getParent
     val reviewtargets = Vector(
       ("Core Review", "target/document-project/core-review.html"),
@@ -82,6 +77,9 @@ private[cozy] object CozyDocumentProjectProjection {
          |<table aria-label="Accepted Core entries"><thead><tr><th scope="col">Entry ID</th><th scope="col">Text</th></tr></thead><tbody>$coreentryrows</tbody></table>
          |<h2>Retained attempts</h2>
          |<table aria-label="Retained operation attempts"><thead><tr><th scope="col">Attempt</th><th scope="col">Authority boundary</th></tr></thead><tbody>$attemptrows</tbody></table>
+         |$publicsource
+         |<h2>Responsibility boundary</h2>
+         |<table aria-label="Document Project responsibility boundary"><thead><tr><th scope="col">Responsibility</th><th scope="col">Dashboard disposition</th></tr></thead><tbody><tr><th scope="row">Project production</th><td>Read-only state projection; no provider is invoked.</td></tr><tr><th scope="row">Workspace integration</th><td>Read-only and non-invoked.</td></tr><tr><th scope="row">Aggregate build</th><td>Read-only and non-invoked.</td></tr><tr><th scope="row">External delivery</th><td>Read-only and non-invoked; no publication, deployment, upload, or registration is performed.</td></tr></tbody></table>
          |<p class="notice">This dashboard is a deterministic, read-only projection. It does not execute providers or persist candidates, feedback, acceptance, receipts, deliverables, or workflow status.</p>""".stripMargin
     )
   }
@@ -199,67 +197,6 @@ private[cozy] object CozyDocumentProjectProjection {
     )
   }
 
-  private def _projection_products(project: Path, descriptor: CozyDocumentProject.Descriptor): Vector[ProjectionProduct] = {
-    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
-      case Right(value) => value
-      case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
-    }
-    val sourcepaths = CozyDocumentProject._state_sources(project, descriptor).map(_._1).toSet
-    val coreaccepted = CozyDocumentProject._core_has_accepted_entries(project, descriptor)
-    val reviewsourceavailable = Map(
-      "core-review-html" -> sourcepaths.contains(descriptor.contentCore),
-      "slide-review-html" -> sourcepaths.contains("presentation/visual-pages.yaml"),
-      "video-review" -> (sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md")),
-      "explanation-structure-review-html" -> (sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml")),
-      "video-logical-chart-html" -> (sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md"))
-    )
-    val sourceproducts = Map(
-      "content-core" -> (sourcepaths.contains(descriptor.contentCore), coreaccepted),
-      "core-review-html" -> {
-        val generated = Files.isRegularFile(project.resolve("target/document-project/core-review.html"), LinkOption.NOFOLLOW_LINKS)
-        (generated, generated)
-      },
-      "article-source" -> (sourcepaths.contains("index.dox"), sourcepaths.contains("index.dox")),
-      "visual-pages" -> (sourcepaths.contains("presentation/visual-pages.yaml"), sourcepaths.contains("presentation/visual-pages.yaml")),
-      "slide-review-html" -> {
-        val generated = Files.isRegularFile(project.resolve("target/document-project/slides-review.html"), LinkOption.NOFOLLOW_LINKS)
-        (generated, generated)
-      },
-      "infographic-svg" -> (sourcepaths.contains("infographic/infographic.svg"), sourcepaths.contains("infographic/infographic.svg")),
-      "video-storyboard" -> (sourcepaths.contains("video/storyboard.md"), sourcepaths.contains("video/storyboard.md")),
-      "video-review" -> {
-        val generated = Files.isRegularFile(project.resolve("target/document-project/video-review.html"), LinkOption.NOFOLLOW_LINKS)
-        (generated, generated)
-      },
-      "explanation-structure-review-html" -> {
-        val generated = Files.isRegularFile(project.resolve("target/document-project/slide-logical-chart-review.html"), LinkOption.NOFOLLOW_LINKS)
-        (generated, generated)
-      },
-      "video-logical-chart-html" -> {
-        val generated = Files.isRegularFile(project.resolve("target/document-project/video-logical-chart-review.html"), LinkOption.NOFOLLOW_LINKS)
-        (generated, generated)
-      }
-    )
-    resolved.workProducts.map { value =>
-      val product = value.workProduct
-      val binding = value.binding
-      val disabled = binding.disposition == CozyDocumentWorkflow.WorkProductDisposition.Disabled
-      val sourcepresent = sourceproducts.get(product.id).map(_._1).getOrElse(false)
-      val sourcecovered = sourceproducts.get(product.id).map(_._2).getOrElse(false)
-      val coverage = if (disabled) "not-applicable" else if (sourcecovered) "satisfied" else "missing"
-      val currentness = if (disabled) "not-applicable" else if (sourcepresent) "current" else "missing"
-      val readiness = if (disabled) "omitted" else if (sourcepresent) "ready" else "blocked"
-      val reason = binding.reason.orElse {
-        if (readiness != "blocked") None
-        else reviewsourceavailable.get(product.id).map { available =>
-          if (available) "default review HTML is not generated"
-          else "source or retained evidence is not present"
-        }.orElse(Some("source or retained evidence is not present"))
-      }
-      ProjectionProduct(value, coverage, currentness, "pending", readiness, reason)
-    }
-  }
-
   private def _provider_for(value: CozyDocumentWorkflow.WorkProduct, definition: CozyDocumentWorkflow.WorkflowDefinition): String =
     definition.operations.find(_.id == value.producer).map { operation =>
       definition.providerBindings.find(_.id == operation.providerBinding).map { binding =>
@@ -267,7 +204,7 @@ private[cozy] object CozyDocumentProjectProjection {
       }.getOrElse(operation.providerBinding)
     }.getOrElse("unbound")
 
-  private def _next_action(product: ProjectionProduct): String = {
+  private def _next_action(product: CozyDocumentProjectEvidence.WorkProductState): String = {
     val workproduct = product.value.workProduct
     if (product.readiness == "omitted") "No action: omitted by this profile"
     else if (product.readiness != "blocked" && product.coverage == "satisfied" && product.currentness == "current") "No action: current"
@@ -321,25 +258,6 @@ private[cozy] object CozyDocumentProjectProjection {
 
   private def _source_projection_table(aria: String, path: String, content: String): String =
     s"""<table aria-label="${_html_escape(aria)}"><thead><tr><th scope="col">Source</th><th scope="col">Content</th></tr></thead><tbody><tr><th scope="row">${_html_escape(path)}</th><td><pre><code>$content</code></pre></td></tr></tbody></table>"""
-
-  private def _retained_attempts(project: Path): Vector[Path] = {
-    val evidence = project.resolve("evidence").normalize()
-    val directory = project.resolve("evidence").resolve("attempts").normalize()
-    if (Files.isSymbolicLink(evidence) || (Files.exists(evidence, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(evidence, LinkOption.NOFOLLOW_LINKS)))
-      CozyDocumentProject._failure("DP-PATH-001", "evidence directory must be a direct non-symlink directory")
-    if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) Vector.empty
-    else {
-      CozyDocumentProject._direct_directory(evidence, "evidence directory")
-      CozyDocumentProject._direct_directory(directory, "attempts directory")
-      val stream = Files.list(directory)
-      try stream.iterator().asScala.toVector.sortBy(_.toString).map { path =>
-        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-          CozyDocumentProject._failure("DP-PATH-001", "retained attempt must be a direct regular non-symlink file")
-        path
-      }
-      finally stream.close()
-    }
-  }
 
   private[cozy] def projectionResult(kind: String, project: Path, descriptor: CozyDocumentProject.Descriptor, destination: Path): String = {
     val reference = if (destination.startsWith(project)) CozyDocumentProject._project_relative(project, destination) else destination.toString

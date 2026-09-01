@@ -64,8 +64,8 @@ being treated as completed work.
 
 This design records the Phase 42.1 evidence boundary.  DP42-03B implements the
 disposable snapshot cache; DP42-03C implements recorded single-operation
-dispatch and append-only attempt persistence.  Evidence-based stale
-propagation remains a later follow-up.
+dispatch and append-only attempt persistence; DP42-03D binds optional retained
+evidence to the existing project without reopening the descriptor kernel.
 
 The `cozy.document-project-state.v1` Workflow Instance Snapshot is disposable
 derived YAML at `<project>/target/document-project/state.yaml`.  It is never
@@ -76,12 +76,14 @@ inputs reconstructs the identical snapshot.
 Successful `inspect` and `verify` regenerate the cache only after their
 descriptor, Core, and command-specific source validation succeeds.  Its
 canonical UTF-8 YAML keys are ordered `schema`, `project`, `profile`,
-`workspace`, `sources`, and `workProducts`.  The fixed-order `sources` entries
+`workspace`, `sources`, `evidence`, and `workProducts`.  The fixed-order `sources` entries
 contain only project-relative direct authored paths and lowercase hexadecimal
 SHA-256 content identities: descriptor, exact Core, `index.dox`, infographic
 SVG, Visual Page source, review README, and directly present storyboard for a
 video profile.  No absolute path, timestamp, random value, discovery order,
-generated output, receipt, or attempt is serialized.
+generated output or receipt content is serialized.  `evidence` separately
+records only optional sidecar and retained-attempt project-relative path and
+SHA-256 identities; it is not authority.
 
 The fixed-order Work Product projection contains `id`, `role`, `disposition`,
 `criterion`, `coverage`, `currentness`, `review`, and `readiness`.  It uses only
@@ -90,9 +92,9 @@ the closed status vocabularies.  Existing source assets may be
 `missing`/`blocked`/`pending`.  Standard's disabled video products explicitly
 use `coverage: not-applicable`, `readiness: omitted`, and the profile reason
 `profile standard disables video branch`, never completion.  DP42-03C
-implements immutable append-only attempts and recorded dispatch only.  This
-Slice does not yet derive `stale`; receipt evidence and evidence-based
-dependency/stale propagation remain later Phase 42.1 work.
+implements immutable append-only attempts and recorded dispatch only.  DP42-03D
+adds the optional sidecar evidence that derives retained receipt currentness
+and dependency-driven `stale` state without changing media receipt contracts.
 
 A `cozy.document-operation-attempt.v1` Operation Attempt is durable,
 append-only evidence at `<project>/evidence/attempts/<attempt-id>.yaml`; it is
@@ -125,6 +127,42 @@ The snapshot independently derives coverage (`satisfied`, `missing`, and
 `accepted`, `rejected`, or `stale`), and readiness (`blocked`, `ready`,
 `running`, `succeeded`, `failed`, or `omitted`).  `omitted` is visible with its
 declared profile reason and is not completion.
+
+DP42-03D adds a portable sidecar at
+`<project>/evidence/document-project.yaml`, never scaffolded and always direct
+and non-symlinked.  Its closed schema is
+`cozy.document-project-evidence.v1`, with ordered `schema`, `project`,
+`publicSource`, and `products` keys.  It binds the admitted descriptor id to a
+safe SmartDox source mapping and a fixed, enabled-Work-Product-order evidence
+list.  It does not add a descriptor field, command grammar, workflow feature,
+or media schema.
+
+The safe source mapping is deliberately narrow: explicit SmartDox identity,
+`index.dox`, its current SHA-256, and one direct project-local media descriptor
+whose explicit `articleMedia.articleIdentity` agrees.  It intentionally does
+not discover a host, infer a filename identity, register a site, or surface
+Content Core, raw media, review/receipt content, or targets.  Product evidence
+is a closed `none`, source/artifact path-and-hash, media-receipt, or
+operation-receipt-set alternative.  Source evidence is declared authored
+authority only; artifact evidence is direct project-contained output only;
+receipt currentness delegates without modification to the established Cozy
+Media receipt logic.
+
+Content Core alone may carry a core-dialogue review record.  Its provider,
+model, request, response, and accepted-or-rejected human disposition are
+retained evidence, not an invoked provider or an autonomous authority.  An
+accepted branch identifies the current descriptor Core bytes; an authority or
+request/response change makes the review stale.
+
+One shared state model derives cache and dashboard rows from the sidecar when
+present, otherwise preserving legacy source-derived missing/pending behavior.
+It independently derives coverage, currentness, review, readiness, and exact
+reason.  Hash or current-receipt mismatches are stale while underlying output
+exists; absence is missing; a valid retained failed attempt is failed only
+without current product evidence.  Declared dependency edges propagate stale
+status to every consumer, including shared infographic consumers, without any
+timestamp ordering.  Attempts remain historical and never manufacture a
+success result.
 
 Reconstruction uses the closed `document-production` Work Product definition,
 descriptor and Core identities, retained source/receipt/review/attempt evidence,
@@ -337,6 +375,15 @@ concerns, never scaffolded authority.
 ## Projections and delivery boundaries
 
 Phase 42.1 dashboard and review HTML are generated, read-only projections.
+The dashboard consumes the same evidence-derived model as the disposable state
+cache without creating that cache.  It presents each provider, gate, derived
+status, reason, and next action, keeps retained attempts distinct from current
+state, and renders a safe public-source mapping only when the optional sidecar
+binds one.  It visibly separates Project production from workspace integration,
+aggregate build, and external delivery as read-only, non-invoked
+responsibilities.  Its self-contained escaped HTML is never a route to host
+discovery, registry/site registration, aggregate execution, publication,
+deployment, upload, remote calls, or Article 8 work.
 Dashboard content has accessible Workflow, Work Product matrix, and Work
 Product details tables covering dispositions, providers, gates, coverage,
 currentness, review, readiness, dependencies, producer/consumer operations,
@@ -462,11 +509,12 @@ a later Phase.  DP42-02 MUST NOT add descriptor fields, canonical workflow
 serialization, or identity calculation beyond the closed in-code Work Product
 identities and references.
 
-Phase 42.1 retains receipt evidence, evidence-based stale propagation, and
-driver acceptance.  DP42-04A implements executable dashboard and review
-projections as described above.  DP42-03B implements deterministic disposable state reconstruction and
-DP42-03C implements recorded append-only attempts as described above; the
-  remaining capabilities are later Slices.  These projections consume the
+Phase 42.1 retains driver acceptance and any external receipt-schema work.
+DP42-04A implements executable dashboard and review projections as described
+above.  DP42-03B implements deterministic disposable state reconstruction,
+DP42-03C implements recorded append-only attempts, and DP42-03D implements
+sidecar-bound receipt/currentness plus evidence-based stale propagation; the
+remaining capabilities are later Slices.  These projections consume the
   closed DP42-02 definition without
 redefining profiles, Work Product roles, criteria, gates, operations, or
 provider bindings.  SmartDox source projection and host discovery are also

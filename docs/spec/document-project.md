@@ -211,9 +211,10 @@ their public purpose-oriented commands and deterministic output contract below.
 ## Phase 42.1 evidence and attempt contract
 
 This section is the normative Phase 42.1 evidence boundary.  DP42-03B
-implements the disposable snapshot cache described here and DP42-03C
-implements recorded single-operation dispatch and append-only attempt
-persistence.  Evidence-based stale propagation remains a later follow-up.
+implements the disposable snapshot cache described here, DP42-03C implements
+recorded single-operation dispatch and append-only attempt persistence, and
+DP42-03D adds the bounded evidence sidecar and dependency-derived stale state
+below.
 
 `cozy.document-project-state.v1` MUST be a disposable derived YAML snapshot at
 `<project>/target/document-project/state.yaml`.  It is neither an authored
@@ -243,9 +244,8 @@ evidence remains `missing`, `blocked`, and `pending`.  A disabled standard
 video entry MUST be `coverage: not-applicable` and `readiness: omitted`, with
 `reason: profile standard disables video branch`; it MUST never be treated as
 complete.  DP42-03C implements immutable append-only attempts and recorded
-dispatch only.  This initial projection has no retained receipt or dependency
-evidence from which to derive `stale`; receipt evidence and evidence-based
-dependency/stale propagation remain later Phase 42.1 work.
+dispatch only.  DP42-03D supplies the optional retained receipt, review, and
+dependency evidence used to derive `stale` without timestamp inference.
 
 `cozy.document-operation-attempt.v1` MUST be durable append-only evidence at
 `<project>/evidence/attempts/<attempt-id>.yaml`.  Attempts MUST NOT be
@@ -305,6 +305,97 @@ NOT infer downstream execution.  The closed descriptor fields, common workflow
 DAG, profiles, Work Product roles, criteria, gates, operation IDs, provider
 bindings, retained media/SmartDox/Visual Page/Phase-41 authorities, public
 command grammar, and Phase-42 compatibility behavior remain unchanged.
+
+## DP42-03D evidence sidecar and evidence-derived state
+
+DP42-03D adds one optional, unscaffolded, direct non-symlink sidecar at
+`<project>/evidence/document-project.yaml`.  Its schema is exactly
+`cozy.document-project-evidence.v1`; it is an evidence binding, not a field or
+extension of the closed `cozy.document-project.v1` descriptor.  Its top-level
+keys are ordered exactly `schema`, `project`, `publicSource`, and `products`.
+`project` equals the admitted descriptor id.
+
+`publicSource` has exactly `kind`, `identity`, `path`, `sha256`, and
+`mediaDescriptor`.  `kind` is exactly `smartdox`; `identity` is a non-empty
+exact identity; `path` is exactly `index.dox`; and `sha256` is the lowercase
+SHA-256 of current `index.dox` bytes.  `mediaDescriptor` is a direct,
+project-relative, non-symlink media descriptor whose explicit
+`articleMedia.articleIdentity` equals `publicSource.identity`.  This is an
+explicit safe source mapping only.  It MUST NOT discover a host or identity,
+register a site, or expose Content Core, raw media, review material, receipt
+content, or target files as a public source.
+
+`products` lists exactly every enabled `document-production` Work Product in
+the immutable workflow order.  Each item has exactly `id`, `evidence`, and
+`review`; its id equals the enabled Work Product at that position.  `evidence` is one
+of these closed alternatives:
+
+- `kind: none`, with no other field;
+- `kind: source` or `kind: artifact`, each with exactly a direct,
+  project-relative non-symlink `path` and lowercase `sha256`;
+- `kind: receipt`, with exactly direct project-local `mediaDescriptor` and
+  non-empty `resourceId`; or
+- `kind: receipt-set`, with no other field, only for
+  `operation-receipt-evidence` and derived solely from declared current receipt
+  evidence.
+
+Source evidence names only declared Document Project authored authorities.
+Artifact evidence names only direct project-contained output evidence.  No
+identity may be absolute, traverse a path segment, use a symbolic link, name a
+directory, depend on a glob, use mtime/timestamp inference, or be discovered
+by scanning an output tree.  A source/artifact hash mismatch is derived as
+`stale` when the referenced output remains present, and absence is `missing`.
+Receipt currentness is determined solely through existing Cozy Media and
+`cozy.media.receipt.v2` currentness logic; this contract neither changes nor
+wraps that media schema.
+
+`review` is either exactly `kind: none`, or a `kind: core-dialogue` record for
+`content-core` only.  The latter has exact non-empty `provider` and `model`,
+direct request and response `{path, sha256}` identities, and exactly one
+disposition branch.  `accepted` contains exactly `acceptedAuthority`, whose
+identity is the current descriptor Content Core path and SHA-256; `rejected`
+contains exactly a non-empty `rejectionReason`.  Provider/model identities are
+retained human-acceptance evidence only: no provider is executed and no AI
+output becomes autonomous authority.  A changed Core makes accepted review
+evidence `stale`; missing or changed request/response evidence likewise makes
+the review `stale`.
+
+The shared derived model is the sole source for both the disposable state
+snapshot and the dashboard.  For every row it independently derives coverage
+(`satisfied`, `missing`, `not-applicable`), currentness (`missing`, `current`,
+`stale`, `failed`), review (`pending`, `accepted`, `rejected`, `stale`),
+readiness (`blocked`, `ready`, `failed`, `omitted`), and a precise reason.
+Disabled entries remain `not-applicable`/`omitted` with their selected profile
+reason.  A stale dependency propagates to every declared consumer, including
+the shared infographic's article, slide, and video consumers, without any
+timestamp ordering.  A valid failed retained attempt produces `failed` only
+when that Work Product has no current declared product evidence; retained
+attempts otherwise remain historical and never imply success.
+
+The canonical state YAML remains `cozy.document-project-state.v1`.  In addition
+to fixed-order authored `sources`, it has a distinct deterministic `evidence`
+section for the optional sidecar and retained attempt path/SHA-256 identities,
+followed by fixed-order `workProducts`.  It contains no absolute path,
+timestamp, random value, generated receipt content, or authority override.
+Deleting the cache and inspecting unchanged inputs reconstructs byte-identical
+bytes.  `inspect` and `verify` write only this disposable cache and never write
+durable evidence.
+
+Dashboard derives the identical shared model without writing the state cache.
+It shows providers, gates, coverage/currentness/review/readiness, exact reason,
+and user-facing next action; it keeps retained attempts separate from current
+product state.  When present, it shows only the safe public-source mapping.
+It visibly labels Project production, workspace integration, aggregate build,
+and external delivery as read-only, non-invoked responsibilities.  It remains
+self-contained, deterministic, HTML-escaped, and read-only; no external call,
+provider execution, registry/site discovery, aggregate build, publication,
+deployment, upload, or Article 8 behavior is permitted.
+
+Sidecar absence preserves the legacy source-derived missing/pending projection.
+This slice does not alter the descriptor, CLI/help grammar, workflow DAG,
+profiles, media sources, media receipt/review schemas, external repository
+registration, workspace integration, aggregate build, publication, deployment,
+or upload.
 
 ## Public command grammar and boundaries
 
@@ -621,11 +712,12 @@ The closed `cozy.document-project.v1` descriptor fields are not deferred or
 expandable.  DP42-02 closes the workflow-owned Work Product, provider-binding,
 deliverable-disposition, criteria/gate, evidence-reference, and operation
 model only as the static in-code definition specified above.  SmartDox source
-projection and host discovery, receipt evidence, evidence-based stale
-propagation, and driver acceptance remain deferred.  DP42-03B implements the
-deterministic disposable state reconstruction specified above and DP42-03C
-implements recorded append-only attempts; later Phase 42.1 Slices own the
-remaining capabilities.  They consume the closed
+projection and host discovery, external receipt schema changes, and driver
+acceptance remain deferred.  DP42-03B implements the deterministic disposable
+state reconstruction specified above, DP42-03C implements recorded append-only
+attempts, and DP42-03D implements sidecar-bound receipt/currentness and
+evidence-based stale propagation; later Phase 42.1 Slices own the remaining
+capabilities.  They consume the closed
 DP42-02 definition and MUST NOT expand descriptor fields or redefine profiles,
 Work Product roles, criteria, gates, operations, or provider bindings.  This
 specification MUST NOT be represented as implementing, accepting, or proving
