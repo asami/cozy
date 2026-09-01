@@ -1304,6 +1304,150 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "accept standalone and isolated BoK local drivers through bounded read-only projections" in {
+      _with_temp_dir("cozy-document-project-driver-acceptance") { root =>
+        Given("direct local parents for a standard-video directory driver and an isolated non-Article-8 BoK driver")
+        val standaloneparent = Files.createDirectory(root.resolve("standalone-parent"))
+        val bokparent = Files.createDirectory(root.resolve("bok-parent"))
+
+        When("the two direct local fixture packages are scaffolded with their independent profile and workspace selections")
+        _execute(List("document-project", "scaffold", "standalone", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", standaloneparent.toString))
+        _execute(List("document-project", "scaffold", "isolated-bok", "--profile", "bok", "--language", "en", "--workspace", "bok", "--save", bokparent.toString))
+        val standalone = standaloneparent.resolve("standalone.dox")
+        val bok = bokparent.resolve("isolated-bok.dox")
+        val standalonearticlebefore = Files.readAllBytes(standalone.resolve("index.dox"))
+        val standalonevisualbefore = Files.readAllBytes(standalone.resolve("presentation/visual-pages.yaml"))
+        val standaloneinfographicbefore = Files.readAllBytes(standalone.resolve("infographic/infographic.svg"))
+        val standalonecore = standalone.resolve("content/core-en.yaml")
+        val standalonecorebefore = Files.readAllBytes(standalonecore)
+        val corefeedback = root.resolve("standalone-core-feedback.json")
+        Files.writeString(
+          corefeedback,
+          """{"reason":"accepted local Core replacement","changes":[{"target":"core","replacement":{"accepted":[{"id":"driver-core","text":"Accepted standalone driver Core"}]},"applicability":"applicable","disposition":"accepted"}]}""",
+          StandardCharsets.UTF_8
+        )
+
+        Then("the fixtures retain their selected profile and workspace without creating external or Article-8 state")
+        Files.readString(standalone.resolve("document-project.yaml"), StandardCharsets.UTF_8) should include("profile: standard-video")
+        Files.readString(standalone.resolve("document-project.yaml"), StandardCharsets.UTF_8) should include("kind: directory")
+        Files.readString(bok.resolve("document-project.yaml"), StandardCharsets.UTF_8) should include("profile: bok")
+        Files.readString(bok.resolve("document-project.yaml"), StandardCharsets.UTF_8) should include("kind: bok")
+        Files.exists(standalone.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(bok.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("the standalone Core review is generated")
+        _execute(List("document-project", "review", standalone.toString, "--kind", "core"))
+
+        Then("the standalone Core review leaves Core authority unchanged")
+        Files.readAllBytes(standalonecore) shouldBe standalonecorebefore
+
+        When("the local accepted Core feedback is reflected")
+        val feedbackoutput = _execute(List("document-project", "reflect-feedback", standalone.toString, corefeedback.toString))
+
+        Then("only the accepted Core authority changes through the bounded feedback command")
+        feedbackoutput should include("reflected: core content/core-en.yaml")
+        Files.readAllBytes(standalonecore) should not equal standalonecorebefore
+        Files.readAllBytes(standalone.resolve("index.dox")) shouldBe standalonearticlebefore
+        Files.readAllBytes(standalone.resolve("presentation/visual-pages.yaml")) shouldBe standalonevisualbefore
+        Files.readAllBytes(standalone.resolve("infographic/infographic.svg")) shouldBe standaloneinfographicbefore
+
+        Given("current source evidence for both local fixtures and an accepted Core dialogue record for the standalone driver")
+        val standalonecorepath = "content/core-en.yaml"
+        val standaloneevidence = Map(
+          "content-core" -> _file_evidence(standalone, standalonecorepath, "source"),
+          "article-source" -> _file_evidence(standalone, "index.dox", "source"),
+          "visual-pages" -> _file_evidence(standalone, "presentation/visual-pages.yaml", "source"),
+          "infographic-svg" -> _file_evidence(standalone, "infographic/infographic.svg", "source")
+        )
+        val request = standalone.resolve("evidence/dialogue/request.txt")
+        val response = standalone.resolve("evidence/dialogue/response.txt")
+        Files.createDirectories(request.getParent)
+        Files.writeString(request, "standalone local request", StandardCharsets.UTF_8)
+        Files.writeString(response, "standalone local response", StandardCharsets.UTF_8)
+        _write_sidecar(
+          standalone,
+          standaloneevidence,
+          Map("content-core" -> _accepted_review(standalone, standalonecorepath, request, response, "local-ai-provider", "local-ai-model")),
+          "standard-video"
+        )
+        _write_sidecar(
+          bok,
+          Map(
+            "content-core" -> _file_evidence(bok, "content/core-en.yaml", "source"),
+            "article-source" -> _file_evidence(bok, "index.dox", "source"),
+            "visual-pages" -> _file_evidence(bok, "presentation/visual-pages.yaml", "source"),
+            "infographic-svg" -> _file_evidence(bok, "infographic/infographic.svg", "source")
+          ),
+          Map.empty,
+          "bok"
+        )
+
+        When("inspect derives each fixture's current sidecar-bound state")
+        _execute(List("document-project", "inspect", standalone.toString))
+        _execute(List("document-project", "inspect", bok.toString))
+
+        Then("the standalone Core dialogue is accepted and both fixtures retain evidence-derived state")
+        Files.readString(standalone.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("review: accepted")
+        Files.readString(standalone.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("path: evidence/document-project.yaml")
+        Files.readString(bok.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("path: evidence/document-project.yaml")
+        val standalonesidecar = Files.readString(standalone.resolve("evidence/document-project.yaml"), StandardCharsets.UTF_8)
+        standalonesidecar should include("provider: local-ai-provider")
+        standalonesidecar should include("model: local-ai-model")
+
+        When("the local review and dashboard projections are requested for both fixtures")
+        _execute(List("document-project", "review", standalone.toString, "--kind", "core"))
+        _execute(List("document-project", "review", standalone.toString, "--kind", "slides"))
+        _execute(List("document-project", "review", standalone.toString, "--kind", "video"))
+        _execute(List("document-project", "review", standalone.toString, "--kind", "slide-logical-chart"))
+        _execute(List("document-project", "review", standalone.toString, "--kind", "video-logical-chart"))
+        _execute(List("document-project", "dashboard", standalone.toString))
+        _execute(List("document-project", "review", bok.toString, "--kind", "core"))
+        _execute(List("document-project", "review", bok.toString, "--kind", "slides"))
+        _execute(List("document-project", "review", bok.toString, "--kind", "slide-logical-chart"))
+        _execute(List("document-project", "dashboard", bok.toString))
+
+        Then("each local review is present while the isolated BoK fixture omits video review output")
+        Files.readString(standalone.resolve("target/document-project/core-review.html"), StandardCharsets.UTF_8) should include("<h1>Core Review</h1>")
+        Files.readString(standalone.resolve("target/document-project/slides-review.html"), StandardCharsets.UTF_8) should include("<h1>Slide Review</h1>")
+        Files.readString(standalone.resolve("target/document-project/video-review.html"), StandardCharsets.UTF_8) should include("<h1>Video Review</h1>")
+        Files.readString(standalone.resolve("target/document-project/slide-logical-chart-review.html"), StandardCharsets.UTF_8) should include("<h1>Slide Logical Chart</h1>")
+        Files.readString(standalone.resolve("target/document-project/video-logical-chart-review.html"), StandardCharsets.UTF_8) should include("<h1>Video Logical Chart</h1>")
+        Files.readString(bok.resolve("target/document-project/core-review.html"), StandardCharsets.UTF_8) should include("<h1>Core Review</h1>")
+        Files.readString(bok.resolve("target/document-project/slides-review.html"), StandardCharsets.UTF_8) should include("<h1>Slide Review</h1>")
+        Files.readString(bok.resolve("target/document-project/slide-logical-chart-review.html"), StandardCharsets.UTF_8) should include("<h1>Slide Logical Chart</h1>")
+        Files.exists(bok.resolve("target/document-project/video-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        And("both dashboards expose only the safe public article mapping and keep delivery read-only")
+        val standalonedashboard = Files.readString(standalone.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        val bokdashboard = Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        standalonedashboard should include("profile: <code>standard-video</code>; workspace: <code>directory</code>")
+        bokdashboard should include("profile: <code>bok</code>; workspace: <code>bok</code>")
+        Vector(standalonedashboard, bokdashboard).foreach { dashboard =>
+          dashboard should include("Safe public source")
+          dashboard should include("public-article")
+          dashboard should include("index.dox")
+          dashboard should not include "content/core-en.yaml"
+          dashboard should not include "evidence/document-project.yaml"
+          dashboard should not include "target/document-project/state.yaml"
+          dashboard should not include "receipt-media.json"
+          dashboard should include("External delivery</th><td>Read-only and non-invoked; no publication, deployment, upload, or registration is performed.")
+        }
+        standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>active</td><td>review-projection</td><td>required")
+        standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>active</td><td>deliverable</td><td>required")
+        bokdashboard should include("video-review<br/><span>Video review HTML</span></th><td>omitted</td><td>review-projection</td><td>disabled")
+        bokdashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>omitted</td><td>deliverable</td><td>disabled")
+        bokdashboard should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>omitted</td><td>review-projection</td><td>disabled")
+        bokdashboard should include("profile bok disables video branch")
+        bokdashboard should not include("<th scope=\"row\">Video Review</th>")
+        bokdashboard should not include("video-review.html")
+        Vector(standalonedashboard, bokdashboard).foreach { dashboard =>
+          dashboard should include("article-pdf<br/><span>Article PDF</span></th><td>active</td><td>deliverable</td><td>required")
+          dashboard should include("summary-slides-pdf<br/><span>Summary slides PDF</span></th><td>active</td><td>deliverable</td><td>optional")
+          dashboard should include("infographic-png<br/><span>Infographic PNG</span></th><td>active</td><td>deliverable</td><td>optional")
+        }
+      }
+    }
+
     "propagate stale sidecar evidence from a changed infographic and artifact hash mismatch" in {
       _with_temp_dir("cozy-document-project-sidecar-stale") { root =>
         Given("a sidecar that records the current infographic, a missing article source, and a retained receipt-backed PDF")
@@ -1525,11 +1669,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     parent.resolve(s"$slug.dox")
   }
 
-  private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, review: Map[String, String] = Map.empty): Unit = {
+  private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, review: Map[String, String] = Map.empty, profileid: String = "standard"): Unit = {
     val media = project.resolve("media/article-media.yaml")
     Files.createDirectories(media.getParent)
     Files.writeString(media, "schema: cozy.media.v1\narticleMedia:\n  articleIdentity: public-article\n", StandardCharsets.UTF_8)
-    val products = _resolved("standard").workProducts.filter(_.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled).map { value =>
+    val products = _resolved(profileid).workProducts.filter(_.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled).map { value =>
       val id = value.workProduct.id
       val itemevidence = evidence.getOrElse(id, "kind: none")
       val itemreview = review.getOrElse(id, "kind: none")
@@ -1566,8 +1710,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     CozyMedia.build(CozyMedia.CommandConfig(descriptor.toRealPath()))
   }
 
-  private def _accepted_review(project: Path, core: String, request: Path, response: Path): String =
-    s"kind: core-dialogue\nprovider: human-editor\nmodel: editorial-record\nrequest:\n  path: ${_project_relative(project, request)}\n  sha256: ${_sha256(request)}\nresponse:\n  path: ${_project_relative(project, response)}\n  sha256: ${_sha256(response)}\naccepted:\n  acceptedAuthority:\n    path: $core\n    sha256: ${_sha256(project.resolve(core))}"
+  private def _accepted_review(project: Path, core: String, request: Path, response: Path, provider: String = "human-editor", model: String = "editorial-record"): String =
+    s"kind: core-dialogue\nprovider: $provider\nmodel: $model\nrequest:\n  path: ${_project_relative(project, request)}\n  sha256: ${_sha256(request)}\nresponse:\n  path: ${_project_relative(project, response)}\n  sha256: ${_sha256(response)}\naccepted:\n  acceptedAuthority:\n    path: $core\n    sha256: ${_sha256(project.resolve(core))}"
 
   private def _rejected_review(project: Path, request: Path, response: Path, reason: String): String =
     s"kind: core-dialogue\nprovider: human-editor\nmodel: editorial-record\nrequest:\n  path: ${_project_relative(project, request)}\n  sha256: ${_sha256(request)}\nresponse:\n  path: ${_project_relative(project, response)}\n  sha256: ${_sha256(response)}\nrejected:\n  rejectionReason: ${_yaml_double_quoted(reason)}"
