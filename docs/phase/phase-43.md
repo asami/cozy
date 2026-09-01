@@ -1,6 +1,7 @@
 # Phase 43: Logical UI Model and Review HTML
 
-Status: PLANNED; NOT STARTED
+Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel is complete;
+LUI43-02 is not started.
 
 Plan date: 2026-09-01
 
@@ -32,7 +33,7 @@ patterns, validation, lifecycle, feedback, diagnostics, and currentness.
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: Cozy Logical UI contract
 - Update rule: complete only when authority, identity, authoring-front,
   candidate/accepted, and non-authority boundaries pass focused Executable

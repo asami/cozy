@@ -3,7 +3,8 @@
 This checklist is the authoritative progress ledger for Phase 43. It is not a
 normative behavior contract.
 
-Phase Status: PLANNED; NOT STARTED
+Phase Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel is complete;
+LUI43-02 is open.
 
 Predecessor: accepted Phase 42.1 closure.
 
@@ -11,16 +12,16 @@ Predecessor: accepted Phase 42.1 closure.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 43
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Freeze minimum Application Core and Business/System/UI UseCase
+- [x] Freeze minimum Application Core and Business/System/UI UseCase
       references.
-- [ ] Freeze exact public Component FQN and exported-surface binding.
-- [ ] Decide and version the authoring front and normalized Logical UI IR.
-- [ ] Separate candidate, accepted, feedback, and consumed-input identities.
-- [ ] Prove generated projections remain outside semantic authority.
+- [x] Freeze exact public Component FQN and exported-surface binding.
+- [x] Decide and version the authoring front and normalized Logical UI IR.
+- [x] Separate candidate, accepted, feedback, and consumed-input identities.
+- [x] Prove generated projections remain outside semantic authority.
 
 ## LUI43-02: UseCase-to-Screen and Component Projection
 
