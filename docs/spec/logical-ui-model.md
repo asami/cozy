@@ -178,3 +178,55 @@ a canonical identity from the exact candidate identity and normalized
 projection content. It performs no reachability analysis, pattern selection,
 constraint or StateMachine interpretation, HTML/receipt generation,
 serialization, or target realization.
+
+## 7. Typed semantic projection
+
+`cozy.logical-ui-semantics.v1` is a package-local, typed projection over one
+already-normalized `LogicalUiProjection`. `CozyLogicalUiSemantics.project`
+requires an explicit `projectionIdentity` equal to the supplied projection's
+exact identity. It is separate from the candidate and
+`cozy.usecase-screen-projection.v1` identities, has no JSON transport or
+acceptance envelope, and does not discover CML or private Component source.
+
+The semantic input covers every projected `LogicalScreen` exactly once. Each
+screen has one closed Purpose (`browse`, `inspect`, `edit`, or `confirm`), an
+exact display binding for every region (`collection`, `detail`, `form`, or
+`status`), one exact Interaction Pattern binding for every interaction
+(`navigate`, `select`, `input`, `command`, or `observe`), and one closed UI
+interaction state (`idle`, `pending`, `succeeded`, or `failed`) for every
+interaction. Pattern compatibility is closed: navigation, selection, input,
+invocation, and entry/query/observation/feedback interactions admit only their
+corresponding `navigate`, `select`, `input`, `command`, and `observe` patterns.
+These values classify intent; they are not routes, widgets, CSS, layout, or
+target-framework instructions.
+
+Component semantic bindings repeat exact public `ComponentBinding` identities
+already admitted by the screen projection and attach a closed role. Value and
+Datatype roles require exactly one closed Multiplicity (`exactly-one`,
+`zero-or-one`, `one-or-more`, or `zero-or-more`). Powertype roles carry an
+opaque nonempty variant ID. StateMachine roles carry explicit
+`DomainStateReference` values. Constraint declarations use the exact typed pair
+`(constraintId, detailCode)`, one category (`datatype`, `value`,
+`aggregate-invariant`, `operation-precondition`, or `operation-postcondition`),
+the compatible exact binding, and one closed validation authority
+(`local-deterministic`, `context-dependent`, or `server-authoritative`). Every
+Operation semantic binding has separate precondition and postcondition
+identities. Feedback associations reference the whole declared pair and never
+reconstruct a detail code from a copied string.
+
+`DomainStateReference`, `WorkflowStateReference`, and `UiInteractionState` are
+different typed domains. A StateMachine transition action is admission evidence
+only: it must name a non-system declared UI UseCase step, an exact mapped screen
+interaction, matching public `Operation` and `StateMachine` usages, and
+explicit domain state references. If the mapped interaction has a mutation,
+its operation must equal the action's operation. The projection never executes
+a transition, calls a server, evaluates a constraint, infers Workflow state,
+or changes feedback wording.
+
+The semantic projection sorts every input vector by structural identity keys
+and hashes canonical content containing the exact projection identity. Duplicate
+or omitted screen, region, interaction, component, constraint, feedback, or
+transition identities fail closed under `LUI43_SEMANTICS_*` diagnostics.
+Equivalent permutations therefore produce identical canonical content and
+semantic identity. The executable specification is
+`src/test/scala/cozy/ui/CozyLogicalUiSemanticsSpec.scala`.

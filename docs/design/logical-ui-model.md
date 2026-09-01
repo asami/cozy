@@ -122,3 +122,43 @@ canonical projection content. This identity is deterministic under catalog,
 step, screen, interaction, mapping, usage, feedback, region, and boundary
 permutations. No renderer, HTML, receipt, route, widget, codec, acceptance,
 pattern, constraint, reachability, or target-framework concern is introduced.
+
+## 7. Pattern, constraint, and state semantics
+
+LUI43-03 adds `CozyLogicalUiSemantics` as a distinct package-local semantic
+projection. It consumes the exact identity of one committed screen projection
+and an explicit typed input. This layer classifies Logical UI meaning without
+expanding the candidate kernel, transport codec, acceptance authority, or
+source-reader boundary.
+
+The closed catalogs intentionally remain small: Purpose is Browse, Inspect,
+Edit, or Confirm; Display is Collection, Detail, Form, or Status; Interaction
+Pattern is Navigate, Select, Input, Command, or Observe; validation authority
+is LocalDeterministic, ContextDependent, or ServerAuthoritative; and UI
+interaction state is Idle, Pending, Succeeded, or Failed. The patterns
+correspond respectively to Navigation, Selection, Input, Invocation, and
+Entry/Query/Observation/Feedback interactions. They do not select widgets,
+routes, CSS, or a target framework.
+
+Semantic screen records are complete bindings over the screen projection:
+regions, interactions, and UI interaction states are each covered exactly once.
+Component semantic records reuse exact public bindings and roles already
+admitted by the projection. Multiplicity belongs only to Value and Datatype
+meaning. Powertype variant IDs are opaque. Constraint identities are the
+whole `(constraintId, detailCode)` pair, and categories are checked against
+their Component roles. Operation DbC is represented by distinct precondition
+and postcondition declarations. Validation authority is classification only;
+the UI layer neither evaluates constraints nor replaces server authority.
+
+State domains are intentionally not coercible: a domain StateMachine uses
+`DomainStateReference`, CNCF Workflow uses `WorkflowStateReference`, and the
+local lifecycle uses `UiInteractionState`. A transition action is an explicit
+admission record that binds a non-system UI step and an existing mapping to the
+same public Operation and StateMachine usages. It carries from/to domain states
+but performs no transition and infers no Workflow state.
+
+Canonical semantic content includes the exact screen-projection identity and
+uses structural tuple ordering for all opaque identities. No delimiter-derived
+identity key is used. Thus vector permutations cannot alter the semantic
+identity, while duplicate, missing, incompatible, or unadmitted values fail
+closed with stable `LUI43_SEMANTICS_*` diagnostics.

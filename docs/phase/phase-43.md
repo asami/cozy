@@ -1,7 +1,8 @@
 # Phase 43: Logical UI Model and Review HTML
 
-Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel is complete;
-LUI43-02 UseCase-to-Screen and Component Projection is complete.
+Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel,
+LUI43-02 UseCase-to-Screen and Component Projection, and LUI43-03 Pattern,
+Constraint, and State Semantics are complete.
 
 Plan date: 2026-09-01
 
@@ -84,7 +85,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: NOT STARTED
+- Current status: DONE
 - Owner: Cozy Logical UI semantic catalogs
 - Update rule: complete only when the minimum closed vocabularies and
   constraint/state classifications pass focused Executable Specifications.

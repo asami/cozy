@@ -3,8 +3,9 @@
 This checklist is the authoritative progress ledger for Phase 43. It is not a
 normative behavior contract.
 
-Phase Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel is complete;
-LUI43-02 UseCase-to-Screen and Component Projection is complete.
+Phase Status: IN PROGRESS; LUI43-01 Authority and Contract Kernel,
+LUI43-02 UseCase-to-Screen and Component Projection, and LUI43-03 Pattern,
+Constraint, and State Semantics are complete.
 
 Predecessor: accepted Phase 42.1 closure.
 
@@ -43,18 +44,18 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 43
 - Update rule: Update this block from the checklist state below.
 
-- [ ] Freeze the minimum Purpose, Display, and Interaction Pattern catalogs.
-- [ ] Bind Datatype, Value, multiplicity, Aggregate invariant, Operation DbC,
+- [x] Freeze the minimum Purpose, Display, and Interaction Pattern catalogs.
+- [x] Bind Datatype, Value, multiplicity, Aggregate invariant, Operation DbC,
       Powertype, and StateMachine semantics.
-- [ ] Classify local, contextual, and server-authoritative validation.
-- [ ] Retain shared constraint and DetailCode identity across UI/server
+- [x] Classify local, contextual, and server-authoritative validation.
+- [x] Retain shared constraint and DetailCode identity across UI/server
       feedback.
-- [ ] Keep domain, Workflow, and UI interaction state distinct.
-- [ ] Require Operation and UI UseCase admission for transition actions.
+- [x] Keep domain, Workflow, and UI interaction state distinct.
+- [x] Require Operation and UI UseCase admission for transition actions.
 
 ## LUI43-04: Logical UI Review HTML and Currentness
 
