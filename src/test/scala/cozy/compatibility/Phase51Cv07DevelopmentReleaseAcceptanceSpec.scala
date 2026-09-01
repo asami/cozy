@@ -8,7 +8,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jul. 28, 2026
  *  version Jul. 28, 2026
- * @version Aug. 21, 2026
+ *  version Aug. 21, 2026
+ * @version Sep.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
@@ -25,7 +26,7 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
   private val _developmentpair =
     GenerationCompatibilityBoundary.createPair(
       "0.5.3-SNAPSHOT",
-      "0.3.2-SNAPSHOT"
+      org.simplemodeling.cozy.BuildInfo.version
     )
   private val _evidence =
     GenerationCompatibilityEvidence(
@@ -49,13 +50,13 @@ final class Phase51Cv07DevelopmentReleaseAcceptanceSpec
         val development = GenerationCompatibility.accept(
           sources,
           "0.1.0-SNAPSHOT",
-          "0.3.2-SNAPSHOT",
+          org.simplemodeling.cozy.BuildInfo.version,
           _evidence
         )
         val release = GenerationCompatibility.accept(
           sources,
           "0.1.0",
-          "0.3.2-SNAPSHOT",
+          org.simplemodeling.cozy.BuildInfo.version,
           _evidence
         )
 
