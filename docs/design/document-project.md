@@ -79,8 +79,8 @@ canonical UTF-8 YAML keys are ordered `schema`, `project`, `profile`,
 `workspace`, `sources`, and `workProducts`.  The fixed-order `sources` entries
 contain only project-relative direct authored paths and lowercase hexadecimal
 SHA-256 content identities: descriptor, exact Core, `index.dox`, infographic
-SVG, Visual Page source, review README, and directly present standard-video
-storyboard.  No absolute path, timestamp, random value, discovery order,
+SVG, Visual Page source, review README, and directly present storyboard for a
+video profile.  No absolute path, timestamp, random value, discovery order,
 generated output, receipt, or attempt is serialized.
 
 The fixed-order Work Product projection contains `id`, `role`, `disposition`,
@@ -236,9 +236,11 @@ binding, or mutable lifecycle state.
 
 The descriptor's `workflow` field is an identity reference to the reusable
 `document-production` Workflow Definition.  Its `profile` field selects one
-closed registered binding within that Workflow Definition: `standard` or
-`standard-video`.  `standard-video` is the only video-bearing profile in the
-initial skeleton.  DP42-02 closes and validates the workflow-owned
+closed registered binding within that Workflow Definition: `standard`,
+`standard-video`, `bok`, `bok-video`, `simplemodeling-org`, or
+`simplemodeling-org-video`.  The `simplemodeling-org` forms are hidden from
+public scaffold/help selection; `standard` and `bok` are no-video profiles,
+while `standard-video` and `bok-video` are video profiles.  DP42-02 closes and validates the workflow-owned
 profile-to-Work-Product, deliverable-disposition, criteria/gate, operation,
 and provider-binding model; it MUST NOT add a field to the closed
 `cozy.document-project.v1` descriptor.  The `workspace` field chooses only
@@ -307,8 +309,8 @@ slide, video, Slide Logical Chart, and Video Logical Chart review default to
 published through direct non-symlink parent admission and a same-directory
 atomic temporary-file move, with no direct-write fallback.
 `run` dispatches one declared operation; and `scaffold` is the only command
-that creates authored sources.  No command aliases or ambiguous dispatch are
-part of this kernel.
+that creates authored sources.  No compatibility alias or ambiguous dispatch
+is permitted in this kernel.
 
 Canonical package source traversal is direct and non-symlinked.  An admitted
 package is itself a direct non-symlink directory, and its descriptor, `content/`
@@ -344,6 +346,13 @@ interpret a logical-operation identifier. It distinguishes the current
 snapshot from retained attempts, whose initial records have no receipt or
 currentness authority.  Core review presents accepted Core entries and marks
 candidate/feedback/acceptance as non-authoritative and not yet persisted.
+Review-projection Work Products remain `missing`/`missing`/`blocked` until the
+corresponding default review HTML exists; if any declared source prerequisite
+is absent, the reason is exactly `source or retained evidence is not present`,
+and if all declared source prerequisites exist, the reason is exactly
+`default review HTML is not generated`. Once that output exists, the dashboard
+may show `satisfied`/`current`/`ready` and a no-action current result. An
+explicit disabled binding reason takes precedence over these blocked reasons.
 The dashboard represents Core review, Slide review, Video review, Slide Logical
 Chart, and Video Logical Chart as distinct review projections. Slide Logical
 Chart derives from Core and Visual Page IR. Video Logical Chart additionally
@@ -351,7 +360,9 @@ derives from storyboard IR and is visibly omitted in no-video profiles. Active
 video review presents storyboard and Visual Page source projections; disabled
 video remains visibly omitted. Dashboard links the required final infographic
 SVG for direct review, while review HTML links appear after their corresponding
-default outputs exist. These projections are not an authority, provider run,
+default outputs exist. Every dashboard href is resolved from the project-relative
+default target and relativized from the selected dashboard output parent. These
+projections are not an authority, provider run,
 receipt, state cache, feedback record, or write-back mechanism.  Values are
 HTML-escaped and the projections are self-contained and deterministic.  Their destinations require
 the nearest existing parent directory to be direct and non-symlinked; only
@@ -414,8 +425,8 @@ The closed mappings are `core` -> descriptor `contentCore`, `article` ->
 `infographic/infographic.svg`, and `video` -> `video/storyboard.md`.  Core
 reflection preserves and revalidates the current Core envelope.  The standard
 profile requires a video item marked not-applicable with its reason; an
-applicable video item is an operation/profile rejection.  Standard-video may
-reflect its active storyboard source.
+applicable video item is an operation/profile rejection.  Video profiles may
+reflect their active storyboard source.
 
 Reflection validates the complete batch and all accepted source paths before
 writing.  Only accepted direct, non-symlink authority files are replaced,

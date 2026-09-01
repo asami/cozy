@@ -67,7 +67,10 @@ Stage Status:
 - Generate one self-contained project dashboard with Workflow view, Work
   Product matrix, and Work Product detail.
 - Show active/omitted branches, provider bindings, gates, coverage,
-  currentness, review, readiness, stale/blocking reasons, and next operations.
+  currentness, review, readiness, stale/blocking reasons, and a user-facing
+  next action. Video status follows the no-video/video profile groups.
+- Keep Slide Logical Chart and Video Logical Chart as distinct review
+  projections; no compatibility alias is introduced.
 - Show shared Work Products once with all producer/consumer edges.
 - Separate current snapshot from failed, successful, and superseded attempt
   history.

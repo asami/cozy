@@ -20,7 +20,7 @@ private[cozy] object CozyDocumentProjectProjection {
     reason: Option[String]
   )
 
-  private[cozy] def dashboardHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
+  private[cozy] def dashboardHtml(project: Path, descriptor: CozyDocumentProject.Descriptor, dashboardDestination: Path): String = {
     val products = _projection_products(project, descriptor)
     val definition = CozyDocumentWorkflow.documentProduction
     val workflowrows = products.map { item =>
@@ -45,16 +45,19 @@ private[cozy] object CozyDocumentProjectProjection {
     val attemptrows = if (attempts.isEmpty) "<tr><td colspan=\"2\">none retained</td></tr>" else attempts.map { path =>
       s"""<tr><th scope="row">${_html_escape(CozyDocumentProject._project_relative(project, path))}</th><td>historical attempt; no receipt/currentness authority</td></tr>"""
     }.mkString("\n")
+    val dashboardparent = dashboardDestination.getParent
     val reviewtargets = Vector(
-      ("Core Review", "core-review.html", project.resolve("target/document-project/core-review.html")),
-      ("Slide Review", "slides-review.html", project.resolve("target/document-project/slides-review.html")),
-      ("Slide Logical Chart", "slide-logical-chart-review.html", project.resolve("target/document-project/slide-logical-chart-review.html")),
-      ("Infographic final artifact", "../../infographic/infographic.svg", project.resolve("infographic/infographic.svg"))
+      ("Core Review", "target/document-project/core-review.html"),
+      ("Slide Review", "target/document-project/slides-review.html"),
+      ("Slide Logical Chart", "target/document-project/slide-logical-chart-review.html"),
+      ("Infographic final artifact", "infographic/infographic.svg")
     ) ++ (if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile)) Vector(
-      ("Video Review", "video-review.html", project.resolve("target/document-project/video-review.html")),
-      ("Video Logical Chart", "video-logical-chart-review.html", project.resolve("target/document-project/video-logical-chart-review.html"))
+      ("Video Review", "target/document-project/video-review.html"),
+      ("Video Logical Chart", "target/document-project/video-logical-chart-review.html")
     ) else Vector.empty)
-    val reviewrows = reviewtargets.map { case (label, reference, target) =>
+    val reviewrows = reviewtargets.map { case (label, relative) =>
+      val target = project.resolve(relative).normalize()
+      val reference = dashboardparent.relativize(target).toString.replace('\\', '/')
       val destination = if (Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))
         s"""<a href="${_html_escape(reference)}">${_html_escape(reference)}</a>"""
       else "not generated"
@@ -120,19 +123,18 @@ private[cozy] object CozyDocumentProjectProjection {
   }
 
   private[cozy] def slideLogicalChartHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String =
-    _logical_chart_html(project, descriptor, "explanation-structure-review-html", "slide-logical-chart.render-review", "Slide Logical Chart", None)
+    _logical_chart_html(project, descriptor, "explanation-structure-review-html", "Slide Logical Chart", None)
 
   private[cozy] def videoLogicalChartHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
     _require_work_product(descriptor, "video-logical-chart-html", "video-logical-chart.render-review")
     val storyboard = _read_projection_source(CozyDocumentProject._direct_file(project, "video/storyboard.md", "video storyboard"))
-    _logical_chart_html(project, descriptor, "video-logical-chart-html", "video-logical-chart.render-review", "Video Logical Chart", Some(storyboard))
+    _logical_chart_html(project, descriptor, "video-logical-chart-html", "Video Logical Chart", Some(storyboard))
   }
 
   private def _logical_chart_html(
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     workproductid: String,
-    operationid: String,
     title: String,
     storyboard: Option[String]
   ): String = {
@@ -162,7 +164,7 @@ private[cozy] object CozyDocumentProjectProjection {
       s"""<h1>$title</h1>
          |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; Content Core IR: <code>${_html_escape(descriptor.contentCore)}</code>.</p>
          |<h2>Logical Chart Work Product</h2>
-         |<p>Work Product: <code>${_html_escape(logicalchart.id)}</code>; label: <span>${_html_escape(logicalchart.label)}</span>; operation: <code>${_html_escape(operationid)}</code>.</p>
+         |<p>Work Product: <code>${_html_escape(logicalchart.id)}</code>; label: <span>${_html_escape(logicalchart.label)}</span>.</p>
          |<p class="notice">This deterministic, self-contained, read-only chart visualizes the current project-local IR. It is not an authority, provider run, receipt, state cache, feedback record, or write-back mechanism.</p>
          |<h2>Accepted Core entries</h2>
          |<table aria-label="Accepted Core entries"><thead><tr><th scope="col">Entry ID</th><th scope="col">Text</th></tr></thead><tbody>$entryrows</tbody></table>
@@ -204,28 +206,38 @@ private[cozy] object CozyDocumentProjectProjection {
     }
     val sourcepaths = CozyDocumentProject._state_sources(project, descriptor).map(_._1).toSet
     val coreaccepted = CozyDocumentProject._core_has_accepted_entries(project, descriptor)
+    val reviewsourceavailable = Map(
+      "core-review-html" -> sourcepaths.contains(descriptor.contentCore),
+      "slide-review-html" -> sourcepaths.contains("presentation/visual-pages.yaml"),
+      "video-review" -> (sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md")),
+      "explanation-structure-review-html" -> (sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml")),
+      "video-logical-chart-html" -> (sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md"))
+    )
     val sourceproducts = Map(
       "content-core" -> (sourcepaths.contains(descriptor.contentCore), coreaccepted),
-      "core-review-html" -> (sourcepaths.contains(descriptor.contentCore), coreaccepted),
+      "core-review-html" -> {
+        val generated = Files.isRegularFile(project.resolve("target/document-project/core-review.html"), LinkOption.NOFOLLOW_LINKS)
+        (generated, generated)
+      },
       "article-source" -> (sourcepaths.contains("index.dox"), sourcepaths.contains("index.dox")),
       "visual-pages" -> (sourcepaths.contains("presentation/visual-pages.yaml"), sourcepaths.contains("presentation/visual-pages.yaml")),
-      "slide-review-html" -> (sourcepaths.contains("presentation/visual-pages.yaml"), sourcepaths.contains("presentation/visual-pages.yaml")),
+      "slide-review-html" -> {
+        val generated = Files.isRegularFile(project.resolve("target/document-project/slides-review.html"), LinkOption.NOFOLLOW_LINKS)
+        (generated, generated)
+      },
       "infographic-svg" -> (sourcepaths.contains("infographic/infographic.svg"), sourcepaths.contains("infographic/infographic.svg")),
       "video-storyboard" -> (sourcepaths.contains("video/storyboard.md"), sourcepaths.contains("video/storyboard.md")),
       "video-review" -> {
-        val reviewinputs = Vector("presentation/visual-pages.yaml", "video/storyboard.md")
-        val available = reviewinputs.forall(sourcepaths.contains)
-        (available, available)
+        val generated = Files.isRegularFile(project.resolve("target/document-project/video-review.html"), LinkOption.NOFOLLOW_LINKS)
+        (generated, generated)
       },
       "explanation-structure-review-html" -> {
-        val chartinputs = Vector(descriptor.contentCore, "presentation/visual-pages.yaml")
-        val chartavailable = chartinputs.forall(sourcepaths.contains)
-        (chartavailable, chartavailable)
+        val generated = Files.isRegularFile(project.resolve("target/document-project/slide-logical-chart-review.html"), LinkOption.NOFOLLOW_LINKS)
+        (generated, generated)
       },
       "video-logical-chart-html" -> {
-        val chartinputs = Vector(descriptor.contentCore, "presentation/visual-pages.yaml", "video/storyboard.md")
-        val chartavailable = chartinputs.forall(sourcepaths.contains)
-        (chartavailable, chartavailable)
+        val generated = Files.isRegularFile(project.resolve("target/document-project/video-logical-chart-review.html"), LinkOption.NOFOLLOW_LINKS)
+        (generated, generated)
       }
     )
     resolved.workProducts.map { value =>
@@ -237,7 +249,13 @@ private[cozy] object CozyDocumentProjectProjection {
       val coverage = if (disabled) "not-applicable" else if (sourcecovered) "satisfied" else "missing"
       val currentness = if (disabled) "not-applicable" else if (sourcepresent) "current" else "missing"
       val readiness = if (disabled) "omitted" else if (sourcepresent) "ready" else "blocked"
-      val reason = binding.reason.orElse(if (readiness == "blocked") Some("source or retained evidence is not present") else None)
+      val reason = binding.reason.orElse {
+        if (readiness != "blocked") None
+        else reviewsourceavailable.get(product.id).map { available =>
+          if (available) "default review HTML is not generated"
+          else "source or retained evidence is not present"
+        }.orElse(Some("source or retained evidence is not present"))
+      }
       ProjectionProduct(value, coverage, currentness, "pending", readiness, reason)
     }
   }

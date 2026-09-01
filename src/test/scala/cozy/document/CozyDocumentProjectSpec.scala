@@ -391,9 +391,21 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val corebytes = Files.readAllBytes(core)
         val sourcebytes = Files.readAllBytes(project.resolve("index.dox"))
 
-        When("dashboard is requested without an explicit output path and then repeated")
-        val firstoutput = _execute(List("document-project", "dashboard", project.toString))
+        When("dashboard is requested before any default review output exists")
+        _execute(List("document-project", "dashboard", project.toString))
         val dashboard = project.resolve("target/document-project/project-dashboard.html")
+
+        Then("review-projection Work Products remain blocked and identify generation as the next action")
+        val initialdashboardtext = Files.readString(dashboard, StandardCharsets.UTF_8)
+        initialdashboardtext should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        initialdashboardtext should include("Generate Core review HTML")
+        initialdashboardtext should include("slide-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        initialdashboardtext should include("Generate Slide review HTML")
+
+        When("the default core and slide reviews are generated before the dashboard is repeated")
+        _execute(List("document-project", "review", project.toString, "--kind", "core"))
+        _execute(List("document-project", "review", project.toString, "--kind", "slides"))
+        val firstoutput = _execute(List("document-project", "dashboard", project.toString))
         val firstbytes = Files.readAllBytes(dashboard)
         _execute(List("document-project", "dashboard", project.toString))
         val secondbytes = Files.readAllBytes(dashboard)
@@ -416,6 +428,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboardtext should include("Producer operation")
         dashboardtext should include("Consumer operations")
         dashboardtext should include("no receipt or currentness authority")
+        dashboardtext should include("core-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        dashboardtext should include("slide-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        dashboardtext should include("<a href=\"core-review.html\">core-review.html</a>")
+        dashboardtext should include("<a href=\"slides-review.html\">slides-review.html</a>")
+        dashboardtext should include("<a href=\"../../infographic/infographic.svg\">../../infographic/infographic.svg</a>")
         And("disabled video products are not applicable in the dashboard matrix")
         Vector("video-storyboard", "video-review", "video-deliverable").foreach { id =>
           dashboardtext should include(s"$id</th><td>not-applicable</td><td>not-applicable</td><td>pending</td><td>omitted")
@@ -429,17 +446,29 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val explicit = root.resolve("saved/dashboard.html")
         _execute(List("document-project", "dashboard", project.toString, "--save", explicit.toString))
 
-        Then("the exact explicit path is the selected generated projection")
+        Then("the exact external path is selected and its links resolve from that output parent")
         Files.isRegularFile(explicit, LinkOption.NOFOLLOW_LINKS) shouldBe true
-        Files.readAllBytes(explicit) shouldBe firstbytes
+        val explicittext = Files.readString(explicit, StandardCharsets.UTF_8)
+        val explicitcorehref = explicit.getParent.relativize(project.resolve("target/document-project/core-review.html")).toString.replace('\\', '/')
+        val explicitslideshref = explicit.getParent.relativize(project.resolve("target/document-project/slides-review.html")).toString.replace('\\', '/')
+        val explicitinfographichref = explicit.getParent.relativize(project.resolve("infographic/infographic.svg")).toString.replace('\\', '/')
+        explicittext should include(s"""<a href="$explicitcorehref">$explicitcorehref</a>""")
+        explicittext should include(s"""<a href="$explicitslideshref">$explicitslideshref</a>""")
+        explicittext should include(s"""<a href="$explicitinfographichref">$explicitinfographichref</a>""")
 
-        When("dashboard is directed to an explicit HTML path under the project projection directory")
-        val internal = project.resolve("target/document-project/explicit-dashboard.html")
+        When("dashboard is directed to an allowed nested HTML path under the project projection directory")
+        val internal = project.resolve("target/document-project/nested/explicit-dashboard.html")
         _execute(List("document-project", "dashboard", project.toString, "--save", internal.toString))
 
-        Then("the permitted project-internal projection path is generated")
+        Then("the nested project-internal projection path is generated with links relative to its parent")
         Files.isRegularFile(internal, LinkOption.NOFOLLOW_LINKS) shouldBe true
-        Files.readAllBytes(internal) shouldBe firstbytes
+        val internaltext = Files.readString(internal, StandardCharsets.UTF_8)
+        val internalcorehref = internal.getParent.relativize(project.resolve("target/document-project/core-review.html")).toString.replace('\\', '/')
+        val internalslideshref = internal.getParent.relativize(project.resolve("target/document-project/slides-review.html")).toString.replace('\\', '/')
+        val internalinfographichref = internal.getParent.relativize(project.resolve("infographic/infographic.svg")).toString.replace('\\', '/')
+        internaltext should include(s"""<a href="$internalcorehref">$internalcorehref</a>""")
+        internaltext should include(s"""<a href="$internalslideshref">$internalslideshref</a>""")
+        internaltext should include(s"""<a href="$internalinfographichref">$internalinfographichref</a>""")
 
         When("an existing regular explicit destination is regenerated")
         val existingparent = Files.createDirectory(root.resolve("existing"))
@@ -447,8 +476,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.writeString(existing, "old projection\n", StandardCharsets.UTF_8)
         _execute(List("document-project", "dashboard", project.toString, "--save", existing.toString))
 
-        Then("the regular destination is atomically replaced with the same deterministic bytes")
-        Files.readAllBytes(existing) shouldBe firstbytes
+        Then("the regular destination is atomically replaced with a projection linked from its parent")
+        val existingtext = Files.readString(existing, StandardCharsets.UTF_8)
+        val existinginfographichref = existing.getParent.relativize(project.resolve("infographic/infographic.svg")).toString.replace('\\', '/')
+        existingtext should include("<h1>Cozy Document Project Dashboard</h1>")
+        existingtext should include(s"""<a href="$existinginfographichref">$existinginfographichref</a>""")
       }
     }
 
@@ -550,6 +582,14 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val standardvisualbytes = Files.readAllBytes(standardvisualpages)
         val standardarticlebytes = Files.readAllBytes(standardarticle)
 
+        When("the standard dashboard is projected before the Slide Logical Chart is generated")
+        _execute(List("document-project", "dashboard", standard.toString))
+
+        Then("the Slide Logical Chart remains blocked until its default review HTML exists")
+        val standardbeforechart = Files.readString(standard.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        standardbeforechart should include("explanation-structure-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
+        standardbeforechart should include("Generate Slide Logical Chart HTML")
+
         When("the standard Slide Logical Chart is requested twice and saved at an exact path")
         val standardoutput = _execute(List("document-project", "review", standard.toString, "--kind", "slide-logical-chart"))
         val standardchart = standard.resolve("target/document-project/slide-logical-chart-review.html")
@@ -569,7 +609,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         standardcharttext should include("<h1>Slide Logical Chart</h1>")
         standardcharttext should include("Accepted Core entries")
         And("the chart identifies the closed Logical Chart Work Product")
-        standardcharttext should include("Work Product: <code>explanation-structure-review-html</code>; label: <span>Slide Logical Chart HTML</span>; operation: <code>slide-logical-chart.render-review</code>")
+        standardcharttext should include("Work Product: <code>explanation-structure-review-html</code>; label: <span>Slide Logical Chart HTML</span>.")
+        standardcharttext should not include("slide-logical-chart.render-review")
         standardcharttext should include("chart-entry")
         standardcharttext should include("&lt;script&gt;&amp; core")
         standardcharttext should include("Visual Page IR source")
@@ -596,6 +637,14 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val videovisualbytes = Files.readAllBytes(videovisualpages)
         val videostoryboardbytes = Files.readAllBytes(videostoryboard)
 
+        When("the standard-video dashboard is projected before the Video Logical Chart is generated")
+        _execute(List("document-project", "dashboard", video.toString))
+
+        Then("the Video Logical Chart remains blocked until its default review HTML exists")
+        val videobeforechart = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        videobeforechart should include("video-logical-chart-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
+        videobeforechart should include("Generate Video Logical Chart HTML")
+
         When("the standard-video Video Logical Chart is requested twice")
         _execute(List("document-project", "review", video.toString, "--kind", "video-logical-chart"))
         val videochart = video.resolve("target/document-project/video-logical-chart-review.html")
@@ -610,7 +659,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         videocharttext should include("&lt;script&gt;&amp; video visual")
         videocharttext should include("&lt;script&gt;&amp; storyboard")
         videocharttext should include("<h1>Video Logical Chart</h1>")
-        videocharttext should include("video-logical-chart.render-review")
+        videocharttext should not include("video-logical-chart.render-review")
         Files.exists(video.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(video.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.readAllBytes(videocore) shouldBe videocorebytes
@@ -620,10 +669,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the standard-video dashboard is projected")
         _execute(List("document-project", "dashboard", video.toString))
 
-        Then("slide and video logical-chart Work Products are independently current from their IR inputs")
+        Then("slide and video logical-chart Work Products distinguish generated output from available IR inputs")
         val dashboardtext = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
         dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
-        dashboardtext should include("explanation-structure-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        dashboardtext should include("explanation-structure-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
         dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("video-logical-chart-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
         dashboardtext should include("phase-41-explanation-structure")

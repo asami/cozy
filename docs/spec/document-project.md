@@ -49,7 +49,7 @@ MUST have exactly these top-level keys and no others:
 | `schema` | Exactly `cozy.document-project.v1`. |
 | `id` | A slug matching `[a-z0-9][a-z0-9._-]*`. |
 | `workflow` | An object with exactly `schema` and `id`; `schema` is exactly `cozy.document-workflow.v1` and `id` is exactly `document-production`. |
-| `profile` | Exactly `standard` or `standard-video`. |
+| `profile` | Exactly one of `standard`, `standard-video`, `bok`, `bok-video`, `simplemodeling-org`, or `simplemodeling-org-video`; the last two are hidden from public scaffold/help selection. |
 | `language` | A lowercase BCP-47-shaped tag matching `[a-z]{2,8}(?:-[a-z0-9]{1,8})*`. |
 | `workspace` | An object with exactly `kind`, whose value is exactly `directory` or `bok`. |
 | `contentCore` | Exactly the normalized relative path `content/core-<language>.yaml`, where `<language>` is the descriptor `language`. |
@@ -62,9 +62,11 @@ action.  No unknown or additional descriptor key is admitted by this kernel or
 by DP42-02.
 
 `profile` selects a closed registered binding inside the referenced
-`cozy.document-workflow.v1` definition.  `standard` and `standard-video` are
-the two registered initial profiles; `standard-video` is the only video-bearing
-profile for the initial skeleton.  DP42-02 MUST close and validate the
+`cozy.document-workflow.v1` definition.  The exact descriptor-resolvable
+profiles are `standard`, `standard-video`, `bok`, `bok-video`,
+`simplemodeling-org`, and `simplemodeling-org-video`; the last two are hidden
+from public scaffold/help selection.  `standard` and `bok` are no-video
+profiles, while `standard-video` and `bok-video` are video profiles.  DP42-02 MUST close and validate the
 workflow-owned profile-to-Work-Product, deliverable-disposition,
 criteria/gate, operation, and provider-binding model.  DP42-02 MUST NOT add a
 field to `cozy.document-project.v1`.
@@ -228,8 +230,8 @@ from the admitted descriptor.  `sources` is a fixed-order list of direct,
 project-relative authored inputs, each with only `path` and its lowercase
 hexadecimal `sha256` content identity.  The admitted source order is the
 descriptor, the exact Core, `index.dox`, editable infographic SVG, Visual Page
-source, review README, and the standard-video storyboard when directly
-present.  The serialization MUST contain no absolute path, timestamp, random
+source, review README, and the storyboard when directly present for a video
+profile.  The serialization MUST contain no absolute path, timestamp, random
 value, directory-discovery order, generated output, receipt, or attempt.
 
 `workProducts` MUST follow the closed `document-production` Work Product order.
@@ -347,7 +349,7 @@ the same optional save path; its defaults are
 `target/document-project/video-logical-chart-review.html`, respectively. Review
 never accepts or exposes a logical-operation identifier.  The command namespace MUST
 remain distinct from existing software Project knowledge-package and `cozy
-media` commands.  No alias or ambiguous dispatch is permitted.
+media` commands.  No compatibility alias or ambiguous dispatch is permitted.
 
 Generated dashboard and review destinations MUST be admitted as direct,
 non-symlink regular files or absent destinations.  For an absent destination,
@@ -421,8 +423,7 @@ accepted Core replacement preserves the existing Core envelope
 (`schema`, `id`, and `language`) and is revalidated before publication.  For
 the `standard` profile, a `video` item MUST be present as
 `not-applicable` with its required reason; an applicable video item is
-rejected with `DP-OP-001`.  The `standard-video` profile admits the active
-video mapping.
+rejected with `DP-OP-001`.  Video profiles admit the active storyboard mapping.
 
 The entire batch, every replacement, the profile rule, and every selected
 accepted authority path MUST validate before any write.  Accepted authorities
@@ -480,8 +481,17 @@ read-only projection and never accepts, persists, or reflects feedback.
   have no receipt or currentness authority.  It MUST execute no provider and
   persist no authority, candidate, feedback, acceptance, receipt, deliverable,
   workspace, build, publication, deployment, or upload state. The Dashboard
-  MUST link the required final infographic SVG for direct review; it links a
-  default review HTML only after that HTML exists.
+  MUST link the required final infographic SVG for direct review; its href is
+  relative to the selected dashboard output parent. It links a default review
+  HTML only after that HTML exists. Until each review-projection Work Product's
+  corresponding default HTML exists, its dashboard coverage/currentness/
+  readiness MUST be `missing`/`missing`/`blocked`, with exactly
+  `source or retained evidence is not present` when any declared source
+  prerequisite is absent, or exactly `default review HTML is not generated`
+  when all declared source prerequisites are present; it MUST also show a
+  user-facing generate action. After the default HTML exists, the dashboard may
+  show `satisfied`/`current`/`ready`. An explicit disabled binding reason MUST
+  take precedence over these blocked reasons.
 - `review` MUST generate a deterministic, self-contained, read-only HTML
   projection at the kind-specific default or exact optional external save path;
   an optional Project-internal save path MUST be under

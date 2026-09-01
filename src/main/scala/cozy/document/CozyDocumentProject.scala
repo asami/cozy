@@ -60,8 +60,8 @@ private[cozy] object CozyDocumentProject {
               _verify(project, descriptor)
               println(_run(project, descriptor, operation.getOrElse(""), dryrun))
             case "dashboard" =>
-              val html = CozyDocumentProjectProjection.dashboardHtml(project, descriptor)
               val destination = CozyDocumentProjectProjection.admitDestination(project, save, "project-dashboard.html")
+              val html = CozyDocumentProjectProjection.dashboardHtml(project, descriptor, destination)
               CozyDocumentProjectProjection.publish(destination, html)
               println(CozyDocumentProjectProjection.projectionResult("Dashboard", project, descriptor, destination))
             case "review" =>

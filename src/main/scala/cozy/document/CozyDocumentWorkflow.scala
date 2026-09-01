@@ -332,7 +332,7 @@ private[cozy] object CozyDocumentWorkflow {
     WorkProduct("operation-receipt-evidence", "Future operation receipt evidence", WorkProductRole.Receipt, "operation-receipt.record", Vector.empty, Vector("operation-receipt-recorded"), Vector("content-core-candidate", "content-core", "core-review-html", "article-source", "article-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html"), Vector("receipt-evidence"), Vector("operation-receipt-reference"))
   )
 
-  private def _no_video_bindings(profileId: String): Vector[WorkProductBinding] = Vector(
+  private def _no_video_bindings(profileid: String): Vector[WorkProductBinding] = Vector(
     WorkProductBinding("content-core-candidate", WorkProductDisposition.Optional, None),
     WorkProductBinding("content-core", WorkProductDisposition.Required, None),
     WorkProductBinding("core-review-html", WorkProductDisposition.Optional, None),
@@ -344,11 +344,11 @@ private[cozy] object CozyDocumentWorkflow {
     WorkProductBinding("summary-slides-pdf", WorkProductDisposition.Optional, None),
     WorkProductBinding("infographic-svg", WorkProductDisposition.Required, None),
     WorkProductBinding("infographic-png", WorkProductDisposition.Optional, None),
-    WorkProductBinding("video-storyboard", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
-    WorkProductBinding("video-review", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
-    WorkProductBinding("video-deliverable", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
+    WorkProductBinding("video-storyboard", WorkProductDisposition.Disabled, Some(s"profile $profileid disables video branch")),
+    WorkProductBinding("video-review", WorkProductDisposition.Disabled, Some(s"profile $profileid disables video branch")),
+    WorkProductBinding("video-deliverable", WorkProductDisposition.Disabled, Some(s"profile $profileid disables video branch")),
     WorkProductBinding("explanation-structure-review-html", WorkProductDisposition.Optional, None),
-    WorkProductBinding("video-logical-chart-html", WorkProductDisposition.Disabled, Some(s"profile $profileId disables video branch")),
+    WorkProductBinding("video-logical-chart-html", WorkProductDisposition.Disabled, Some(s"profile $profileid disables video branch")),
     WorkProductBinding("operation-receipt-evidence", WorkProductDisposition.Optional, None)
   )
 
