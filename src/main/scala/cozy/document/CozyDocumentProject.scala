@@ -22,8 +22,13 @@ private[cozy] object CozyDocumentProject {
     profile: String,
     language: String,
     workspace: String,
-    contentCore: String
+    contentCore: String,
+    activeOptionalWorkProducts: Vector[String],
+    semanticScope: SemanticScope
   )
+  private[cozy] final case class SemanticWorkProduct(id: String, identity: String)
+  private[cozy] final case class LocaleVariant(project: String, language: String, contentCore: String, workProducts: Vector[SemanticWorkProduct])
+  private[cozy] final case class SemanticScope(id: String, localeVariants: Vector[LocaleVariant])
 
   private final case class ProjectRequest(command: String, project: String, operation: Option[String], dryrun: Boolean, kind: Option[String], save: Option[String])
   private final case class FeedbackRequest(project: String, feedback: String)
@@ -31,7 +36,7 @@ private[cozy] object CozyDocumentProject {
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
   private val _slug_pattern = "[a-z0-9][a-z0-9._-]*".r
   private val _language_pattern = "[a-z]{2,8}(?:-[a-z0-9]{1,8})*".r
-  private val _descriptor_keys = Set("schema", "id", "workflow", "profile", "language", "workspace", "contentCore")
+  private val _descriptor_keys = Set("schema", "id", "workflow", "profile", "language", "workspace", "contentCore", "activeOptionalWorkProducts", "semanticScope")
   private val _core_keys = Set("schema", "id", "language", "accepted")
 
   def execute(args: List[String]): Boolean = args match {
@@ -219,7 +224,7 @@ private[cozy] object CozyDocumentProject {
   private def _validate_descriptor(value: Json): Descriptor = {
     val fields = _object(value, "descriptor")
     if (fields.keySet != _descriptor_keys)
-      _descriptor_failure("descriptor must have exactly schema, id, workflow, profile, language, workspace, contentCore")
+      _descriptor_failure("descriptor must have exactly schema, id, workflow, profile, language, workspace, contentCore, activeOptionalWorkProducts, semanticScope")
     val schema = _string(fields, "schema", "descriptor")
     val id = _string(fields, "id", "descriptor")
     val workflow = _object(_field(fields, "workflow", "descriptor"), "workflow")
@@ -227,10 +232,13 @@ private[cozy] object CozyDocumentProject {
     val language = _string(fields, "language", "descriptor")
     val workspace = _object(_field(fields, "workspace", "descriptor"), "workspace")
     val contentcore = _string(fields, "contentCore", "descriptor")
-    if (schema != "cozy.document-project.v1" || !_slug_pattern.pattern.matcher(id).matches())
+    val activeoptionalworkproducts = _field(fields, "activeOptionalWorkProducts", "descriptor").asArray.getOrElse(_descriptor_failure("descriptor activeOptionalWorkProducts must be an array")).map { value =>
+      value.asString.getOrElse(_descriptor_failure("descriptor activeOptionalWorkProducts must contain only Work Product ids"))
+    }
+    if (schema != "cozy.document-project.v2" || !_slug_pattern.pattern.matcher(id).matches())
       _descriptor_failure("descriptor schema or id is invalid")
-    if (workflow.keySet != Set("schema", "id") || _string(workflow, "schema", "workflow") != "cozy.document-workflow.v1" || _string(workflow, "id", "workflow") != "document-production")
-      _descriptor_failure("workflow must identify cozy.document-workflow.v1/document-production")
+    if (workflow.keySet != Set("schema", "id") || _string(workflow, "schema", "workflow") != "cozy.document-workflow.v2" || _string(workflow, "id", "workflow") != "document-production")
+      _descriptor_failure("workflow must identify cozy.document-workflow.v2/document-production")
     if (!CozyDocumentWorkflow.isRegisteredProfile(profile))
       _descriptor_failure("descriptor profile is invalid")
     if (!_language_pattern.pattern.matcher(language).matches())
@@ -240,8 +248,58 @@ private[cozy] object CozyDocumentProject {
     val expectedcore = s"content/core-$language.yaml"
     if (contentcore != expectedcore || !_relative_path(contentcore))
       _descriptor_failure("descriptor contentCore is invalid")
-    Descriptor(id, profile, language, _string(workspace, "kind", "workspace"), contentcore)
+    if (activeoptionalworkproducts.distinct.size != activeoptionalworkproducts.size)
+      _descriptor_failure("descriptor activeOptionalWorkProducts must be duplicate-free")
+    CozyDocumentWorkflow.resolve(profile, activeoptionalworkproducts.toVector) match {
+      case Left(cause) => _descriptor_failure(cause)
+      case Right(_) => ()
+    }
+    val semanticscope = _semantic_scope(_field(fields, "semanticScope", "descriptor"), id, language, s"$id:core:$language")
+    Descriptor(id, profile, language, _string(workspace, "kind", "workspace"), contentcore, activeoptionalworkproducts.toVector, semanticscope)
   }
+
+  private def _semantic_scope(value: Json, projectid: String, language: String, coreid: String): SemanticScope = {
+    val fields = _object(value, "descriptor semanticScope")
+    if (fields.keySet != Set("id", "localeVariants"))
+      _descriptor_failure("descriptor semanticScope must have exactly id and localeVariants")
+    val scopeid = _string(fields, "id", "descriptor semanticScope")
+    if (!_slug_pattern.pattern.matcher(scopeid).matches())
+      _descriptor_failure("descriptor semanticScope id is invalid")
+    val values = _field(fields, "localeVariants", "descriptor semanticScope").asArray.getOrElse(_descriptor_failure("descriptor semanticScope localeVariants must be an array"))
+    if (values.isEmpty)
+      _descriptor_failure("descriptor semanticScope localeVariants must be non-empty")
+    val variants = values.map { value =>
+      val variant = _object(value, "descriptor semanticScope localeVariant")
+      if (variant.keySet != Set("project", "language", "contentCore", "workProducts"))
+        _descriptor_failure("descriptor semanticScope localeVariant must have exactly project, language, contentCore, workProducts")
+      val project = _string(variant, "project", "descriptor semanticScope localeVariant")
+      val variantlanguage = _string(variant, "language", "descriptor semanticScope localeVariant")
+      val variantcore = _string(variant, "contentCore", "descriptor semanticScope localeVariant")
+      if (!_slug_pattern.pattern.matcher(project).matches() || !_language_pattern.pattern.matcher(variantlanguage).matches() || !_nonempty_identity(variantcore))
+        _descriptor_failure("descriptor semanticScope localeVariant identity is invalid")
+      val workproducts = _field(variant, "workProducts", "descriptor semanticScope localeVariant").asArray.getOrElse(_descriptor_failure("descriptor semanticScope localeVariant workProducts must be an array")).map { value =>
+        val workproduct = _object(value, "descriptor semanticScope localeVariant workProduct")
+        if (workproduct.keySet != Set("id", "identity"))
+          _descriptor_failure("descriptor semanticScope localeVariant workProduct must have exactly id and identity")
+        val workproductid = _string(workproduct, "id", "descriptor semanticScope localeVariant workProduct")
+        val identity = _string(workproduct, "identity", "descriptor semanticScope localeVariant workProduct")
+        if (!CozyDocumentWorkflow.documentProduction.workProducts.exists(_.id == workproductid) || !_nonempty_identity(identity))
+          _descriptor_failure("descriptor semanticScope localeVariant workProduct identity is invalid")
+        SemanticWorkProduct(workproductid, identity)
+      }.toVector
+      if (workproducts.map(_.id).distinct.size != workproducts.size)
+        _descriptor_failure("descriptor semanticScope localeVariant workProducts must be duplicate-free")
+      LocaleVariant(project, variantlanguage, variantcore, workproducts)
+    }.toVector
+    if (variants.map(value => (value.project, value.language, value.contentCore)).distinct.size != variants.size)
+      _descriptor_failure("descriptor semanticScope localeVariants must be duplicate-free")
+    if (variants.count(value => value.project == projectid && value.language == language && value.contentCore == coreid) != 1)
+      _descriptor_failure("descriptor semanticScope must contain the descriptor self localeVariant exactly once")
+    SemanticScope(scopeid, variants)
+  }
+
+  private def _nonempty_identity(value: String): Boolean =
+    value.nonEmpty && value == value.trim
 
   private[cozy] def _validate_core(value: Json, descriptor: Descriptor): Unit = {
     val fields = _object(value, "Content Core")
@@ -279,7 +337,7 @@ private[cozy] object CozyDocumentProject {
   private def _verify(project: Path, descriptor: Descriptor): String = {
     if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile))
       _direct_file(project, "video/storyboard.md", "initial authored source")
-    s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1"
+    s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2"
   }
 
   private def _run(project: Path, descriptor: Descriptor, operationid: String, dryrun: Boolean): String = {
@@ -288,22 +346,22 @@ private[cozy] object CozyDocumentProject {
       case Right(None) => _failure("DP-OP-001", s"undeclared logical operation: $operationid")
       case Left(cause) => _descriptor_failure(cause)
     }
-    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => _descriptor_failure(cause)
     }
     val activeproducts = resolved.workProducts.collect {
-      case value if value.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled => value.workProduct.id
+      case value if value.isParticipating => value.workProduct.id
     }.toSet
     if (!operation.produces.exists(activeproducts.contains))
       _failure("DP-OP-001", s"logical operation $operationid is disabled for profile ${descriptor.profile}")
     val provider = operation.providerBinding
     if (dryrun)
-      s"Cozy Document Project Run\nproject: ${descriptor.id}\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\nmode: dry-run\noutcome: not-recorded\nattempt: none"
+      s"Cozy Document Project Run\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\nmode: dry-run\noutcome: not-recorded\nattempt: none"
     else {
       val attemptid = UUID.randomUUID().toString
       val attempt = _write_operation_attempt(project, descriptor, operationid, provider, attemptid)
-      s"Cozy Document Project Run\nproject: ${descriptor.id}\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\noutcome: recorded\nattempt: ${_project_relative(project, attempt)}"
+      s"Cozy Document Project Run\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\noutcome: recorded\nattempt: ${_project_relative(project, attempt)}"
     }
   }
 
@@ -391,7 +449,7 @@ private[cozy] object CozyDocumentProject {
     project.relativize(path).toString.replace('\\', '/')
 
   private def _inspect(project: Path, descriptor: Descriptor, state: Path): String =
-    _with_state(s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v1\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}", state)
+    _with_state(s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}", state)
 
   private def _with_state(output: String, state: Path): String = {
     val reference = Vector(state.getParent.getParent.getFileName, state.getParent.getFileName, state.getFileName).mkString("/")
@@ -460,27 +518,38 @@ private[cozy] object CozyDocumentProject {
     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _plan(project: Path, descriptor: Descriptor): String = {
-    val workflowplan = CozyDocumentWorkflow.plan(descriptor.profile) match {
+    val workflowplan = CozyDocumentWorkflow.plan(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => _descriptor_failure(cause)
     }
-    val activelines = workflowplan.activeWorkProducts.map(value => s"active: ${_plan_work_product_line(value)}")
-    val omittedlines = if (workflowplan.omittedWorkProducts.isEmpty) Vector("omitted: none") else workflowplan.omittedWorkProducts.map(value => s"omitted: ${_plan_work_product_line(value)}")
+    val requiredlines = workflowplan.selectedWorkProducts.collect {
+      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.Required => s"required: ${_plan_work_product_line(value)}"
+    }
+    val activeoptionallines = workflowplan.selectedWorkProducts.collect {
+      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => s"active-optional: ${_plan_work_product_line(value)}"
+    }
+    val inactiveoptionallines = workflowplan.inactiveOptionalWorkProducts.map(value => s"inactive-optional: ${_plan_work_product_line(value)}")
+    val profiledisabledlines = workflowplan.profileDisabledWorkProducts.map(value => s"profile-disabled: ${_plan_work_product_line(value)}")
     val blockedlines = workflowplan.blockedOperations.map(value => s"blocked: operation ${value.id} [${CozyDocumentWorkflow.executionReservedExplanation}]")
     val eligiblelines = workflowplan.eligibleOperations.map(value => s"eligible: operation ${value.id} [provider: ${value.providerBinding}]")
     (Vector(
       "Cozy Document Project Plan",
       s"project: ${descriptor.id}",
       s"package: $project",
-      "schema: cozy.document-project.v1"
-    ) ++ activelines ++ omittedlines ++ blockedlines ++ eligiblelines).mkString("\n")
+      "schema: cozy.document-project.v2"
+    ) ++ requiredlines ++ activeoptionallines ++ inactiveoptionallines ++ profiledisabledlines ++ blockedlines ++ eligiblelines).mkString("\n")
   }
 
   private def _plan_work_product_line(value: CozyDocumentWorkflow.ResolvedWorkProduct): String = {
     val product = value.workProduct
     val binding = value.binding
+    val selection = value.selection match {
+      case CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => "; selected"
+      case CozyDocumentWorkflow.WorkProductSelection.InactiveOptional => "; not-selected"
+      case _ => ""
+    }
     val reason = binding.reason.map(text => s": $text").getOrElse("")
-    s"work-product ${product.id} [${product.role.value}, ${binding.disposition.value}$reason]"
+    s"work-product ${product.id} [${product.role.value}, ${binding.disposition.value}$selection$reason]"
   }
 
   private def _scaffold(slug: String, profile: String, language: String, workspace: String, parentvalue: String): Path = {
@@ -598,16 +667,24 @@ private[cozy] object CozyDocumentProject {
   }
 
   private def _descriptor_yaml(slug: String, profile: String, language: String, workspace: String): String =
-    s"""schema: cozy.document-project.v1
+    s"""schema: cozy.document-project.v2
        |id: $slug
        |workflow:
-       |  schema: cozy.document-workflow.v1
+       |  schema: cozy.document-workflow.v2
        |  id: document-production
        |profile: $profile
        |language: $language
        |workspace:
        |  kind: $workspace
        |contentCore: content/core-$language.yaml
+       |activeOptionalWorkProducts: []
+       |semanticScope:
+       |  id: $slug
+       |  localeVariants:
+       |    - project: $slug
+       |      language: $language
+       |      contentCore: $slug:core:$language
+       |      workProducts: []
        |""".stripMargin
 
   private def _core_yaml(slug: String, language: String): String =
@@ -618,7 +695,7 @@ private[cozy] object CozyDocumentProject {
        |""".stripMargin
 
   private def _scaffold_result(destination: Path, slug: String, profile: String, language: String, workspace: String): String =
-    s"Cozy Document Project Scaffold\nproject: $slug\npackage: $destination\nschema: cozy.document-project.v1\nworkflow: document-production\nprofile: $profile\nlanguage: $language\nworkspace: $workspace"
+    s"Cozy Document Project Scaffold\nproject: $slug\npackage: $destination\nschema: cozy.document-project.v2\nworkflow: document-production\nprofile: $profile\nlanguage: $language\nworkspace: $workspace"
 
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

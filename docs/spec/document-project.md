@@ -2,11 +2,10 @@
 
 ## Status and scope
 
-This is the normative Phase 42.1 contract for the Document Project responsibility
-boundary.  Its stable design intent is [Document Project
-Design](../design/document-project.md).  The [Phase 42
-checklist](../phase/phase-42-checklist.md) is a progress ledger, not a behavior
-contract; [Phase 42](../phase/phase-42.md) supplies the planned phase boundary.
+This is the normative Phase 45 contract for the Document Project v2 authoring
+boundary. Its stable design intent is [Document Project
+Design](../design/document-project.md). The Phase 45 checklist is a progress
+ledger, not a behavior contract.
 
 The [workflow-management proposal](../notes/document-project-workflow-management-specification-proposal.md)
 and [Content Core direction](../journal/2026/08/2026-08-30-document-project-content-core-direction.md)
@@ -20,9 +19,10 @@ contract identities and roles:
 
 | Identity | Required role |
 | --- | --- |
-| `cozy.document-project.v1` | Authored closed selection descriptor: identity, selected workflow, its registered profile, language, workspace, and Content Core reference. |
-| `cozy.document-workflow.v1` | Reusable logical-operation DAG with Work Product roles, criteria, dependencies, and gates. |
-| `cozy.document-project-state.v1` | Derived Workflow Instance Snapshot; it is never writable authority. |
+| `cozy.document-project.v2` | Authored closed selection descriptor: identity, workflow, profile, language, workspace, Content Core reference, optional Work Product selection, and semantic identity hooks. |
+| `cozy.document-workflow.v2` | Reusable logical-operation DAG with Work Product roles, criteria, dependencies, gates, and provider bindings. |
+| `cozy.document-project-evidence.v2` | Optional retained evidence binding for exactly the selected Work Products. |
+| `cozy.document-project-state.v2` | Derived Workflow Instance Snapshot; it is never writable authority. |
 | `cozy.document-operation-attempt.v1` | Append-only evidence for one attempted declared logical operation. |
 | `cozy.content-core.v1` | Minimal, separately authored shared semantic authority. |
 
@@ -31,13 +31,18 @@ Content Core.  Content Core MUST remain the shared semantic authority; it MUST
 NOT become a mutable workflow-status record, rendering configuration, or
 delivery declaration.
 
-A project MUST resolve its selected `cozy.document-workflow.v1` definition by
+A project MUST resolve its selected `cozy.document-workflow.v2` definition by
 identity.  It MUST NOT copy the reusable DAG into the authored descriptor for
-private modification.  A `cozy.document-project-state.v1` snapshot MUST be
+private modification.  A `cozy.document-project-state.v2` snapshot MUST be
 derived from the relevant authored authorities and evidence.  A cache of that
 snapshot MUST NOT become a second authority.  An Operation Attempt MUST remain
 inspectable after failure or supersession and MUST NOT itself make a Work
 Product accepted or current.
+
+Document Project v2 is a replacement authored contract. No v1 descriptor,
+workflow, evidence, or state reader, migration, fallback, or compatibility
+branch is retained. A retired descriptor is rejected before an action writes a
+state cache, evidence, output, or other project file.
 
 ## Initial authored descriptor grammar
 
@@ -46,13 +51,15 @@ MUST have exactly these top-level keys and no others:
 
 | Key | Required value or closed shape |
 | --- | --- |
-| `schema` | Exactly `cozy.document-project.v1`. |
+| `schema` | Exactly `cozy.document-project.v2`. |
 | `id` | A slug matching `[a-z0-9][a-z0-9._-]*`. |
-| `workflow` | An object with exactly `schema` and `id`; `schema` is exactly `cozy.document-workflow.v1` and `id` is exactly `document-production`. |
+| `workflow` | An object with exactly `schema` and `id`; `schema` is exactly `cozy.document-workflow.v2` and `id` is exactly `document-production`. |
 | `profile` | Exactly one of `standard`, `standard-video`, `bok`, `bok-video`, `simplemodeling-org`, or `simplemodeling-org-video`; the last two are hidden from public scaffold/help selection. |
 | `language` | A lowercase BCP-47-shaped tag matching `[a-z]{2,8}(?:-[a-z0-9]{1,8})*`. |
 | `workspace` | An object with exactly `kind`, whose value is exactly `directory` or `bok`. |
 | `contentCore` | Exactly the normalized relative path `content/core-<language>.yaml`, where `<language>` is the descriptor `language`. |
+| `activeOptionalWorkProducts` | A deterministic duplicate-free sequence of ids whose static disposition in the selected profile is exactly `optional`. Required and profile-disabled ids are rejected. |
+| `semanticScope` | An object with exactly `id` and `localeVariants`, as defined below. |
 
 `contentCore` MUST NOT be absolute and MUST NOT contain a `.` or `..` path
 segment.  `workflow` is a reference to the reusable definition and MUST NOT be
@@ -62,14 +69,29 @@ action.  No unknown or additional descriptor key is admitted by this kernel or
 by DP42-02.
 
 `profile` selects a closed registered binding inside the referenced
-`cozy.document-workflow.v1` definition.  The exact descriptor-resolvable
+`cozy.document-workflow.v2` definition. The exact descriptor-resolvable
 profiles are `standard`, `standard-video`, `bok`, `bok-video`,
 `simplemodeling-org`, and `simplemodeling-org-video`; the last two are hidden
 from public scaffold/help selection.  `standard` and `bok` are no-video
 profiles, while `standard-video` and `bok-video` are video profiles.  DP42-02 MUST close and validate the
 workflow-owned profile-to-Work-Product, deliverable-disposition,
 criteria/gate, operation, and provider-binding model.  DP42-02 MUST NOT add a
-field to `cozy.document-project.v1`.
+field to `cozy.document-project.v2`.
+
+`semanticScope.id` is a stable slug. `semanticScope.localeVariants` is a
+non-empty deterministic sequence. Every entry has exactly `project`,
+`language`, `contentCore`, and `workProducts`: `project` is a stable project
+slug; `language` is a lowercase BCP-47-shaped tag; `contentCore` is a non-empty
+stable identity; and `workProducts` is a duplicate-free sequence of exactly
+`{id, identity}` pairs. Each pair names a declared v2 Work Product and has a
+non-empty stable identity. The descriptor's own `(id, language, Core id)`
+occurs exactly once. These are identity hooks only: admission does not read
+another project, scan directories, synchronize locales, infer currentness, or
+record alignment decisions.
+
+Scaffold emits a self-contained v2 descriptor with
+`activeOptionalWorkProducts: []` and exactly one matching self locale variant
+whose `workProducts` is empty.
 
 The exact Core file is `content/core-<language>.yaml`.  It MUST have exactly
 `schema`, `id`, `language`, and `accepted`, with these values:
@@ -110,7 +132,7 @@ DP42-02 closes one immutable in-code `document-production` definition.  It
 resolves `standard`, `standard-video`, `bok`, `bok-video`, and the hidden
 `simplemodeling-org` and `simplemodeling-org-video` profiles and is selected by the existing
 descriptor identity; it MUST NOT be serialized into, copied by, or extended
-through `cozy.document-project.v1`.  Before plan projection or declared-
+through `cozy.document-project.v2`. Before plan projection or declared-
 operation admission, the definition MUST reject duplicate ids, empty required
 metadata, unknown producer, consumer, criterion, dependency, gate,
 evidence-reference, or provider-binding references, Work Product dependency
@@ -125,6 +147,7 @@ The stable initial Work Product table is:
 | `core-review-html` | review-projection | optional | optional |
 | `article-source` | authority | required | required |
 | `article-html` | site-deliverable | required | required |
+| `article-review-html` | review-projection | optional | optional |
 | `article-pdf` | deliverable | required | required |
 | `visual-pages` | authority | required | required |
 | `slide-review-html` | review-projection | optional | optional |
@@ -141,6 +164,13 @@ The stable initial Work Product table is:
 `article-html` is a required Site deliverable, generated by the Cozy Site
 feature from the SmartDox article source. It is intentionally separate from
 the ordinary PDF, slide, infographic, and video deliverable branches.
+
+`article-review-html` is a first-class optional review-projection Work Product.
+Its stable logical operation is `article.render-review` through the stable
+review-projection provider binding. Its criterion, gate, and evidence reference
+are declared with dependencies on Content Core, article source, and Visual Page
+IR. It is contract-only in Phase 45: it does not generate HTML, add a review
+CLI kind, alter dashboard UX, or invoke a provider.
 
 `infographic-svg` is the required editable final infographic artifact and is
 reviewed directly as that artifact; Document Project MUST NOT introduce a
@@ -160,7 +190,7 @@ operation reference, criterion reference, Work Product dependency reference,
 gate reference, and evidence-reference.  Every logical operation MUST have a
 stable id and exactly one static provider binding.  The initial operation set
 is `content-core.compose`, `content-core.review`, `article.compose`,
-`article.publish-site`, `article.render-pdf`, `summary-slides.render-pdf`,
+`article.publish-site`, `article.render-review`, `article.render-pdf`, `summary-slides.render-pdf`,
 `infographic.compose`, `infographic.render-png`, `video.compose-storyboard`,
 `video.render-review`, `video.render-deliverable`,
 `content-core.render-review`, Visual Page author/review and PDF render
@@ -193,10 +223,19 @@ Every artifact branch MUST have exactly one declared disposition:
 - `required` means its applicable criteria and gates participate in the
   project's completion view.
 - `optional` means it is selectable and visible but does not participate until
-  activated for the project.
+  its id is selected by `activeOptionalWorkProducts` for the project.
 - `disabled` means it is omitted and MUST expose an exact visible reason.
 
-An omitted branch MUST NOT be counted as completed work.  Completion coverage,
+The derived selection vocabulary is exactly `required`, `active-optional`,
+`inactive-optional`, and `profile-disabled`. Required and active optional Work
+Products participate. Inactive optional Work Products are visibly
+nonparticipating, use `coverage: not-applicable`, `currentness:
+nonparticipating`, and `readiness: not-selected`, and do not consume or delete
+existing evidence or artifacts. Profile-disabled Work Products use
+`currentness: not-applicable` and `readiness: omitted` with their profile
+reason. Neither nonparticipating class contributes to applicable completion.
+
+An omitted or inactive branch MUST NOT be counted as completed work. Completion coverage,
 currentness, review, readiness, and labels such as core or artifact lifecycle
 states MUST be derived views over declared Work Products and evidence.  They
 MUST NOT be writable project status, manually asserted percentages, or an
@@ -216,7 +255,7 @@ recorded single-operation dispatch and append-only attempt persistence, and
 DP42-03D adds the bounded evidence sidecar and dependency-derived stale state
 below.
 
-`cozy.document-project-state.v1` MUST be a disposable derived YAML snapshot at
+`cozy.document-project-state.v2` MUST be a disposable derived YAML snapshot at
 `<project>/target/document-project/state.yaml`.  It is neither an authored
 authority nor a state override and MUST NOT be edited to alter project state.
 Deleting `<project>/target/document-project` and inspecting unchanged admitted
@@ -227,7 +266,7 @@ descriptor, Core, and command-specific source validation succeeds.  The
 canonical UTF-8 YAML serialization MUST contain, in this order, `schema`,
 `project`, `profile`, `workspace`, `sources`, `evidence`, `criteria`, and
 `workProducts`.  `schema` is
-exactly `cozy.document-project-state.v1`; the three identity values are taken
+exactly `cozy.document-project-state.v2`; the three identity values are taken
 from the admitted descriptor.  `sources` is a fixed-order list of direct,
 project-relative authored inputs, each with only `path` and its lowercase
 hexadecimal `sha256` content identity.  The admitted source order is the
@@ -247,7 +286,7 @@ evidence-derived state only, never a writable percentage or acceptance
 authority.
 
 `workProducts` MUST follow the closed `document-production` Work Product order.
-Each entry MUST contain `id`, `role`, `disposition`, `criterion`, `coverage`,
+Each entry MUST contain `id`, `role`, `disposition`, `selection`, `criterion`, `coverage`,
 `currentness`, `review`, and `readiness`, using only the DP42-03A vocabularies.
 The source-backed Core, article, infographic, and activated storyboard
 projections may be `satisfied`/`current`; absent output or receipt-dependent
@@ -289,11 +328,12 @@ leave no partial attempt file, and return a stable path/evidence diagnostic.
 The snapshot MUST independently represent all of the following derived views:
 
 - coverage for each criterion as `satisfied`, `missing`, or `not-applicable`;
-- currentness as `missing`, `current`, `stale`, or `failed`, derived from
+- currentness as `missing`, `current`, `stale`, `failed`, `nonparticipating`,
+  or `not-applicable`, derived from
   declared identities rather than timestamps;
-- review as `pending`, `accepted`, `rejected`, or `stale`; and
-- readiness as `blocked`, `ready`, `running`, `succeeded`, `failed`, or
-  `omitted`.
+- review as `pending`, `accepted`, `rejected`, `stale`, or `not-applicable`; and
+- readiness as `blocked`, `ready`, `running`, `succeeded`, `failed`,
+  `not-selected`, or `omitted`.
 
 `omitted` MUST expose its declared profile reason and MUST NOT be counted as
 completion.  Reconstruction MUST use only the closed `document-production`
@@ -309,20 +349,21 @@ command MAY write only the disposable snapshot cache above; it MUST NOT write
 an attempt, receipt, acceptance, authored source, registry, workspace
 integration, aggregate build, publication, deployment, upload, or downstream
 operation.  DP42-03C `run` admits exactly one declared, registered operation
-that is enabled by the selected profile and creates exactly one append-only
+that produces a selected Work Product and creates exactly one append-only
 attempt, or, with `--dry-run`, reports the selected operation, provider, and
 profile without creating any cache, evidence, output, or other file.  It MUST
 NOT infer downstream execution.  The closed descriptor fields, common workflow
 DAG, profiles, Work Product roles, criteria, gates, operation IDs, provider
-bindings, retained media/SmartDox/Visual Page/Phase-41 authorities, public
-command grammar, and Phase-42 compatibility behavior remain unchanged.
+bindings, retained media/SmartDox/Visual Page/Phase-41 authorities, and public
+command grammar remain otherwise unchanged. Retired v1 compatibility is not a
+behavior of this contract.
 
 ## DP42-03D evidence sidecar and evidence-derived state
 
 DP42-03D adds one optional, unscaffolded, direct non-symlink sidecar at
 `<project>/evidence/document-project.yaml`.  Its schema is exactly
-`cozy.document-project-evidence.v1`; it is an evidence binding, not a field or
-extension of the closed `cozy.document-project.v1` descriptor.  Its top-level
+`cozy.document-project-evidence.v2`; it is an evidence binding, not a field or
+extension of the closed `cozy.document-project.v2` descriptor. Its top-level
 keys are ordered exactly `schema`, `project`, `publicSource`, and `products`.
 `project` equals the admitted descriptor id.
 
@@ -336,9 +377,9 @@ explicit safe source mapping only.  It MUST NOT discover a host or identity,
 register a site, or expose Content Core, raw media, review material, receipt
 content, or target files as a public source.
 
-`products` lists exactly every enabled `document-production` Work Product in
-the immutable workflow order.  Each item has exactly `id`, `evidence`, and
-`review`; its id equals the enabled Work Product at that position.  `evidence` is one
+`products` lists exactly every selected `document-production` Work Product in
+the immutable workflow order. Each item has exactly `id`, `evidence`, and
+`review`; its id equals the selected Work Product at that position. `evidence` is one
 of these closed alternatives:
 
 - `kind: none`, with no other field;
@@ -372,10 +413,11 @@ evidence `stale`; missing or changed request/response evidence likewise makes
 the review `stale`.
 
 The shared derived model is the sole source for both the disposable state
-snapshot and the dashboard.  For every row it independently derives coverage
+snapshot and the dashboard. For every row it independently derives coverage
 (`satisfied`, `missing`, `not-applicable`), currentness (`missing`, `current`,
-`stale`, `failed`), review (`pending`, `accepted`, `rejected`, `stale`),
-readiness (`blocked`, `ready`, `failed`, `omitted`), and a precise reason.
+`stale`, `failed`, `nonparticipating`, `not-applicable`), review (`pending`,
+`accepted`, `rejected`, `stale`, `not-applicable`), readiness (`blocked`,
+`ready`, `failed`, `not-selected`, `omitted`), and a precise reason.
 Disabled entries remain `not-applicable`/`omitted` with their selected profile
 reason.  A stale dependency propagates to every declared consumer, including
 the shared infographic's article, slide, and video consumers, without any
@@ -383,7 +425,7 @@ timestamp ordering.  A valid failed retained attempt produces `failed` only
 when that Work Product has no current declared product evidence; retained
 attempts otherwise remain historical and never imply success.
 
-The canonical state YAML remains `cozy.document-project-state.v1`.  In addition
+The canonical state YAML is `cozy.document-project-state.v2`. In addition
 to fixed-order authored `sources`, it has a distinct deterministic `evidence`
 section for the optional sidecar and retained attempt path/SHA-256 identities,
 then immutable `criteria` in Workflow Definition criterion order, followed by
@@ -393,10 +435,12 @@ Deleting the cache and inspecting unchanged inputs reconstructs byte-identical
 bytes.  `inspect` and `verify` write only this disposable cache and never write
 durable evidence.
 
-Dashboard derives the identical shared model without writing the state cache.
-It shows providers, gates, coverage/currentness/review/readiness, exact reason,
-and user-facing next action; it keeps retained attempts separate from current
-product state.  It MUST include a Criterion coverage section stating
+The dashboard is a distinct user-facing projection that derives the identical
+shared model without writing the state cache. Its workflow and state tables are
+secondary diagnostic projections, not dashboard authority or the Phase 45.1
+dashboard redesign. It shows providers, gates, coverage/currentness/review/readiness,
+exact reason, and user-facing next action; it keeps retained attempts separate
+from current product state. It MUST include a Criterion coverage section stating
 `<satisfied>/<total> applicable criteria satisfied` and one accessible table
 with criterion, coverage, and reason from the same snapshot.  When present, it shows only the safe public-source mapping.
 It visibly labels Project production, workspace integration, aggregate build,
@@ -405,7 +449,8 @@ self-contained, deterministic, HTML-escaped, and read-only; no external call,
 provider execution, registry/site discovery, aggregate build, publication,
 deployment, upload, or Article 8 behavior is permitted.
 
-Sidecar absence preserves the legacy source-derived missing/pending projection.
+Sidecar absence uses the same v2 source-derived missing/pending projection;
+it does not admit a legacy schema or fallback.
 This slice does not alter the descriptor, CLI/help grammar, workflow DAG,
 profiles, media sources, media receipt/review schemas, external repository
 registration, workspace integration, aggregate build, publication, deployment,
@@ -556,13 +601,12 @@ read-only projection and never accepts, persists, or reflects feedback.
   successful command MUST regenerate only the disposable snapshot cache
   specified above, and MUST identify its project-relative location in output.
 - `plan` MUST resolve the closed reusable definition and report deterministic
-  static `active` and `omitted` Work Product lines and `blocked` and `eligible`
-  logical-operation lines without mutating authored authority, project state,
-  evidence, registration, or delivery.  In this Phase, `eligible` means only
-  declared for the selected profile; it is not runtime readiness.  Every such
-  operation is blocked from execution because execution and Operation Attempts
-  are reserved for Phase 42.1.  For `standard`, the omitted video lines MUST
-  include exactly `profile standard disables video branch`; for
+  `required`, `active-optional`, `inactive-optional`, and `profile-disabled`
+  Work Product lines and `blocked` and `eligible` logical-operation lines
+  without mutating authored authority, project state, evidence, registration,
+  or delivery. `eligible` means only that an operation produces a selected Work
+  Product; it is not runtime readiness. For `standard`, the profile-disabled
+  video lines MUST include exactly `profile standard disables video branch`; for
   `standard-video`, that text MUST be absent.
 - `dashboard` MUST generate a deterministic, self-contained, read-only HTML
   projection.  With no `--save`, it MUST use
@@ -570,14 +614,14 @@ read-only projection and never accepts, persists, or reflects feedback.
   exactly the requested path when external, or the requested `.html` path under
   `target/document-project/` when Project-internal.  Any other Project-internal
   destination MUST reject with `DP-PATH-001` before creating a parent or
-  temporary output.  Its Workflow view MUST show active and omitted
-  Work Products, provider bindings, and gates.  Its Work Product matrix MUST
-  show coverage, currentness, review, readiness, and omitted/blocking reasons.
+  temporary output. Its Workflow view MUST show the four selection states,
+  Work Products, provider bindings, and gates. Its Work Product matrix MUST
+  show coverage, currentness, review, readiness, and nonparticipating/blocking reasons.
   Its Work Product details MUST show dependencies, producer and consumer
   operations, evidence references, and a user-facing next action. It MUST make
   the current project state and the next required or useful action clear without
   requiring the reader to interpret a logical-operation identifier. Disabled video
-  status MUST remain visibly omitted, never complete. Core and slide review,
+  status MUST remain visibly profile-disabled, never complete. Core and slide review,
   Slide Logical Chart, and Video Logical Chart are distinct `review-projection`
   Work Products. The slide chart derives from Content Core and Visual Page IR;
   the video chart derives from those inputs plus storyboard IR and is disabled
@@ -623,13 +667,13 @@ read-only projection and never accepts, persists, or reflects feedback.
   output.  Failed validation MUST create no new cache.
 - `run --operation` MUST validate the descriptor, Core, and all command-admitted
   initial authored sources before any evidence write.  It MUST admit exactly
-  one declared logical operation enabled by the selected profile.  A normal
+  one declared logical operation that produces a selected Work Product. A normal
   eligible run MUST record one append-only attempt and MUST NOT invoke a
   provider, generate a deliverable or receipt, write the Core or state cache,
   or infer downstream work.  `--dry-run` uses the same admission and reports
   the operation, provider, and profile without creating an attempt or cache.
-  An unknown operation or a declared operation disabled by the selected profile
-  MUST reject with `DP-OP-001`; malformed or unsafe project input retains its
+  An unknown operation or a declared operation for an inactive optional or
+  profile-disabled Work Product MUST reject with `DP-OP-001`; malformed or unsafe project input retains its
   earlier descriptor/path diagnostic precedence.  Rejection MUST create no
   attempt, receipt, generated state, dashboard, registry, delivery, or output
   file, and MUST not infer downstream publication, workspace-wide execution,
@@ -722,8 +766,8 @@ progress/status authority, a scheduler, daemon, arbitrary command execution,
 dashboard write-back, implicit registration/build/publish/deploy/upload,
 migration, or Phase 41 expansion.
 
-The closed `cozy.document-project.v1` descriptor fields are not deferred or
-expandable.  DP42-02 closes the workflow-owned Work Product, provider-binding,
+The closed `cozy.document-project.v2` descriptor fields are not deferred or
+expandable. Phase 45 closes the workflow-owned Work Product, provider-binding,
 deliverable-disposition, criteria/gate, evidence-reference, and operation
 model only as the static in-code definition specified above.  SmartDox source
 projection and host discovery, and external receipt schema changes remain

@@ -78,12 +78,12 @@ private[cozy] object CozyDocumentProjectEvidence {
 
   private final case class EvidenceStatus(currentness: String, reason: Option[String])
 
-  private val _sidecar_schema = "cozy.document-project-evidence.v1"
+  private val _sidecar_schema = "cozy.document-project-evidence.v2"
   private val _attempt_schema = "cozy.document-operation-attempt.v1"
   private val _hash_pattern = "[0-9a-f]{64}".r
 
   def snapshot(project: Path, descriptor: CozyDocumentProject.Descriptor): Snapshot = {
-    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
     }
@@ -131,6 +131,7 @@ private[cozy] object CozyDocumentProjectEvidence {
         s"  - id: ${workproduct.id}",
         s"    role: ${workproduct.role.value}",
         s"    disposition: ${binding.disposition.value}",
+        s"    selection: ${product.value.selection.value}",
         s"    criterion: ${workproduct.criteria.head}",
         s"    coverage: ${product.coverage}",
         s"    currentness: ${product.currentness}",
@@ -146,7 +147,7 @@ private[cozy] object CozyDocumentProjectEvidence {
       "  notApplicable:"
     ) ++ _criterion_yaml(value.criteria.filter(_.coverage == "not-applicable"))
     (Vector(
-      "schema: cozy.document-project-state.v1",
+      "schema: cozy.document-project-state.v2",
       s"project: ${descriptor.id}",
       s"profile: ${descriptor.profile}",
       s"workspace: ${descriptor.workspace}",
@@ -209,11 +210,11 @@ private[cozy] object CozyDocumentProjectEvidence {
       }
       val publicsource = _public_source(project, _field(fields, "publicSource", "Document Project evidence sidecar"))
       val productvalues = _field(fields, "products", "Document Project evidence sidecar").asArray.getOrElse(_invalid("Document Project evidence sidecar products must be an array"))
-      val enabled = resolved.workProducts.filter(_.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled)
-      if (productvalues.size != enabled.size) {
-        _invalid("Document Project evidence sidecar products must enumerate every enabled Work Product exactly once")
+      val selected = resolved.workProducts.filter(_.isParticipating)
+      if (productvalues.size != selected.size) {
+        _invalid("Document Project evidence sidecar products must enumerate every selected Work Product exactly once")
       }
-      val products = productvalues.zip(enabled).map {
+      val products = productvalues.zip(selected).map {
         case (value, expected) => _product(project, descriptor, expected, sources.map(_.path).toSet, value)
       }.toVector
       Some(Sidecar(FileIdentity("evidence/document-project.yaml", _sha256(admittedsidecar)), publicsource, products))
@@ -375,16 +376,23 @@ private[cozy] object CozyDocumentProjectEvidence {
     val initial = resolved.workProducts.map { value =>
       val binding = value.binding
       val product = value.workProduct
-      if (binding.disposition == CozyDocumentWorkflow.WorkProductDisposition.Disabled) {
+      if (value.selection == CozyDocumentWorkflow.WorkProductSelection.ProfileDisabled) {
         product.id -> EvidenceStatus("not-applicable", binding.reason)
+      } else if (value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional) {
+        product.id -> EvidenceStatus("nonparticipating", Some("optional Work Product is not selected"))
+      } else if (product.id == "article-review-html") {
+        product.id -> _source_status(descriptor, product.id, sourcepaths)
       } else {
-        product.id -> declared.get(product.id).map(entry => _evidence_status(project, entry.evidence, declared)).getOrElse(_legacy_status(descriptor, product.id, sourcepaths))
+        product.id -> declared.get(product.id).map(entry => _evidence_status(project, entry.evidence, declared)).getOrElse(_source_status(descriptor, product.id, sourcepaths))
       }
     }.toMap
     val initiallycurrent = initial.collect { case (id, EvidenceStatus("current", _)) => id }.toSet
     val stale = _stale_products(resolved, initial.collect { case (id, EvidenceStatus("stale", _)) => id }.toSet)
+    val contractonly = resolved.workProducts.collect {
+      case workproduct if workproduct.workProduct.id == "article-review-html" && workproduct.selection == CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => workproduct.workProduct.id
+    }.toSet
     val withstale = initial.map {
-      case (id, EvidenceStatus(currentness, _)) if currentness != "not-applicable" && stale.contains(id) => id -> EvidenceStatus("stale", Some("a declared dependency is stale"))
+      case (id, EvidenceStatus(currentness, _)) if !contractonly.contains(id) && currentness != "not-applicable" && currentness != "nonparticipating" && stale.contains(id) => id -> EvidenceStatus("stale", Some("a declared dependency is stale"))
       case item => item
     }
     val failedproducts = attempts.filter(_.outcome == "failed").flatMap(_.products).toSet
@@ -395,14 +403,16 @@ private[cozy] object CozyDocumentProjectEvidence {
       val currentness =
         if (evidence.currentness == "not-applicable") {
           "not-applicable"
-        } else if (!initiallycurrent.contains(product.id) && evidence.currentness != "current" && failedproducts.contains(product.id)) {
+        } else if (!contractonly.contains(product.id) && !initiallycurrent.contains(product.id) && evidence.currentness != "current" && failedproducts.contains(product.id)) {
           "failed"
         } else {
           evidence.currentness
         }
-      val review = declared.get(product.id).map(entry => _review_status(project, descriptor, entry.review)).getOrElse("pending")
+      val review =
+        if (value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional || value.selection == CozyDocumentWorkflow.WorkProductSelection.ProfileDisabled) "not-applicable"
+        else declared.get(product.id).map(entry => _review_status(project, descriptor, entry.review)).getOrElse("pending")
       val coverage =
-        if (currentness == "not-applicable") {
+        if (currentness == "not-applicable" || currentness == "nonparticipating") {
           "not-applicable"
         } else if (currentness == "current" && (product.id != "content-core" || coreaccepted)) {
           "satisfied"
@@ -412,6 +422,8 @@ private[cozy] object CozyDocumentProjectEvidence {
       val readiness =
         if (currentness == "not-applicable") {
           "omitted"
+        } else if (currentness == "nonparticipating") {
+          "not-selected"
         } else if (currentness == "failed" || review == "rejected") {
           "failed"
         } else if (currentness == "current" && review != "stale") {
@@ -422,6 +434,8 @@ private[cozy] object CozyDocumentProjectEvidence {
       val reason =
         if (currentness == "not-applicable") {
           binding.reason
+        } else if (currentness == "nonparticipating") {
+          Some("optional Work Product is not selected")
         } else if (currentness == "failed") {
           Some("a retained failed attempt has no current product evidence")
         } else if (review == "rejected") {
@@ -429,7 +443,7 @@ private[cozy] object CozyDocumentProjectEvidence {
         } else if (review == "stale") {
           Some("review evidence is stale")
         } else {
-          evidence.reason.orElse(_legacy_reason(descriptor, product.id, sourcepaths, currentness))
+          evidence.reason.orElse(_source_reason(descriptor, product.id, sourcepaths, currentness))
         }
       WorkProductState(value, coverage, currentness, review, readiness, reason)
     }
@@ -478,7 +492,7 @@ private[cozy] object CozyDocumentProjectEvidence {
     }
   }
 
-  private def _legacy_status(
+  private def _source_status(
     descriptor: CozyDocumentProject.Descriptor,
     productid: String,
     sourcepaths: Set[String]
@@ -498,11 +512,12 @@ private[cozy] object CozyDocumentProjectEvidence {
     }
   }
 
-  private def _legacy_reason(descriptor: CozyDocumentProject.Descriptor, productid: String, sourcepaths: Set[String], currentness: String): Option[String] = {
+  private def _source_reason(descriptor: CozyDocumentProject.Descriptor, productid: String, sourcepaths: Set[String], currentness: String): Option[String] = {
     if (currentness != "missing") {
       None
     } else {
       val sourcesavailable = productid match {
+        case "article-review-html" => sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("index.dox") && sourcepaths.contains("presentation/visual-pages.yaml")
         case "core-review-html" => sourcepaths.contains(descriptor.contentCore)
         case "slide-review-html" => sourcepaths.contains("presentation/visual-pages.yaml")
         case "video-review" => sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md")
@@ -510,7 +525,7 @@ private[cozy] object CozyDocumentProjectEvidence {
         case "video-logical-chart-html" => sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md")
         case _ => false
       }
-      if (Set("core-review-html", "slide-review-html", "video-review", "explanation-structure-review-html", "video-logical-chart-html").contains(productid) && sourcesavailable) {
+      if (Set("article-review-html", "core-review-html", "slide-review-html", "video-review", "explanation-structure-review-html", "video-logical-chart-html").contains(productid) && sourcesavailable) {
         Some("default review HTML is not generated")
       } else {
         Some("source or retained evidence is not present")
@@ -600,12 +615,12 @@ private[cozy] object CozyDocumentProjectEvidence {
     if (_string(fields, "provider", "Document Project retained attempt") != operation.providerBinding || _string(fields, "profile", "Document Project retained attempt") != descriptor.profile) {
       _invalid("Document Project retained attempt provider or profile is invalid")
     }
-    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => _invalid(cause)
     }
-    if (!operation.produces.exists(id => resolved.workProducts.exists(value => value.workProduct.id == id && value.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled))) {
-      _invalid("Document Project retained attempt operation is disabled for the selected profile")
+    if (!operation.produces.exists(id => resolved.workProducts.exists(value => value.workProduct.id == id && value.isParticipating))) {
+      _invalid("Document Project retained attempt operation does not produce a selected Work Product")
     }
     val inputvalues = _field(fields, "inputs", "Document Project retained attempt").asArray.getOrElse(_invalid("Document Project retained attempt inputs must be an array"))
     val expectedinputs = Vector(

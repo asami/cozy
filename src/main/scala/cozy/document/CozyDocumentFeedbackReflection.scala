@@ -220,7 +220,7 @@ private[cozy] object CozyDocumentFeedbackReflection {
       "Cozy Document Project Feedback Reflection",
       s"project: ${descriptor.id}",
       s"package: $project",
-      "schema: cozy.document-project.v1"
+      "schema: cozy.document-project.v2"
     ) ++ lines).mkString("\n")
   }
 }

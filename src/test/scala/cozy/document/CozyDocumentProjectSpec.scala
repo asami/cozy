@@ -68,9 +68,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("both reports identify the project and descriptor schema")
         inspect should startWith("Cozy Document Project Inspect")
         inspect should include("project: sample")
-        inspect should include("schema: cozy.document-project.v1")
+        inspect should include("schema: cozy.document-project.v2")
         verify should startWith("Cozy Document Project Verify")
-        verify should include("schema: cozy.document-project.v1")
+        verify should include("schema: cozy.document-project.v2")
 
         And("successful inspections and verification expose only a deterministic disposable state cache")
         val state = project.resolve("target/document-project/state.yaml")
@@ -78,7 +78,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         inspect should include("state: target/document-project/state.yaml")
         verify should include("state: target/document-project/state.yaml")
         val firststate = Files.readString(state, StandardCharsets.UTF_8)
-        firststate should include("schema: cozy.document-project-state.v1")
+        firststate should include("schema: cozy.document-project-state.v2")
         firststate should include("workProducts:")
         firststate should include("coverage: satisfied")
         firststate should include("currentness: current")
@@ -100,7 +100,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("the descriptor bytes remain authored evidence and the regenerated cache is independent")
         Files.readAllBytes(descriptor) shouldBe descriptorbytes
         Files.isSameFile(state, descriptor) shouldBe false
-        Files.readString(state, StandardCharsets.UTF_8) should include("schema: cozy.document-project-state.v1")
+        Files.readString(state, StandardCharsets.UTF_8) should include("schema: cozy.document-project-state.v2")
 
         When("the cache is deleted and inspect reconstructs it")
         Files.delete(state)
@@ -115,6 +115,203 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         And("a parsed unknown field remains a closed-descriptor diagnostic")
         Files.writeString(project.resolve("document-project.yaml"), Files.readString(project.resolve("document-project.yaml"), StandardCharsets.UTF_8) + "unknown: value\n", StandardCharsets.UTF_8)
         _failure(List("document-project", "inspect", project.toString)) should include("DP-DESC-002")
+      }
+    }
+
+    "admit only v2 descriptors before a project action can write derived state or evidence" in {
+      _with_temp_dir("cozy-document-project-v2-only") { root =>
+        Given("a scaffolded v2 Document Project with no derived outputs")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val descriptor = project.resolve("document-project.yaml")
+
+        When("the descriptor claims the retired v1 schema")
+        Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("cozy.document-project.v2", "cozy.document-project.v1"), StandardCharsets.UTF_8)
+        val failure = _failure(List("document-project", "inspect", project.toString))
+
+        Then("admission rejects the retired identity before state or evidence is created")
+        failure should include("DP-DESC-002")
+        Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject closed unsafe v2 optional selection and semantic scope descriptors" in {
+      _with_temp_dir("cozy-document-project-v2-closed-descriptor") { root =>
+        Given("a scaffolded v2 descriptor with its exact self semantic scope")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val descriptor = project.resolve("document-project.yaml")
+        val original = Files.readString(descriptor, StandardCharsets.UTF_8)
+
+        When("optional selection duplicates, selects required or profile-disabled products, or semantic scope is malformed")
+        val duplicate = original.replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - core-review-html\n  - core-review-html")
+        val required = original.replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - content-core")
+        val disabled = original.replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - video-review")
+        val unknownscope = original.replace("workProducts: []", "workProducts: []\n      unexpected: value")
+        val missingself = original.replace("contentCore: sample:core:en", "contentCore: another:core:en")
+        val failures = Vector(duplicate, required, disabled, unknownscope, missingself).map { value =>
+          Files.writeString(descriptor, value, StandardCharsets.UTF_8)
+          _failure(List("document-project", "inspect", project.toString))
+        }
+
+        Then("each unsafe closed shape is rejected before any derived state is written")
+        failures.foreach(_ should include("DP-DESC-002"))
+        Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "resolve deterministic v2 required active inactive and profile-disabled Work Products" in {
+      _with_temp_dir("cozy-document-project-v2-selection") { root =>
+        Given("a v2 standard project that selects only the article review Work Product")
+        val project = _scaffolded_project(root, "selection")
+        val descriptor = project.resolve("document-project.yaml")
+        Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - article-review-html"), StandardCharsets.UTF_8)
+
+        When("plan, state, and selected sidecar evidence resolve the descriptor selection")
+        val plan = _execute(List("document-project", "plan", project.toString))
+        _write_sidecar(project, activeoptionalworkproducts = Vector("article-review-html"))
+        _execute(List("document-project", "inspect", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val sidecar = Files.readString(project.resolve("evidence/document-project.yaml"), StandardCharsets.UTF_8)
+
+        Then("required, active optional, inactive optional, and profile-disabled products remain distinct in canonical order")
+        plan should include("required: work-product content-core [authority, required]")
+        plan should include("active-optional: work-product article-review-html [review-projection, optional; selected]")
+        plan should include("inactive-optional: work-product core-review-html [review-projection, optional; not-selected]")
+        plan should include("profile-disabled: work-product video-review [review-projection, disabled: profile standard disables video branch]")
+        state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional")
+        state should include("id: core-review-html\n    role: review-projection\n    disposition: optional\n    selection: inactive-optional\n    criterion: core-review-rendered\n    coverage: not-applicable\n    currentness: nonparticipating\n    review: not-applicable\n    readiness: not-selected")
+        state should include("id: video-review\n    role: review-projection\n    disposition: disabled\n    selection: profile-disabled\n    criterion: video-review-rendered\n    coverage: not-applicable\n    currentness: not-applicable")
+        sidecar.indexOf("id: content-core") should be < sidecar.indexOf("id: article-review-html")
+        sidecar.indexOf("id: article-review-html") should be < sidecar.indexOf("id: visual-pages")
+        sidecar should not include "id: core-review-html"
+      }
+    }
+
+    "admit article review HTML only as a selected dry run without a review CLI or output" in {
+      _with_temp_dir("cozy-document-project-v2-article-review") { root =>
+        Given("a v2 project that explicitly selects article-review-html")
+        val project = _scaffolded_project(root, "article-review")
+        val descriptor = project.resolve("document-project.yaml")
+        Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - article-review-html"), StandardCharsets.UTF_8)
+
+        When("the declared review operation is admitted only as a recorded dry run")
+        val output = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review", "--dry-run"))
+
+        Then("the selected first-class Work Product has no review command or generated HTML behavior in this Slice")
+        output should include("operation: article.render-review")
+        output should include("mode: dry-run")
+        _failure(List("document-project", "review", project.toString, "--kind", "article")) should include("DP-CLI-001")
+        Files.exists(project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "report article review HTML as a selected contract-only dashboard status" in {
+      _with_temp_dir("cozy-document-project-v2-article-review-dashboard") { root =>
+        Given("a v2 project that selects article-review-html with all review projection prerequisites")
+        val project = _scaffolded_project(root, "article-review-dashboard")
+        val descriptor = project.resolve("document-project.yaml")
+        Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - article-review-html"), StandardCharsets.UTF_8)
+
+        When("the dashboard is generated for the selected project")
+        _execute(List("document-project", "dashboard", project.toString))
+
+        Then("the selected product reports the exact Phase 45 contract-only next action")
+        val dashboard = Files.readString(
+          project.resolve("target/document-project/project-dashboard.html"),
+          StandardCharsets.UTF_8
+        )
+        dashboard should include("No action: contract-only in Phase 45")
+        dashboard should not include "Generate Article review HTML"
+        dashboard should include("article-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
+      }
+    }
+
+    "retain article review HTML as contract-only when a valid sidecar retains current source evidence" in {
+      _with_temp_dir("cozy-document-project-v2-article-review-sidecar") { root =>
+        Given("a v2 project that selects article-review-html and declares its current index.dox source in a valid sidecar")
+        val project = _scaffolded_project(root, "article-review-sidecar")
+        _write_sidecar(
+          project,
+          evidence = Map("article-review-html" -> _file_evidence(project, "index.dox", "source")),
+          activeoptionalworkproducts = Vector("article-review-html")
+        )
+
+        When("the selected project is inspected and its dashboard is generated")
+        _execute(List("document-project", "inspect", project.toString))
+        _execute(List("document-project", "dashboard", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("the retained sidecar does not make the contract-only Work Product current, ready, or generatable")
+        state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked\n    reason: \"default review HTML is not generated\"")
+        dashboard should include("No action: contract-only in Phase 45")
+        dashboard should not include "Generate Article review HTML"
+        dashboard should include("article-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
+      }
+    }
+
+    "retain article review HTML contract-only state through stale dependencies and failed attempts" in {
+      _with_temp_dir("cozy-document-project-v2-article-review-propagation") { root =>
+        Given("a selected article-review-html product with valid source evidence and a current Content Core identity")
+        val project = _scaffolded_project(root, "article-review-propagation")
+        _write_sidecar(
+          project,
+          evidence = Map(
+            "content-core" -> _file_evidence(project, "content/core-en.yaml", "source"),
+            "article-review-html" -> _file_evidence(project, "index.dox", "source")
+          ),
+          activeoptionalworkproducts = Vector("article-review-html")
+        )
+        Files.writeString(project.resolve("content/core-en.yaml"), _core_yaml("article-review-propagation", "en", "changed Content Core"), StandardCharsets.UTF_8)
+        val attemptid = "44444444-4444-4444-8444-444444444444"
+        val attempt = project.resolve(s"evidence/attempts/$attemptid.yaml")
+        Files.createDirectories(attempt.getParent)
+        Files.writeString(attempt, _failed_attempt_yaml(project, attemptid, "article.render-review", "cozy-review-projection", "standard"), StandardCharsets.UTF_8)
+
+        When("inspect and dashboard derive state with the stale dependency and retained failed attempt")
+        _execute(List("document-project", "inspect", project.toString))
+        _execute(List("document-project", "dashboard", project.toString))
+
+        Then("the selected article review product remains exactly contract-only and retains historical evidence without a generation action")
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        state should include("id: content-core\n    role: authority\n    disposition: required\n    selection: required\n    criterion: content-core-accepted\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked\n    reason: \"default review HTML is not generated\"")
+        state should include(s"path: evidence/attempts/$attemptid.yaml")
+        dashboard should include("failed; historical attempt")
+        dashboard should not include "Generate Article review HTML"
+      }
+    }
+
+    "admit non-empty semantic scope identities without a case or syntax restriction" in {
+      _with_temp_dir("cozy-document-project-v2-semantic-identity") { root =>
+        Given("a v2 descriptor with a second locale identity containing uppercase and punctuation")
+        val project = _scaffolded_project(root, "semantic-identity")
+        val descriptor = project.resolve("document-project.yaml")
+        val original = Files.readString(descriptor, StandardCharsets.UTF_8)
+        val identityscope = original.replace(
+          "      workProducts: []",
+          """      workProducts: []
+            |    - project: semantic-identity-ja
+            |      language: ja
+            |      contentCore: Shared::Core@2026!
+            |      workProducts:
+            |        - id: article-review-html
+            |          identity: Review.HTML@2026!
+            |""".stripMargin
+        )
+        Files.writeString(descriptor, identityscope, StandardCharsets.UTF_8)
+
+        When("the semantic identity hooks are admitted without reading another project")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+
+        Then("the non-empty identities remain valid regardless of case or punctuation")
+        inspect should include("schema: cozy.document-project.v2")
       }
     }
 
@@ -265,12 +462,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val videoplan = _execute(List("document-project", "plan", video.toString))
 
         Then("the reports distinguish deterministic active, omitted, blocked, and eligible model categories")
-        standardplan should include("active: work-product content-core [authority, required]")
-        standardplan should include("omitted: work-product video-storyboard [plan, disabled: profile standard disables video branch]")
+        standardplan should include("required: work-product content-core [authority, required]")
+        standardplan should include("profile-disabled: work-product video-storyboard [plan, disabled: profile standard disables video branch]")
         standardplan should include("blocked: operation article.render-pdf [execution and Operation Attempts are reserved for Phase 42.1]")
         standardplan should include("eligible: operation article.render-pdf [provider: smartdox-rendering]")
-        videoplan should include("active: work-product video-storyboard [plan, required]")
-        videoplan should include("omitted: none")
+        videoplan should include("required: work-product video-storyboard [plan, required]")
         videoplan should not include "profile standard disables video branch"
 
         And("planning creates neither generated authority nor evidence")
@@ -358,7 +554,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
         val project = parent.resolve("sample.dox")
         val external = root.resolve("external.yaml")
-        Files.writeString(external, "schema: cozy.document-project.v1\n", StandardCharsets.UTF_8)
+        Files.writeString(external, "schema: cozy.document-project.v2\n", StandardCharsets.UTF_8)
 
         When("the descriptor source is replaced by a symbolic link")
         Files.delete(project.resolve("document-project.yaml"))
@@ -389,6 +585,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
         val project = parent.resolve("sample.dox")
         val core = project.resolve("content/core-en.yaml")
+        _activate_optional_work_products(project, "standard", Vector("core-review-html", "slide-review-html"))
         Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: html-sensitive\n    text: \"<script>& text\""), StandardCharsets.UTF_8)
         val descriptorbytes = Files.readAllBytes(project.resolve("document-project.yaml"))
         val corebytes = Files.readAllBytes(core)
@@ -419,9 +616,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         firstbytes shouldBe secondbytes
         val dashboardtext = Files.readString(dashboard, StandardCharsets.UTF_8)
         dashboardtext should include("<h2>Workflow</h2>")
-        dashboardtext should include("Branch (active/omitted)")
-        dashboardtext should include(">active<")
-        dashboardtext should include(">omitted<")
+        dashboardtext should include("Selection")
+        dashboardtext should include(">required<")
+        dashboardtext should include(">active-optional<")
+        dashboardtext should include(">profile-disabled<")
         dashboardtext should include("<h2>Work Product matrix</h2>")
         dashboardtext should include("<h2>Work Product details</h2>")
         dashboardtext should include("&lt;script&gt;&amp; text")
@@ -438,7 +636,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboardtext should include("<a href=\"../../infographic/infographic.svg\">../../infographic/infographic.svg</a>")
         And("disabled video products are not applicable in the dashboard matrix")
         Vector("video-storyboard", "video-review", "video-deliverable").foreach { id =>
-          dashboardtext should include(s"$id</th><td>not-applicable</td><td>not-applicable</td><td>pending</td><td>omitted")
+          dashboardtext should include(s"$id</th><td>not-applicable</td><td>not-applicable</td><td>not-applicable</td><td>omitted")
         }
         Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.readAllBytes(project.resolve("document-project.yaml")) shouldBe descriptorbytes
@@ -508,6 +706,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "scaffold", "video-doc", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", videoparent.toString))
         val standard = standardparent.resolve("core-doc.dox")
         val video = videoparent.resolve("video-doc.dox")
+        _activate_optional_work_products(standard, "standard", Vector("core-review-html"))
         val standardcore = standard.resolve("content/core-en.yaml")
         Files.writeString(standardcore, Files.readString(standardcore, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-entry\n    text: \"Accepted semantic statement\""), StandardCharsets.UTF_8)
         val standardcorebytes = Files.readAllBytes(standardcore)
@@ -559,6 +758,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val emptycoreparent = Files.createDirectory(root.resolve("empty-core-parent"))
         _execute(List("document-project", "scaffold", "empty-core-doc", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", emptycoreparent.toString))
         val emptycoreproject = emptycoreparent.resolve("empty-core-doc.dox")
+        _activate_optional_work_products(emptycoreproject, "standard", Vector("core-review-html"))
 
         When("the empty Core review is requested")
         _execute(List("document-project", "review", emptycoreproject.toString, "--kind", "core"))
@@ -587,6 +787,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "scaffold", "chart-video", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", videoparent.toString))
         val standard = standardparent.resolve("chart-doc.dox")
         val video = videoparent.resolve("chart-video.dox")
+        _activate_optional_work_products(standard, "standard", Vector("explanation-structure-review-html"))
+        _activate_optional_work_products(video, "standard-video", Vector("explanation-structure-review-html", "video-logical-chart-html"))
         val standardcore = standard.resolve("content/core-en.yaml")
         val standardvisualpages = standard.resolve("presentation/visual-pages.yaml")
         val standardarticle = standard.resolve("index.dox")
@@ -686,9 +888,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
         Then("slide and video logical-chart Work Products distinguish generated output from available IR inputs")
         val dashboardtext = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
+        dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("explanation-structure-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
-        dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active</td><td>review-projection</td><td>optional</td>")
+        dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("video-logical-chart-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
         dashboardtext should include("phase-41-explanation-structure")
         dashboardtext should include("content-core")
@@ -999,6 +1201,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val core = project.resolve("content/core-en.yaml")
         val article = project.resolve("index.dox")
         val visualpages = project.resolve("presentation/visual-pages.yaml")
+        _activate_optional_work_products(project, "standard-video", Vector("core-review-html", "explanation-structure-review-html"))
         val descriptorbytes = Files.readAllBytes(descriptor)
         val corebytes = Files.readAllBytes(core)
         val articlebytes = Files.readAllBytes(article)
@@ -1235,6 +1438,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val hidden = parent.resolve("bok-video.dox")
         val hiddenDescriptor = hidden.resolve("document-project.yaml")
         Files.writeString(hiddenDescriptor, Files.readString(hiddenDescriptor, StandardCharsets.UTF_8).replace("profile: bok-video", "profile: simplemodeling-org-video"), StandardCharsets.UTF_8)
+        _activate_optional_work_products(bok, "bok", Vector("slide-review-html", "explanation-structure-review-html"))
+        _activate_optional_work_products(hidden, "simplemodeling-org-video", Vector("video-logical-chart-html"))
 
         When("explicit review kinds are requested")
         _execute(List("document-project", "review", bok.toString, "--kind", "slides"))
@@ -1345,7 +1550,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("each driver resolves its selected profile and verifies only its local package")
         standaloneplan should include("eligible: operation video.render-review [provider: cozy-video]")
         bokplan should include("eligible: operation article.render-pdf [provider: smartdox-rendering]")
-        bokplan should include("omitted: work-product video-review [review-projection, disabled: profile bok disables video branch]")
+        bokplan should include("profile-disabled: work-product video-review [review-projection, disabled: profile bok disables video branch]")
         standaloneverify should include("Cozy Document Project Verify")
         bokverify should include("Cozy Document Project Verify")
         Files.exists(standalone.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
@@ -1366,6 +1571,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           "infographic.render-png",
           "slide-logical-chart.render-review"
         )
+        _activate_optional_work_products(standalone, "standard-video", Vector.empty)
+        _activate_optional_work_products(bok, "bok", Vector.empty)
         val standaloneoutputs = standaloneoperations.map(operation => _execute(List("document-project", "run", standalone.toString, "--operation", operation)))
         val bokoutputs = bokoperations.map(operation => _execute(List("document-project", "run", bok.toString, "--operation", operation)))
         val bokvideofailure = _failure(List("document-project", "run", bok.toString, "--operation", "video.render-review"))
@@ -1450,8 +1657,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         standalonestate.linesIterator.filter(line => line.nonEmpty && !line.startsWith(" ")).map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
           "schema", "project", "profile", "workspace", "sources", "evidence", "criteria", "workProducts"
         )
-        standalonestate should include("criteria:\n  satisfied: 4\n  total: 17")
-        bokstate should include("criteria:\n  satisfied: 3\n  total: 13")
+        standalonestate should include("criteria:\n  satisfied: 4\n  total: 18")
+        bokstate should include("criteria:\n  satisfied: 3\n  total: 14")
         bokstate should include("notApplicable:\n    - id: video-storyboard-authored\n      reason: \"profile bok disables video branch\"")
         val standalonesidecar = Files.readString(standalone.resolve("evidence/document-project.yaml"), StandardCharsets.UTF_8)
         standalonesidecar should include("provider: local-ai-provider")
@@ -1497,20 +1704,20 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           dashboard should include("<h2>Criterion coverage</h2>")
           dashboard should include("<table aria-label=\"Criterion coverage\">")
         }
-        standalonedashboard should include("4/17 applicable criteria satisfied")
-        bokdashboard should include("3/13 applicable criteria satisfied")
-        standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>active</td><td>review-projection</td><td>required")
-        standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>active</td><td>deliverable</td><td>required")
-        bokdashboard should include("video-review<br/><span>Video review HTML</span></th><td>omitted</td><td>review-projection</td><td>disabled")
-        bokdashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>omitted</td><td>deliverable</td><td>disabled")
-        bokdashboard should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>omitted</td><td>review-projection</td><td>disabled")
+        standalonedashboard should include("4/18 applicable criteria satisfied")
+        bokdashboard should include("3/14 applicable criteria satisfied")
+        standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>required</td><td>review-projection</td><td>required")
+        standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>required</td><td>deliverable</td><td>required")
+        bokdashboard should include("video-review<br/><span>Video review HTML</span></th><td>profile-disabled</td><td>review-projection</td><td>disabled")
+        bokdashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>profile-disabled</td><td>deliverable</td><td>disabled")
+        bokdashboard should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>profile-disabled</td><td>review-projection</td><td>disabled")
         bokdashboard should include("profile bok disables video branch")
         bokdashboard should not include("<th scope=\"row\">Video Review</th>")
         bokdashboard should not include("video-review.html")
         Vector(standalonedashboard, bokdashboard).foreach { dashboard =>
-          dashboard should include("article-pdf<br/><span>Article PDF</span></th><td>active</td><td>deliverable</td><td>required")
-          dashboard should include("summary-slides-pdf<br/><span>Summary slides PDF</span></th><td>active</td><td>deliverable</td><td>optional")
-          dashboard should include("infographic-png<br/><span>Infographic PNG</span></th><td>active</td><td>deliverable</td><td>optional")
+          dashboard should include("article-pdf<br/><span>Article PDF</span></th><td>required</td><td>deliverable</td><td>required")
+          dashboard should include("summary-slides-pdf<br/><span>Summary slides PDF</span></th><td>active-optional</td><td>deliverable</td><td>optional")
+          dashboard should include("infographic-png<br/><span>Infographic PNG</span></th><td>active-optional</td><td>deliverable</td><td>optional")
         }
       }
     }
@@ -1537,10 +1744,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
         Then("hash mismatch and non-current receipt are stale, and the changed infographic stales its declared article consumer")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        state should include("id: infographic-svg\n    role: authority\n    disposition: required\n    criterion: infographic-svg-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-source\n    role: authority\n    disposition: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-source\n    role: authority\n    disposition: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale\n    review: pending\n    readiness: blocked\n    reason: \"a declared dependency is stale\"")
-        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
+        state should include("id: infographic-svg\n    role: authority\n    disposition: required\n    selection: required\n    criterion: infographic-svg-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale\n    review: pending\n    readiness: blocked\n    reason: \"a declared dependency is stale\"")
+        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    selection: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
       }
     }
 
@@ -1567,9 +1774,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
         Then("the current artifact becomes stale from its changed dependency rather than becoming failed")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        state should include("id: article-source\n    role: authority\n    disposition: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
-        state should not include("id: article-pdf\n    role: deliverable\n    disposition: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: failed")
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    selection: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
+        state should not include("id: article-pdf\n    role: deliverable\n    disposition: required\n    selection: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: failed")
         state should include(s"path: evidence/attempts/$attemptid.yaml")
 
         And("the dashboard retains the failure as historical evidence")
@@ -1688,7 +1895,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "preserve legacy no-sidecar state and dashboard compatibility" in {
+    "derive v2 no-sidecar state without a retired evidence fallback" in {
       _with_temp_dir("cozy-document-project-sidecar-legacy") { root =>
         Given("a scaffolded project with no evidence sidecar")
         val project = _scaffolded_project(root, "sidecar-legacy")
@@ -1697,10 +1904,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "inspect", project.toString))
         _execute(List("document-project", "dashboard", project.toString))
 
-        Then("the cache records no sidecar and the dashboard retains the missing/pending legacy projection")
+        Then("the cache records no sidecar and inactive optional Work Products remain nonparticipating")
         Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("sidecar: none")
         val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        dashboard should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        dashboard should include("core-review-html</th><td>not-applicable</td><td>nonparticipating</td><td>not-applicable</td><td>not-selected")
         dashboard should not include("Safe public source")
       }
     }
@@ -1737,11 +1944,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     parent.resolve(s"$slug.dox")
   }
 
-  private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, review: Map[String, String] = Map.empty, profileid: String = "standard"): Unit = {
+  private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, review: Map[String, String] = Map.empty, profileid: String = "standard", activeoptionalworkproducts: Vector[String] = Vector.empty): Unit = {
+    val selected = _activate_optional_work_products(project, profileid, activeoptionalworkproducts)
     val media = project.resolve("media/article-media.yaml")
     Files.createDirectories(media.getParent)
     Files.writeString(media, "schema: cozy.media.v1\narticleMedia:\n  articleIdentity: public-article\n", StandardCharsets.UTF_8)
-    val products = _resolved(profileid).workProducts.filter(_.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled).map { value =>
+    val products = _resolved(profileid, selected).workProducts.filter(_.isParticipating).map { value =>
       val id = value.workProduct.id
       val itemevidence = evidence.getOrElse(id, "kind: none")
       val itemreview = review.getOrElse(id, "kind: none")
@@ -1751,7 +1959,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     Files.createDirectories(sidecar.getParent)
     Files.writeString(
       sidecar,
-      s"schema: cozy.document-project-evidence.v1\nproject: ${project.getFileName.toString.stripSuffix(".dox")}\npublicSource:\n  kind: smartdox\n  identity: public-article\n  path: index.dox\n  sha256: ${_sha256(project.resolve("index.dox"))}\n  mediaDescriptor: media/article-media.yaml\nproducts:\n${products.mkString("\n")}\n",
+      s"schema: cozy.document-project-evidence.v2\nproject: ${project.getFileName.toString.stripSuffix(".dox")}\npublicSource:\n  kind: smartdox\n  identity: public-article\n  path: index.dox\n  sha256: ${_sha256(project.resolve("index.dox"))}\n  mediaDescriptor: media/article-media.yaml\nproducts:\n${products.mkString("\n")}\n",
       StandardCharsets.UTF_8
     )
   }
@@ -1809,7 +2017,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       profile,
       "en",
       "directory",
-      "content/core-en.yaml"
+      "content/core-en.yaml",
+      Vector.empty,
+      CozyDocumentProject.SemanticScope(project.getFileName.toString.stripSuffix(".dox"), Vector(CozyDocumentProject.LocaleVariant(project.getFileName.toString.stripSuffix(".dox"), "en", s"${project.getFileName.toString.stripSuffix(".dox")}:core:en", Vector.empty)))
     )
     val inputs = CozyDocumentProject._state_sources(project, descriptor).map { case (path, source) =>
       s"  - path: $path\n    sha256: ${_sha256(source)}"
@@ -1841,11 +2051,21 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
   private def _sha256(path: Path): String =
     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
-  private def _resolved(profile: String): CozyDocumentWorkflow.ResolvedWorkflow =
-    CozyDocumentWorkflow.resolve(profile) match {
+  private def _resolved(profile: String, activeoptionalworkproducts: Vector[String] = Vector.empty): CozyDocumentWorkflow.ResolvedWorkflow =
+    CozyDocumentWorkflow.resolve(profile, activeoptionalworkproducts) match {
       case Right(value) => value
       case Left(cause) => throw new RuntimeException(cause)
     }
+
+  private def _activate_optional_work_products(project: Path, profile: String, requested: Vector[String]): Vector[String] = {
+    val selected = if (requested.nonEmpty) requested else _resolved(profile).workProducts.collect {
+      case value if value.binding.disposition == CozyDocumentWorkflow.WorkProductDisposition.Optional => value.workProduct.id
+    }
+    val descriptor = project.resolve("document-project.yaml")
+    val selection = if (selected.isEmpty) "activeOptionalWorkProducts: []" else "activeOptionalWorkProducts:\n" + selected.map(id => s"  - $id").mkString("\n")
+    Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", selection), StandardCharsets.UTF_8)
+    selected
+  }
 
   private def _execute(args: List[String]): String = {
     val bytes = new ByteArrayOutputStream()

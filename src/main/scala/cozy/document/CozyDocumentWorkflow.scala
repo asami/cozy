@@ -30,6 +30,15 @@ private[cozy] object CozyDocumentWorkflow {
     val all: Vector[WorkProductDisposition] = Vector(Required, Optional, Disabled)
   }
 
+  sealed abstract class WorkProductSelection(val value: String, val isParticipating: Boolean)
+
+  object WorkProductSelection {
+    case object Required extends WorkProductSelection("required", true)
+    case object ActiveOptional extends WorkProductSelection("active-optional", true)
+    case object InactiveOptional extends WorkProductSelection("inactive-optional", false)
+    case object ProfileDisabled extends WorkProductSelection("profile-disabled", false)
+  }
+
   final case class Criterion(id: String, description: String)
   final case class Gate(id: String, description: String, criteria: Vector[String])
   final case class EvidenceReference(id: String, description: String)
@@ -67,15 +76,18 @@ private[cozy] object CozyDocumentWorkflow {
     providerBindings: Vector[ProviderBinding],
     profiles: Vector[WorkflowProfile]
   )
-  final case class ResolvedWorkProduct(workProduct: WorkProduct, binding: WorkProductBinding)
+  final case class ResolvedWorkProduct(workProduct: WorkProduct, binding: WorkProductBinding, selection: WorkProductSelection) {
+    def isParticipating: Boolean = selection.isParticipating
+  }
   final case class ResolvedWorkflow(
     definition: WorkflowDefinition,
     profile: WorkflowProfile,
     workProducts: Vector[ResolvedWorkProduct]
   )
   final case class WorkflowPlan(
-    activeWorkProducts: Vector[ResolvedWorkProduct],
-    omittedWorkProducts: Vector[ResolvedWorkProduct],
+    selectedWorkProducts: Vector[ResolvedWorkProduct],
+    inactiveOptionalWorkProducts: Vector[ResolvedWorkProduct],
+    profileDisabledWorkProducts: Vector[ResolvedWorkProduct],
     blockedOperations: Vector[LogicalOperation],
     eligibleOperations: Vector[LogicalOperation]
   )
@@ -99,24 +111,46 @@ private[cozy] object CozyDocumentWorkflow {
   def declaredOperation(operationId: String): Either[String, Option[LogicalOperation]] =
     Right(_validated_document_production().operations.find(_.id == operationId))
 
-  def resolve(profileId: String): Either[String, ResolvedWorkflow] = {
+  def resolve(profileId: String, activeOptionalWorkProductIds: Vector[String] = Vector.empty): Either[String, ResolvedWorkflow] = {
     val definition = _validated_document_production()
     definition.profiles.find(_.id == profileId) match {
       case Some(profile) =>
         val bindings = profile.bindings.map(binding => binding.workProductId -> binding).toMap
-        Right(ResolvedWorkflow(definition, profile, definition.workProducts.map(product => ResolvedWorkProduct(product, bindings(product.id)))))
+        val selectedids = activeOptionalWorkProductIds.toSet
+        if (selectedids.size != activeOptionalWorkProductIds.size) {
+          Left("active optional Work Product ids must be duplicate-free")
+        } else {
+          activeOptionalWorkProductIds.find { id =>
+            bindings.get(id).forall(_.disposition != WorkProductDisposition.Optional)
+          } match {
+            case Some(id) => Left(s"active optional Work Product id is not optional for profile $profileId: $id")
+            case None =>
+              val products = definition.workProducts.map { product =>
+                val binding = bindings(product.id)
+                val selection = binding.disposition match {
+                  case WorkProductDisposition.Required => WorkProductSelection.Required
+                  case WorkProductDisposition.Optional if selectedids.contains(product.id) => WorkProductSelection.ActiveOptional
+                  case WorkProductDisposition.Optional => WorkProductSelection.InactiveOptional
+                  case WorkProductDisposition.Disabled => WorkProductSelection.ProfileDisabled
+                }
+                ResolvedWorkProduct(product, binding, selection)
+              }
+              Right(ResolvedWorkflow(definition, profile, products))
+          }
+        }
       case None => Left(s"unknown document-production profile: $profileId")
     }
   }
 
-  def plan(profileId: String): Either[String, WorkflowPlan] =
-    resolve(profileId) match {
+  def plan(profileId: String, activeOptionalWorkProductIds: Vector[String] = Vector.empty): Either[String, WorkflowPlan] =
+    resolve(profileId, activeOptionalWorkProductIds) match {
       case Right(resolved) =>
-        val activeproducts = resolved.workProducts.filter(_.binding.disposition != WorkProductDisposition.Disabled)
-        val omittedproducts = resolved.workProducts.filter(_.binding.disposition == WorkProductDisposition.Disabled)
-        val activeids = activeproducts.map(_.workProduct.id).toSet
+        val selectedproducts = resolved.workProducts.filter(_.isParticipating)
+        val inactiveoptionalproducts = resolved.workProducts.filter(_.selection == WorkProductSelection.InactiveOptional)
+        val profiledisabledproducts = resolved.workProducts.filter(_.selection == WorkProductSelection.ProfileDisabled)
+        val activeids = selectedproducts.map(_.workProduct.id).toSet
         val activeoperations = resolved.definition.operations.filter(_.produces.exists(activeids.contains))
-        Right(WorkflowPlan(activeproducts, omittedproducts, activeoperations, activeoperations))
+        Right(WorkflowPlan(selectedproducts, inactiveoptionalproducts, profiledisabledproducts, activeoperations, activeoperations))
       case Left(cause) => Left(cause)
     }
 
@@ -230,6 +264,7 @@ private[cozy] object CozyDocumentWorkflow {
     Criterion("core-review-rendered", "Content Core review HTML is rendered"),
     Criterion("article-source-authored", "SmartDox article source is authored"),
     Criterion("article-site-rendered", "Article site HTML is generated"),
+    Criterion("article-review-rendered", "Article review HTML is rendered"),
     Criterion("article-pdf-rendered", "Article PDF is rendered"),
     Criterion("visual-pages-authored", "Visual Page IR is authored"),
     Criterion("slide-review-rendered", "Slide review HTML is rendered"),
@@ -249,6 +284,7 @@ private[cozy] object CozyDocumentWorkflow {
     Gate("core-review", "Content Core review gate", Vector("content-core-accepted")),
     Gate("article-composition", "Article composition gate", Vector("content-core-accepted", "infographic-svg-authored")),
     Gate("article-site-publication", "Article site publication gate", Vector("article-source-authored")),
+    Gate("article-review", "Article review gate", Vector("content-core-accepted", "article-source-authored", "visual-pages-authored")),
     Gate("article-delivery", "Article PDF delivery gate", Vector("article-source-authored")),
     Gate("visual-pages-authoring", "Visual Page authoring gate", Vector("content-core-accepted", "infographic-svg-authored")),
     Gate("slide-review", "Slide review gate", Vector("visual-pages-authored")),
@@ -265,6 +301,7 @@ private[cozy] object CozyDocumentWorkflow {
     EvidenceReference("core-review-reference", "Content Core review reference"),
     EvidenceReference("article-source-reference", "SmartDox article source reference"),
     EvidenceReference("article-site-reference", "Article site output reference"),
+    EvidenceReference("article-review-reference", "Article review reference"),
     EvidenceReference("article-output-reference", "Article PDF output reference"),
     EvidenceReference("visual-pages-reference", "Visual Page IR reference"),
     EvidenceReference("slide-review-reference", "Slide review reference"),
@@ -298,6 +335,7 @@ private[cozy] object CozyDocumentWorkflow {
     LogicalOperation("content-core.render-review", "cozy-review-projection", Vector("content-core"), Vector("core-review-html")),
     LogicalOperation("article.compose", "smartdox-authoring", Vector("content-core", "infographic-svg"), Vector("article-source")),
     LogicalOperation("article.publish-site", "cozy-site", Vector("article-source"), Vector("article-html")),
+    LogicalOperation("article.render-review", "cozy-review-projection", Vector("content-core", "article-source", "visual-pages"), Vector("article-review-html")),
     LogicalOperation("article.render-pdf", "smartdox-rendering", Vector("article-source"), Vector("article-pdf")),
     LogicalOperation("visual-pages.author", "cozy-visual-page", Vector("content-core", "infographic-svg"), Vector("visual-pages")),
     LogicalOperation("visual-pages.render-review", "cozy-visual-page", Vector("visual-pages"), Vector("slide-review-html")),
@@ -309,17 +347,18 @@ private[cozy] object CozyDocumentWorkflow {
     LogicalOperation("video.render-deliverable", "cozy-video", Vector("video-review"), Vector("video-deliverable")),
     LogicalOperation("slide-logical-chart.render-review", "phase-41-explanation-structure", Vector("content-core", "visual-pages"), Vector("explanation-structure-review-html")),
     LogicalOperation("video-logical-chart.render-review", "phase-41-explanation-structure", Vector("content-core", "visual-pages", "video-storyboard"), Vector("video-logical-chart-html")),
-    LogicalOperation("operation-receipt.record", "cozy-operation-receipt", Vector("content-core-candidate", "content-core", "core-review-html", "article-source", "article-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html"), Vector("operation-receipt-evidence"))
+    LogicalOperation("operation-receipt.record", "cozy-operation-receipt", Vector("content-core-candidate", "content-core", "core-review-html", "article-source", "article-html", "article-review-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html"), Vector("operation-receipt-evidence"))
   )
 
   private val _work_products = Vector(
     WorkProduct("content-core-candidate", "Content Core candidate", WorkProductRole.Candidate, "content-core.compose", Vector("content-core.review", "operation-receipt.record"), Vector("content-core-candidate-composed"), Vector.empty, Vector("content-core-acceptance"), Vector("content-core-reference")),
-    WorkProduct("content-core", "Content Core", WorkProductRole.Authority, "content-core.review", Vector("content-core.render-review", "article.compose", "visual-pages.author", "infographic.compose", "video.compose-storyboard", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("content-core-accepted"), Vector("content-core-candidate"), Vector("content-core-acceptance"), Vector("content-core-reference")),
+    WorkProduct("content-core", "Content Core", WorkProductRole.Authority, "content-core.review", Vector("content-core.render-review", "article.compose", "article.render-review", "visual-pages.author", "infographic.compose", "video.compose-storyboard", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("content-core-accepted"), Vector("content-core-candidate"), Vector("content-core-acceptance"), Vector("content-core-reference")),
     WorkProduct("core-review-html", "Core review HTML", WorkProductRole.ReviewProjection, "content-core.render-review", Vector("operation-receipt.record"), Vector("core-review-rendered"), Vector("content-core"), Vector("core-review"), Vector("core-review-reference")),
-    WorkProduct("article-source", "SmartDox article source", WorkProductRole.Authority, "article.compose", Vector("article.publish-site", "article.render-pdf", "operation-receipt.record"), Vector("article-source-authored"), Vector("content-core", "infographic-svg"), Vector("article-composition"), Vector("article-source-reference")),
+    WorkProduct("article-source", "SmartDox article source", WorkProductRole.Authority, "article.compose", Vector("article.publish-site", "article.render-review", "article.render-pdf", "operation-receipt.record"), Vector("article-source-authored"), Vector("content-core", "infographic-svg"), Vector("article-composition"), Vector("article-source-reference")),
     WorkProduct("article-html", "Article site HTML", WorkProductRole.SiteDeliverable, "article.publish-site", Vector("operation-receipt.record"), Vector("article-site-rendered"), Vector("article-source"), Vector("article-site-publication"), Vector("article-site-reference")),
+    WorkProduct("article-review-html", "Article review HTML", WorkProductRole.ReviewProjection, "article.render-review", Vector("operation-receipt.record"), Vector("article-review-rendered"), Vector("content-core", "article-source", "visual-pages"), Vector("article-review"), Vector("article-review-reference")),
     WorkProduct("article-pdf", "Article PDF", WorkProductRole.Deliverable, "article.render-pdf", Vector("operation-receipt.record"), Vector("article-pdf-rendered"), Vector("article-source"), Vector("article-delivery"), Vector("article-output-reference")),
-    WorkProduct("visual-pages", "Visual Page IR", WorkProductRole.Authority, "visual-pages.author", Vector("visual-pages.render-review", "summary-slides.render-pdf", "video.compose-storyboard", "video.render-review", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("visual-pages-authored"), Vector("content-core", "infographic-svg"), Vector("visual-pages-authoring"), Vector("visual-pages-reference")),
+    WorkProduct("visual-pages", "Visual Page IR", WorkProductRole.Authority, "visual-pages.author", Vector("article.render-review", "visual-pages.render-review", "summary-slides.render-pdf", "video.compose-storyboard", "video.render-review", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("visual-pages-authored"), Vector("content-core", "infographic-svg"), Vector("visual-pages-authoring"), Vector("visual-pages-reference")),
     WorkProduct("slide-review-html", "Slide review HTML", WorkProductRole.ReviewProjection, "visual-pages.render-review", Vector("operation-receipt.record"), Vector("slide-review-rendered"), Vector("visual-pages"), Vector("slide-review"), Vector("slide-review-reference")),
     WorkProduct("summary-slides-pdf", "Summary slides PDF", WorkProductRole.Deliverable, "summary-slides.render-pdf", Vector("operation-receipt.record"), Vector("summary-slides-rendered"), Vector("visual-pages"), Vector("slides-delivery"), Vector("slides-output-reference")),
     WorkProduct("infographic-svg", "Editable infographic SVG", WorkProductRole.Authority, "infographic.compose", Vector("article.compose", "infographic.render-png", "video.compose-storyboard", "operation-receipt.record"), Vector("infographic-svg-authored"), Vector("content-core"), Vector("infographic-delivery"), Vector("infographic-source-reference")),
@@ -329,7 +368,7 @@ private[cozy] object CozyDocumentWorkflow {
     WorkProduct("video-deliverable", "Video deliverable", WorkProductRole.Deliverable, "video.render-deliverable", Vector("operation-receipt.record"), Vector("video-deliverable-rendered"), Vector("video-review"), Vector("video-delivery"), Vector("video-output-reference")),
     WorkProduct("explanation-structure-review-html", "Slide Logical Chart HTML", WorkProductRole.ReviewProjection, "slide-logical-chart.render-review", Vector("operation-receipt.record"), Vector("slide-logical-chart-rendered"), Vector("content-core", "visual-pages"), Vector("slide-logical-chart"), Vector("slide-logical-chart-reference")),
     WorkProduct("video-logical-chart-html", "Video Logical Chart HTML", WorkProductRole.ReviewProjection, "video-logical-chart.render-review", Vector("operation-receipt.record"), Vector("video-logical-chart-rendered"), Vector("content-core", "visual-pages", "video-storyboard"), Vector("video-logical-chart"), Vector("video-logical-chart-reference")),
-    WorkProduct("operation-receipt-evidence", "Future operation receipt evidence", WorkProductRole.Receipt, "operation-receipt.record", Vector.empty, Vector("operation-receipt-recorded"), Vector("content-core-candidate", "content-core", "core-review-html", "article-source", "article-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html"), Vector("receipt-evidence"), Vector("operation-receipt-reference"))
+    WorkProduct("operation-receipt-evidence", "Future operation receipt evidence", WorkProductRole.Receipt, "operation-receipt.record", Vector.empty, Vector("operation-receipt-recorded"), Vector("content-core-candidate", "content-core", "core-review-html", "article-source", "article-html", "article-review-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html"), Vector("receipt-evidence"), Vector("operation-receipt-reference"))
   )
 
   private def _no_video_bindings(profileid: String): Vector[WorkProductBinding] = Vector(
@@ -338,6 +377,7 @@ private[cozy] object CozyDocumentWorkflow {
     WorkProductBinding("core-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("article-source", WorkProductDisposition.Required, None),
     WorkProductBinding("article-html", WorkProductDisposition.Required, None),
+    WorkProductBinding("article-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("article-pdf", WorkProductDisposition.Required, None),
     WorkProductBinding("visual-pages", WorkProductDisposition.Required, None),
     WorkProductBinding("slide-review-html", WorkProductDisposition.Optional, None),
@@ -358,6 +398,7 @@ private[cozy] object CozyDocumentWorkflow {
     WorkProductBinding("core-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("article-source", WorkProductDisposition.Required, None),
     WorkProductBinding("article-html", WorkProductDisposition.Required, None),
+    WorkProductBinding("article-review-html", WorkProductDisposition.Optional, None),
     WorkProductBinding("article-pdf", WorkProductDisposition.Required, None),
     WorkProductBinding("visual-pages", WorkProductDisposition.Required, None),
     WorkProductBinding("slide-review-html", WorkProductDisposition.Optional, None),

@@ -108,13 +108,19 @@ Current phase state:
   succeeded, 126 suites, and 0 failures. The local Phase closure also resolves
   the 2026-09-02 Hygiene Resolution Batch; no external operation or consumer
   acceptance is claimed.
-- Planned successor: `phase-45.md`: Document Project
-  Operational Completion and Article 8 Integration. It reconciles the
-  user-facing requirements omitted or only weakly realized by Phase 42.*,
-  including first-class article/video review, a user-oriented status and
-  next-action dashboard, the Content Core candidate/acceptance loop, optional
-  deliverable selection, JA/EN and per-artifact alignment, shared-media
-  currentness, and safe local SimpleModeling.org Article 8 integration.
+- Current in-progress phase: `phase-45.md`: Document Project v2 Authoring
+  Contract and Content Core Acceptance. It replaces the unoperated v1 kernel
+  with a closed v2 descriptor contract, and implements the Content Core
+  candidate/feedback/revision/explicit-human-acceptance loop with complete
+  provenance. P45-01, the Versioned Authoring Contract Stage, is complete:
+  `P45-01A-VAL-008` passed 49 focused Document Project specs and focused
+  closure review 3 closed `CB-P45-RR-001` with no actionable finding. P45-02
+  remains planned. Its pre-existing read-only dashboard may show selected
+  `article-review-html` as `No action: contract-only in Phase 45`, without a
+  renderer/CLI/output or action capability. Ordered successor `phase-45.1.md`
+  exclusively owns new article/video review projections and the expanded user
+  dashboard/action surface; `phase-45.2.md` then owns localized-artifact
+  alignment, shared-media currentness, and local Article 8 acceptance.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -244,9 +250,19 @@ were 0. The local Phase release commit binds this accepted closure; no commit
 SHA is recorded before that commit exists. Phase 42.1 remains the predecessor,
 and no external operation or consumer acceptance is claimed.
 
-Phase 45 is planned after Phase 44 closure. Its canonical planning authority is
-`phase-45.md` plus `phase-45-checklist.md`. It consumes the closed Phase 41,
-42, and 42.1 contracts while adding only compatible versioned/sidecar authored
-state; `cozy.document-project.v1` is not modified in place. Its Article 8
-driver is local acceptance only and does not authorize publication,
-deployment, upload, push, or external-service mutation.
+The original 14–20 hour Phase 45 plan was split on 2026-09-02 into an ordered
+three-Phase sequence. [Phase 45](phase-45.md) is in progress for the closed
+v2 authoring state and the Content Core candidate/explicit-human-acceptance
+loop; P45-01 is complete and P45-02 remains planned. Its pre-existing read-only
+dashboard may show a selected
+`article-review-html` item as `No action: contract-only in Phase 45`, without
+adding a renderer/CLI/output or action capability. [Phase 45.1](phase-45.1.md)
+exclusively owns new article/video review projections and the expanded user
+dashboard/action surface. [Phase 45.2](phase-45.2.md) then owns localized-
+artifact alignment, shared-media currentness, and Article 8 local acceptance.
+Their canonical ledgers are the matching `-checklist.md` files. The sequence
+consumes the closed Phase 41, 42, and 42.1 contracts without retaining
+`cozy.document-project.v1` compatibility. Phase 45.2 needs separate explicit
+authority before adding SimpleModeling.org as an update root; none of the three
+Phases authorizes publication, deployment, upload, push, or external-service
+mutation.

@@ -17,7 +17,7 @@ private[cozy] object CozyDocumentProjectProjection {
     val workflowrows = products.map { item =>
       val product = item.value.workProduct
       val binding = item.value.binding
-      val branch = if (binding.disposition == CozyDocumentWorkflow.WorkProductDisposition.Disabled) "omitted" else "active"
+      val branch = item.value.selection.value
       s"""<tr><th scope="row">${_html_escape(product.id)}<br/><span>${_html_escape(product.label)}</span></th><td>${_html_escape(branch)}</td><td>${_html_escape(product.role.value)}</td><td>${_html_escape(binding.disposition.value)}</td><td>${_html_escape(_provider_for(product, definition))}</td><td>${_html_list(product.gates)}</td><td>${_html_escape(item.reason.getOrElse(""))}</td></tr>"""
     }.mkString("\n")
     val matrixrows = products.map { item =>
@@ -67,10 +67,10 @@ private[cozy] object CozyDocumentProjectProjection {
       s"Cozy Document Project Dashboard - ${descriptor.id}",
       descriptor.language,
       s"""<h1>Cozy Document Project Dashboard</h1>
-         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; workspace: <code>${_html_escape(descriptor.workspace)}</code>; schema: <code>cozy.document-project.v1</code>.</p>
+         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; workspace: <code>${_html_escape(descriptor.workspace)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
          |<p class="notice">Current snapshot is derived from admitted authored sources and the closed workflow. Retained attempts are historical evidence only; an initial attempt has no receipt or currentness authority.</p>
          |<h2>Workflow</h2>
-         |<table aria-label="Workflow Work Products"><thead><tr><th scope="col">Work Product</th><th scope="col">Branch (active/omitted)</th><th scope="col">Role</th><th scope="col">Disposition</th><th scope="col">Provider</th><th scope="col">Gates</th><th scope="col">Omitted or blocking reason</th></tr></thead><tbody>$workflowrows</tbody></table>
+         |<table aria-label="Workflow Work Products"><thead><tr><th scope="col">Work Product</th><th scope="col">Selection</th><th scope="col">Role</th><th scope="col">Disposition</th><th scope="col">Provider</th><th scope="col">Gates</th><th scope="col">Nonparticipating or blocking reason</th></tr></thead><tbody>$workflowrows</tbody></table>
          |<h2>Work Product matrix</h2>
          |<table aria-label="Work Product status matrix"><thead><tr><th scope="col">Work Product</th><th scope="col">Coverage</th><th scope="col">Currentness</th><th scope="col">Review</th><th scope="col">readiness</th><th scope="col">Omitted or blocking reason</th></tr></thead><tbody>$matrixrows</tbody></table>
          |<h2>Criterion coverage</h2>
@@ -93,6 +93,7 @@ private[cozy] object CozyDocumentProjectProjection {
   }
 
   private[cozy] def coreReviewHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
+    _require_work_product(descriptor, "core-review-html", "content-core.render-review")
     val entries = _core_entries(project, descriptor)
     val entryrows = if (entries.isEmpty)
       s"""<tr><td colspan="2">${_html_escape("No accepted Core entries are present.")}</td></tr>"""
@@ -105,7 +106,7 @@ private[cozy] object CozyDocumentProjectProjection {
       s"Cozy Document Project Core Review - ${descriptor.id}",
       descriptor.language,
       s"""<h1>Core Review</h1>
-         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; Content Core: <code>${_html_escape(descriptor.contentCore)}</code>; schema: <code>cozy.document-project.v1</code>.</p>
+         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; Content Core: <code>${_html_escape(descriptor.contentCore)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
          |<h2>Accepted Core entries</h2>
          |$content
          |<h2>Candidate, feedback, and acceptance surface</h2>
@@ -121,7 +122,7 @@ private[cozy] object CozyDocumentProjectProjection {
       s"Cozy Document Project Slide Review - ${descriptor.id}",
       descriptor.language,
       s"""<h1>Slide Review</h1>
-         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; schema: <code>cozy.document-project.v1</code>.</p>
+         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
          |<p class="notice">This is a deterministic, read-only projection of the Visual Page IR. It does not execute a provider, render a PDF, or persist acceptance.</p>
          |${_source_projection_table("Visual Page IR source", "presentation/visual-pages.yaml", visualpages)}
          |<p>No provider, receipt, state cache, feedback record, or authored-source write-back is performed.</p>""".stripMargin
@@ -144,12 +145,13 @@ private[cozy] object CozyDocumentProjectProjection {
     title: String,
     storyboard: Option[String]
   ): String = {
-    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
     }
     val logicalchart = resolved.workProducts.find(_.workProduct.id == workproductid) match {
-      case Some(value) if value.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled => value.workProduct
+      case Some(value) if value.isParticipating => value.workProduct
+      case Some(value) if value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional => CozyDocumentProject._failure("DP-OP-001", s"logical chart Work Product ${value.workProduct.id} is not selected for profile ${descriptor.profile}")
       case Some(value) => CozyDocumentProject._failure("DP-OP-001", s"logical chart Work Product ${value.workProduct.id} is disabled for profile ${descriptor.profile}")
       case None => CozyDocumentProject._descriptor_failure(s"document-production Work Product is missing: $workproductid")
     }
@@ -194,7 +196,7 @@ private[cozy] object CozyDocumentProjectProjection {
       s"Cozy Document Project Video Review - ${descriptor.id}",
       descriptor.language,
       s"""<h1>Video Review</h1>
-         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; schema: <code>cozy.document-project.v1</code>.</p>
+         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
          |<p class="notice">These are read-only source projections. They do not claim provider execution, candidate persistence, feedback persistence, acceptance, or video delivery.</p>
          |<h2>Storyboard source projection</h2>
          |$storyboardtable
@@ -215,6 +217,8 @@ private[cozy] object CozyDocumentProjectProjection {
   private def _next_action(product: CozyDocumentProjectEvidence.WorkProductState): String = {
     val workproduct = product.value.workProduct
     if (product.readiness == "omitted") "No action: omitted by this profile"
+    else if (product.readiness == "not-selected") "No action: optional Work Product is not selected"
+    else if (workproduct.id == "article-review-html") "No action: contract-only in Phase 45"
     else if (product.readiness != "blocked" && product.coverage == "satisfied" && product.currentness == "current") "No action: current"
     else workproduct.role match {
       case CozyDocumentWorkflow.WorkProductRole.Authority => s"Author or accept ${workproduct.label}"
@@ -236,20 +240,25 @@ private[cozy] object CozyDocumentProjectProjection {
     workproductid: String,
     operationid: String
   ): Unit = {
-    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile) match {
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
     }
-    val activeproducts = resolved.workProducts.collect {
-      case value if value.binding.disposition != CozyDocumentWorkflow.WorkProductDisposition.Disabled => value.workProduct.id
-    }.toSet
+    val activeproducts = resolved.workProducts.collect { case value if value.isParticipating => value.workProduct.id }.toSet
     val operation = CozyDocumentWorkflow.declaredOperation(operationid) match {
       case Right(Some(value)) => value
       case Right(None) => CozyDocumentProject._failure("DP-OP-001", s"undeclared logical operation: $operationid")
       case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
     }
-    if (!activeproducts.contains(workproductid) || !operation.produces.contains(workproductid))
-      CozyDocumentProject._failure("DP-OP-001", s"logical operation $operationid is disabled for profile ${descriptor.profile}")
+    if (!operation.produces.contains(workproductid))
+      CozyDocumentProject._descriptor_failure(s"logical operation $operationid does not produce Work Product $workproductid")
+    if (!activeproducts.contains(workproductid)) {
+      val selected = resolved.workProducts.find(_.workProduct.id == workproductid)
+      selected match {
+        case Some(value) if value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional => CozyDocumentProject._failure("DP-OP-001", s"logical operation $operationid is not selected for profile ${descriptor.profile}")
+        case _ => CozyDocumentProject._failure("DP-OP-001", s"logical operation $operationid is disabled for profile ${descriptor.profile}")
+      }
+    }
   }
 
   private def _core_entries(project: Path, descriptor: CozyDocumentProject.Descriptor): Vector[(String, String)] = {
@@ -269,7 +278,7 @@ private[cozy] object CozyDocumentProjectProjection {
 
   private[cozy] def projectionResult(kind: String, project: Path, descriptor: CozyDocumentProject.Descriptor, destination: Path): String = {
     val reference = if (destination.startsWith(project)) CozyDocumentProject._project_relative(project, destination) else destination.toString
-    s"Cozy Document Project $kind\nproject: ${descriptor.id}\nprofile: ${descriptor.profile}\nschema: cozy.document-project.v1\noutput: $reference"
+    s"Cozy Document Project $kind\nproject: ${descriptor.id}\nprofile: ${descriptor.profile}\nschema: cozy.document-project.v2\noutput: $reference"
   }
 
   private def _html_page(title: String, language: String, body: String): String =
