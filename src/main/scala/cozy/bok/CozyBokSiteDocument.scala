@@ -32,7 +32,8 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -422,30 +423,6 @@ private[cozy] trait CozyBokSiteDocument {
       |## Operation Notes
       |
       |用語はSmartDoxの自動リンクとRDF/JSON-LD連携の基盤です。新しいカテゴリ用語を追加した場合は、カテゴリトップページと用語集Dashboardの両方から辿れるようにします。
-      |""".stripMargin
-
-  private[bok] def _history_index(): String =
-    s"""History
-      |=======
-      |
-      |${_dox_head("History", "BoK運用、更新履歴、公開履歴のDashboard。")}
-      |
-      |# Dashboard
-      |
-      |HistoryはBoKの変更、公開、運用イベントを集約するページです。
-      |
-      |## Quick Links
-      |
-      |- <a href="../index.html">BoK Home</a>
-      |- <a href="../glossary/index.html">Glossary</a>
-      |
-      |## Timeline
-      |
-      |- 2026: Cozy BoK source and site operations started.
-      |
-      |## Operation Notes
-      |
-      |公開、構成変更、カテゴリ追加、重要な用語変更はここに記録します。
       |""".stripMargin
 
   private[bok] def _manual_index(locale: String): String =

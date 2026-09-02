@@ -14,11 +14,12 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 1, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Project" should {
+    "public Document Project behavior" which {
     "scaffold public no-video and video profile skeletons without fake outputs" in {
       _with_temp_dir("cozy-document-project-scaffold") { root =>
         Given("an existing direct parent and three absent Document Project packages")
@@ -1726,6 +1727,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       help should include("direct JSON or YAML structured feedback with one common object schema")
       help should include("each item retains its proposal, applicability, and disposition")
       help should include("A non-video profile requires a not-applicable video item")
+    }
     }
   }
 

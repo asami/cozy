@@ -1,7 +1,5 @@
 package cozy.ui
 
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 /*
  * @since   Sep. 1, 2026
@@ -242,7 +240,7 @@ private[cozy] object CozyLogicalUi {
   )
 
   final case class AcceptanceDecision(decisionId: String, candidateIdentity: String) {
-    def decisionIdentity: String = _decision_identity(this)
+    def decisionIdentity: String = CozyLogicalUiProjection.decisionIdentity(this)
   }
 
   final class LogicalUiCandidate private[CozyLogicalUi] (
@@ -250,8 +248,8 @@ private[cozy] object CozyLogicalUi {
     val inputIdentity: String,
     val input: CandidateInput
   ) {
-    def canonicalContent: String = _canonical_logical_content(input)
-    def canonicalJson: String = _canonical_candidate_document(this)
+    def canonicalContent: String = CozyLogicalUiProjection.canonicalLogicalContent(input)
+    def canonicalJson: String = CozyLogicalUiProjection.canonicalCandidateDocument(this)
   }
 
   final class AcceptedLogicalUi private[CozyLogicalUi] (
@@ -265,7 +263,7 @@ private[cozy] object CozyLogicalUi {
     val candidate: LogicalUiCandidate,
     val input: UseCaseScreenProjection
   ) {
-    def canonicalContent: String = _canonical_projection_content(candidate.identity, input)
+    def canonicalContent: String = CozyLogicalUiProjection.canonicalProjectionContent(candidate.identity, input)
   }
 
   private val _schema = "cozy.logical-ui.v1"
@@ -285,8 +283,8 @@ private[cozy] object CozyLogicalUi {
     _normalize_input(input) match {
       case Left(error) => Left(error)
       case Right(normalized) =>
-        val content = _canonical_logical_content(normalized)
-        Right(new LogicalUiCandidate(_identity(content), _input_identity(content), normalized))
+        val content = CozyLogicalUiProjection.canonicalLogicalContent(normalized)
+        Right(new LogicalUiCandidate(CozyLogicalUiProjection.identity(content), CozyLogicalUiProjection.inputIdentity(content), normalized))
     }
 
   def project(
@@ -296,8 +294,8 @@ private[cozy] object CozyLogicalUi {
     _normalize_projection(candidate, input) match {
       case Left(error) => Left(error)
       case Right(normalized) =>
-        val content = _canonical_projection_content(candidate.identity, normalized)
-        Right(new LogicalUiProjection(_identity(content), candidate, normalized))
+        val content = CozyLogicalUiProjection.canonicalProjectionContent(candidate.identity, normalized)
+        Right(new LogicalUiProjection(CozyLogicalUiProjection.identity(content), candidate, normalized))
     }
   }
 
@@ -311,7 +309,7 @@ private[cozy] object CozyLogicalUi {
       _acceptance_error(candidate, decision) match {
         case Some(error) => Left(error)
         case None =>
-          val identity = _accepted_identity(candidate, decision)
+          val identity = CozyLogicalUiProjection.acceptedIdentity(candidate, decision)
           if (identity == candidate.identity)
             Left(LogicalUiError("LUI43_ACCEPTANCE_IDENTITY_INVALID", "acceptance", "accepted identity must differ from candidate identity"))
           else
@@ -357,7 +355,7 @@ private[cozy] object CozyLogicalUi {
                                 mappings = mappings,
                                 aggregateBoundaries = boundaries
                               )
-                              _projection_component_error(candidate, normalized) match {
+                              CozyLogicalUiProjection.projectionComponentError(candidate, normalized) match {
                                 case Some(error) => Left(error)
                                 case None =>
                                   _projection_aggregate_error(normalized) match {
@@ -749,125 +747,6 @@ private[cozy] object CozyLogicalUi {
   private def _mapping_key(value: ScreenInteractionMapping): (String, String, String, String, String) =
     (value.uiUseCase.layer.id, value.uiUseCase.id, value.stepId, value.screenId, value.interactionId)
 
-  private def _canonical_projection_content(
-    candidateidentity: String,
-    input: UseCaseScreenProjection
-  ): String =
-    _json_object(Vector(
-      "schema" -> _json_string(_projection_schema),
-      "version" -> _projection_version.toString,
-      "candidateIdentity" -> _json_string(candidateidentity),
-      "catalog" -> _json_array(input.catalog.map(_use_case_layers_json)),
-      "steps" -> _json_array(input.steps.map(_step_json)),
-      "screens" -> _json_array(input.screens.map(_screen_json)),
-      "mappings" -> _json_array(input.mappings.map(_mapping_json)),
-      "aggregateBoundaries" -> _json_array(input.aggregateBoundaries.map(_boundary_json))
-    ))
-
-  private def _use_case_layers_json(value: UseCaseLayers): String =
-    _use_cases_json(value)
-
-  private def _step_json(value: UiUseCaseStep): String =
-    _json_object(Vector(
-      "uiUseCase" -> _use_case_reference_json(value.uiUseCase),
-      "stepId" -> _json_string(value.stepId),
-      "path" -> _json_string(value.path.id)
-    ))
-
-  private def _mapping_json(value: ScreenInteractionMapping): String =
-    _json_object(Vector(
-      "uiUseCase" -> _use_case_reference_json(value.uiUseCase),
-      "stepId" -> _json_string(value.stepId),
-      "screenId" -> _json_string(value.screenId),
-      "interactionId" -> _json_string(value.interactionId)
-    ))
-
-  private def _screen_json(value: LogicalScreen): String =
-    _json_object(Vector(
-      "id" -> _json_string(value.id),
-      "primaryPurpose" -> _json_string(value.primaryPurpose),
-      "secondaryPurposes" -> _json_array(value.secondaryPurposes.map(_json_string)),
-      "subject" -> _subject_json(value.subject),
-      "regions" -> _json_array(value.regions.map(_region_json)),
-      "interactions" -> _json_array(value.interactions.map(_interaction_json)),
-      "feedbackStates" -> _json_array(value.feedbackStates.map(state => _json_string(state.id)))
-    ))
-
-  private def _subject_json(value: ScreenSubject): String =
-    _json_object(Vector(
-      "role" -> _json_string(value.role.id),
-      "binding" -> _component_binding_json(value.binding)
-    ))
-
-  private def _region_json(value: SemanticRegion): String =
-    _json_object(Vector(
-      "id" -> _json_string(value.id),
-      "parentId" -> value.parentId.map(_json_string).getOrElse("null"),
-      "order" -> value.order.toString
-    ))
-
-  private def _interaction_json(value: ScreenInteraction): String =
-    _json_object(Vector(
-      "id" -> _json_string(value.id),
-      "kind" -> _json_string(value.kind.id),
-      "componentUsages" -> _json_array(value.componentUsages.map(_usage_json)),
-      "mutation" -> value.mutation.map(_mutation_json).getOrElse("null"),
-      "navigation" -> value.navigation.map(_navigation_json).getOrElse("null")
-    ))
-
-  private def _usage_json(value: ComponentUsage): String =
-    _json_object(Vector(
-      "role" -> _json_string(value.role.id),
-      "binding" -> _component_binding_json(value.binding)
-    ))
-
-  private def _mutation_json(value: MutationAction): String =
-    _json_object(Vector(
-      "target" -> _component_binding_json(value.target),
-      "operation" -> _component_binding_json(value.operation)
-    ))
-
-  private def _navigation_json(value: NavigationEndpoint): String =
-    _json_object(Vector(
-      "endpointId" -> _json_string(value.endpointId),
-      "targetScreenId" -> _json_string(value.targetScreenId)
-    ))
-
-  private def _boundary_json(value: AggregateBoundary): String =
-    _json_object(Vector(
-      "aggregate" -> _component_binding_json(value.aggregate),
-      "root" -> _component_binding_json(value.root),
-      "members" -> _json_array(value.members.map(_component_binding_json)),
-      "publicOperations" -> _json_array(value.publicOperations.map(_component_binding_json))
-    ))
-
-  private def _projection_component_error(
-    candidate: LogicalUiCandidate,
-    input: UseCaseScreenProjection
-  ): Option[LogicalUiError] = {
-    val candidatebindings = candidate.input.componentBindings.toSet
-    val references = input.screens.flatMap { screen =>
-      val subject = Vector(screen.subject.binding)
-      val usages = screen.interactions.flatMap(_.componentUsages.map(_.binding))
-      val mutations = screen.interactions.flatMap(_.mutation.toVector.flatMap(action => Vector(action.target, action.operation)))
-      subject ++ usages ++ mutations
-    }
-    val boundaryreferences = input.aggregateBoundaries.flatMap(boundary =>
-      Vector(boundary.aggregate, boundary.root) ++ boundary.members ++ boundary.publicOperations
-    )
-    (references ++ boundaryreferences).zipWithIndex.collectFirst {
-      case (binding, index) if binding == null =>
-        LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"projection.componentBindings[$index]", "every Component reference must be an exact public candidate binding")
-      case (binding, index) if !candidatebindings.contains(binding) =>
-        LogicalUiError("LUI43_PROJECTION_COMPONENT_CLOSED", s"projection.componentBindings[$index]", "unknown or unexported Component binding is not admitted")
-    }.orElse {
-      val used = references.filter(_ != null).toSet
-      candidate.input.componentBindings.find(binding => !used.contains(binding)).map { binding =>
-        LogicalUiError("LUI43_PROJECTION_COMPONENT_UNJUSTIFIED", s"candidate.input.componentBindings.${binding.exportId}", "every candidate binding must be used by a subject, interaction usage, or mutation action")
-      }
-    }
-  }
-
   private def _projection_aggregate_error(input: UseCaseScreenProjection): Option[LogicalUiError] = {
     val boundaries = input.aggregateBoundaries
     val overlap = boundaries.indices.toStream.flatMap { index =>
@@ -1107,119 +986,4 @@ private[cozy] object CozyLogicalUi {
   private def _realization_key(value: UseCaseRealization): (String, String, String, String) =
     (value.source.layer.id, value.source.id, value.target.layer.id, value.target.id)
 
-  private def _canonical_candidate_document(candidate: LogicalUiCandidate): String =
-    _json_object(
-      Vector(
-        "schema" -> _json_string(_schema),
-        "version" -> _version.toString,
-        "kind" -> _json_string(_candidate_kind),
-        "inputIdentity" -> _json_string(candidate.inputIdentity)
-      ) ++ _logical_content_fields(candidate.input) ++ Vector(
-        "identity" -> _json_string(candidate.identity)
-      )
-    )
-
-  private def _canonical_logical_content(input: CandidateInput): String =
-    _json_object(
-      Vector(
-        "schema" -> _json_string(_schema),
-        "version" -> _version.toString
-      ) ++ _logical_content_fields(input)
-    )
-
-  private def _logical_content_fields(input: CandidateInput): Vector[(String, String)] =
-    Vector(
-      "componentSurfaces" -> _json_array(input.componentSurfaces.map(_component_surface_json)),
-      "componentBindings" -> _json_array(input.componentBindings.map(_component_binding_json)),
-      "useCases" -> _use_cases_json(input.useCases)
-    )
-
-  private def _component_surface_json(value: ComponentSurface): String =
-    _json_object(Vector(
-      "component" -> _component_coordinate_json(value.component),
-      "exportIds" -> _json_array(value.exportIds.map(_json_string))
-    ))
-
-  private def _component_binding_json(value: ComponentBinding): String =
-    _json_object(Vector(
-      "component" -> _component_coordinate_json(value.component),
-      "exportId" -> _json_string(value.exportId)
-    ))
-
-  private def _component_coordinate_json(value: ComponentCoordinate): String =
-    _json_object(Vector(
-      "namespace" -> _json_string(value.namespace),
-      "id" -> _json_string(value.id),
-      "version" -> _json_string(value.version)
-    ))
-
-  private def _use_cases_json(value: UseCaseLayers): String =
-    _json_object(Vector(
-      "business" -> _use_case_reference_json(value.business),
-      "system" -> _use_case_reference_json(value.system),
-      "ui" -> _use_case_reference_json(value.ui),
-      "realizations" -> _json_array(value.realizations.map(_use_case_realization_json))
-    ))
-
-  private def _use_case_reference_json(value: UseCaseReference): String =
-    _json_object(Vector(
-      "layer" -> _json_string(value.layer.id),
-      "id" -> _json_string(value.id)
-    ))
-
-  private def _use_case_realization_json(value: UseCaseRealization): String =
-    _json_object(Vector(
-      "source" -> _use_case_reference_json(value.source),
-      "target" -> _use_case_reference_json(value.target)
-    ))
-
-  private def _input_identity(content: String): String =
-    _identity(_json_object(Vector(
-      "schema" -> _json_string(_schema),
-      "version" -> _version.toString,
-      "kind" -> _json_string(_consumed_input_kind),
-      "logicalContent" -> _json_string(content)
-    )))
-
-  private def _decision_identity(value: AcceptanceDecision): String =
-    _identity(_json_object(Vector(
-      "schema" -> _json_string(_schema),
-      "version" -> _version.toString,
-      "kind" -> _json_string(_acceptance_decision_kind),
-      "decisionId" -> _json_string(value.decisionId),
-      "candidateIdentity" -> _json_string(value.candidateIdentity)
-    )))
-
-  private def _accepted_identity(candidate: LogicalUiCandidate, decision: AcceptanceDecision): String =
-    _identity(_json_object(Vector(
-      "schema" -> _json_string(_schema),
-      "version" -> _version.toString,
-      "kind" -> _json_string(_accepted_kind),
-      "candidateIdentity" -> _json_string(candidate.identity),
-      "inputIdentity" -> _json_string(candidate.inputIdentity),
-      "decisionIdentity" -> _json_string(decision.decisionIdentity)
-    )))
-
-  private def _json_object(fields: Vector[(String, String)]): String =
-    fields.map { case (name, value) => s"${_json_string(name)}:$value" }.mkString("{", ",", "}")
-
-  private def _json_array(values: Vector[String]): String = values.mkString("[", ",", "]")
-
-  private def _json_string(value: String): String = {
-    val escaped = value.flatMap {
-      case '"' => "\\\""
-      case '\\' => "\\\\"
-      case '\b' => "\\b"
-      case '\f' => "\\f"
-      case '\n' => "\\n"
-      case '\r' => "\\r"
-      case '\t' => "\\t"
-      case character if character < ' ' => f"\\u${character.toInt}%04x"
-      case character => character.toString
-    }
-    s""""$escaped""""
-  }
-
-  private def _identity(value: String): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)).map(byte => f"${byte & 0xff}%02x").mkString
 }

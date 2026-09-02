@@ -3,7 +3,8 @@ package cozy.scaffold
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 25, 2026
- * @version Aug. 29, 2026
+ *  version Aug. 29, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {

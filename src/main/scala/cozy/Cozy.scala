@@ -33,7 +33,8 @@ import scala.util.control.NonFatal
  *  version May. 21, 2026
  *  version Jun. 30, 2026
  *  version Aug.  8, 2026
- * @version Aug. 20, 2026
+ *  version Aug. 20, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(

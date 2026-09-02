@@ -11,11 +11,12 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 30, 2026
- * @version Aug. 30, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy PDF review currentness state" should {
+    "receipt-derived PDF currentness projection" which {
     "write a closed receipt-derived article-PDF state without changing receipt shapes" in {
       _with_temp_dir("article") { root =>
         Given("a package with one accepted prebuilt article PDF")
@@ -179,6 +180,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         Then("the selected PDF preflight succeeds with current receipt and review-state evidence while image-only preparation remains outside this PDF-only contract")
         prepared.map(_.resource.id) shouldBe Vector("article-pdf")
       }
+    }
     }
   }
 

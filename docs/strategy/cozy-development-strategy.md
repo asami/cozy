@@ -1162,6 +1162,10 @@ Primary references:
 
 - `docs/phase/phase-38.md`
 - `docs/phase/phase-38-checklist.md`
+- `docs/design/bok-metadata-finalization.md`
+- `docs/spec/bok-metadata-finalization.md`
+- `docs/design/bok-sie-integration-contract.md`
+- `docs/design/bok-sie-information-handoff.md`
 - `/Users/asami/src/Project2026/bok-knowledgehub/STRUCTURE.md`
 
 ### Phase 39: PDF Command Contract and Semantics
@@ -1438,6 +1442,77 @@ Primary references:
 - `docs/notes/logical-ui-model-specification-proposal.md`
 - `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md`
 
+### Phase 44: SimpleModeler Concurrent Generation Isolation
+
+Status: complete locally. Phase 44 separated a failed full Cozy validation
+boundary from the behavior-preserving 2026-09-02 Hygiene Resolution Batch and
+repaired its confirmed upstream shared-state cause.
+
+Purpose and boundaries:
+
+- replace SimpleModeler's process-global clear/register/resolve registry
+  dependence with generation-request-owned declared-type resolution;
+- prove that simultaneous different-model transformations in one JVM cannot
+  observe or replace each other's type state;
+- preserve sequential generated-source and type-resolution compatibility;
+- establish concurrent generation as a supported foundation for future
+  Web/service-hosted Cozy operation; and
+- validate the correction through focused upstream/downstream generation
+  coverage, a normal-parallel full Cozy validation, and independent Phase
+  review before unblocking the Hygiene batch.
+
+Phase 44 excludes Media, BoK, Logical UI, Visual Page, Storyboard, PDF,
+publication, deployment, persistence-metadata reclassification, implementation
+of a Web endpoint, and external-driver mutation. Disabling Cozy test
+parallelism or serializing the whole application is not an accepted repair.
+The independent final Hygiene review required only a bounded Scala-header
+maintenance repair and fresh focused re-review. The post-review normal-parallel
+full Cozy gate `P44-HYG-FINAL-VAL-001` / `86195-20260902T004624Z` passed with
+1,677 succeeded, 126 suites, and 0 failures, resolving the batch in the same
+local closure commit. No remote publication, upload, push, deployment, or
+external-driver mutation is claimed.
+
+Primary references:
+
+- `docs/phase/phase-44.md`
+- `docs/phase/phase-44-checklist.md`
+- `docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md`
+
+### Phase 45: Document Project Operational Completion and Article 8 Integration
+
+Status: planned. Phase 45 follows Phase 44 closure and completes the
+user-operable Document Project workflow whose internal evidence and projection
+kernel was accepted by Phases 42 and 42.1.
+
+Purpose and boundaries:
+
+- reconcile omitted Document Project requirements without modifying the closed
+  `cozy.document-project.v1` contract in place;
+- implement the AI-assisted Content Core candidate, feedback, revision, and
+  explicit human-acceptance loop with complete provenance;
+- make article review, video review, and Phase 41 explanation review show the
+  actual semantic/visual presentation rather than raw internal descriptors;
+- replace the default internal-state listing with a user-oriented dashboard
+  that explains current status, blockers, pending reviews, and selectable safe
+  next actions while retaining diagnostic tables as secondary views;
+- activate optional deliverables explicitly and record Japanese/English parity,
+  per-artifact semantic alignment, shared-infographic use, and exact
+  currentness; and
+- accept the complete local workflow on SimpleModeling.org Article 8 with a
+  safe public `index.dox`/media projection.
+
+Phase 45 excludes in-place modification of the closed v1 descriptor,
+retrofitting Article 7 or earlier articles, autonomous semantic acceptance, a
+general scheduler or remote workflow service, publication, deployment, upload,
+push, and external-service mutation. Article 8 acceptance is local until a
+separate publication authority is granted.
+
+Primary references:
+
+- `docs/phase/phase-45.md`
+- `docs/phase/phase-45-checklist.md`
+- `docs/journal/2026/08/2026-08-30-document-project-content-core-direction.md`
+
 ### Phase 31: Video Encoding Policy Profiles
 
 Status: complete; VP31-01 through VP31-03 are complete.
@@ -1531,8 +1606,10 @@ Origin:
 | DEV-010 | User request for localized article and summary-slide PDF delivery on 2026-08-29; split approval on 2026-08-29 | Make localized article and summary-slide PDFs reproducible Cozy media-package outputs, keep PPTX internal, then register only accepted PDF roles through SmartDox. | NEW_PHASE | [Phase 40](../phase/phase-40.md) COMPLETE → [Phase 40.1](../phase/phase-40.1.md) COMPLETE | RESOLVED |
 | DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | RESOLVED |
 | DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
-| DEV-013 | User-approved Document Project workflow direction on 2026-08-30; split approved on 2026-08-31 | Scaffold and manage one Document Project through a reusable workflow; first freeze its Content Core, command/scaffold, Workflow Instance, and Work Product kernel, then derive evidence state, review/dashboard projections, and directory/BoK driver acceptance. | NEW_PHASE | [Phase 42](../phase/phase-42.md) COMPLETE → [Phase 42.1](../phase/phase-42.1.md) PLANNED, after Phase 41 | PARTIALLY RESOLVED |
+| DEV-013 | User-approved Document Project workflow direction on 2026-08-30; split approved on 2026-08-31 | Scaffold and manage one Document Project through a reusable workflow; first freeze its Content Core, command/scaffold, Workflow Instance, and Work Product kernel, then derive evidence state, review/dashboard projections, and directory/BoK driver acceptance. | NEW_PHASE | [Phase 42](../phase/phase-42.md) COMPLETE → [Phase 42.1](../phase/phase-42.1.md) COMPLETE → [Phase 45](../phase/phase-45.md) PLANNED | PARTIALLY RESOLVED |
 | DEV-014 | User-approved Logical UI direction on 2026-09-01; `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md` | Establish Application Core and three-layer use-case bindings, project public Component vocabulary into Logical Screen Composition, and generate deterministic Logical UI Review HTML before target-framework generation. | NEW_PHASE | [Phase 43](../phase/phase-43.md), after Phase 42.1 | RESOLVED |
+| DEV-015 | Hygiene Resolution Batch final validation receipt `68771-20260901T211250Z` and causal diagnosis on 2026-09-02 | Make SimpleModeler generation request-isolated and safe for simultaneous different-model execution in one JVM, preserve sequential compatibility, and establish the concurrency contract required by normal Cozy test execution and future Web/service hosting. | NEW_PHASE | [Phase 44](../phase/phase-44.md) COMPLETE | RESOLVED |
+| DEV-016 | Article 8 Document Project review on 2026-09-02; requirements omitted or only weakly realized by Phase 42.* | Complete the user-operable Document Project workflow: Content Core candidate/acceptance loop, first-class article and video review, user-oriented dashboard/action selection, optional deliverables, JA/EN and per-artifact alignment, shared-media currentness, and safe SimpleModeling.org Article 8 projection. | NEW_PHASE | [Phase 45](../phase/phase-45.md), after Phase 44 | PLANNED |
 
 ## Current Priority
 
@@ -1574,6 +1651,12 @@ independent self-contained CAR as the product boundary, support Web export and
 CNCF-hosted publication including explicit parent-connected exposure, and
 expose separately authorized operations that extract mobile/Desktop artifacts
 and distribute them through official platform channels.
+
+Phase 44 is closed locally. Phase 45 is the planned Document Project
+operational-completion successor. It owns the
+remaining DEV-013 user-facing workflow and Article 8 acceptance boundary plus
+the separately recorded DEV-016 reconciliation work; planning it does not
+reopen Phase 42/42.1 or authorize publication.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation

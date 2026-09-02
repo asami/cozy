@@ -6,7 +6,6 @@ import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.io.StringInputSource
 import cozy.config.CozyProjectContext
-import cozy.publication.{CozyArticleMediaSiteCommand, CozyArticleMediaWipCommand}
 import cozy.runtime.CozyCliArgs
 import cozy.video.CozyVideo
 import io.circe.{Decoder, HCursor, Json}
@@ -20,7 +19,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -343,66 +343,7 @@ private[cozy] object CozyMedia {
   def execute(args: List[String]): Boolean = execute(args, ProcessRunner.default)
 
   def execute(args: List[String], runner: ProcessRunner): Boolean =
-    args match {
-      case "media" :: "inspect" :: rest =>
-        println(inspect(CommandConfig.create(rest)))
-        true
-      case "media" :: "plan" :: rest =>
-        println(plan(CommandConfig.create(rest)))
-        true
-      case "media" :: "build" :: rest =>
-        println(build(CommandConfig.create(rest), runner))
-        true
-      case "media" :: "verify" :: rest =>
-        println(verify(CommandConfig.create(rest)))
-        true
-      case "media" :: "publish" :: rest =>
-        println(publish(CommandConfig.create(rest, requireProfile = true)))
-        true
-      case "media" :: "slide" :: "validate" :: rest =>
-        println(_slide_validate(CommandConfig.create(rest)))
-        true
-      case "media" :: "slide" :: "plan" :: rest =>
-        println(_slide_plan(CommandConfig.create(rest)))
-        true
-      case "media" :: "slide" :: "build" :: rest =>
-        println(_slide_build(CommandConfig.create(rest), runner))
-        true
-      case "media" :: "slide" :: "verify" :: rest =>
-        println(_slide_verify(CommandConfig.create(rest)))
-        true
-      case "media" :: "cross-review" :: "build" :: rest =>
-        println(CozyMediaCrossReview.build(CozyMediaCrossReview.BuildConfig.create(rest)))
-        true
-      case "media" :: "cross-review" :: "verify" :: rest =>
-        println(CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig.create(rest)))
-        true
-      case "media" :: "presentation" :: "migrate" :: rest =>
-        println(CozyMediaPresentationMigration.execute(rest))
-        true
-      case "media" :: "visual-page" :: rest =>
-        println(CozyVisualPage.execute(rest))
-        true
-      case "media" :: "explanation" :: rest =>
-        println(CozyExplanation.execute(rest))
-        true
-      case "media" :: "review" :: "align" :: rest =>
-        println(CozyMediaReviewState.executeAlign(rest))
-        true
-      case "media" :: "scaffold" :: "article" :: rest =>
-        println(CozyMediaArticleScaffold.execute(rest))
-        true
-      case "media" :: "register-site" :: rest =>
-        println(CozyArticleMediaSiteCommand.execute(rest))
-        true
-      case "media" :: "register-site-wip" :: rest =>
-        println(CozyArticleMediaWipCommand.execute(rest))
-        true
-      case "media" :: other :: _ =>
-        RAISE.invalidArgumentFault(s"Unsupported media command: $other")
-      case _ =>
-        false
-    }
+    CozyMediaDispatcher.execute(args, runner)
 
   def inspect(config: CommandConfig): String = {
     val mediaplan = _plan(config)
@@ -853,20 +794,20 @@ private[cozy] object CozyMedia {
     presentations
   }
 
-  private def _slide_validate(config: CommandConfig): String = {
+  private[cozy] def _slide_validate(config: CommandConfig): String = {
     val mediaplan = _plan(config)
     val selected = _presentation_selected(mediaplan, config.target)
     selected.foreach(resolved => CozyMediaSlideIr.validate(mediaplan, resolved, requireAssets = false))
     s"Cozy Media Slide Validate\nstatus: valid\nresources: ${selected.size}"
   }
 
-  private def _slide_plan(config: CommandConfig): String = {
+  private[cozy] def _slide_plan(config: CommandConfig): String = {
     val mediaplan = _plan(config)
     val selected = _presentation_selected(mediaplan, config.target)
     (Vector("Cozy Media Slide Plan") ++ selected.map(resolved => s"  - ${resolved.resource.id}: ${resolved.action.label}")).mkString("\n")
   }
 
-  private def _slide_build(config: CommandConfig, runner: ProcessRunner): String = {
+  private[cozy] def _slide_build(config: CommandConfig, runner: ProcessRunner): String = {
     val mediaplan = _plan(config)
     val selected = _presentation_selected(mediaplan, config.target)
     if (config.dryRun)
@@ -885,7 +826,7 @@ private[cozy] object CozyMedia {
     (Vector("Cozy Media Slide Build") ++ results.map(value => s"  - $value")).mkString("\n")
   }
 
-  private def _slide_verify(config: CommandConfig): String = {
+  private[cozy] def _slide_verify(config: CommandConfig): String = {
     val mediaplan = _plan(config)
     val selected = _presentation_selected(mediaplan, config.target)
     selected.foreach(resolved => CozyMediaPresentation.requireCurrent(mediaplan, resolved, requireReviewState = true))

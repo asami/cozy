@@ -1,7 +1,8 @@
 package cozy.ui
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
+import scala.collection.JavaConverters._
 
 import cozy.ui.CozyLogicalUi._
 import cozy.ui.CozyLogicalUiReview._
@@ -18,6 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
  */
 final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Logical UI review projection" should {
+    "review projection identity, currentness, and output behavior" which {
     "render complete self-contained HTML and equal receipts for equivalent normalized input order" in {
       Given("one accepted Logical UI, its screen projection, and its typed semantic projection")
       val first = _fixture()
@@ -148,12 +150,13 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
     }
 
     "fail closed for identity, currentness, and output-parent traversal changes" in {
+      _with_temp_dir("output-invalid") { root =>
       Given("a current review, a direct output parent, and explicit-parent traversal and intermediate-link escape fixtures")
       val fixture = _fixture()
-      val parent = Files.createTempDirectory("cozy-logical-ui-review-")
+      val parent = Files.createDirectory(root.resolve("parent"))
       val target = parent.resolve("review.html")
       Files.write(target, "preserve-me".getBytes(StandardCharsets.UTF_8))
-      val outer = Files.createTempDirectory(Files.createDirectories(Paths.get("target")), "cozy-logical-ui-review-")
+      val outer = Files.createDirectory(root.resolve("outer"))
       val escapedparent = Files.createDirectory(outer.resolve("parent"))
       val external = Files.createDirectory(outer.resolve("external"))
       val link = Files.createSymbolicLink(escapedparent.resolve("link"), external)
@@ -191,12 +194,14 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
       Files.readString(escapesentinel, StandardCharsets.UTF_8) shouldBe "preserve-escape"
       Files.readString(intermediatesentinel, StandardCharsets.UTF_8) shouldBe "preserve-intermediate"
       _left(differentprojection).code shouldBe "LUI43_REVIEW_IDENTITY_MISMATCH"
+      }
     }
 
     "write current HTML atomically and preserve diagnostics without semantic side effects" in {
+      _with_temp_dir("output-write") { root =>
       Given("a current review and an existing direct regular output parent")
       val fixture = _fixture()
-      val parent = Files.createTempDirectory("cozy-logical-ui-review-write-")
+      val parent = Files.createDirectory(root.resolve("parent"))
       val target = parent.resolve("review.html")
 
       When("the validated review is written to a direct HTML target")
@@ -207,8 +212,25 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
       result shouldBe Right(())
       Files.readString(target, StandardCharsets.UTF_8) shouldBe reviewvalue.html
       Files.exists(parent.resolve("review.receipt")) shouldBe false
+      }
+    }
     }
   }
+
+  private def _with_temp_dir[A](name: String)(body: Path => A): A = {
+    val work = Paths.get(sys.props("user.dir")).resolve("target")
+    Files.createDirectories(work)
+    val root = Files.createTempDirectory(work, "cozy-logical-ui-review-" + name + "-")
+    try body(root)
+    finally _delete(root)
+  }
+
+  private def _delete(path: Path): Unit =
+    if (Files.exists(path)) {
+      val paths = Files.walk(path)
+      try paths.iterator().asScala.toVector.reverse.foreach(Files.delete)
+      finally paths.close()
+    }
 
   private def _fixture(reversed: Boolean = false): (AcceptedLogicalUi, LogicalUiProjection, LogicalUiSemanticProjection) =
     _fixture_for(_use_cases, reversed, Some(WorkflowStateReference("sales-order-workflow", "awaiting")))

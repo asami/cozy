@@ -20,8 +20,8 @@ Current phase state:
   Finalization. It introduced `cozy bok finalize-metadata` without site build,
   SmartDox, Antora, Arcadia, media, publication, or deployment action; runtime
   generated-site acceptance remains separately owned by SmartDox Phase 8
-  `LITERAL8-03`, while its transferred correction remains in-progress and
-  in progress in Phase 34 awaiting final validation.
+  `LITERAL8-03`; its transferred Cozy correction was resolved in the closed
+  Phase 34 final validation.
 - Earlier closed phase: `phase-31.md`: Video Encoding Policy Profiles.
   VP31-01 through VP31-03 are complete. Lightweight 1280x720, 18 fps, CRF 32
   is the encoding baseline.
@@ -88,7 +88,7 @@ Current phase state:
   blockers were disposed by one accepted focused repair cycle; no external
   consumer acceptance, provider execution, registration, publication,
   deployment, upload, or push is claimed.
-- Most recent closed local phase: `phase-43.md`: Logical UI Model and Review
+- Earlier closed local phase: `phase-43.md`: Logical UI Model and Review
   HTML. It follows the accepted Phase 42.1 closure, projects Application Core,
   three-layer use cases, and public Component vocabulary into accepted Logical
   Screen Compositions, and stops before Flutter or target-framework
@@ -99,6 +99,22 @@ Current phase state:
   failed/aborted; SBT and wrapper exits were 0. The local Phase release commit
   binds this accepted closure; no commit SHA is recorded before that commit
   exists. No external consumer acceptance or external operation is claimed.
+- Most recent closed local phase: `phase-44.md`: SimpleModeler Concurrent
+  Generation Isolation. It removes cross-request declared-type registry
+  replacement from SimpleModeler, proves different-model generation isolation
+  in one JVM, and restores the failed `ModelerScalaGenerationSpec` validation
+  boundary under normal test parallelism. Its final normal-parallel Cozy gate
+  `P44-HYG-FINAL-VAL-001` / `86195-20260902T004624Z` completed with 1,677
+  succeeded, 126 suites, and 0 failures. The local Phase closure also resolves
+  the 2026-09-02 Hygiene Resolution Batch; no external operation or consumer
+  acceptance is claimed.
+- Planned successor: `phase-45.md`: Document Project
+  Operational Completion and Article 8 Integration. It reconciles the
+  user-facing requirements omitted or only weakly realized by Phase 42.*,
+  including first-class article/video review, a user-oriented status and
+  next-action dashboard, the Content Core candidate/acceptance loop, optional
+  deliverable selection, JA/EN and per-artifact alignment, shared-media
+  currentness, and safe local SimpleModeling.org Article 8 integration.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -227,3 +243,10 @@ succeeded, 126 suites completed, and 0 failed/aborted; SBT and wrapper exits
 were 0. The local Phase release commit binds this accepted closure; no commit
 SHA is recorded before that commit exists. Phase 42.1 remains the predecessor,
 and no external operation or consumer acceptance is claimed.
+
+Phase 45 is planned after Phase 44 closure. Its canonical planning authority is
+`phase-45.md` plus `phase-45-checklist.md`. It consumes the closed Phase 41,
+42, and 42.1 contracts while adding only compatible versioned/sidecar authored
+state; `cozy.document-project.v1` is not modified in place. Its Article 8
+driver is local acceptance only and does not authorize publication,
+deployment, upload, push, or external-service mutation.

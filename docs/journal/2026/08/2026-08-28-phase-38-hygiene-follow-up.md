@@ -1,10 +1,9 @@
 # Phase 38 Hygiene Follow-up
 
-This journal records the accepted Phase 38 nonblocking Hygiene records
-`HYG-P38-001` through `HYG-P38-007` from the BOK38-01A lightweight review, the
-BOK38-01 combined Step review, the BOK38-04 independent Step review, and the
-Phase full review. It is non-normative and does not change the paired Phase 38
-design/specification contract.
+This journal records accepted Phase 38 nonblocking Hygiene from the BOK38-01A
+lightweight review, the BOK38-01 combined Step review, the BOK38-04
+independent Step review, and the Phase full review. It is non-normative and
+does not change the paired Phase 38 design/specification contract.
 
 ## HYG-P38-001: Phase status snapshot synchronization
 
@@ -30,7 +29,7 @@ development candidate record is admitted by this journal.
 
 ## HYG-P38-002: Phase status snapshot correction reference
 
-Status: OPEN
+Status: RESOLVED
 
 Discovery: BOK38-01 combined Step review.
 
@@ -43,7 +42,7 @@ do not fix this record in BOK38-02.
 
 ## HYG-P38-003: Generated-boundary reference discoverability
 
-Status: OPEN
+Status: RESOLVED
 
 Discovery: BOK38-01 combined Step review.
 
@@ -56,7 +55,7 @@ fix this record in BOK38-02.
 
 ## HYG-P38-004: Unreferenced history-index helper
 
-Status: OPEN
+Status: RESOLVED
 
 Discovery: BOK38-04 independent Step review.
 
@@ -69,7 +68,7 @@ needed for the implemented contract. Handle it in a later bounded cleanup.
 
 ## HYG-P38-005: Unreferenced manual-dashboard helper
 
-Status: OPEN
+Status: RESOLVED
 
 Discovery: BOK38-04 independent Step review.
 
@@ -82,7 +81,7 @@ it in a later bounded cleanup.
 
 ## HYG-P38-006: Historical Phase-status wording in accepted contracts
 
-Status: OPEN
+Status: RESOLVED
 
 Discovery: Phase 38 independent full review.
 
@@ -100,7 +99,7 @@ serialization. Handle it in a later documentation-only hygiene boundary.
 
 ## HYG-P38-007: Extension diagnostic-table ambiguity
 
-Status: OPEN
+Status: RESOLVED
 
 Discovery: Phase 38 independent full review.
 
@@ -114,3 +113,45 @@ implementation and Executable Specifications preserve the normative
 generated-authority diagnostic. Resolve the table wording in a later bounded
 documentation hygiene task; do not alter the implemented diagnostic contract
 as a release workaround.
+
+## Hygiene Batch Handoff
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P38-002
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P38-003
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P38-004
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P38-005
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P38-006
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P38-007
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+## Hygiene Batch Resolution
+
+Hygiene Status: RESOLVED
+Resolution Batch: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Validated On: 2026-09-02
+Validation Evidence: P44-HYG-FINAL-VAL-001 / 86195-20260902T004624Z
+Acceptance Commit: recorded by the accepted local closure commit
+Resolved IDs: HYG-P38-002, HYG-P38-003, HYG-P38-004, HYG-P38-005,
+HYG-P38-006, HYG-P38-007

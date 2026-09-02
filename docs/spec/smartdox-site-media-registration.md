@@ -240,7 +240,7 @@ metadata/article-media/<articleIdentity>.json
 
 Locale is exact canonical SmartDox locale; no fallback is allowed. The public
 record is one SmartDox `article-media-publication` record using its existing
-Phase 1 field names (`public_path`, `media_type`, `watch_url`, and so on), and
+SmartDox Phase 9 field names (`public_path`, `media_type`, `watch_url`, and so on), and
 contains no Cozy path, hash, version, provenance, or registry metadata.
 
 Under one real publication-root lock, registration captures the complete

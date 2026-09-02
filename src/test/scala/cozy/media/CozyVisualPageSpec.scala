@@ -12,7 +12,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 26, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVisualPageSpec
@@ -20,6 +20,7 @@ final class CozyVisualPageSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Visual Page core" should {
+    "representation, validation, and command navigation" which {
     "converge JSON, YAML, and restricted Markdown to one typed semantic graph" in {
       _with_work("visual-page-representations") { root =>
         Given("one exact closed catalog, a declared direct source, and one sequence Visual Page")
@@ -293,6 +294,7 @@ final class CozyVisualPageSpec
         help.split("\n").map(_.trim).toVector should contain("media visual-page convert <input> --catalog <catalog> --save <output.json|output.yaml|output.yml|output.md>")
         help.split("\n").map(_.trim).toVector should contain("media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]")
       }
+    }
     }
   }
 

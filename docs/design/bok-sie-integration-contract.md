@@ -60,8 +60,8 @@ supplement ontology, schema, or graph information that cannot be derived from
 ordinary BoK inputs. Extension identities and contributions that collide with
 generated data or another extension fail deterministically; an extension may
 not silently replace or override generated authority. BOK38-05 implements
-this Phase 38 boundary; this contract records it without claiming that the
-new admission mechanism is already present.
+this closed Phase 38 boundary; this contract records it without claiming
+downstream consumer acceptance.
 
 ## Cozy To SIE Handoff
 
@@ -165,7 +165,7 @@ node/edge contributions must not collide with generated or other extension
 data; collision or override attempts fail rather than selecting a source by
 filesystem order. The extension route supplements generated SmartDox/SIE
 graph metadata before `componentRef` validation; it is not an RDF parser
-fallback. BOK38-05 will implement this route and its diagnostics.
+fallback. BOK38-05 implements this route and its diagnostics.
 
 Cozy validates each declared `componentRef` before publishing the graph
 summary. The matching index is selected by `kind`: `car` uses

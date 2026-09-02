@@ -8,7 +8,7 @@ Development Candidate journal is created for this review.
 
 ## HYG-LUI43-02-001: Split oversized Logical UI source
 
-- Status: OPEN
+- Status: RESOLVED
 - Discovery: independent full Phase review `P43-FULL-REVIEW-001`,
   2026-09-02.
 - Repository/path: Cozy; `src/main/scala/cozy/ui/CozyLogicalUi.scala`.
@@ -25,7 +25,7 @@ Development Candidate journal is created for this review.
 
 ## HYG-LUI43-RR-001: Deterministic review-spec fixture retention
 
-- Status: OPEN
+- Status: RESOLVED
 - Discovery: independent full Phase review `P43-FULL-REVIEW-001`,
   2026-09-02.
 - Repository/path: Cozy; review-spec temporary fixtures beneath `target/`.
@@ -41,7 +41,7 @@ Development Candidate journal is created for this review.
 
 ## HYG-LUI43-RR-002: Group Logical UI review specifications
 
-- Status: OPEN
+- Status: RESOLVED
 - Discovery: independent full Phase review `P43-FULL-REVIEW-001`,
   2026-09-02.
 - Repository/path: Cozy; `src/test/scala/cozy/ui/CozyLogicalUiReviewSpec.scala`.
@@ -54,3 +54,29 @@ Development Candidate journal is created for this review.
 - Separate follow-up: add behavior-oriented `which` grouping in a dedicated
   executable-specification maintenance task.
 - Phase restriction: do not resolve this record in Phase 43.
+
+## Hygiene Batch Handoff
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-LUI43-02-001
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-LUI43-RR-001
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-LUI43-RR-002
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+## Hygiene Batch Resolution
+
+Hygiene Status: RESOLVED
+Resolution Batch: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Validated On: 2026-09-02
+Validation Evidence: P44-HYG-FINAL-VAL-001 / 86195-20260902T004624Z
+Acceptance Commit: recorded by the accepted local closure commit
+Resolved IDs: HYG-LUI43-02-001, HYG-LUI43-RR-001, HYG-LUI43-RR-002

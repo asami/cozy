@@ -25,7 +25,7 @@ design, specification, and journal documents remain outside `doxsite`.
 path-safe, schema-validated, deterministic non-derived ontology, schema, or
 supplemental graph declarations below `src/main/extensions/rdf` may
 supplement generated resources. They cannot override or collide with
-generated authority. BOK38-05 will implement this admission boundary; the
+generated authority. BOK38-05 implements this admission boundary; the
 SIE handoff remains a generated-resource contract and does not make a source
 overlay under `doxsite` admissible.
 
@@ -97,8 +97,8 @@ only after path-safety, schema, identity, collision, and deterministic-order
 checks; an identity or override conflict fails rather than replacing the
 generated graph summary. This route is for declared graph metadata only;
 Cozy still does not parse RDF source files or infer graph nodes from labels,
-tags, terms, repository filenames, or rendered HTML. BOK38-05 will implement
-the extension reader and diagnostics. The handoff graph resource remains the
+tags, terms, repository filenames, or rendered HTML. BOK38-05 implements the
+extension reader and diagnostics. The handoff graph resource remains the
 generated `metadata/rdf/graph.json`, not a source overlay.
 
 The BoK producer may preserve a node-level `componentRef` object in this

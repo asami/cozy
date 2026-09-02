@@ -10,11 +10,13 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 29, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy article-PDF media resources" should {
+    "article and summary-PDF resource lifecycle" which {
     "accept only the explicit article-PDF grammar" in {
       _with_temp_dir("grammar") { root =>
         Given("a direct SmartDox article source and a closed article PDF descriptor")
@@ -406,6 +408,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         Then("the manifest output hash no longer accepts it")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-pdf-ja: build")
       }
+    }
     }
   }
 

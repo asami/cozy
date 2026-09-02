@@ -32,7 +32,8 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -126,36 +127,6 @@ private[cozy] trait CozyBokGlossaryPages {
        |  <h2>Operation Notes</h2>
        |  <div class="sectionbody">
        |    <p>${_html_escape(_ui(locale, "history.operation.notes"))}</p>
-       |  </div>
-       |</div>""".stripMargin
-
-  private def _manual_dashboard_body(locale: String): String =
-    s"""<div class="sect1" id="basic-operations">
-       |  <h2>Basic Operations</h2>
-       |  <div class="sectionbody">
-       |    <ul>
-       |      <li><code>cozy bok doctor</code>: ${_html_escape(_ui(locale, "manual.operation.doctor"))}</li>
-       |      <li><code>cozy bok build --strategy preview</code>: ${_html_escape(_ui(locale, "manual.operation.build"))}</li>
-       |      <li><code>cozy bok preview</code>: ${_html_escape(_ui(locale, "manual.operation.preview"))}</li>
-       |      <li><code>cozy bok publish . --dry-run</code>: ${_html_escape(_ui(locale, "manual.operation.publish.dryrun"))}</li>
-       |    </ul>
-       |  </div>
-       |</div>
-       |<div class="sect1" id="page-types">
-       |  <h2>Page Types</h2>
-       |  <div class="sectionbody">
-       |    <ul>
-       |      <li>Home Dashboard: ${_html_escape(_ui(locale, "manual.page.home"))}</li>
-       |      <li>Category Dashboard: ${_html_escape(_ui(locale, "manual.page.category"))}</li>
-       |      <li>Glossary: ${_html_escape(_ui(locale, "manual.page.glossary"))}</li>
-       |      <li>History: ${_html_escape(_ui(locale, "manual.page.history"))}</li>
-       |    </ul>
-       |  </div>
-       |</div>
-       |<div class="sect1" id="notes">
-       |  <h2>Notes</h2>
-       |  <div class="sectionbody">
-       |    <p>${_html_escape(_ui(locale, "manual.notes"))}</p>
        |  </div>
        |</div>""".stripMargin
 

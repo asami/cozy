@@ -92,7 +92,7 @@ The required diagnostic classes are deterministic and stable:
 | --- | --- |
 | `bok.extension.path.invalid` | The declaration is outside the admitted `extensions/rdf` root or is not path-safe |
 | `bok.extension.schema.invalid` | The declaration is malformed or fails its supported schema |
-| `bok.extension.identity.collision` | The declaration collides with another extension or generated identity |
+| `bok.extension.identity.collision` | The declaration duplicates another extension declaration, node, or edge identity |
 | `bok.extension.override.forbidden` | The declaration attempts to replace generated authority |
 
 BOK38-05 implements these rules. Its focused

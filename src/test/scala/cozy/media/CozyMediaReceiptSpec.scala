@@ -11,11 +11,13 @@ import io.circe.parser.parse
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 29, 2026
+ *  version Aug. 29, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy media receipt v2" should {
+    "normalization, persistence, and freshness decisions" which {
     "decode only strict receipt descriptor configuration" in {
       _with_temp_dir("strict") { root =>
         Given("otherwise valid descriptors with malformed receipt input configuration")
@@ -244,6 +246,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         raced.getMessage should include("inputs have changed")
         Files.exists(root.resolve("publication/example.txt")) shouldBe false
       }
+    }
     }
   }
 

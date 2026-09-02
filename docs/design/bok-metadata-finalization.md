@@ -1,6 +1,6 @@
 # BoK Metadata Finalization Design
 
-Status: Phase 34 BOK34-02 working design; Phase 38 source-boundary alignment
+Status: normative Phase 34 BOK34-02 design; Phase 38 source-boundary alignment implemented
 
 ## Phase 38 source-boundary alignment
 
@@ -25,10 +25,10 @@ repository operations, design, specification, and journal documents remain
 outside `doxsite`.
 
 This alignment does not change the finalizer's allowlist or SIE ownership
-boundary. BOK38-02 through BOK38-06 will implement scaffold, derivation,
+boundary. BOK38-02 through BOK38-06 implemented scaffold, derivation,
 extension, migration, and driver behavior against the paired Phase 38
-contract; this design records that contract without claiming those stages
-are complete.
+contract; this design records that closed local contract without claiming
+downstream consumer acceptance.
 
 ## Responsibility
 

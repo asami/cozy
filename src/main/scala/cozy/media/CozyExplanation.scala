@@ -1,21 +1,14 @@
 package cozy.media
 
-import java.nio.ByteBuffer
-import java.nio.charset.{CodingErrorAction, StandardCharsets}
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
-
-import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
-
-import scala.collection.mutable
-import scala.util.control.NonFatal
+import java.nio.file.Path
 
 import CozyExplanationCodec._
 import CozyExplanationJson._
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanation {

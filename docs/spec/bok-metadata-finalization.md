@@ -1,6 +1,6 @@
 # BoK Metadata Finalization Specification
 
-Status: Phase 34 BOK34-02 working specification; Phase 38 source-boundary alignment
+Status: normative Phase 34 BOK34-02 specification; Phase 38 source-boundary alignment implemented
 
 ## Phase 38 source-boundary alignment
 
@@ -28,9 +28,10 @@ authority. Public guidance uses the ordinary `guide` category, while
 repository operations, design, specification, and journal documents remain
 outside `doxsite`.
 
-BOK38-02 through BOK38-06 will implement this source-boundary alignment.
-This specification does not claim scaffold, derivation, extension,
-migration, driver, validation, or acceptance behavior has already changed.
+BOK38-02 through BOK38-06 implemented this source-boundary alignment.
+This specification records the closed local scaffold, derivation, extension,
+migration, driver, and validation boundary without claiming downstream
+consumer acceptance.
 
 ## Command
 

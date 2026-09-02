@@ -27,7 +27,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {

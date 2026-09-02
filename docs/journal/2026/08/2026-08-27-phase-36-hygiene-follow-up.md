@@ -1,12 +1,12 @@
 # Phase 36 Hygiene Follow-up
 
-Status: OPEN and RESOLVED follow-up records
+Status: resolved batch records and one earlier terminal resolution
 
 ## Accepted records
 
 ### HYG-P36-02A-001
 
-Status: OPEN
+Status: RESOLVED
 
 Discovered during P36-02A review. Path:
 `src/test/scala/cozy/media/CozyVisualPageSpec.scala`. Multiple feature areas
@@ -16,7 +16,7 @@ Group it in a later Cozy spec-navigation hygiene task.
 
 ### HYG-P36-02B-001
 
-Status: OPEN
+Status: RESOLVED
 
 Discovered during this PLAN snapshot. Path:
 `src/main/scala/cozy/media/CozyVisualPage.scala`. The 1,201-line source-size
@@ -26,7 +26,7 @@ not fixed by P36-02B.
 
 ### HYG-P36-02B-002
 
-Status: OPEN
+Status: RESOLVED
 
 Discovered during P36-02B implementation. Path:
 `src/main/scala/cozy/media/CozyMedia.scala`. The required three-line direct
@@ -37,7 +37,7 @@ dedicated Cozy command-dispatcher hygiene task.
 
 ### HYG-P36-02B-003
 
-Status: OPEN
+Status: RESOLVED
 
 Discovered during P36-02B implementation. Path:
 `src/main/scala/cozy/media/CozyVisualPage.scala`. The smallest reusable
@@ -58,8 +58,8 @@ status had advanced. This was outside P36-STATUS-01's two-phase-document
 boundary because that Step synchronized only `docs/phase/phase-36.md` and
 `docs/phase/phase-36-checklist.md`.
 
-Resolution boundary: the current task/commit subject
-`P36-HYG-STATUS-001` status synchronization. The strategy and README
+Resolution boundary: the current task/commit subject, Phase 36 status
+synchronization. The strategy and README
 snapshots now agree with the accepted Phase 36 status: Phase 36 is IN
 PROGRESS; VIS36-01 and VIS36-02 are DONE; VIS36-03 is IN PROGRESS with only
 P36-03A accepted; and VIS36-04 through VIS36-06 are NOT STARTED. This record
@@ -67,7 +67,7 @@ is nonblocking and resolved without any behavioral or Phase-scope change.
 
 ### HYG-36-04-001
 
-Status: OPEN
+Status: RESOLVED
 
 Discovered during the Phase 36 full review and retained by its focused closure
 re-review. Path: `src/main/scala/cozy/video/CozyVideoStoryboard.scala`.
@@ -80,3 +80,40 @@ Dependency: preserve the accepted `cozy.video.storyboard.v1` and v2 review
 evidence contracts while extracting only a mechanically safe parser boundary.
 Prohibited local workaround: do not weaken the parser, omit strict validation,
 or fold the split into Phase 36 release work.
+
+## Hygiene Batch Handoff
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P36-02A-001
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P36-02B-001
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P36-02B-002
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P36-02B-003
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-36-04-001
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-02
+
+## Hygiene Batch Resolution
+
+Hygiene Status: RESOLVED
+Resolution Batch: cozy:docs/journal/2026/09/2026-09-02-hygiene-resolution-batch-handoff.md
+Validated On: 2026-09-02
+Validation Evidence: P44-HYG-FINAL-VAL-001 / 86195-20260902T004624Z
+Acceptance Commit: recorded by the accepted local closure commit
+Resolved IDs: HYG-P36-02A-001, HYG-P36-02B-001, HYG-P36-02B-002,
+HYG-P36-02B-003, HYG-36-04-001
