@@ -108,19 +108,20 @@ Current phase state:
   succeeded, 126 suites, and 0 failures. The local Phase closure also resolves
   the 2026-09-02 Hygiene Resolution Batch; no external operation or consumer
   acceptance is claimed.
-- Current in-progress phase: `phase-45.md`: Document Project v2 Authoring
+- Most recently closed phase: `phase-45.md`: Document Project v2 Authoring
   Contract and Content Core Acceptance. It replaces the unoperated v1 kernel
-  with a closed v2 descriptor contract, and implements the Content Core
+  with a closed v2 descriptor contract and completes the Content Core
   candidate/feedback/revision/explicit-human-acceptance loop with complete
-  provenance. P45-01, the Versioned Authoring Contract Stage, is complete:
-  `P45-01A-VAL-008` passed 49 focused Document Project specs and focused
-  closure review 3 closed `CB-P45-RR-001` with no actionable finding. P45-02
-  remains planned. Its pre-existing read-only dashboard may show selected
-  `article-review-html` as `No action: contract-only in Phase 45`, without a
-  renderer/CLI/output or action capability. Ordered successor `phase-45.1.md`
-  exclusively owns new article/video review projections and the expanded user
-  dashboard/action surface; `phase-45.2.md` then owns localized-artifact
-  alignment, shared-media currentness, and local Article 8 acceptance.
+  provenance. `P45-02D-VAL-010` passed 59 focused Document Project specs,
+  focused re-review sealed `CB-P45-001` through `CB-P45-003`, and
+  `P45-FINAL-VAL-011` / `67794-20260902T164202Z` passed 1,695 tests in 126
+  suites with 0 failures. Its pre-existing read-only dashboard may show
+  selected `article-review-html` as `No action: contract-only in Phase 45`,
+  without a renderer/CLI/output or action capability. Ordered successor
+  `phase-45.1.md` exclusively owns new article/video review projections and
+  the expanded user dashboard/action surface; `phase-45.2.md` then owns
+  localized-artifact alignment, shared-media currentness, and local Article 8
+  acceptance.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -251,10 +252,9 @@ SHA is recorded before that commit exists. Phase 42.1 remains the predecessor,
 and no external operation or consumer acceptance is claimed.
 
 The original 14–20 hour Phase 45 plan was split on 2026-09-02 into an ordered
-three-Phase sequence. [Phase 45](phase-45.md) is in progress for the closed
-v2 authoring state and the Content Core candidate/explicit-human-acceptance
-loop; P45-01 is complete and P45-02 remains planned. Its pre-existing read-only
-dashboard may show a selected
+three-Phase sequence. [Phase 45](phase-45.md) is complete for the closed v2
+authoring state and the Content Core candidate/explicit-human-acceptance loop;
+P45-01 and P45-02 are complete. Its pre-existing read-only dashboard may show a selected
 `article-review-html` item as `No action: contract-only in Phase 45`, without
 adding a renderer/CLI/output or action capability. [Phase 45.1](phase-45.1.md)
 exclusively owns new article/video review projections and the expanded user

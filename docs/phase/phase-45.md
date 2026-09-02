@@ -1,6 +1,6 @@
 # Phase 45: Document Project v2 Authoring Contract and Content Core Acceptance
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-09-02
 
@@ -52,13 +52,14 @@ Stage Status:
 Closure evidence: `P45-01A-VAL-008` passed 49
 `CozyDocumentProjectSpec` tests with the SBT lock released. Focused closure
 review 3 closed `CB-P45-RR-001` with no actionable findings. The local Step
-acceptance commit binds this completed Stage; P45-02 remains planned.
+acceptance commit binds this completed Stage; P45-02 then remained the sole
+protected closure unit.
 
 ## P45-02: Content Core Candidate, Feedback, and Acceptance Loop
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: COMPLETE
 - Owner: AI-assisted Content Core authoring and review workflow
 - Update rule: complete only when a candidate can be produced, reviewed,
   revised, and explicitly accepted with complete provenance and no implicit
@@ -77,6 +78,34 @@ Stage Status:
 - Preserve append-only failed, successful, rejected, accepted, and superseded
   attempt/review history, and require human acceptance for Content Core
   authority changes.
+
+Closure evidence: exceptional Terra xhigh full recovery review
+`P45-RECOVERY-FULL-REVIEW-001` identified and then bounded the public
+writer-lock precedence defect as `CPB-P45-003`. The authorized source/spec
+repair established external-input admission followed by writer-lock acquisition
+before descriptor/Core observation; `P45-02D-VAL-010` passed 59 focused
+Document Project specifications, and focused re-review sealed
+`CPB-P45-001` through `CB-P45-003`. Final serialized Cozy validation
+`P45-FINAL-VAL-011` / `67794-20260902T164202Z` passed 1,695 tests in 126
+suites with 0 failures; SBT and wrapper exits were 0 and the lock was released.
+This Stage does not perform an Article 8 driver acceptance, publication, or
+external-consumer acceptance.
+
+### Decision Resolution Record: P45-02-REVIEW-GATE-001
+
+- Decision ID: `P45-02-REVIEW-GATE-001`
+- Attributable answer: user instruction on 2026-09-02: `P45-02 を Phase 45 の
+  唯一の protected closure unit とし、軽量 Step review を省略して Terra xhigh
+  の Phase full review と local closure commit に進めることを許可する`.
+- Selected option: treat P45-02 as the sole protected closure unit of Phase 45;
+  omit the lightweight Step review and use one Terra xhigh Phase full review
+  before the local closure commit.
+- Affected identity: Phase 45 / P45-02; Phase base
+  `a97492f8ad9a8e028cf6108745d2b666d0a66fb5`; P45-02 candidate, feedback,
+  acceptance, project-local writer-lock, and standard-video generic-compose
+  boundaries.
+- Authorized next state: `REVIEW` (`phase-full`, Terra xhigh).
+- Consumed: `true`.
 
 ## Moved Scope and Handoffs
 
@@ -145,4 +174,5 @@ evidence only. The user approved the resulting ordered split with
 - `docs/phase/phase-45.2.md`
 - `docs/journal/2026/09/2026-09-02-phase-45-document-project-requirement-reconciliation.md`
 - `docs/journal/2026/09/2026-09-02-phase-45-article-review-requirements.md`
+- `docs/journal/2026/09/2026-09-02-phase-45-hygiene-follow-up.md`
 - `docs/journal/2026/08/2026-08-30-document-project-content-core-direction.md`

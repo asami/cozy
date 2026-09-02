@@ -23,7 +23,9 @@ private[cozy] object CozyHelpText {
       |  document-project plan <project>
       |  document-project dashboard <project> [--save <dashboard.html>]
       |  document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
-      |  document-project reflect-feedback <project> <feedback>
+      |  document-project content-core candidate <project> <dialogue>
+      |  document-project content-core feedback <project> <candidate-id> <feedback>
+      |  document-project content-core accept <project> <candidate-id> <acceptance>
       |  document-project verify <project>
       |  document-project run <project> --operation <logical-operation> [--dry-run]
       |  document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
@@ -38,9 +40,9 @@ private[cozy] object CozyHelpText {
       |      Projections are deterministic, self-contained, HTML-escaped, and write only the selected output.
       |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.
       |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, receipts, attempts, or delivery state.
-      |      Feedback reflection accepts direct JSON or YAML structured feedback with one common object schema; each item retains its proposal, applicability, and disposition.
-      |      Accepted items replace only their mapped authority; rejected and not-applicable items report their required reason without writing.
-      |      A non-video profile requires a not-applicable video item; all feedback is prevalidated before same-directory atomic authority replacement.
+      |      Content Core candidate accepts a completed direct JSON/YAML dialogue bundle and records durable local evidence; it never invokes an AI provider or changes Content Core.
+      |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.
+      |      Candidate, failed dialogue, feedback, and acceptance evidence are append-only below evidence/content-core/; no schema/version, provider, remote, or compatibility path is added.
       |
       |  pdf <input> (use `cozy pdf --help` for PDF options and formats).
       |

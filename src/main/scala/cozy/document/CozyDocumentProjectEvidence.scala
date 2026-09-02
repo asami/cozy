@@ -13,7 +13,7 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 1, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectEvidence {
@@ -37,24 +37,6 @@ private[cozy] object CozyDocumentProjectEvidence {
   }
   case object NoReview extends Review {
     val kind = "none"
-  }
-  final case class AcceptedReview(
-    provider: String,
-    model: String,
-    request: FileIdentity,
-    response: FileIdentity,
-    acceptedAuthority: FileIdentity
-  ) extends Review {
-    val kind = "core-dialogue"
-  }
-  final case class RejectedReview(
-    provider: String,
-    model: String,
-    request: FileIdentity,
-    response: FileIdentity,
-    rejectionReason: String
-  ) extends Review {
-    val kind = "core-dialogue"
   }
   final case class ProductEvidence(id: String, evidence: Evidence, review: Review)
   final case class Sidecar(path: FileIdentity, publicSource: PublicSource, products: Vector[ProductEvidence])
@@ -311,55 +293,10 @@ private[cozy] object CozyDocumentProjectEvidence {
 
   private def _review(project: Path, descriptor: CozyDocumentProject.Descriptor, productid: String, value: Json): Review = {
     val fields = _object(value, s"Document Project review $productid")
-    _string(fields, "kind", s"Document Project review $productid") match {
-      case "none" =>
-        if (fields.keySet != Set("kind")) {
-          _invalid(s"Document Project review $productid none must contain only kind")
-        }
-        NoReview
-      case "core-dialogue" =>
-        if (productid != "content-core") {
-          _invalid("Document Project core-dialogue review is valid only for content-core")
-        }
-        val common = Set("kind", "provider", "model", "request", "response")
-        val accepted = fields.get("accepted")
-        val rejected = fields.get("rejected")
-        if (accepted.isDefined == rejected.isDefined || !fields.keySet.subsetOf(common ++ Set("accepted", "rejected"))) {
-          _invalid("Document Project core-dialogue review requires exactly one accepted or rejected disposition branch")
-        }
-        if (!common.subsetOf(fields.keySet)) {
-          _invalid("Document Project core-dialogue review is missing common identity fields")
-        }
-        val provider = _nonempty(_string(fields, "provider", "Document Project core-dialogue review"), "Document Project core-dialogue provider")
-        val model = _nonempty(_string(fields, "model", "Document Project core-dialogue review"), "Document Project core-dialogue model")
-        val request = _nested_file_identity(project, _field(fields, "request", "Document Project core-dialogue review"), "Document Project core-dialogue request")
-        val response = _nested_file_identity(project, _field(fields, "response", "Document Project core-dialogue review"), "Document Project core-dialogue response")
-        accepted match {
-          case Some(branch) =>
-            if (fields.keySet != common + "accepted") {
-              _invalid("Document Project accepted core-dialogue review has an invalid field")
-            }
-            val acceptedfields = _object(branch, "Document Project accepted core-dialogue review")
-            if (acceptedfields.keySet != Set("acceptedAuthority")) {
-              _invalid("Document Project accepted core-dialogue review must have exactly acceptedAuthority")
-            }
-            val authority = _nested_file_identity(project, _field(acceptedfields, "acceptedAuthority", "Document Project accepted core-dialogue review"), "Document Project accepted core authority")
-            if (authority.path != descriptor.contentCore) {
-              _invalid("Document Project accepted core authority must equal the descriptor Content Core path")
-            }
-            AcceptedReview(provider, model, request, response, authority)
-          case None =>
-            if (fields.keySet != common + "rejected") {
-              _invalid("Document Project rejected core-dialogue review has an invalid field")
-            }
-            val rejectedfields = _object(rejected.get, "Document Project rejected core-dialogue review")
-            if (rejectedfields.keySet != Set("rejectionReason")) {
-              _invalid("Document Project rejected core-dialogue review must have exactly rejectionReason")
-            }
-            RejectedReview(provider, model, request, response, _nonempty(_string(rejectedfields, "rejectionReason", "Document Project rejected core-dialogue review"), "Document Project rejected core-dialogue rejectionReason"))
-        }
-      case _ => _invalid(s"Document Project review kind is invalid: $productid")
+    if (fields.keySet != Set("kind") || _string(fields, "kind", s"Document Project review $productid") != "none") {
+      _invalid(s"Document Project review $productid must contain exactly kind: none")
     }
+    NoReview
   }
 
   private def _products(
@@ -424,7 +361,7 @@ private[cozy] object CozyDocumentProjectEvidence {
           "omitted"
         } else if (currentness == "nonparticipating") {
           "not-selected"
-        } else if (currentness == "failed" || review == "rejected") {
+        } else if (currentness == "failed") {
           "failed"
         } else if (currentness == "current" && review != "stale") {
           "ready"
@@ -438,10 +375,6 @@ private[cozy] object CozyDocumentProjectEvidence {
           Some("optional Work Product is not selected")
         } else if (currentness == "failed") {
           Some("a retained failed attempt has no current product evidence")
-        } else if (review == "rejected") {
-          declared.get(product.id).collect { case ProductEvidence(_, _, RejectedReview(_, _, _, _, reason)) => s"review rejected: $reason" }
-        } else if (review == "stale") {
-          Some("review evidence is stale")
         } else {
           evidence.reason.orElse(_source_reason(descriptor, product.id, sourcepaths, currentness))
         }
@@ -533,21 +466,7 @@ private[cozy] object CozyDocumentProjectEvidence {
     }
   }
 
-  private def _review_status(project: Path, descriptor: CozyDocumentProject.Descriptor, review: Review): String = review match {
-    case NoReview => "pending"
-    case RejectedReview(_, _, request, response, _) =>
-      if (_identity_current(project, request) && _identity_current(project, response)) {
-        "rejected"
-      } else {
-        "stale"
-      }
-    case AcceptedReview(_, _, request, response, authority) =>
-      if (_identity_current(project, request) && _identity_current(project, response) && authority.path == descriptor.contentCore && _identity_current(project, authority)) {
-        "accepted"
-      } else {
-        "stale"
-      }
-  }
+  private def _review_status(project: Path, descriptor: CozyDocumentProject.Descriptor, review: Review): String = "pending"
 
   private def _stale_products(resolved: CozyDocumentWorkflow.ResolvedWorkflow, initial: Set[String]): Set[String] = {
     @annotation.tailrec

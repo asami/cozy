@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 1, 2026
+ * @version Sep.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProject {
@@ -31,7 +31,7 @@ private[cozy] object CozyDocumentProject {
   private[cozy] final case class SemanticScope(id: String, localeVariants: Vector[LocaleVariant])
 
   private final case class ProjectRequest(command: String, project: String, operation: Option[String], dryrun: Boolean, kind: Option[String], save: Option[String])
-  private final case class FeedbackRequest(project: String, feedback: String)
+  private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
   private val _slug_pattern = "[a-z0-9][a-z0-9._-]*".r
@@ -42,16 +42,30 @@ private[cozy] object CozyDocumentProject {
   def execute(args: List[String]): Boolean = args match {
     case "document-project" :: rest =>
       _parse(rest) match {
-        case FeedbackRequest(projectvalue, feedbackvalue) =>
+        case ContentCoreRequest(command, projectvalue, candidateid, input) =>
           val project = _admit_project(projectvalue)
-          val descriptor = _load_project(project)
-          println(CozyDocumentFeedbackReflection.reflect(project, descriptor, feedbackvalue))
+          val output = command match {
+            case "candidate" => CozyDocumentContentCore.candidate(project, input)
+            case "feedback" => CozyDocumentContentCore.feedback(project, candidateid.getOrElse(_failure("DP-CLI-002", "content-core feedback requires <candidate-id>")), input)
+            case "accept" => CozyDocumentContentCore.accept(project, candidateid.getOrElse(_failure("DP-CLI-002", "content-core accept requires <candidate-id>")), input)
+            case _ => _failure("DP-CLI-001", s"unsupported content-core command: $command")
+          }
+          println(output)
           true
         case ProjectRequest(command, projectvalue, operation, dryrun, kind, save) =>
           val project = _admit_project(projectvalue)
-          if (command == "verify" || command == "run")
+          if (command == "verify")
+            _verify_initial_sources(project)
+          if (command == "run" && !operation.contains("content-core.compose"))
             _verify_initial_sources(project)
           val descriptor = _load_project(project)
+          if (command == "run" && operation.contains("content-core.compose")) {
+            _verify_initial_sources(project)
+            if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile))
+              _direct_file(project, "video/storyboard.md", "initial authored source")
+          }
+          if (command == "run" && operation.contains("content-core.compose"))
+            _failure("DP-OP-001", "content-core.compose must be executed with document-project content-core candidate <project> <dialogue>")
           command match {
             case "inspect" =>
               val state = _write_state_snapshot(project, descriptor)
@@ -105,7 +119,7 @@ private[cozy] object CozyDocumentProject {
     case "plan" :: rest => _project_request("plan", rest, Set.empty, Set.empty)
     case "dashboard" :: rest => _project_request("dashboard", rest, Set("save"), Set.empty)
     case "review" :: rest => _project_request("review", rest, Set("kind", "save"), Set.empty)
-    case "reflect-feedback" :: rest => _feedback_request(rest)
+    case "content-core" :: rest => _content_core_request(rest)
     case "verify" :: rest => _project_request("verify", rest, Set.empty, Set.empty)
     case "run" :: rest => _project_request("run", rest, Set("operation"), Set("dry-run"))
     case "scaffold" :: rest => _scaffold_request(rest)
@@ -136,13 +150,30 @@ private[cozy] object CozyDocumentProject {
     ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"), parsed.values.get("kind"), parsed.values.get("save"))
   }
 
-  private def _feedback_request(args: List[String]): FeedbackRequest = {
+  private def _content_core_request(args: List[String]): ContentCoreRequest = {
     val parsed = _parse_options(args, Set.empty, Set.empty)
-    if (parsed.positionals.size > 2)
-      _failure("DP-CLI-001", "invalid reflect-feedback command grammar")
-    if (parsed.positionals.size < 2)
-      _failure("DP-CLI-002", "reflect-feedback requires <project> <feedback>")
-    FeedbackRequest(parsed.positionals(0), parsed.positionals(1))
+    parsed.positionals.headOption match {
+      case None => _failure("DP-CLI-002", "content-core requires candidate, feedback, or accept")
+      case Some("candidate") =>
+        if (parsed.positionals.size > 3)
+          _failure("DP-CLI-001", "invalid content-core candidate command grammar")
+        if (parsed.positionals.size < 3)
+          _failure("DP-CLI-002", "content-core candidate requires <project> <dialogue>")
+        ContentCoreRequest("candidate", parsed.positionals(1), None, parsed.positionals(2))
+      case Some("feedback") =>
+        if (parsed.positionals.size > 4)
+          _failure("DP-CLI-001", "invalid content-core feedback command grammar")
+        if (parsed.positionals.size < 4)
+          _failure("DP-CLI-002", "content-core feedback requires <project> <candidate-id> <feedback>")
+        ContentCoreRequest("feedback", parsed.positionals(1), Some(parsed.positionals(2)), parsed.positionals(3))
+      case Some("accept") =>
+        if (parsed.positionals.size > 4)
+          _failure("DP-CLI-001", "invalid content-core accept command grammar")
+        if (parsed.positionals.size < 4)
+          _failure("DP-CLI-002", "content-core accept requires <project> <candidate-id> <acceptance>")
+        ContentCoreRequest("accept", parsed.positionals(1), Some(parsed.positionals(2)), parsed.positionals(3))
+      case Some(value) => _failure("DP-CLI-001", s"unsupported content-core command: $value")
+    }
   }
 
   private def _scaffold_request(args: List[String]): ScaffoldRequest = {
@@ -209,7 +240,7 @@ private[cozy] object CozyDocumentProject {
     project
   }
 
-  private def _load_project(project: Path): Descriptor = {
+  private[cozy] def _load_project(project: Path): Descriptor = {
     val descriptorfile = _admitted_descriptor_file(project, "document-project.yaml", "descriptor")
     _admitted_content_directory(project.resolve("content"))
     val descriptorjson = _load_json(descriptorfile, "descriptor")

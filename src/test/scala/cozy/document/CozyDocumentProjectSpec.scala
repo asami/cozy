@@ -3,8 +3,9 @@ package cozy.document
 import cozy.scaffold.CozyHelpText
 import cozy.media.CozyMedia
 import java.io.{ByteArrayOutputStream, PrintStream}
+import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path}
+import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -899,266 +900,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "reflect mixed feedback dispositions with explicit reasons and bounded authority writes" in {
-      _with_temp_dir("cozy-document-project-feedback") { root =>
-        Given("an admitted standard project and a direct JSON feedback batch")
-        val parent = Files.createDirectory(root.resolve("parent"))
-        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
-        val project = parent.resolve("sample.dox")
-        val core = project.resolve("content/core-en.yaml")
-        val article = project.resolve("index.dox")
-        val slides = project.resolve("presentation/visual-pages.yaml")
-        val infographic = project.resolve("infographic/infographic.svg")
-        val corebefore = Files.readAllBytes(core)
-        val articlebefore = Files.readAllBytes(article)
-        val slidesbefore = Files.readAllBytes(slides)
-        val feedback = root.resolve("feedback.json")
-        Files.writeString(feedback, """{
-          |  "reason": "first review batch",
-          |  "changes": [
-          |    {"target":"core","replacement":{"accepted":[{"id":"claim-1","text":"Accepted claim"}]},"applicability":"applicable","disposition":"accepted"},
-          |    {"target":"article","replacement":"proposed article","applicability":"applicable","disposition":"rejected","rejectionReason":"article needs another pass"},
-          |    {"target":"slides","replacement":"proposed slides","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"slides are deferred"},
-          |    {"target":"infographic","replacement":"<svg>accepted</svg>\n","applicability":"applicable","disposition":"accepted"},
-          |    {"target":"video","replacement":"proposed storyboard","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}
-          |  ]
-          |}""".stripMargin, StandardCharsets.UTF_8)
-
-        When("the mixed feedback batch is reflected")
-        val output = _execute(List("document-project", "reflect-feedback", project.toString, feedback.toString))
-
-        Then("accepted items write their mapped authority and every item reports its disposition")
-        output should startWith("Cozy Document Project Feedback Reflection")
-        output should include("reflected: core content/core-en.yaml")
-        output should include("rejected: article — article needs another pass")
-        output should include("not-applicable: slides — slides are deferred")
-        output should include("reflected: infographic infographic/infographic.svg")
-        output should include("not-applicable: video — profile does not use video")
-        output should not include "first review batch"
-        output should not include "proposed article"
-        output should not include "proposed storyboard"
-        Files.readString(core, StandardCharsets.UTF_8) should include("claim-1")
-        Files.readString(core, StandardCharsets.UTF_8) should include("Accepted claim")
-        Files.readString(core, StandardCharsets.UTF_8) should include("schema: \"cozy.content-core.v1\"")
-        Files.readString(core, StandardCharsets.UTF_8) should include("id: \"sample:core:en\"")
-        Files.readString(core, StandardCharsets.UTF_8) should include("language: \"en\"")
-        Files.readAllBytes(article) shouldBe articlebefore
-        Files.readAllBytes(slides) shouldBe slidesbefore
-        Files.readString(infographic, StandardCharsets.UTF_8) shouldBe "<svg>accepted</svg>\n"
-        Files.readAllBytes(core) should not equal corebefore
-        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-
-        Given("the same standard project and an amended batch that accepts the earlier article proposal")
-        val amended = root.resolve("amended-feedback.json")
-        Files.writeString(amended, """{
-          |  "reason": "amended decision",
-          |  "changes": [
-          |    {"target":"article","replacement":"accepted article source\n","applicability":"applicable","disposition":"accepted"},
-          |    {"target":"video","replacement":"still no video","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}
-          |  ]
-          |}""".stripMargin, StandardCharsets.UTF_8)
-
-        When("the amended batch is reflected")
-        val amendedoutput = _execute(List("document-project", "reflect-feedback", project.toString, amended.toString))
-
-        Then("the formerly rejected proposal can be accepted later without persisting feedback state")
-        amendedoutput should include("reflected: article index.dox")
-        Files.readString(article, StandardCharsets.UTF_8) shouldBe "accepted article source\n"
-        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "reflect YAML feedback through the common structured schema" in {
-      _with_temp_dir("cozy-document-project-feedback-yaml") { root =>
-        Given("an admitted standard project and a direct YAML feedback batch")
-        val parent = Files.createDirectory(root.resolve("parent"))
-        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
-        val project = parent.resolve("sample.dox")
-        val core = project.resolve("content/core-en.yaml")
-        val article = project.resolve("index.dox")
-        val slides = project.resolve("presentation/visual-pages.yaml")
-        val corebefore = Files.readAllBytes(core)
-        val articlebefore = Files.readAllBytes(article)
-        val slidesbefore = Files.readAllBytes(slides)
-        val feedback = root.resolve("feedback.yaml")
-        Files.writeString(feedback, """reason: yaml review batch
-          |changes:
-          |  - target: core
-          |    replacement:
-          |      accepted:
-          |        - id: yaml-claim
-          |          text: Accepted YAML claim
-          |    applicability: applicable
-          |    disposition: accepted
-          |  - target: article
-          |    replacement: proposed YAML article
-          |    applicability: applicable
-          |    disposition: rejected
-          |    rejectionReason: article needs another pass
-          |  - target: slides
-          |    replacement: proposed YAML slides
-          |    applicability: not-applicable
-          |    disposition: not-applicable
-          |    notApplicableReason: slides are deferred
-          |  - target: video
-          |    replacement: proposed YAML storyboard
-          |    applicability: not-applicable
-          |    disposition: not-applicable
-          |    notApplicableReason: profile does not use video
-          |""".stripMargin, StandardCharsets.UTF_8)
-
-        When("the YAML feedback batch is reflected")
-        val output = _execute(List("document-project", "reflect-feedback", project.toString, feedback.toString))
-
-        Then("YAML has the same disposition output and bounded authority behavior as JSON")
-        output should startWith("Cozy Document Project Feedback Reflection")
-        output should include("reflected: core content/core-en.yaml")
-        output should include("rejected: article — article needs another pass")
-        output should include("not-applicable: slides — slides are deferred")
-        output should include("not-applicable: video — profile does not use video")
-        output should not include "yaml review batch"
-        output should not include "proposed YAML article"
-        output should not include "proposed YAML storyboard"
-        Files.readString(core, StandardCharsets.UTF_8) should include("yaml-claim")
-        Files.readAllBytes(core) should not equal corebefore
-        Files.readAllBytes(article) shouldBe articlebefore
-        Files.readAllBytes(slides) shouldBe slidesbefore
-        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "map every accepted feedback target, including the active video source" in {
-      _with_temp_dir("cozy-document-project-feedback-targets") { root =>
-        Given("an admitted standard-video project and one accepted replacement for each authority mapping")
-        val parent = Files.createDirectory(root.resolve("parent"))
-        _execute(List("document-project", "scaffold", "video", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
-        val project = parent.resolve("video.dox")
-        val feedback = root.resolve("all-targets.json")
-        Files.writeString(feedback, """{
-          |  "reason": "accept all authorities",
-          |  "changes": [
-          |    {"target":"core","replacement":{"accepted":[]},"applicability":"applicable","disposition":"accepted"},
-          |    {"target":"article","replacement":"article\n","applicability":"applicable","disposition":"accepted"},
-          |    {"target":"slides","replacement":"slides\n","applicability":"applicable","disposition":"accepted"},
-          |    {"target":"infographic","replacement":"infographic\n","applicability":"applicable","disposition":"accepted"},
-          |    {"target":"video","replacement":"storyboard\n","applicability":"applicable","disposition":"accepted"}
-          |  ]
-          |}""".stripMargin, StandardCharsets.UTF_8)
-
-        When("all accepted feedback targets are reflected")
-        val output = _execute(List("document-project", "reflect-feedback", project.toString, feedback.toString))
-
-        Then("each target maps to its exact in-project authority path")
-        output should include("reflected: core content/core-en.yaml")
-        output should include("reflected: article index.dox")
-        output should include("reflected: slides presentation/visual-pages.yaml")
-        output should include("reflected: infographic infographic/infographic.svg")
-        output should include("reflected: video video/storyboard.md")
-        Files.readString(project.resolve("index.dox"), StandardCharsets.UTF_8) shouldBe "article\n"
-        Files.readString(project.resolve("presentation/visual-pages.yaml"), StandardCharsets.UTF_8) shouldBe "slides\n"
-        Files.readString(project.resolve("infographic/infographic.svg"), StandardCharsets.UTF_8) shouldBe "infographic\n"
-        Files.readString(project.resolve("video/storyboard.md"), StandardCharsets.UTF_8) shouldBe "storyboard\n"
-        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "prevalidate feedback combinations, replacements, profile rules, and unsafe input without writes" in {
-      _with_temp_dir("cozy-document-project-feedback-invalid") { root =>
-        Given("an admitted standard project and unchanged authority bytes")
-        val parent = Files.createDirectory(root.resolve("parent"))
-        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
-        val project = parent.resolve("sample.dox")
-        val core = project.resolve("content/core-en.yaml")
-        val article = project.resolve("index.dox")
-        val corebefore = Files.readAllBytes(core)
-        val articlebefore = Files.readAllBytes(article)
-
-        When("an incompatible applicability/disposition pair is supplied")
-        val incompatible = root.resolve("incompatible.json")
-        Files.writeString(incompatible, """{"reason":"invalid","changes":[{"target":"article","replacement":"new","applicability":"not-applicable","disposition":"accepted"}]}""", StandardCharsets.UTF_8)
-        val incompatiblefailure = _failure(List("document-project", "reflect-feedback", project.toString, incompatible.toString))
-
-        Then("the grammar diagnostic is returned before any authority write")
-        _diagnostic_tokens(incompatiblefailure) shouldBe Vector("DP-CLI-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.readAllBytes(article) shouldBe articlebefore
-        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-
-        When("a Core replacement repeats an entry identity")
-        val duplicatecore = root.resolve("duplicate-core.json")
-        Files.writeString(duplicatecore, """{"reason":"invalid","changes":[{"target":"core","replacement":{"accepted":[{"id":"same","text":"one"},{"id":"same","text":"two"}]},"applicability":"applicable","disposition":"accepted"},{"target":"video","replacement":"none","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}]}""", StandardCharsets.UTF_8)
-        val duplicatefailure = _failure(List("document-project", "reflect-feedback", project.toString, duplicatecore.toString))
-
-        Then("the descriptor diagnostic is returned and the sources remain unchanged")
-        _diagnostic_tokens(duplicatefailure) shouldBe Vector("DP-DESC-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.readAllBytes(article) shouldBe articlebefore
-
-        When("standard receives an applicable video item after an accepted Core proposal")
-        val videofailurebatch = root.resolve("video-applicable.json")
-        Files.writeString(videofailurebatch, """{"reason":"invalid profile","changes":[{"target":"core","replacement":{"accepted":[{"id":"would-not-write","text":"proposal"}]},"applicability":"applicable","disposition":"accepted"},{"target":"video","replacement":"video","applicability":"applicable","disposition":"rejected","rejectionReason":"disabled"}]}""", StandardCharsets.UTF_8)
-        val videofailure = _failure(List("document-project", "reflect-feedback", project.toString, videofailurebatch.toString))
-
-        Then("the profile operation diagnostic wins before all writes")
-        _diagnostic_tokens(videofailure) shouldBe Vector("DP-OP-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-
-        When("a symbolic-link feedback input is supplied")
-        val external = root.resolve("external.json")
-        Files.writeString(external, "{}", StandardCharsets.UTF_8)
-        val linked = root.resolve("linked-feedback.json")
-        Files.createSymbolicLink(linked, external)
-        val pathfailure = _failure(List("document-project", "reflect-feedback", project.toString, linked.toString))
-
-        Then("unsafe input is rejected without changing an authority")
-        _diagnostic_tokens(pathfailure) shouldBe Vector("DP-PATH-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.readAllBytes(article) shouldBe articlebefore
-
-        When("an accepted authority source is replaced by a symbolic link")
-        val externalarticle = root.resolve("external-article.dox")
-        Files.writeString(externalarticle, "external article\n", StandardCharsets.UTF_8)
-        Files.delete(article)
-        Files.createSymbolicLink(article, externalarticle)
-        val sourcebatch = root.resolve("unsafe-source.json")
-        Files.writeString(sourcebatch, """{"reason":"unsafe source","changes":[{"target":"article","replacement":"new article","applicability":"applicable","disposition":"accepted"},{"target":"video","replacement":"none","applicability":"not-applicable","disposition":"not-applicable","notApplicableReason":"profile does not use video"}]}""", StandardCharsets.UTF_8)
-        val sourcefailure = _failure(List("document-project", "reflect-feedback", project.toString, sourcebatch.toString))
-
-        Then("the unsafe source is rejected before any replacement")
-        _diagnostic_tokens(sourcefailure) shouldBe Vector("DP-PATH-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.readString(externalarticle, StandardCharsets.UTF_8) shouldBe "external article\n"
-
-        When("a feedback file has an unsupported suffix")
-        val unsupported = root.resolve("unsupported.conf")
-        Files.writeString(unsupported, "not valid feedback", StandardCharsets.UTF_8)
-        val unsupportedfailure = _failure(List("document-project", "reflect-feedback", project.toString, unsupported.toString))
-
-        Then("the suffix is rejected before structured parsing without changing an authority")
-        _diagnostic_tokens(unsupportedfailure) shouldBe Vector("DP-CLI-001")
-        Files.readAllBytes(core) shouldBe corebefore
-
-        When("feedback JSON or YAML syntax is malformed")
-        val malformedjson = root.resolve("malformed.json")
-        Files.writeString(malformedjson, "{\"reason\": \"missing close\"", StandardCharsets.UTF_8)
-        val malformedjsonfailure = _failure(List("document-project", "reflect-feedback", project.toString, malformedjson.toString))
-        val malformedyaml = root.resolve("malformed.yaml")
-        Files.writeString(malformedyaml, "reason: [missing close", StandardCharsets.UTF_8)
-        val malformedyamlfailure = _failure(List("document-project", "reflect-feedback", project.toString, malformedyaml.toString))
-
-        Then("both syntax failures use the feedback grammar diagnostic without changing an authority")
-        _diagnostic_tokens(malformedjsonfailure) shouldBe Vector("DP-CLI-001")
-        _diagnostic_tokens(malformedyamlfailure) shouldBe Vector("DP-CLI-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.readString(externalarticle, StandardCharsets.UTF_8) shouldBe "external article\n"
-      }
-    }
-
     "reject unsafe dashboard output destinations without direct-write fallback" in {
       _with_temp_dir("cozy-document-project-dashboard-path") { root =>
         Given("an admitted standard project, a real output parent, and a symbolic-link alias")
@@ -1248,8 +989,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       val missingreviewkind = _failure(List("document-project", "review", "sample.dox"))
       val invalidreviewkind = _failure(List("document-project", "review", "sample.dox", "--kind", "logical-chart"))
       val reviewoperation = _failure(List("document-project", "review", "sample.dox", "--kind", "core", "--operation", "article.render-pdf"))
-      val missingfeedback = _failure(List("document-project", "reflect-feedback", "sample.dox"))
-      val extrafeedback = _failure(List("document-project", "reflect-feedback", "sample.dox", "feedback.json", "extra"))
+      val missingcontentcore = _failure(List("document-project", "content-core"))
+      val missingcandidateinput = _failure(List("document-project", "content-core", "candidate", "sample.dox"))
+      val extrafeedback = _failure(List("document-project", "content-core", "feedback", "sample.dox", "candidate", "feedback.json", "extra"))
 
       Then("grammar failures precede only with DP-CLI-001 and missing forms use DP-CLI-002")
       spelling should include("DP-CLI-001")
@@ -1259,8 +1001,423 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       missingreviewkind should include("DP-CLI-002")
       invalidreviewkind should include("DP-CLI-001")
       reviewoperation should include("DP-CLI-001")
-      missingfeedback should include("DP-CLI-002")
+      missingcontentcore should include("DP-CLI-002")
+      missingcandidateinput should include("DP-CLI-002")
       extrafeedback should include("DP-CLI-001")
+    }
+
+    "materialize a succeeded Content Core candidate with provenance without changing the accepted Core" in {
+      _with_temp_dir("cozy-document-project-content-core-candidate") { root =>
+        Given("a scaffolded Document Project and one completed dialogue bundle")
+        val project = _scaffolded_project(root, "content-core-candidate")
+        val core = project.resolve("content/core-en.yaml")
+        val corebefore = Files.readAllBytes(core)
+        val dialogue = root.resolve("candidate.json")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-one", "candidate Core replacement"), StandardCharsets.UTF_8)
+
+        When("the explicit candidate command records the completed dialogue")
+        val output = _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+
+        Then("the append-only candidate retains the raw dialogue provenance and leaves Content Core unchanged")
+        val evidence = project.resolve("evidence/content-core/candidates/candidate-one.yaml")
+        output should include("operation: content-core.compose")
+        output should include("outcome: succeeded")
+        output should include("candidate: candidate-one")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.readString(evidence, StandardCharsets.UTF_8) should include("schema: cozy.content-core-candidate.v1")
+        Files.readString(evidence, StandardCharsets.UTF_8) should include("text: \"source document\"")
+        Files.readString(evidence, StandardCharsets.UTF_8) should include("text: \"completed provider response\"")
+        Files.readString(evidence, StandardCharsets.UTF_8) should include("id: \"provider-local\"")
+        Files.readString(evidence, StandardCharsets.UTF_8) should include("supersedes: none")
+      }
+    }
+
+    "record a failed Content Core dialogue as history without creating a candidate or changing Content Core" in {
+      _with_temp_dir("cozy-document-project-content-core-failed") { root =>
+        Given("a scaffolded Document Project and a completed failed dialogue bundle")
+        val project = _scaffolded_project(root, "content-core-failed")
+        val core = project.resolve("content/core-en.yaml")
+        val corebefore = Files.readAllBytes(core)
+        val dialogue = root.resolve("failed.yaml")
+        Files.writeString(dialogue, _failed_dialogue_yaml("failed-one"), StandardCharsets.UTF_8)
+
+        When("the explicit candidate command records the failure history")
+        val output = _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+
+        Then("only the failed provenance history is materialized")
+        val attempt = project.resolve("evidence/content-core/attempts/failed-one.yaml")
+        output should include("outcome: failed")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.exists(attempt, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readString(attempt, StandardCharsets.UTF_8) should include("schema: cozy.content-core-attempt.v1")
+        Files.readString(attempt, StandardCharsets.UTF_8) should include("text: \"provider declined the draft\"")
+        Files.exists(project.resolve("evidence/content-core/candidates"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "require feedback-linked revision and explicit human acceptance before replacing Content Core" in {
+      _with_temp_dir("cozy-document-project-content-core-acceptance") { root =>
+        Given("a scaffolded Document Project, its first candidate, and changes-requested human feedback")
+        val project = _scaffolded_project(root, "content-core-acceptance")
+        val core = project.resolve("content/core-en.yaml")
+        val firstdialogue = root.resolve("first.json")
+        val feedback = root.resolve("feedback.json")
+        val reviseddialogue = root.resolve("revised.json")
+        val acceptance = root.resolve("acceptance.json")
+        Files.writeString(firstdialogue, _succeeded_dialogue_json("candidate-first", "first candidate replacement"), StandardCharsets.UTF_8)
+        Files.writeString(feedback, _feedback_json("feedback-first", "candidate-first", "changes-requested"), StandardCharsets.UTF_8)
+        Files.writeString(reviseddialogue, _succeeded_dialogue_json("candidate-revised", "revised candidate replacement", Some("candidate-first")), StandardCharsets.UTF_8)
+        Files.writeString(acceptance, _acceptance_json("acceptance-revised", "candidate-revised"), StandardCharsets.UTF_8)
+        _execute(List("document-project", "content-core", "candidate", project.toString, firstdialogue.toString))
+
+        When("feedback is recorded, a revision supersedes the pending candidate, and a human accepts that revision")
+        val feedbackoutput = _execute(List("document-project", "content-core", "feedback", project.toString, "candidate-first", feedback.toString))
+        val revisedoutput = _execute(List("document-project", "content-core", "candidate", project.toString, reviseddialogue.toString))
+        val acceptanceoutput = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-revised", acceptance.toString))
+
+        Then("the immutable links lead to exactly one accepted Core replacement")
+        val revisedevidence = Files.readString(project.resolve("evidence/content-core/candidates/candidate-revised.yaml"), StandardCharsets.UTF_8)
+        val acceptanceevidence = Files.readString(project.resolve("evidence/content-core/acceptances/acceptance-revised.yaml"), StandardCharsets.UTF_8)
+        feedbackoutput should include("decision: changes-requested")
+        revisedoutput should include("candidate: candidate-revised")
+        acceptanceoutput should include("decision: accepted")
+        Files.readString(core, StandardCharsets.UTF_8) should include("text: \"revised candidate replacement\"")
+        Files.readString(core, StandardCharsets.UTF_8) should not include "accepted: []"
+        revisedevidence should include("supersedes:")
+        revisedevidence should include("id: \"candidate-first\"")
+        revisedevidence should include("feedback:")
+        revisedevidence should include("id: \"feedback-first\"")
+        acceptanceevidence should include("priorCore:")
+        acceptanceevidence should include("resultingCore:")
+      }
+    }
+
+    "resume one durable pending acceptance without duplicating evidence and keep the completed retry idempotent" in {
+      _with_temp_dir("cozy-document-project-content-core-pending-acceptance") { root =>
+        Given("a candidate and a pre-existing direct acceptance record whose prior Core is still current")
+        val project = _scaffolded_project(root, "content-core-pending-acceptance")
+        val core = project.resolve("content/core-en.yaml")
+        val dialogue = root.resolve("candidate.json")
+        val acceptance = root.resolve("acceptance.json")
+        val feedback = root.resolve("feedback.json")
+        val alternate = root.resolve("alternate-acceptance.json")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-pending-acceptance", "pending acceptance replacement"), StandardCharsets.UTF_8)
+        Files.writeString(acceptance, _acceptance_json("acceptance-pending", "candidate-pending-acceptance"), StandardCharsets.UTF_8)
+        Files.writeString(feedback, _feedback_json("feedback-pending", "candidate-pending-acceptance", "changes-requested"), StandardCharsets.UTF_8)
+        Files.writeString(alternate, _acceptance_json("acceptance-alternate", "candidate-pending-acceptance"), StandardCharsets.UTF_8)
+        _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+        val prior = _sha256(core)
+        val replacement = _accepted_candidate_core_yaml("content-core-pending-acceptance", "en", "accepted-candidate-pending-acceptance", "pending acceptance replacement")
+        val acceptanceevidence = project.resolve("evidence/content-core/acceptances/acceptance-pending.yaml")
+        Files.createDirectories(acceptanceevidence.getParent)
+        Files.writeString(
+          acceptanceevidence,
+          _acceptance_record_yaml(project, "acceptance-pending", "candidate-pending-acceptance", "human-reviewer", "content/core-en.yaml", prior, _sha256_string(replacement)),
+          StandardCharsets.UTF_8
+        )
+        val evidencebefore = Files.readAllBytes(acceptanceevidence)
+
+        When("feedback and another acceptance are attempted before the exact pending acceptance is resumed")
+        val feedbackfailure = _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-pending-acceptance", feedback.toString))
+        val alternatefailure = _failure(List("document-project", "content-core", "accept", project.toString, "candidate-pending-acceptance", alternate.toString))
+        val resumed = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-pending-acceptance", acceptance.toString))
+        val repeated = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-pending-acceptance", acceptance.toString))
+
+        Then("only the durable acceptance record authorizes the replacement and both completion calls report it")
+        _diagnostic_tokens(feedbackfailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(alternatefailure) shouldBe Vector("DP-OP-001")
+        resumed should include("decision: accepted")
+        repeated should include("decision: accepted")
+        Files.readString(core, StandardCharsets.UTF_8) should include("text: \"pending acceptance replacement\"")
+        Files.readAllBytes(acceptanceevidence) shouldBe evidencebefore
+        _relative_files(project.resolve("evidence/content-core/acceptances")) shouldBe Set("acceptance-pending.yaml")
+        Files.exists(project.resolve("evidence/content-core/feedback/feedback-pending.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/content-core/acceptances/acceptance-alternate.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "treat a pending acceptance as historical when the current Core no longer has either recorded identity" in {
+      _with_temp_dir("cozy-document-project-content-core-historical-acceptance") { root =>
+        Given("a candidate and a pre-existing pending acceptance with a separately changed current Core")
+        val project = _scaffolded_project(root, "content-core-historical-acceptance")
+        val core = project.resolve("content/core-en.yaml")
+        val dialogue = root.resolve("candidate.json")
+        val acceptance = root.resolve("acceptance.json")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-historical", "historical replacement"), StandardCharsets.UTF_8)
+        Files.writeString(acceptance, _acceptance_json("acceptance-historical", "candidate-historical"), StandardCharsets.UTF_8)
+        _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+        val prior = _sha256(core)
+        val replacement = _accepted_candidate_core_yaml("content-core-historical-acceptance", "en", "accepted-candidate-historical", "historical replacement")
+        val acceptanceevidence = project.resolve("evidence/content-core/acceptances/acceptance-historical.yaml")
+        Files.createDirectories(acceptanceevidence.getParent)
+        Files.writeString(
+          acceptanceevidence,
+          _acceptance_record_yaml(project, "acceptance-historical", "candidate-historical", "human-reviewer", "content/core-en.yaml", prior, _sha256_string(replacement)),
+          StandardCharsets.UTF_8
+        )
+        Files.writeString(core, _core_yaml("content-core-historical-acceptance", "en", "independent current Core"), StandardCharsets.UTF_8)
+        val currentbefore = Files.readAllBytes(core)
+        val evidencebefore = Files.readAllBytes(acceptanceevidence)
+
+        When("the exact acceptance is retried after the Core has a third identity")
+        val failure = _failure(List("document-project", "content-core", "accept", project.toString, "candidate-historical", acceptance.toString))
+
+        Then("the durable record remains historical and neither Core nor evidence is changed")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+        Files.readAllBytes(core) shouldBe currentbefore
+        Files.readAllBytes(acceptanceevidence) shouldBe evidencebefore
+      }
+    }
+
+    "reject terminal, superseded, and unknown Content Core candidate decisions before writes" in {
+      _with_temp_dir("cozy-document-project-content-core-terminal") { root =>
+        Given("separate rejected, accepted, superseded, and unknown candidate decision inputs")
+        val project = _scaffolded_project(root, "content-core-terminal")
+        val rejected = root.resolve("rejected.json")
+        val accepted = root.resolve("accepted.json")
+        val pending = root.resolve("pending.json")
+        val revised = root.resolve("revised.json")
+        val rejectedfeedback = root.resolve("rejected-feedback.json")
+        val acceptedacceptance = root.resolve("accepted-acceptance.json")
+        val duplicateacceptance = root.resolve("duplicate-acceptance.json")
+        val pendingfeedback = root.resolve("pending-feedback.json")
+        val rejectedlaterfeedback = root.resolve("rejected-later-feedback.json")
+        val acceptedlaterfeedback = root.resolve("accepted-later-feedback.json")
+        val supersededlaterfeedback = root.resolve("superseded-later-feedback.json")
+        val unknownfeedback = root.resolve("unknown-feedback.json")
+        Files.writeString(rejected, _succeeded_dialogue_json("candidate-rejected", "rejected replacement"), StandardCharsets.UTF_8)
+        Files.writeString(accepted, _succeeded_dialogue_json("candidate-accepted", "accepted replacement"), StandardCharsets.UTF_8)
+        Files.writeString(pending, _succeeded_dialogue_json("candidate-pending", "pending replacement"), StandardCharsets.UTF_8)
+        Files.writeString(rejectedfeedback, _feedback_json("feedback-rejected", "candidate-rejected", "rejected"), StandardCharsets.UTF_8)
+        Files.writeString(acceptedacceptance, _acceptance_json("acceptance-accepted", "candidate-accepted"), StandardCharsets.UTF_8)
+        Files.writeString(duplicateacceptance, _acceptance_json("acceptance-duplicate", "candidate-accepted"), StandardCharsets.UTF_8)
+        Files.writeString(pendingfeedback, _feedback_json("feedback-pending", "candidate-pending", "changes-requested"), StandardCharsets.UTF_8)
+        Files.writeString(revised, _succeeded_dialogue_json("candidate-successor", "successor replacement", Some("candidate-pending")), StandardCharsets.UTF_8)
+        Files.writeString(rejectedlaterfeedback, _feedback_json("feedback-rejected-later", "candidate-rejected", "changes-requested"), StandardCharsets.UTF_8)
+        Files.writeString(acceptedlaterfeedback, _feedback_json("feedback-accepted-later", "candidate-accepted", "changes-requested"), StandardCharsets.UTF_8)
+        Files.writeString(supersededlaterfeedback, _feedback_json("feedback-superseded-later", "candidate-pending", "changes-requested"), StandardCharsets.UTF_8)
+        Files.writeString(unknownfeedback, _feedback_json("feedback-unknown", "candidate-unknown", "changes-requested"), StandardCharsets.UTF_8)
+        _execute(List("document-project", "content-core", "candidate", project.toString, rejected.toString))
+        _execute(List("document-project", "content-core", "feedback", project.toString, "candidate-rejected", rejectedfeedback.toString))
+        _execute(List("document-project", "content-core", "candidate", project.toString, accepted.toString))
+        _execute(List("document-project", "content-core", "accept", project.toString, "candidate-accepted", acceptedacceptance.toString))
+        _execute(List("document-project", "content-core", "candidate", project.toString, pending.toString))
+        _execute(List("document-project", "content-core", "feedback", project.toString, "candidate-pending", pendingfeedback.toString))
+        _execute(List("document-project", "content-core", "candidate", project.toString, revised.toString))
+
+        When("a terminal, superseded, or unknown candidate receives later feedback")
+        val rejectedfailure = _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-rejected", rejectedlaterfeedback.toString))
+        val acceptedfailure = _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-accepted", acceptedlaterfeedback.toString))
+        val duplicateacceptancefailure = _failure(List("document-project", "content-core", "accept", project.toString, "candidate-accepted", duplicateacceptance.toString))
+        val supersededfailure = _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-pending", supersededlaterfeedback.toString))
+        val unknownfailure = _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-unknown", unknownfeedback.toString))
+
+        Then("each inadmissible candidate decision rejects before appending later feedback")
+        rejectedfailure should include("DP-OP-001")
+        acceptedfailure should include("DP-OP-001")
+        duplicateacceptancefailure should include("DP-OP-001")
+        supersededfailure should include("DP-OP-001")
+        unknownfailure should include("DP-OP-001")
+        Files.exists(project.resolve("evidence/content-core/feedback/feedback-rejected-later.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/content-core/feedback/feedback-accepted-later.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/content-core/feedback/feedback-superseded-later.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/content-core/feedback/feedback-unknown.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/content-core/acceptances/acceptance-duplicate.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject unsafe or malformed Content Core inputs, generic compose dispatch, retired feedback reflection, and sidecar dialogue review without writes" in {
+      _with_temp_dir("cozy-document-project-content-core-admission") { root =>
+        Given("a scaffolded Document Project and invalid direct-input forms")
+        val project = _scaffolded_project(root, "content-core-admission")
+        val core = project.resolve("content/core-en.yaml")
+        val corebefore = Files.readAllBytes(core)
+        val realdialogue = root.resolve("real-dialogue.json")
+        val linked = root.resolve("linked-dialogue.json")
+        val malformed = root.resolve("malformed.json")
+        val unsupported = root.resolve("unsupported.txt")
+        Files.writeString(realdialogue, _succeeded_dialogue_json("candidate-unsafe", "unsafe replacement"), StandardCharsets.UTF_8)
+        Files.createSymbolicLink(linked, realdialogue)
+        Files.writeString(malformed, "{not-json", StandardCharsets.UTF_8)
+        Files.writeString(unsupported, "not a dialogue", StandardCharsets.UTF_8)
+
+        When("the public boundary receives unsafe, malformed, retired, and generic forms")
+        val symlinkfailure = _failure(List("document-project", "content-core", "candidate", project.toString, linked.toString))
+        val malformedfailure = _failure(List("document-project", "content-core", "candidate", project.toString, malformed.toString))
+        val suffixfailure = _failure(List("document-project", "content-core", "candidate", project.toString, unsupported.toString))
+        val genericfailure = _failure(List("document-project", "run", project.toString, "--operation", "content-core.compose"))
+        val retiredfailure = _failure(List("document-project", "reflect-feedback", project.toString, "feedback.json"))
+        _write_sidecar(project)
+        val sidecar = project.resolve("evidence/document-project.yaml")
+        Files.writeString(sidecar, Files.readString(sidecar, StandardCharsets.UTF_8).replace("review:\n      kind: none", "review:\n      kind: core-dialogue"), StandardCharsets.UTF_8)
+        val sidecarfailure = _failure(List("document-project", "inspect", project.toString))
+
+        Then("all rejected forms preserve Core and do not create Content Core history")
+        symlinkfailure should include("DP-PATH-001")
+        malformedfailure should include("DP-CLI-001")
+        suffixfailure should include("DP-CLI-001")
+        genericfailure should include("DP-OP-001")
+        retiredfailure should include("DP-CLI-001")
+        sidecarfailure should include("DP-DESC-002")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.exists(project.resolve("evidence/content-core"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject concurrently held Content Core writer locks without mutation and permit sequential retry" in {
+      _with_temp_dir("cozy-document-project-content-core-lock") { root =>
+        Given("a scaffolded project and admitted candidate, feedback, and acceptance documents")
+        val project = _scaffolded_project(root, "content-core-lock")
+        val core = project.resolve("content/core-en.yaml")
+        val dialogue = root.resolve("candidate.json")
+        val feedback = root.resolve("feedback.json")
+        val acceptance = root.resolve("acceptance.json")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-lock", "locked candidate replacement"), StandardCharsets.UTF_8)
+        Files.writeString(feedback, _feedback_json("feedback-lock", "candidate-lock", "changes-requested"), StandardCharsets.UTF_8)
+        Files.writeString(acceptance, _acceptance_json("acceptance-lock", "candidate-lock"), StandardCharsets.UTF_8)
+        val corebeforecandidate = Files.readAllBytes(core)
+
+        When("candidate is requested while the project-local writer lock is held")
+        val candidatefailure = _with_content_core_lock(project) {
+          _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+        }
+
+        Then("candidate returns only retryable DP-OP-001 without evidence or Core mutation")
+        _diagnostic_tokens(candidatefailure) shouldBe Vector("DP-OP-001")
+        Files.readAllBytes(core) shouldBe corebeforecandidate
+        Files.exists(project.resolve("evidence/content-core"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("the lock is released and the same candidate is retried")
+        val candidateoutput = _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+
+        Then("the candidate is appended normally")
+        candidateoutput should include("candidate: candidate-lock")
+        Files.isRegularFile(project.resolve("evidence/content-core/candidates/candidate-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        val corebeforefeedback = Files.readAllBytes(core)
+
+        When("feedback is requested while the project-local writer lock is held")
+        val feedbackfailure = _with_content_core_lock(project) {
+          _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-lock", feedback.toString))
+        }
+
+        Then("feedback returns only retryable DP-OP-001 without evidence or Core mutation")
+        _diagnostic_tokens(feedbackfailure) shouldBe Vector("DP-OP-001")
+        Files.readAllBytes(core) shouldBe corebeforefeedback
+        Files.exists(project.resolve("evidence/content-core/feedback/feedback-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("the lock is released and the same feedback is retried")
+        val feedbackoutput = _execute(List("document-project", "content-core", "feedback", project.toString, "candidate-lock", feedback.toString))
+
+        Then("the feedback is appended normally")
+        feedbackoutput should include("decision: changes-requested")
+        Files.isRegularFile(project.resolve("evidence/content-core/feedback/feedback-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        val corebeforeacceptance = Files.readAllBytes(core)
+
+        When("accept is requested while the project-local writer lock is held")
+        val acceptancefailure = _with_content_core_lock(project) {
+          _failure(List("document-project", "content-core", "accept", project.toString, "candidate-lock", acceptance.toString))
+        }
+
+        Then("accept returns only retryable DP-OP-001 without evidence or Core mutation")
+        _diagnostic_tokens(acceptancefailure) shouldBe Vector("DP-OP-001")
+        Files.readAllBytes(core) shouldBe corebeforeacceptance
+        Files.exists(project.resolve("evidence/content-core/acceptances/acceptance-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("the lock is released and the same acceptance is retried")
+        val acceptanceoutput = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-lock", acceptance.toString))
+
+        Then("the single acceptance evidence precedes the accepted Core replacement")
+        acceptanceoutput should include("decision: accepted")
+        Files.isRegularFile(project.resolve("evidence/content-core/acceptances/acceptance-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readString(core, StandardCharsets.UTF_8) should include("text: \"locked candidate replacement\"")
+      }
+    }
+
+    "give a held direct regular writer lock precedence over a malformed Content Core at the public candidate boundary" in {
+      _with_temp_dir("cozy-document-project-content-core-held-lock-precedence") { root =>
+        Given("a scaffolded project, admitted dialogue, malformed Core, and held direct regular writer lock")
+        val project = _scaffolded_project(root, "content-core-held-lock-precedence")
+        val core = project.resolve("content/core-en.yaml")
+        val dialogue = root.resolve("candidate.json")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-held-lock-precedence", "held lock precedence candidate"), StandardCharsets.UTF_8)
+        Files.writeString(core, "malformed: [\n", StandardCharsets.UTF_8)
+        val corebefore = Files.readAllBytes(core)
+
+        When("the public Content Core candidate command is admitted while the writer lock is held")
+        val failure = _with_content_core_lock(project) {
+          _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+        }
+
+        Then("only retryable DP-OP-001 is returned without mutating the malformed Core or creating evidence")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.exists(project.resolve("evidence/content-core"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "give an unsafe writer lock precedence over a malformed Content Core at the public candidate boundary" in {
+      _with_temp_dir("cozy-document-project-content-core-unsafe-lock-precedence") { root =>
+        Given("a scaffolded project, admitted dialogue, malformed Core, and symbolic-link writer lock")
+        val project = _scaffolded_project(root, "content-core-unsafe-lock-precedence")
+        val core = project.resolve("content/core-en.yaml")
+        val dialogue = root.resolve("candidate.json")
+        val external = root.resolve("external-content-core.lock")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-unsafe-lock-precedence", "unsafe lock precedence candidate"), StandardCharsets.UTF_8)
+        Files.writeString(core, "malformed: [\n", StandardCharsets.UTF_8)
+        val corebefore = Files.readAllBytes(core)
+        Files.writeString(external, "external lock\n", StandardCharsets.UTF_8)
+        Files.createSymbolicLink(project.resolve(".content-core.lock"), external)
+
+        When("the public Content Core candidate command is admitted with the unsafe writer lock")
+        val failure = _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+
+        Then("only DP-PATH-001 is returned without mutating the malformed Core or creating evidence")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.exists(project.resolve("evidence/content-core"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject a symbolic-link Content Core writer lock before mutation" in {
+      _with_temp_dir("cozy-document-project-content-core-lock-symlink") { root =>
+        Given("a scaffolded project, a direct candidate dialogue, and a symbolic-link writer lock")
+        val project = _scaffolded_project(root, "content-core-lock-symlink")
+        val core = project.resolve("content/core-en.yaml")
+        val corebefore = Files.readAllBytes(core)
+        val dialogue = root.resolve("candidate.json")
+        val external = root.resolve("external-content-core.lock")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-lock-symlink", "symbolic-link lock candidate"), StandardCharsets.UTF_8)
+        Files.writeString(external, "external lock\n", StandardCharsets.UTF_8)
+        Files.createSymbolicLink(project.resolve(".content-core.lock"), external)
+
+        When("the public Content Core candidate command receives the symbolic-link writer lock")
+        val failure = _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+
+        Then("path admission returns only DP-PATH-001 without changing Core or creating evidence")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject a non-regular Content Core writer lock before mutation" in {
+      _with_temp_dir("cozy-document-project-content-core-lock-directory") { root =>
+        Given("a scaffolded project, a direct candidate dialogue, and a directory writer lock")
+        val project = _scaffolded_project(root, "content-core-lock-directory")
+        val core = project.resolve("content/core-en.yaml")
+        val corebefore = Files.readAllBytes(core)
+        val dialogue = root.resolve("candidate.json")
+        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-lock-directory", "directory lock candidate"), StandardCharsets.UTF_8)
+        Files.createDirectory(project.resolve(".content-core.lock"))
+
+        When("the public Content Core candidate command receives the directory writer lock")
+        val failure = _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
+
+        Then("path admission returns only DP-PATH-001 without changing Core or creating evidence")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.readAllBytes(core) shouldBe corebefore
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
     }
 
     "record one immutable attempt for each eligible run without executing a provider" in {
@@ -1374,6 +1531,63 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "admit unsafe initial source paths before rejecting generic Content Core compose" in {
+      _with_temp_dir("cozy-document-project-generic-compose-input") { root =>
+        Given("a standard scaffold whose required initial source is replaced by a symbolic link")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val external = root.resolve("external-index.dox")
+        Files.writeString(external, "external source\n", StandardCharsets.UTF_8)
+        Files.delete(project.resolve("index.dox"))
+        Files.createSymbolicLink(project.resolve("index.dox"), external)
+
+        When("generic Content Core compose is requested")
+        val failure = _failure(List("document-project", "run", project.toString, "--operation", "content-core.compose"))
+
+        Then("source admission takes precedence and creates no generic attempt or Content Core evidence")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "admit an unsafe standard-video storyboard before rejecting generic Content Core compose" in {
+      _with_temp_dir("cozy-document-project-generic-compose-video-input") { root =>
+        Given("a standard-video scaffold whose direct storyboard is replaced by a symbolic link")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        val external = root.resolve("external-storyboard.md")
+        Files.writeString(external, "external storyboard\n", StandardCharsets.UTF_8)
+        Files.delete(project.resolve("video/storyboard.md"))
+        Files.createSymbolicLink(project.resolve("video/storyboard.md"), external)
+
+        When("generic Content Core compose is requested")
+        val failure = _failure(List("document-project", "run", project.toString, "--operation", "content-core.compose"))
+
+        Then("storyboard path admission returns only DP-PATH-001 before any generic attempt or Content Core evidence")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject a missing standard-video storyboard before generic Content Core compose" in {
+      _with_temp_dir("cozy-document-project-generic-compose-video-missing") { root =>
+        Given("a standard-video scaffold whose direct storyboard is missing")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "sample", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("sample.dox")
+        Files.delete(project.resolve("video/storyboard.md"))
+
+        When("generic Content Core compose is requested")
+        val failure = _failure(List("document-project", "run", project.toString, "--operation", "content-core.compose"))
+
+        Then("missing storyboard path admission returns only DP-PATH-001 before any evidence")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
     "reject malformed run input before writing an attempt" in {
       _with_temp_dir("cozy-document-project-run-malformed") { root =>
         Given("a standard scaffold whose descriptor has an unknown closed field")
@@ -1467,13 +1681,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
     "derive current sidecar evidence and a safe public-source dashboard projection" in {
       _with_temp_dir("cozy-document-project-sidecar-current") { root =>
-        Given("a scaffolded project, direct public media mapping, and accepted Core dialogue evidence")
+        Given("a scaffolded project and direct public media mapping with the sidecar review fixed to none")
         val project = _scaffolded_project(root, "sidecar-current")
-        val request = project.resolve("evidence/dialogue/request.txt")
-        val response = project.resolve("evidence/dialogue/response.txt")
-        Files.createDirectories(request.getParent)
-        Files.writeString(request, "request", StandardCharsets.UTF_8)
-        Files.writeString(response, "response", StandardCharsets.UTF_8)
         val core = "content/core-en.yaml"
         Files.writeString(project.resolve(core), _core_yaml("sidecar-current", "en", "accepted Core"), StandardCharsets.UTF_8)
         _write_sidecar(
@@ -1483,20 +1692,19 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
             "article-source" -> _file_evidence(project, "index.dox", "source"),
             "visual-pages" -> _file_evidence(project, "presentation/visual-pages.yaml", "source"),
             "infographic-svg" -> _file_evidence(project, "infographic/infographic.svg", "source")
-          ),
-          Map("content-core" -> _accepted_review(project, core, request, response))
+          )
         )
 
         When("inspect and dashboard consume the one evidence-derived model")
         _execute(List("document-project", "inspect", project.toString))
         _execute(List("document-project", "dashboard", project.toString))
 
-        Then("state records sidecar identity, current declared evidence, and accepted review")
+        Then("state records sidecar identity, current declared evidence, and pending sidecar review")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
         state should include("evidence:")
         state should include("path: evidence/document-project.yaml")
         state should include("article-source")
-        state should include("review: accepted")
+        state should include("review: pending")
 
         And("the dashboard exposes only the safe SmartDox source mapping")
         val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
@@ -1521,17 +1729,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "scaffold", "isolated-bok", "--profile", "bok", "--language", "en", "--workspace", "bok", "--save", bokparent.toString))
         val standalone = standaloneparent.resolve("standalone.dox")
         val bok = bokparent.resolve("isolated-bok.dox")
-        val standalonearticlebefore = Files.readAllBytes(standalone.resolve("index.dox"))
-        val standalonevisualbefore = Files.readAllBytes(standalone.resolve("presentation/visual-pages.yaml"))
-        val standaloneinfographicbefore = Files.readAllBytes(standalone.resolve("infographic/infographic.svg"))
         val standalonecore = standalone.resolve("content/core-en.yaml")
         val standalonecorebefore = Files.readAllBytes(standalonecore)
-        val corefeedback = root.resolve("standalone-core-feedback.json")
-        Files.writeString(
-          corefeedback,
-          """{"reason":"accepted local Core replacement","changes":[{"target":"core","replacement":{"accepted":[{"id":"driver-core","text":"Accepted standalone driver Core"}]},"applicability":"applicable","disposition":"accepted"}]}""",
-          StandardCharsets.UTF_8
-        )
 
         Then("the fixtures retain their selected profile and workspace without creating external or Article-8 state")
         Files.readString(standalone.resolve("document-project.yaml"), StandardCharsets.UTF_8) should include("profile: standard-video")
@@ -1603,17 +1802,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("the standalone Core review leaves Core authority unchanged")
         Files.readAllBytes(standalonecore) shouldBe standalonecorebefore
 
-        When("the local accepted Core feedback is reflected")
-        val feedbackoutput = _execute(List("document-project", "reflect-feedback", standalone.toString, corefeedback.toString))
-
-        Then("only the accepted Core authority changes through the bounded feedback command")
-        feedbackoutput should include("reflected: core content/core-en.yaml")
-        Files.readAllBytes(standalonecore) should not equal standalonecorebefore
-        Files.readAllBytes(standalone.resolve("index.dox")) shouldBe standalonearticlebefore
-        Files.readAllBytes(standalone.resolve("presentation/visual-pages.yaml")) shouldBe standalonevisualbefore
-        Files.readAllBytes(standalone.resolve("infographic/infographic.svg")) shouldBe standaloneinfographicbefore
-
-        Given("current source evidence for both local fixtures and an accepted Core dialogue record for the standalone driver")
+        Given("current source evidence for both local fixtures with sidecar reviews fixed to none")
         val standalonecorepath = "content/core-en.yaml"
         val standaloneevidence = Map(
           "content-core" -> _file_evidence(standalone, standalonecorepath, "source"),
@@ -1621,15 +1810,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           "visual-pages" -> _file_evidence(standalone, "presentation/visual-pages.yaml", "source"),
           "infographic-svg" -> _file_evidence(standalone, "infographic/infographic.svg", "source")
         )
-        val request = standalone.resolve("evidence/dialogue/request.txt")
-        val response = standalone.resolve("evidence/dialogue/response.txt")
-        Files.createDirectories(request.getParent)
-        Files.writeString(request, "standalone local request", StandardCharsets.UTF_8)
-        Files.writeString(response, "standalone local response", StandardCharsets.UTF_8)
         _write_sidecar(
           standalone,
           standaloneevidence,
-          Map("content-core" -> _accepted_review(standalone, standalonecorepath, request, response, "local-ai-provider", "local-ai-model")),
           "standard-video"
         )
         _write_sidecar(
@@ -1640,7 +1823,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
             "visual-pages" -> _file_evidence(bok, "presentation/visual-pages.yaml", "source"),
             "infographic-svg" -> _file_evidence(bok, "infographic/infographic.svg", "source")
           ),
-          Map.empty,
           "bok"
         )
 
@@ -1648,21 +1830,18 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "inspect", standalone.toString))
         _execute(List("document-project", "inspect", bok.toString))
 
-        Then("the standalone Core dialogue is accepted and both fixtures retain evidence-derived state")
+        Then("both fixtures retain evidence-derived state without a sidecar dialogue alternative")
         val standalonestate = Files.readString(standalone.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
         val bokstate = Files.readString(bok.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        standalonestate should include("review: accepted")
+        standalonestate should include("review: pending")
         standalonestate should include("path: evidence/document-project.yaml")
         bokstate should include("path: evidence/document-project.yaml")
         standalonestate.linesIterator.filter(line => line.nonEmpty && !line.startsWith(" ")).map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
           "schema", "project", "profile", "workspace", "sources", "evidence", "criteria", "workProducts"
         )
-        standalonestate should include("criteria:\n  satisfied: 4\n  total: 18")
+        standalonestate should include("criteria:\n  satisfied: 3\n  total: 18")
         bokstate should include("criteria:\n  satisfied: 3\n  total: 14")
         bokstate should include("notApplicable:\n    - id: video-storyboard-authored\n      reason: \"profile bok disables video branch\"")
-        val standalonesidecar = Files.readString(standalone.resolve("evidence/document-project.yaml"), StandardCharsets.UTF_8)
-        standalonesidecar should include("provider: local-ai-provider")
-        standalonesidecar should include("model: local-ai-model")
 
         When("the local review and dashboard projections are requested for both fixtures")
         _execute(List("document-project", "review", standalone.toString, "--kind", "core"))
@@ -1704,7 +1883,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           dashboard should include("<h2>Criterion coverage</h2>")
           dashboard should include("<table aria-label=\"Criterion coverage\">")
         }
-        standalonedashboard should include("4/18 applicable criteria satisfied")
+        standalonedashboard should include("3/18 applicable criteria satisfied")
         bokdashboard should include("3/14 applicable criteria satisfied")
         standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>required</td><td>review-projection</td><td>required")
         standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>required</td><td>deliverable</td><td>required")
@@ -1807,52 +1986,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "derive accepted, rejected, and stale Core dialogue review without autonomous authority" in {
-      _with_temp_dir("cozy-document-project-sidecar-review") { root =>
-        Given("direct request and response evidence for an accepted Core dialogue")
-        val project = _scaffolded_project(root, "sidecar-review")
-        val request = project.resolve("evidence/dialogue/request.txt")
-        val response = project.resolve("evidence/dialogue/response.txt")
-        Files.createDirectories(request.getParent)
-        Files.writeString(request, "request", StandardCharsets.UTF_8)
-        Files.writeString(response, "response", StandardCharsets.UTF_8)
-        val core = "content/core-en.yaml"
-        _write_sidecar(project, Map("content-core" -> _file_evidence(project, core, "source")), Map("content-core" -> _accepted_review(project, core, request, response)))
-
-        When("the accepted authority identity is current")
-        _execute(List("document-project", "inspect", project.toString))
-
-        Then("the Core review is accepted without executing a provider")
-        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("review: accepted")
-
-        When("the descriptor Core changes after that acceptance evidence")
-        Files.writeString(project.resolve(core), _core_yaml("sidecar-review", "en", "changed accepted Core"), StandardCharsets.UTF_8)
-        _execute(List("document-project", "inspect", project.toString))
-
-        Then("the prior acceptance is stale")
-        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("review: stale")
-
-        When("a replacement sidecar records an explicit rejection with current request and response")
-        _write_sidecar(project, Map("content-core" -> _file_evidence(project, core, "source")), Map("content-core" -> _rejected_review(project, request, response, "editor rejected the proposal")))
-        _execute(List("document-project", "inspect", project.toString))
-
-        Then("the project records rejected review separately from Core authority")
-        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        state should include("review: rejected")
-        state should include("readiness: failed")
-
-        When("a replacement sidecar records a rejection reason containing YAML-special characters and line breaks")
-        val rejectionreason = "editor: rejected # unsafe" + 0.toChar + 8.toChar + 12.toChar + 27.toChar + "\nnext\tline with \"quotes\" and \\slash"
-        _write_sidecar(project, Map("content-core" -> _file_evidence(project, core, "source")), Map("content-core" -> _rejected_review(project, request, response, rejectionreason)))
-        _execute(List("document-project", "inspect", project.toString))
-
-        Then("the rejected reason remains one deterministic YAML double-quoted scalar")
-        val rejectedstate = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        rejectedstate should include("reason: \"review rejected: editor: rejected # unsafe\\u0000\\u0008\\u000c\\u001b\\nnext\\tline with \\\"quotes\\\" and \\\\slash\"")
-        rejectedstate.linesIterator.count(_.contains("reason: \"review rejected:")) shouldBe 1
-      }
-    }
-
     "reject invalid, mismatched, and unsafe evidence sidecars" in {
       _with_temp_dir("cozy-document-project-sidecar-invalid") { root =>
         Given("an admitted project with a generated sidecar fixture")
@@ -1922,7 +2055,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       help should include("document-project inspect <project>")
       help should include("document-project dashboard <project> [--save <dashboard.html>]")
       help should include("document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]")
-      help should include("document-project reflect-feedback <project> <feedback>")
+      help should include("document-project content-core candidate <project> <dialogue>")
+      help should include("document-project content-core feedback <project> <candidate-id> <feedback>")
+      help should include("document-project content-core accept <project> <candidate-id> <acceptance>")
       help should include("document-project run <project> --operation <logical-operation> [--dry-run]")
       help should include("document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>")
       help should include("Dashboard defaults to target/document-project/project-dashboard.html")
@@ -1931,9 +2066,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       help should include("Slide and video logical charts default to target/document-project/slide-logical-chart-review.html")
       help should include("Slide Logical Chart visualizes current Content Core and Visual Page IR")
       help should include("same-directory temporary file and atomic move")
-      help should include("direct JSON or YAML structured feedback with one common object schema")
-      help should include("each item retains its proposal, applicability, and disposition")
-      help should include("A non-video profile requires a not-applicable video item")
+      help should include("completed direct JSON/YAML dialogue bundle")
+      help should include("never invokes an AI provider")
+      help should include("append-only below evidence/content-core/")
+      help should not include "reflect-feedback"
     }
     }
   }
@@ -1944,7 +2080,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     parent.resolve(s"$slug.dox")
   }
 
-  private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, review: Map[String, String] = Map.empty, profileid: String = "standard", activeoptionalworkproducts: Vector[String] = Vector.empty): Unit = {
+  private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, profileid: String = "standard", activeoptionalworkproducts: Vector[String] = Vector.empty): Unit = {
     val selected = _activate_optional_work_products(project, profileid, activeoptionalworkproducts)
     val media = project.resolve("media/article-media.yaml")
     Files.createDirectories(media.getParent)
@@ -1952,8 +2088,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     val products = _resolved(profileid, selected).workProducts.filter(_.isParticipating).map { value =>
       val id = value.workProduct.id
       val itemevidence = evidence.getOrElse(id, "kind: none")
-      val itemreview = review.getOrElse(id, "kind: none")
-      s"  - id: $id\n    evidence:\n${_indent(itemevidence, 6)}\n    review:\n${_indent(itemreview, 6)}"
+      s"  - id: $id\n    evidence:\n${_indent(itemevidence, 6)}\n    review:\n      kind: none"
     }
     val sidecar = project.resolve("evidence/document-project.yaml")
     Files.createDirectories(sidecar.getParent)
@@ -1986,29 +2121,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     CozyMedia.build(CozyMedia.CommandConfig(descriptor.toRealPath()))
   }
 
-  private def _accepted_review(project: Path, core: String, request: Path, response: Path, provider: String = "human-editor", model: String = "editorial-record"): String =
-    s"kind: core-dialogue\nprovider: $provider\nmodel: $model\nrequest:\n  path: ${_project_relative(project, request)}\n  sha256: ${_sha256(request)}\nresponse:\n  path: ${_project_relative(project, response)}\n  sha256: ${_sha256(response)}\naccepted:\n  acceptedAuthority:\n    path: $core\n    sha256: ${_sha256(project.resolve(core))}"
-
-  private def _rejected_review(project: Path, request: Path, response: Path, reason: String): String =
-    s"kind: core-dialogue\nprovider: human-editor\nmodel: editorial-record\nrequest:\n  path: ${_project_relative(project, request)}\n  sha256: ${_sha256(request)}\nresponse:\n  path: ${_project_relative(project, response)}\n  sha256: ${_sha256(response)}\nrejected:\n  rejectionReason: ${_yaml_double_quoted(reason)}"
-
   private def _reorder_attempt_top_level(value: String): String = {
     val lines = value.linesIterator.toVector
     (lines.slice(1, 2) ++ lines.slice(0, 1) ++ lines.drop(2)).mkString("\n") + "\n"
-  }
-
-  private def _yaml_double_quoted(value: String): String = {
-    val builder = new StringBuilder("\"")
-    value.foreach {
-      case '\\' => builder.append("\\\\")
-      case '"' => builder.append("\\\"")
-      case '\r' => builder.append("\\r")
-      case '\n' => builder.append("\\n")
-      case '\t' => builder.append("\\t")
-      case character if Character.isISOControl(character) => builder.append(f"\\u${character.toInt}%04x")
-      case character => builder.append(character)
-    }
-    builder.append('"').result()
   }
 
   private def _failed_attempt_yaml(project: Path, attemptid: String, operation: String, provider: String, profile: String): String = {
@@ -2042,14 +2157,111 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
   private def _core_yaml(slug: String, language: String, text: String): String =
     s"schema: cozy.content-core.v1\nid: $slug:core:$language\nlanguage: $language\naccepted:\n  - id: accepted-core\n    text: $text\n"
 
-  private def _project_relative(project: Path, path: Path): String =
-    project.relativize(path).toString.replace('\\', '/')
+  private def _accepted_candidate_core_yaml(slug: String, language: String, entryid: String, text: String): String =
+    s"""schema: "cozy.content-core.v1"
+id: "$slug:core:$language"
+language: "$language"
+accepted:
+  - id: "$entryid"
+    text: "$text"
+"""
+
+  private def _succeeded_dialogue_json(candidateid: String, text: String, supersedes: Option[String] = None): String = {
+    val supersedesfield = supersedes.map(value => ",\n  \"supersedes\": \"" + value + "\"").getOrElse("")
+    s"""{
+  "schema": "cozy.content-core-dialogue.v1",
+  "id": "$candidateid",
+  "source": "source document",
+  "idea": "content-core idea",
+  "provider": "provider-local",
+  "model": "model-local",
+  "request": "completed provider request",
+  "response": "completed provider response",
+  "outcome": "succeeded",
+  "diagnostics": [],
+  "candidate": {"accepted": [{"id": "accepted-$candidateid", "text": "$text"}]}$supersedesfield
+}
+"""
+  }
+
+  private def _failed_dialogue_yaml(attemptid: String): String =
+    s"""schema: cozy.content-core-dialogue.v1
+id: $attemptid
+source: source document
+idea: content-core idea
+provider: provider-local
+model: model-local
+request: completed provider request
+response: provider declined the draft
+outcome: failed
+diagnostics:
+  - provider declined the draft
+"""
+
+  private def _feedback_json(feedbackid: String, candidateid: String, decision: String): String = {
+    val payload = decision match {
+      case "changes-requested" => "\"feedback\": \"please revise the Core\""
+      case "rejected" => "\"rejectionReason\": \"human reviewer rejected the Core\""
+      case _ => throw new IllegalArgumentException(s"unsupported feedback fixture decision: $decision")
+    }
+    s"""{
+  "schema": "cozy.content-core-feedback.v1",
+  "id": "$feedbackid",
+  "candidate": "$candidateid",
+  "reviewer": "human-reviewer",
+  "decision": "$decision",
+  $payload
+}
+"""
+  }
+
+  private def _acceptance_json(acceptanceid: String, candidateid: String): String =
+    s"""{
+  "schema": "cozy.content-core-acceptance.v1",
+  "id": "$acceptanceid",
+  "candidate": "$candidateid",
+  "reviewer": "human-reviewer",
+  "decision": "accepted"
+}
+"""
+
+  private def _acceptance_record_yaml(
+    project: Path,
+    acceptanceid: String,
+    candidateid: String,
+    reviewer: String,
+    corepath: String,
+    prior: String,
+    resulting: String
+  ): String =
+    s"""schema: cozy.content-core-acceptance-record.v1
+id: \"$acceptanceid\"
+candidate:
+  id: \"$candidateid\"
+  path: \"evidence/content-core/candidates/$candidateid.yaml\"
+  sha256: ${_sha256(project.resolve(s"evidence/content-core/candidates/$candidateid.yaml"))}
+reviewer:
+  id: \"$reviewer\"
+  sha256: ${_sha256_string(reviewer)}
+decision:
+  value: accepted
+  sha256: ${_sha256_string("accepted")}
+priorCore:
+  path: \"$corepath\"
+  sha256: $prior
+resultingCore:
+  path: \"$corepath\"
+  sha256: $resulting
+"""
 
   private def _indent(value: String, spaces: Int): String =
     value.linesIterator.map(line => (" " * spaces) + line).mkString("\n")
 
   private def _sha256(path: Path): String =
     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
+
+  private def _sha256_string(value: String): String =
+    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)).map(item => f"${item & 0xff}%02x").mkString
 
   private def _resolved(profile: String, activeoptionalworkproducts: Vector[String] = Vector.empty): CozyDocumentWorkflow.ResolvedWorkflow =
     CozyDocumentWorkflow.resolve(profile, activeoptionalworkproducts) match {
@@ -2079,6 +2291,16 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     intercept[RuntimeException] {
       CozyDocumentProject.execute(args)
     }.getMessage
+
+  private def _with_content_core_lock[A](project: Path)(body: => A): A = {
+    val channel = FileChannel.open(project.resolve(".content-core.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE)
+    val lock = channel.lock()
+    try body
+    finally {
+      try lock.release()
+      finally channel.close()
+    }
+  }
 
   private def _diagnostic_tokens(value: String): Vector[String] =
     """DP-[A-Z]+-\d{3}""".r.findAllIn(value).toVector

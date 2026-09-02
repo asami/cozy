@@ -103,18 +103,16 @@ The exact Core file is `content/core-<language>.yaml`.  It MUST have exactly
 | `language` | Exactly the descriptor `language`. |
 | `accepted` | An ordered sequence, which MAY be empty in a freshly scaffolded package.  Each entry is an object with exactly `id` and `text`; `id` matches `[a-z0-9][a-z0-9._-]*` and is unique inside the Core, and `text` is a non-empty trimmed UTF-8 semantic statement. |
 
-This Core is a minimal semantic authority.  Only an explicitly accepted review
-MAY add or replace an `accepted` entry.  It MUST contain no mutable status,
+This Core is a minimal semantic authority. Only an explicit accepted human
+Content Core decision MAY add or replace an `accepted` entry. It MUST contain no mutable status,
 rendering configuration, delivery declaration, raw prompt or response, review
 decision, provider binding, artifact-local source, claims/evidence/term/relation
-vocabulary, external reference, or generic map or extension field.  AI
-assistance is a future admitted operation only: a raw response is provenance,
-never authority; eventual Phase 42.1 attempt/review evidence MUST retain
-provider, model, request, and response identities and explicit review
-acceptance before any Core write-back.  That evidence MUST NOT make the Core
-into mutable status or a receipt.  Structured semantic vocabulary and
-automation remain out of scope.  The Phase 42.1 evidence/attempt contract
-below does not add a Core field or make attempt evidence a review authority.
+vocabulary, external reference, or generic map or extension field. A completed
+AI dialogue response is provenance, never authority: it reaches the Core only
+through the explicit candidate, human feedback, and human acceptance records
+defined below. No command in this boundary invokes an AI provider, creates a
+receipt, writes a state cache, or infers a downstream operation. Structured
+semantic vocabulary and automation remain out of scope.
 
 The closed descriptor and Core fields above are permanently closed and are not
 expandable.  DP42-02 closes only the workflow-owned Work Product, provider-binding,
@@ -180,7 +178,7 @@ separate infographic review HTML merely to duplicate it.
 are video profiles. `simplemodeling-org` and `simplemodeling-org-video` have,
 respectively, the same current matrices as `bok` and `bok-video`, but are
 registered hidden profiles: descriptor admission, inspection, planning,
-verification, review, feedback reflection, and operation admission resolve
+verification, review, Content Core candidate/feedback/acceptance, and operation admission resolve
 them, while public help and `scaffold` do not offer them. Profile describes
 which Work Products participate; `workspace` remains the independent directory
 or BoK operating context.
@@ -401,16 +399,12 @@ Receipt currentness is determined solely through existing Cozy Media and
 `cozy.media.receipt.v2` currentness logic; this contract neither changes nor
 wraps that media schema.
 
-`review` is either exactly `kind: none`, or a `kind: core-dialogue` record for
-`content-core` only.  The latter has exact non-empty `provider` and `model`,
-direct request and response `{path, sha256}` identities, and exactly one
-disposition branch.  `accepted` contains exactly `acceptedAuthority`, whose
-identity is the current descriptor Content Core path and SHA-256; `rejected`
-contains exactly a non-empty `rejectionReason`.  Provider/model identities are
-retained human-acceptance evidence only: no provider is executed and no AI
-output becomes autonomous authority.  A changed Core makes accepted review
-evidence `stale`; missing or changed request/response evidence likewise makes
-the review `stale`.
+`review` is exactly `kind: none` for every Work Product, including
+`content-core`.  The optional sidecar is not the Content Core candidate,
+feedback, or acceptance authority.  Those append-only records are instead
+owned by the separate `evidence/content-core/` boundary below.  The sidecar
+never invokes a provider and cannot make AI output or a human decision
+autonomous authority.
 
 The shared derived model is the sole source for both the disposable state
 snapshot and the dashboard. For every row it independently derives coverage
@@ -465,7 +459,9 @@ cozy document-project inspect <project>
 cozy document-project plan <project>
 cozy document-project dashboard <project> [--save <dashboard.html>]
 cozy document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
-cozy document-project reflect-feedback <project> <feedback>
+cozy document-project content-core candidate <project> <dialogue>
+cozy document-project content-core feedback <project> <candidate-id> <feedback>
+cozy document-project content-core accept <project> <candidate-id> <acceptance>
 cozy document-project verify <project>
 cozy document-project run <project> --operation <logical-operation> [--dry-run]
 cozy document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
@@ -523,78 +519,84 @@ other Project-owned path from projection replacement.  An explicit destination
 outside the Project retains exact-path behavior, subject to the direct
 non-symlink parent and atomic-publication rules above.
 
-`reflect-feedback` consumes one direct, non-symlink structured input file whose
-name ends in `.json`, `.yaml`, or `.yml` (case-insensitive); any other suffix is
-rejected with `DP-CLI-001` before parsing.  It accepts JSON and YAML and is the
-only command in this boundary that may reflect an accepted feedback item into
-an authored authority.  JSON and YAML use one common object schema; validation
-never derives feedback semantics from the filename suffix.  The complete batch
-grammar is:
+## P45-02 Content Core candidate and explicit human acceptance
 
-```yaml
-reason: nonempty trimmed batch reason
-changes:
-  - target: core
-    replacement:
-      accepted:
-        - id: claim-1
-          text: ...
-    applicability: applicable
-    disposition: accepted
-  - target: article
-    replacement: proposed full source
-    applicability: applicable
-    disposition: rejected
-    rejectionReason: nonempty trimmed reason
-  - target: video
-    replacement: proposed storyboard
-    applicability: not-applicable
-    disposition: not-applicable
-    notApplicableReason: profile does not use video
-```
+The only Content Core write path consists of the three `content-core` public
+forms above.  Each external input is a direct, non-symlink regular JSON, YAML,
+or YML file; an unsupported suffix or malformed document is `DP-CLI-001`, and
+an unsafe path is `DP-PATH-001` before any evidence or Core write.  The forms
+do not call an AI provider.  `candidate` receives an already-completed dialogue
+bundle and is the only execution boundary for declared
+`content-core.compose`. Generic `run --operation content-core.compose` first
+performs the ordinary descriptor-first initial-source admission and, for a
+video profile, admits the direct `video/storyboard.md` source as well. An
+unsafe or missing required source, including that storyboard, returns only
+`DP-PATH-001` without evidence; only an otherwise admitted Project rejects
+with `DP-OP-001` and directs the caller to `content-core candidate`.
 
-The top-level object MUST contain exactly `reason` and a non-empty `changes`
-array.  Each item MUST contain exactly `target`, `replacement`,
-`applicability`, and `disposition`, plus exactly one conditional reason:
-`rejectionReason` for an applicable rejection or `notApplicableReason` for a
-not-applicable item.  Targets MUST be unique and drawn from `core`, `article`,
-`slides`, `infographic`, and `video`.  `applicability: applicable` permits
-only `accepted` or `rejected`; `not-applicable` permits only the
-`not-applicable` disposition.  Every item retains its replacement proposal,
-including rejected and not-applicable items, so a later amended batch can
-accept it.  A Core replacement is exactly `{"accepted":[{"id":"...","text":"..."}]}`;
-other replacements are non-empty strings.  Core entry IDs MUST be unique and
-its entry text MUST satisfy the closed Core grammar.
+The dialogue bundle is a closed `cozy.content-core-dialogue.v1` document. Its
+common fields are `schema`, `id`, `source`, `idea`, `provider`,
+`model`, `request`, `response`, `outcome`, and `diagnostics`.  `id` is a slug,
+`source`, `idea`, `request`, and `response` are non-empty raw strings, and
+`provider` and `model` are non-empty exact identifiers.  `diagnostics` is an
+array of non-empty exact strings; it may be empty only for `outcome: succeeded`.
+For `succeeded`, the only additional keys are a required `candidate` object
+with exactly ordered Core `accepted` entries and an optional `supersedes` slug.
+For `failed`, there are no additional keys and diagnostics are non-empty.  A
+candidate entry is exactly `{id,text}` under the unchanged closed Content Core
+entry grammar.  A `supersedes` reference names exactly one direct earlier
+candidate with changes-requested feedback; it derives that earlier candidate as
+superseded without altering its immutable evidence. Its candidate evidence
+binds both that earlier candidate and its changes-requested feedback record by
+id, project-relative path, and SHA-256 identity.
 
-The target mappings are `core` to the descriptor `contentCore` path, `article`
-to `index.dox`, `slides` to `presentation/visual-pages.yaml`, `infographic`
-to `infographic/infographic.svg`, and `video` to `video/storyboard.md`.  An
-accepted Core replacement preserves the existing Core envelope
-(`schema`, `id`, and `language`) and is revalidated before publication.  For
-the `standard` profile, a `video` item MUST be present as
-`not-applicable` with its required reason; an applicable video item is
-rejected with `DP-OP-001`.  Video profiles admit the active storyboard mapping.
+`feedback` receives a closed `cozy.content-core-feedback.v1` document. Its
+fields are `schema`, `id`, `candidate`, `reviewer`, `decision`, and one
+decision payload.  `id` and `candidate` are slugs, `candidate` equals the CLI
+candidate id, and `reviewer` is a non-empty exact human identifier.  The only
+decisions are `changes-requested`, requiring non-empty exact `feedback`, and
+`rejected`, requiring non-empty exact `rejectionReason`.  `accept` receives a
+closed `cozy.content-core-acceptance.v1` document with exactly `schema`, `id`,
+`candidate`, `reviewer`, and `decision`; the candidate must equal the CLI
+candidate id and `decision` is exactly `accepted`.
 
-The entire batch, every replacement, the profile rule, and every selected
-accepted authority path MUST validate before any write.  Accepted authorities
-MUST already be direct, non-symlink regular files with existing direct parent
-directories.  Each accepted source is replaced through a same-directory
-temporary file and `ATOMIC_MOVE`; there is no direct-write or non-atomic
-fallback and no parent creation.  Rejected and not-applicable items never
-write an authority.  Malformed combinations and missing/extra item fields
-reject with `DP-CLI-001`; malformed JSON/YAML syntax also rejects with
-`DP-CLI-001`.  Malformed replacements and duplicate Core IDs reject with
-`DP-DESC-001`, missing operands with `DP-CLI-002`, and unsafe input or source
-paths with `DP-PATH-001`.
+Successful candidates, failed dialogue attempts, feedback records, and
+acceptance records are distinct direct non-symlink append-only evidence below
+`evidence/content-core/`.  A successful candidate retains raw source, idea,
+request, and response text with deterministic SHA-256 identities; it also
+retains provider/model, outcome, diagnostics, Core replacement, and any direct
+supersession relation.  A failed bundle retains the same provenance and
+diagnostics but no candidate.  Feedback retains its candidate and reviewer
+identities and the immutable decision payload.  Acceptance retains the exact
+candidate, reviewer, prior Core, and resulting Core identities.  Existing
+evidence bytes are never replaced.
 
-Successful output begins with `Cozy Document Project Feedback Reflection`,
-identifies the project, and emits in input order exactly one of
-`reflected: <target> <path>`, `rejected: <target> — <rejectionReason>`, or
-`not-applicable: <target> — <notApplicableReason>`.  It MUST NOT echo the
-batch reason or any replacement.  The command creates no feedback
-record, receipt, attempt, state cache, provider run, review, or auxiliary
-evidence.  This write boundary is distinct from `review`: review is a
-read-only projection and never accepts, persists, or reflects feedback.
+The forms share exactly one project-local, direct regular lock file at
+`<project>/.content-core.lock`. The lock is a retained empty coordination
+artifact, not evidence, authored semantic authority, a schema field, or a
+state record. After CLI and external input-document admission, each form uses
+one non-waiting exclusive file-lock attempt before observing Content Core state,
+creating an evidence directory, appending evidence, reading or validating the
+Core hash, or replacing the Core. A busy or overlapping same-JVM lock returns
+only retryable `DP-OP-001`, and performs no evidence or Core mutation. A
+symlinked, non-regular, or unusable lock target returns `DP-PATH-001`.
+
+Creation never changes `contentCore`. Feedback never changes a candidate or
+Content Core. Only `accept` may replace the existing direct Core. After all
+candidate, decision, input, replacement, and identity validation, it first
+publishes the immutable acceptance evidence and only then writes the Core using
+a same-directory temporary file and `ATOMIC_MOVE`. Thus a Core replacement is
+never published without durable evidence. The evidence binds both prior and
+resulting identities to the descriptor's lexically exact direct `contentCore`
+path. A record is applied only when the actual direct current Core hash equals
+its resulting hash; it is pending when that hash equals its prior hash; and it
+is historical and terminal for every other current Core hash. Retrying the
+same candidate and exact human acceptance may resume a pending record without
+adding evidence, and an already applied exact retry succeeds idempotently.
+Different candidate, reviewer, decision, prior, or resulting input rejects
+with `DP-OP-001` before writes. Pending, applied, and historical records all
+prevent feedback, revision, or another acceptance for that candidate. This
+protocol adds no schema/version, remote/provider, or compatibility behavior.
 
 - `inspect` MUST inspect and report a derived project view without mutating
   authored authority, durable evidence, registration, or delivery.  The
@@ -741,9 +743,9 @@ another token.  This Slice does not prescribe an exception class or exit code.
 | 3 | `DP-PHASE-001` | Historical Phase-42-only behavior: a syntactically complete dashboard request was rejected before path resolution.  Phase 42.1 no longer emits this token for dashboard. |
 | 4 | `DP-PATH-001` | A command whose preceding gates passed has an unsafe, outside-package, symlink, or non-direct path, including a project, descriptor/Core source, verified authored source, or scaffold parent/destination path that fails path admission. |
 | 5 | `DP-SCAFFOLD-001` | `scaffold` has safe paths, but its destination already exists, its parent is absent or non-real, or the required atomic move cannot be completed. |
-| 6 | `DP-DESC-001` | An inspected, planned, verified, or run project has a missing, unreadable, or malformed descriptor or Core after path admission, or a `reflect-feedback` request has a malformed replacement or an accepted Content Core source that is missing, unreadable, or malformed. |
+| 6 | `DP-DESC-001` | A Content Core dialogue, candidate, feedback, acceptance, or direct Core has a malformed or semantically invalid closed value after CLI/path admission. |
 | 7 | `DP-DESC-002` | A successfully parsed descriptor or Core has an unknown field or unsupported or invalid closed value or relationship after descriptor admission. |
-| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation disabled by the selected profile, or a path- and descriptor-valid `reflect-feedback` request declares a video mapping that is disabled by the selected profile. |
+| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation disabled by the selected profile; it also rejects generic `content-core.compose`, a busy Content Core single-writer lock (retryable), and any unknown, terminal, superseded, rejected, accepted, or duplicate Content Core candidate decision. |
 
 Successful `inspect`, `plan`, `verify`, and `scaffold` output MUST begin with,
 respectively, `Cozy Document Project Inspect`, `Cozy Document Project Plan`,
@@ -758,6 +760,11 @@ each MUST identify the project, profile, schema, and selected output.  Dashboard
 and review HTML MUST be UTF-8,
 self-contained, deterministic for unchanged inputs, structurally accessible
 with headings and tables, and HTML-escape authored or descriptor values.
+Successful Content Core commands begin respectively with `Cozy Document Project
+Content Core Candidate`, `Cozy Document Project Content Core Feedback`, and
+`Cozy Document Project Content Core Acceptance`. A failed dialogue result is
+reported with `outcome: failed`; it is retained history, never success or a
+candidate.
 
 ## Non-goals and deliberate deferrals
 
@@ -765,6 +772,12 @@ This baseline MUST NOT be read as authorizing autonomous acceptance, mutable
 progress/status authority, a scheduler, daemon, arbitrary command execution,
 dashboard write-back, implicit registration/build/publish/deploy/upload,
 migration, or Phase 41 expansion.
+
+P45-02 does not implement Phase 45.1 review/dashboard localization or
+projection behavior, nor Phase 45.2 content alignment, Article 8, site
+registration, publication, deployment, upload, or external repository
+mutation. It creates no renderer, generated review output, external provider
+API call, generic shell/provider command, or compatibility alias.
 
 The closed `cozy.document-project.v2` descriptor fields are not deferred or
 expandable. Phase 45 closes the workflow-owned Work Product, provider-binding,
