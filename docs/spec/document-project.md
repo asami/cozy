@@ -167,8 +167,34 @@ the ordinary PDF, slide, infographic, and video deliverable branches.
 Its stable logical operation is `article.render-review` through the stable
 review-projection provider binding. Its criterion, gate, and evidence reference
 are declared with dependencies on Content Core, article source, and Visual Page
-IR. It is contract-only in Phase 45: it does not generate HTML, add a review
-CLI kind, alter dashboard UX, or invoke a provider.
+IR. P45-03 admits its selected `review --kind article` projection at
+`target/document-project/article-review.html`. It is deterministic,
+self-contained, HTML-escaped, and read-only: it projects article
+structure/narrative, accepted Content Core correspondence, one ordered semantic
+row per authored Visual Page, declared terminology and media placement (or a
+clear no-declaration result), the infographic relationship, and direct current
+input identities. Its Visual Page surface MUST be a reader-facing page model,
+not a source-field table: each page exposes its declared stable `id` or a
+deterministic ordinal fallback, title, reader-facing text, visual/relationship
+summary, bounded article structure summary, page count/current-page state, and
+self-contained keyboard navigation. The v2 descriptor has no accepted
+Phase-41 Projection selector; Article review MUST state that absence rather
+than invent a selector or schema. It neither receives Phase-41 page-flow
+evidence nor invokes a provider. P45-04 dashboard redesign and action
+selection remain excluded.
+
+The default `review --kind article` and `review --kind video` outputs MUST each
+write a deterministic local generated-review receipt under
+`target/document-project/`. The receipt binds the fixed kind, descriptor id and
+profile, default HTML byte identity, and fixed-order direct input identities
+consumed by that review. It is disposable local output evidence only: never an
+authored authority, review decision, renderer/provider/production receipt,
+external artifact, or evidence-sidecar change. An explicit `--save` MUST write
+only its requested HTML and MUST NOT replace the default generated-review
+receipt. The derived state for `article-review-html` and `video-review` is
+`missing`, `current`, or `stale`: changed or missing fixed input/default output
+is stale, while human review remains `pending` and unavailable renderer,
+production-receipt, and rendered-frame evidence remains unavailable.
 
 `infographic-svg` is the required editable final infographic artifact and is
 reviewed directly as that artifact; Document Project MUST NOT introduce a
@@ -458,7 +484,7 @@ The complete public Document Project command grammar is:
 cozy document-project inspect <project>
 cozy document-project plan <project>
 cozy document-project dashboard <project> [--save <dashboard.html>]
-cozy document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
+cozy document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
 cozy document-project content-core candidate <project> <dialogue>
 cozy document-project content-core feedback <project> <candidate-id> <feedback>
 cozy document-project content-core accept <project> <candidate-id> <acceptance>
@@ -485,10 +511,11 @@ remain deferred.  `dashboard` accepts an optional `--save <dashboard.html>`;
 without it, the output MUST be written to the deterministic project-local
 `target/document-project/project-dashboard.html`.  An explicit external save
 path is used exactly as requested; a Project-internal save path is admitted
-only under the projection boundary below. `review` requires one of `core`, `slides`, `video`,
+only under the projection boundary below. `review` requires one of `core`, `article`, `slides`, `video`,
 `slide-logical-chart`, or `video-logical-chart` and accepts
 the same optional save path; its defaults are
 `target/document-project/core-review.html`,
+`target/document-project/article-review.html`,
 `target/document-project/slides-review.html`,
 `target/document-project/video-review.html`, and
 `target/document-project/slide-logical-chart-review.html` and
@@ -506,8 +533,9 @@ admission.  Existing regular destinations MAY be replaced only by a
 same-directory temporary file moved with `ATOMIC_MOVE`; symlinks, non-direct
 destinations, and non-directory nearest existing parents MUST reject with
 `DP-PATH-001`.  An implementation MUST NOT fall back to direct writing or a
-non-atomic move.  The only generated write for each successful command is its
-selected HTML projection.
+non-atomic move. A default Article or Video review additionally writes its
+disposable generated-review receipt beside the fixed HTML output; dashboard and
+explicit-save review write only their selected HTML projection.
 
 After normalization, a destination that is inside the admitted Project package
 MUST be under `<project>/target/document-project/` and its filename MUST end
@@ -630,7 +658,8 @@ protocol adds no schema/version, remote/provider, or compatibility behavior.
   for no-video profiles. Current snapshot data
   MUST be distinguished from retained historical attempts; initial attempts
   have no receipt or currentness authority.  It MUST execute no provider and
-  persist no authority, candidate, feedback, acceptance, receipt, deliverable,
+  persist no authority, candidate, feedback, acceptance, production receipt,
+  deliverable,
   workspace, build, publication, deployment, or upload state. The Dashboard
   MUST link the required final infographic SVG for direct review; its href is
   relative to the selected dashboard output parent. It links a default review
@@ -640,7 +669,9 @@ protocol adds no schema/version, remote/provider, or compatibility behavior.
   `source or retained evidence is not present` when any declared source
   prerequisite is absent, or exactly `default review HTML is not generated`
   when all declared source prerequisites are present; it MUST also show a
-  user-facing generate action. After the default HTML exists, the dashboard may
+  user-facing generate action. For Article and Video review, a missing local
+  generated-review receipt is `missing`, while a changed or missing receipt
+  input/default output is `stale`; only a current default output and receipt may
   show `satisfied`/`current`/`ready`. An explicit disabled binding reason MUST
   take precedence over these blocked reasons.
 - `review` MUST generate a deterministic, self-contained, read-only HTML
@@ -651,17 +682,51 @@ protocol adds no schema/version, remote/provider, or compatibility behavior.
   temporary output is created.  Core
   review MUST present accepted Core entries and explicitly mark candidate,
   feedback, and acceptance as non-authoritative and not yet persisted. Slide
-  review MUST present Visual Page IR. Video review and Video Logical Chart MUST
-  be admitted only for video profiles using the `DP-OP-001` disabled
-  operation/profile diagnostic otherwise, and MUST present storyboard and
-  Visual Page source projections when active. Slide Logical Chart MUST
+  review MUST present Visual Page IR. Article review is admitted only when the
+  selected `article-review-html` Work Product admits `article.render-review`;
+  its default is `target/document-project/article-review.html`. It MUST present
+  HTML-escaped article structure and narrative sections, accepted Content Core
+  correspondence, reader-facing Visual Page review, the infographic
+  relationship, and current direct input identities. Its Visual Page review MUST
+  preserve authored order and provide each page's declared stable `id` or a
+  deterministic ordinal fallback, title, reader-facing text, visual/relationship
+  summary, bounded article-structure summary, page count/current-page state,
+  previous/next controls, and self-contained keyboard navigation. It MUST show
+  explicit article terminology and
+  media-placement declarations when present, and otherwise clearly state that
+  each is not declared; it MUST NOT infer either from identities or unrelated
+  content. It MUST NOT be article
+  site HTML, a dashboard, raw Dox rendering, raw Visual Page YAML, production
+  prompts, renderer coordinates, or debug internals; it MUST explicitly state
+  that no accepted Phase-41 Projection selector exists in the v2 descriptor,
+  mark Phase-41 page-flow evidence unavailable, and distinguish unavailable
+  renderer or production-receipt inputs from the local generated-review receipt.
+  Video
+  review and Video Logical Chart MUST be admitted only for video profiles using
+  the `DP-OP-001` disabled operation/profile diagnostic otherwise. Video review
+  MUST consume the existing typed CozyVideo Storyboard parser and render ordered
+  semantic scenes: intent/role, narration, speaker and pronunciation notes,
+  visible screen/diagram/asset references, duration, lead silence, transition,
+  and direction. It MUST NOT present raw Storyboard or Visual Page source
+  tables. Invalid typed storyboard input MUST fail at the Document Project
+  structured diagnostic boundary before a projection is published. Video review
+  MUST distinguish current verified source/infographic identities from
+  unavailable renderer, receipt, and rendered-frame inputs, and MUST never
+  claim a rendered video, frame, audio, receipt, or acceptance without evidence.
+  It MUST state infographic use only when a typed Storyboard scene contains the
+  exact current `infographic/infographic.svg` path in its declared
+  `diagram-refs` or `asset-refs`; a SHA-256 identity alone does not declare
+  use. Otherwise it MUST clearly state that no exact infographic source use is
+  declared.
+  Slide Logical Chart MUST
   visualize current Content Core and Visual Page IR. Video Logical Chart MUST
   additionally visualize storyboard IR. Each chart MUST state that it is not an authority, provider run, receipt,
   state cache, feedback record, or write-back mechanism.  All supplied values
-  MUST be HTML-escaped.  Review MUST claim no provider execution, candidate or
-  feedback persistence, acceptance, receipt, or deliverable.  It MUST not
-  modify Content Core, accepted entries, storyboard, Visual Pages, attempts,
-  receipts, or state cache.
+  MUST be HTML-escaped. Review MUST claim no provider execution, candidate or
+  feedback persistence, acceptance, production receipt, or deliverable. Default
+  Article and Video review may write only the disposable generated-review receipt
+  defined above. Review MUST not modify Content Core, accepted entries,
+  storyboard, Visual Pages, attempts, existing receipts, or state cache.
 - `verify` MUST inspect declared project material for conformance without
   mutating authored authority, durable evidence, registration, or delivery.
   After successful validation it MUST regenerate only the disposable snapshot
@@ -754,7 +819,7 @@ such success output MUST identify the project and schema.  Scaffold success
 output MUST also identify package, workflow, profile, and workspace.  A
 successful dashboard MUST begin with `Cozy Document Project Dashboard` and a
 successful review MUST begin with `Cozy Document Project Core Review`,
-`Cozy Document Project Slide Review`, `Cozy Document Project Video Review`,
+`Cozy Document Project Article Review`, `Cozy Document Project Slide Review`, `Cozy Document Project Video Review`,
 `Cozy Document Project Slide Logical Chart`, or `Cozy Document Project Video Logical Chart`;
 each MUST identify the project, profile, schema, and selected output.  Dashboard
 and review HTML MUST be UTF-8,
@@ -773,10 +838,13 @@ progress/status authority, a scheduler, daemon, arbitrary command execution,
 dashboard write-back, implicit registration/build/publish/deploy/upload,
 migration, or Phase 41 expansion.
 
-P45-02 does not implement Phase 45.1 review/dashboard localization or
-projection behavior, nor Phase 45.2 content alignment, Article 8, site
+P45-03 implements only the article and video review projections and local
+generated-review receipt/currentness specified
+above. P45-04 exclusively owns user-first dashboard redesign and action
+selection. P45.2 content alignment, Article 8, site
 registration, publication, deployment, upload, or external repository
-mutation. It creates no renderer, generated review output, external provider
+mutation remain excluded. P45-03 creates no renderer, article site, PDF, video,
+production/external receipt, external provider
 API call, generic shell/provider command, or compatibility alias.
 
 The closed `cozy.document-project.v2` descriptor fields are not deferred or

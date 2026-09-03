@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 45.1. It is not
 a normative behavior contract.
 
-Phase Status: PLANNED
+Phase Status: IN_PROGRESS
 
 Predecessor: Phase 45 closure. Successor: Phase 45.2 after this Phase closes.
 
@@ -11,18 +11,20 @@ Predecessor: Phase 45 closure. Successor: Phase 45.2 after this Phase closes.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: user-facing artifact review projections
 - Update rule: update this block from the checklist state below.
+- Closure evidence: `P451-P45-03-VAL-017` (66/66) and converged focused
+  re-review `CB-P45-03-RR-001` through `CB-P45-03-RR-008`.
 
-- [ ] Generate semantic and visual `article-review.html` evidence from its
+- [x] Generate semantic and visual `article-review.html` evidence from its
   first-class Work Product role.
-- [ ] Integrate the Phase 41 page-flow review rather than displaying Visual
+- [x] Integrate the Phase 41 page-flow review rather than displaying Visual
   Page YAML as a table.
-- [ ] Present storyboard, narration, visuals, timing, infographic, and
+- [x] Present storyboard, narration, visuals, timing, infographic, and
   rendered evidence in `video-review.html`.
-- [ ] Bind review currentness to exact accepted inputs and outputs.
-- [ ] Prove deterministic, self-contained, read-only review output.
+- [x] Bind review currentness to exact accepted inputs and outputs.
+- [x] Prove deterministic, self-contained, read-only review output.
 
 ## P45-04: User Dashboard and Next-Action Selection
 
@@ -42,6 +44,5 @@ Stage Status:
   separate.
 - [ ] Verify scenario outcomes rather than checking only headings or columns.
 
-Phase 45.1 remains `PLANNED` until Phase 45 closes and an explicitly
-authorized start moves P45-03 to `IN_PROGRESS`. Defining this Phase does not
-start Phase 45.2 or authorize Article 8 publication.
+Phase 45.1 is `IN_PROGRESS`: P45-03 is DONE and P45-04 remains PLANNED. This
+does not start Phase 45.2 or authorize Article 8 publication.

@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -192,7 +192,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "admit article review HTML only as a selected dry run without a review CLI or output" in {
+    "admit article review HTML only as a selected recorded dry run" in {
       _with_temp_dir("cozy-document-project-v2-article-review") { root =>
         Given("a v2 project that explicitly selects article-review-html")
         val project = _scaffolded_project(root, "article-review")
@@ -202,16 +202,13 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the declared review operation is admitted only as a recorded dry run")
         val output = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review", "--dry-run"))
 
-        Then("the selected first-class Work Product has no review command or generated HTML behavior in this Slice")
+        Then("the selected first-class Work Product records its declared dry-run operation without generating output")
         output should include("operation: article.render-review")
         output should include("mode: dry-run")
-        _failure(List("document-project", "review", project.toString, "--kind", "article")) should include("DP-CLI-001")
-        Files.exists(project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
-    "report article review HTML as a selected contract-only dashboard status" in {
+    "report selected article review HTML as missing until default generation" in {
       _with_temp_dir("cozy-document-project-v2-article-review-dashboard") { root =>
         Given("a v2 project that selects article-review-html with all review projection prerequisites")
         val project = _scaffolded_project(root, "article-review-dashboard")
@@ -221,18 +218,56 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the dashboard is generated for the selected project")
         _execute(List("document-project", "dashboard", project.toString))
 
-        Then("the selected product reports the exact Phase 45 contract-only next action")
+        Then("the selected product reports its missing default output and generation action")
         val dashboard = Files.readString(
           project.resolve("target/document-project/project-dashboard.html"),
           StandardCharsets.UTF_8
         )
-        dashboard should include("No action: contract-only in Phase 45")
-        dashboard should not include "Generate Article review HTML"
+        dashboard should include("Generate Article review HTML")
         dashboard should include("article-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
       }
     }
 
-    "retain article review HTML as contract-only when a valid sidecar retains current source evidence" in {
+    "report the missing source reason for article review when infographic is absent" in {
+      _with_temp_dir("cozy-document-project-v2-article-review-missing-source") { root =>
+        Given("a selected article review project with its infographic source absent")
+        val project = _scaffolded_project(root, "article-review-missing-source")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+        Files.delete(project.resolve("infographic/infographic.svg"))
+
+        When("inspect and dashboard derive the selected article review state")
+        _execute(List("document-project", "inspect", project.toString))
+        _execute(List("document-project", "dashboard", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("both projections report the absent source before missing generated output")
+        state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked\n    reason: \"source or retained evidence is not present\"")
+        dashboard should include("article-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>source or retained evidence is not present")
+      }
+    }
+
+    "report the missing source reason for video review when infographic is absent" in {
+      _with_temp_dir("cozy-document-project-v2-video-review-missing-source") { root =>
+        Given("a standard-video project with its infographic source absent")
+        val parent = Files.createDirectory(root.resolve("video-review-missing-source-parent"))
+        _execute(List("document-project", "scaffold", "video-review-missing-source", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("video-review-missing-source.dox")
+        Files.delete(project.resolve("infographic/infographic.svg"))
+
+        When("inspect and dashboard derive the selected video review state")
+        _execute(List("document-project", "inspect", project.toString))
+        _execute(List("document-project", "dashboard", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("both projections report the absent source before missing generated output")
+        state should include("id: video-review\n    role: review-projection\n    disposition: required\n    selection: required\n    criterion: video-review-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked\n    reason: \"source or retained evidence is not present\"")
+        dashboard should include("video-review</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>source or retained evidence is not present")
+      }
+    }
+
+    "retain article review HTML as missing when a valid sidecar lacks generated output evidence" in {
       _with_temp_dir("cozy-document-project-v2-article-review-sidecar") { root =>
         Given("a v2 project that selects article-review-html and declares its current index.dox source in a valid sidecar")
         val project = _scaffolded_project(root, "article-review-sidecar")
@@ -248,15 +283,14 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
         val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
 
-        Then("the retained sidecar does not make the contract-only Work Product current, ready, or generatable")
+        Then("the retained sidecar does not replace the required local generated output evidence")
         state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked\n    reason: \"default review HTML is not generated\"")
-        dashboard should include("No action: contract-only in Phase 45")
-        dashboard should not include "Generate Article review HTML"
+        dashboard should include("Generate Article review HTML")
         dashboard should include("article-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
       }
     }
 
-    "retain article review HTML contract-only state through stale dependencies and failed attempts" in {
+    "derive stale article review state through receipt-bound dependencies and failed attempts" in {
       _with_temp_dir("cozy-document-project-v2-article-review-propagation") { root =>
         Given("a selected article-review-html product with valid source evidence and a current Content Core identity")
         val project = _scaffolded_project(root, "article-review-propagation")
@@ -268,6 +302,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           ),
           activeoptionalworkproducts = Vector("article-review-html")
         )
+        _execute(List("document-project", "review", project.toString, "--kind", "article"))
         Files.writeString(project.resolve("content/core-en.yaml"), _core_yaml("article-review-propagation", "en", "changed Content Core"), StandardCharsets.UTF_8)
         val attemptid = "44444444-4444-4444-8444-444444444444"
         val attempt = project.resolve(s"evidence/attempts/$attemptid.yaml")
@@ -278,14 +313,14 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "inspect", project.toString))
         _execute(List("document-project", "dashboard", project.toString))
 
-        Then("the selected article review product remains exactly contract-only and retains historical evidence without a generation action")
+        Then("the receipt-bound selected article review becomes stale and retains historical failed evidence")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
         val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
         state should include("id: content-core\n    role: authority\n    disposition: required\n    selection: required\n    criterion: content-core-accepted\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked\n    reason: \"default review HTML is not generated\"")
+        state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: stale\n    review: pending\n    readiness: blocked\n    reason: \"a declared dependency is stale\"")
         state should include(s"path: evidence/attempts/$attemptid.yaml")
         dashboard should include("failed; historical attempt")
-        dashboard should not include "Generate Article review HTML"
+        dashboard should include("Generate Article review HTML")
       }
     }
 
@@ -698,7 +733,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "generate core and active video review projections without persistence" in {
+    "generate core and active video review projections with local video receipt evidence" in {
       _with_temp_dir("cozy-document-project-review") { root =>
         Given("admitted standard and standard-video projects")
         val standardparent = Files.createDirectory(root.resolve("standard-parent"))
@@ -707,6 +742,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "scaffold", "video-doc", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", videoparent.toString))
         val standard = standardparent.resolve("core-doc.dox")
         val video = videoparent.resolve("video-doc.dox")
+        Files.writeString(video.resolve("video/storyboard.md"), _valid_storyboard_with_infographic, StandardCharsets.UTF_8)
         _activate_optional_work_products(standard, "standard", Vector("core-review-html"))
         val standardcore = standard.resolve("content/core-en.yaml")
         Files.writeString(standardcore, Files.readString(standardcore, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-entry\n    text: \"Accepted semantic statement\""), StandardCharsets.UTF_8)
@@ -724,8 +760,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "review", video.toString, "--kind", "video"))
         val videoreview = video.resolve("target/document-project/video-review.html")
         val videoreviewtext = Files.readString(videoreview, StandardCharsets.UTF_8)
+        val videostatebeforeinspect = Files.exists(video.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS)
+        _execute(List("document-project", "inspect", video.toString))
 
-        Then("reviews are deterministic source projections with explicit non-authority boundaries")
+        Then("reviews are deterministic semantic projections with local output evidence and explicit non-authority boundaries")
         Files.readAllBytes(coreview) shouldBe firstcorebytes
         Files.isRegularFile(explicitcoreview, LinkOption.NOFOLLOW_LINKS) shouldBe true
         Files.readAllBytes(explicitcoreview) shouldBe firstcorebytes
@@ -737,18 +775,27 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.readString(coreview, StandardCharsets.UTF_8) should include("not yet persisted")
         Files.readString(coreview, StandardCharsets.UTF_8) should include("Candidate, feedback, and acceptance surface")
         Files.readString(coreview, StandardCharsets.UTF_8) should not include "logical-operation"
-        videoreviewtext should include("Storyboard source projection")
-        videoreviewtext should include("<table aria-label=\"Storyboard source projection\">")
-        videoreviewtext should include("<table aria-label=\"Visual-page source projection\">")
-        videoreviewtext should include("<th scope=\"col\">Source</th>")
-        videoreviewtext should include("<th scope=\"col\">Content</th>")
-        videoreviewtext should include("Visual-page source projection")
-        videoreviewtext should include("Storyboard source belongs here.")
-        videoreviewtext should include("pages: []")
+        videoreviewtext should include("Ordered scene intent")
+        videoreviewtext should include("<table aria-label=\"Ordered semantic video scenes\">")
+        videoreviewtext should include("Welcome to Cozy.")
+        videoreviewtext should include("Speaker and pronunciation")
+        videoreviewtext should include("Renderer input")
+        videoreviewtext should include("unavailable; no renderer input is admitted or executed")
+        videoreviewtext should include("Storyboard infographic use")
+        videoreviewtext should include("Exact current infographic source use is declared through storyboard references for infographic/infographic.svg: scene 1: opening through asset-refs.")
+        videoreviewtext should not include("Storyboard source projection")
+        videoreviewtext should not include("Visual-page source projection")
+        videoreviewtext should not include("<pre><code>")
         videoreviewtext should include("No provider")
         videoreviewtext should not include "video.render-review"
+        val videoreceipt = video.resolve("target/document-project/video-review.receipt.yaml")
+        Files.isRegularFile(videoreceipt, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readString(videoreceipt, StandardCharsets.UTF_8) should include("kind: video")
+        Files.readString(videoreceipt, StandardCharsets.UTF_8) should include("path: target/document-project/video-review.html")
+        Files.readString(videoreceipt, StandardCharsets.UTF_8) should include("path: video/storyboard.md")
         Files.exists(standard.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(video.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        videostatebeforeinspect shouldBe false
+        Files.readString(video.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("id: video-review\n    role: review-projection\n    disposition: required\n    selection: required\n    criterion: video-review-rendered\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
         Files.exists(standard.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(video.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.readAllBytes(standard.resolve("content/core-en.yaml")) shouldBe standardcorebytes
@@ -776,6 +823,154 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("the existing operation/profile diagnostic is retained")
         _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
         failure should include("logical operation video.render-review is disabled for profile standard")
+      }
+    }
+
+    "project a deterministic selected Article review with an escaped page and its default receipt" in {
+      _with_temp_dir("cozy-document-project-article-review") { root =>
+        Given("a selected article review project with structured article, Core, Visual Page, and infographic inputs")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "article", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val article = parent.resolve("article.dox")
+        _activate_optional_work_products(article, "standard", Vector("article-review-html"))
+        val articlepath = article.resolve("index.dox")
+        val corepath = article.resolve("content/core-en.yaml")
+        val visualpath = article.resolve("presentation/visual-pages.yaml")
+        val infographicpath = article.resolve("infographic/infographic.svg")
+        Files.writeString(articlepath, "Article review&semantics\n========================\n\n# Purpose\n\nNarrative & context\n\n# Terminology\n\nCozy means a deterministic review boundary.\n\n# Media placement\n\nPlace the infographic after the Flow section.\n\n# Flow\n\nExplain the visual relationship.\n", StandardCharsets.UTF_8)
+        Files.writeString(corepath, _core_yaml("article", "en", "Accepted correspondence"), StandardCharsets.UTF_8)
+        Files.writeString(visualpath, "pages:\n  - title: \"Visual <script> & intent\"\n    intent: \"Explain & compare\"\n    visible: true\n    options:\n      selectable: false\n    media: [\"infographic/infographic.svg\", \"assets/overview.png\"]\n  - title: \"Closing\"\n    emphasis: \"Next step\"\n    visible: false\n", StandardCharsets.UTF_8)
+        val articlebytes = Files.readAllBytes(articlepath)
+        val corebytes = Files.readAllBytes(corepath)
+        val visualbytes = Files.readAllBytes(visualpath)
+        val infographicbytes = Files.readAllBytes(infographicpath)
+
+        When("article review is requested twice at its default and a safe explicit destination")
+        _execute(List("document-project", "review", article.toString, "--kind", "article"))
+        val defaultreview = article.resolve("target/document-project/article-review.html")
+        val receipt = article.resolve("target/document-project/article-review.receipt.yaml")
+        val firstbytes = Files.readAllBytes(defaultreview)
+        val firstreceiptbytes = Files.readAllBytes(receipt)
+        _execute(List("document-project", "review", article.toString, "--kind", "article"))
+        val explicit = root.resolve("saved/article-review.html")
+        _execute(List("document-project", "review", article.toString, "--kind", "article", "--save", explicit.toString))
+
+        Then("the selected review is deterministic, escaped, page-oriented, and receipt-bound without changing authored sources")
+        val review = Files.readString(defaultreview, StandardCharsets.UTF_8)
+        Files.readAllBytes(defaultreview) shouldBe firstbytes
+        Files.readAllBytes(receipt) shouldBe firstreceiptbytes
+        Files.readAllBytes(explicit) shouldBe firstbytes
+        Files.readAllBytes(receipt) shouldBe firstreceiptbytes
+        Files.readString(receipt, StandardCharsets.UTF_8) should include("kind: article")
+        Files.readString(receipt, StandardCharsets.UTF_8) should include("path: target/document-project/article-review.html")
+        Files.readString(receipt, StandardCharsets.UTF_8) should include("path: presentation/visual-pages.yaml")
+        review should include("<h1>Article Review</h1>")
+        review should include("Article structure and narrative")
+        review should include("Article review&amp;semantics")
+        review should include("Narrative &amp; context")
+        review should include("Accepted Content Core correspondence")
+        review should include("<h2>Page review</h2>")
+        review should include("data-page-count=\"2\"")
+        review should include("data-current-page=\"1\"")
+        review should include("data-page-id=\"page-1\"")
+        review should include("data-page-id=\"page-2\"")
+        review should include("Previous page")
+        review should include("Next page")
+        review should include("ArrowLeft")
+        review should include("ArrowRight")
+        review should include("Article structure: Purpose, Terminology, Media placement, Flow")
+        review should include("Visual &lt;script&gt; &amp; intent")
+        review should include("Explain &amp; compare")
+        review should include("infographic/infographic.svg")
+        review should include("Terminology and media placement")
+        review should include("Cozy means a deterministic review boundary.")
+        review should include("Place the infographic after the Flow section.")
+        review should include("Phase-41 Projection selector: unavailable; the v2 descriptor declares no accepted Phase-41 selector")
+        review should include("Current verified input identities")
+        review should include("&lt;script&gt;")
+        review should not include("Visual <script> & intent")
+        review should not include("<pre><code>")
+        review should not include("pages:")
+        Files.exists(article.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(article.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.readAllBytes(articlepath) shouldBe articlebytes
+        Files.readAllBytes(corepath) shouldBe corebytes
+        Files.readAllBytes(visualpath) shouldBe visualbytes
+        Files.readAllBytes(infographicpath) shouldBe infographicbytes
+      }
+    }
+
+    "project Article review with absent optional declarations" in {
+      _with_temp_dir("cozy-document-project-article-review-absent-declarations") { root =>
+        Given("a selected article review project without explicit terminology or media placement declarations")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "unavailable", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("unavailable.dox")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+
+        When("article review projects the admitted article without those declarations")
+        _execute(List("document-project", "review", project.toString, "--kind", "article"))
+
+        Then("the projection truthfully marks terminology and media placement as not declared")
+        val review = Files.readString(project.resolve("target/document-project/article-review.html"), StandardCharsets.UTF_8)
+        review should include("No Terminology declaration is present in the admitted article source.")
+        review should include("No Media placement declaration is present in the admitted article source.")
+      }
+    }
+
+    "reject inactive Article review selection" in {
+      _with_temp_dir("cozy-document-project-article-review-inactive") { root =>
+        Given("an otherwise admitted project that leaves article-review-html inactive")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "inactive", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("inactive.dox")
+
+        When("article review is requested without the required Work Product selection")
+        val failure = _failure(List("document-project", "review", project.toString, "--kind", "article"))
+
+        Then("the established selection diagnostic rejects the article kind")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+        failure should include("logical operation article.render-review is not selected for profile standard")
+      }
+    }
+
+    "reject invalid typed Video Storyboard input" in {
+      _with_temp_dir("cozy-document-project-invalid-video-storyboard") { root =>
+        Given("an otherwise admitted video profile with the scaffold's invalid typed Storyboard placeholder")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "invalid-video", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+        val project = parent.resolve("invalid-video.dox")
+
+        When("semantic video review attempts to consume the typed Storyboard")
+        val failure = _failure(List("document-project", "review", project.toString, "--kind", "video"))
+
+        Then("the structured diagnostic rejects it before a projection output is published")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-DESC-002")
+        failure should include("video storyboard is invalid")
+        Files.exists(project.resolve("target/document-project/video-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "preserve parent narrative around nested sections in article review" in {
+      _with_temp_dir("cozy-document-project-nested-article-sections") { root =>
+        Given("a selected article review project whose parent section has narrative before and after a child section")
+        val project = _scaffolded_project(root, "nested-article")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+        val articlepath = project.resolve("index.dox")
+        Files.writeString(
+          articlepath,
+          "Nested article\n==============\n\n# Parent\n\nParent narrative before child.\n\n## Child\n\nChild narrative.\n\nParent narrative after child.\n",
+          StandardCharsets.UTF_8
+        )
+
+        When("article review projects the nested article structure")
+        _execute(List("document-project", "review", project.toString, "--kind", "article"))
+        val review = Files.readString(project.resolve("target/document-project/article-review.html"), StandardCharsets.UTF_8)
+
+        Then("the projection includes every direct parent and child narrative")
+        review should include("Parent narrative before child.")
+        review should include("Child narrative.")
+        review should include("Parent narrative after child.")
       }
     }
 
@@ -943,6 +1138,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val article = project.resolve("index.dox")
         val visualpages = project.resolve("presentation/visual-pages.yaml")
         _activate_optional_work_products(project, "standard-video", Vector("core-review-html", "explanation-structure-review-html"))
+        Files.writeString(project.resolve("video/storyboard.md"), _valid_storyboard, StandardCharsets.UTF_8)
         val descriptorbytes = Files.readAllBytes(descriptor)
         val corebytes = Files.readAllBytes(core)
         val articlebytes = Files.readAllBytes(article)
@@ -1815,6 +2011,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           standaloneevidence,
           "standard-video"
         )
+        Files.writeString(standalone.resolve("video/storyboard.md"), _valid_storyboard, StandardCharsets.UTF_8)
         _write_sidecar(
           bok,
           Map(
@@ -1883,7 +2080,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           dashboard should include("<h2>Criterion coverage</h2>")
           dashboard should include("<table aria-label=\"Criterion coverage\">")
         }
-        standalonedashboard should include("3/18 applicable criteria satisfied")
+        standalonedashboard should include("4/18 applicable criteria satisfied")
         bokdashboard should include("3/14 applicable criteria satisfied")
         standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>required</td><td>review-projection</td><td>required")
         standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>required</td><td>deliverable</td><td>required")
@@ -2054,7 +2251,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       Then("each no-alias form and the Phase 42.1 projection boundary are described")
       help should include("document-project inspect <project>")
       help should include("document-project dashboard <project> [--save <dashboard.html>]")
-      help should include("document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]")
+      help should include("document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]")
       help should include("document-project content-core candidate <project> <dialogue>")
       help should include("document-project content-core feedback <project> <candidate-id> <feedback>")
       help should include("document-project content-core accept <project> <candidate-id> <acceptance>")
@@ -2062,7 +2259,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       help should include("document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>")
       help should include("Dashboard defaults to target/document-project/project-dashboard.html")
       help should include("Core review defaults to target/document-project/core-review.html")
+      help should include("Article review defaults to target/document-project/article-review.html")
       help should include("Video review defaults to target/document-project/video-review.html")
+      help should include("default Article and Video review also write one local disposable generated-review receipt beside the default HTML")
+      help should include("never execute providers or persist authored authority, candidates, feedback, acceptance, attempts, delivery state, or external/provider receipts")
       help should include("Slide and video logical charts default to target/document-project/slide-logical-chart-review.html")
       help should include("Slide Logical Chart visualizes current Content Core and Visual Page IR")
       help should include("same-directory temporary file and atomic move")
@@ -2253,6 +2453,41 @@ resultingCore:
   path: \"$corepath\"
   sha256: $resulting
 """
+
+  private def _valid_storyboard: String =
+    """# Storyboard
+      |schema: "cozy.video.storyboard.v1"
+      |version: 1
+      |
+      |## scene
+      |id: "opening"
+      |order: 1
+      |section: "introduction"
+      |speaker: "narrator"
+      |role: "narration"
+      |narration: |
+      |  Welcome to Cozy.
+      |screen:
+      |  heading: "Welcome"
+      |  content: |
+      |    Cozy overview
+      |caption: "Welcome"
+      |duration: 3.5s
+      |lead-silence: 0.25s
+      |transition: "fade"
+      |production-inserts: [{"id":"title-card","kind":"overlay","value":"Welcome"}]
+      |diagram-refs: ["assets/overview.svg"]
+      |asset-refs: ["assets/opening.png"]
+      |pronunciation-notes: [{"surface":"Cozy","reading":"コージー"}]
+      |direction: |
+      |  Fade in the title
+      |""".stripMargin
+
+  private def _valid_storyboard_with_infographic: String =
+    _valid_storyboard.replace(
+      "asset-refs: [\"assets/opening.png\"]",
+      "asset-refs: [\"assets/opening.png\", \"infographic/infographic.svg\"]"
+    )
 
   private def _indent(value: String, spaces: Int): String =
     value.linesIterator.map(line => (" " * spaces) + line).mkString("\n")

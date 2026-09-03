@@ -1,12 +1,16 @@
 package cozy.document
 
+import cozy.video.{CozyVideo, CozyVideoImplementation}
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
 import scala.util.control.NonFatal
+import org.smartdox.{Dox, Document, Paragraph, Section}
+import org.smartdox.parser.Dox2Parser
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 1, 2026
+ * @version Sep.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectProjection {
@@ -48,6 +52,7 @@ private[cozy] object CozyDocumentProjectProjection {
     val dashboardparent = dashboardDestination.getParent
     val reviewtargets = Vector(
       ("Core Review", "target/document-project/core-review.html"),
+      ("Article Review", "target/document-project/article-review.html"),
       ("Slide Review", "target/document-project/slides-review.html"),
       ("Slide Logical Chart", "target/document-project/slide-logical-chart-review.html"),
       ("Infographic final artifact", "infographic/infographic.svg")
@@ -112,6 +117,58 @@ private[cozy] object CozyDocumentProjectProjection {
          |<h2>Candidate, feedback, and acceptance surface</h2>
          |<p class="notice">Non-authoritative and not yet persisted. This projection presents accepted Core entries only; it does not persist a candidate, feedback, or acceptance decision.</p>
          |<p>No provider execution, Core write-back, receipt, or state-cache update is performed.</p>""".stripMargin
+    )
+  }
+
+  private[cozy] def articleReviewHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
+    _require_work_product(descriptor, "article-review-html", "article.render-review")
+    val articlepath = CozyDocumentProject._direct_file(project, "index.dox", "article source")
+    val visualpagespath = CozyDocumentProject._direct_file(project, "presentation/visual-pages.yaml", "Visual Page source")
+    val infographicpath = CozyDocumentProject._direct_file(project, "infographic/infographic.svg", "infographic source")
+    val sections = _article_sections(_read_source(articlepath))
+    val sectionrows = if (sections.isEmpty)
+      "<tr><td colspan=\"2\">No narrative section is present.</td></tr>"
+    else sections.map { case (heading, narrative) =>
+      s"""<tr><th scope="row">${_html_escape(heading)}</th><td>${_html_escape(narrative)}</td></tr>"""
+    }.mkString("\n")
+    val coreentries = _core_entries(project, descriptor)
+    val corerows = if (coreentries.isEmpty)
+      "<tr><td colspan=\"2\">No accepted Content Core correspondence is available.</td></tr>"
+    else coreentries.map { case (id, text) =>
+      s"""<tr><th scope="row">${_html_escape(id)}</th><td>${_html_escape(text)}</td></tr>"""
+    }.mkString("\n")
+    val pages = _article_review_pages(visualpagespath)
+    val pagesummary = _article_structure_summary(sections)
+    val pagesections = if (pages.isEmpty)
+      "<p class=\"notice\">No Visual Page is declared.</p>"
+    else pages.zipWithIndex.map { case (page, index) =>
+      val hidden = if (index == 0) "" else " hidden"
+      s"""<section class="review-page" data-page-index="${index + 1}" data-page-id="${_html_escape(page.id)}"$hidden><h3>${_html_escape(page.title)}</h3><dl><dt>Stable page ID</dt><dd>${_html_escape(page.id)}</dd><dt>Reader-facing text</dt><dd>${_html_escape(page.readertext)}</dd><dt>Visual summary</dt><dd>${_html_escape(page.visualsummary)}</dd><dt>Relationship summary</dt><dd>${_html_escape(page.relationshipsummary)}</dd></dl></section>"""
+    }.mkString("\n")
+    val terminology = _article_declaration(sections, "Terminology")
+    val mediaplacement = _article_declaration(sections, "Media placement")
+    _html_page(
+      s"Cozy Document Project Article Review - ${descriptor.id}",
+      descriptor.language,
+      s"""<h1>Article Review</h1>
+         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
+         |<p class="notice">This deterministic, self-contained review projects authored article structure and selected workflow inputs. It is not article site HTML, a dashboard, or raw Dox or Visual Page source presentation.</p>
+         |<h2>Article structure and narrative</h2>
+         |<table aria-label="Article structure and narrative"><thead><tr><th scope="col">Section</th><th scope="col">Narrative</th></tr></thead><tbody>$sectionrows</tbody></table>
+         |<h2>Accepted Content Core correspondence</h2>
+         |<table aria-label="Accepted Content Core correspondence"><thead><tr><th scope="col">Core entry</th><th scope="col">Accepted correspondence</th></tr></thead><tbody>$corerows</tbody></table>
+         |<h2>Page review</h2>
+         |<p id="article-structure-summary">Article structure: ${_html_escape(pagesummary)}</p>
+         |<div id="article-review-pages" data-page-count="${pages.size}" data-current-page="${if (pages.isEmpty) 0 else 1}"><div class="page-navigation"><button type="button" data-page-action="previous" aria-controls="article-review-pages">Previous page</button><span id="article-review-page-state" aria-live="polite">${if (pages.isEmpty) "No pages" else s"Page 1 of ${pages.size}"}</span><button type="button" data-page-action="next" aria-controls="article-review-pages">Next page</button></div>$pagesections</div>
+         |<p class="notice">Phase-41 Projection selector: unavailable; the v2 descriptor declares no accepted Phase-41 selector. Phase-41 page-flow review evidence is unavailable and is not claimed.</p>
+         |<h2>Terminology and media placement</h2>
+         |<table aria-label="Article terminology and media placement"><thead><tr><th scope="col">Article semantic information</th><th scope="col">Declared result</th></tr></thead><tbody><tr><th scope="row">Terminology</th><td>${_html_escape(terminology)}</td></tr><tr><th scope="row">Media placement</th><td>${_html_escape(mediaplacement)}</td></tr></tbody></table>
+         |<h2>Infographic relationship</h2>
+         |<p>The editable infographic remains a separate expression authority related to the article and its visual flow; this review does not render or alter it.</p>
+         |<h2>Current verified input identities</h2>
+         |${_input_identity_table(project, Vector(articlepath, visualpagespath, infographicpath, project.resolve(descriptor.contentCore)))}
+         |<p class="notice">No provider execution, renderer input, production receipt, rendered frame, candidate, feedback, acceptance, state-cache persistence, or authored-input mutation occurs. The default generated-review receipt is local output evidence only, not a renderer or production receipt.</p>
+         |<script>(function(){var root=document.getElementById('article-review-pages');if(!root){return;}var pages=Array.prototype.slice.call(root.querySelectorAll('.review-page'));var state=document.getElementById('article-review-page-state');var current=0;function show(index){if(!pages.length){return;}current=Math.max(0,Math.min(index,pages.length-1));pages.forEach(function(page,position){page.hidden=position!==current;});root.setAttribute('data-current-page',String(current+1));state.textContent='Page '+(current+1)+' of '+pages.length;}root.querySelector('[data-page-action="previous"]').addEventListener('click',function(){show(current-1);});root.querySelector('[data-page-action="next"]').addEventListener('click',function(){show(current+1);});root.addEventListener('keydown',function(event){if(event.key==='ArrowLeft'){event.preventDefault();show(current-1);}if(event.key==='ArrowRight'){event.preventDefault();show(current+1);}if(event.key==='Home'){event.preventDefault();show(0);}if(event.key==='End'){event.preventDefault();show(pages.length-1);}});root.tabIndex=0;show(0);}());</script>""".stripMargin
     )
   }
 
@@ -186,24 +243,31 @@ private[cozy] object CozyDocumentProjectProjection {
 
   private[cozy] def videoReviewHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
     _require_video_review(descriptor)
-    val storyboard = _read_projection_source(CozyDocumentProject._direct_file(project, "video/storyboard.md", "video storyboard"))
-    val visualpages = _read_projection_source(CozyDocumentProject._direct_file(project, "presentation/visual-pages.yaml", "Visual Page source"))
-    val storyboardtable =
-      s"""<table aria-label="Storyboard source projection"><thead><tr><th scope="col">Source</th><th scope="col">Content</th></tr></thead><tbody><tr><th scope="row">${_html_escape("video/storyboard.md")}</th><td><pre><code>$storyboard</code></pre></td></tr></tbody></table>"""
-    val visualpagestable =
-      s"""<table aria-label="Visual-page source projection"><thead><tr><th scope="col">Source</th><th scope="col">Content</th></tr></thead><tbody><tr><th scope="row">${_html_escape("presentation/visual-pages.yaml")}</th><td><pre><code>$visualpages</code></pre></td></tr></tbody></table>"""
+    val storyboardpath = CozyDocumentProject._direct_file(project, "video/storyboard.md", "video storyboard")
+    val visualpagespath = CozyDocumentProject._direct_file(project, "presentation/visual-pages.yaml", "Visual Page source")
+    val infographicpath = CozyDocumentProject._direct_file(project, "infographic/infographic.svg", "infographic source")
+    val storyboard = CozyVideo.loadStoryboard(storyboardpath)
+    if (!storyboard.isValid)
+      CozyDocumentProject._descriptor_failure(s"video storyboard is invalid: ${storyboard.diagnostics.map(_.render).mkString("; ")}")
+    val scenes = storyboard.storyboard.get.scenes.sortBy(_.order)
+    val scenrows = scenes.map { scene =>
+      s"""<tr><th scope="row">${scene.order}: ${_html_escape(scene.id)}</th><td>${_html_escape(scene.section)} / ${_html_escape(scene.role)}</td><td>${_html_escape(scene.narration)}</td><td>${_html_escape(_speaker_notes(scene))}</td><td>${_html_escape(_scene_visuals(scene))}</td><td>${_html_escape(_scene_timing(scene))}</td><td>${_html_escape(scene.transition)}</td><td>${_html_escape(scene.direction)}</td></tr>"""
+    }.mkString("\n")
+    val infographicuse = _storyboard_infographic_use(project, infographicpath, scenes)
     _html_page(
       s"Cozy Document Project Video Review - ${descriptor.id}",
       descriptor.language,
       s"""<h1>Video Review</h1>
          |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
-         |<p class="notice">These are read-only source projections. They do not claim provider execution, candidate persistence, feedback persistence, acceptance, or video delivery.</p>
-         |<h2>Storyboard source projection</h2>
-         |$storyboardtable
-         |<h2>Visual-page source projection</h2>
-         |$visualpagestable
-         |<h2>Review boundary</h2>
-         |<p>The storyboard and Visual Page source authorities remain unchanged. No provider, operation, receipt, or acceptance evidence is created.</p>""".stripMargin
+         |<p class="notice">This deterministic semantic scene projection consumes the typed CozyVideo Storyboard result. It is not raw Storyboard or Visual Page source presentation and does not claim a rendered video.</p>
+         |<h2>Ordered scene intent</h2>
+         |<table aria-label="Ordered semantic video scenes"><thead><tr><th scope="col">Scene</th><th scope="col">Intent and role</th><th scope="col">Narration</th><th scope="col">Speaker and pronunciation</th><th scope="col">Screen, diagram, and assets</th><th scope="col">Timing</th><th scope="col">Transition</th><th scope="col">Direction</th></tr></thead><tbody>$scenrows</tbody></table>
+         |<h2>Storyboard infographic use</h2>
+         |<p>${_html_escape(infographicuse)}</p>
+         |<h2>Currentness evidence</h2>
+         |${_input_identity_table(project, Vector(storyboardpath, visualpagespath, infographicpath, project.resolve(descriptor.contentCore)))}
+         |<table aria-label="Unavailable video evidence"><thead><tr><th scope="col">Evidence input</th><th scope="col">Status</th></tr></thead><tbody><tr><th scope="row">Renderer input</th><td>unavailable; no renderer input is admitted or executed</td></tr><tr><th scope="row">Production receipt</th><td>unavailable; no renderer or production receipt is present or claimed</td></tr><tr><th scope="row">Rendered frame</th><td>unavailable; no rendered frame or video is present or claimed</td></tr></tbody></table>
+         |<p class="notice">No provider execution, candidate persistence, feedback persistence, acceptance, production receipt, state-cache persistence, or authored-input mutation occurs. The default generated-review receipt is local output evidence only.</p>""".stripMargin
     )
   }
 
@@ -214,11 +278,135 @@ private[cozy] object CozyDocumentProjectProjection {
       }.getOrElse(operation.providerBinding)
     }.getOrElse("unbound")
 
+  private def _article_sections(source: String): Vector[(String, String)] = {
+    val document: Document = Dox.toDocument(Dox2Parser.parseWithFilename("index.dox", source))
+    val titlerows = document.head.distillTitleStringDefault.toVector.map { title =>
+      "Article title" -> title.replaceAll("\\s+", " ").trim
+    }
+    val rows = document.body.contents.toVector.flatMap {
+      case section: Section => _article_section_rows(section)
+      case paragraph: Paragraph => Vector("Article narrative" -> _article_narrative_text(Vector(paragraph)))
+      case dox => Vector("Article narrative" -> _article_narrative_text(Vector(dox)))
+    }
+    titlerows ++ rows
+  }
+
+  private def _article_section_rows(section: Section): Vector[(String, String)] = {
+    val narrative = _article_narrative_text(section.contents.filterNot(_.isInstanceOf[Section]))
+    val heading = if (section.titleName.trim.nonEmpty) section.titleName.trim else "Untitled section"
+    val row = heading -> narrative
+    row +: section.contents.collect { case child: Section => child }.toVector.flatMap(_article_section_rows)
+  }
+
+  private def _article_narrative_text(contents: Seq[Dox]): String = {
+    val text = contents.map(_.toPlainText).mkString(" ").replaceAll("\\s+", " ").trim
+    if (text.nonEmpty) text else "No narrative text is present."
+  }
+
+  private final case class ArticleReviewPage(
+    id: String,
+    title: String,
+    readertext: String,
+    visualsummary: String,
+    relationshipsummary: String
+  )
+
+  private def _article_review_pages(path: Path): Vector[ArticleReviewPage] = {
+    val pages = CozyDocumentProject._load_json(path, "Visual Page source").hcursor.downField("pages").focus
+    pages.flatMap(_.asArray).map(_.toVector.zipWithIndex.map {
+      case (page, index) =>
+        val fields = page.asObject.map(_.toMap).getOrElse(Map.empty)
+        val id = _page_text(fields, Vector("id")).getOrElse(s"page-${index + 1}")
+        val title = _page_text(fields, Vector("title", "heading")).getOrElse(s"Untitled page ${index + 1}")
+        val reader = _page_text(fields, Vector("readerText", "text", "content", "intent", "summary")).getOrElse("No reader-facing text is declared.")
+        val visual = _page_summary(fields, Vector("visual", "intent", "emphasis"), "No visual summary is declared.")
+        val relationship = _page_summary(fields, Vector("logical", "media", "assets", "sources"), "No relationship summary is declared.")
+        ArticleReviewPage(id, title, reader, visual, relationship)
+    }).getOrElse(Vector.empty)
+  }
+
+  private def _page_text(fields: Map[String, io.circe.Json], names: Vector[String]): Option[String] =
+    names.iterator.flatMap(name => fields.get(name).flatMap(_.asString)).map(_.trim).find(_.nonEmpty)
+
+  private def _page_summary(fields: Map[String, io.circe.Json], names: Vector[String], empty: String): String = {
+    val values = names.flatMap(name => fields.get(name).toVector.flatMap(_semantic_fragments)).map(_.trim).filter(_.nonEmpty)
+    if (values.isEmpty) empty else _bounded_text(values.distinct.mkString("; "))
+  }
+
+  private def _article_structure_summary(sections: Vector[(String, String)]): String = {
+    val headings = sections.map(_._1).filterNot(_.equalsIgnoreCase("Article title")).take(8)
+    if (headings.isEmpty) "no named article sections" else headings.mkString(", ")
+  }
+
+  private def _bounded_text(value: String): String = {
+    val normalized = value.replaceAll("\\s+", " ").trim
+    if (normalized.length <= 280) normalized else normalized.take(277) + "..."
+  }
+
+  private def _semantic_fragments(value: io.circe.Json): Vector[String] =
+    value.asString.map(item => Vector(item)).orElse(value.asNumber.map(number => Vector(number.toString))).orElse(value.asBoolean.map(item => Vector(item.toString))).getOrElse {
+      value.asArray.map(_.toVector.flatMap(_semantic_fragments)).orElse {
+        value.asObject.map(_.toMap.toVector.sortBy(_._1).flatMap { case (name, item) =>
+          _semantic_fragments(item).map(fragment => s"$name: $fragment")
+        })
+      }.getOrElse(Vector.empty)
+    }
+
+  private def _article_declaration(sections: Vector[(String, String)], label: String): String =
+    sections.collect { case (heading, narrative) if heading.equalsIgnoreCase(label) => narrative } match {
+      case Vector() => s"No $label declaration is present in the admitted article source."
+      case declarations => declarations.mkString(" ")
+    }
+
+  private def _storyboard_infographic_use(
+    project: Path,
+    infographicpath: Path,
+    scenes: Vector[CozyVideo.StoryboardScene]
+  ): String = {
+    val reference = CozyDocumentProject._project_relative(project, infographicpath)
+    val uses = scenes.flatMap { scene =>
+      scene.diagramRefs.filter(_ == reference).map(_ => s"scene ${scene.order}: ${scene.id} through diagram-refs") ++
+        scene.assetRefs.filter(_ == reference).map(_ => s"scene ${scene.order}: ${scene.id} through asset-refs")
+    }
+    if (uses.isEmpty)
+      s"No exact current infographic source use is declared through storyboard diagram-refs or asset-refs for $reference."
+    else
+      s"Exact current infographic source use is declared through storyboard references for $reference: ${uses.mkString("; ")}."
+  }
+
+  private def _speaker_notes(scene: CozyVideo.StoryboardScene): String = {
+    val pronunciations = if (scene.pronunciationNotes.isEmpty) "no pronunciation notes" else scene.pronunciationNotes.map(note => s"${note.surface}: ${note.reading}").mkString("; ")
+    s"${scene.speaker}; $pronunciations"
+  }
+
+  private def _scene_visuals(scene: CozyVideo.StoryboardScene): String = {
+    val screen = scene.screen match {
+      case CozyVideo.StoryboardScreen(heading, content) => s"screen: $heading — $content"
+      case CozyVideoImplementation.StoryboardTextScreen(heading, content) => s"text screen: $heading — $content"
+      case CozyVideoImplementation.StoryboardVisualPageScreen(source, catalog, pageid) => s"Visual Page: $pageid ($source; $catalog)"
+    }
+    val diagrams = if (scene.diagramRefs.isEmpty) "no diagram references" else s"diagrams: ${scene.diagramRefs.mkString(", ")}"
+    val assets = if (scene.assetRefs.isEmpty) "no asset references" else s"assets: ${scene.assetRefs.mkString(", ")}"
+    val inserts = if (scene.productionInserts.isEmpty) "no production inserts" else s"inserts: ${scene.productionInserts.map(insert => s"${insert.kind}: ${insert.value}").mkString(", ")}"
+    Vector(screen, diagrams, assets, inserts).mkString("; ")
+  }
+
+  private def _scene_timing(scene: CozyVideo.StoryboardScene): String =
+    s"duration ${scene.duration.bigDecimal.toPlainString}s; lead silence ${scene.leadSilence.bigDecimal.toPlainString}s"
+
+  private def _input_identity_table(project: Path, paths: Vector[Path]): String = {
+    val rows = paths.map { path =>
+      val relative = CozyDocumentProject._project_relative(project, path)
+      val digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
+      s"""<tr><th scope="row">${_html_escape(relative)}</th><td>current verified input</td><td>${_html_escape(digest)}</td></tr>"""
+    }.mkString("\n")
+    s"""<table aria-label="Current verified input identities"><thead><tr><th scope="col">Project-local input</th><th scope="col">Currentness</th><th scope="col">SHA-256</th></tr></thead><tbody>$rows</tbody></table>"""
+  }
+
   private def _next_action(product: CozyDocumentProjectEvidence.WorkProductState): String = {
     val workproduct = product.value.workProduct
     if (product.readiness == "omitted") "No action: omitted by this profile"
     else if (product.readiness == "not-selected") "No action: optional Work Product is not selected"
-    else if (workproduct.id == "article-review-html") "No action: contract-only in Phase 45"
     else if (product.readiness != "blocked" && product.coverage == "satisfied" && product.currentness == "current") "No action: current"
     else workproduct.role match {
       case CozyDocumentWorkflow.WorkProductRole.Authority => s"Author or accept ${workproduct.label}"
@@ -269,9 +457,12 @@ private[cozy] object CozyDocumentProjectProjection {
     }
   }
 
-  private def _read_projection_source(path: Path): String =
-    try _html_escape(Files.readString(path, StandardCharsets.UTF_8))
+  private def _read_source(path: Path): String =
+    try Files.readString(path, StandardCharsets.UTF_8)
     catch { case NonFatal(_) => CozyDocumentProject._failure("DP-PATH-001", "review source cannot be read") }
+
+  private def _read_projection_source(path: Path): String =
+    _html_escape(_read_source(path))
 
   private def _source_projection_table(aria: String, path: String, content: String): String =
     s"""<table aria-label="${_html_escape(aria)}"><thead><tr><th scope="col">Source</th><th scope="col">Content</th></tr></thead><tbody><tr><th scope="row">${_html_escape(path)}</th><td><pre><code>$content</code></pre></td></tr></tbody></table>"""

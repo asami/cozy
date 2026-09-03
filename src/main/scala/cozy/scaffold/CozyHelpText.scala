@@ -4,7 +4,7 @@ package cozy.scaffold
  * @since   Aug. 25, 2026
  *  version Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -22,7 +22,7 @@ private[cozy] object CozyHelpText {
       |  document-project inspect <project>
       |  document-project plan <project>
       |  document-project dashboard <project> [--save <dashboard.html>]
-      |  document-project review <project> --kind core|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
+      |  document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
       |  document-project content-core candidate <project> <dialogue>
       |  document-project content-core feedback <project> <candidate-id> <feedback>
       |  document-project content-core accept <project> <candidate-id> <acceptance>
@@ -32,14 +32,15 @@ private[cozy] object CozyHelpText {
       |      Inspect, plan, verify, run a declared operation, scaffold a package, or generate read-only projections.
       |      Dashboard defaults to target/document-project/project-dashboard.html; --save selects the exact requested path.
       |      Core review defaults to target/document-project/core-review.html.
+      |      Article review defaults to target/document-project/article-review.html and is admitted only when article-review-html is selected.
       |      Slide review defaults to target/document-project/slides-review.html.
       |      Video review defaults to target/document-project/video-review.html; --save overrides it.
       |      Slide and video logical charts default to target/document-project/slide-logical-chart-review.html and video-logical-chart-review.html; --save overrides them.
-      |      Review is purpose-oriented and exposes no logical-operation IDs. Video review and video logical charts are admitted only for video profiles.
+      |      Review is purpose-oriented and exposes no logical-operation IDs. Article review projects article/Core/Visual Page relationships without site rendering; video review projects typed semantic scenes. Video review and video logical charts are admitted only for video profiles.
       |      Slide Logical Chart visualizes current Content Core and Visual Page IR; Video Logical Chart also visualizes storyboard IR, all as read-only projections.
-      |      Projections are deterministic, self-contained, HTML-escaped, and write only the selected output.
+      |      Projections are deterministic, self-contained, and HTML-escaped. They otherwise write only the selected output; default Article and Video review also write one local disposable generated-review receipt beside the default HTML.
       |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.
-      |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, receipts, attempts, or delivery state.
+      |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, attempts, delivery state, or external/provider receipts.
       |      Content Core candidate accepts a completed direct JSON/YAML dialogue bundle and records durable local evidence; it never invokes an AI provider or changes Content Core.
       |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.
       |      Candidate, failed dialogue, feedback, and acceptance evidence are append-only below evidence/content-core/; no schema/version, provider, remote, or compatibility path is added.

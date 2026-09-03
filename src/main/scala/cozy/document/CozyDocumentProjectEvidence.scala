@@ -13,7 +13,7 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectEvidence {
@@ -59,10 +59,40 @@ private[cozy] object CozyDocumentProjectEvidence {
   )
 
   private final case class EvidenceStatus(currentness: String, reason: Option[String])
+  private final case class GeneratedReviewReceipt(kind: String, output: FileIdentity, inputs: Vector[FileIdentity])
 
   private val _sidecar_schema = "cozy.document-project-evidence.v2"
   private val _attempt_schema = "cozy.document-operation-attempt.v1"
   private val _hash_pattern = "[0-9a-f]{64}".r
+
+  private[cozy] def writeGeneratedReviewReceipt(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    kind: String,
+    output: Path
+  ): Unit = {
+    val expectedoutput = _generated_review_output(project, kind)
+    if (output != expectedoutput)
+      CozyDocumentProject._failure("DP-PATH-001", "generated review receipt requires the fixed default review output")
+    val receipt = _generated_review_receipt_path(project, kind)
+    val outputidentity = FileIdentity(CozyDocumentProject._project_relative(project, output), _sha256(output))
+    val inputs = _generated_review_inputs(project, descriptor, kind)
+    val lines = Vector(
+      s"kind: $kind",
+      s"project: ${descriptor.id}",
+      s"profile: ${descriptor.profile}",
+      "output:",
+      s"  path: ${outputidentity.path}",
+      s"  sha256: ${outputidentity.sha256}",
+      "inputs:"
+    ) ++ inputs.flatMap { input =>
+      Vector(
+        s"  - path: ${input.path}",
+        s"    sha256: ${input.sha256}"
+      )
+    }
+    CozyDocumentProjectProjection.publish(receipt, lines.mkString("\n") + "\n")
+  }
 
   def snapshot(project: Path, descriptor: CozyDocumentProject.Descriptor): Snapshot = {
     val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
@@ -318,18 +348,17 @@ private[cozy] object CozyDocumentProjectEvidence {
       } else if (value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional) {
         product.id -> EvidenceStatus("nonparticipating", Some("optional Work Product is not selected"))
       } else if (product.id == "article-review-html") {
-        product.id -> _source_status(descriptor, product.id, sourcepaths)
+        product.id -> _generated_review_status(project, descriptor, sourcepaths, "article")
+      } else if (product.id == "video-review") {
+        product.id -> _generated_review_status(project, descriptor, sourcepaths, "video")
       } else {
         product.id -> declared.get(product.id).map(entry => _evidence_status(project, entry.evidence, declared)).getOrElse(_source_status(descriptor, product.id, sourcepaths))
       }
     }.toMap
     val initiallycurrent = initial.collect { case (id, EvidenceStatus("current", _)) => id }.toSet
     val stale = _stale_products(resolved, initial.collect { case (id, EvidenceStatus("stale", _)) => id }.toSet)
-    val contractonly = resolved.workProducts.collect {
-      case workproduct if workproduct.workProduct.id == "article-review-html" && workproduct.selection == CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => workproduct.workProduct.id
-    }.toSet
     val withstale = initial.map {
-      case (id, EvidenceStatus(currentness, _)) if !contractonly.contains(id) && currentness != "not-applicable" && currentness != "nonparticipating" && stale.contains(id) => id -> EvidenceStatus("stale", Some("a declared dependency is stale"))
+      case (id, EvidenceStatus(currentness, _)) if currentness != "not-applicable" && currentness != "nonparticipating" && stale.contains(id) => id -> EvidenceStatus("stale", Some("a declared dependency is stale"))
       case item => item
     }
     val failedproducts = attempts.filter(_.outcome == "failed").flatMap(_.products).toSet
@@ -340,7 +369,7 @@ private[cozy] object CozyDocumentProjectEvidence {
       val currentness =
         if (evidence.currentness == "not-applicable") {
           "not-applicable"
-        } else if (!contractonly.contains(product.id) && !initiallycurrent.contains(product.id) && evidence.currentness != "current" && failedproducts.contains(product.id)) {
+        } else if (!initiallycurrent.contains(product.id) && evidence.currentness == "missing" && failedproducts.contains(product.id)) {
           "failed"
         } else {
           evidence.currentness
@@ -410,6 +439,88 @@ private[cozy] object CozyDocumentProjectEvidence {
       }
   }
 
+  private def _generated_review_status(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    sourcepaths: Set[String],
+    kind: String
+  ): EvidenceStatus = {
+    val output = _generated_review_output(project, kind)
+    val receiptpath = _generated_review_receipt_path(project, kind)
+    val sourcesavailable = _generated_review_sources_available(descriptor, kind, sourcepaths)
+    if (!Files.exists(receiptpath, LinkOption.NOFOLLOW_LINKS)) {
+      if (Files.exists(output, LinkOption.NOFOLLOW_LINKS))
+        EvidenceStatus("missing", Some("default review receipt is not generated"))
+      else if (sourcesavailable)
+        EvidenceStatus("missing", Some("default review HTML is not generated"))
+      else
+        EvidenceStatus("missing", None)
+    } else {
+      val receiptfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, receiptpath), "generated review receipt")
+      val receipt = _generated_review_receipt(project, descriptor, kind, receiptfile)
+      val outputcurrent = _identity_current(project, receipt.output)
+      val inputscurrent = receipt.inputs.forall(identity => _identity_current(project, identity))
+      if (outputcurrent && inputscurrent)
+        EvidenceStatus("current", None)
+      else
+        EvidenceStatus("stale", Some("generated review receipt input or default output is stale"))
+    }
+  }
+
+  private def _generated_review_receipt(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    kind: String,
+    path: Path
+  ): GeneratedReviewReceipt = {
+    val label = "generated review receipt"
+    _require_top_level_order(path, Vector("kind", "project", "profile", "output", "inputs"), label)
+    val fields = _object(_load_json(path, label), label)
+    if (fields.keySet != Set("kind", "project", "profile", "output", "inputs"))
+      _invalid("generated review receipt must have exactly kind, project, profile, output, inputs")
+    if (_string(fields, "kind", label) != kind)
+      _invalid("generated review receipt kind must equal the fixed review kind")
+    if (_string(fields, "project", label) != descriptor.id || _string(fields, "profile", label) != descriptor.profile)
+      _invalid("generated review receipt project or profile must equal the descriptor")
+    val output = _nested_file_identity(project, _field(fields, "output", label), "generated review receipt output")
+    if (output.path != CozyDocumentProject._project_relative(project, _generated_review_output(project, kind)))
+      _invalid("generated review receipt output must be the fixed default review output")
+    val expectedinputs = _generated_review_input_paths(descriptor, kind)
+    val inputs = _field(fields, "inputs", label).asArray.getOrElse(_invalid("generated review receipt inputs must be an array"))
+    if (inputs.size != expectedinputs.size)
+      _invalid("generated review receipt inputs must match the fixed review input order")
+    val identities = inputs.zip(expectedinputs).map {
+      case (value, expectedpath) =>
+        val identity = _nested_file_identity(project, value, "generated review receipt input")
+        if (identity.path != expectedpath)
+          _invalid("generated review receipt inputs must match the fixed review input order")
+        identity
+    }.toVector
+    GeneratedReviewReceipt(kind, output, identities)
+  }
+
+  private def _generated_review_output(project: Path, kind: String): Path =
+    project.resolve("target").resolve("document-project").resolve(s"$kind-review.html").normalize()
+
+  private def _generated_review_receipt_path(project: Path, kind: String): Path =
+    project.resolve("target").resolve("document-project").resolve(s"$kind-review.receipt.yaml").normalize()
+
+  private def _generated_review_inputs(project: Path, descriptor: CozyDocumentProject.Descriptor, kind: String): Vector[FileIdentity] =
+    _generated_review_input_paths(descriptor, kind).map { relative =>
+      val path = CozyDocumentProject._direct_file(project, relative, "generated review input")
+      FileIdentity(relative, _sha256(path))
+    }
+
+  private def _generated_review_input_paths(descriptor: CozyDocumentProject.Descriptor, kind: String): Vector[String] =
+    kind match {
+      case "article" => Vector("index.dox", "presentation/visual-pages.yaml", "infographic/infographic.svg", descriptor.contentCore)
+      case "video" => Vector("video/storyboard.md", "presentation/visual-pages.yaml", "infographic/infographic.svg", descriptor.contentCore)
+      case _ => CozyDocumentProject._failure("DP-DESC-002", "generated review receipt kind is unsupported")
+    }
+
+  private def _generated_review_sources_available(descriptor: CozyDocumentProject.Descriptor, kind: String, sourcepaths: Set[String]): Boolean =
+    _generated_review_input_paths(descriptor, kind).forall(sourcepaths.contains)
+
   private def _receipt_status(project: Path, media: String, resourceid: String): EvidenceStatus = {
     val descriptor = _direct_project_file(project, media, "Document Project receipt media descriptor")
     try {
@@ -450,10 +561,10 @@ private[cozy] object CozyDocumentProjectEvidence {
       None
     } else {
       val sourcesavailable = productid match {
-        case "article-review-html" => sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("index.dox") && sourcepaths.contains("presentation/visual-pages.yaml")
+        case "article-review-html" => _generated_review_sources_available(descriptor, "article", sourcepaths)
         case "core-review-html" => sourcepaths.contains(descriptor.contentCore)
         case "slide-review-html" => sourcepaths.contains("presentation/visual-pages.yaml")
-        case "video-review" => sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md")
+        case "video-review" => _generated_review_sources_available(descriptor, "video", sourcepaths)
         case "explanation-structure-review-html" => sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml")
         case "video-logical-chart-html" => sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md")
         case _ => false

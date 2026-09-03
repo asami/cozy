@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProject {
@@ -84,19 +84,23 @@ private[cozy] object CozyDocumentProject {
               CozyDocumentProjectProjection.publish(destination, html)
               println(CozyDocumentProjectProjection.projectionResult("Dashboard", project, descriptor, destination))
             case "review" =>
-              val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|slides|video|slide-logical-chart|video-logical-chart"))
+              val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|article|slides|video|slide-logical-chart|video-logical-chart"))
               val html = reviewkind match {
                 case "core" => CozyDocumentProjectProjection.coreReviewHtml(project, descriptor)
+                case "article" => CozyDocumentProjectProjection.articleReviewHtml(project, descriptor)
                 case "slides" => CozyDocumentProjectProjection.slideReviewHtml(project, descriptor)
                 case "video" => CozyDocumentProjectProjection.videoReviewHtml(project, descriptor)
                 case "slide-logical-chart" => CozyDocumentProjectProjection.slideLogicalChartHtml(project, descriptor)
                 case "video-logical-chart" => CozyDocumentProjectProjection.videoLogicalChartHtml(project, descriptor)
-                case _ => _failure("DP-CLI-001", "review --kind must be core, slides, video, slide-logical-chart, or video-logical-chart")
+                case _ => _failure("DP-CLI-001", "review --kind must be core, article, slides, video, slide-logical-chart, or video-logical-chart")
               }
               val destination = CozyDocumentProjectProjection.admitDestination(project, save, s"$reviewkind-review.html")
               CozyDocumentProjectProjection.publish(destination, html)
+              if (save.isEmpty && Set("article", "video").contains(reviewkind))
+                CozyDocumentProjectEvidence.writeGeneratedReviewReceipt(project, descriptor, reviewkind, destination)
               val reviewlabel = reviewkind match {
                 case "core" => "Core Review"
+                case "article" => "Article Review"
                 case "slides" => "Slide Review"
                 case "video" => "Video Review"
                 case "slide-logical-chart" => "Slide Logical Chart"
@@ -140,8 +144,8 @@ private[cozy] object CozyDocumentProject {
       _failure("DP-CLI-002", "run requires --operation <logical-operation>")
     if (command == "review") {
       parsed.values.get("kind") match {
-        case None => _failure("DP-CLI-002", "review requires --kind core|slides|video|slide-logical-chart|video-logical-chart")
-        case Some(value) if !Set("core", "slides", "video", "slide-logical-chart", "video-logical-chart").contains(value) => _failure("DP-CLI-001", "review --kind must be core, slides, video, slide-logical-chart, or video-logical-chart")
+        case None => _failure("DP-CLI-002", "review requires --kind core|article|slides|video|slide-logical-chart|video-logical-chart")
+        case Some(value) if !Set("core", "article", "slides", "video", "slide-logical-chart", "video-logical-chart").contains(value) => _failure("DP-CLI-001", "review --kind must be core, article, slides, video, slide-logical-chart, or video-logical-chart")
         case _ => ()
       }
     }

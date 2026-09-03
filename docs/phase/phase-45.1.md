@@ -1,6 +1,6 @@
 # Phase 45.1: Document Project Review Projections and User Action Dashboard
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 Plan date: 2026-09-02
 
@@ -32,10 +32,12 @@ that contract but must not reinterpret or extend it implicitly.
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: user-facing artifact review projections
 - Update rule: complete only when every active review presents the artifact's
   meaning and visible result, not merely its source or internal descriptor.
+- Closure evidence: `P451-P45-03-VAL-017` (66/66) and the converged focused
+  re-review ledger `CB-P45-03-RR-001` through `CB-P45-03-RR-008`.
 
 - Generate a self-contained `article-review.html` from the v2 Work
   Product role frozen by Phase 45. It must show article structure, narrative
