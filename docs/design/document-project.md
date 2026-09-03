@@ -99,6 +99,40 @@ It does not receive Phase-41 page-flow evidence, invoke a renderer or provider,
 or alter authored sources. P45-04 retains exclusive ownership of dashboard
 redesign and action selection.
 
+P45-04's Dashboard is deliberately user-first. Its primary surface projects
+current production stage, latest observed change, prioritized blockers, pending
+review, current deliverables, recommended next action, eligible safe actions,
+and optional deliverable selection with paired English/Japanese headings. The
+surface is derived only from the current snapshot and immutable Workflow order:
+required and active-optional products participate, while inactive optional and
+profile-disabled products remain nonparticipating. A first blocked/failed
+participating product determines the stage and recommendation; otherwise the
+stage is a current/ready summary. Latest change prefers the first stale
+participating product, then the first missing one, preserving the exact stored
+reason and never inventing time or history.
+
+The recommended and eligible actions are displays of existing contracts only.
+Review products use their existing `review --kind` command, Content Core start
+uses the explicit `content-core candidate <project> <dialogue>` form, and all
+other products use the existing `run --operation <id> --dry-run` preview. The
+required `content-core` blocker recommends that Content Core candidate-start
+form even when the optional `content-core-candidate` Work Product is inactive.
+The generic `content-core.compose` operation is not displayed in the primary action
+surface or its recommended and eligible safe-action previews. This is an
+action-surface-only prohibition: secondary Work Product details retain each
+canonical producer operation, including `content-core.compose` for
+`content-core-candidate`. These are selected-by-contract previews, not
+runtime-readiness proof, and the Dashboard does not execute them. Optional
+selection explains the closed descriptor `activeOptionalWorkProducts`
+authoring contract; generation does not write the descriptor.
+
+Internal Workflow, provider, gate, criterion, receipt, attempt, hash, and
+responsibility material remains available under one secondary-diagnostics
+`details` surface. This preserves the diagnostic graph without making it the
+ordinary user's first task. The projection remains deterministic,
+self-contained, escaped, read-only, provider-neutral, and outside command
+schema, descriptor/evidence schema, runtime execution, and external delivery.
+
 For default Article and Video review output only, P45-03 writes a deterministic
 local generated-review receipt beside the default HTML under
 `target/document-project/`. It binds the fixed review kind, descriptor id and

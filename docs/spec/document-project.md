@@ -200,6 +200,58 @@ production-receipt, and rendered-frame evidence remains unavailable.
 reviewed directly as that artifact; Document Project MUST NOT introduce a
 separate infographic review HTML merely to duplicate it.
 
+### P45-04 user-first Dashboard
+
+The default Dashboard MUST present a deterministic, read-only primary action
+surface before its internal diagnostics. Its bilingual English/Japanese
+headings MUST cover current production stage, latest observed change,
+prioritized blockers, pending review, current deliverables, recommended next
+action, eligible safe actions, and optional deliverable selection.
+
+Every primary item is derived from the current evidence snapshot and the
+immutable Workflow order. Only required and active-optional Work Products
+participate; inactive optional and profile-disabled Work Products are never
+completion. The production stage is the first participating Work Product with
+blocked or failed readiness, or a current/ready summary when none exists. The
+latest observed change is the first stale participating Work Product and its
+exact reason, otherwise the first missing participating Work Product and its
+exact reason, or an explicit statement that current identities show no stale or
+missing participating Work Product. The Dashboard MUST NOT invent a timestamp
+or an unobserved history.
+
+Prioritized blockers and pending review are listed in immutable Workflow order.
+Current deliverables include only current/ready participating review-projection,
+site-deliverable, and deliverable Work Products, with an explicit empty result
+when none is available. The recommended action is the first blocked or failed
+participating Work Product and an exact existing safe contract: review products
+use `cozy document-project review <project> --kind <kind>`, Content Core start
+uses `cozy document-project content-core candidate <project> <dialogue>`, and
+every other operation uses only the displayed
+`cozy document-project run <project> --operation <id> --dry-run` preview. The
+required `content-core` blocker uses the Content Core candidate-start contract
+even when `content-core-candidate` is inactive optional. The
+Dashboard never executes a displayed command. The prohibition on displaying
+generic `content-core.compose` is limited to this primary action surface and
+its recommended or eligible safe-action previews; the secondary Work Product
+details retain each canonical producer operation, including
+`content-core.compose` for `content-core-candidate`. The candidate command is
+the explicit action-surface replacement.
+
+Eligible safe actions are selected-by-contract previews, not proof of runtime
+readiness, and are shown only for participating Work Products. Optional
+selection lists active and inactive optional Work Products and states that
+activation edits the descriptor's closed `activeOptionalWorkProducts` list.
+Existing artifacts and evidence for inactive optional products remain
+nonparticipating, and profile-disabled products cannot be activated. Dashboard
+generation performs no descriptor write.
+
+Workflow, Work Product matrix/details, criterion, review/final-artifact links,
+accepted Core, retained attempts, safe source, and responsibility information
+MUST remain below one secondary-diagnostics `details` surface. The Dashboard
+remains self-contained, escaped, deterministic, and read-only, with no provider
+execution, command-schema change, descriptor/evidence-schema change, runtime
+action, or external delivery.
+
 `standard` and `bok` are no-video profiles; `standard-video` and `bok-video`
 are video profiles. `simplemodeling-org` and `simplemodeling-org-video` have,
 respectively, the same current matrices as `bok` and `bok-video`, but are

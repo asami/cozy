@@ -228,6 +228,134 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "present a selected initial project as a user-first dashboard with a safe candidate action" in {
+      _with_temp_dir("cozy-document-project-dashboard-user-first-initial") { root =>
+        Given("a standard project that selects the Content Core candidate and Article review Work Products")
+        val project = _scaffolded_project(root, "dashboard-user-first-initial")
+        _activate_optional_work_products(project, "standard", Vector("content-core-candidate", "article-review-html"))
+
+        When("the read-only dashboard is generated")
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("the primary action surface leads with bilingual stage, change, blocker, review, and safe-action outcomes")
+        val primary = dashboard.indexOf("id=\"primary-action-surface\"")
+        val secondary = dashboard.indexOf("id=\"secondary-diagnostics\"")
+        val primarysurface = dashboard.substring(primary, secondary)
+        val secondarydiagnostics = dashboard.substring(secondary)
+        primary should be >= 0
+        secondary should be > primary
+        dashboard should include("Current production stage / 現在の制作段階")
+        dashboard should include("Latest observed change / 最新に確認された変化")
+        dashboard should include("Prioritized blockers / 優先ブロッカー")
+        dashboard should include("Pending review / レビュー待ち")
+        dashboard should include("Recommended next action / 推奨される次のアクション")
+        primarysurface should include("content-core-candidate")
+        primarysurface should include("source or retained evidence is not present")
+        primarysurface should include("article-review-html")
+
+        val eligible = primarysurface.substring(
+          primarysurface.indexOf("Eligible safe actions"),
+          primarysurface.indexOf("Optional deliverable selection")
+        )
+        val candidateactionstart = eligible.indexOf("<strong>Content Core candidate</strong>")
+        val candidateaction = eligible.substring(candidateactionstart, eligible.indexOf("</li>", candidateactionstart))
+        val contentcoreactionstart = eligible.indexOf("<strong>Content Core</strong>")
+        val contentcoreaction = eligible.substring(contentcoreactionstart, eligible.indexOf("</li>", contentcoreactionstart))
+        candidateaction should include("<code>content-core-candidate</code>")
+        candidateaction should include("cozy document-project content-core candidate &lt;project&gt; &lt;dialogue&gt;")
+        contentcoreaction should include("<code>content-core</code>")
+        contentcoreaction should include("cozy document-project content-core candidate &lt;project&gt; &lt;dialogue&gt;")
+        primarysurface should not include "content-core.compose"
+        secondarydiagnostics should include("content-core.compose")
+      }
+    }
+
+    "recommend Content Core candidate start for a required Core blocker with an inactive candidate option" in {
+      _with_temp_dir("cozy-document-project-dashboard-user-first-core-blocker") { root =>
+        Given("a standard project whose retained sidecar marks required Content Core evidence missing while candidate remains inactive")
+        val project = _scaffolded_project(root, "dashboard-user-first-core-blocker")
+        _write_sidecar(project, activeoptionalworkproducts = Vector("article-review-html"))
+
+        When("the read-only dashboard is generated")
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("the required Core blocker recommends the explicit candidate-start contract")
+        val recommendation = dashboard.substring(dashboard.indexOf("Recommended next action"), dashboard.indexOf("Eligible safe actions"))
+        recommendation should include("content-core</code>")
+        recommendation should include("cozy document-project content-core candidate &lt;project&gt; &lt;dialogue&gt;")
+        dashboard should include("content-core-candidate")
+        dashboard should include("inactive-optional / 無効なオプション")
+      }
+    }
+
+    "show the first stale selected review change and its safe review command" in {
+      _with_temp_dir("cozy-document-project-dashboard-user-first-stale") { root =>
+        Given("a selected Article review with a generated review receipt")
+        val project = _scaffolded_project(root, "dashboard-user-first-stale")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+        _execute(List("document-project", "review", project.toString, "--kind", "article"))
+        Files.writeString(project.resolve("index.dox"), Files.readString(project.resolve("index.dox"), StandardCharsets.UTF_8) + "\nChanged article source.\n", StandardCharsets.UTF_8)
+
+        When("the selected review dashboard is generated after its source changes")
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("the latest change preserves the exact stale reason and exposes the existing review command")
+        dashboard should include("Latest observed change / 最新に確認された変化")
+        dashboard should include("a declared dependency is stale")
+        dashboard should include("cozy document-project review &lt;project&gt; --kind article")
+        dashboard should include("selected-by-contract preview")
+      }
+    }
+
+    "show active and inactive optional selection with descriptor activation guidance" in {
+      _with_temp_dir("cozy-document-project-dashboard-user-first-optional") { root =>
+        Given("a standard project with one selected and one unselected optional Work Product")
+        val project = _scaffolded_project(root, "dashboard-user-first-optional")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+
+        When("the dashboard is generated without writing the descriptor")
+        val descriptorbefore = Files.readAllBytes(project.resolve("document-project.yaml"))
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("active and inactive options and the closed authoring contract are explicit")
+        dashboard should include("Optional deliverable selection / オプション成果物の選択")
+        dashboard should include("article-review-html")
+        dashboard should include("active-optional / 有効なオプション")
+        dashboard should include("core-review-html")
+        dashboard should include("inactive-optional / 無効なオプション")
+        dashboard should include("activeOptionalWorkProducts")
+        dashboard should include("Profile-disabled Work Products cannot be activated")
+        Files.readAllBytes(project.resolve("document-project.yaml")) shouldBe descriptorbefore
+      }
+    }
+
+    "keep workflow and evidence diagnostics below the primary action surface" in {
+      _with_temp_dir("cozy-document-project-dashboard-user-first-secondary") { root =>
+        Given("an admitted standard project")
+        val project = _scaffolded_project(root, "dashboard-user-first-secondary")
+
+        When("the dashboard is generated")
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("one secondary details surface retains the prior diagnostic views after the primary action surface")
+        dashboard should include("<details id=\"secondary-diagnostics\">")
+        dashboard should include("<summary>Secondary diagnostics / 二次診断</summary>")
+        dashboard should include("<h2>Workflow</h2>")
+        dashboard should include("<h2>Work Product matrix</h2>")
+        dashboard should include("<h2>Criterion coverage</h2>")
+        dashboard should include("<h2>Work Product details</h2>")
+        dashboard should include("<h2>Review and final artifact links</h2>")
+        dashboard should include("<h2>Retained attempts</h2>")
+        dashboard should include("<h2>Responsibility boundary</h2>")
+        dashboard.indexOf("<main id=\"primary-action-surface\">") should be < dashboard.indexOf("<details id=\"secondary-diagnostics\">")
+      }
+    }
+
     "report the missing source reason for article review when infographic is absent" in {
       _with_temp_dir("cozy-document-project-v2-article-review-missing-source") { root =>
         Given("a selected article review project with its infographic source absent")

@@ -68,12 +68,54 @@ private[cozy] object CozyDocumentProjectProjection {
       else "not generated"
       s"""<tr><th scope="row">${_html_escape(label)}</th><td>$destination</td></tr>"""
     }.mkString("\n")
+    val participatingproducts = products.filter(_.value.isParticipating)
+    val blockingproducts = participatingproducts.filter(item => Set("blocked", "failed").contains(item.readiness))
+    val reviewproducts = participatingproducts.filter(item => item.value.workProduct.role == CozyDocumentWorkflow.WorkProductRole.ReviewProjection && item.review == "pending")
+    val currentdeliverables = participatingproducts.filter { item =>
+      Set[CozyDocumentWorkflow.WorkProductRole](
+        CozyDocumentWorkflow.WorkProductRole.ReviewProjection,
+        CozyDocumentWorkflow.WorkProductRole.SiteDeliverable,
+        CozyDocumentWorkflow.WorkProductRole.Deliverable
+      ).contains(item.value.workProduct.role) && item.currentness == "current" && item.readiness == "ready"
+    }
+    val optionalproducts = products.filter(_.value.binding.disposition == CozyDocumentWorkflow.WorkProductDisposition.Optional)
+    val stage = _dashboard_stage(participatingproducts)
+    val latestchange = _dashboard_latest_change(participatingproducts)
+    val blockerlist = _dashboard_product_list(blockingproducts, "No prioritized blockers / 優先ブロッカーはありません。")
+    val reviewlist = _dashboard_product_list(reviewproducts, "No pending review / 保留中のレビューはありません。")
+    val deliverablelist = _dashboard_deliverable_list(currentdeliverables)
+    val recommended = blockingproducts.headOption.map(_dashboard_recommended_action).getOrElse("No recommended action: all participating Work Products are current and ready. / 推奨される次のアクションはありません。参加中の成果物はすべて現在の状態で準備済みです。")
+    val eligibleactions = _dashboard_safe_action_list(participatingproducts)
+    val optionallist = _dashboard_optional_list(optionalproducts)
     _html_page(
       s"Cozy Document Project Dashboard - ${descriptor.id}",
       descriptor.language,
       s"""<h1>Cozy Document Project Dashboard</h1>
          |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; workspace: <code>${_html_escape(descriptor.workspace)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
          |<p class="notice">Current snapshot is derived from admitted authored sources and the closed workflow. Retained attempts are historical evidence only; an initial attempt has no receipt or currentness authority.</p>
+         |<main id="primary-action-surface">
+         |<h2>Current production stage / 現在の制作段階</h2>
+         |<p>$stage</p>
+         |<h2>Latest observed change / 最新に確認された変化</h2>
+         |<p>$latestchange</p>
+         |<h2>Prioritized blockers / 優先ブロッカー</h2>
+         |<ul>$blockerlist</ul>
+         |<h2>Pending review / レビュー待ち</h2>
+         |<ul>$reviewlist</ul>
+         |<h2>Current deliverables / 現在の成果物</h2>
+         |<ul>$deliverablelist</ul>
+         |<h2>Recommended next action / 推奨される次のアクション</h2>
+         |<p>$recommended</p>
+         |<h2>Eligible safe actions / 実行可能な安全なアクション</h2>
+         |<p class="notice">Selected-by-contract previews / 契約上選択済みのプレビューです。These are not proof of runtime readiness / 実行時の準備完了を証明しません。 The dashboard only displays these commands.</p>
+         |<ul>$eligibleactions</ul>
+         |<h2>Optional deliverable selection / オプション成果物の選択</h2>
+         |<p>Activation is an authoring change to the descriptor's closed <code>activeOptionalWorkProducts</code> list / 有効化は記述子の閉じた <code>activeOptionalWorkProducts</code> リストを編集する作成者向け契約です。 Dashboard generation performs no descriptor write / ダッシュボード生成は記述子を書き換えません。</p>
+         |<ul>$optionallist</ul>
+         |<p class="notice">Inactive optional Work Products retain existing artifacts and evidence as nonparticipating / 非選択のオプション成果物は既存の成果物・証拠を非参加として保持します。 Profile-disabled Work Products cannot be activated / プロファイルで無効な成果物は有効化できません。</p>
+         |</main>
+         |<details id="secondary-diagnostics">
+         |<summary>Secondary diagnostics / 二次診断</summary>
          |<h2>Workflow</h2>
          |<table aria-label="Workflow Work Products"><thead><tr><th scope="col">Work Product</th><th scope="col">Selection</th><th scope="col">Role</th><th scope="col">Disposition</th><th scope="col">Provider</th><th scope="col">Gates</th><th scope="col">Nonparticipating or blocking reason</th></tr></thead><tbody>$workflowrows</tbody></table>
          |<h2>Work Product matrix</h2>
@@ -93,7 +135,8 @@ private[cozy] object CozyDocumentProjectProjection {
          |$publicsource
          |<h2>Responsibility boundary</h2>
          |<table aria-label="Document Project responsibility boundary"><thead><tr><th scope="col">Responsibility</th><th scope="col">Dashboard disposition</th></tr></thead><tbody><tr><th scope="row">Project production</th><td>Read-only state projection; no provider is invoked.</td></tr><tr><th scope="row">Workspace integration</th><td>Read-only and non-invoked.</td></tr><tr><th scope="row">Aggregate build</th><td>Read-only and non-invoked.</td></tr><tr><th scope="row">External delivery</th><td>Read-only and non-invoked; no publication, deployment, upload, or registration is performed.</td></tr></tbody></table>
-         |<p class="notice">This dashboard is a deterministic, read-only projection. It does not execute providers or persist candidates, feedback, acceptance, receipts, deliverables, or workflow status.</p>""".stripMargin
+         |<p class="notice">This dashboard is a deterministic, read-only projection. It does not execute providers or persist candidates, feedback, acceptance, receipts, deliverables, or workflow status.</p>
+         |</details>""".stripMargin
     )
   }
 
@@ -416,6 +459,94 @@ private[cozy] object CozyDocumentProjectProjection {
       case CozyDocumentWorkflow.WorkProductRole.SiteDeliverable => s"Generate ${workproduct.label} with Cozy Site"
       case CozyDocumentWorkflow.WorkProductRole.Deliverable => s"Generate ${workproduct.label}"
       case CozyDocumentWorkflow.WorkProductRole.Receipt => s"Record ${workproduct.label}"
+    }
+  }
+
+  private def _dashboard_stage(products: Vector[CozyDocumentProjectEvidence.WorkProductState]): String = {
+    products.find(item => Set("blocked", "failed").contains(item.readiness)) match {
+      case Some(item) =>
+        val product = item.value.workProduct
+        val reason = item.reason.getOrElse("no blocking reason is recorded")
+        s"<strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.readiness)} / ${_html_escape(reason)}"
+      case None =>
+        "All participating Work Products are current and ready. / 参加中の成果物はすべて現在の状態で準備済みです。"
+    }
+  }
+
+  private def _dashboard_latest_change(products: Vector[CozyDocumentProjectEvidence.WorkProductState]): String = {
+    val stale = products.find(_.currentness == "stale")
+    val missing = products.find(item => Set("missing", "failed").contains(item.currentness))
+    stale.orElse(missing) match {
+      case Some(item) =>
+        val product = item.value.workProduct
+        val reason = item.reason.getOrElse("no reason is recorded")
+        s"<strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.currentness)}: ${_html_escape(reason)}"
+      case None =>
+        "Current identities show no stale or missing participating Work Product. / 現在の識別情報では、参加中の成果物に古いものも欠落したものもありません。"
+    }
+  }
+
+  private def _dashboard_product_list(
+    products: Vector[CozyDocumentProjectEvidence.WorkProductState],
+    empty: String
+  ): String = {
+    if (products.isEmpty) {
+      s"<li>${_html_escape(empty)}</li>"
+    } else {
+      products.map { item =>
+        val product = item.value.workProduct
+        val reason = item.reason.map(value => s"; ${_html_escape(value)}").getOrElse("")
+        s"<li><strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.readiness)} / ${_html_escape(item.currentness)}$reason</li>"
+      }.mkString("\n")
+    }
+  }
+
+  private def _dashboard_deliverable_list(products: Vector[CozyDocumentProjectEvidence.WorkProductState]): String =
+    _dashboard_product_list(products, "No current/ready deliverables are available. / 現在かつ準備済みの成果物はありません。")
+
+  private def _dashboard_recommended_action(item: CozyDocumentProjectEvidence.WorkProductState): String = {
+    val product = item.value.workProduct
+    val reason = item.reason.map(value => s"; ${_html_escape(value)}").getOrElse("")
+    val command = _dashboard_safe_action_command(product)
+    s"<strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.readiness)}$reason<br/><span>Safe contract / 安全な契約:</span> <code>${_html_escape(command)}</code>"
+  }
+
+  private def _dashboard_safe_action_list(products: Vector[CozyDocumentProjectEvidence.WorkProductState]): String = {
+    if (products.isEmpty) {
+      "<li>No participating Work Product has a safe action preview. / 安全なアクションのプレビューがある参加中の成果物はありません。</li>"
+    } else {
+      products.map { item =>
+        val product = item.value.workProduct
+        s"""<li><strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — selected-by-contract preview / 契約上選択済みのプレビュー<br/><code>${_html_escape(_dashboard_safe_action_command(product))}</code></li>"""
+      }.mkString("\n")
+    }
+  }
+
+  private def _dashboard_safe_action_command(product: CozyDocumentWorkflow.WorkProduct): String = product.id match {
+    case "content-core-candidate" => "cozy document-project content-core candidate <project> <dialogue>"
+    case "content-core" => "cozy document-project content-core candidate <project> <dialogue>"
+    case "core-review-html" => "cozy document-project review <project> --kind core"
+    case "article-review-html" => "cozy document-project review <project> --kind article"
+    case "slide-review-html" => "cozy document-project review <project> --kind slides"
+    case "video-review" => "cozy document-project review <project> --kind video"
+    case "explanation-structure-review-html" => "cozy document-project review <project> --kind slide-logical-chart"
+    case "video-logical-chart-html" => "cozy document-project review <project> --kind video-logical-chart"
+    case _ => s"cozy document-project run <project> --operation ${product.producer} --dry-run"
+  }
+
+  private def _dashboard_optional_list(products: Vector[CozyDocumentProjectEvidence.WorkProductState]): String = {
+    if (products.isEmpty) {
+      "<li>No optional Work Products are declared by this profile. / このプロファイルにオプション成果物はありません。</li>"
+    } else {
+      products.map { item =>
+        val product = item.value.workProduct
+        val selection = item.value.selection match {
+          case CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => "active-optional / 有効なオプション"
+          case CozyDocumentWorkflow.WorkProductSelection.InactiveOptional => "inactive-optional / 無効なオプション"
+          case _ => item.value.selection.value
+        }
+        s"<li><strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(selection)}</li>"
+      }.mkString("\n")
     }
   }
 
