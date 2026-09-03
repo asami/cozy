@@ -1163,10 +1163,26 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         standardcharttext should include("not an authority, provider run, receipt, state cache, feedback record, or write-back mechanism")
         standardcharttext should not include("article content stays outside the logical chart")
         Files.exists(standard.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(standard.resolve("target/document-project/slide-logical-chart.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(standard.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.readAllBytes(standardcore) shouldBe standardcorebytes
         Files.readAllBytes(standardvisualpages) shouldBe standardvisualbytes
         Files.readAllBytes(standardarticle) shouldBe standardarticlebytes
+
+        When("the standard dashboard reconstructs the generated Slide Logical Chart")
+        _execute(List("document-project", "dashboard", standard.toString))
+
+        Then("the generated Slide Logical Chart is satisfied, current, and ready without a receipt")
+        val standardcurrentchart = Files.readString(standard.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        standardcurrentchart should include("explanation-structure-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready</td>")
+
+        When("the current standard Visual Page IR changes without regenerating the Slide Logical Chart")
+        Files.writeString(standardvisualpages, "pages: [\"changed slide visual\"]\n", StandardCharsets.UTF_8)
+        _execute(List("document-project", "dashboard", standard.toString))
+
+        Then("the retained Slide Logical Chart is stale with the deterministic mismatch reason")
+        val standardstalechart = Files.readString(standard.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        standardstalechart should include("explanation-structure-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>generated logical chart output does not match current project IR")
 
         val videocore = video.resolve("content/core-en.yaml")
         val videovisualpages = video.resolve("presentation/visual-pages.yaml")
@@ -1202,6 +1218,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         videocharttext should include("<h1>Video Logical Chart</h1>")
         videocharttext should not include("video-logical-chart.render-review")
         Files.exists(video.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(video.resolve("target/document-project/video-logical-chart.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(video.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.readAllBytes(videocore) shouldBe videocorebytes
         Files.readAllBytes(videovisualpages) shouldBe videovisualbytes
@@ -1210,16 +1227,24 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the standard-video dashboard is projected")
         _execute(List("document-project", "dashboard", video.toString))
 
-        Then("slide and video logical-chart Work Products distinguish generated output from available IR inputs")
+        Then("the Slide Logical Chart remains missing while the Video Logical Chart is satisfied, current, and ready")
         val dashboardtext = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
         dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("explanation-structure-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
         dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
-        dashboardtext should include("video-logical-chart-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        dashboardtext should include("video-logical-chart-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready</td>")
         dashboardtext should include("phase-41-explanation-structure")
         dashboardtext should include("content-core")
         dashboardtext should include("slide-logical-chart")
         dashboardtext should include("slide-logical-chart-reference")
+
+        When("the current storyboard IR changes without regenerating the Video Logical Chart")
+        Files.writeString(videostoryboard, "# Storyboard\n\nchanged storyboard\n", StandardCharsets.UTF_8)
+        _execute(List("document-project", "dashboard", video.toString))
+
+        Then("the retained Video Logical Chart is stale with the deterministic mismatch reason")
+        val videostalechart = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        videostalechart should include("video-logical-chart-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>generated logical chart output does not match current project IR")
       }
     }
 
@@ -2208,8 +2233,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           dashboard should include("<h2>Criterion coverage</h2>")
           dashboard should include("<table aria-label=\"Criterion coverage\">")
         }
-        standalonedashboard should include("4/18 applicable criteria satisfied")
-        bokdashboard should include("3/14 applicable criteria satisfied")
+        standalonedashboard should include("6/18 applicable criteria satisfied")
+        bokdashboard should include("4/14 applicable criteria satisfied")
         standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>required</td><td>review-projection</td><td>required")
         standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>required</td><td>deliverable</td><td>required")
         bokdashboard should include("video-review<br/><span>Video review HTML</span></th><td>profile-disabled</td><td>review-projection</td><td>disabled")
@@ -2370,6 +2395,257 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "derive closed private content alignment without changing retained v2 evidence or state contracts" in {
+      _with_temp_dir("cozy-document-project-content-alignment") { root =>
+        Given("Japanese and English v2 packages with distinct locale expression bytes and one shared semantic scope")
+        val japanese = _alignment_project(root, "alignment-ja", "ja", "en")
+        val english = _alignment_project(root, "alignment-en", "en", "ja")
+        Files.writeString(english.resolve("index.dox"), "# English article\n", StandardCharsets.UTF_8)
+        _write_alignment(english, "standard-video", "en", "ja")
+
+        When("each private alignment ledger is evaluated without executing a provider")
+        val japanesesnapshot = _alignment_snapshot(japanese)
+        val englishsnapshot = _alignment_snapshot(english)
+
+        Then("both independently authored locale artifacts are current after human acceptance and accepted local parity")
+        japanesesnapshot.artifacts.map(_.currentness).distinct shouldBe Vector("current")
+        englishsnapshot.artifacts.map(_.currentness).distinct shouldBe Vector("current")
+        japanesesnapshot.parity shouldBe CozyDocumentProjectAlignment.ParityStatus("accepted", "current", "declared locale parity is accepted; locale text is independently authored")
+        Files.readString(japanese.resolve("target/alignment/article-html.out"), StandardCharsets.UTF_8) should not equal Files.readString(english.resolve("target/alignment/article-html.out"), StandardCharsets.UTF_8)
+        Files.readString(japanese.resolve("index.dox"), StandardCharsets.UTF_8) should not equal Files.readString(english.resolve("index.dox"), StandardCharsets.UTF_8)
+
+        And("each accepted artifact binds its expected logical provider, renderer, output receipt, and visible shared infographic proof")
+        japanesesnapshot.artifacts.map(_.artifact.kind) shouldBe Vector("article-html", "article-pdf", "summary-slides-pdf", "infographic-png", "video-deliverable")
+        japanesesnapshot.artifacts.foreach { status =>
+          status.artifact.review.decision shouldBe "accepted"
+          status.artifact.review.reviewer shouldBe "human-reviewer"
+          status.artifact.authority.path should not be empty
+          status.artifact.output.path should not be empty
+          status.artifact.receipt.path should not be empty
+          status.visualusecurrentness shouldBe "current"
+        }
+        japanesesnapshot.artifacts.map(_.artifact.provider.id) shouldBe Vector("cozy-site", "smartdox-rendering", "cozy-visual-page", "cozy-infographic", "cozy-video")
+        japanesesnapshot.artifacts.map(_.artifact.renderer) shouldBe Vector("smartdox-site", "smartdox-pdf", "cozy-pdf", "cozy-png", "cozy-video")
+
+        Given("a preserved v2 sidecar and state snapshot")
+        _write_sidecar(japanese, profileid = "standard-video")
+        _execute(List("document-project", "inspect", japanese.toString))
+        val statebefore = Files.readAllBytes(japanese.resolve("target/document-project/state.yaml"))
+        val sidecarbefore = Files.readAllBytes(japanese.resolve("evidence/document-project.yaml"))
+        val mediabefore = Files.readAllBytes(japanese.resolve("media/article-media.yaml"))
+
+        When("the existing dashboard displays the alignment section")
+        _execute(List("document-project", "dashboard", japanese.toString))
+        val dashboard = Files.readString(japanese.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("the Dashboard is deterministic and read-only for the retained contracts")
+        dashboard should include("Content alignment")
+        dashboard should include("Shared-infographic visual use")
+        dashboard should include("Locale parity")
+        dashboard should not include("evidence/content-alignment.yaml")
+        Files.readAllBytes(japanese.resolve("target/document-project/state.yaml")) shouldBe statebefore
+        Files.readAllBytes(japanese.resolve("evidence/document-project.yaml")) shouldBe sidecarbefore
+        Files.readAllBytes(japanese.resolve("media/article-media.yaml")) shouldBe mediabefore
+      }
+    }
+
+    "derive each alignment stale reason and preserve non-acceptance decisions" in {
+      _with_temp_dir("cozy-document-project-content-alignment-stale") { root =>
+        Given("one current accepted alignment fixture for each independently changed identity")
+        val changes = Vector[(String, Path => Unit, String, Int)](
+          ("Content Core", project => Files.writeString(project.resolve("content/core-ja.yaml"), Files.readString(project.resolve("content/core-ja.yaml"), StandardCharsets.UTF_8).replace("accepted ja Core", "changed Core"), StandardCharsets.UTF_8), "Content Core SHA-256 changed", 0),
+          ("locale authority", project => Files.writeString(project.resolve("index.dox"), "# changed authority\n", StandardCharsets.UTF_8), "locale authority SHA-256 changed", 0),
+          ("shared SVG", project => Files.writeString(project.resolve("infographic/infographic.svg"), "<svg>changed</svg>\n", StandardCharsets.UTF_8), "shared infographic SHA-256 changed", -1),
+          ("output", project => Files.writeString(project.resolve("target/alignment/article-html.out"), "changed output\n", StandardCharsets.UTF_8), "output SHA-256 changed", 0),
+          ("receipt", project => Files.writeString(project.resolve("evidence/receipts/article-html.yaml"), "changed receipt\n", StandardCharsets.UTF_8), "receipt SHA-256 changed", 0),
+          ("provider", project => _replace_alignment(project, "id: cozy-site", "id: changed-provider"), "provider changed", 0),
+          ("renderer", project => _replace_alignment(project, "renderer: smartdox-site", "renderer: changed-renderer"), "renderer changed", 0),
+          ("profile", project => Files.writeString(project.resolve("document-project.yaml"), Files.readString(project.resolve("document-project.yaml"), StandardCharsets.UTF_8).replace("profile: standard-video", "profile: bok-video"), StandardCharsets.UTF_8), "profile changed", 0)
+        )
+
+        changes.zipWithIndex.foreach { case ((label, change, reason, index), ordinal) =>
+          val project = _alignment_project(root, s"alignment-stale-$ordinal", "ja", "en")
+          change(project)
+
+          When(s"the $label identity changes after the human decision")
+          val snapshot = _alignment_snapshot(project)
+
+          Then("the affected accepted consumer is stale with its precise reason")
+          if (index < 0) {
+            snapshot.artifacts.map(_.currentness).distinct shouldBe Vector("stale")
+            snapshot.artifacts.map(_.reason).distinct shouldBe Vector(reason)
+          } else {
+            snapshot.artifacts(index).currentness shouldBe "stale"
+            snapshot.artifacts(index).reason shouldBe reason
+          }
+        }
+
+        Given("one current accepted alignment fixture whose recorded output has been deleted")
+        val missingoutput = _alignment_project(root, "alignment-missing-output", "ja", "en")
+        Files.delete(missingoutput.resolve("target/alignment/article-html.out"))
+
+        When("the alignment snapshot reads the deleted recorded output")
+        val missingsnapshot = _alignment_snapshot(missingoutput)
+
+        Then("the first accepted artifact is missing with the exact missing-output reason")
+        missingsnapshot.artifacts.head.currentness shouldBe "missing"
+        missingsnapshot.artifacts.head.reason shouldBe "output is missing"
+
+        Given("a current accepted record whose human review requests changes, rejects, or leaves parity pending")
+        val decisions = _alignment_project(root, "alignment-decisions", "ja", "en")
+        _replace_alignment(decisions, "decision: accepted", "decision: changes-requested")
+
+        When("the dashboard model reads the changes-requested review")
+        val requested = _alignment_snapshot(decisions)
+
+        Then("the human result is retained and never promoted to acceptance")
+        requested.artifacts.head.currentness shouldBe "not-accepted"
+        requested.artifacts.head.reason shouldBe "human review decision is changes-requested"
+
+        When("the same review is changed to rejected")
+        _replace_alignment(decisions, "decision: changes-requested", "decision: rejected")
+        val rejected = _alignment_snapshot(decisions)
+
+        Then("rejection remains visible rather than current")
+        rejected.artifacts.head.currentness shouldBe "not-accepted"
+        rejected.artifacts.head.reason shouldBe "human review decision is rejected"
+
+        Given("a declared local peer with pending parity")
+        val pending = _alignment_project(root, "alignment-pending", "ja", "en")
+        _replace_alignment(pending, "  decision: accepted\n  peers:", "  decision: pending\n  peers:")
+
+        When("the pending alignment is read")
+        val pendingsnapshot = _alignment_snapshot(pending)
+
+        Then("parity remains visibly pending without discovering another project")
+        pendingsnapshot.parity shouldBe CozyDocumentProjectAlignment.ParityStatus("pending", "pending", "declared locale parity is pending")
+      }
+    }
+
+    "reject unsafe alignment grammar while keeping a v2 Article 8-shaped package pending and source-safe" in {
+      _with_temp_dir("cozy-document-project-content-alignment-invalid") { root =>
+        Given("a current private alignment ledger and a v2 Article 8-shaped package with no accepted Core")
+        val malformed = _alignment_project(root, "alignment-invalid", "ja", "en")
+        val articleeightparent = Files.createDirectory(root.resolve("article-eight-parent"))
+        _execute(List("document-project", "scaffold", "domain-modeling", "--profile", "standard-video", "--language", "ja", "--workspace", "bok", "--save", articleeightparent.toString))
+        val articleeight = articleeightparent.resolve("domain-modeling.dox")
+        val scaffoldedarticleeightdescriptor = articleeight.resolve("document-project.yaml")
+        Files.writeString(scaffoldedarticleeightdescriptor, Files.readString(scaffoldedarticleeightdescriptor, StandardCharsets.UTF_8).replace("profile: standard-video", "profile: simplemodeling-org-video"), StandardCharsets.UTF_8)
+        val articleeightdescriptor = Files.readString(articleeight.resolve("document-project.yaml"), StandardCharsets.UTF_8)
+        val articleseven = root.resolve("article-seven.dox")
+        Files.writeString(articleseven, "# Article 7 remains a legacy single-file source\n", StandardCharsets.UTF_8)
+        val articlesevenbefore = Files.readAllBytes(articleseven)
+
+        When("an extra field, escaped output, or symlinked evidence is admitted")
+        _replace_alignment(malformed, "parity:\n", "extra: value\nparity:\n")
+        val extrafailure = _failure(List("document-project", "dashboard", malformed.toString))
+        _write_alignment(malformed, "standard-video", "ja", "en")
+        _replace_alignment(malformed, "path: target/alignment/article-html.out", "path: ../outside.out")
+        val escapefailure = _failure(List("document-project", "dashboard", malformed.toString))
+        _write_alignment(malformed, "standard-video", "ja", "en")
+        val visual = malformed.resolve("evidence/visual-review/article-html.yaml")
+        val visualtarget = malformed.resolve("evidence/visual-review/article-html-real.yaml")
+        Files.move(visual, visualtarget)
+        Files.createSymbolicLink(visual, visualtarget)
+        val symlinkfailure = _failure(List("document-project", "dashboard", malformed.toString))
+
+        Then("invalid paths and closed grammar are rejected before they can become accepted")
+        extrafailure should include("DP-DESC-002")
+        escapefailure should include("DP-PATH-001")
+        symlinkfailure should include("DP-PATH-001")
+
+        Given("a valid generated alignment ledger with canonical FileIdentity records")
+        val reordered = _alignment_project(root, "alignment-reordered", "ja", "en")
+
+        When("the public Dashboard admits a reordered top-level FileIdentity")
+        _replace_alignment(
+          reordered,
+          "  path: content/core-ja.yaml\n  identity: alignment-reordered:core:ja",
+          "  identity: alignment-reordered:core:ja\n  path: content/core-ja.yaml"
+        )
+        val topidentityfailure = _failure(List("document-project", "dashboard", reordered.toString))
+
+        Then("Dashboard rejects the reordered top-level identity before it can become accepted or current")
+        topidentityfailure should include("DP-DESC-002")
+
+        Given("the same valid generated ledger before a nested artifact identity is reordered")
+        _write_alignment(reordered, "standard-video", "ja", "en")
+
+        When("the public Dashboard admits a reordered nested artifact FileIdentity")
+        _replace_alignment(
+          reordered,
+          "      path: index.dox\n      identity: alignment-reordered:article-html:authority",
+          "      identity: alignment-reordered:article-html:authority\n      path: index.dox"
+        )
+        val nestedidentityfailure = _failure(List("document-project", "dashboard", reordered.toString))
+
+        Then("Dashboard rejects the reordered nested identity before it can become accepted or current")
+        nestedidentityfailure should include("DP-DESC-002")
+
+        Given("the same valid generated ledger before a flow-mapping Content Core identity reorders its decoded fields")
+        _write_alignment(reordered, "standard-video", "ja", "en")
+
+        When("the public Dashboard admits the flow-mapping Content Core identity")
+        _replace_alignment(
+          reordered,
+          s"contentCore:\n${_indent(_alignment_identity(reordered, "content/core-ja.yaml", "alignment-reordered:core:ja"), 2)}",
+          s"contentCore: {identity: alignment-reordered:core:ja, path: content/core-ja.yaml, sha256: ${_sha256(reordered.resolve("content/core-ja.yaml"))}}"
+        )
+        val flowcorefailure = _failure(List("document-project", "dashboard", reordered.toString))
+
+        Then("Dashboard rejects the reordered flow-mapping Content Core identity with the established descriptor diagnostic")
+        _diagnostic_tokens(flowcorefailure) shouldBe Vector("DP-DESC-002")
+
+        Given("the same valid generated ledger before a flow-mapping shared infographic identity reorders its decoded fields")
+        _write_alignment(reordered, "standard-video", "ja", "en")
+
+        When("the public Dashboard admits the flow-mapping shared infographic identity")
+        _replace_alignment(
+          reordered,
+          s"sharedInfographic:\n${_indent(_alignment_identity(reordered, "infographic/infographic.svg", "alignment-reordered:infographic"), 2)}",
+          s"sharedInfographic: {identity: alignment-reordered:infographic, path: infographic/infographic.svg, sha256: ${_sha256(reordered.resolve("infographic/infographic.svg"))}}"
+        )
+        val flowinfographicfailure = _failure(List("document-project", "dashboard", reordered.toString))
+
+        Then("Dashboard rejects the reordered flow-mapping shared infographic identity with the established descriptor diagnostic")
+        _diagnostic_tokens(flowinfographicfailure) shouldBe Vector("DP-DESC-002")
+
+        Given("the same valid generated ledger before a nested FileIdentity quotes and reorders its keys")
+        _write_alignment(reordered, "standard-video", "ja", "en")
+
+        When("the public Dashboard admits the quoted reordered nested artifact identity")
+        _replace_alignment(
+          reordered,
+          s"""    authority:
+${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:article-html:authority"), 6)}""",
+          s"""    authority:
+      "identity": alignment-reordered:article-html:authority
+      "path": index.dox
+      "sha256": ${_sha256(reordered.resolve("index.dox"))}"""
+        )
+        val quotednestedfailure = _failure(List("document-project", "dashboard", reordered.toString))
+
+        Then("Dashboard rejects the quoted reordered nested identity with the established descriptor diagnostic")
+        _diagnostic_tokens(quotednestedfailure) shouldBe Vector("DP-DESC-002")
+
+        When("the empty-Core Article 8-shaped package is projected without a private ledger")
+        val descriptor = CozyDocumentProject._load_project(articleeight)
+        val alignment = CozyDocumentProjectAlignment.dashboardHtml(articleeight, descriptor)
+        _write_sidecar(articleeight, profileid = "simplemodeling-org-video")
+        val sourceprojection = CozyDocumentProjectEvidence.snapshot(articleeight, CozyDocumentProject._load_project(articleeight)).sidecar.map(_.publicSource)
+
+        Then("only its normal index.dox is the possible public source, alignment is pending, and Article 7 remains untouched")
+        articleeightdescriptor should include("schema: cozy.document-project.v2")
+        articleeightdescriptor should include("activeOptionalWorkProducts: []")
+        alignment should include("pending")
+        alignment should include("Accepted Content Core entries: absent")
+        alignment should not include("evidence/")
+        alignment should not include("target/")
+        sourceprojection.map(_.path.path) shouldBe Some("index.dox")
+        Files.readAllBytes(articleseven) shouldBe articlesevenbefore
+      }
+    }
+
     "publish the frozen public Document Project help forms" in {
       Given("the Cozy public help text")
 
@@ -2400,6 +2676,125 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       help should not include "reflect-feedback"
     }
     }
+  }
+
+  private val _alignment_artifacts = Vector(
+    ("article-html", "index.dox", "cozy-site", "article.publish-site", "smartdox-site"),
+    ("article-pdf", "index.dox", "smartdox-rendering", "article.render-pdf", "smartdox-pdf"),
+    ("summary-slides-pdf", "presentation/visual-pages.yaml", "cozy-visual-page", "summary-slides.render-pdf", "cozy-pdf"),
+    ("infographic-png", "infographic/infographic.svg", "cozy-infographic", "infographic.render-png", "cozy-png"),
+    ("video-deliverable", "video/storyboard.md", "cozy-video", "video.render-deliverable", "cozy-video")
+  )
+
+  private def _alignment_project(root: Path, slug: String, language: String, peerlanguage: String): Path = {
+    val parent = Files.createDirectory(root.resolve(s"$slug-parent"))
+    _execute(List("document-project", "scaffold", slug, "--profile", "standard-video", "--language", language, "--workspace", "directory", "--save", parent.toString))
+    val project = parent.resolve(s"$slug.dox")
+    Files.writeString(project.resolve("document-project.yaml"), _alignment_descriptor_yaml(slug, language, peerlanguage), StandardCharsets.UTF_8)
+    Files.writeString(project.resolve(s"content/core-$language.yaml"), _core_yaml(slug, language, s"accepted $language Core"), StandardCharsets.UTF_8)
+    _alignment_artifacts.foreach { case (kind, _, _, _, _) =>
+      val output = project.resolve(s"target/alignment/$kind.out")
+      val receipt = project.resolve(s"evidence/receipts/$kind.yaml")
+      val visual = project.resolve(s"evidence/visual-review/$kind.yaml")
+      Files.createDirectories(output.getParent)
+      Files.createDirectories(receipt.getParent)
+      Files.createDirectories(visual.getParent)
+      Files.writeString(output, s"$language $kind output\n", StandardCharsets.UTF_8)
+      Files.writeString(receipt, s"$language $kind receipt\n", StandardCharsets.UTF_8)
+      Files.writeString(visual, s"$language $kind visual proof\n", StandardCharsets.UTF_8)
+    }
+    _write_alignment(project, "standard-video", language, peerlanguage)
+    project
+  }
+
+  private def _alignment_descriptor_yaml(slug: String, language: String, peerlanguage: String): String =
+    s"""schema: cozy.document-project.v2
+id: $slug
+workflow:
+  schema: cozy.document-workflow.v2
+  id: document-production
+profile: standard-video
+language: $language
+workspace:
+  kind: directory
+contentCore: content/core-$language.yaml
+activeOptionalWorkProducts: []
+semanticScope:
+  id: $slug
+  localeVariants:
+    - project: $slug
+      language: $language
+      contentCore: $slug:core:$language
+      workProducts: []
+    - project: $slug-$peerlanguage
+      language: $peerlanguage
+      contentCore: $slug-$peerlanguage:core:$peerlanguage
+      workProducts: []
+"""
+
+  private def _write_alignment(project: Path, profile: String, language: String, peerlanguage: String): Unit = {
+    val ledger = project.resolve("evidence/content-alignment.yaml")
+    Files.createDirectories(ledger.getParent)
+    Files.writeString(ledger, _alignment_yaml(project, profile, language, peerlanguage), StandardCharsets.UTF_8)
+  }
+
+  private def _alignment_yaml(project: Path, profile: String, language: String, peerlanguage: String): String = {
+    val slug = project.getFileName.toString.stripSuffix(".dox")
+    val sharedidentity = s"$slug:infographic"
+    val artifacts = _alignment_artifacts.map { case (kind, authoritypath, provider, operation, renderer) =>
+      val outputpath = s"target/alignment/$kind.out"
+      val receiptpath = s"evidence/receipts/$kind.yaml"
+      val visualpath = s"evidence/visual-review/$kind.yaml"
+      s"""  - kind: $kind
+    locale: $language
+    authority:
+${_indent(_alignment_identity(project, authoritypath, s"$slug:$kind:authority"), 6)}
+    output:
+${_indent(_alignment_identity(project, outputpath, s"$slug:$kind:output"), 6)}
+    receipt:
+${_indent(_alignment_identity(project, receiptpath, s"$slug:$kind:receipt"), 6)}
+    provider:
+      id: $provider
+      operation: $operation
+      profile: $profile
+    renderer: $renderer
+    review:
+      reviewer: human-reviewer
+      decision: accepted
+      rationale: accepted for local alignment
+    sharedInfographicUse:
+      identity: $sharedidentity
+      consumer: $kind-consumer
+      evidence:
+${_indent(_alignment_identity(project, visualpath, s"$slug:$kind:visual"), 8)}"""
+    }.mkString("\n")
+    s"""schema: cozy.content-alignment.v1
+project: $slug
+semanticScope: $slug
+locale: $language
+contentCore:
+${_indent(_alignment_identity(project, s"content/core-$language.yaml", s"$slug:core:$language"), 2)}
+sharedInfographic:
+${_indent(_alignment_identity(project, "infographic/infographic.svg", sharedidentity), 2)}
+artifacts:
+$artifacts
+parity:
+  decision: accepted
+  peers:
+    - locale: $peerlanguage
+      contentCore: $slug-$peerlanguage:core:$peerlanguage
+"""
+  }
+
+  private def _alignment_identity(project: Path, path: String, identity: String): String =
+    s"path: $path\nidentity: $identity\nsha256: ${_sha256(project.resolve(path))}"
+
+  private def _alignment_snapshot(project: Path): CozyDocumentProjectAlignment.Snapshot =
+    CozyDocumentProjectAlignment.snapshot(project, CozyDocumentProject._load_project(project))
+
+  private def _replace_alignment(project: Path, before: String, after: String): Unit = {
+    val ledger = project.resolve("evidence/content-alignment.yaml")
+    Files.writeString(ledger, Files.readString(ledger, StandardCharsets.UTF_8).replaceFirst(java.util.regex.Pattern.quote(before), java.util.regex.Matcher.quoteReplacement(after)), StandardCharsets.UTF_8)
   }
 
   private def _scaffolded_project(root: Path, slug: String): Path = {

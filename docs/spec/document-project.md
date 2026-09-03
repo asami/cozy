@@ -25,6 +25,7 @@ contract identities and roles:
 | `cozy.document-project-state.v2` | Derived Workflow Instance Snapshot; it is never writable authority. |
 | `cozy.document-operation-attempt.v1` | Append-only evidence for one attempted declared logical operation. |
 | `cozy.content-core.v1` | Minimal, separately authored shared semantic authority. |
+| `cozy.content-alignment.v1` | Optional private human alignment ledger binding accepted Core, locale artifacts, and shared-infographic visual-use evidence. |
 
 A Document Project MUST be the operational envelope, not a replacement for
 Content Core.  Content Core MUST remain the shared semantic authority; it MUST
@@ -519,7 +520,8 @@ It visibly labels Project production, workspace integration, aggregate build,
 and external delivery as read-only, non-invoked responsibilities.  It remains
 self-contained, deterministic, HTML-escaped, and read-only; no external call,
 provider execution, registry/site discovery, aggregate build, publication,
-deployment, upload, or Article 8 behavior is permitted.
+deployment, upload, or Article 8 behavior outside the Phase 45.2 private
+alignment boundary is permitted.
 
 Sidecar absence uses the same v2 source-derived missing/pending projection;
 it does not admit a legacy schema or fallback.
@@ -527,6 +529,124 @@ This slice does not alter the descriptor, CLI/help grammar, workflow DAG,
 profiles, media sources, media receipt/review schemas, external repository
 registration, workspace integration, aggregate build, publication, deployment,
 or upload.
+
+## Phase 45.2 private Content Alignment ledger and Article 8 projection
+
+Phase 45.2 adds exactly one optional authored private ledger at
+`evidence/content-alignment.yaml`.  Its schema is exactly
+`cozy.content-alignment.v1`.  It is private alignment/review evidence: it is
+not a public SmartDox source, a provider receipt, a mutation of an existing
+review-state, a site registration request, or a delivery action.  The ledger
+does not alter the exact grammar of `cozy.document-project-evidence.v2`,
+`cozy.document-project-state.v2`, or `cozy.media.review-state.v1`.
+
+When absent, the ledger is a visible `pending`/no-record result, never a
+descriptor error.  The v2 descriptor, Core, sidecar, state cache, media review
+state, and Workflow remain independently authoritative in that case.  An
+Article 8 package with an empty accepted Core and no ledger is therefore
+visibly pending and never fabricates human acceptance, an output receipt, or
+public media registration.
+
+The UTF-8 YAML ledger has exactly these ordered top-level fields and no others:
+
+```text
+schema
+project
+semanticScope
+locale
+contentCore
+sharedInfographic
+artifacts
+parity
+```
+
+`project`, `semanticScope`, and `locale` equal the admitted descriptor `id`,
+`semanticScope.id`, and `language`.  Every FileIdentity record is an unquoted
+direct block mapping and uses exactly the direct sibling order `{path, identity,
+sha256}`: flow mappings and quoted mapping keys are invalid. This includes
+`contentCore`, `sharedInfographic`, each artifact `authority`, `output`, and
+`receipt`, and every `sharedInfographicUse.evidence` record.  A record with the
+same fields in another order is invalid.  The Core path is the descriptor
+`contentCore`, the Core identity is the descriptor self locale variant identity,
+and the shared infographic path is exactly `infographic/infographic.svg`.
+Each path is project-relative, has no dot segment, and resolves only to a
+direct non-symlink regular file; a recorded generated output that is
+subsequently absent is displayed as missing rather than becoming accepted.
+Every `sha256` is a lowercase hexadecimal SHA-256 content identity.  A hash
+identifies bytes; it never substitutes for the required human decision.
+
+`artifacts` is a deterministic closed list in this order: `article-html`,
+`article-pdf`, `summary-slides-pdf`, `infographic-png`, and
+`video-deliverable`.  Each item has exactly these fields:
+
+```text
+kind
+locale
+authority
+output
+receipt
+provider
+renderer
+review
+sharedInfographicUse
+```
+
+`authority`, `output`, and `receipt` are each a closed FileIdentity record in
+that required direct sibling order.  `authority` is respectively `index.dox`, `index.dox`,
+`presentation/visual-pages.yaml`, `infographic/infographic.svg`, or
+`video/storyboard.md`; it records the separately authored expression authority
+for that locale.  `provider` is the closed `{id, operation, profile}` record
+which binds the admitted profile and immutable logical operation.  Its exact
+provider/operation pair, with the closed renderer identity, is:
+
+| Kind | Provider | Operation | Renderer |
+| --- | --- | --- | --- |
+| `article-html` | `cozy-site` | `article.publish-site` | `smartdox-site` |
+| `article-pdf` | `smartdox-rendering` | `article.render-pdf` | `smartdox-pdf` |
+| `summary-slides-pdf` | `cozy-visual-page` | `summary-slides.render-pdf` | `cozy-pdf` |
+| `infographic-png` | `cozy-infographic` | `infographic.render-png` | `cozy-png` |
+| `video-deliverable` | `cozy-video` | `video.render-deliverable` | `cozy-video` |
+
+`review` has exactly `{reviewer, decision, rationale}`.  All values are
+non-empty exact strings; `decision` is exactly `accepted`,
+`changes-requested`, `rejected`, `pending`, or `not-applicable`; and
+`rationale` is either human rationale or a feedback reference.  A
+`changes-requested` or `rejected` decision remains that human result and is
+never overwritten as accepted.
+
+`sharedInfographicUse` has exactly `{identity, consumer, evidence}`.  Its
+identity equals the ledger shared infographic identity, its consumer identifies
+the declared consumer, and `evidence` is a direct private
+`evidence/visual-review/` FileIdentity record in that required direct sibling
+order.  It is an explicit
+visual-use attestation, not proof inferred from a filename or a receipt.
+
+An accepted artifact is current only when its human decision is `accepted`,
+the Core has a non-empty accepted entry, and all recorded current identities
+are unchanged.  A changed Core, locale authority, shared SVG, output, receipt,
+provider, renderer, profile, or private visual-use evidence produces a precise
+stale result.  A changed shared SVG stales every declared consumer.  A malformed
+or extra field, escaped path, symlink, or invalid identity is rejected before
+it can become accepted.  No timestamp, output-tree scan, provider execution,
+receipt generation, or write-back participates in this derivation.
+
+`parity` has exactly `{decision, peers}`.  Its decision is `accepted`,
+`pending`, or `not-applicable`; each peer is exactly `{locale, contentCore}`.
+Peers enumerate only the descriptor's declared local semantic-scope peer
+locale/Core identities in descriptor order.  A scope without peers is
+`not-applicable`; a scope with peers is `accepted` or `pending`.  Parity never
+discovers another project, host, provider, or remote resource, and it never
+requires byte equality between locale expressions.
+
+The existing Document Project Dashboard includes one deterministic read-only
+Content alignment section.  It displays every artifact decision and reviewer,
+currentness or exact stale reason, shared-infographic visual-use status, and
+the local parity/divergence state.  It does not expose private ledger, Core,
+visual evidence, receipt, or target paths as a public article source; it writes
+neither the ledger nor any existing sidecar/state/review contract; and it adds
+no command.  The package directory `<article>.dox/` itself is passed unchanged
+to the normal host Doxsite build.  Cozy neither discovers, registers, nor
+publishes that package or an Article 8 site.
 
 ## Public command grammar and boundaries
 
@@ -893,8 +1013,9 @@ migration, or Phase 41 expansion.
 P45-03 implements only the article and video review projections and local
 generated-review receipt/currentness specified
 above. P45-04 exclusively owns user-first dashboard redesign and action
-selection. P45.2 content alignment, Article 8, site
-registration, publication, deployment, upload, or external repository
+selection. P45.2 admits only the private read-only alignment ledger and
+Article 8 v2 descriptor/source-projection boundary defined above; site
+registration, publication, deployment, upload, and external repository
 mutation remain excluded. P45-03 creates no renderer, article site, PDF, video,
 production/external receipt, external provider
 API call, generic shell/provider command, or compatibility alias.

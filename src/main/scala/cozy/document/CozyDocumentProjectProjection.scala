@@ -16,6 +16,7 @@ import org.smartdox.parser.Dox2Parser
 private[cozy] object CozyDocumentProjectProjection {
   private[cozy] def dashboardHtml(project: Path, descriptor: CozyDocumentProject.Descriptor, dashboardDestination: Path): String = {
     val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
+    val alignment = CozyDocumentProjectAlignment.dashboardHtml(project, descriptor)
     val products = snapshot.products
     val definition = CozyDocumentWorkflow.documentProduction
     val workflowrows = products.map { item =>
@@ -133,6 +134,7 @@ private[cozy] object CozyDocumentProjectProjection {
          |<h2>Retained attempts</h2>
          |<table aria-label="Retained operation attempts"><thead><tr><th scope="col">Attempt</th><th scope="col">Authority boundary</th></tr></thead><tbody>$attemptrows</tbody></table>
          |$publicsource
+         |$alignment
          |<h2>Responsibility boundary</h2>
          |<table aria-label="Document Project responsibility boundary"><thead><tr><th scope="col">Responsibility</th><th scope="col">Dashboard disposition</th></tr></thead><tbody><tr><th scope="row">Project production</th><td>Read-only state projection; no provider is invoked.</td></tr><tr><th scope="row">Workspace integration</th><td>Read-only and non-invoked.</td></tr><tr><th scope="row">Aggregate build</th><td>Read-only and non-invoked.</td></tr><tr><th scope="row">External delivery</th><td>Read-only and non-invoked; no publication, deployment, upload, or registration is performed.</td></tr></tbody></table>
          |<p class="notice">This dashboard is a deterministic, read-only projection. It does not execute providers or persist candidates, feedback, acceptance, receipts, deliverables, or workflow status.</p>

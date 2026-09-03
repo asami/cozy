@@ -351,6 +351,8 @@ private[cozy] object CozyDocumentProjectEvidence {
         product.id -> _generated_review_status(project, descriptor, sourcepaths, "article")
       } else if (product.id == "video-review") {
         product.id -> _generated_review_status(project, descriptor, sourcepaths, "video")
+      } else if (Set("explanation-structure-review-html", "video-logical-chart-html").contains(product.id)) {
+        product.id -> _logical_chart_status(project, descriptor, sourcepaths, product.id)
       } else {
         product.id -> declared.get(product.id).map(entry => _evidence_status(project, entry.evidence, declared)).getOrElse(_source_status(descriptor, product.id, sourcepaths))
       }
@@ -358,7 +360,9 @@ private[cozy] object CozyDocumentProjectEvidence {
     val initiallycurrent = initial.collect { case (id, EvidenceStatus("current", _)) => id }.toSet
     val stale = _stale_products(resolved, initial.collect { case (id, EvidenceStatus("stale", _)) => id }.toSet)
     val withstale = initial.map {
-      case (id, EvidenceStatus(currentness, _)) if currentness != "not-applicable" && currentness != "nonparticipating" && stale.contains(id) => id -> EvidenceStatus("stale", Some("a declared dependency is stale"))
+      case (id, EvidenceStatus(currentness, _)) if currentness != "not-applicable" && currentness != "nonparticipating" && stale.contains(id) &&
+          (!Set("explanation-structure-review-html", "video-logical-chart-html").contains(id) || currentness == "current") =>
+        id -> EvidenceStatus("stale", Some("a declared dependency is stale"))
       case item => item
     }
     val failedproducts = attempts.filter(_.outcome == "failed").flatMap(_.products).toSet
@@ -520,6 +524,43 @@ private[cozy] object CozyDocumentProjectEvidence {
 
   private def _generated_review_sources_available(descriptor: CozyDocumentProject.Descriptor, kind: String, sourcepaths: Set[String]): Boolean =
     _generated_review_input_paths(descriptor, kind).forall(sourcepaths.contains)
+
+  private def _logical_chart_status(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    sourcepaths: Set[String],
+    productid: String
+  ): EvidenceStatus = {
+    val (output, sourcesavailable, projection) = productid match {
+      case "explanation-structure-review-html" =>
+        (
+          project.resolve("target/document-project/slide-logical-chart-review.html"),
+          sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml"),
+          () => CozyDocumentProjectProjection.slideLogicalChartHtml(project, descriptor)
+        )
+      case "video-logical-chart-html" =>
+        (
+          project.resolve("target/document-project/video-logical-chart-review.html"),
+          sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md"),
+          () => CozyDocumentProjectProjection.videoLogicalChartHtml(project, descriptor)
+        )
+      case _ => CozyDocumentProject._descriptor_failure(s"logical chart Work Product is unsupported: $productid")
+    }
+    if (!Files.exists(output, LinkOption.NOFOLLOW_LINKS)) {
+      if (sourcesavailable)
+        EvidenceStatus("missing", Some("default review HTML is not generated"))
+      else
+        EvidenceStatus("missing", None)
+    } else if (!sourcesavailable) {
+      EvidenceStatus("missing", None)
+    } else {
+      val outputfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, output), "generated logical chart output")
+      if (Files.readAllBytes(outputfile).sameElements(projection().getBytes(StandardCharsets.UTF_8)))
+        EvidenceStatus("current", None)
+      else
+        EvidenceStatus("stale", Some("generated logical chart output does not match current project IR"))
+    }
+  }
 
   private def _receipt_status(project: Path, media: String, resourceid: String): EvidenceStatus = {
     val descriptor = _direct_project_file(project, media, "Document Project receipt media descriptor")

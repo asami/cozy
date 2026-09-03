@@ -108,7 +108,16 @@ Current phase state:
   succeeded, 126 suites, and 0 failures. The local Phase closure also resolves
   the 2026-09-02 Hygiene Resolution Batch; no external operation or consumer
   acceptance is claimed.
-- Most recently closed phase: `phase-45.md`: Document Project v2 Authoring
+- Most recently closed local phase: `phase-45.2.md`: Document Project Alignment
+  and Article 8 Local Acceptance. It completed localized-artifact alignment and
+  shared-infographic currentness as a private Cozy contract, and accepted the
+  Article 8 driver only through normal read-only `index.dox` source projection.
+  The retained full-review baseline and focused closure review passed with no
+  Current Phase Blocker; final Cozy validation `P452-VAL-012` /
+  `50285-20260903T122237Z` passed 1,710 tests with 0 failures (8 canceled; 126
+  suites; SBT/wrapper 0; lock released). No publication, deployment, upload,
+  push, registration, or external consumer acceptance is claimed.
+- Earlier closed phase: `phase-45.md`: Document Project v2 Authoring
   Contract and Content Core Acceptance. It replaces the unoperated v1 kernel
   with a closed v2 descriptor contract and completes the Content Core
   candidate/feedback/revision/explicit-human-acceptance loop with complete
@@ -118,11 +127,11 @@ Current phase state:
   suites with 0 failures. Its pre-existing read-only dashboard may show
   selected `article-review-html` as `No action: contract-only in Phase 45`,
   without a renderer/CLI/output or action capability. Its ordered successor
-  `phase-45.1.md` is now closed for new article/video review projections and
-  the expanded user dashboard/action surface; `phase-45.2.md` remains planned
-  for localized-artifact alignment, shared-media currentness, and local
-  Article 8 acceptance.
-- Most recently closed local phase: `phase-45.1.md`: Document Project Review
+  `phase-45.1.md` is closed for new article/video review projections and the
+  expanded user dashboard/action surface; `phase-45.2.md` is closed locally
+  for localized-artifact alignment, shared-media currentness, and Article 8
+  local acceptance.
+- Earlier closed local phase: `phase-45.1.md`: Document Project Review
   Projections and User Action Dashboard. It completed P45-03/P45-04, the
   independent Phase full review and focused closure re-review, and final Cozy
   validation `P451-FINAL-VAL-001` / `40446-20260903T040445Z` (1,707 succeeded,
@@ -265,11 +274,11 @@ P45-01 and P45-02 are complete. Its pre-existing read-only dashboard may show a 
 `article-review-html` item as `No action: contract-only in Phase 45`, without
 adding a renderer/CLI/output or action capability. [Phase 45.1](phase-45.1.md)
 is closed locally for new article/video review projections and the expanded
-user dashboard/action surface. [Phase 45.2](phase-45.2.md) remains planned for
-localized-artifact alignment, shared-media currentness, and Article 8 local
-acceptance. Their canonical ledgers are the matching `-checklist.md` files. The sequence
-consumes the closed Phase 41, 42, and 42.1 contracts without retaining
-`cozy.document-project.v1` compatibility. Phase 45.2 needs separate explicit
-authority before adding SimpleModeling.org as an update root; none of the three
-Phases authorizes publication, deployment, upload, push, or external-service
-mutation.
+user dashboard/action surface. [Phase 45.2](phase-45.2.md) is closed locally
+for localized-artifact alignment, shared-media currentness, and one Article 8
+local acceptance. Its separately granted SimpleModeling.org root was used only
+for the selected normal Doxsite source projection; none of the three Phases
+authorizes publication, deployment, upload, push, registration, or
+external-service mutation. Their canonical ledgers are the matching
+`-checklist.md` files. The sequence consumes the closed Phase 41, 42, and 42.1
+contracts without retaining `cozy.document-project.v1` compatibility.

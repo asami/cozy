@@ -1512,14 +1512,14 @@ consumer acceptance is claimed.
 
 ### Phase 45.2: Document Project Alignment and Article 8 Local Acceptance
 
-Status: planned after Phase 45.1. It owns Japanese/English and per-artifact
-alignment, shared-infographic currentness, and one Article 8 local driver
-acceptance with a safe public `index.dox`/media projection. It requires a
-separate explicit addition of SimpleModeling.org as an update root before any
-mutation there. The whole sequence excludes v1 compatibility or migration,
-retrofitting Article 7 or earlier articles, autonomous semantic acceptance, a
-general scheduler or remote workflow service, publication, deployment, upload,
-push, and external-service mutation.
+Status: complete locally after Phase 45.1. It completed Japanese/English and
+per-artifact alignment, shared-infographic currentness, and one Article 8 local
+driver acceptance through a safe normal `index.dox` source projection. The
+separately granted SimpleModeling.org update root was limited to the selected
+driver. The whole sequence excludes v1 compatibility or migration, retrofitting
+Article 7 or earlier articles, autonomous semantic acceptance, a general
+scheduler or remote workflow service, publication, deployment, upload, push,
+registration, and external-service mutation.
 
 Primary references:
 
@@ -1621,10 +1621,10 @@ Origin:
 | DEV-010 | User request for localized article and summary-slide PDF delivery on 2026-08-29; split approval on 2026-08-29 | Make localized article and summary-slide PDFs reproducible Cozy media-package outputs, keep PPTX internal, then register only accepted PDF roles through SmartDox. | NEW_PHASE | [Phase 40](../phase/phase-40.md) COMPLETE → [Phase 40.1](../phase/phase-40.1.md) COMPLETE | RESOLVED |
 | DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | RESOLVED |
 | DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
-| DEV-013 | User-approved Document Project workflow direction on 2026-08-30; Phase 45 split approved on 2026-09-02 | Scaffold and manage one Document Project through a reusable workflow; first freeze its Content Core, command/scaffold, Workflow Instance, and Work Product kernel, then derive evidence state, review/dashboard projections, and directory/BoK driver acceptance. | NEW_PHASE | [Phase 42](../phase/phase-42.md) COMPLETE → [Phase 42.1](../phase/phase-42.1.md) COMPLETE → [Phase 45](../phase/phase-45.md) COMPLETE → [Phase 45.1](../phase/phase-45.1.md) COMPLETE → [Phase 45.2](../phase/phase-45.2.md) PLANNED | PARTIALLY RESOLVED |
+| DEV-013 | User-approved Document Project workflow direction on 2026-08-30; Phase 45 split approved on 2026-09-02 | Scaffold and manage one Document Project through a reusable workflow; first freeze its Content Core, command/scaffold, Workflow Instance, and Work Product kernel, then derive evidence state, review/dashboard projections, and directory/BoK driver acceptance. | NEW_PHASE | [Phase 42](../phase/phase-42.md) COMPLETE → [Phase 42.1](../phase/phase-42.1.md) COMPLETE → [Phase 45](../phase/phase-45.md) COMPLETE → [Phase 45.1](../phase/phase-45.1.md) COMPLETE → [Phase 45.2](../phase/phase-45.2.md) COMPLETE | RESOLVED |
 | DEV-014 | User-approved Logical UI direction on 2026-09-01; `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md` | Establish Application Core and three-layer use-case bindings, project public Component vocabulary into Logical Screen Composition, and generate deterministic Logical UI Review HTML before target-framework generation. | NEW_PHASE | [Phase 43](../phase/phase-43.md), after Phase 42.1 | RESOLVED |
 | DEV-015 | Hygiene Resolution Batch final validation receipt `68771-20260901T211250Z` and causal diagnosis on 2026-09-02 | Make SimpleModeler generation request-isolated and safe for simultaneous different-model execution in one JVM, preserve sequential compatibility, and establish the concurrency contract required by normal Cozy test execution and future Web/service hosting. | NEW_PHASE | [Phase 44](../phase/phase-44.md) COMPLETE | RESOLVED |
-| DEV-016 | Article 8 Document Project review on 2026-09-02; Phase 45 split approved on 2026-09-02 | Complete the user-operable Document Project workflow: Content Core candidate/acceptance loop, first-class article and video review, user-oriented dashboard/action selection, optional deliverables, JA/EN and per-artifact alignment, shared-media currentness, and safe SimpleModeling.org Article 8 projection. | NEW_PHASE | [Phase 45](../phase/phase-45.md) COMPLETE → [Phase 45.1](../phase/phase-45.1.md) COMPLETE → [Phase 45.2](../phase/phase-45.2.md) PLANNED, after Phase 44 | PARTIALLY RESOLVED |
+| DEV-016 | Article 8 Document Project review on 2026-09-02; Phase 45 split approved on 2026-09-02 | Complete the user-operable Document Project workflow: Content Core candidate/acceptance loop, first-class article and video review, user-oriented dashboard/action selection, optional deliverables, JA/EN and per-artifact alignment, shared-media currentness, and safe SimpleModeling.org Article 8 projection. | NEW_PHASE | [Phase 45](../phase/phase-45.md) COMPLETE → [Phase 45.1](../phase/phase-45.1.md) COMPLETE → [Phase 45.2](../phase/phase-45.2.md) COMPLETE | RESOLVED |
 
 ## Current Priority
 
@@ -1667,11 +1667,12 @@ CNCF-hosted publication including explicit parent-connected exposure, and
 expose separately authorized operations that extract mobile/Desktop artifacts
 and distribute them through official platform channels.
 
-Phase 45 and Phase 45.1 are closed locally after the approved Document Project
-v2 authoring/Content Core acceptance loop, deterministic review projections,
-and expanded dashboard/action surface. The remaining ordered successor is
-Phase 45.2, which owns alignment and Article 8 local acceptance. The sequence
-does not retain v1 compatibility and does not authorize publication.
+Phase 45, Phase 45.1, and Phase 45.2 are closed locally after the approved
+Document Project v2 authoring/Content Core acceptance loop, deterministic
+review projections, expanded dashboard/action surface, localized-artifact
+alignment, and safe Article 8 local acceptance. The sequence does not retain
+v1 compatibility and does not authorize publication, deployment, upload, push,
+registration, or external-service mutation.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation

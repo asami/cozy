@@ -498,7 +498,8 @@ binds one.  It visibly separates Project production from workspace integration,
 aggregate build, and external delivery as read-only, non-invoked
 responsibilities.  Its self-contained escaped HTML is never a route to host
 discovery, registry/site registration, aggregate execution, publication,
-deployment, upload, remote calls, or Article 8 work.
+deployment, upload, remote calls, or Article 8 behavior outside the Phase 45.2
+private alignment and read-only source-projection boundary.
 Dashboard content has accessible Workflow, Work Product matrix, Criterion
 coverage, and Work Product details tables covering dispositions, providers, gates, coverage,
 currentness, review, readiness, dependencies, producer/consumer operations,
@@ -514,9 +515,14 @@ is absent, the reason is exactly `source or retained evidence is not present`,
 and if all declared source prerequisites exist, the reason is exactly
 `default review HTML is not generated`. Article and Video review require their
 local generated-review receipt as well: a missing receipt is missing and a
-changed or missing default output/input is stale. Once the default output and
-receipt are current, the dashboard may show `satisfied`/`current`/`ready` and a
-no-action current result. An
+changed or missing default output/input is stale. Each Logical Chart instead
+creates no receipt and requires none. Its fixed default HTML is current only when a
+regular, non-symlink output's UTF-8 bytes exactly equal the deterministic
+projection recomputed from the current project-local IR; a differing output is
+stale with the exact reason `generated logical chart output does not match
+current project IR`. Once the Article or Video default output and receipt, or a
+Logical Chart default output, is current, the dashboard may show
+`satisfied`/`current`/`ready` and a no-action current result. An
 explicit disabled binding reason takes precedence over these blocked reasons.
 The dashboard represents Core review, Slide review, Video review, Slide Logical
 Chart, and Video Logical Chart as distinct review projections. Slide Logical
@@ -635,9 +641,11 @@ authority; scheduler, daemon, and arbitrary-command execution; dashboard
 write-back; implicit registration, build, publish, deploy, or upload; and
 migration. P45-03 admits only the bounded article and video review projections;
 P45-04 retains exclusive ownership of dashboard redesign and action selection.
-P45.2 content alignment, Article 8, publication, deploy, upload, and external
-registration remain excluded. It is additive to the retained authorities above and does not
-retrofit existing article or media packages.
+P45.2 admits private content alignment and the Article 8 read-only normal
+`index.dox` source projection; delivery, publication, deployment, upload,
+external registration, and other external action remain excluded. It is
+additive to the retained authorities above and does not retrofit existing
+article or media packages.
 
 ## Deferred implementation boundary
 
