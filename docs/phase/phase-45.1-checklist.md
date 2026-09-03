@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 45.1. It is not
 a normative behavior contract.
 
-Phase Status: IN_PROGRESS
+Phase Status: COMPLETE
 
 Predecessor: Phase 45 closure. Successor: Phase 45.2 after this Phase closes.
 
@@ -30,19 +30,41 @@ Stage Status:
 
 Stage Status:
 
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Document Project user interaction and status projection
 - Update rule: update this block from the checklist state below.
+- Closure evidence: `P451-P45-04-VAL-004` (71/71), converged focused re-review
+  of `CPB-P45-04-001` and `CPB-P45-04-002`, and local Step acceptance commit
+  `684ba2bb62258772e4340e12d6696a1d2db68ba3`.
 
-- [ ] Show current lifecycle position, recent change, blockers, pending review,
+- [x] Show current lifecycle position, recent change, blockers, pending review,
   and available next actions in the default view.
-- [ ] Provide Japanese and English user-facing labels.
-- [ ] Prioritize recommended and eligible actions.
-- [ ] Support explicit optional-deliverable and safe-operation selection.
-- [ ] Keep internal DAG/provider/gate/receipt data in secondary diagnostics.
-- [ ] Keep project production, integration, build, and delivery actions
+- [x] Provide Japanese and English user-facing labels.
+- [x] Prioritize recommended and eligible actions.
+- [x] Support explicit optional-deliverable and safe-operation selection.
+- [x] Keep internal DAG/provider/gate/receipt data in secondary diagnostics.
+- [x] Keep project production, integration, build, and delivery actions
   separate.
-- [ ] Verify scenario outcomes rather than checking only headings or columns.
+- [x] Verify scenario outcomes rather than checking only headings or columns.
 
-Phase 45.1 is `IN_PROGRESS`: P45-03 is DONE and P45-04 remains PLANNED. This
-does not start Phase 45.2 or authorize Article 8 publication.
+## Phase Closure
+
+Stage Status:
+
+- Current status: DONE
+- Owner: Phase 45.1 closure
+- Update rule: update this block from the checklist state below.
+- Closure evidence: `P451-PHASE-FULL-REVIEW-001`, its converged focused
+  closure re-review for `CPB-P45-01-001`, and `P451-FINAL-VAL-001` /
+  `40446-20260903T040445Z` (1,707 succeeded, 0 failed, 126 suites; SBT and
+  wrapper 0; lock released).
+
+- [x] Complete a clean mandatory full Phase review, including any required
+      focused re-review.
+- [x] Complete the final full repository validation.
+- [x] Create the distinct local Phase release commit.
+
+Phase 45.1 is `COMPLETE`: P45-03, P45-04, the mandatory Phase review and
+focused closure re-review, and final full validation are DONE. The distinct
+local release commit binds this status. This does not start Phase 45.2 or
+authorize Article 8 publication.

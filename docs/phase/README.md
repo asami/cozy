@@ -117,11 +117,18 @@ Current phase state:
   `P45-FINAL-VAL-011` / `67794-20260902T164202Z` passed 1,695 tests in 126
   suites with 0 failures. Its pre-existing read-only dashboard may show
   selected `article-review-html` as `No action: contract-only in Phase 45`,
-  without a renderer/CLI/output or action capability. Ordered successor
-  `phase-45.1.md` exclusively owns new article/video review projections and
-  the expanded user dashboard/action surface; `phase-45.2.md` then owns
-  localized-artifact alignment, shared-media currentness, and local Article 8
-  acceptance.
+  without a renderer/CLI/output or action capability. Its ordered successor
+  `phase-45.1.md` is now closed for new article/video review projections and
+  the expanded user dashboard/action surface; `phase-45.2.md` remains planned
+  for localized-artifact alignment, shared-media currentness, and local
+  Article 8 acceptance.
+- Most recently closed local phase: `phase-45.1.md`: Document Project Review
+  Projections and User Action Dashboard. It completed P45-03/P45-04, the
+  independent Phase full review and focused closure re-review, and final Cozy
+  validation `P451-FINAL-VAL-001` / `40446-20260903T040445Z` (1,707 succeeded,
+  0 failed, 126 suites; SBT/wrapper 0; lock released). It makes no Phase 45.2,
+  Article 8, publication, deployment, upload, push, provider, or external
+  consumer-acceptance claim.
 - Earlier closed phase: `phase-28.2.md`: SimpleModeling.org Part 5
   Integration and Regression; `AM28-03` and `AM28-04` are complete.
 - Most recent split predecessor: `phase-28.1.md`: WIP Local Article Media
@@ -257,10 +264,10 @@ authoring state and the Content Core candidate/explicit-human-acceptance loop;
 P45-01 and P45-02 are complete. Its pre-existing read-only dashboard may show a selected
 `article-review-html` item as `No action: contract-only in Phase 45`, without
 adding a renderer/CLI/output or action capability. [Phase 45.1](phase-45.1.md)
-exclusively owns new article/video review projections and the expanded user
-dashboard/action surface. [Phase 45.2](phase-45.2.md) then owns localized-
-artifact alignment, shared-media currentness, and Article 8 local acceptance.
-Their canonical ledgers are the matching `-checklist.md` files. The sequence
+is closed locally for new article/video review projections and the expanded
+user dashboard/action surface. [Phase 45.2](phase-45.2.md) remains planned for
+localized-artifact alignment, shared-media currentness, and Article 8 local
+acceptance. Their canonical ledgers are the matching `-checklist.md` files. The sequence
 consumes the closed Phase 41, 42, and 42.1 contracts without retaining
 `cozy.document-project.v1` compatibility. Phase 45.2 needs separate explicit
 authority before adding SimpleModeling.org as an update root; none of the three
