@@ -1617,7 +1617,7 @@ Origin:
 | DEV-006 | User request on 2026-08-26 following the article-summary media workflow review | Establish a common Visual Page contract carrying a typed Logical Pattern and semantic Relation graph, projected separately through Visual Patterns into presentation slides and video Storyboard scene screens with deterministic renderer binding and receipt identity. This supersedes the earlier Markdown-only Slide IR successor proposal. | NEW_PHASE | [Phase 36](../phase/phase-36.md) | RESOLVED |
 | DEV-007 | User request on 2026-08-26 following the ACE product-explanation review | Separate Subject Pattern from Explanation Pattern and deterministically project one logical explanation composition into independent multi-slide and multi-scene sequences through the common Visual Page contract. | NEW_PHASE | [Phase 37](../phase/phase-37.md) | RESOLVED |
 | DEV-008 | User-approved BoK source-boundary decision on 2026-08-28 | Make public SmartDox source, durable media/publication state, generated RDF/graph/Manual/History/UI, and optional non-derived extensions separate authorities; adopt the reorganized `bok-knowledgehub` tree as the driver. | NEW_PHASE | [Phase 38](../phase/phase-38.md) | RESOLVED |
-| DEV-009 | KnowledgeHub architecture article PDF production feedback on 2026-08-28; split approval on 2026-08-29 | Make Cozy PDF command help correct and distinguish LaTeX format from media profile semantics; then make `cozy-launcher` portable across supported working directories. | NEW_PHASE | [Phase 39](../phase/phase-39.md) COMPLETE → [Phase 39.1](../phase/phase-39.1.md) PLANNED | IN PROGRESS |
+| DEV-009 | KnowledgeHub architecture article PDF production feedback on 2026-08-28; split approval on 2026-08-29 | Make Cozy PDF command help correct and distinguish LaTeX format from media profile semantics; then make `cozy-launcher` portable across supported working directories. | NEW_PHASE | [Phase 39](../phase/phase-39.md) COMPLETE → [Phase 39.1](../phase/phase-39.1.md) COMPLETE | RESOLVED |
 | DEV-010 | User request for localized article and summary-slide PDF delivery on 2026-08-29; split approval on 2026-08-29 | Make localized article and summary-slide PDFs reproducible Cozy media-package outputs, keep PPTX internal, then register only accepted PDF roles through SmartDox. | NEW_PHASE | [Phase 40](../phase/phase-40.md) COMPLETE → [Phase 40.1](../phase/phase-40.1.md) COMPLETE | RESOLVED |
 | DEV-011 | User request for an integrated confirmation HTML on 2026-08-29 | Generate one self-contained review HTML that exposes explanation flow, Step-to-Page mapping, per-page logical semantics, and per-page visual structure together without becoming semantic authority. | NEW_PHASE | [Phase 41](../phase/phase-41.md), after Phase 40.1 | RESOLVED |
 | DEV-012 | User decision on 2026-08-29 resolving `P39-DEC-IMAGE-RECEIPT-001` | Implement Markdown image admission in the SmartDox parser/image model and, only if needed, define a separate Cozy PDF receipt contract without reusing `cozy.media.receipt.v2`. | STRATEGY_ITEM | Future explicitly planned SmartDox/Cozy integration Phase | CANDIDATE |
@@ -1633,8 +1633,8 @@ VIS36-06 and Phase 37 LOGIC37-01 through LOGIC37-06 are DONE.
 Phase 38 is closed for the generated BoK knowledge boundary. Phase 39 is
 closed for the Cozy PDF command contract and semantics; Markdown image
 admission and PDF receipt semantics remain deferred to `DEV-012`. Phase 39.1
-is the planned, not-started ordered child for `cozy-launcher` portability and
-does not expand either closed Phase boundary.
+is closed for `cozy-launcher` portability and does not expand either closed
+Phase boundary.
 Phase 40 is closed for localized article and summary-slide PDF
 generation/currentness. Its ordered child Phase 40.1 is closed for normal/WIP
 SmartDox registration; its external Article 8 driver acceptance is the

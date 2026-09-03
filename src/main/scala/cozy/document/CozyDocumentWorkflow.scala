@@ -2,7 +2,7 @@ package cozy.document
 
 /*
  * @since   Aug. 31, 2026
- * @version Aug. 31, 2026
+ * @version Sep.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentWorkflow {

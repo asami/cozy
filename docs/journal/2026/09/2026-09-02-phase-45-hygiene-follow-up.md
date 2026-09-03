@@ -7,7 +7,7 @@ records are separate follow-ups and are not resolved in Phase 45.
 
 ## HYG-P45-001: Refresh Document Project source-history headers
 
-- Status: OPEN
+- Status: RESOLVED
 - Discovery: exceptional Terra xhigh full recovery review
   `P45-RECOVERY-FULL-REVIEW-001`, 2026-09-02.
 - Repository/path: Cozy; `src/main/scala/cozy/document/CozyDocumentWorkflow.scala`
@@ -21,6 +21,13 @@ records are separate follow-ups and are not resolved in Phase 45.
 - Separate follow-up: refresh only the applicable history headers with focused
   diff validation.
 - Phase restriction: do not resolve this record in Phase 45.
+
+Hygiene Triage: HANDED_OFF
+Hygiene ID: HYG-P45-001
+Handoff Journal: cozy:docs/journal/2026/09/2026-09-04-hygiene-resolution-batch-handoff.md
+Handed Off On: 2026-09-04
+Resolution: Hygiene Resolution Batch 2026-09-04; focused review CLEAN and
+serialized full suite HYG-VAL-20260904-001 passed (1,710 succeeded, 0 failed).
 
 ## HYG-P45-002: Reconcile pre-closure Phase 45 status projections
 
