@@ -8,7 +8,7 @@ import CozyExplanationJson._
 /*
  * @since   Aug. 28, 2026
  *  version Aug. 28, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanation {
@@ -164,6 +164,17 @@ private[cozy] object CozyExplanation {
     val catalog = loadCatalog(explanationCatalog)
     val presentation = loadPresentationCatalog(presentationCatalog)
     val composition = _parse_composition(_parse_json(_read_utf8(path, "input"), "input"), "$")
+    val normalized = _validate_composition(composition, catalog, presentation, bindings)
+    val canonical = canonicalCompositionJson(normalized)
+    ValidatedComposition(normalized, canonical, compositionIdentity(normalized), catalog, presentation)
+  }
+
+  private[cozy] def validateComposition(
+    composition: Composition,
+    catalog: ValidatedCatalog,
+    presentation: PresentationCatalog,
+    bindings: ResourceBindings = ResourceBindings()
+  ): ValidatedComposition = {
     val normalized = _validate_composition(composition, catalog, presentation, bindings)
     val canonical = canonicalCompositionJson(normalized)
     ValidatedComposition(normalized, canonical, compositionIdentity(normalized), catalog, presentation)

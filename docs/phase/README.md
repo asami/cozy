@@ -4,6 +4,13 @@ Purpose: engineering work management.
 
 Current phase state:
 
+- Most recent closed phase: `phase-46.md`: Content Core Story Flow and
+  per-unit Explanation Structure are frozen as one typed logical-presentation
+  authority. The accepted handoff preserves the closed Phase 36/37/41/45.*
+  history.
+- Next planned phase: `phase-46.1.md`: it consumes the Phase 46 handoff for
+  slides, video, integrated confirmation HTML, and the Article 8 local
+  acceptance driver. It is planned and not started.
 - Historical closed phase: `phase-34.md`: BoK Metadata Input Admission
   Hardening. CFB3 fixture correction, focused review, and candidate final full
   Cozy test receipt `22693-20260824T094231Z` (`test`, 1,376 succeeded, 0

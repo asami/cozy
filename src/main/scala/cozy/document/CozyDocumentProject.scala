@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep.  3, 2026
+ * @version Sep.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProject {
@@ -29,6 +29,8 @@ private[cozy] object CozyDocumentProject {
   private[cozy] final case class SemanticWorkProduct(id: String, identity: String)
   private[cozy] final case class LocaleVariant(project: String, language: String, contentCore: String, workProducts: Vector[SemanticWorkProduct])
   private[cozy] final case class SemanticScope(id: String, localeVariants: Vector[LocaleVariant])
+  private[cozy] final case class ContentCoreEntry(id: String, text: String)
+  private[cozy] final case class ContentCore(id: String, language: String, accepted: Vector[ContentCoreEntry])
 
   private final case class ProjectRequest(command: String, project: String, operation: Option[String], dryrun: Boolean, kind: Option[String], save: Option[String])
   private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
@@ -336,29 +338,40 @@ private[cozy] object CozyDocumentProject {
   private def _nonempty_identity(value: String): Boolean =
     value.nonEmpty && value == value.trim
 
-  private[cozy] def _validate_core(value: Json, descriptor: Descriptor): Unit = {
+  private[cozy] def validateContentCore(value: Json): ContentCore = _content_core(value, None)
+
+  private def _content_core(value: Json, descriptor: Option[Descriptor]): ContentCore = {
     val fields = _object(value, "Content Core")
     if (fields.keySet != _core_keys)
       _descriptor_failure("Content Core must have exactly schema, id, language, accepted")
     if (_string(fields, "schema", "Content Core") != "cozy.content-core.v1")
       _descriptor_failure("Content Core schema is invalid")
-    if (_string(fields, "id", "Content Core") != s"${descriptor.id}:core:${descriptor.language}")
-      _descriptor_failure("Content Core id is invalid")
-    if (_string(fields, "language", "Content Core") != descriptor.language)
-      _descriptor_failure("Content Core language is invalid")
+    val id = _string(fields, "id", "Content Core")
+    val language = _string(fields, "language", "Content Core")
+    descriptor.foreach { value =>
+      if (id != s"${value.id}:core:${value.language}")
+        _descriptor_failure("Content Core id is invalid")
+      if (language != value.language)
+        _descriptor_failure("Content Core language is invalid")
+    }
     val accepted = _field(fields, "accepted", "Content Core").asArray.getOrElse(_descriptor_failure("Content Core accepted must be an array"))
-    val ids = accepted.map { entry =>
+    val entries = accepted.map { entry =>
       val item = _object(entry, "Content Core accepted entry")
       if (item.keySet != Set("id", "text"))
         _descriptor_failure("Content Core accepted entries must have exactly id and text")
-      val id = _string(item, "id", "Content Core accepted entry")
+      val entryid = _string(item, "id", "Content Core accepted entry")
       val text = _string(item, "text", "Content Core accepted entry")
-      if (!_slug_pattern.pattern.matcher(id).matches() || text.isEmpty || text.trim != text)
+      if (!_slug_pattern.pattern.matcher(entryid).matches() || text.isEmpty || text.trim != text)
         _descriptor_failure("Content Core accepted entry is invalid")
-      id
-    }
-    if (ids.distinct.size != ids.size)
+      ContentCoreEntry(entryid, text)
+    }.toVector
+    if (entries.map(_.id).distinct.size != entries.size)
       _descriptor_failure("Content Core accepted ids must be unique")
+    ContentCore(id, language, entries)
+  }
+
+  private[cozy] def _validate_core(value: Json, descriptor: Descriptor): Unit = {
+    _content_core(value, Some(descriptor))
   }
 
   private def _verify_initial_sources(project: Path): Unit =

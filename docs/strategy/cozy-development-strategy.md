@@ -1528,6 +1528,65 @@ Primary references:
 - `docs/phase/phase-45.2.md`
 - `docs/journal/2026/08/2026-08-30-document-project-content-core-direction.md`
 
+### Phase 46: Content Core Logical Presentation Semantics
+
+Status: complete. Phase 46 followed the closed Phase 45.2 sequence and
+corrected the semantic-traceability gap without reopening its history.
+
+Purpose and boundaries:
+
+- make Content Core explicitly own the complete Story Flow and each local
+  Explanation Structure;
+- reuse Phase 37 Explanation Pattern/ordered Steps and Phase 36 Logical
+  Pattern/semantic-node/typed-Relation contracts rather than introducing a
+  parallel page grammar;
+- carry the whole presentation-semantics boundary through one immutable typed
+  aggregate instead of generic maps or loose multi-parameter handoffs;
+- reject unknown, lossy, unbound, incompatible, or ambiguous semantic content
+  with structured diagnostics rather than success placeholders;
+- freeze a versioned deterministic logical-to-visual Projection Policy and
+  exact identity/currentness inputs; and
+- produce the accepted typed handoff consumed by Phase 46.1.
+
+Phase 46 excludes slide, video, or integrated review rendering; automatic
+semantic inference or acceptance; permanent permissive aliases; publication,
+deployment, upload, push, and external effects. It was implemented as the
+public-contract kernel using `gpt-5.6-terra / xhigh` at the parent boundary and
+lower-cost registered implementation/review roles where the contract was fully
+frozen.
+
+### Phase 46.1: Cross-Media Logical Projection and Article 8 Acceptance
+
+Status: planned; not started. It consumes rather than redefines the accepted
+Phase 46 contract.
+
+Purpose and boundaries:
+
+- project the same Story Steps and Explanation Structures independently into
+  slide Visual Pages and video Storyboard scenes;
+- generate one deterministic self-contained confirmation HTML that exposes
+  Story Flow, local Logical Pattern/Relations, Visual Pattern selection, and
+  article/slide/video mapping together;
+- bind semantic, policy, mapping, renderer, source, asset, and output
+  identities while proving semantic coverage separately from currentness;
+- reject placeholder success for declared semantics that cannot be normalized
+  or projected; and
+- promote and accept the real Article 8 driver without changing Article 7 or
+  earlier content or leaking private Document Project state into public source.
+
+Phase 46.1 is planned as an approximately six-hour lower-cost execution Phase
+using `gpt-5.6-luna / xhigh`, with pinpoint Terra high use only for a genuine
+public-contract ambiguity. It excludes contract redefinition, automatic
+semantic acceptance, publication, registration, deployment, upload, push, and
+external-service mutation.
+
+Primary references:
+
+- `docs/phase/phase-46.md`
+- `docs/phase/phase-46.1.md`
+- `docs/notes/document-project-logical-presentation-projection-specification-proposal.md`
+- `docs/journal/2026/09/2026-09-04-document-project-logical-presentation-projection-decision.md`
+
 ### Phase 31: Video Encoding Policy Profiles
 
 Status: complete; VP31-01 through VP31-03 are complete.
@@ -1625,6 +1684,7 @@ Origin:
 | DEV-014 | User-approved Logical UI direction on 2026-09-01; `docs/journal/2026/09/2026-09-01-logical-ui-model-direction.md` | Establish Application Core and three-layer use-case bindings, project public Component vocabulary into Logical Screen Composition, and generate deterministic Logical UI Review HTML before target-framework generation. | NEW_PHASE | [Phase 43](../phase/phase-43.md), after Phase 42.1 | RESOLVED |
 | DEV-015 | Hygiene Resolution Batch final validation receipt `68771-20260901T211250Z` and causal diagnosis on 2026-09-02 | Make SimpleModeler generation request-isolated and safe for simultaneous different-model execution in one JVM, preserve sequential compatibility, and establish the concurrency contract required by normal Cozy test execution and future Web/service hosting. | NEW_PHASE | [Phase 44](../phase/phase-44.md) COMPLETE | RESOLVED |
 | DEV-016 | Article 8 Document Project review on 2026-09-02; Phase 45 split approved on 2026-09-02 | Complete the user-operable Document Project workflow: Content Core candidate/acceptance loop, first-class article and video review, user-oriented dashboard/action selection, optional deliverables, JA/EN and per-artifact alignment, shared-media currentness, and safe SimpleModeling.org Article 8 projection. | NEW_PHASE | [Phase 45](../phase/phase-45.md) COMPLETE → [Phase 45.1](../phase/phase-45.1.md) COMPLETE → [Phase 45.2](../phase/phase-45.2.md) COMPLETE | RESOLVED |
+| DEV-017 | Article 8 confirmation-HTML semantic-loss diagnosis and user clarification on 2026-09-04 | Make Content Core explicitly own Story Flow and per-unit Explanation Structures, normalize them through shared typed Phase 36/37 contracts, and project the same accepted meaning into slides, video, and an integrated confirmation HTML with semantic-coverage evidence. | NEW_PHASE | [Phase 46](../phase/phase-46.md) COMPLETE → [Phase 46.1](../phase/phase-46.1.md) PLANNED | IN PROGRESS |
 
 ## Current Priority
 
@@ -1673,6 +1733,13 @@ review projections, expanded dashboard/action surface, localized-artifact
 alignment, and safe Article 8 local acceptance. The sequence does not retain
 v1 compatibility and does not authorize publication, deployment, upload, push,
 registration, or external-service mutation.
+
+Phase 46 is closed with the typed Content Core Story Flow and Explanation
+Structure contract plus deterministic Projection Policy/currentness kernel.
+Phase 46.1 is the next planned Document Project phase. It owns slide/video
+projection, integrated confirmation HTML, semantic-coverage receipts, and
+Article 8 local acceptance. It consumes the Phase 46 handoff and does not
+rewrite the accepted Phase 45.* history.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation

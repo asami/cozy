@@ -7,7 +7,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
@@ -187,6 +187,19 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
       case _: Page => _fail("VISUAL_PAGE_EMBEDDED_PAGE_SET", "$.visualPageSet", "embedded migration target must be a Visual Page Set")
       case _: PageSet => _validate_document_source(document, catalog, sourceRoot)
     }
+  }
+
+  private[cozy] def validateVisual(logical: Logical, visual: Visual, catalog: Catalog): Visual = {
+    val pattern = catalog.visualPatterns.find(_.id == visual.pattern).getOrElse(
+      _fail("VISUAL_PAGE_VISUAL_PATTERN", "$.visual.pattern", s"unknown visual pattern: ${visual.pattern}")
+    )
+    if (!pattern.compatibleLogicalPatterns.contains(logical.pattern))
+      _fail("VISUAL_PAGE_VISUAL_COMPATIBILITY", "$.visual.pattern", s"visual pattern ${visual.pattern} is incompatible with ${logical.pattern}")
+    val probe = Page(
+      "presentation-semantics-probe", "presentation-semantics", "en",
+      CatalogReference(catalog.id, catalog.revision), logical, visual, Vector.empty, Vector.empty
+    )
+    _validate_parameters(probe, pattern, logical.nodes.map(_.id).toSet, "$.visual")
   }
 
   private def _validate_document_source(document: Document, catalog: Path, sourceroot: Path): ValidatedDocument = {
