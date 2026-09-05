@@ -10,6 +10,11 @@ Current phase state:
 - Planned phase: `phase-32.md`: CML Source-Result Compatibility Naming.
   It owns only the canonical `Resolved.projectRelativePath` migration and its
   explicit source-compatibility boundary.
+- Planned phase: `phase-33.md`: CML Composite StateMachine and Workflow
+  Modeling. It extends the existing StateMachine model with Composite
+  StateMachine semantics and treats Workflow as a specialization/profile that
+  reuses composite semantics as far as possible. It is coordinated with CNCF
+  Phase 64.
 - Planned split-required phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. The intended workflow is
   `storyboard.md review -> optional image-backed visual-story review ->
@@ -68,3 +73,8 @@ consume later integer phases.
 Phase 30 is a parent planning boundary with `SPLIT_REQUIRED`. Its normative
 Storyboard design/spec and executable child ledgers must be created in Phase
 30.1 through Phase 30.3 before implementation begins.
+
+Phase 33 is driven by the draft contract in
+`docs/notes/cml-composite-statemachine-workflow-proposal.md` and the design
+history in
+`docs/journal/2026/09/2026-09-05-composite-statemachine-workflow-modeling-direction.md`.
