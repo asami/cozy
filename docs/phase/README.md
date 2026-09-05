@@ -8,9 +8,12 @@ Current phase state:
   per-unit Explanation Structure are frozen as one typed logical-presentation
   authority. The accepted handoff preserves the closed Phase 36/37/41/45.*
   history.
-- Next planned phase: `phase-46.1.md`: it consumes the Phase 46 handoff for
-  slides, video, integrated confirmation HTML, and the Article 8 local
-  acceptance driver. It is planned and not started.
+- Current phase: `phase-46.1.md`: it consumes the Phase 46 handoff for
+  Cozy-local slides, video, integrated confirmation HTML, receipts, semantic
+  coverage, review, validation, and release closure. Under
+  `P461-DEC-ROOT-001`, Article 8 driver promotion, acceptance, and confirmation
+  are separately created work and excluded from this Phase. The Phase remains
+  in progress until its local evidence and closure are accepted.
 - Historical closed phase: `phase-34.md`: BoK Metadata Input Admission
   Hardening. CFB3 fixture correction, focused review, and candidate final full
   Cozy test receipt `22693-20260824T094231Z` (`test`, 1,376 succeeded, 0
@@ -289,3 +292,9 @@ authorizes publication, deployment, upload, push, registration, or
 external-service mutation. Their canonical ledgers are the matching
 `-checklist.md` files. The sequence consumes the closed Phase 41, 42, and 42.1
 contracts without retaining `cozy.document-project.v1` compatibility.
+
+Phase 46.1 is limited to Cozy-local slide/video projection,
+confirmation-HTML, receipt, semantic-coverage, review, validation, and release
+closure. Article 8 driver promotion, acceptance, and confirmation are
+separately created work under `P461-DEC-ROOT-001` and are excluded from this
+Phase; no successor Phase is created here.

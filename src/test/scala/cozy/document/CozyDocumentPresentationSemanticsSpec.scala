@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Sep.  4, 2026
- * @version Sep.  4, 2026
+ * @version Sep.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -116,6 +116,77 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
       }
     }
 
+    "cross-media typed projection" should {
+      "derive independently ordered one-to-many slide pages and Storyboard scenes without copying semantic authority" in {
+        Given("a valid typed aggregate whose problem Structure has two reader-facing text items")
+        val fixture = _fixture()
+        val semantics = _replace_visible_text(fixture.semantics, "problem-structure", Vector(
+          "The prior reader path was permissive.",
+          "The typed boundary must retain declared semantics."
+        ))
+        val validated = _validate(fixture.copy(semantics = semantics))
+
+        When("the accepted aggregate is projected into slide pages and Storyboard scenes")
+        val projection = CozyDocumentCrossMediaProjection.project(validated)
+
+        Then("both media retain the same Step, Structure, Logical, claim, reference, and selected medium Visual identities")
+        projection.slidePages.map(_.id) shouldBe Vector("slide-problem-structure-1", "slide-problem-structure-2", "slide-solution-structure-1")
+        projection.storyboardScenes.map(_.id) shouldBe Vector("scene-problem-structure-1", "scene-problem-structure-2", "scene-solution-structure-1")
+        projection.slideMappings.map(_.pageIds) shouldBe Vector(
+          Vector("slide-problem-structure-1", "slide-problem-structure-2"),
+          Vector("slide-solution-structure-1")
+        )
+        projection.videoMappings.map(_.sceneIds) shouldBe Vector(
+          Vector("scene-problem-structure-1", "scene-problem-structure-2"),
+          Vector("scene-solution-structure-1")
+        )
+        projection.slidePages.head.logical shouldBe projection.storyboardScenes.head.logical
+        projection.slidePages.head.claims shouldBe projection.storyboardScenes.head.claims
+        projection.slidePages.head.claims.head.emphasis shouldBe "primary"
+        projection.slidePages.head.visual.pattern shouldBe "flow-horizontal"
+        projection.storyboardScenes.head.visual.pattern shouldBe "flow-horizontal"
+        projection.storyFlow shouldBe validated.storyFlow
+
+        And("the fixed-order result has a stable identity without inferred narration or timing")
+        CozyDocumentCrossMediaProjection.project(validated).identity shouldBe projection.identity
+        projection.storyboardScenes.head.caption shouldBe "The prior reader path was permissive."
+      }
+
+      "reject a Plan Step that has no Structure rather than emitting an empty medium mapping" in {
+        Given("an otherwise valid aggregate that intentionally binds a Structure only to the solution Step")
+        val fixture = _fixture()
+        val structures = fixture.semantics.asObject.get("structures").get.asArray.get.drop(1)
+        val validated = _validate(fixture.copy(semantics = _with_field(fixture.semantics, "structures", Json.fromValues(structures))))
+
+        When("the incomplete aggregate is projected")
+        val failure = _projection_failure(CozyDocumentCrossMediaProjection.project(validated))
+
+        Then("projection completeness fails before a page, scene, or placeholder can be produced")
+        failure.code shouldBe "DP-PROJ-001"
+        failure.reason should include("problem-step")
+      }
+
+      "reject an empty-output Structure even when a sibling Structure covers the same Plan Step" in {
+        Given("a validated aggregate with sibling Structures bound to one Plan Step, one of which has no visible text")
+        val fixture = _fixture()
+        val validated = _validate(fixture)
+        val problemstructure = validated.structures.find(_.id == "problem-structure").get
+        val emptysibling = problemstructure.copy(
+          id = "empty-problem-structure",
+          article = problemstructure.article.copy(visibleText = Vector.empty)
+        )
+        val withsibling = validated.copy(structures = validated.structures :+ emptysibling)
+
+        When("the aggregate is projected into slide pages and Storyboard scenes")
+        val failure = _projection_failure(CozyDocumentCrossMediaProjection.project(withsibling))
+
+        Then("the empty Structure fails atomically instead of being covered by its sibling or replaced with a placeholder")
+        failure.code shouldBe "DP-PROJ-001"
+        failure.path shouldBe "$.slidePages"
+        failure.reason should include("empty-problem-structure")
+      }
+    }
+
     "canonical and currentness identity" should {
       "change for v1 Core, v2 semantics, Composition, catalog, policy, and declared source or asset identity changes" in {
         Given("a self-contained fixture and independently changed contract inputs")
@@ -195,6 +266,9 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
 
   private def _failure(body: => Any): CozyDocumentPresentationSemantics.PresentationSemanticsFault =
     intercept[CozyDocumentPresentationSemantics.PresentationSemanticsFault](body)
+
+  private def _projection_failure(body: => Any): CozyDocumentCrossMediaProjection.ProjectionFault =
+    intercept[CozyDocumentCrossMediaProjection.ProjectionFault](body)
 
   private def _semantics(corebytes: Array[Byte], composition: CozyExplanation.Composition, original: Json = Json.Null): Json = {
     val base = Json.fromFields(Vector(
@@ -386,6 +460,16 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         "article" -> Json.fromFields(article.asObject.get.toVector.map { case (name, item) => if (name == oldname) newname -> item else name -> item })
       case field => field
     })
+  }
+
+  private def _replace_visible_text(value: Json, structureid: String, text: Vector[String]): Json = _map_structures(value) { structure =>
+    if (structure.asObject.get("id").flatMap(_.asString).contains(structureid)) {
+      val fields = structure.asObject.get
+      Json.fromFields(fields.toVector.map {
+        case ("article", article) => "article" -> _with_field(article, "visibleText", Json.fromValues(text.map(Json.fromString)))
+        case field => field
+      })
+    } else structure
   }
 
   private def _duplicate_structure_id(value: Json): Json = _map_structures(value) { structure => _with_field(structure, "id", Json.fromString("problem-structure")) }
