@@ -1,282 +1,231 @@
-# Phase 33.1 - CML Action Transaction and Compensation Semantics
+# Phase 33.1 - CML Action Transaction, Compensation Handler, and Recovery Semantics
 
 Status: planned
 Planned at: 2026-09-05
+Revised at: 2026-09-05
 Parent: [Phase 33 - CML Composite StateMachine and Workflow Modeling](phase-33.md)
 Cross-repository consumer: `asami/goldenport-cncf` Phase 64.1
 
 ## Purpose
 
-Define how CML StateMachine and Composite StateMachine actions express logical
-effects whose runtime execution may use a local transaction, a distributed
-transaction such as 2PC, or compensation when atomic distributed commit is not
-available.
+Define the model-level information needed to compile CML StateMachine and
+Composite StateMachine actions onto CNCF's existing Free × UnitOfWork execution
+model while keeping business compensation explicit and application-owned.
 
-This phase extends the Phase 33 typed Action Program direction without turning
-CML into a transaction-manager DSL.
-
-The governing architecture is:
+The selected execution contract is:
 
 ```text
-CML StateMachine / Composite StateMachine actions
-        |
-        v
-Typed Action Algebra
-        |
-        v
-Free / inspectable Action Program
-        |
-        v
-Generated effect semantics
-        |
-        v
-CNCF Planner / Interpreter
-   +----+-----------------------+
-   |                            |
-   v                            v
-atomic transaction       non-atomic execution
-(local / 2PC)             + compensation/recovery
+CML logical actions
+  -> compile to ExecProgram[UnitOfWorkOp, A]
+  -> CNCF UnitOfWork
+       failure before commit -> complete rollback
+       commit -> external effects may follow
+                  |
+                  +-> explicit application compensation handler when required
+                         failure -> CNCF durable RecoveryRequired event
+                                    containing original UnitOfWorkId
 ```
 
-## Core Decision
+CML must not become a transaction manager, Saga engine, or manual-recovery DSL.
 
-StateMachine action programs are composed before interpretation.
+## Core Decisions
 
-For an atomic execution boundary, all admitted actions and the state transition
-succeed or the entire transition aborts.
+- CML logical actions compile onto the existing CNCF `UnitOfWorkOp` execution
+  algebra; no parallel StateMachine-specific execution algebra is introduced.
+- Actions that participate in one CNCF UnitOfWork inherit its complete atomic
+  rollback semantics.
+- 2PC is optional runtime capability for enlarging an atomic boundary; CML may
+  express a logical atomicity requirement but does not name JTA/XA/provider
+  mechanics.
+- Effects outside the committed UnitOfWork are not modeled as technically
+  rollbackable merely because a business reversal may exist.
+- Business compensation is application logic implemented as an explicit
+  compensation handler/program registered for a logical action/effect.
+- CML may carry the stable reference/identity needed to associate an action with
+  its compensation handler, but does not synthesize the handler body.
+- A compensation handler may fail. CNCF then durably emits/persists a
+  `RecoveryRequired` event containing the original `UnitOfWorkId`.
+- The business/manual recovery procedure after that durable event is outside
+  CML semantics.
+- Committed StateMachine transitions remain history. A business reversal is a
+  new explicit transition/action, never history erasure.
 
-For effects that cannot participate in the same atomic transaction, CML must
-carry enough logical semantics for CNCF to select a reliable execution model.
-The model must distinguish at least these cases conceptually:
+## Minimal Action Metadata
 
-```text
-Atomic
-  local transaction
-
-DistributedAtomic
-  2PC-capable participant(s)
-
-Compensatable
-  forward action + explicit compensation action
-
-Irreversible
-  externally visible effect with no semantic inverse
-```
-
-The exact CML syntax and final names remain open. These are semantic classes,
-not provider-specific transaction APIs.
-
-## Design Principles
-
-- CML expresses logical effect semantics, not JDBC/JTA/XA/provider mechanics.
-- A Free Action Program is an execution-independent description, not itself a
-  transaction.
-- Local atomic actions are interpreted inside the StateMachine UnitOfWork.
-- 2PC may be used when all required participants and the configured runtime
-  support it; CML must not assume 2PC availability.
-- Where atomic distributed commit is unavailable, a forward action may declare
-  a compensation action when semantic reversal is possible.
-- Compensation is not rollback. It is a new explicit action executed after a
-  prior effect has committed.
-- Irreversible actions must be modeled as such; the system must not pretend they
-  can be rolled back.
-- Constituent and composite actions use the same effect model and can coexist in
-  one logical composed program.
-- Transaction/effect semantics must remain inspectable for validation,
-  simulation, review, and generation.
-
-## Proposed Semantic Model
-
-Conceptually:
+For v1, keep Action metadata small and semantic:
 
 ```text
-ActionDefinition
-  id
+ActionMetadata
+  actionId
   effectClass
-  operation
-  compensation?       // for compensatable actions
-  idempotency?        // semantic requirement/capability
-  sourceLocation
+  transactionRequirement
+  idempotency
+  compensationHandlerRef?
+  ordering / provenance
 ```
 
-Candidate effect classes:
+Interpretation:
+
+- `actionId`: stable logical action identity;
+- `effectClass`: at minimum distinguishes local versus externally visible
+  effect where this is part of model meaning;
+- `transactionRequirement`: logical atomicity requirement, without provider
+  configuration;
+- `idempotency`: semantic requirement/key contract needed for safe re-execution;
+- `compensationHandlerRef`: optional stable application handler reference for an
+  external effect requiring business reversal;
+- `ordering/provenance`: causal placement and constituent/composite source.
+
+Retry counts, backoff, timeout, circuit breakers, transport tuning, and provider
+transaction configuration are CNCF runtime policy rather than CML semantics.
+
+A separate reversibility enum is not required for v1. Operationally:
 
 ```text
-AtomicLocal
-DistributedAtomic
-Compensatable
-Irreversible
+inside admitted UnitOfWork -> rollbackable by atomic transaction
+outside UnitOfWork + handler -> application-compensatable
+outside UnitOfWork + no handler -> no automatic business compensation
 ```
-
-This is intentionally provisional. A later design may separate transaction
-participation capability from reversibility rather than encode both in one
-enum. Phase 33.1 must evaluate that alternative explicitly.
-
-A more orthogonal model may be preferable:
-
-```text
-ActionEffectSemantics
-  transactionCapability:
-    local | twoPhaseCapable | none
-
-  reversibility:
-    rollback | compensate(actionRef) | irreversible
-```
-
-The phase should prefer orthogonal concepts if they avoid invalid combinations
-and preserve provider neutrality.
 
 ## StateMachine Atomicity
 
-For actions admitted to one atomic boundary:
+For an admitted UnitOfWork:
 
 ```text
 select transition
-  -> construct candidate state
-  -> compose local actions
-  -> interpret inside UnitOfWork / distributed atomic boundary
-  -> persist state
-  -> commit all
+  -> candidate state
+  -> compile/compose logical actions
+  -> ExecProgram[UnitOfWorkOp, A]
+  -> UnitOfWork interpretation
+  -> persist state/local effects
+  -> commit
 ```
 
-Any pre-commit error aborts the full transition:
+Any pre-commit error causes complete rollback:
 
 ```text
-action failure
-  -> abort
-  -> no state commit
-  -> no CommittedTransition
+failure
+  -> no partial local commit
+  -> no successful CommittedTransition occurrence
 ```
 
-This invariant is part of StateMachine semantics, not merely an implementation
-optimization.
+This is the default technical consistency mechanism and is preferred over
+compensation whenever the effects can participate in the same atomic boundary.
 
-## 2PC Semantics
+## Optional 2PC Semantics
 
-2PC is an optional runtime realization for a logical atomic segment.
+When the model requires distributed atomicity, generated metadata must allow
+CNCF to check whether all required participants can join an admitted 2PC or
+equivalent atomic protocol.
 
-CML should not name XA resources, transaction managers, or provider APIs.
-Instead, generated metadata should allow CNCF to verify at admission/planning
-whether all actions assigned to a distributed-atomic segment can actually join
-one 2PC transaction.
+If not, admission fails. The model is never silently weakened into best-effort
+execution.
 
-If the model requires distributed atomicity and the runtime cannot provide it,
-admission must fail. The runtime must not silently downgrade the semantics to
-best-effort after-commit execution.
+CML does not contain transaction-manager or resource-manager configuration.
 
-## Compensation Semantics
+## Compensation Handler Semantics
 
-When a logical effect cannot participate in the atomic transaction, the model
-may define an explicit compensation.
+A compensation handler is an implementation-level application program associated
+with a logical external action/effect.
 
 Conceptually:
 
 ```text
-forward: ReserveInventory
-compensate: ReleaseInventory
+logical action: reserveShipment
+compensationHandlerRef: cancelShipmentReservation
 ```
 
-Compensation requirements:
+The handler itself should execute through normal CNCF facilities and can compile
+or return an `ExecProgram[UnitOfWorkOp, CompensationResult]`.
 
-- compensation has its own stable action identity;
-- compensation is itself a normal typed Action Program/action definition;
-- compensation may fail and therefore needs retry/recovery semantics;
-- compensation ordering for multiple completed effects is deterministic,
-  normally reverse causal order unless explicitly modeled otherwise;
-- compensation must be idempotent or have an explicit deduplication contract;
-- the model must not claim exact restoration when compensation is only
-  semantically approximate;
-- compensating an external effect does not erase the historical fact that the
-  forward effect occurred.
+CML/Cozy responsibilities are limited to stable semantic association and
+validation that a required reference resolves in the generated/application
+contract. The actual business recovery algorithm belongs to application code.
 
-## Irreversible Effects
+No automatic reverse-order Saga chain is required by v1. Applications may
+compose their own compensation programs where appropriate.
 
-Examples such as sending an email or notifying an external party may have no
-meaningful compensation.
+## Compensation Failure / Recovery Boundary
 
-Such actions must be explicit in the model/effect analysis. Their placement in a
-transition path should generate diagnostics when later failure could leave the
-system in a business state requiring recovery or human intervention.
+CML must assume that compensation can fail.
 
-Irreversible does not mean forbidden. It means the model and runtime must expose
-the recovery boundary honestly.
+The CNCF contract is:
+
+```text
+compensation handler failure
+  -> durable RecoveryRequired
+       unitOfWorkId = original committed UoW
+       + correlation/causation and occurrence references
+```
+
+CML does not define how an administrator repairs the business situation. It may
+provide human-readable documentation/reference metadata, but recovery procedure
+semantics are owned by the application/operations layer.
 
 ## Composite StateMachine Interaction
 
-Actions may be attached to both constituent and derived composite transitions.
-Their logical programs are composed in causal order, while transaction planning
-is performed afterward.
+Constituent and composite actions compile to the same existing UnitOfWork
+program model and preserve deterministic causal ordering/provenance.
 
-```text
-constituent Action Program
-        *>
-composite Action Program
-        |
-        v
-logical combined program
-        |
-        v
-effect/transaction planner
-```
-
-The planner must not assume the whole combined program is one transaction.
-Instead it derives atomic segments and durable boundaries from generated effect
-semantics and runtime capability.
+Whether actions can share one UnitOfWork depends on the admitted execution plan
+and runtime capabilities. External effects are not moved inside an atomic
+boundary merely to simplify the model.
 
 ## Static Analysis
 
 Cozy/SimpleModeler should detect, where possible:
 
-- compensation references that do not resolve;
-- compensation cycles;
-- invalid compensation signatures/contracts;
-- logically irreversible action placed before a required atomic decision;
-- a declared distributed-atomic requirement containing an action that cannot
-  support the required capability;
-- duplicate constituent/composite effects with conflicting compensation;
-- action paths whose failure semantics are underspecified;
-- non-idempotent compensation on retryable recovery paths;
-- contradictory effect metadata.
+- unknown action identities;
+- unresolved compensation handler references where declared;
+- duplicate/conflicting logical actions at constituent/composite levels;
+- incompatible transaction requirements;
+- unsafe idempotency declarations on retryable/recovery paths;
+- external effects whose failure path has neither explicit application
+  compensation nor an acknowledged manual-recovery boundary;
+- ordering/provenance cycles; and
+- model metadata that incorrectly implies rollback of an external committed
+  effect.
 
-Provider capability is runtime-specific and is checked again by CNCF admission.
+Provider capability remains a CNCF admission concern.
 
 ## Work Stack
 
 | ID | Stage | Outcome | Status |
 | --- | --- | --- | --- |
-| ACTX-01 | Existing action/transaction inventory | Current CML actions, CNCF UnitOfWork assumptions, external-effect conventions, and any existing compensation metadata are inventoried. | planned |
-| ACTX-02 | Effect semantic model | Provider-neutral transaction capability, reversibility, compensation, and irreversibility semantics are frozen. | planned |
-| ACTX-03 | Action/compensation grammar | CML syntax for effect semantics and compensation references is defined without exposing runtime transaction APIs. | planned |
-| ACTX-04 | Static validation | Compensation graph, capability consistency, idempotency/recovery hazards, and irreversible-boundary diagnostics are implemented. | planned |
-| ACTX-05 | Generation | Typed Action Program metadata preserves effect semantics and compensation relations deterministically. | planned |
-| ACTX-06 | CNCF handoff | Generated contracts align with CNCF Phase 64.1 planner/interpreter admission and recovery semantics. | planned |
-| ACTX-07 | Acceptance | Real CML proves local atomic abort, optional 2PC admission, compensatable external effect, compensation failure/retry, and irreversible-effect diagnostics. | planned |
+| ACTX-01 | Existing execution inventory | Current CML actions and CNCF Free/`UnitOfWorkOp`/UnitOfWork semantics are inventoried. | planned |
+| ACTX-02 | Minimal metadata contract | `actionId`, effect class, transaction requirement, idempotency, compensation handler reference, and ordering/provenance are frozen. | planned |
+| ACTX-03 | Compensation handler binding | Stable CML/generated association to application compensation handler is defined without embedding handler implementation. | planned |
+| ACTX-04 | Static validation | Handler resolution, transaction consistency, idempotency, external-effect recovery boundary, and ordering checks are implemented where tractable. | planned |
+| ACTX-05 | Generation | Metadata and handler references compile deterministically alongside the existing UnitOfWork program binding. | planned |
+| ACTX-06 | CNCF handoff | Generated contracts align with CNCF Phase 64.1 complete rollback and RecoveryRequired semantics. | planned |
+| ACTX-07 | Acceptance | Real CML proves local rollback, optional 2PC admission, handler success/failure, and durable recovery escalation. | planned |
 
 ## Acceptance
 
-- Local actions plus state mutation abort atomically on interpreter failure.
-- A model requiring distributed atomicity cannot run when the configured CNCF
-  runtime lacks the required 2PC-capable participants.
-- A compensatable action carries an explicit typed compensation relation.
-- Forward and compensation actions remain distinct historical occurrences.
-- Compensation failure is observable and recoverable rather than hidden.
-- Irreversible actions are represented honestly and can trigger model/review
-  diagnostics.
-- Constituent and composite actions share one typed effect model.
-- Generated metadata remains provider-neutral.
-- CNCF can construct an execution plan without reverse-engineering CML meaning.
+- Local StateMachine actions plus state mutation inherit complete CNCF UnitOfWork
+  rollback on pre-commit failure.
+- Required distributed atomicity cannot silently downgrade.
+- External business compensation is represented by an explicit application
+  compensation handler reference, not an automatically synthesized inverse.
+- Compensation handler failure is expected and maps to CNCF durable
+  `RecoveryRequired` with original `UnitOfWorkId`.
+- CML does not own the administrator/manual recovery procedure.
+- Committed transitions remain immutable historical facts.
+- Minimal Action metadata survives generation without provider-specific runtime
+  policy leakage.
 
 ## Non-Goals
 
+- A second Action execution algebra beside `UnitOfWorkOp`.
+- Automatic Saga compensation-chain synthesis.
+- Embedding compensation handler implementation code in CML.
 - Embedding JTA/XA/provider configuration in CML.
-- Pretending every external action is rollbackable.
-- Automatically synthesizing business compensations from technical inverses.
-- A full Saga language independent of StateMachine/Composite StateMachine.
-- Hiding compensation or irreversible-effect failures from model review.
+- Modeling manual administrator recovery workflow in CML core semantics.
+- Rewriting committed transition history.
 
 ## References
 
 - `docs/phase/phase-33.md`
+- `docs/phase/phase-33.2.md`
 - `docs/notes/cml-action-transaction-compensation-proposal.md`
-- `docs/notes/cml-composite-statemachine-workflow-proposal.md`
 - `asami/goldenport-cncf/docs/phase/phase-64.1.md`
