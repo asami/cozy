@@ -34,6 +34,10 @@ Current notes:
 - `document-project-workflow-management-specification-proposal.md`: Phase 42
   proposal for Document Project scaffold, workflow instances, first-class Work
   Products, evidence-derived progress, attempt history, and dashboard views.
+- `document-project-logical-presentation-projection-specification-proposal.md`:
+  Phase 46/46.1 proposal for Content Core Story Flow and per-unit Explanation
+  Structures, typed Visual Page/Storyboard projection, and one integrated
+  confirmation HTML.
 - `scalar-entity-persistence-roundtrip-implementation-proposal.md`: proposed
   Phase 23 implementation boundary, reproduction gates, generated-reader
   change points, and Entity lifecycle verification matrix.

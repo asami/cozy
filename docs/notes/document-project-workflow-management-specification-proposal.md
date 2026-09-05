@@ -16,6 +16,16 @@ The proposal refines
 Phase 42 owns its first implementation boundary. Normative design and
 specification must be frozen in Phase 42 before implementation.
 
+2026-09-04 refinement: the original Work Product model does not by itself
+specify how Content Core carries the complete Story Flow and each local
+Explanation Structure into slides and video. That successor contract is
+proposed in
+`document-project-logical-presentation-projection-specification-proposal.md`
+and planned for Phase 46/46.1. Where the older text describes a page-oriented
+Visual Page source as article-review authority, the successor proposal makes
+Content Core the shared semantic authority and Visual Page/Storyboard typed
+medium projections.
+
 ## Selected model
 
 A Document Project selects a reusable Workflow Definition and derives one
