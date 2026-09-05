@@ -130,6 +130,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         val projection = CozyDocumentCrossMediaProjection.project(validated)
 
         Then("both media retain the same Step, Structure, Logical, claim, reference, and selected medium Visual identities")
+        projection.contentCoreId shouldBe "article-8:core:en"
         projection.slidePages.map(_.id) shouldBe Vector("slide-problem-structure-1", "slide-problem-structure-2", "slide-solution-structure-1")
         projection.storyboardScenes.map(_.id) shouldBe Vector("scene-problem-structure-1", "scene-problem-structure-2", "scene-solution-structure-1")
         projection.slideMappings.map(_.pageIds) shouldBe Vector(
@@ -184,6 +185,59 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         failure.code shouldBe "DP-PROJ-001"
         failure.path shouldBe "$.slidePages"
         failure.reason should include("empty-problem-structure")
+      }
+    }
+
+    "cross-media confirmation HTML" should {
+      "render deterministic UTF-8 bytes with Story Flow before structure details and a matching identity" in {
+        Given("a valid typed cross-media projection with a transition and both media mappings")
+        val projection = CozyDocumentCrossMediaProjection.project(_validate(_fixture()))
+
+        When("the typed projection is rendered twice as confirmation HTML")
+        val first = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+        val second = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+
+        Then("the HTML bytes and their SHA-256 identity remain exactly equal")
+        first shouldBe second
+        first.identity shouldBe "sha256:" + _sha256(first.html.getBytes(StandardCharsets.UTF_8))
+        first.html should include("<!doctype html>")
+        first.html should include("<html lang=\"en\">")
+        first.html.indexOf("id=\"story-flow-overview-heading\"") should be < first.html.indexOf("id=\"article-section-problem-structure\"")
+        first.html should include("problem-causes-solution")
+        first.html should include("slide-problem-structure-1")
+        first.html should include("scene-problem-structure-1")
+        first.html should include("Unprojected content: none.")
+        first.html should include("Content Core ID")
+        first.html should include("article-8:core:en")
+        first.html should include("primary")
+        first.html should include("source")
+        first.html should include("asset")
+        first.html should include("flow-horizontal")
+        first.html should include("showRelationLabels")
+        first.html should include("boolean:true")
+        first.html should include("no narration, timing, transition, animation, layout, or external renderer instructions")
+        first.html should include("<th scope=\"col\">")
+      }
+
+      "separate reader, reviewer, and production sections while escaping all projected text" in {
+        Given("a valid projection whose reader-facing text contains HTML-significant characters")
+        val fixture = _fixture()
+        val semantics = _replace_visible_text(fixture.semantics, "problem-structure", Vector("<unsafe & \"quoted\" 'text'>"))
+        val projection = CozyDocumentCrossMediaProjection.project(_validate(fixture.copy(semantics = semantics)))
+
+        When("the projection is rendered as self-contained confirmation HTML")
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+
+        Then("reader content, reviewer diagnostics, and production metadata are distinct and escaped")
+        rendered.html should include("id=\"reader-facing-content\"")
+        rendered.html should include("id=\"reviewer-diagnostics\"")
+        rendered.html should include("id=\"production-metadata\"")
+        rendered.html should include("&lt;unsafe &amp; &quot;quoted&quot; &#39;text&#39;&gt;")
+        rendered.html should not include("<unsafe")
+        rendered.html.toLowerCase should not include("<script")
+        rendered.html should not include("http://")
+        rendered.html should not include("https://")
+        rendered.html should not include("<link")
       }
     }
 
@@ -341,6 +395,8 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
 
   private def _composition(sourcehash: String, assethash: String): CozyExplanation.Composition = {
     val none = Vector.empty[String]
+    val sources = Vector("source")
+    val assets = Vector("asset")
     val facts = Vector(
       CozyExplanation.Fact("name", CozyExplanation.JsonString("Cozy"), none, none),
       CozyExplanation.Fact("vision", CozyExplanation.JsonString("Make presentation semantics explicit"), none, none),
@@ -355,12 +411,12 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
       CozyExplanation.Fact("mechanisms", CozyExplanation.JsonArray(Vector(_labeled("mechanism", "Typed validation"))), none, none)
     )
     val problem = CozyExplanation.CompositionStep(
-      "problem-step", 1, "problem", Vector(CozyExplanation.Claim("problem-claim", "The prior reader path was permissive.", "primary", none, none)),
-      _sequence(), none, none, Vector(CozyExplanation.ParameterSelection("problem"))
+      "problem-step", 1, "problem", Vector(CozyExplanation.Claim("problem-claim", "The prior reader path was permissive.", "primary", sources, assets)),
+      _sequence(), sources, assets, Vector(CozyExplanation.ParameterSelection("problem"))
     )
     val solution = CozyExplanation.CompositionStep(
-      "solution-step", 2, "solution", Vector(CozyExplanation.Claim("solution-claim", "The typed path preserves declared content.", "primary", none, none)),
-      _causal(), none, none, Vector(CozyExplanation.ParameterSelection("solution"))
+      "solution-step", 2, "solution", Vector(CozyExplanation.Claim("solution-claim", "The typed path preserves declared content.", "primary", sources, assets)),
+      _causal(), sources, assets, Vector(CozyExplanation.ParameterSelection("solution"))
     )
     CozyExplanation.Composition(
       "article-composition",

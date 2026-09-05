@@ -28,12 +28,16 @@ the exact Step path set.
 
 ## PROJECT46-02: Integrated confirmation HTML
 
-- [ ] Show the complete Story Flow and typed transitions first.
-- [ ] Show each local Logical Pattern, node, Relation, Visual Pattern, and
+- [x] Show the complete Story Flow and typed transitions first.
+- [x] Show each local Logical Pattern, node, Relation, Visual Pattern, and
   important typed parameter.
-- [ ] Show core/article/slide/video traceability and unprojected content.
-- [ ] Separate reader content, reviewer diagnostics, and production metadata.
-- [ ] Prove deterministic, self-contained, accessible output.
+- [x] Show core/article/slide/video traceability and unprojected content.
+- [x] Separate reader content, reviewer diagnostics, and production metadata.
+- [x] Prove deterministic, self-contained, accessible output.
+
+Closure basis: `PROJECT46-02A-confirmation-html` passed independent Step review
+and focused `CozyDocumentPresentationSemanticsSpec` validation (10 succeeded,
+0 failed). The associated acceptance commit binds this exact reviewed Step.
 
 ## PROJECT46-03: Receipts and semantic coverage
 

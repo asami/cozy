@@ -37,7 +37,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: COMPLETE
 - Owner: deterministic cross-media review projection
 - Update rule: complete only when Story Flow, local logical structure, visual
   selection, cross-media mapping, diagnostics, and currentness are visible.
@@ -51,6 +51,12 @@ Stage Status:
   instructions.
 - Generate deterministic, self-contained, accessible HTML without external
   CDN, font, script, or service dependencies.
+
+Closure basis: `PROJECT46-02A-confirmation-html` passed independent Step review
+and focused `CozyDocumentPresentationSemanticsSpec` validation (10 succeeded,
+0 failed). This acceptance commit binds the reviewed confirmation HTML,
+projection identity, executable specification, and supporting specification and
+design to the exact Step path set.
 
 ## PROJECT46-03: Receipts and semantic coverage
 

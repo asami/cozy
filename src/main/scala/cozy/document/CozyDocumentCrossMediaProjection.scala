@@ -38,6 +38,7 @@ private[cozy] object CozyDocumentCrossMediaProjection {
   final case class SlideStepMapping(storyStepId: String, pageIds: Vector[String])
   final case class VideoStepMapping(storyStepId: String, sceneIds: Vector[String])
   final case class Projection(
+    contentCoreId: String,
     semanticIdentity: String,
     currentnessIdentity: String,
     storyFlow: CozyDocumentPresentationSemantics.StoryFlow,
@@ -79,7 +80,7 @@ private[cozy] object CozyDocumentCrossMediaProjection {
     val slidemappings = steps.map(step => SlideStepMapping(step.id, pages.filter(_.storyStepId == step.id).map(_.id)))
     val videomappings = steps.map(step => VideoStepMapping(step.id, scenes.filter(_.storyStepId == step.id).map(_.id)))
     _validate(value, pages, scenes, slidemappings, videomappings)
-    val provisional = Projection(value.semanticIdentity, value.currentnessIdentity, value.storyFlow, pages, scenes, slidemappings, videomappings, "")
+    val provisional = Projection(value.contentCore.id, value.semanticIdentity, value.currentnessIdentity, value.storyFlow, pages, scenes, slidemappings, videomappings, "")
     provisional.copy(identity = projectionIdentity(provisional))
   }
 
@@ -136,6 +137,7 @@ private[cozy] object CozyDocumentCrossMediaProjection {
 
   private def _projection_value(value: Projection, includeidentity: Boolean): Json = {
     val fields = Vector(
+      "contentCoreId" -> Json.fromString(value.contentCoreId),
       "semanticIdentity" -> Json.fromString(value.semanticIdentity),
       "currentnessIdentity" -> Json.fromString(value.currentnessIdentity),
       "storyFlow" -> _story_flow_value(value.storyFlow),
