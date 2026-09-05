@@ -22,10 +22,15 @@ semantic-model redesign.
 Make **Document Project Presentation Semantics Operational Integration** the
 next Cozy development item.
 
-The first implementation entry point is the existing Document Project scaffold.
-A newly scaffolded project using an applicable profile must receive the
-Phase-46 presentation-semantics authoring surface and must expose its state and
-dependencies through the normal Document Project workflow.
+The work is split so the scaffold entry point is implemented first as
+**Phase 48: Document Project Presentation Semantics Scaffold**. Phase 47 is
+already reserved for CML Composite StateMachine and Workflow Modeling and is
+unrelated to this work.
+
+Phase 48 owns only the scaffold and generated presentation-semantics authoring
+surface. Workflow/state registration, inspect/plan/verify/dashboard integration,
+and public cross-media confirmation routing remain successor work under the
+same development item.
 
 The implementation must reuse the closed
 `cozy.content-core.presentation-semantics.v2` contract and the Phase 46.1
@@ -54,16 +59,16 @@ make strict validation pass.
 ## Workflow direction
 
 Presentation Semantics becomes a first-class authority Work Product between
-Content Core and article/slide/video production. Existing `inspect`, `plan`,
-`verify`, and Dashboard surfaces should expose its readiness, stale state,
-diagnostics, and next action.
+Content Core and article/slide/video production in successor work after Phase
+48. Existing `inspect`, `plan`, `verify`, and Dashboard surfaces should then
+expose its readiness, stale state, diagnostics, and next action.
 
 The closed Phase 46 `DP-SEM-*` diagnostics remain authoritative once semantic
 content is present. No permissive compatibility validator is introduced.
 
-The Phase 46.1 integrated cross-media confirmation becomes reachable through a
-normal Document Project operation/review surface. It remains distinct from the
-article-specific `article-review.html`.
+The Phase 46.1 integrated cross-media confirmation also becomes reachable
+through a normal Document Project operation/review surface in successor work.
+It remains distinct from the article-specific `article-review.html`.
 
 ## Article 9 driver
 
@@ -71,7 +76,8 @@ SimpleModeling.org Article 9 is the first intended real production driver.
 Article 8 remains the defect-discovery/reference case and does not need to be
 retrofitted merely to validate the successor workflow.
 
-Article 9 acceptance should prove the complete path:
+Phase 48 uses an Article 9-style project only to prove scaffold readiness. Full
+Article 9 acceptance should later prove the complete path:
 
 ```text
 scaffold
@@ -98,3 +104,8 @@ migrate Article 8 and earlier articles.
 Detailed proposal:
 
 `docs/notes/document-project-presentation-semantics-operational-integration-specification-proposal.md`
+
+Phase 48 records:
+
+- `docs/phase/phase-48.md`
+- `docs/phase/phase-48-checklist.md`
