@@ -16,11 +16,15 @@ receipt. Currentness compares receipt bindings in fixed order and returns a
 precise stale reason without changing state.
 
 Coverage is a separate typed verification over Validated, Projection, and
-Rendered. It checks Plan Step mappings, Structure mappings, mapped IDs in the
-confirmation HTML, duplicate or missing values, and values not declared by
-Validated. Its structured diagnostics distinguish missing, ambiguous,
-incompatible, and unprojected content. This separation intentionally allows
-receipt identity/currentness and semantic coverage to fail independently.
+Rendered. It checks Plan Step mappings, Structure mappings, each page and
+scene's Structure-to-Step association, mapped IDs in the confirmation HTML,
+duplicate or missing values, and values not declared by Validated. A valid
+Structure ID on a page or scene must retain the Structure's declared
+`storyStepId`; a mismatch produces a deterministic `DP-COV-INCOMPATIBLE`
+diagnostic on that media association path. Its structured diagnostics
+distinguish missing, ambiguous, incompatible, and unprojected content. This
+separation intentionally allows receipt identity/currentness and semantic
+coverage to fail independently.
 
 The boundary does not render PowerPoint or video, read or write files, parse
 untyped input, persist receipts, or make publication, Article 8, or external

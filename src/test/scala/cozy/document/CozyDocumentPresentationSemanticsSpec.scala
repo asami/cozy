@@ -331,6 +331,49 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         coverage.diagnostics shouldBe Vector.empty
       }
 
+      "reject valid Structure IDs associated with another Plan Step in both media projections" in {
+        Given("a complete Projection whose valid Structure IDs are swapped across the two Plan Steps in pages and scenes")
+        val validated = _validate(_fixture())
+        val projection = CozyDocumentCrossMediaProjection.project(validated)
+        val swappedprojection = projection.copy(
+          slidePages = projection.slidePages.map { page =>
+            page.copy(structureId = if (page.structureId == "problem-structure") "solution-structure" else "problem-structure")
+          },
+          storyboardScenes = projection.storyboardScenes.map { scene =>
+            scene.copy(structureId = if (scene.structureId == "problem-structure") "solution-structure" else "problem-structure")
+          }
+        )
+
+        When("the modified Projection is rendered and typed semantic coverage is verified")
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(swappedprojection)
+        val coverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, swappedprojection, rendered)
+
+        Then("coverage is unsatisfied with deterministic incompatible Structure-to-Step diagnostics for both media")
+        coverage.satisfied shouldBe false
+        coverage.diagnostics.filter(_.code == "DP-COV-INCOMPATIBLE") shouldBe Vector(
+          CozyDocumentCrossMediaReceipt.CoverageDiagnostic(
+            "DP-COV-INCOMPATIBLE",
+            "$.slidePages.slide-solution-structure-1.structureId",
+            "slide page slide-solution-structure-1 associates Structure problem-structure with Plan Step solution-step; declared Structure Plan Step is problem-step"
+          ),
+          CozyDocumentCrossMediaReceipt.CoverageDiagnostic(
+            "DP-COV-INCOMPATIBLE",
+            "$.storyboardScenes.scene-solution-structure-1.structureId",
+            "video scene scene-solution-structure-1 associates Structure problem-structure with Plan Step solution-step; declared Structure Plan Step is problem-step"
+          ),
+          CozyDocumentCrossMediaReceipt.CoverageDiagnostic(
+            "DP-COV-INCOMPATIBLE",
+            "$.slidePages.slide-problem-structure-1.structureId",
+            "slide page slide-problem-structure-1 associates Structure solution-structure with Plan Step problem-step; declared Structure Plan Step is solution-step"
+          ),
+          CozyDocumentCrossMediaReceipt.CoverageDiagnostic(
+            "DP-COV-INCOMPATIBLE",
+            "$.storyboardScenes.scene-problem-structure-1.structureId",
+            "video scene scene-problem-structure-1 associates Structure solution-structure with Plan Step problem-step; declared Structure Plan Step is solution-step"
+          )
+        )
+      }
+
       "reject unprojected slide and video mappings even when all valid mappings remain" in {
         Given("a valid Projection whose unchanged mappings are extended with unprojected slide and video mappings")
         val validated = _validate(_fixture())

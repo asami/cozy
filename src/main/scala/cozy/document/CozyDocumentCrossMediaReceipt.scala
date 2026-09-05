@@ -240,11 +240,27 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
     else if (markercount > 1)
       Vector(_diagnostic("DP-COV-AMBIGUOUS", s"$$.rendered.html.${structure.id}", s"Structure ${structure.id} occurs ambiguously in confirmation HTML"))
     else Vector.empty
+    val pageassociationdiagnostics = pages.collect {
+      case page if page.storyStepId != structure.storyStepId =>
+        _diagnostic(
+          "DP-COV-INCOMPATIBLE",
+          s"$$.slidePages.${page.id}.structureId",
+          s"slide page ${page.id} associates Structure ${structure.id} with Plan Step ${page.storyStepId}; declared Structure Plan Step is ${structure.storyStepId}"
+        )
+    }
+    val sceneassociationdiagnostics = scenes.collect {
+      case scene if scene.storyStepId != structure.storyStepId =>
+        _diagnostic(
+          "DP-COV-INCOMPATIBLE",
+          s"$$.storyboardScenes.${scene.id}.structureId",
+          s"video scene ${scene.id} associates Structure ${structure.id} with Plan Step ${scene.storyStepId}; declared Structure Plan Step is ${structure.storyStepId}"
+        )
+    }
     val pagediagnostics = if (pages.isEmpty)
       Vector(_diagnostic("DP-COV-MISSING", s"$$.slidePages.${structure.id}", s"Structure ${structure.id} is missing from slide coverage")) else Vector.empty
     val scenediagnostics = if (scenes.isEmpty)
       Vector(_diagnostic("DP-COV-MISSING", s"$$.storyboardScenes.${structure.id}", s"Structure ${structure.id} is missing from video coverage")) else Vector.empty
-    pagediagnostics ++ scenediagnostics ++ markerdiagnostics ++ mappingdiagnostics
+    pagediagnostics ++ scenediagnostics ++ markerdiagnostics ++ mappingdiagnostics ++ pageassociationdiagnostics ++ sceneassociationdiagnostics
   }
 
   private def _unprojected_diagnostics(

@@ -34,8 +34,12 @@ prove semantic completeness.
 Coverage consumes the accepted typed `Validated`, Projection, and Rendered
 values independently of receipt currentness. It proves every declared Plan
 Step and Structure is present in slide projection, video projection, and the
-confirmation HTML. Missing, ambiguous, incompatible, and unprojected values
-are returned as structured deterministic diagnostics. A current receipt MUST
+confirmation HTML. Every slide page and storyboard scene carrying a valid
+Structure ID MUST retain that Structure's declared `storyStepId`; a valid
+Structure ID associated with another Plan Step is incompatible coverage.
+Missing, ambiguous, incompatible, and unprojected values are returned as
+structured deterministic diagnostics, including `DP-COV-INCOMPATIBLE` for
+cross-media Structure-to-Step association mismatches. A current receipt MUST
 NOT substitute for this check.
 
 ## Non-goals

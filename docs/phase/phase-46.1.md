@@ -1,6 +1,6 @@
 # Phase 46.1: Cross-Media Logical Projection and Cozy-Local Closure
 
-Status: IN_PROGRESS
+Status: CLOSED
 
 Plan date: 2026-09-04
 
@@ -21,7 +21,7 @@ this Phase.
 
 Stage Status:
 
-- Current status: COMPLETE
+- Current status: DONE
 - Owner: typed cross-media projection
 - Update rule: complete only when slide and video mappings preserve the same
   accepted meaning and their medium-specific additions remain separate.
@@ -37,7 +37,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: COMPLETE
+- Current status: DONE
 - Owner: deterministic cross-media review projection
 - Update rule: complete only when Story Flow, local logical structure, visual
   selection, cross-media mapping, diagnostics, and currentness are visible.
@@ -62,7 +62,7 @@ design to the exact Step path set.
 
 Stage Status:
 
-- Current status: COMPLETE
+- Current status: DONE
 - Owner: projection identity and executable completeness evidence
 - Update rule: complete only when receipts and semantic-coverage specs pass on
   exact inputs and outputs.
@@ -77,7 +77,7 @@ Stage Status:
 Closure basis: `PROJECT46-03A-receipt-coverage` passed independent Step review,
 the focused `CozyDocumentPresentationSemanticsSpec` validation (16 succeeded,
 0 failed), and focused re-review after the bounded mapping-diagnostic and
-private-naming repair. This acceptance commit binds the reviewed typed receipt,
+package-local renderer-member naming repair. This acceptance commit binds the reviewed typed receipt,
 coverage evidence, executable specification, and supporting specification and
 design to the exact Step path set.
 
@@ -85,7 +85,7 @@ design to the exact Step path set.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy-local Phase closure
 - Update rule: complete only when Cozy-local confirmation, focused/full
   validation, independent review, and local closure pass.
@@ -100,6 +100,13 @@ Stage Status:
   applicable.
 - Create the local Phase release commit without publication, registration,
   deployment, upload, or push.
+
+Closure basis: the mandatory full Phase review found `CPB-P461-001` through
+`CPB-P461-003`; Cycle 1 resolved them within the accepted repair boundary.
+`P461-DEC-EXCEPTIONAL-REVIEW-001` preserves the historical PROJECT46-03
+16/16 focused receipt and records the Cycle-1 17/17 focused receipt separately
+for PROJECT46-04. The final full Cozy receipt and this local release commit
+bind the closed Phase only after their required checks succeed.
 
 ## Exclusions
 

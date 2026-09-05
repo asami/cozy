@@ -8,12 +8,12 @@ Current phase state:
   per-unit Explanation Structure are frozen as one typed logical-presentation
   authority. The accepted handoff preserves the closed Phase 36/37/41/45.*
   history.
-- Current phase: `phase-46.1.md`: it consumes the Phase 46 handoff for
-  Cozy-local slides, video, integrated confirmation HTML, receipts, semantic
-  coverage, review, validation, and release closure. Under
+- Most recently closed local phase: `phase-46.1.md`: it consumed the Phase 46
+  handoff for Cozy-local slides, video, integrated confirmation HTML, receipts,
+  semantic coverage, review, validation, and release closure. Under
   `P461-DEC-ROOT-001`, Article 8 driver promotion, acceptance, and confirmation
-  are separately created work and excluded from this Phase. The Phase remains
-  in progress until its local evidence and closure are accepted.
+  remain separately created work and are excluded from this closed Phase. No
+  successor Phase is selected or started by this closure.
 - Historical closed phase: `phase-34.md`: BoK Metadata Input Admission
   Hardening. CFB3 fixture correction, focused review, and candidate final full
   Cozy test receipt `22693-20260824T094231Z` (`test`, 1,376 succeeded, 0

@@ -3,7 +3,7 @@
 This checklist is the authoritative progress ledger for Phase 46.1. It is not
 a normative behavior contract.
 
-Phase Status: IN_PROGRESS
+Phase Status: CLOSED
 
 Predecessor: Phase 46 closure
 
@@ -51,17 +51,26 @@ and focused `CozyDocumentPresentationSemanticsSpec` validation (10 succeeded,
 Closure basis: `PROJECT46-03A-receipt-coverage` passed independent Step review,
 focused `CozyDocumentPresentationSemanticsSpec` validation (16 succeeded, 0
 failed), and focused re-review after the bounded mapping-diagnostic and
-private-naming repair. The acceptance commit binds this exact reviewed Step.
+package-local renderer-member naming repair. The acceptance commit binds this
+exact reviewed Step.
 
 ## PROJECT46-04: Cozy-local review, validation, and release closure
 
-- [ ] Preserve accepted Story Flow and Explanation Structure in the Cozy-local
+- [x] Preserve accepted Story Flow and Explanation Structure in the Cozy-local
   integrated confirmation HTML without placeholder loss.
-- [ ] Verify shared semantics and medium-local differences across slide and
+- [x] Verify shared semantics and medium-local differences across slide and
   video projections.
-- [ ] Keep project-private state out of Cozy-local projection.
-- [ ] Run focused and final full Cozy validation.
-- [ ] Complete independent Phase review and bounded focused repair/re-review
+- [x] Keep project-private state out of Cozy-local projection.
+- [x] Run focused and final full Cozy validation.
+- [x] Complete independent Phase review and bounded focused repair/re-review
   convergence when applicable.
-- [ ] Create the local Phase release commit without publication, registration,
+- [x] Create the local Phase release commit without publication, registration,
   deployment, upload, or push.
+
+Closure basis: the full Phase review findings `CPB-P461-001` through
+`CPB-P461-003` were resolved by the accepted Cycle-1 repair; its focused
+receipt `P461-PHASE46-C1-VAL-002` passed 17/17. Under
+`P461-DEC-EXCEPTIONAL-REVIEW-001`, the PROJECT46-03 16/16 receipt remains its
+historical Step evidence, while the Cycle-1 receipt and final full Cozy receipt
+are PROJECT46-04 closure evidence. The local release commit binds these closed
+records only after the final suite passes.
