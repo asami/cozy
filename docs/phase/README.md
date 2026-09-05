@@ -38,6 +38,12 @@ Current phase state:
 - Earlier closed phase: `phase-32.md`: CML Source-Result Canonical Naming.
   It owns only the canonical `Resolved.projectRelativePath` migration and its
   explicit retired-name boundary.
+- Planned phase: `phase-47.md`: CML Composite StateMachine and Workflow
+  Modeling. It extends the existing StateMachine model with Composite
+  StateMachine semantics and treats Workflow as a specialization/profile that
+  reuses composite semantics as far as possible. Its planned child phases
+  retain the linked action/transaction and compilation/testability contracts;
+  it is coordinated with CNCF Phases 64 through 64.2.
 - Most recent closed phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. Under the explicit 2026-08-26
   one-Phase authorization, its internal Steps are P30-00 through P30-03. The
@@ -298,3 +304,9 @@ confirmation-HTML, receipt, semantic-coverage, review, validation, and release
 closure. Article 8 driver promotion, acceptance, and confirmation are
 separately created work under `P461-DEC-ROOT-001` and are excluded from this
 Phase; no successor Phase is created here.
+
+Phase 47 is planned separately from closed Phase 33. Its work-ledger authority
+is `phase-47.md`, with planned child ledgers `phase-47.1.md` and
+`phase-47.2.md`; its non-normative planning inputs are
+`docs/notes/cml-composite-statemachine-workflow-proposal.md` and
+`docs/journal/2026/09/2026-09-05-composite-statemachine-workflow-modeling-direction.md`.
