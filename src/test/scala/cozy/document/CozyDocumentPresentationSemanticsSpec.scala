@@ -13,7 +13,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Sep.  4, 2026
- * @version Sep.  5, 2026
+ * @version Sep.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -131,6 +131,15 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
 
         Then("both media retain the same Step, Structure, Logical, claim, reference, and selected medium Visual identities")
         projection.contentCoreId shouldBe "article-8:core:en"
+        projection.contentCoreIdentity shouldBe validated.contentCore.identity
+        projection.compositionIdentity shouldBe validated.composition.identity
+        projection.planIdentity shouldBe validated.plan.identity
+        projection.explanationCatalogIdentity shouldBe validated.explanationCatalogIdentity
+        projection.presentationCatalogIdentity shouldBe validated.presentationCatalogIdentity
+        projection.presentationLogicalCatalogIdentity shouldBe validated.presentationLogicalCatalogIdentity
+        projection.policyIdentity shouldBe validated.policy.identity
+        projection.sources shouldBe validated.sources
+        projection.assets shouldBe validated.assets
         projection.slidePages.map(_.id) shouldBe Vector("slide-problem-structure-1", "slide-problem-structure-2", "slide-solution-structure-1")
         projection.storyboardScenes.map(_.id) shouldBe Vector("scene-problem-structure-1", "scene-problem-structure-2", "scene-solution-structure-1")
         projection.slideMappings.map(_.pageIds) shouldBe Vector(
@@ -200,6 +209,9 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         Then("the HTML bytes and their SHA-256 identity remain exactly equal")
         first shouldBe second
         first.identity shouldBe "sha256:" + _sha256(first.html.getBytes(StandardCharsets.UTF_8))
+        first.projectionIdentity shouldBe projection.identity
+        first.rendererIdentity shouldBe CozyDocumentCrossMediaConfirmationHtml._renderer_identity
+        first.profileIdentity shouldBe CozyDocumentCrossMediaConfirmationHtml._profile_identity
         first.html should include("<!doctype html>")
         first.html should include("<html lang=\"en\">")
         first.html.indexOf("id=\"story-flow-overview-heading\"") should be < first.html.indexOf("id=\"article-section-problem-structure\"")
@@ -238,6 +250,127 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         rendered.html should not include("http://")
         rendered.html should not include("https://")
         rendered.html should not include("<link")
+      }
+    }
+
+    "cross-media receipt and semantic coverage" should {
+      "bind deterministic typed identities and exact UTF-8 output bytes" in {
+        Given("a validated aggregate, its typed Projection, and deterministic confirmation HTML")
+        val projection = CozyDocumentCrossMediaProjection.project(_validate(_fixture()))
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+
+        When("the same typed values are captured twice")
+        val first = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
+        val second = CozyDocumentCrossMediaReceipt.receipt(projection, rendered)
+
+        Then("the immutable receipts and canonical bytes are deterministic and current")
+        first shouldBe second
+        CozyDocumentCrossMediaReceipt.canonicalJson(first) shouldBe CozyDocumentCrossMediaReceipt.canonicalJson(second)
+        first.contentCoreIdentity shouldBe projection.contentCoreIdentity
+        first.planIdentity shouldBe projection.planIdentity
+        first.explanationCatalogIdentity shouldBe projection.explanationCatalogIdentity
+        first.presentationCatalogIdentity shouldBe projection.presentationCatalogIdentity
+        first.presentationLogicalCatalogIdentity shouldBe projection.presentationLogicalCatalogIdentity
+        first.policyIdentity shouldBe projection.policyIdentity
+        first.outputSha256 shouldBe ("sha256:" + _sha256(rendered.html.getBytes(StandardCharsets.UTF_8)))
+        CozyDocumentCrossMediaReceipt.currentness(first, projection, rendered) shouldBe CozyDocumentCrossMediaReceipt.Currentness(true, "receipt inputs and exact UTF-8 output are current")
+      }
+
+      "propagate source, asset, and output changes as precise stale reasons" in {
+        Given("a current receipt and independently changed source, asset, and output values")
+        val fixture = _fixture()
+        val projection = CozyDocumentCrossMediaProjection.project(_validate(fixture))
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+        val receipt = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
+        val changedresources = _fixture(sourceText = "changed source", assetText = "changed asset")
+        val changedprojection = CozyDocumentCrossMediaProjection.project(_validate(changedresources))
+        val changedrendered = CozyDocumentCrossMediaConfirmationHtml.render(changedprojection)
+        val changedassetprojection = CozyDocumentCrossMediaProjection.project(_validate(_fixture(assetText = "changed asset")))
+        val tamperedhtml = rendered.html.replace("Unprojected content: none.", "Unprojected content: changed.")
+        val tampered = rendered.copy(html = tamperedhtml, identity = "sha256:" + _sha256(tamperedhtml.getBytes(StandardCharsets.UTF_8)))
+
+        When("currentness is checked against changed typed identities or output bytes")
+        val sourcestatus = CozyDocumentCrossMediaReceipt.currentness(receipt, changedprojection, changedrendered)
+        val assetstatus = CozyDocumentCrossMediaReceipt.currentness(receipt, changedassetprojection, CozyDocumentCrossMediaConfirmationHtml.render(changedassetprojection))
+        val outputstatus = CozyDocumentCrossMediaReceipt.currentness(receipt, projection, tampered)
+
+        Then("the first deterministic stale reason identifies the changed boundary")
+        sourcestatus.isCurrent shouldBe false
+        sourcestatus.reason shouldBe "declared source identities changed"
+        assetstatus.isCurrent shouldBe false
+        assetstatus.reason shouldBe "declared asset identities changed"
+        outputstatus.isCurrent shouldBe false
+        outputstatus.reason shouldBe "rendered output identity changed"
+      }
+
+      "reject malformed or incompatible rendering before producing a receipt" in {
+        Given("a typed Projection and its accepted Rendered value")
+        val projection = CozyDocumentCrossMediaProjection.project(_validate(_fixture()))
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+
+        When("a renderer identity or exact HTML byte identity is corrupted")
+        val rendererfailure = _receipt_failure(CozyDocumentCrossMediaReceipt.capture(projection, rendered.copy(rendererIdentity = "other.renderer.v1")))
+        val outputfailure = _receipt_failure(CozyDocumentCrossMediaReceipt.capture(projection, rendered.copy(html = "<html>tampered</html>")))
+
+        Then("receipt construction fails atomically with structured incompatibility diagnostics")
+        rendererfailure.code shouldBe "DP-REC-001"
+        outputfailure.code shouldBe "DP-REC-003"
+      }
+
+      "verify every declared Plan Step and Structure independently of receipt currentness" in {
+        Given("accepted Validated semantics, a complete Projection, and its Rendered confirmation HTML")
+        val validated = _validate(_fixture())
+        val projection = CozyDocumentCrossMediaProjection.project(validated)
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+
+        When("typed semantic coverage is verified")
+        val coverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, projection, rendered)
+
+        Then("every Step and Structure is present in slide, video, and confirmation HTML coverage")
+        coverage.satisfied shouldBe true
+        coverage.diagnostics shouldBe Vector.empty
+      }
+
+      "reject unprojected slide and video mappings even when all valid mappings remain" in {
+        Given("a valid Projection whose unchanged mappings are extended with unprojected slide and video mappings")
+        val validated = _validate(_fixture())
+        val projection = CozyDocumentCrossMediaProjection.project(validated)
+        val unprojected = projection.copy(
+          slideMappings = projection.slideMappings :+ CozyDocumentCrossMediaProjection.SlideStepMapping("unprojected-step", Vector.empty),
+          videoMappings = projection.videoMappings :+ CozyDocumentCrossMediaProjection.VideoStepMapping("unprojected-step", Vector.empty)
+        )
+
+        When("typed semantic coverage is verified for the extended Projection")
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(unprojected)
+        val coverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, unprojected, rendered)
+
+        Then("coverage is unsatisfied with deterministic diagnostics for both mapping surfaces")
+        coverage.satisfied shouldBe false
+        coverage.diagnostics.map(_.code) should contain("DP-COV-UNPROJECTED")
+        coverage.diagnostics.exists(diagnostic => diagnostic.path == "$.slideMappings.unprojected-step.storyStepId" && diagnostic.code == "DP-COV-UNPROJECTED") shouldBe true
+        coverage.diagnostics.exists(diagnostic => diagnostic.path == "$.videoMappings.unprojected-step.storyStepId" && diagnostic.code == "DP-COV-UNPROJECTED") shouldBe true
+      }
+
+      "fail coverage for an incomplete projection even when its receipt is current" in {
+        Given("a Projection with its slide pages and slide mappings deliberately removed")
+        val validated = _validate(_fixture())
+        val projection = CozyDocumentCrossMediaProjection.project(validated)
+        val incomplete = projection.copy(
+          slidePages = Vector.empty,
+          slideMappings = projection.slideMappings.map(mapping => mapping.copy(pageIds = Vector.empty))
+        )
+        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(incomplete)
+        val receipt = CozyDocumentCrossMediaReceipt.capture(incomplete, rendered)
+
+        When("receipt currentness and independent typed coverage are checked")
+        val currentness = CozyDocumentCrossMediaReceipt.currentness(receipt, incomplete, rendered)
+        val coverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, incomplete, rendered)
+
+        Then("receipt freshness remains separate from semantic completeness")
+        currentness.isCurrent shouldBe true
+        coverage.satisfied shouldBe false
+        coverage.diagnostics.map(_.code) should contain("DP-COV-MISSING")
+        coverage.diagnostics.exists(_.reason.contains("slide coverage")) shouldBe true
       }
     }
 
@@ -323,6 +456,9 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
 
   private def _projection_failure(body: => Any): CozyDocumentCrossMediaProjection.ProjectionFault =
     intercept[CozyDocumentCrossMediaProjection.ProjectionFault](body)
+
+  private def _receipt_failure(body: => Any): CozyDocumentCrossMediaReceipt.ReceiptFault =
+    intercept[CozyDocumentCrossMediaReceipt.ReceiptFault](body)
 
   private def _semantics(corebytes: Array[Byte], composition: CozyExplanation.Composition, original: Json = Json.Null): Json = {
     val base = Json.fromFields(Vector(

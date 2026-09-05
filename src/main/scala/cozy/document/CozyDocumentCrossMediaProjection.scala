@@ -7,7 +7,7 @@ import java.security.MessageDigest
 
 /*
  * @since   Sep.  4, 2026
- * @version Sep.  5, 2026
+ * @version Sep.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentCrossMediaProjection {
@@ -39,6 +39,15 @@ private[cozy] object CozyDocumentCrossMediaProjection {
   final case class VideoStepMapping(storyStepId: String, sceneIds: Vector[String])
   final case class Projection(
     contentCoreId: String,
+    contentCoreIdentity: String,
+    compositionIdentity: String,
+    planIdentity: String,
+    explanationCatalogIdentity: String,
+    presentationCatalogIdentity: String,
+    presentationLogicalCatalogIdentity: String,
+    policyIdentity: String,
+    sources: Vector[CozyExplanation.SourceDeclaration],
+    assets: Vector[CozyExplanation.AssetDeclaration],
     semanticIdentity: String,
     currentnessIdentity: String,
     storyFlow: CozyDocumentPresentationSemantics.StoryFlow,
@@ -80,7 +89,26 @@ private[cozy] object CozyDocumentCrossMediaProjection {
     val slidemappings = steps.map(step => SlideStepMapping(step.id, pages.filter(_.storyStepId == step.id).map(_.id)))
     val videomappings = steps.map(step => VideoStepMapping(step.id, scenes.filter(_.storyStepId == step.id).map(_.id)))
     _validate(value, pages, scenes, slidemappings, videomappings)
-    val provisional = Projection(value.contentCore.id, value.semanticIdentity, value.currentnessIdentity, value.storyFlow, pages, scenes, slidemappings, videomappings, "")
+    val provisional = Projection(
+      value.contentCore.id,
+      value.contentCore.identity,
+      value.composition.identity,
+      value.plan.identity,
+      value.explanationCatalogIdentity,
+      value.presentationCatalogIdentity,
+      value.presentationLogicalCatalogIdentity,
+      value.policy.identity,
+      value.sources.sortBy(_.id),
+      value.assets.sortBy(_.id),
+      value.semanticIdentity,
+      value.currentnessIdentity,
+      value.storyFlow,
+      pages,
+      scenes,
+      slidemappings,
+      videomappings,
+      ""
+    )
     provisional.copy(identity = projectionIdentity(provisional))
   }
 
@@ -138,6 +166,15 @@ private[cozy] object CozyDocumentCrossMediaProjection {
   private def _projection_value(value: Projection, includeidentity: Boolean): Json = {
     val fields = Vector(
       "contentCoreId" -> Json.fromString(value.contentCoreId),
+      "contentCoreIdentity" -> Json.fromString(value.contentCoreIdentity),
+      "compositionIdentity" -> Json.fromString(value.compositionIdentity),
+      "planIdentity" -> Json.fromString(value.planIdentity),
+      "explanationCatalogIdentity" -> Json.fromString(value.explanationCatalogIdentity),
+      "presentationCatalogIdentity" -> Json.fromString(value.presentationCatalogIdentity),
+      "presentationLogicalCatalogIdentity" -> Json.fromString(value.presentationLogicalCatalogIdentity),
+      "policyIdentity" -> Json.fromString(value.policyIdentity),
+      "sources" -> Json.fromValues(value.sources.sortBy(_.id).map(_source_value)),
+      "assets" -> Json.fromValues(value.assets.sortBy(_.id).map(_asset_value)),
       "semanticIdentity" -> Json.fromString(value.semanticIdentity),
       "currentnessIdentity" -> Json.fromString(value.currentnessIdentity),
       "storyFlow" -> _story_flow_value(value.storyFlow),
@@ -192,6 +229,17 @@ private[cozy] object CozyDocumentCrossMediaProjection {
   private def _claim_value(value: CozyExplanation.Claim): Json = Json.obj(
     "id" -> Json.fromString(value.id), "text" -> Json.fromString(value.text), "emphasis" -> Json.fromString(value.emphasis),
     "sourceRefs" -> Json.fromValues(value.sourceRefs.map(Json.fromString)), "assetRefs" -> Json.fromValues(value.assetRefs.map(Json.fromString))
+  )
+
+  private def _source_value(value: CozyExplanation.SourceDeclaration): Json = Json.obj(
+    "id" -> Json.fromString(value.id),
+    "sha256" -> Json.fromString(value.sha256)
+  )
+
+  private def _asset_value(value: CozyExplanation.AssetDeclaration): Json = Json.obj(
+    "id" -> Json.fromString(value.id),
+    "mediaType" -> Json.fromString(value.mediaType),
+    "sha256" -> Json.fromString(value.sha256)
   )
 
   private def _identity(value: String): String =

@@ -62,7 +62,7 @@ design to the exact Step path set.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: COMPLETE
 - Owner: projection identity and executable completeness evidence
 - Update rule: complete only when receipts and semantic-coverage specs pass on
   exact inputs and outputs.
@@ -73,6 +73,13 @@ Stage Status:
   selected projection.
 - Diagnose missing, incompatible, stale, ambiguous, or unprojected content.
 - Prove currentness receipts cannot substitute for semantic-completeness tests.
+
+Closure basis: `PROJECT46-03A-receipt-coverage` passed independent Step review,
+the focused `CozyDocumentPresentationSemanticsSpec` validation (16 succeeded,
+0 failed), and focused re-review after the bounded mapping-diagnostic and
+private-naming repair. This acceptance commit binds the reviewed typed receipt,
+coverage evidence, executable specification, and supporting specification and
+design to the exact Step path set.
 
 ## PROJECT46-04: Cozy-local review, validation, and release closure
 

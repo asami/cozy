@@ -6,15 +6,32 @@ import java.security.MessageDigest
 
 /*
  * @since   Sep.  5, 2026
- * @version Sep.  5, 2026
+ * @version Sep.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentCrossMediaConfirmationHtml {
-  final case class Rendered(html: String, identity: String)
+  private[cozy] val _renderer_identity = "cozy.document.cross-media-confirmation-html.renderer.v1"
+  private[cozy] val _profile_identity = "cozy.document.cross-media-confirmation-html.profile.v1"
+
+  final case class Rendered(
+    html: String,
+    identity: String,
+    projectionIdentity: String,
+    rendererIdentity: String,
+    profileIdentity: String
+  ) {
+    def outputSha256: String = identity
+  }
 
   def render(value: CozyDocumentCrossMediaProjection.Projection): Rendered = {
     val html = _document(value)
-    Rendered(html, _identity(html.getBytes(StandardCharsets.UTF_8)))
+    Rendered(
+      html,
+      _identity(html.getBytes(StandardCharsets.UTF_8)),
+      value.identity,
+      _renderer_identity,
+      _profile_identity
+    )
   }
 
   private def _document(value: CozyDocumentCrossMediaProjection.Projection): String =

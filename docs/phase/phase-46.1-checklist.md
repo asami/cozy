@@ -41,12 +41,17 @@ and focused `CozyDocumentPresentationSemanticsSpec` validation (10 succeeded,
 
 ## PROJECT46-03: Receipts and semantic coverage
 
-- [ ] Bind all exact semantic, policy, mapping, renderer, source, asset, and
+- [x] Bind all exact semantic, policy, mapping, renderer, source, asset, and
   output identities.
-- [ ] Assert every declared Story Step and Explanation Structure appears in
+- [x] Assert every declared Story Step and Explanation Structure appears in
   every selected projection.
-- [ ] Reject placeholder success for unsupported declared semantics.
-- [ ] Prove precise stale propagation and atomic output behavior.
+- [x] Reject placeholder success for unsupported declared semantics.
+- [x] Prove precise stale propagation and atomic output behavior.
+
+Closure basis: `PROJECT46-03A-receipt-coverage` passed independent Step review,
+focused `CozyDocumentPresentationSemanticsSpec` validation (16 succeeded, 0
+failed), and focused re-review after the bounded mapping-diagnostic and
+private-naming repair. The acceptance commit binds this exact reviewed Step.
 
 ## PROJECT46-04: Cozy-local review, validation, and release closure
 
