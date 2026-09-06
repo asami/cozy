@@ -1,58 +1,53 @@
-# Phase 51 Checklist: Flutter Web-first Development Loop
+# Phase 51 Checklist: Flutter Target Projection
 
-## Development operations
+## Flutter Target Policy
 
-- [ ] Add scaffold operation for the generated Flutter application surface.
-- [ ] Add inspect operation exposing Logical UI/Policy/Plan/source identities.
-- [ ] Add plan operation exposing blocked/stale generation steps.
-- [ ] Add generate operation using Phase 50 projection contracts.
-- [ ] Add preview operation for Flutter Web.
-- [ ] Add test operation for focused Flutter tests.
-- [ ] Add verify operation covering target currentness and provenance.
+- [ ] Freeze versioned Flutter Target Policy schema and identity.
+- [ ] Keep theme/design tokens and concrete target choices below Logical UI.
+- [ ] Map Phase 50 compact/medium/expanded intent to concrete Flutter thresholds.
+- [ ] Freeze Flutter navigation and feedback realization strategy.
+- [ ] Freeze admitted widget-role mapping and platform adaptation policy.
+- [ ] Reject stale or incompatible Policy identities.
 
-## Responsive Web review
+## Target UI Plan
 
-- [ ] Support compact preview.
-- [ ] Support medium preview.
-- [ ] Support expanded preview.
-- [ ] Provide side-by-side responsive review for one Logical Screen.
-- [ ] Keep viewport/profile selection Policy-driven.
-- [ ] Diagnose overflow and unreachable/hidden required content.
-- [ ] Diagnose missing feedback/action/navigation coverage.
-- [ ] Diagnose stale Policy/Plan/generated source.
-- [ ] Keep review projections read-only and non-authoritative.
+- [ ] Freeze versioned Target UI Plan with `target=flutter`.
+- [ ] Represent shell, navigation, pages, regions, layout realization, semantic
+  controls, data/edit bindings, action bindings, target UI-local state,
+  validation/feedback, responsive arrangement, localization/accessibility, and
+  target adaptation.
+- [ ] Bind exact accepted Phase 50 Logical UI and target Policy identities.
+- [ ] Preserve reverse provenance to Logical UI screen/interaction, UI UseCase
+  Step, and Component/Operation/constraint identity.
+- [ ] Reject plans that redefine domain/server authority or bypass Aggregate
+  Operation boundaries.
+- [ ] Add deterministic plan identity/currentness evidence.
 
-## Regeneration and ownership
+## Flutter source projection
 
-- [ ] Keep generator-owned source fully replaceable.
-- [ ] Keep developer-owned completion surface separate.
-- [ ] Freeze minimal typed completion-hook contract.
-- [ ] Reject incompatible/stale completion bindings.
-- [ ] Prove regeneration does not require merging arbitrary human edits into
-  generated files.
-
-## Developer feedback/provenance
-
-- [ ] Navigate generated surface -> Flutter UI Plan node.
-- [ ] Navigate Plan node -> Logical UI screen/interaction.
-- [ ] Navigate Logical UI interaction -> UI UseCase Step.
-- [ ] Navigate binding -> public Component/Operation/constraint identity.
-- [ ] Expose these mappings through inspect/review diagnostics.
-
-## Validation
-
-- [ ] Run `dart format` through the development flow.
+- [ ] Generate deterministic Dart/Flutter base source from the Target UI Plan.
+- [ ] Keep generated files fully generator-owned.
+- [ ] Provide explicit future completion seams without arbitrary edit merging.
+- [ ] Select concrete widgets only under Policy/renderer rules.
+- [ ] Run `dart format`.
 - [ ] Run `flutter analyze`.
-- [ ] Run Flutter unit tests.
-- [ ] Run Flutter widget tests.
-- [ ] Run responsive Web tests for compact/medium/expanded.
-- [ ] Exercise SalesOrder list/detail/confirm/loading/result paths.
-- [ ] Prove deterministic repeat generation where required.
+- [ ] Add focused generator/widget tests.
+
+## Equivalence with Phase 50 behavior
+
+- [ ] Preserve SalesOrder screen/navigation coverage.
+- [ ] Preserve confirm action binding to public Operation.
+- [ ] Preserve validation and loading/success/conflict/unavailable feedback.
+- [ ] Preserve compact/medium/expanded responsive intent.
+- [ ] Preserve UI UseCase and Component provenance.
+- [ ] Use minimal Flutter Web execution only as target-output inspection where useful.
+- [ ] Do not claim Flutter Web as iOS/Android acceptance.
 
 ## Closure
 
-- [ ] Normal development loop is usable without private package-local calls.
-- [ ] Web remains a development/review surface, not mobile acceptance authority.
+- [ ] No Flutter-specific value has leaked upward into accepted Logical UI.
+- [ ] Exact Logical UI/Policy/Plan/source identities are retained.
+- [ ] Focused Executable Specifications pass.
 - [ ] Independent Phase review has no Current Phase Blocker.
 - [ ] Full serialized Cozy validation passes.
-- [ ] Closure leaves mobile acceptance/productization to Phase 52.
+- [ ] Closure leaves normal development-loop UX to Phase 52.
