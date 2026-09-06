@@ -1,81 +1,60 @@
-# Phase 52 Checklist: Mobile-first Presentation Productization
+# Phase 52 Checklist: Flutter Web-first Development Loop
 
-## Mobile acceptance profiles
+## Development operations
 
-- [ ] Freeze versioned iOS/Android acceptance profile contract.
-- [ ] Cover iOS phone + compact.
-- [ ] Cover admitted iOS larger-phone/medium configuration.
-- [ ] Cover Android phone + compact.
-- [ ] Cover admitted Android larger-phone/medium configuration.
-- [ ] Cover Android foldable folded + compact.
-- [ ] Cover Android foldable unfolded + expanded.
-- [ ] Cover one admitted tablet-like expanded configuration.
-- [ ] Keep simulator/emulator model names as execution evidence, not semantic
-  application identity.
+- [ ] Add scaffold operation for the generated Flutter application surface.
+- [ ] Add inspect operation exposing Logical UI/Policy/Plan/source identities.
+- [ ] Add plan operation exposing blocked/stale generation steps.
+- [ ] Add generate operation using Phase 51 projection contracts.
+- [ ] Add preview operation for Flutter Web.
+- [ ] Add test operation for focused Flutter tests.
+- [ ] Add verify operation covering target currentness and provenance.
 
-## Platform-specific validation
+## Flutter Web responsive review
 
-- [ ] Validate safe areas.
-- [ ] Validate software-keyboard behavior.
-- [ ] Validate touch targets.
-- [ ] Validate platform back/navigation behavior.
-- [ ] Validate admitted system gestures.
-- [ ] Validate modal/sheet behavior.
-- [ ] Validate orientation/window changes.
-- [ ] Validate fold/unfold responsive transition where supported.
-- [ ] Validate relevant lifecycle/resume behavior.
-- [ ] Validate admitted native integration seams.
+- [ ] Support compact preview.
+- [ ] Support medium preview.
+- [ ] Support expanded preview.
+- [ ] Provide side-by-side responsive review for one Logical Screen.
+- [ ] Keep viewport/profile selection Policy-driven.
+- [ ] Diagnose overflow and unreachable/hidden required content.
+- [ ] Diagnose missing feedback/action/navigation coverage.
+- [ ] Diagnose stale Policy/Plan/generated source.
+- [ ] Keep review projections read-only and non-authoritative.
+- [ ] Keep Phase 50 Progressive Static Web semantic review distinct from Flutter
+  Web implementation review.
 
-## Builds
+## Regeneration and ownership
 
-- [ ] Build verified iOS artifact for selected profile.
-- [ ] Build verified Android artifact for selected profile.
-- [ ] Build Web artifact when selected.
-- [ ] Build Desktop only when selected by profile.
-- [ ] Keep signing credentials/store accounts external.
-- [ ] Bind artifacts to exact source/Policy/Plan/profile identities.
+- [ ] Keep generator-owned source fully replaceable.
+- [ ] Keep developer-owned completion surface separate.
+- [ ] Freeze minimal typed completion-hook contract.
+- [ ] Reject incompatible/stale completion bindings.
+- [ ] Prove regeneration does not merge arbitrary human edits into generated files.
 
-## Presentation Subcomponent/CAR
+## Developer feedback/provenance
 
-- [ ] Create canonical Presentation Subcomponent identity/parent/role metadata.
-- [ ] Include Logical UI/Policy/Plan/source provenance.
-- [ ] Include target compatibility metadata.
-- [ ] Include digest-bound artifact inventory.
-- [ ] Include installation/use/operation/extraction guidance.
-- [ ] Include release notes.
-- [ ] Include licenses/third-party credits.
-- [ ] Include required SBOM/security evidence.
-- [ ] Include dependencies/prerequisites.
-- [ ] Include Help/MCP information.
-- [ ] Include deterministic currentness/integrity evidence.
-- [ ] Do not include credentials or signing secrets.
+- [ ] Navigate generated Flutter element/source -> Target UI Plan node.
+- [ ] Navigate Plan node -> accepted Logical UI screen/interaction.
+- [ ] Navigate Logical UI interaction -> UI UseCase Step.
+- [ ] Navigate binding -> public Component/Operation/constraint identity.
+- [ ] Expose these mappings through inspect/review diagnostics.
+- [ ] Distinguish Policy/Plan defects from Logical UI semantic defects.
 
-## Clean consumer verification
+## Validation
 
-- [ ] Verify CAR in a clean consumer environment.
-- [ ] Verify inventory and integrity.
-- [ ] Verify admitted iOS artifact extraction/guidance.
-- [ ] Verify admitted Android artifact extraction/guidance.
-- [ ] Verify selected Web export from exact CAR where applicable.
-- [ ] Verify standard CNCF information surface is usable.
-- [ ] Verify Flutter application/deployment/store behavior is not implicitly
-  exposed as CNCF Component Operations.
-
-## Representative driver
-
-- [ ] Exercise SalesOrder list/detail/confirm flow on selected iOS profile.
-- [ ] Exercise SalesOrder flow on selected Android phone profile.
-- [ ] Exercise admitted foldable compact/expanded transition.
-- [ ] Preserve responsive Policy behavior across platforms.
-- [ ] Preserve public Operation/validation/state authority without duplication.
+- [ ] Run `dart format` through the development flow.
+- [ ] Run `flutter analyze`.
+- [ ] Run Flutter unit tests.
+- [ ] Run Flutter widget tests.
+- [ ] Run responsive Web tests for compact/medium/expanded.
+- [ ] Exercise SalesOrder list/detail/confirm/loading/result paths.
+- [ ] Prove deterministic repeat generation where required.
 
 ## Closure
 
-- [ ] Required mobile profile tests pass.
-- [ ] Platform-specific validation evidence is complete.
-- [ ] Selected builds are identity-bound and reproducible as required.
-- [ ] Clean consumer CAR verification passes.
+- [ ] Normal development loop is usable without private package-local calls.
+- [ ] Web remains a development/review surface, not mobile acceptance authority.
 - [ ] Independent Phase review has no Current Phase Blocker.
 - [ ] Full serialized Cozy validation passes.
-- [ ] Official App Store/Google Play and Component Repository publication remain
-  explicit downstream authorized operations.
+- [ ] Closure leaves mobile acceptance/productization to Phase 53.
