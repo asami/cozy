@@ -1,72 +1,78 @@
-# Phase 50 Checklist: Flutter UI Projection
+# Phase 50 Checklist: Logical UI Target-Readiness and Progressive Static Web
 
-## P50-01 Flutter Target Policy
+## Target-readiness IR
 
-- [ ] Freeze versioned Flutter Target Policy schema and identity.
-- [ ] Keep theme/design tokens, navigation strategy, responsive thresholds,
-  feedback presentation, and target implementation choices out of Logical UI.
-- [ ] Admit `compact`, `medium`, and `expanded` window classes.
-- [ ] Admit `phone`, `foldable`, `tablet`, and `desktop` form-factor metadata
-  without using commercial device names as semantic identities.
-- [ ] Add Executable Specifications for deterministic policy loading and stale
-  identity rejection.
+- [ ] Review Phase 43 Logical UI against later iPhone/Android and Flutter needs.
+- [ ] Add only target-neutral missing semantics.
+- [ ] Admit responsive/window-class intent for compact/medium/expanded.
+- [ ] Admit form-factor hints only where semantically useful.
+- [ ] Add region adaptation/layout constraints without target coordinates.
+- [ ] Add accessibility/focus semantics as needed.
+- [ ] Add localization/text source identity as needed.
+- [ ] Add target-neutral keyboard/input and semantic control roles as needed.
+- [ ] Add target-projection provenance/currentness hooks.
+- [ ] Reject Flutter/Dart/Material/Cupertino/widget-specific vocabulary.
+- [ ] Preserve exact candidate/accepted Logical UI identity semantics.
 
-## P50-02 Flutter UI Plan
+## Structural Review HTML
 
-- [ ] Freeze a versioned Flutter UI Plan schema.
-- [ ] Represent shell, navigation, pages, regions, layout roles, semantic
-  control roles, data/edit bindings, action bindings, UI-local state,
-  validation/feedback, responsive arrangement, localization, accessibility,
-  and provenance.
-- [ ] Bind exact accepted Logical UI and target Policy identities.
-- [ ] Preserve reverse provenance to Logical UI screen/interaction, UI UseCase
-  Step, and Component identity.
-- [ ] Reject target plans that redefine server/domain authority or bypass
-  Aggregate/Operation boundaries.
-- [ ] Add currentness and deterministic plan identity evidence.
+- [ ] Expose all new IR semantics in the deterministic Review HTML.
+- [ ] Expose responsive intent and diagnostics.
+- [ ] Expose accessibility/localization information.
+- [ ] Preserve read-only, self-contained, deterministic behavior.
+- [ ] Bind exact candidate/accepted input identity and output receipt.
 
-## P50-03 Flutter Base Generation
+## Progressive Static Web
 
-- [ ] Generate deterministic Dart/Flutter base source from the plan.
-- [ ] Keep generated files fully generator-owned.
-- [ ] Provide explicit future completion seams; do not merge arbitrary human
-  edits into generated files.
-- [ ] Ensure concrete widget selection follows Policy/renderer rules rather
-  than contaminating Logical UI.
-- [ ] Run `dart format`.
-- [ ] Run `flutter analyze`.
-- [ ] Add focused generator and widget tests.
+- [ ] Generate a deterministic static Web application from Logical UI.
+- [ ] Support screen navigation/reachability.
+- [ ] Support selection and input.
+- [ ] Support admitted interaction patterns.
+- [ ] Support local-deterministic validation.
+- [ ] Simulate admitted action invocation without claiming server execution.
+- [ ] Support loading/success/conflict/unavailable/operation-failed paths.
+- [ ] Support retry/recovery paths where admitted.
+- [ ] Support deterministic fixture reset/replay.
+- [ ] Do not duplicate domain StateMachine, Workflow, authorization, or server
+  authority in client fixtures.
 
-## P50-04 Minimum Responsive Web Proof
+## Responsive interactive review
 
-- [ ] Generate/run a Flutter Web proof for the SalesOrder fixture.
-- [ ] Exercise compact viewport.
-- [ ] Exercise medium viewport.
-- [ ] Exercise expanded viewport.
-- [ ] Prove responsive layout decisions are driven by target Policy/UI Plan.
-- [ ] Retain exact Logical UI, Policy, Plan, and generated-source identities.
-- [ ] Do not claim Web proof as iOS/Android acceptance.
+- [ ] Run compact preview.
+- [ ] Run medium preview.
+- [ ] Run expanded preview.
+- [ ] Provide side-by-side review where practical.
+- [ ] Diagnose overflow and unreachable required content.
+- [ ] Diagnose missing actions/feedback/navigation.
+- [ ] Diagnose focus-order and responsive-intent inconsistencies.
+- [ ] Keep responsive review as evidence, not semantic authority.
 
-## Representative Driver
+## Feedback and acceptance
 
-- [ ] Order list renders and supports logical selection.
-- [ ] Order detail renders admitted Component data.
-- [ ] Confirm action binds the admitted public Operation.
-- [ ] Loading state is represented.
-- [ ] Success feedback is represented.
-- [ ] Conflict feedback is represented.
-- [ ] Unavailable/service-failure feedback is represented.
-- [ ] Validation binding is represented.
-- [ ] A lifecycle/StateMachine-sensitive action is represented without copying
-  business state authority into the client.
+- [ ] Review candidate through Review HTML.
+- [ ] Review candidate through Progressive Static Web walkthrough.
+- [ ] Record explicit reviewer feedback.
+- [ ] Revise candidate without treating generated Web files as source.
+- [ ] Explicitly accept one exact target-ready Logical UI identity.
+
+## Representative driver
+
+- [ ] Exercise SalesOrder list -> detail navigation.
+- [ ] Exercise confirm interaction.
+- [ ] Exercise loading state.
+- [ ] Exercise success state.
+- [ ] Exercise conflict state.
+- [ ] Exercise unavailable/service-failure state.
+- [ ] Exercise validation and admitted retry/recovery.
+- [ ] Preserve UI UseCase and Component provenance.
+- [ ] Exercise compact/medium/expanded variants.
 
 ## Closure
 
 - [ ] Focused Executable Specifications pass.
-- [ ] No Flutter-specific value has leaked into accepted Logical UI authority.
+- [ ] No Flutter-specific value has leaked into Logical UI authority.
+- [ ] Review HTML and Progressive Static Web project the same IR identity.
 - [ ] Deterministic identities/currentness/provenance are complete.
 - [ ] Independent Phase review has no Current Phase Blocker.
 - [ ] Full serialized Cozy validation passes.
-- [ ] Closure documentation explicitly leaves development-loop, mobile
-  acceptance, CAR productization, publication, and official distribution to
-  successor phases.
+- [ ] Closure explicitly leaves Flutter policy/plan/source generation to Phase 51.
