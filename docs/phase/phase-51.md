@@ -1,107 +1,115 @@
-# Phase 51: Flutter Web-first Development Loop
+# Phase 51: Flutter Target Projection
 
 Status: PLANNED
 
 Plan date: 2026-09-06
 
-Predecessor: Phase 50 Flutter UI Projection closure.
+Predecessor: Phase 50 Logical UI Target-Readiness and Progressive Static Web closure.
 
 ## Goal
 
-Turn the Phase 50 projection kernel into a usable Flutter development loop with
-Flutter Web as the primary rapid iteration and responsive-review surface while
-preserving iPhone/Android as the eventual primary product acceptance targets.
+Introduce the first Flutter-specific projection boundary from the exact accepted
+target-ready Logical UI produced by Phase 50. Freeze a versioned Flutter Target
+Policy and target-specific Target UI Plan, then generate deterministic Flutter
+base source without redefining Logical UI semantics.
 
-## P51-01: Development Operations
-
-Provide normal Cozy operations for the generated Flutter application surface:
-
-- scaffold;
-- inspect;
-- plan;
-- generate;
-- preview;
-- test; and
-- verify.
-
-Build/package operations belong to Phase 52 unless a minimal development-only
-build is required to execute this Phase's tests.
-
-## P51-02: Responsive Web Review
-
-- Provide explicit compact, medium, and expanded preview modes.
-- Provide a responsive review surface that can show the same Logical Screen in
-  multiple viewport frames side by side.
-- Make viewport/profile selection deterministic and Policy-driven.
-- Expose overflow, unreachable content, missing feedback, navigation mismatch,
-  stale target-plan/source identity, and responsive-coverage diagnostics.
-- Keep review output read-only and non-authoritative.
-
-## P51-03: Regeneration and Ownership
-
-- Regenerate generator-owned Flutter base source deterministically.
-- Preserve developer-owned completion code without merging developer edits into
-  generated files.
-- Freeze a typed initial completion-hook contract sufficient for the
-  representative driver.
-- Candidate hook roles include custom region/value rendering, action
-  interception, and platform/application adapters.
-- Detect incompatible stale completion bindings explicitly.
-
-## P51-04: Developer Feedback Loop
-
-- Preserve source/provenance navigation from generated Flutter surface back to
-  Flutter UI Plan, Logical UI, UI UseCase Step, and Component authority.
-- Make inspect/review outputs suitable for a developer or Codex task to locate
-  the semantic source of a generated UI defect.
-- Record deterministic verification evidence after regeneration.
-
-## P51-05: Development Validation
-
-- Run `dart format`, `flutter analyze`, Flutter unit/widget tests, and responsive
-  Web tests through normal Cozy operations.
-- Add representative navigation/action/feedback tests for SalesOrder.
-- Prove repeated generation with unchanged inputs is byte/digest stable where
-  the contract requires it.
-
-## Representative Driver
-
-Use the Phase 50 SalesOrder projection and exercise its development cycle:
+The core path is:
 
 ```text
-inspect/plan
-  -> generate
-  -> Web responsive review
-  -> developer completion/feedback where admitted
-  -> regenerate
-  -> analyze/test/verify
+Accepted target-ready Logical UI
+        +
+Flutter Target Policy
+        |
+        v
+Target UI Plan (target=flutter)
+        |
+        v
+Deterministic Flutter base source
 ```
 
-The review must compare compact, medium, and expanded layouts and retain
-provenance back to the accepted Logical UI.
+## P51-01: Flutter Target Policy
+
+Freeze versioned target choices that must remain below Logical UI, including:
+
+- theme/design-token family;
+- concrete responsive thresholds for compact/medium/expanded;
+- Flutter navigation realization strategy;
+- feedback presentation/timing;
+- concrete target conventions;
+- admitted widget-role mapping policy; and
+- target/platform adaptation policy.
+
+## P51-02: Target UI Plan
+
+Freeze a versioned target-specific declarative IR between Logical UI and Dart.
+Use a generic target-plan identity with `target=flutter` rather than creating a
+second abstract UI authority.
+
+Represent at least:
+
+- application shell realization;
+- navigation and target route identity;
+- page/region layout realization;
+- semantic control roles and target bindings;
+- display/edit binding;
+- public Operation/action binding;
+- target UI-local state;
+- validation/feedback presentation binding;
+- responsive arrangement derived from Phase 50 intent plus target Policy;
+- localization/accessibility realization;
+- target adaptation metadata; and
+- reverse provenance to Logical UI, UI UseCase Step, and Component authority.
+
+Prefer semantic roles over concrete widget classes where the renderer can make
+the final choice.
+
+## P51-03: Deterministic Flutter source projection
+
+- Generate deterministic generator-owned Dart/Flutter base source.
+- Do not merge arbitrary human edits into generated files.
+- Keep explicit seams for later typed developer-owned completion.
+- Select concrete widgets only under renderer/Policy rules.
+- Preserve exact Logical UI, Policy, Plan, and generated-source identities.
+- Run `dart format`, `flutter analyze`, and focused generator/widget tests.
+
+## P51-04: Projection equivalence proof
+
+Use the same SalesOrder semantics already exercised through the Phase 50
+Progressive Static Web projection and prove that the Flutter projection retains:
+
+- screen/navigation coverage;
+- interaction/action bindings;
+- validation and feedback paths;
+- compact/medium/expanded responsive intent; and
+- use-case/Component provenance.
+
+A minimal Flutter Web execution may be used to inspect target output, but this
+Phase does not own the general development-loop UX and does not treat Flutter
+Web as mobile acceptance.
 
 ## Exclusions
 
-- claiming Web behavior as iPhone/Android acceptance;
-- final iOS/Android build/sign/package verification;
-- real fold/unfold platform acceptance;
-- Presentation Subcomponent CAR productization;
-- Component Repository publication;
-- official App Store/Google Play distribution; and
-- Desktop product acceptance except development preview where convenient.
+- changing accepted Logical UI semantics;
+- adding another abstract UI model;
+- full scaffold/inspect/plan/generate/preview UX;
+- full developer completion catalog and regeneration workflow;
+- iOS/Android product acceptance;
+- CAR/product packaging;
+- publication/deployment/distribution.
 
 ## Completion Criteria
 
-Phase 51 completes when a developer can repeatedly inspect, generate, preview,
-review, extend through typed owned surfaces, regenerate, analyze, test, and
-verify the representative Flutter application with compact/medium/expanded Web
-review while generated ownership, provenance, identities, and currentness stay
-sound.
+Phase 51 completes when one exact accepted target-ready Logical UI plus one
+versioned Flutter Target Policy deterministically produces a valid Target UI
+Plan and Flutter base source, retains Phase 50 semantic/behavioral coverage and
+provenance, and passes focused format/analyze/test evidence without semantic
+drift.
 
 ## Successor
 
-Phase 52 owns mobile-first acceptance across iPhone/Android size/form-factor
-profiles and Presentation Subcomponent productization.
+Phase 52 owns the normal Flutter development loop: operations, Web-first rapid
+iteration, responsive review, typed developer completion, regeneration, and
+verification.
 
 ## References
 
