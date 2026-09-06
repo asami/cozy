@@ -1,131 +1,139 @@
-# Phase 52: Mobile-first Presentation Productization
+# Phase 52: Flutter Web-first Development Loop
 
 Status: PLANNED
 
 Plan date: 2026-09-06
 
-Predecessor: Phase 51 Flutter Web-first Development Loop closure.
+Predecessor: Phase 51 Flutter Target Projection closure.
 
 ## Goal
 
-Make iPhone/iOS and Android the primary product acceptance targets for generated
-Flutter applications across multiple screen sizes and form factors, then
-productize the verified application as a Presentation Subcomponent/CAR.
+Turn the Phase 51 Flutter projection kernel into a normal development loop with
+Web as the primary rapid iteration/review surface while keeping iPhone/Android
+as the later primary product acceptance targets.
 
-Web remains a supported secondary target and development surface. Desktop is
-secondary unless an application profile explicitly promotes it.
+Guiding principle:
 
-## P52-01: Mobile Acceptance Profiles
+```text
+Mobile-first semantics, Web-first iteration.
+```
 
-Freeze versioned acceptance profiles that are based on form factor and window
-class rather than commercial model names.
+## P52-01: Development operations
 
-Initial required coverage:
+Provide normal Cozy operations for the Flutter application surface:
 
-- iOS phone + compact;
-- iOS larger-phone/medium configuration where admitted;
-- Android phone + compact;
-- Android larger-phone/medium configuration where admitted;
-- Android foldable folded + compact;
-- Android foldable unfolded + expanded; and
-- one tablet-like expanded configuration where the selected application profile
-  admits it.
+- scaffold;
+- inspect;
+- plan;
+- generate;
+- preview;
+- test; and
+- verify.
 
-Profile fixtures may map to specific simulator/emulator devices for execution,
-but those concrete device names are evidence/configuration and not semantic
-application identities.
+Build/package operations belong to Phase 53 except for development-only builds
+needed by tests.
 
-## P52-02: Platform-specific Validation
+## P52-02: Web-first responsive review
 
-Exercise behaviors that Flutter Web cannot prove:
+- Use Flutter Web for fast target implementation review.
+- Provide compact, medium, and expanded preview modes.
+- Provide side-by-side responsive review for the same Logical Screen where useful.
+- Keep viewport/profile selection deterministic and Policy-driven.
+- Diagnose overflow, unreachable required content, missing feedback/navigation,
+  stale target-plan/source identity, and responsive coverage gaps.
+- Preserve distinction between Phase 50 Progressive Static Web semantic review
+  and Phase 52 Flutter Web implementation review.
 
-- safe-area handling;
-- software-keyboard interaction;
-- touch-target usability;
-- platform back/navigation behavior;
-- system gestures where applicable;
-- modal/sheet behavior;
-- orientation/window changes;
-- fold/unfold responsive transitions where supported by the fixture;
-- lifecycle/resume behavior relevant to the representative application; and
-- admitted native integration seams.
+The two Web surfaces have different purposes:
 
-Retain platform/profile identity and test evidence separately from Logical UI
-and Flutter UI Plan authority.
+```text
+Phase 50 Progressive Static Web
+  = inspect Logical UI behavior before target implementation
 
-## P52-03: Mobile and Secondary Builds
+Phase 52 Flutter Web
+  = inspect the generated Flutter realization
+```
 
-- Build verified iOS and Android artifacts from the accepted/generated source
-  and exact target profile.
-- Build Web artifact where selected by the application profile.
-- Add Desktop builds only when selected; Desktop is not a mandatory first
-  product target.
-- Keep signing credentials, store accounts, and environment-specific rollout
-  policy external to generated product documentation and CAR content.
+## P52-03: Regeneration and source ownership
 
-## P52-04: Presentation Subcomponent Productization
+- Regenerate generator-owned Flutter base source deterministically.
+- Keep developer-owned completion code separate from generated files.
+- Freeze a typed initial completion-hook contract.
+- Candidate hook roles include custom region/value rendering, action
+  interception, and platform/application adapters.
+- Reject incompatible/stale completion bindings explicitly.
+- Never implement regeneration by merging arbitrary human edits into generated files.
 
-Productize the verified Flutter application as an independent Presentation
-Subcomponent/CAR using the canonical CNCF Component/Subcomponent contract.
+## P52-04: Developer feedback/provenance loop
 
-Include at least:
+Preserve navigability:
 
-- canonical identity/parent/role metadata;
-- accepted Logical UI, Policy, Plan, and generated-source provenance;
-- target compatibility/profile metadata;
-- digest-bound artifact inventory;
-- installation/use/operation/extraction guidance;
-- release notes;
-- licenses and third-party credits;
-- SBOM/security evidence as required by the canonical CAR contract;
-- dependencies/prerequisites;
-- Help/MCP information; and
-- deterministic currentness/integrity evidence.
+```text
+Flutter element/source
+  -> Target UI Plan node
+  -> accepted Logical UI screen/interaction
+  -> UI UseCase Step
+  -> public Component/Operation/constraint
+```
 
-The generating workspace must not be required by a clean consumer.
+Use inspect/review evidence so a developer or Codex task can identify whether a
+defect belongs to target Policy, target Plan, accepted Logical UI, or underlying
+Component/use-case authority.
 
-## P52-05: Clean Consumer Verification
+## P52-05: Development validation
 
-- Acquire/use only the produced CAR plus explicitly declared external tools and
-  credentials.
-- Verify inventory and integrity.
-- Verify admitted iOS/Android artifact extraction and guidance.
-- Verify selected Web export/delivery from the exact CAR where applicable.
-- Verify the standard information surface is usable without exposing Flutter
-  application behavior, deployment, or official distribution as implicit CNCF
-  Component Operations.
+Run through normal Cozy operations:
+
+- `dart format`;
+- `flutter analyze`;
+- Flutter unit tests;
+- Flutter widget tests;
+- compact/medium/expanded Web tests; and
+- SalesOrder navigation/action/feedback regression tests.
+
+Prove deterministic regeneration with unchanged inputs where required.
 
 ## Representative Driver
 
-Continue the same SalesOrder application identity through the Phase 50/51
-pipeline and prove the accepted use case on the selected iOS and Android
-profiles. Responsive behavior must remain consistent with compact/medium/
-expanded Policy decisions while platform-specific behavior is tested on the
-actual simulator/emulator profile.
+Use the Phase 51 SalesOrder Flutter projection:
+
+```text
+inspect/plan
+  -> generate
+  -> Flutter Web responsive review
+  -> developer completion/feedback where admitted
+  -> regenerate
+  -> analyze/test/verify
+```
 
 ## Exclusions
 
-- treating a browser-width simulation as mobile acceptance;
-- App Store submission/release;
-- Google Play submission/release;
-- Component Repository publication unless explicitly promoted to a separate
-  authorized downstream operation;
-- general deployment orchestration;
-- credentials/signing secrets inside CAR; and
-- mandatory Desktop acceptance for every generated application.
+- changing Phase 50 accepted Logical UI authority;
+- treating Flutter Web behavior as iPhone/Android acceptance;
+- final iOS/Android build/sign/package verification;
+- real fold/unfold platform acceptance;
+- Presentation Subcomponent CAR productization;
+- Component Repository publication;
+- App Store/Google Play distribution; and
+- mandatory Desktop product acceptance.
 
 ## Completion Criteria
 
-Phase 52 completes when the same accepted Logical UI/Flutter projection is
-validated on the required iOS and Android acceptance profiles, platform-specific
-behavior has evidence, selected artifacts are built without semantic drift, and
-a deterministic self-contained Presentation Subcomponent CAR passes clean
-consumer verification. Official store and repository publication remain
-separate authorized operations.
+Phase 52 completes when a developer can repeatedly scaffold/inspect/plan,
+generate, preview, review, extend through typed owned surfaces, regenerate,
+analyze, test, and verify the representative Flutter application through a
+Web-first development loop while source ownership, provenance, identities, and
+currentness remain sound.
+
+## Successor
+
+Phase 53 owns iPhone/Android multi-size/form-factor acceptance and Presentation
+Subcomponent productization.
 
 ## References
 
 - `docs/phase/phase-52-checklist.md`
 - `docs/phase/phase-51.md`
+- `docs/phase/phase-50.md`
 - `docs/notes/flutter-ui-projection-and-responsive-preview-specification-proposal.md`
 - `docs/journal/2026/09/2026-09-06-flutter-mobile-first-web-first-development-direction.md`
