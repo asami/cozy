@@ -18,6 +18,12 @@ StateMachines. Workflow is only a future profile specialization of Composite
 StateMachine, not a parallel language or a second set of StateMachine
 semantics.
 
+The accepted [CML Workflow Specialization
+Classification](cml-workflow-specialization.md) records that CSM-05 retained
+no mandatory Workflow-only semantic residual. It leaves any keyword or profile
+syntax to CSM-06 and does not alter this constituent, role, subject,
+configuration, or derived-transition contract.
+
 ## Constituent bindings
 
 A Composite StateMachine has a set of constituent bindings. Each binding has:

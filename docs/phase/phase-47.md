@@ -57,8 +57,11 @@ semantics.
   derived composite transition graph.
 - Constituent StateMachines retain explicit identity and role; composition must
   not accidentally imply ownership when only coordination/reference is meant.
-- The exact Workflow-only mandatory semantic set remains open until the
-  Composite StateMachine model is exercised.
+- The accepted CSM-05 [Workflow specialization
+  classification](../design/cml-workflow-specialization.md) records zero
+  mandatory Workflow-only residual semantics; Workflow remains a
+  specialization/profile of Composite StateMachine rather than a parallel
+  language.
 - Every candidate Workflow feature is classified as existing StateMachine,
   general Composite StateMachine, mandatory Workflow specialization, or runtime
   policy/infrastructure.
@@ -72,7 +75,7 @@ semantics.
 | CSM-02 | Composite StateMachine semantics | [Accepted semantic contract](../design/cml-composite-statemachine.md) defines constituent-machine binding, role/identity, state configuration, derivation rules, derived transition semantics, and the future projection boundary. | completed |
 | CSM-03 | Static composite analysis | [Accepted static-analysis contract](../design/cml-composite-statemachine-static-analysis.md) defines normalized analysis input, rule completeness/exclusivity, reachability status, impossible/dead states, redundancy findings, and derived transition-graph provenance. | completed |
 | CSM-04 | Action algebra and composition model | [Accepted action-algebra contract](../design/cml-composite-statemachine-action-algebra.md) defines one shared typed logical Action model, ActionOccurrences, and causal ActionProgram composition. | completed |
-| CSM-05 | Workflow specialization analysis | Candidate Workflow-only requirements are tested against the composite model and only mandatory residual semantics are retained. | planned |
+| CSM-05 | Workflow specialization analysis | [Accepted classification](../design/cml-workflow-specialization.md) tests candidate requirements against the composite model and retains zero mandatory Workflow-only residual semantics. | completed |
 | CSM-06 | Grammar and validation | CML syntax and semantic validation are added/refined for Composite StateMachine, derivation rules, actions, and Workflow specialization. | planned |
 | CSM-07 | SimpleModeler generation | Stable typed definitions, constituent bindings, rule IR, derived-model metadata, action algebra/programs, source identities, and ABI metadata are generated deterministically. | planned |
 | CSM-08 | CNCF metadata/bootstrap contract | Generated output is aligned with CNCF Phase 64 ComponentFactory/runtime admission and interpreter boundaries. | planned |
@@ -125,9 +128,9 @@ named later boundaries.
 CSM-02 and CSM-03's accepted decisions are recorded in the [CML Composite
 StateMachine semantics](../design/cml-composite-statemachine.md) and [CML
 Composite StateMachine Static Analysis](../design/cml-composite-statemachine-static-analysis.md).
-Remaining questions are intentionally reserved for the later CSM-05 through
-CSM-10 slices, including Workflow specialization, grammar, generation, CNCF
-integration, visualization, and cross-repository acceptance.
+Remaining questions are intentionally reserved for CSM-06 through CSM-10:
+grammar and validation, generation, CNCF integration, visualization, and
+cross-repository acceptance.
 
 ## Workflow Specialization Rule
 
