@@ -89,11 +89,14 @@ Stage Status:
 
 ## ACTX-06: Cozy producer handoff
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47.1 producer-handoff owner
-- Update rule: This stage remains OPEN while any checklist item in this block is unchecked; this checklist block is the closure basis for marking the stage DONE.
+- Update rule: This stage is DONE because its sole checklist item is complete;
+  the closure basis is the completed [Phase 47.1 Action Producer
+  Handoff](../journal/2026/09/2026-09-08-phase-47.1-action-producer-handoff.md)
+  record, which fixes the Cozy evidence and consumer-owned non-claims.
 
-- [ ] Record the completed Cozy producer evidence and hand it to the declared
+- [x] Record the completed Cozy producer evidence and hand it to the declared
       consumer boundary without claiming runtime acceptance.
 
 ## ACTX-07: Producer-contract acceptance

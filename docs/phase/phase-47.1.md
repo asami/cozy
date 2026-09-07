@@ -254,7 +254,7 @@ Provider capability remains a CNCF admission concern.
 | ACTX-03 | Compensation handler binding | [CML Action Compensation Handler Binding](../design/cml-action-compensation-handler-binding.md) defines the stable producer-only action-level association without embedding handler implementation. | completed |
 | ACTX-04 | Static validation | Direct Action metadata parsing, typed source normalization, exact enum/key pairing, empty/duplicate rejection, and compensation applicability validation are implemented without handler implementation resolution or runtime claims. | completed |
 | ACTX-05 | Generation | Metadata and handler references generate deterministically as an additive Scala/JSON producer surface; no UnitOfWork runtime binding is added. | completed |
-| ACTX-06 | Cozy producer handoff | Cozy records and hands off the future producer contract; consumer runtime ownership is explicit. | planned |
+| ACTX-06 | Cozy producer handoff | [Cozy producer handoff](../journal/2026/09/2026-09-08-phase-47.1-action-producer-handoff.md) records the completed producer evidence and asks Phase 64.1 to evaluate the runtime contract under its own authority; consumer runtime ownership remains explicit. | completed |
 | ACTX-07 | Producer-contract acceptance | Cozy verifies producer-contract evidence and handoff completeness; runtime proof is explicitly excluded and remains a Phase 64.1 consumer obligation. | planned |
 
 ## Acceptance ownership and evidence boundary
