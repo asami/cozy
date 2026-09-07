@@ -23,8 +23,8 @@ Stage Status:
 
 - [x] Mark the Phase contract in progress and record the explicit producer vs.
       consumer ownership boundary.
-- [x] Record the current CML Action parser/model fields and rejection of
-      transaction, retry, and compensation syntax.
+- [x] Record the baseline CML Action parser/model fields and the pre-ACTX-04
+      rejection of transaction, retry, and compensation syntax.
 - [x] Record current logical action occurrence provenance, CSM-07 generation
       deferrals, CSM-04 pure ActionProgram semantics, and current UnitOfWorkOp
       projection placeholders.
@@ -56,17 +56,23 @@ Stage Status:
 
 - [x] Define the stable producer-side association and its semantic applicability
       boundary for an application compensation-handler reference without
-      embedding handler implementation; executable/parser validation and binding
-      resolution remain deferred to ACTX-04.
+      embedding handler implementation; ACTX-04 now implements direct parser and
+      static applicability validation without resolving handler implementation.
 
 ## ACTX-04: Static validation
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47.1 static-validation owner
-- Update rule: This stage remains OPEN while any checklist item in this block is unchecked; this checklist block is the closure basis for marking the stage DONE.
+- Update rule: This stage is DONE because every checklist item in this block is checked; this checklist block is the closure basis for the stage.
 
-- [ ] Implement tractable producer-side handler, transaction, idempotency,
-      recovery-boundary, and ordering validation.
+- [x] Implement direct Action metadata parsing and typed normalized source
+      metadata for effect class, transaction requirement, idempotency, and the
+      opaque compensation-handler reference.
+- [x] Reject partial base metadata, empty or duplicate authored metadata,
+      invalid enum/key pairings, and compensation handlers outside the
+      `EXTERNAL` plus `OUTSIDE_UNIT_OF_WORK` applicability boundary.
+- [x] Preserve legacy Action validity, logical Action identity, occurrence
+      provenance, and generated ABI/projection/output boundaries.
 
 ## ACTX-05: Generation
 Stage Status:

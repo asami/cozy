@@ -105,8 +105,16 @@ it never chooses a derivation by order, priority, default, or fallback.
 `operation = <CML Operation>` resolve a unique normalized CML Operation. An
 optional `input = <role>.subject` requires that typed constituent subject and
 must match the Operation input type; absence and presence must likewise agree
-with whether the Operation declares an input. This grammar admits no raw
-expression, script, provider, transaction, retry, or compensation syntax.
+with whether the Operation declares an input. Raw expression, script,
+provider, or retry syntax is not admitted. The five direct additive metadata
+fields `EFFECT`, `TRANSACTION`, `IDEMPOTENCY`, `IDEMPOTENCY-KEY`, and
+`COMPENSATION-HANDLER` are parsed into normalized source metadata when present.
+Legacy Actions with none of these fields remain valid. Once any metadata field
+is present, `EFFECT`, `TRANSACTION`, and `IDEMPOTENCY` are required with exact
+values; `IDEMPOTENCY-KEY` is required exactly for `IDEMPOTENCY=REQUIRED` and
+prohibited for `NOT_REQUIRED`. Empty or duplicate authored metadata fields are
+rejected. A nonempty opaque `COMPENSATION-HANDLER` is accepted only with
+`EFFECT=EXTERNAL` and `TRANSACTION=OUTSIDE_UNIT_OF_WORK`.
 
 `CONSTITUENT-ACTION` carries its own stable occurrence identity, `ROLE`,
 `FROM`, `TO`, `ON`, `PLACEMENT`, and `ACTION`. `PLACEMENT` is exactly `exit`,
@@ -115,25 +123,24 @@ transition. Equal actions are not deduplicated. `DERIVED-ACTION` has a stable
 identity, distinct declared composite `FROM` and `TO`, and an `ACTION`; its
 placement is fixed as `derived-transition` and is not authored separately.
 
-The future producer-side v1 metadata contract is frozen separately by the
+The producer-side v1 metadata contract is frozen separately by the
 [CML Action Producer Metadata](cml-action-producer-metadata.md) authority, with
 the producer-only compensation association defined by the accepted [CML Action
 Compensation Handler Binding](cml-action-compensation-handler-binding.md)
-authority. That contract is additive and is not part of this currently
-implemented grammar: Actions with no Phase 47.1 metadata remain valid, while
-the future `EFFECT`, `TRANSACTION`, `IDEMPOTENCY`, `IDEMPOTENCY-KEY`, and
-`COMPENSATION-HANDLER` surface is not currently parsed or accepted. The current
-exclusion of transaction, retry, and compensation metadata remains in force
-until ACTX-04 implements parser/static validation and binding resolution.
+authority. That contract is additive and is implemented here at the parser and
+normalized source-model boundary. It does not change Action identity,
+occurrence provenance, generated ABI, projection metadata, or generated output;
+ACTX-05 owns deterministic generation.
 
 ## Diagnostics and preservation
 
 The normalizer diagnoses duplicate roles, unknown StateMachines, missing or
 duplicate role mappings, unknown state mappings, invalid initial mappings,
 reachable uncovered/ambiguous derivations, invalid Operation/action bindings,
-unknown action occurrences, unresolved constituent transitions, and supplied
-`WORKFLOW` roots. These are validation diagnostics, never declaration-order
-resolution rules.
+unknown action occurrences, unresolved constituent transitions, duplicate or
+empty Action metadata fields, invalid metadata enum/key pairings, invalid
+compensation applicability, and supplied `WORKFLOW` roots. These are
+validation diagnostics, never declaration-order resolution rules.
 
 CSM-02 constituent identity, configuration, derivation, and derived-transition
 meaning are unchanged. CSM-03's hierarchy-lowering and broader static-analysis
@@ -145,9 +152,9 @@ created or interpreted.
 
 CSM-07 owns generated definition IR and ABI. CSM-08 owns CNCF bootstrap and
 runtime admission. CSM-09 owns visualization and projection metadata. CSM-10
-owns cross-repository acceptance. ACTX-02 owns the future producer-side
-metadata meaning referenced above; ACTX-03 owns the accepted producer-only
-compensation association, while ACTX-04 owns its later parser/static
-validation and binding resolution and ACTX-05 owns deterministic generation.
-This slice also does not decide runtime execution, transaction, recovery,
-provider integration, visualization, or a Workflow language.
+owns cross-repository acceptance. ACTX-02 owns the producer-side metadata
+meaning referenced above; ACTX-03 owns the producer-only compensation
+association; ACTX-04 owns the implemented parser/static validation and
+normalized source metadata; and ACTX-05 owns deterministic generation. This
+slice also does not decide runtime execution, transaction, recovery, provider
+integration, visualization, or a Workflow language.

@@ -65,12 +65,62 @@ final case class CompositeStateMachineOperation(
   inputType: Option[String]
 )
 
+sealed trait CompositeStateMachineEffectClass {
+  def canonicalValue: String
+}
+
+object CompositeStateMachineEffectClass {
+  case object Local extends CompositeStateMachineEffectClass {
+    val canonicalValue: String = "LOCAL"
+  }
+
+  case object External extends CompositeStateMachineEffectClass {
+    val canonicalValue: String = "EXTERNAL"
+  }
+}
+
+sealed trait CompositeStateMachineTransactionRequirement {
+  def canonicalValue: String
+}
+
+object CompositeStateMachineTransactionRequirement {
+  case object Required extends CompositeStateMachineTransactionRequirement {
+    val canonicalValue: String = "REQUIRED"
+  }
+
+  case object OutsideUnitOfWork extends CompositeStateMachineTransactionRequirement {
+    val canonicalValue: String = "OUTSIDE_UNIT_OF_WORK"
+  }
+}
+
+sealed trait CompositeStateMachineIdempotency {
+  def canonicalValue: String
+}
+
+object CompositeStateMachineIdempotency {
+  case object NotRequired extends CompositeStateMachineIdempotency {
+    val canonicalValue: String = "NOT_REQUIRED"
+  }
+
+  final case class Required(keyRef: String) extends CompositeStateMachineIdempotency {
+    val canonicalValue: String = s"REQUIRED($keyRef)"
+  }
+}
+
+final case class CompositeStateMachineActionMetadata(
+  effectClass: CompositeStateMachineEffectClass,
+  transactionRequirement: CompositeStateMachineTransactionRequirement,
+  idempotency: CompositeStateMachineIdempotency,
+  compensationHandlerRef: Option[String]
+)
+
 final case class CompositeStateMachineLogicalAction(
   identity: String,
   kind: String,
   operation: CompositeStateMachineOperation,
   inputBinding: Option[String],
-  source: CompositeStateMachineSourceIdentity
+  source: CompositeStateMachineSourceIdentity,
+  metadata: Option[CompositeStateMachineActionMetadata] = None
 )
 
 final case class CompositeStateMachineConstituentAction(

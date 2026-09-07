@@ -237,11 +237,118 @@ private[modeler] object CompositeStateMachineCml {
         case (Some(_), None) => RAISE.syntaxErrorFault(s"ACTION '$identity' INPUT is invalid because OPERATION '$operationname' declares no input.")
         case (Some(binding), Some(inputtype)) => _validate_input_binding(identity, binding, inputtype, constituents)
       }
-      CompositeStateMachineLogicalAction(identity, "OPERATION", operation, input, _source(entry))
+      CompositeStateMachineLogicalAction(
+        identity = identity,
+        kind = "OPERATION",
+        operation = operation,
+        inputBinding = input,
+        source = _source(entry),
+        metadata = _action_metadata(entry, identity)
+      )
     }
     _unique(entries.map(_.identity), s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
     entries
   }
+
+  private val _action_metadata_fields = Vector(
+    "EFFECT",
+    "TRANSACTION",
+    "IDEMPOTENCY",
+    "IDEMPOTENCY-KEY",
+    "COMPENSATION-HANDLER"
+  )
+
+  private val _direct_action_field_pattern = """^\s*(?:-\s*)?([A-Za-z][A-Za-z0-9_-]*)\s*(?:::|=)\s*(.*)$""".r
+
+  private def _action_metadata(
+    section: LogicalSection,
+    identityname: String
+  ): Option[CompositeStateMachineActionMetadata] = {
+    _action_metadata_fields.foreach { fieldname =>
+      if (_children(section, fieldname).nonEmpty)
+        RAISE.syntaxErrorFault(s"ACTION '$identityname' metadata field '$fieldname' must be a direct field.")
+    }
+    val fields = _direct_action_field_entries(section).flatMap { case (fieldname, value) =>
+      _action_metadata_fields.find(_same_key(_, fieldname)).map(_ -> value)
+    }
+    val duplicates = fields.groupBy(_._1).collect {
+      case (fieldname, values) if values.size > 1 => fieldname
+    }.toVector.sorted
+    duplicates.headOption.foreach { fieldname =>
+      RAISE.syntaxErrorFault(s"ACTION '$identityname' metadata field '$fieldname' must be unique.")
+    }
+    if (fields.isEmpty)
+      None
+    else {
+      val values = fields.toMap
+      val effectvalue = _required_action_metadata_value(values, "EFFECT", identityname)
+      val transactionvalue = _required_action_metadata_value(values, "TRANSACTION", identityname)
+      val idempotencyvalue = _required_action_metadata_value(values, "IDEMPOTENCY", identityname)
+      val effectclass = effectvalue match {
+        case "LOCAL" => CompositeStateMachineEffectClass.Local
+        case "EXTERNAL" => CompositeStateMachineEffectClass.External
+        case _ => RAISE.syntaxErrorFault(s"ACTION '$identityname' EFFECT must be LOCAL or EXTERNAL.")
+      }
+      val transactionrequirement = transactionvalue match {
+        case "REQUIRED" => CompositeStateMachineTransactionRequirement.Required
+        case "OUTSIDE_UNIT_OF_WORK" => CompositeStateMachineTransactionRequirement.OutsideUnitOfWork
+        case _ => RAISE.syntaxErrorFault(s"ACTION '$identityname' TRANSACTION must be REQUIRED or OUTSIDE_UNIT_OF_WORK.")
+      }
+      val keyref = values.get("IDEMPOTENCY-KEY").map(_.trim)
+      val idempotency = idempotencyvalue match {
+        case "NOT_REQUIRED" =>
+          if (keyref.nonEmpty)
+            RAISE.syntaxErrorFault(s"ACTION '$identityname' IDEMPOTENCY-KEY is prohibited when IDEMPOTENCY is NOT_REQUIRED.")
+          CompositeStateMachineIdempotency.NotRequired
+        case "REQUIRED" =>
+          CompositeStateMachineIdempotency.Required(keyref.filter(_.nonEmpty).getOrElse(
+            RAISE.syntaxErrorFault(s"ACTION '$identityname' IDEMPOTENCY-KEY is required and must be nonempty when IDEMPOTENCY is REQUIRED.")
+          ))
+        case _ => RAISE.syntaxErrorFault(s"ACTION '$identityname' IDEMPOTENCY must be NOT_REQUIRED or REQUIRED.")
+      }
+      val compensationhandler = values.get("COMPENSATION-HANDLER").map { value =>
+        _nonempty(value, s"ACTION '$identityname' COMPENSATION-HANDLER")
+      }
+      if (compensationhandler.nonEmpty &&
+        (effectclass != CompositeStateMachineEffectClass.External ||
+          transactionrequirement != CompositeStateMachineTransactionRequirement.OutsideUnitOfWork))
+        RAISE.syntaxErrorFault(
+          s"ACTION '$identityname' COMPENSATION-HANDLER requires EFFECT=EXTERNAL and TRANSACTION=OUTSIDE_UNIT_OF_WORK."
+        )
+      Some(CompositeStateMachineActionMetadata(
+        effectClass = effectclass,
+        transactionRequirement = transactionrequirement,
+        idempotency = idempotency,
+        compensationHandlerRef = compensationhandler
+      ))
+    }
+  }
+
+  private def _direct_action_field_entries(section: LogicalSection): Vector[(String, String)] = {
+    val raw = section.blocks.blocks.toVector.flatMap {
+      case _: LogicalSection => Vector.empty
+      case block => block.getText.toVector.flatMap { text =>
+        text.split("\\r?\\n").toVector.collect {
+          case _direct_action_field_pattern(fieldname, value) => fieldname -> value.trim
+        }
+      }
+    }
+    val direct = CmlSectionFormat.directKeyValues(section).toVector
+    raw ++ direct.filterNot { case (fieldname, value) =>
+      raw.exists { case (rawfieldname, rawvalue) =>
+        _same_key(fieldname, rawfieldname) && value.trim == rawvalue.trim
+      }
+    }
+  }
+
+  private def _required_action_metadata_value(
+    values: Map[String, String],
+    fieldname: String,
+    identityname: String
+  ): String =
+    values.get(fieldname).map(_.trim).filter(_.nonEmpty).getOrElse(
+      RAISE.syntaxErrorFault(s"ACTION '$identityname' metadata requires nonempty $fieldname.")
+    )
 
   private def _validate_input_binding(
     actionname: String,

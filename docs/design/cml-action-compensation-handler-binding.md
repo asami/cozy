@@ -7,11 +7,12 @@ updated_at=2026-09-08
 
 ## Authority and boundary
 
-This document is the accepted ACTX-03 design authority for a future
-producer-only association between CML Action metadata and an application
-compensation handler. It defines the association's meaning; it does not claim
-that Cozy currently parses, validates, resolves, generates, executes, or proves
-it.
+This document is the accepted ACTX-03 design authority for the producer-only
+association between CML Action metadata and an application compensation
+handler. It defines the association's meaning. ACTX-04 now parses and
+statically validates the authored association into normalized source metadata;
+Cozy does not resolve a handler implementation, generate runtime output,
+execute, or prove it here.
 
 The optional `compensationHandlerRef` is an opaque reference bound to the
 existing logical `actionId`. It is not bound to an `ActionOccurrence` and does
@@ -44,9 +45,11 @@ of a handler reference never makes an `EXTERNAL` effect technically rollbackable
 An unavailable `REQUIRED` admission remains consumer reject behavior; the
 requirement must not be silently weakened into best-effort execution.
 
-This authority imposes no executable or parser validation. It does not define
-handler existence checks, resolution diagnostics, execution ordering, retry or
-recovery policy, or a runtime success/failure result.
+This authority does not define handler existence checks, implementation
+resolution diagnostics, execution ordering, retry or recovery policy, or a
+runtime success/failure result. ACTX-04 validates the direct authored field,
+its nonempty opaque reference, and the `EXTERNAL` plus `OUTSIDE_UNIT_OF_WORK`
+applicability boundary without resolving the handler.
 
 ## Future deterministic representation intent
 
@@ -58,8 +61,6 @@ handler, transaction, or Saga algebra.
 
 The following work remains deferred to its owning boundary:
 
-- ACTX-04 owns parser acceptance, static validation, and compensation binding
-  resolution;
 - ACTX-05 owns deterministic generation of the metadata, references, ordering
   representation, and generated IR/ABI/output binding;
 - `goldenport-cncf` Phase 64.1 owns UnitOfWork and optional-2PC admission,
@@ -69,19 +70,20 @@ The following work remains deferred to its owning boundary:
   retry/recovery policy remain outside this association and are not inferred by
   it.
 
-Actual parser acceptance, association resolution, validation, generated
-representation, ordering, handler execution, automatic Saga/reverse chains,
-retry/recovery policy, and runtime proof therefore remain deferred exactly to
-those boundaries. The current [CML Composite StateMachine Grammar and
-Validation](cml-composite-statemachine-grammar-validation.md) authority
-continues to exclude compensation syntax from the implemented grammar.
+ACTX-04 has completed parser acceptance and source-level association
+validation. Generated representation, ordering output, handler execution,
+automatic Saga/reverse chains, retry/recovery policy, and runtime proof remain
+deferred exactly to their owning boundaries. The current [CML Composite
+StateMachine Grammar and Validation](cml-composite-statemachine-grammar-validation.md)
+authority includes the direct compensation field and its static applicability
+check.
 
 ## Non-goals
 
 - No second Action, handler, transaction, or Saga algebra.
 - No compensation handler body, provider contract, or execution semantics in
   CML metadata.
-- No claim of Cozy parser acceptance, runtime acceptance, rollback, execution,
-  compensation, or recovery proof.
+- No claim of Cozy runtime acceptance, rollback, execution, compensation, or
+  recovery proof.
 - No change to legacy Action validity or to existing Action occurrence
   provenance.

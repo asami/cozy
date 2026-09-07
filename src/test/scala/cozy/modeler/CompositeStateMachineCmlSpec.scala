@@ -141,6 +141,102 @@ final class CompositeStateMachineCmlSpec extends AnyWordSpec with Matchers with 
         Then("the typed subject mismatch is diagnosed")
         error.getMessage should include("must match OPERATION input 'PaymentCommand'")
       }
+
+      "normalize full Action metadata into typed values" in {
+        Given("an ACTION with external, out-of-UnitOfWork, required-idempotency, and compensation metadata")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = EXTERNAL
+transaction = OUTSIDE_UNIT_OF_WORK
+idempotency = REQUIRED
+idempotency-key = payment-command
+compensation-handler = cancel-payment"""
+        )
+        val model = _model(source)
+
+        When("the CML Action is normalized")
+        val action = CompositeStateMachineCml.definitions(model).head.actions.head
+
+        Then("the exact semantic metadata is represented by closed typed values")
+        action.metadata shouldBe Some(CompositeStateMachineActionMetadata(
+          effectClass = CompositeStateMachineEffectClass.External,
+          transactionRequirement = CompositeStateMachineTransactionRequirement.OutsideUnitOfWork,
+          idempotency = CompositeStateMachineIdempotency.Required("payment-command"),
+          compensationHandlerRef = Some("cancel-payment")
+        ))
+      }
+
+      "preserve a legacy Action with no metadata" in {
+        Given("a legacy ACTION without Phase 47.1 metadata fields")
+        val model = _model(_accepted_source())
+
+        When("the CML Action is normalized")
+        val action = CompositeStateMachineCml.definitions(model).head.actions.head
+
+        Then("the legacy Action remains valid and has no normalized metadata")
+        action.metadata shouldBe None
+      }
+
+      "reject partial Action metadata" in {
+        Given("an ACTION that supplies EFFECT without the required base metadata fields")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = EXTERNAL"""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the missing base metadata is diagnosed")
+        error.getMessage should include("metadata requires nonempty TRANSACTION")
+      }
+
+      "reject an invalid idempotency key pairing" in {
+        Given("an ACTION that supplies IDEMPOTENCY-KEY with NOT_REQUIRED idempotency")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = NOT_REQUIRED
+idempotency-key = payment-command"""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the incompatible idempotency key is rejected")
+        error.getMessage should include("IDEMPOTENCY-KEY is prohibited")
+      }
+
+      "reject a compensation handler outside its applicability boundary" in {
+        Given("an ACTION with a compensation handler on a local in-UnitOfWork effect")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = NOT_REQUIRED
+compensation-handler = cancel-payment"""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the handler applicability boundary is diagnosed")
+        error.getMessage should include("COMPENSATION-HANDLER requires EFFECT=EXTERNAL and TRANSACTION=OUTSIDE_UNIT_OF_WORK")
+      }
     }
 
     "exclude Workflow from the Phase 47 CML language" which {
