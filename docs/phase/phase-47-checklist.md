@@ -6,7 +6,8 @@ non-normative and records progress only; the phase contract remains
 
 Phase Status: IN_PROGRESS
 
-Scope: CSM-01 through CSM-05 are the completed slices recorded here. Phase 47.1, Phase
+Scope: CSM-01 through CSM-06 are the completed slices recorded here before CSM-07 is
+recorded. Phase 47.1, Phase
 47.2, successor work, and `asami/goldenport-cncf` are outside this ledger
 entry. The factual evidence for CSM-01 is the
 [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md);
@@ -119,14 +120,21 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47 SimpleModeler generation
 - Update rule: mark complete only when the concrete checklist condition below
   is checked.
 
-- [ ] Generate stable definitions, constituent bindings, rule IR, derived-model
-      metadata, action programs, source identities, and ABI metadata as defined
-      by the accepted model.
+- [x] Generate CSM-07's immutable typed definition/constituent/configuration/
+      logical-action/action-occurrence IR and deterministic versioned Scala ABI
+      source from both `modeler-scala` and `modeler-scala-value`, preserving
+      source identity where the parser provides it. Evidence:
+      `CompositeStateMachineGenerationSpec` covers typed normalization,
+      non-deduplicated equal-action provenance, derived-action transition
+      provenance, value-path generation, ABI source contents, value-mode
+      `DomainComponent` absence, and repeated-generation determinism; the
+      accepted [generated ABI authority](../design/cml-composite-statemachine-generation.md)
+      records exact scope and deferrals.
 
 ## CSM-08: CNCF metadata/bootstrap contract
 

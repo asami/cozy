@@ -77,7 +77,7 @@ semantics.
 | CSM-04 | Action algebra and composition model | [Accepted action-algebra contract](../design/cml-composite-statemachine-action-algebra.md) defines one shared typed logical Action model, ActionOccurrences, and causal ActionProgram composition. | completed |
 | CSM-05 | Workflow specialization analysis | [Accepted classification](../design/cml-workflow-specialization.md) tests candidate requirements against the composite model and retains zero mandatory Workflow-only residual semantics. | completed |
 | CSM-06 | Grammar and validation | [Accepted grammar and validation](../design/cml-composite-statemachine-grammar-validation.md) adds normalized Composite StateMachine syntax and semantic validation without admitting a Workflow language. | completed |
-| CSM-07 | SimpleModeler generation | Stable typed definitions, constituent bindings, rule IR, derived-model metadata, action algebra/programs, source identities, and ABI metadata are generated deterministically. | planned |
+| CSM-07 | SimpleModeler generation | [Accepted generated ABI](../design/cml-composite-statemachine-generation.md) projects stable typed definitions, ordered constituent bindings/rules/actions, source identities, and deterministic Scala metadata without a runtime policy. | completed |
 | CSM-08 | CNCF metadata/bootstrap contract | Generated output is aligned with CNCF Phase 64 ComponentFactory/runtime admission and interpreter boundaries. | planned |
 | CSM-09 | Visualization/projection metadata | Composite/constituent state, rule matches, derived transitions, and action placement are preserved for meta APIs, CBD Support, BoK visualization, and diagnostics. | planned |
 | CSM-10 | Cross-repository acceptance | A real CML model with multiple constituent StateMachines, derived composite states, lower/upper actions, and a Workflow specialization passes Cozy -> generated metadata -> CNCF runtime acceptance. | planned |
@@ -148,6 +148,12 @@ Candidate concerns include process-instance identity, multi-subject correlation,
 durable wait/progression, pending work, completion/cancellation, and history.
 
 ## Generation Contract
+
+CSM-07's accepted generated-ABI authority is [CML Composite StateMachine
+Generated ABI](../design/cml-composite-statemachine-generation.md). It owns the
+typed Cozy projection and standalone deterministic Scala source surface. CSM-08
+through CSM-10 retain CNCF mapping/runtime, visualization, and cross-repository
+acceptance respectively.
 
 The generated representation must preserve at least:
 

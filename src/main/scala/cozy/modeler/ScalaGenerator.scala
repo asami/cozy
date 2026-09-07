@@ -18,7 +18,8 @@ import org.goldenport.realm.Realm
  */
 class ScalaGenerator(
   environment: Environment,
-  model: SimpleModel
+  model: SimpleModel,
+  compositeStateMachines: Vector[CompositeStateMachineDefinition] = Vector.empty
 ) {
   private val _transformer = {
     val config = Config.create(environment)
@@ -29,16 +30,17 @@ class ScalaGenerator(
 
   def generate(p: MPackage): STree = {
     val r = _transformer.transform(model)
+    val compositestatemachines = CompositeStateMachineScalaGenerator.generate(compositeStateMachines)
     val metadata = ComponentApiContractMetadata.generate(model) match {
       case Right(document) => document
       case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
     }
     if (metadata.isEmpty)
-      STree(r.realm)
+      STree(r.realm + compositestatemachines)
     else {
       val builder = Realm.Builder()
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
-      STree(r.realm + builder.build())
+      STree(r.realm + compositestatemachines + builder.build())
     }
   }
 }

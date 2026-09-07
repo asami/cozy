@@ -13,23 +13,38 @@ import scala.collection.mutable
  * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
-/** Normalizes and validates the CSM-06 CML surface; it deliberately retains no IR. */
+/** Normalizes and validates the CSM-06 CML surface into the CSM-07 typed IR. */
 private[modeler] object CompositeStateMachineCml {
-  private final case class Constituent(role: String, machine: StateMachineClass, states: Vector[String], subject: Option[String], subjecttype: Option[String])
-  private final case class Derivation(name: String, state: String, when: Map[String, String])
-  private final case class OperationContract(service: String, name: String, inputtype: Option[String])
+  private final case class Constituent(
+    machine: StateMachineClass,
+    value: CompositeStateMachineConstituent
+  )
 
   def validate(model: KaleidoxModel): Unit = {
+    definitions(model)
+    ()
+  }
+
+  def definitions(model: KaleidoxModel): Vector[CompositeStateMachineDefinition] = {
     val roots = model.divisions.toVector.flatMap(_logical_section)
     if (roots.exists(_same_section_key(_, "WORKFLOW")))
       RAISE.syntaxErrorFault("WORKFLOW is not admitted by the Phase 47 CML grammar.")
-    roots.filter(_same_section_key(_, "COMPOSITE-STATEMACHINE")).foreach(_validate_definition_root(_, model))
+    val operations = _operation_contracts(model)
+    roots.filter(_same_section_key(_, "COMPOSITE-STATEMACHINE")).flatMap(_normalize_definition_root(_, model, operations))
   }
 
-  private def _validate_definition_root(root: LogicalSection, model: KaleidoxModel): Unit =
-    root.blocks.sections.toVector.foreach(_validate_definition(_, model, _operation_contracts(model)))
+  private def _normalize_definition_root(
+    root: LogicalSection,
+    model: KaleidoxModel,
+    operations: Vector[CompositeStateMachineOperation]
+  ): Vector[CompositeStateMachineDefinition] =
+    root.blocks.sections.toVector.map(_normalize_definition(_, model, operations))
 
-  private def _validate_definition(definition: LogicalSection, model: KaleidoxModel, operations: Vector[OperationContract]): Unit = {
+  private def _normalize_definition(
+    definition: LogicalSection,
+    model: KaleidoxModel,
+    operations: Vector[CompositeStateMachineOperation]
+  ): CompositeStateMachineDefinition = {
     val name = definition.nameForModel
     val allowed = Set("CONSTITUENT", "STATE", "DERIVATION", "INITIAL", "ACTION", "CONSTITUENT-ACTION", "DERIVED-ACTION")
     definition.blocks.sections.foreach { section =>
@@ -47,15 +62,44 @@ private[modeler] object CompositeStateMachineCml {
     val constituents = _constituents(_children(definition, "CONSTITUENT").head, model, name)
     val states = _states(_children(definition, "STATE").head, name)
     val derivations = _derivations(_children(definition, "DERIVATION").head, name, constituents, states)
-    val initial = _children(definition, "INITIAL").headOption.map(_mapping(_, s"COMPOSITE-STATEMACHINE '$name' INITIAL", constituents))
-    initial.foreach(_validate_complete_mapping(_, s"COMPOSITE-STATEMACHINE '$name' INITIAL", constituents))
+    val initial = _children(definition, "INITIAL").headOption.map { section =>
+      val configuration = _mapping(section, s"COMPOSITE-STATEMACHINE '$name' INITIAL", constituents)
+      _validate_complete_mapping(configuration.bindings, s"COMPOSITE-STATEMACHINE '$name' INITIAL", constituents)
+      configuration
+    }
     _validate_derivation_analysis(name, constituents, derivations, initial)
     val actions = _actions(_children(definition, "ACTION").headOption, name, constituents, operations)
-    _constituent_actions(_children(definition, "CONSTITUENT-ACTION").headOption, name, constituents, actions)
-    _derived_actions(_children(definition, "DERIVED-ACTION").headOption, name, states, actions)
+    val constituentactions = _constituent_actions(
+      _children(definition, "CONSTITUENT-ACTION").headOption,
+      name,
+      constituents,
+      actions
+    )
+    val derivedactions = _derived_actions(
+      _children(definition, "DERIVED-ACTION").headOption,
+      name,
+      states,
+      actions
+    )
+    CompositeStateMachineDefinition(
+      identity = name,
+      name = name,
+      source = _source(definition),
+      constituents = constituents.map(_.value),
+      states = states,
+      derivations = derivations,
+      initialConfiguration = initial,
+      actions = actions,
+      constituentActions = constituentactions,
+      derivedActions = derivedactions
+    )
   }
 
-  private def _constituents(section: LogicalSection, model: KaleidoxModel, context: String): Vector[Constituent] = {
+  private def _constituents(
+    section: LogicalSection,
+    model: KaleidoxModel,
+    context: String
+  ): Vector[Constituent] = {
     val entries = section.blocks.sections.toVector.map { entry =>
       val role = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' CONSTITUENT role")
       val machinename = _required_field(entry, "STATE-MACHINE", s"CONSTITUENT '$role'")
@@ -72,39 +116,64 @@ private[modeler] object CompositeStateMachineCml {
       val subjecttype = _field(entry, "SUBJECT-TYPE")
       if (subject.nonEmpty != subjecttype.nonEmpty)
         RAISE.syntaxErrorFault(s"CONSTITUENT '$role' SUBJECT requires SUBJECT-TYPE.")
-      Constituent(role, machine, states, subject, subjecttype)
+      Constituent(
+        machine,
+        CompositeStateMachineConstituent(
+          role = role,
+          stateMachine = CompositeStateMachineReference(machine.name),
+          states = states,
+          subject = subject.flatMap(name => subjecttype.map(kind => CompositeStateMachineSubject(name, kind))),
+          source = _source(entry)
+        )
+      )
     }
-    _unique(entries.map(_.role), s"COMPOSITE-STATEMACHINE '$context' CONSTITUENT role")
+    _unique(entries.map(_.value.role), s"COMPOSITE-STATEMACHINE '$context' CONSTITUENT role")
     entries
   }
 
-  private def _states(section: LogicalSection, context: String): Vector[String] = {
-    val states = section.blocks.sections.toVector.map(x => _nonempty(x.nameForModel, s"COMPOSITE-STATEMACHINE '$context' STATE"))
+  private def _states(section: LogicalSection, context: String): Vector[CompositeStateMachineState] = {
+    val states = section.blocks.sections.toVector.map { entry =>
+      CompositeStateMachineState(
+        _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' STATE"),
+        _source(entry)
+      )
+    }
     if (states.isEmpty)
       RAISE.syntaxErrorFault(s"COMPOSITE-STATEMACHINE '$context' STATE requires at least one declared composite state.")
-    _unique(states, s"COMPOSITE-STATEMACHINE '$context' STATE")
+    _unique(states.map(_.name), s"COMPOSITE-STATEMACHINE '$context' STATE")
     states
   }
 
-  private def _derivations(section: LogicalSection, context: String, constituents: Vector[Constituent], states: Vector[String]): Vector[Derivation] = {
+  private def _derivations(
+    section: LogicalSection,
+    context: String,
+    constituents: Vector[Constituent],
+    states: Vector[CompositeStateMachineState]
+  ): Vector[CompositeStateMachineDerivation] = {
     val derivations = section.blocks.sections.toVector.map { entry =>
-      val name = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' DERIVATION identity")
-      val state = _required_field(entry, "STATE", s"DERIVATION '$name'")
-      _require_member(state, states, s"DERIVATION '$name' STATE")
-      val when = _mapping_field(entry, "WHEN", s"DERIVATION '$name' WHEN", constituents)
-      _validate_complete_mapping(when, s"DERIVATION '$name' WHEN", constituents)
-      Derivation(name, state, when)
+      val identity = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' DERIVATION identity")
+      val statename = _required_field(entry, "STATE", s"DERIVATION '$identity'")
+      _require_member(statename, states.map(_.name), s"DERIVATION '$identity' STATE")
+      val state = states.find(x => _same_key(x.name, statename)).get.name
+      val configuration = _mapping_field(entry, "WHEN", s"DERIVATION '$identity' WHEN", constituents)
+      _validate_complete_mapping(configuration.bindings, s"DERIVATION '$identity' WHEN", constituents)
+      CompositeStateMachineDerivation(identity, state, configuration, _source(entry))
     }
     if (derivations.isEmpty)
       RAISE.syntaxErrorFault(s"COMPOSITE-STATEMACHINE '$context' DERIVATION requires at least one stable rule.")
-    _unique(derivations.map(_.name), s"COMPOSITE-STATEMACHINE '$context' DERIVATION identity")
+    _unique(derivations.map(_.identity), s"COMPOSITE-STATEMACHINE '$context' DERIVATION identity")
     derivations
   }
 
-  private def _validate_derivation_analysis(context: String, constituents: Vector[Constituent], derivations: Vector[Derivation], initial: Option[Map[String, String]]): Unit =
+  private def _validate_derivation_analysis(
+    context: String,
+    constituents: Vector[Constituent],
+    derivations: Vector[CompositeStateMachineDerivation],
+    initial: Option[CompositeStateMachineConfiguration]
+  ): Unit =
     initial.foreach { start =>
-      _reachable_configurations(constituents, start).foreach { configuration =>
-        val matches = derivations.filter(_.when == configuration)
+      _reachable_configurations(constituents, _as_mapping(start.bindings)).foreach { configuration =>
+        val matches = derivations.filter(x => _as_mapping(x.configuration.bindings) == configuration)
         if (matches.isEmpty)
           RAISE.syntaxErrorFault(s"COMPOSITE-STATEMACHINE '$context' has uncovered reachable derivation configuration ${_show_mapping(configuration)}.")
         if (matches.size > 1)
@@ -112,15 +181,18 @@ private[modeler] object CompositeStateMachineCml {
       }
     }
 
-  private def _reachable_configurations(constituents: Vector[Constituent], initial: Map[String, String]): Set[Map[String, String]] = {
+  private def _reachable_configurations(
+    constituents: Vector[Constituent],
+    initial: Map[String, String]
+  ): Set[Map[String, String]] = {
     val seen = mutable.Set(initial)
     val queue = mutable.Queue(initial)
     while (queue.nonEmpty) {
       val current = queue.dequeue()
       constituents.foreach { constituent =>
-        val source = current(constituent.role)
-        _next_states(constituent.machine, source, constituent.states).foreach { target =>
-          val next = current.updated(constituent.role, target)
+        val source = current(constituent.value.role)
+        _next_states(constituent.machine, source, constituent.value.states).foreach { target =>
+          val next = current.updated(constituent.value.role, target)
           if (!seen(next)) {
             seen += next
             queue.enqueue(next)
@@ -131,71 +203,100 @@ private[modeler] object CompositeStateMachineCml {
     seen.toSet
   }
 
-  private def _next_states(machine: StateMachineClass, source: String, universe: Vector[String]): Vector[String] =
+  private def _next_states(
+    machine: StateMachineClass,
+    source: String,
+    universe: Vector[String]
+  ): Vector[String] =
     machine.rule.states.find(x => _same_key(x.name, source)).toVector.flatMap { state =>
       (state.transitions.call ++ state.transitions.global).collect {
         case transition if transition.to.isInstanceOf[NameTransitionTo] => transition.to.asInstanceOf[NameTransitionTo].name
       }.filter(target => universe.exists(_same_key(_, target)))
     }
 
-  private def _actions(section: Option[LogicalSection], context: String, constituents: Vector[Constituent], operations: Vector[OperationContract]): Map[String, OperationContract] = {
+  private def _actions(
+    section: Option[LogicalSection],
+    context: String,
+    constituents: Vector[Constituent],
+    operations: Vector[CompositeStateMachineOperation]
+  ): Vector[CompositeStateMachineLogicalAction] = {
     val entries = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
-      val name = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
-      val kind = _required_field(entry, "KIND", s"ACTION '$name'")
+      val identity = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
+      val kind = _required_field(entry, "KIND", s"ACTION '$identity'")
       if (!_same_key(kind, "OPERATION"))
-        RAISE.syntaxErrorFault(s"ACTION '$name' KIND must be OPERATION; raw expression, script, provider, transaction, retry, and compensation syntax is not admitted.")
-      val operationname = _required_field(entry, "OPERATION", s"ACTION '$name'")
+        RAISE.syntaxErrorFault(s"ACTION '$identity' KIND must be OPERATION; raw expression, script, provider, transaction, retry, and compensation syntax is not admitted.")
+      val operationname = _required_field(entry, "OPERATION", s"ACTION '$identity'")
       val candidates = operations.filter(x => _same_key(x.name, operationname) || _same_key(s"${x.service}.${x.name}", operationname))
       if (candidates.size != 1)
-        RAISE.syntaxErrorFault(s"ACTION '$name' OPERATION '$operationname' must resolve to one normalized CML Operation.")
+        RAISE.syntaxErrorFault(s"ACTION '$identity' OPERATION '$operationname' must resolve to one normalized CML Operation.")
       val operation = candidates.head
       val input = _field(entry, "INPUT")
-      (input, operation.inputtype) match {
+      (input, operation.inputType) match {
         case (None, None) =>
-        case (None, Some(_)) => RAISE.syntaxErrorFault(s"ACTION '$name' requires INPUT because OPERATION '$operationname' declares an input.")
-        case (Some(_), None) => RAISE.syntaxErrorFault(s"ACTION '$name' INPUT is invalid because OPERATION '$operationname' declares no input.")
-        case (Some(binding), Some(inputtype)) => _validate_input_binding(name, binding, inputtype, constituents)
+        case (None, Some(_)) => RAISE.syntaxErrorFault(s"ACTION '$identity' requires INPUT because OPERATION '$operationname' declares an input.")
+        case (Some(_), None) => RAISE.syntaxErrorFault(s"ACTION '$identity' INPUT is invalid because OPERATION '$operationname' declares no input.")
+        case (Some(binding), Some(inputtype)) => _validate_input_binding(identity, binding, inputtype, constituents)
       }
-      name -> operation
+      CompositeStateMachineLogicalAction(identity, "OPERATION", operation, input, _source(entry))
     }
-    _unique(entries.map(_._1), s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
-    entries.toMap
+    _unique(entries.map(_.identity), s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
+    entries
   }
 
-  private def _validate_input_binding(actionname: String, binding: String, inputtype: String, constituents: Vector[Constituent]): Unit = {
+  private def _validate_input_binding(
+    actionname: String,
+    binding: String,
+    inputtype: String,
+    constituents: Vector[Constituent]
+  ): Unit = {
     val parts = binding.trim.split("\\.", 2).toVector
     if (parts.size != 2 || !_same_key(parts(1), "subject"))
       RAISE.syntaxErrorFault(s"ACTION '$actionname' INPUT must be <role>.subject.")
-    val constituent = constituents.find(x => _same_key(x.role, parts.head)).getOrElse(
+    val constituent = constituents.find(x => _same_key(x.value.role, parts.head)).getOrElse(
       RAISE.syntaxErrorFault(s"ACTION '$actionname' INPUT references unknown role '${parts.head}'.")
     )
-    if (constituent.subject.isEmpty || constituent.subjecttype.isEmpty)
-      RAISE.syntaxErrorFault(s"ACTION '$actionname' INPUT references role '${constituent.role}' without a typed SUBJECT.")
-    if (!_same_key(constituent.subjecttype.get, inputtype))
-      RAISE.syntaxErrorFault(s"ACTION '$actionname' INPUT type '${constituent.subjecttype.get}' must match OPERATION input '$inputtype'.")
+    if (constituent.value.subject.isEmpty)
+      RAISE.syntaxErrorFault(s"ACTION '$actionname' INPUT references role '${constituent.value.role}' without a typed SUBJECT.")
+    if (!_same_key(constituent.value.subject.get.`type`, inputtype))
+      RAISE.syntaxErrorFault(s"ACTION '$actionname' INPUT type '${constituent.value.subject.get.`type`}' must match OPERATION input '$inputtype'.")
   }
 
-  private def _constituent_actions(section: Option[LogicalSection], context: String, constituents: Vector[Constituent], actions: Map[String, OperationContract]): Unit = {
-    val identities = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
-      val name = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' CONSTITUENT-ACTION identity")
-      val role = _required_field(entry, "ROLE", s"CONSTITUENT-ACTION '$name'")
-      val constituent = constituents.find(x => _same_key(x.role, role)).getOrElse(
-        RAISE.syntaxErrorFault(s"CONSTITUENT-ACTION '$name' references unknown ROLE '$role'.")
+  private def _constituent_actions(
+    section: Option[LogicalSection],
+    context: String,
+    constituents: Vector[Constituent],
+    actions: Vector[CompositeStateMachineLogicalAction]
+  ): Vector[CompositeStateMachineConstituentAction] = {
+    val entries = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
+      val identity = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' CONSTITUENT-ACTION identity")
+      val role = _required_field(entry, "ROLE", s"CONSTITUENT-ACTION '$identity'")
+      val constituent = constituents.find(x => _same_key(x.value.role, role)).getOrElse(
+        RAISE.syntaxErrorFault(s"CONSTITUENT-ACTION '$identity' references unknown ROLE '$role'.")
       )
-      val from = _required_field(entry, "FROM", s"CONSTITUENT-ACTION '$name'")
-      val to = _required_field(entry, "TO", s"CONSTITUENT-ACTION '$name'")
-      val on = _required_field(entry, "ON", s"CONSTITUENT-ACTION '$name'")
-      _require_member(from, constituent.states, s"CONSTITUENT-ACTION '$name' FROM")
-      _require_member(to, constituent.states, s"CONSTITUENT-ACTION '$name' TO")
+      val from = _required_field(entry, "FROM", s"CONSTITUENT-ACTION '$identity'")
+      val to = _required_field(entry, "TO", s"CONSTITUENT-ACTION '$identity'")
+      val on = _required_field(entry, "ON", s"CONSTITUENT-ACTION '$identity'")
+      _require_member(from, constituent.value.states, s"CONSTITUENT-ACTION '$identity' FROM")
+      _require_member(to, constituent.value.states, s"CONSTITUENT-ACTION '$identity' TO")
       if (!_has_transition(constituent.machine, from, to, on))
-        RAISE.syntaxErrorFault(s"CONSTITUENT-ACTION '$name' does not resolve constituent transition '$role:$from-$on->$to'.")
-      val placement = _required_field(entry, "PLACEMENT", s"CONSTITUENT-ACTION '$name'").toLowerCase
+        RAISE.syntaxErrorFault(s"CONSTITUENT-ACTION '$identity' does not resolve constituent transition '$role:$from-$on->$to'.")
+      val placement = _required_field(entry, "PLACEMENT", s"CONSTITUENT-ACTION '$identity'").toLowerCase
       if (!Set("exit", "transition", "entry").contains(placement))
-        RAISE.syntaxErrorFault(s"CONSTITUENT-ACTION '$name' PLACEMENT must be exit, transition, or entry.")
-      _action_reference(entry, name, actions)
-      name
+        RAISE.syntaxErrorFault(s"CONSTITUENT-ACTION '$identity' PLACEMENT must be exit, transition, or entry.")
+      val action = _action_reference(entry, identity, actions)
+      CompositeStateMachineConstituentAction(
+        identity,
+        constituent.value.role,
+        constituent.value.states.find(_same_key(_, from)).get,
+        constituent.value.states.find(_same_key(_, to)).get,
+        on,
+        placement,
+        action,
+        _source(entry)
+      )
     }
-    _unique(identities, s"COMPOSITE-STATEMACHINE '$context' CONSTITUENT-ACTION identity")
+    _unique(entries.map(_.identity), s"COMPOSITE-STATEMACHINE '$context' CONSTITUENT-ACTION identity")
+    entries
   }
 
   private def _has_transition(machine: StateMachineClass, from: String, to: String, on: String): Boolean =
@@ -209,40 +310,71 @@ private[modeler] object CompositeStateMachineCml {
       }
     }
 
-  private def _derived_actions(section: Option[LogicalSection], context: String, states: Vector[String], actions: Map[String, OperationContract]): Unit = {
-    val identities = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
-      val name = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' DERIVED-ACTION identity")
-      val from = _required_field(entry, "FROM", s"DERIVED-ACTION '$name'")
-      val to = _required_field(entry, "TO", s"DERIVED-ACTION '$name'")
-      _require_member(from, states, s"DERIVED-ACTION '$name' FROM")
-      _require_member(to, states, s"DERIVED-ACTION '$name' TO")
+  private def _derived_actions(
+    section: Option[LogicalSection],
+    context: String,
+    states: Vector[CompositeStateMachineState],
+    actions: Vector[CompositeStateMachineLogicalAction]
+  ): Vector[CompositeStateMachineDerivedAction] = {
+    val entries = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
+      val identity = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' DERIVED-ACTION identity")
+      val from = _required_field(entry, "FROM", s"DERIVED-ACTION '$identity'")
+      val to = _required_field(entry, "TO", s"DERIVED-ACTION '$identity'")
+      _require_member(from, states.map(_.name), s"DERIVED-ACTION '$identity' FROM")
+      _require_member(to, states.map(_.name), s"DERIVED-ACTION '$identity' TO")
       if (_same_key(from, to))
-        RAISE.syntaxErrorFault(s"DERIVED-ACTION '$name' requires distinct FROM and TO states.")
-      _action_reference(entry, name, actions)
-      name
+        RAISE.syntaxErrorFault(s"DERIVED-ACTION '$identity' requires distinct FROM and TO states.")
+      val action = _action_reference(entry, identity, actions)
+      CompositeStateMachineDerivedAction(
+        identity,
+        states.find(x => _same_key(x.name, from)).get.name,
+        states.find(x => _same_key(x.name, to)).get.name,
+        action,
+        _source(entry)
+      )
     }
-    _unique(identities, s"COMPOSITE-STATEMACHINE '$context' DERIVED-ACTION identity")
+    _unique(entries.map(_.derivedTransition), s"COMPOSITE-STATEMACHINE '$context' DERIVED-ACTION identity")
+    entries
   }
 
-  private def _action_reference(entry: LogicalSection, context: String, actions: Map[String, OperationContract]): Unit = {
+  private def _action_reference(
+    entry: LogicalSection,
+    context: String,
+    actions: Vector[CompositeStateMachineLogicalAction]
+  ): CompositeStateMachineLogicalAction = {
     val action = _required_field(entry, "ACTION", context)
-    if (!actions.keys.exists(_same_key(_, action)))
+    actions.find(x => _same_key(x.identity, action)).getOrElse(
       RAISE.syntaxErrorFault(s"$context references unknown ACTION '$action'.")
+    )
   }
 
-  private def _mapping_field(section: LogicalSection, field: String, context: String, constituents: Vector[Constituent]): Map[String, String] =
-    _field(section, field).map(_mapping_text(_, context, constituents)).getOrElse(
+  private def _mapping_field(
+    section: LogicalSection,
+    field: String,
+    context: String,
+    constituents: Vector[Constituent]
+  ): CompositeStateMachineConfiguration =
+    _field(section, field).map(_mapping_text(_, context, constituents, _source(section))).getOrElse(
       RAISE.syntaxErrorFault(s"$context is required.")
     )
 
-  private def _mapping(section: LogicalSection, context: String, constituents: Vector[Constituent]): Map[String, String] = {
+  private def _mapping(
+    section: LogicalSection,
+    context: String,
+    constituents: Vector[Constituent]
+  ): CompositeStateMachineConfiguration = {
     val text = _section_text(section).orElse(_field(section, "WHEN")).getOrElse(
       RAISE.syntaxErrorFault(s"$context is required.")
     )
-    _mapping_text(text, context, constituents)
+    _mapping_text(text, context, constituents, _source(section))
   }
 
-  private def _mapping_text(text: String, context: String, constituents: Vector[Constituent]): Map[String, String] = {
+  private def _mapping_text(
+    text: String,
+    context: String,
+    constituents: Vector[Constituent],
+    source: CompositeStateMachineSourceIdentity
+  ): CompositeStateMachineConfiguration = {
     val entries = text.split("[,\\n]").toVector.map(_.trim).filter(_.nonEmpty).map { entry =>
       val parts = entry.split("\\.", 2).toVector
       if (parts.size != 2 || parts.exists(_.trim.isEmpty))
@@ -250,29 +382,41 @@ private[modeler] object CompositeStateMachineCml {
       parts.head.trim -> parts(1).trim
     }
     _unique(entries.map(_._1), s"$context role")
-    val canonical = entries.map { case (role, state) =>
-      constituents.find(x => _same_key(x.role, role)).map { constituent =>
-        _require_member(state, constituent.states, s"$context state for role '$role'")
-        constituent.role -> constituent.states.find(_same_key(_, state)).get
+    val resolved = entries.map { case (role, state) =>
+      constituents.find(x => _same_key(x.value.role, role)).map { constituent =>
+        _require_member(state, constituent.value.states, s"$context state for role '$role'")
+        constituent.value.role -> constituent.value.states.find(_same_key(_, state)).get
       }.getOrElse(RAISE.syntaxErrorFault(s"$context references unknown role '$role'."))
     }
-    canonical.toMap
+    val bindings = constituents.flatMap { constituent =>
+      resolved.find { case (role, _) => _same_key(constituent.value.role, role) }.map { case (_, state) =>
+        CompositeStateMachineConfigurationBinding(
+          constituent.value.role,
+          state
+        )
+      }
+    }
+    CompositeStateMachineConfiguration(bindings, source)
   }
 
-  private def _validate_complete_mapping(mapping: Map[String, String], context: String, constituents: Vector[Constituent]): Unit = {
-    val missing = constituents.map(_.role).filterNot(role => mapping.keys.exists(_same_key(_, role)))
+  private def _validate_complete_mapping(
+    mapping: Vector[CompositeStateMachineConfigurationBinding],
+    context: String,
+    constituents: Vector[Constituent]
+  ): Unit = {
+    val missing = constituents.map(_.value.role).filterNot(role => mapping.exists(x => _same_key(x.role, role)))
     if (missing.nonEmpty)
       RAISE.syntaxErrorFault(s"$context is incomplete; missing roles ${missing.mkString(", ")}.")
   }
 
-  private def _operation_contracts(model: KaleidoxModel): Vector[OperationContract] =
+  private def _operation_contracts(model: KaleidoxModel): Vector[CompositeStateMachineOperation] =
     _root_sections(model, "SERVICE").flatMap { service =>
       service.blocks.sections.toVector.flatMap { serviceclass =>
         _children(serviceclass, "OPERATION").flatMap(_.blocks.sections.toVector).map { operation =>
           val input = _field(operation, "INPUT").orElse {
             _children(operation, "INPUT").headOption.flatMap(_field(_, "TYPE"))
           }
-          OperationContract(serviceclass.nameForModel, operation.nameForModel, input)
+          CompositeStateMachineOperation(serviceclass.nameForModel, operation.nameForModel, input)
         }
       }
     }
@@ -318,8 +462,14 @@ private[modeler] object CompositeStateMachineCml {
   private def _nonempty(value: String, context: String): String =
     Option(value).map(_.trim).filter(_.nonEmpty).getOrElse(RAISE.syntaxErrorFault(s"$context is required."))
 
+  private def _as_mapping(bindings: Vector[CompositeStateMachineConfigurationBinding]): Map[String, String] =
+    bindings.map(x => x.role -> x.state).toMap
+
   private def _show_mapping(mapping: Map[String, String]): String =
     mapping.toVector.sortBy { case (role, _) => _normalize_key(role) }.map { case (role, state) => s"$role.$state" }.mkString(", ")
+
+  private def _source(section: LogicalSection): CompositeStateMachineSourceIdentity =
+    CompositeStateMachineSourceIdentity(section.location.flatMap(_.line))
 
   private def _same_section_key(section: LogicalSection, name: String): Boolean =
     _same_key(section.keyForModel, name) || _same_key(section.nameForModel, name)

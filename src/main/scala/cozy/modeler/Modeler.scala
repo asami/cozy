@@ -391,6 +391,13 @@ class Modeler(
     case m => RAISE.noReachDefect
   }
 
+  private def _composite_state_machine_definitions(
+    p: IModel
+  ): Vector[CompositeStateMachineDefinition] = p match {
+    case m: KaleidoxModel => CompositeStateMachineCml.definitions(m)
+    case m => RAISE.noReachDefect
+  }
+
   private def _make_model(p: KaleidoxModel): SimpleModel = {
     ModelBuilder(p, predefinedResultCatalog, componentStyleCatalog).build()
   }
@@ -423,8 +430,9 @@ class Modeler(
 
   private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {
     val env = c.executionContext.environment
+    val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val model = _make_model(smodel.model)
-    val g = new ScalaGenerator(env, model)
+    val g = new ScalaGenerator(env, model, compositestatemachines)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)
@@ -434,8 +442,9 @@ class Modeler(
 
   private def _make_scala_value(c: Context, smodel: SModel, pkg: String): SExpr = {
     val env = c.executionContext.environment
+    val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val model = _make_model_value(smodel.model)
-    val g = new ScalaGenerator(env, model)
+    val g = new ScalaGenerator(env, model, compositestatemachines)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)
