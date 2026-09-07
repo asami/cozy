@@ -167,6 +167,108 @@ compensation-handler = cancel-payment"""
         ))
       }
 
+      "reject an authored empty base metadata field" in {
+        Given("an ACTION whose EFFECT metadata field is authored without a value")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect =
+transaction = REQUIRED
+idempotency = NOT_REQUIRED"""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the empty EFFECT field is diagnosed as nonempty metadata")
+        error.getMessage should include("metadata requires nonempty EFFECT")
+      }
+
+      "reject a duplicate authored metadata field" in {
+        Given("an ACTION that authors EFFECT metadata more than once")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = LOCAL
+effect = EXTERNAL
+transaction = REQUIRED
+idempotency = NOT_REQUIRED"""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the duplicate EFFECT field is rejected as non-unique")
+        error.getMessage should include("metadata field 'EFFECT' must be unique")
+      }
+
+      "reject an invalid exact enum metadata value" in {
+        Given("an ACTION whose EFFECT metadata value is outside the exact enum")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = REMOTE
+transaction = REQUIRED
+idempotency = NOT_REQUIRED"""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the invalid EFFECT enum value is rejected")
+        error.getMessage should include("EFFECT must be LOCAL or EXTERNAL")
+      }
+
+      "reject required idempotency without a key" in {
+        Given("an ACTION that requires idempotency but omits IDEMPOTENCY-KEY")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = REQUIRED"""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the missing required idempotency key is diagnosed")
+        error.getMessage should include("IDEMPOTENCY-KEY is required and must be nonempty")
+      }
+
+      "reject required idempotency with an empty key" in {
+        Given("an ACTION that requires idempotency with an authored empty IDEMPOTENCY-KEY")
+        val source = _accepted_source().replace(
+          "input = payment.subject",
+          """input = payment.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = REQUIRED
+idempotency-key ="""
+        )
+        val model = _model(source)
+
+        When("the CML Action metadata is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(model)
+        }
+
+        Then("the empty required idempotency key is diagnosed")
+        error.getMessage should include("IDEMPOTENCY-KEY is required and must be nonempty")
+      }
+
       "preserve a legacy Action with no metadata" in {
         Given("a legacy ACTION without Phase 47.1 metadata fields")
         val model = _model(_accepted_source())

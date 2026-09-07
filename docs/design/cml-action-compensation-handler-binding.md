@@ -51,18 +51,19 @@ runtime success/failure result. ACTX-04 validates the direct authored field,
 its nonempty opaque reference, and the `EXTERNAL` plus `OUTSIDE_UNIT_OF_WORK`
 applicability boundary without resolving the handler.
 
-## Future deterministic representation intent
+## Deterministic representation
 
-The future representation carries at most one optional
+The deterministic producer representation carries at most one optional
 `compensationHandlerRef` per Action metadata record, together with the existing
 logical `actionId` and the derived occurrence ordering/provenance. It remains
 an additive metadata association and does not introduce a second Action,
 handler, transaction, or Saga algebra.
 
-The following work remains deferred to its owning boundary:
+The completed and deferred ownership boundaries are:
 
-- ACTX-05 owns deterministic generation of the metadata, references, ordering
-  representation, and generated IR/ABI/output binding;
+- ACTX-05 completed deterministic generation of the metadata, references,
+  ordering representation, and generated IR/ABI/output binding;
+- ACTX-06 completed the Cozy producer handoff of that evidence; and
 - `goldenport-cncf` Phase 64.1 owns UnitOfWork and optional-2PC admission,
   rollback, compensation-handler execution, and durable `RecoveryRequired`
   runtime proof; and
@@ -70,10 +71,11 @@ The following work remains deferred to its owning boundary:
   retry/recovery policy remain outside this association and are not inferred by
   it.
 
-ACTX-04 has completed parser acceptance and source-level association
-validation. Generated representation, ordering output, handler execution,
-automatic Saga/reverse chains, retry/recovery policy, and runtime proof remain
-deferred exactly to their owning boundaries. The current [CML Composite
+ACTX-04 completed parser acceptance and source-level association validation.
+ACTX-05 completed generated representation and ordering output, and ACTX-06
+completed the Cozy producer handoff. Handler execution, automatic
+Saga/reverse chains, retry/recovery policy, and runtime proof remain deferred
+exactly to their consumer/application owners. The current [CML Composite
 StateMachine Grammar and Validation](cml-composite-statemachine-grammar-validation.md)
 authority includes the direct compensation field and its static applicability
 check.

@@ -131,6 +131,7 @@ surface.
 
 The accepted [CML Action Compensation Handler Binding](cml-action-compensation-handler-binding.md)
 authority defines the action-level association without binding a reference to
-an `ActionOccurrence` or exposing handler implementation. ACTX-05 owns the
-completed deterministic generation of this normalized metadata; ACTX-06 and
-ACTX-07 remain open for producer handoff and acceptance evidence.
+an `ActionOccurrence` or exposing handler implementation. ACTX-05 completed
+the deterministic generation of this normalized metadata, ACTX-06 recorded
+the Cozy producer handoff, and ACTX-07 records producer-contract acceptance
+without claiming consumer runtime acceptance.

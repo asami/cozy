@@ -3,7 +3,7 @@
 This checklist is the authoritative non-normative progress ledger for Phase
 47.1. The governing contract is [`docs/phase/phase-47.1.md`](phase-47.1.md).
 
-Phase Status: IN PROGRESS
+Phase Status: DONE
 
 Scope: Phase 47.1 is a Cozy producer-side metadata, validation, deterministic
 generation, and handoff phase. Phase 47.2 and unrelated phase or strategy
@@ -101,10 +101,23 @@ Stage Status:
 
 ## ACTX-07: Producer-contract acceptance
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47.1 producer-contract acceptance owner
-- Update rule: This stage remains OPEN while any checklist item in this block is unchecked; this checklist block is the closure basis for marking the stage DONE.
+- Update rule: This stage is DONE because both checklist items are complete;
+  the closure basis is the final [Phase 47.1 Producer-Contract
+  Acceptance](../journal/2026/09/2026-09-08-phase-47.1-producer-contract-acceptance.md)
+  record, which binds Cozy evidence and preserves the consumer-runtime
+  exclusion.
 
-- [ ] Verify producer-contract evidence and handoff completeness within Cozy.
-- [ ] Leave all runtime proof to `goldenport-cncf` Phase 64.1; no Cozy runtime
+- [x] Verify producer-contract evidence and handoff completeness within Cozy.
+- [x] Leave all runtime proof to `goldenport-cncf` Phase 64.1; no Cozy runtime
       acceptance is recorded here.
+
+## Phase closure
+
+Closure basis: ACTX-01 through ACTX-07 are DONE. The mandatory Phase full
+review found `CPB-P47.1-001`; its test-only repair passed focused validation
+and focused closure re-review. `HYG-P47.1-001` is resolved in the final
+producer-contract acceptance record. This closure records only Cozy producer
+metadata, validation, generation, and handoff; it does not claim the
+consumer-owned runtime outcomes.
