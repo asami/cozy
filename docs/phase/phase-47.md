@@ -40,6 +40,10 @@ semantics.
   [CML Composite StateMachine Static Analysis](../design/cml-composite-statemachine-static-analysis.md),
   which is the authority for normalized analysis input, configuration-domain,
   may-reachability, rule, liveness, and derived-graph semantics.
+- The accepted CSM-04 action contract is recorded in [CML Composite
+  StateMachine Action Algebra](../design/cml-composite-statemachine-action-algebra.md),
+  which is the authority for the shared typed logical Action model,
+  ActionOccurrences, and causal ActionProgram composition.
 - Existing StateMachine concepts such as State, Transition, Trigger/Event,
   Guard/Predicate, Action/Effect, hierarchy/history, and identity are reused
   where semantically valid.
@@ -51,12 +55,6 @@ semantics.
 - Composite-state derivation rules must be statically analyzable for coverage,
   overlap/ambiguity, impossibility, reachability, dead configurations, and the
   derived composite transition graph.
-- Constituent and composite transitions may both have actions. Actions at both
-  abstraction levels coexist and are composed in deterministic causal order.
-- CML action declarations denote typed logical effects/programs; they are not
-  interpreted as arbitrary executable code at the model layer.
-- Generated action programs should target a typed action algebra suitable for
-  Free Monad composition and CNCF interpreter execution.
 - Constituent StateMachines retain explicit identity and role; composition must
   not accidentally imply ownership when only coordination/reference is meant.
 - The exact Workflow-only mandatory semantic set remains open until the
@@ -73,7 +71,7 @@ semantics.
 | CSM-01 | Current-model inventory | Existing StateMachine grammar/model/generation, action/effect representation, and any current Workflow syntax/implementation are inventoried without conflating unrelated uses of the word workflow. | completed |
 | CSM-02 | Composite StateMachine semantics | [Accepted semantic contract](../design/cml-composite-statemachine.md) defines constituent-machine binding, role/identity, state configuration, derivation rules, derived transition semantics, and the future projection boundary. | completed |
 | CSM-03 | Static composite analysis | [Accepted static-analysis contract](../design/cml-composite-statemachine-static-analysis.md) defines normalized analysis input, rule completeness/exclusivity, reachability status, impossible/dead states, redundancy findings, and derived transition-graph provenance. | completed |
-| CSM-04 | Action algebra and composition model | Constituent/composite actions share one typed logical action model that can be composed as a Free program and interpreted later by CNCF. | planned |
+| CSM-04 | Action algebra and composition model | [Accepted action-algebra contract](../design/cml-composite-statemachine-action-algebra.md) defines one shared typed logical Action model, ActionOccurrences, and causal ActionProgram composition. | completed |
 | CSM-05 | Workflow specialization analysis | Candidate Workflow-only requirements are tested against the composite model and only mandatory residual semantics are retained. | planned |
 | CSM-06 | Grammar and validation | CML syntax and semantic validation are added/refined for Composite StateMachine, derivation rules, actions, and Workflow specialization. | planned |
 | CSM-07 | SimpleModeler generation | Stable typed definitions, constituent bindings, rule IR, derived-model metadata, action algebra/programs, source identities, and ABI metadata are generated deterministically. | planned |
@@ -115,61 +113,21 @@ recomputing independent meanings; implementation mechanics remain deferred.
 
 ## Action Model
 
-Actions may exist at both the constituent and composite levels.
-
-Example:
-
-```text
-Payment.Pending -> Payment.Authorized
-  action: recordAuthorization
-
-OrderFulfillment.WaitingForPayment -> ReadyToShip
-  action: requestShipment
-```
-
-The two actions represent different abstraction levels and may coexist.
-
-CML should model actions as logical typed action operations/programs, not as
-arbitrary embedded runtime code. SimpleModeler should generate a typed action
-algebra / program representation that can be composed and interpreted by CNCF.
-
-The intended semantic shape is:
-
-```text
-constituent transition actions
-        then
-composite derived-transition actions
-        |
-        v
-composed Action Program
-```
-
-The preferred implementation direction is a Free Monad (or equivalent free
-program representation) over a typed action algebra. Exact Scala library/API
-selection is implementation detail; the semantic requirements are:
-
-- composition is explicit and deterministic;
-- programs are inspectable before execution;
-- lower- and upper-level actions use the same composition mechanism;
-- interpreters can differ for production, test, simulation, review, or
-  visualization;
-- effect classification can separate local transactional effects from
-  after-commit/external effects; and
-- static review can identify duplicate/conflicting effects where the action
-  algebra carries sufficient semantic identity.
-
-CML should not embed transaction policy into the action syntax. It should emit
-typed model meaning that CNCF can classify and interpret under its UnitOfWork
-and after-commit rules.
+The accepted [CML Composite StateMachine Action
+Algebra](../design/cml-composite-statemachine-action-algebra.md) is the sole
+authority for shared typed Actions, provenance-preserving occurrences, and
+logical causal ActionProgram composition. It leaves syntax, generated IR/ABI,
+CNCF interpretation, visualization metadata, and transaction policy at their
+named later boundaries.
 
 ## Composite StateMachine Questions
 
 CSM-02 and CSM-03's accepted decisions are recorded in the [CML Composite
 StateMachine semantics](../design/cml-composite-statemachine.md) and [CML
 Composite StateMachine Static Analysis](../design/cml-composite-statemachine-static-analysis.md).
-Remaining questions are intentionally reserved for the later CSM-04 through
-CSM-10 slices, including action algebra, Workflow specialization, grammar,
-generation, CNCF integration, visualization, and cross-repository acceptance.
+Remaining questions are intentionally reserved for the later CSM-05 through
+CSM-10 slices, including Workflow specialization, grammar, generation, CNCF
+integration, visualization, and cross-repository acceptance.
 
 ## Workflow Specialization Rule
 

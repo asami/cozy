@@ -6,13 +6,15 @@ non-normative and records progress only; the phase contract remains
 
 Phase Status: IN_PROGRESS
 
-Scope: CSM-01 through CSM-03 are the completed slices recorded here. Phase 47.1, Phase
+Scope: CSM-01 through CSM-04 are the completed slices recorded here. Phase 47.1, Phase
 47.2, successor work, and `asami/goldenport-cncf` are outside this ledger
 entry. The factual evidence for CSM-01 is the
 [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md);
 the accepted semantic authority for CSM-02 is [CML Composite StateMachine
 Semantics](../design/cml-composite-statemachine.md); the accepted static-analysis
 authority for CSM-03 is [CML Composite StateMachine Static Analysis](../design/cml-composite-statemachine-static-analysis.md).
+The accepted action-algebra authority for CSM-04 is [CML Composite StateMachine
+Action Algebra](../design/cml-composite-statemachine-action-algebra.md).
 
 ## CSM-01: Current-model fact inventory and canonical ledger
 
@@ -71,12 +73,15 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47 action algebra and composition model
-- Update rule: mark complete only when the concrete checklist condition below
-  is checked.
+- Update rule: mark DONE only when the concrete checklist condition below is
+  checked; the checked item is the closure basis and the [accepted CML
+  Composite StateMachine Action
+  Algebra](../design/cml-composite-statemachine-action-algebra.md) provides
+  supporting evidence.
 
-- [ ] Define one typed logical action model for constituent and composite
+- [x] Define one typed logical action model for constituent and composite
       actions, including a composable program representation for later CNCF
       interpretation.
 

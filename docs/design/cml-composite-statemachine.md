@@ -101,7 +101,9 @@ deferred:
 
 - CML grammar and parser syntax;
 - a Workflow keyword or Workflow profile syntax;
-- action ordering or action algebra;
+- action syntax, resolution, and diagnostics; accepted action ordering and
+  algebra are defined by the [CML Composite StateMachine Action
+  Algebra](cml-composite-statemachine-action-algebra.md) authority;
 - transaction, compensation, or recovery semantics;
 - static-analysis mechanics. Static-analysis semantics are defined by the
   accepted [CML Composite StateMachine Static Analysis](cml-composite-statemachine-static-analysis.md)
