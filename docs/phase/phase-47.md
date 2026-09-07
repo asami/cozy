@@ -82,6 +82,16 @@ semantics.
 | CSM-09 | Visualization/projection metadata | [Deterministic Cozy projection metadata](../design/cml-composite-statemachine-projection.md) preserves declared composite/constituent state, derivation configurations, derived-action transition references, and action placement without consumer interpretation. | completed |
 | CSM-10 | Cross-repository acceptance | A real CML model with multiple constituent StateMachines, derived composite states, lower/upper actions, and a Workflow specialization passes Cozy -> generated metadata -> CNCF runtime acceptance. | planned |
 
+### CSM-10 execution dependency
+
+CSM-10 remains planned. At the recorded consumer revision
+`goldenport-cncf@696ae0664a51737525cb35422dbb84d01eb76400` (2026-09-07),
+the required CNCF [Phase 63](https://github.com/asami/goldenport-cncf/blob/main/docs/phase/phase-63.md)
+and [Phase 64](https://github.com/asami/goldenport-cncf/blob/main/docs/phase/phase-64.md)
+are both planned; Phase 64's runtime acceptance work has not begun. This is a
+dependency record only: it neither admits a hand-written runtime definition nor
+marks the CSM-10 acceptance condition complete.
+
 CSM-01 record: [Phase 47 checklist](phase-47-checklist.md) and [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md).
 
 ## Required Inventory

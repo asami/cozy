@@ -180,6 +180,11 @@ Stage Status:
 - Owner: Cozy Phase 47 cross-repository acceptance
 - Update rule: mark complete only when the concrete checklist condition below
   is checked.
+- Dependency record (2026-09-07): at
+  `goldenport-cncf@696ae0664a51737525cb35422dbb84d01eb76400`, CNCF Phase 63
+  and Phase 64 are both planned. Phase 64 depends on Phase 63 closure and its
+  CML-first acceptance checklist is entirely unchecked. No CSM-10 runtime
+  acceptance may be inferred from producer-side generation alone.
 
 - [ ] Accept a real multi-constituent CML model through Cozy, generated
       metadata, and the explicitly admitted CNCF runtime boundary.
