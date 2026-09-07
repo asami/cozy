@@ -76,12 +76,16 @@ Stage Status:
 
 ## ACTX-05: Generation
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47.1 deterministic-generation owner
-- Update rule: This stage remains OPEN while any checklist item in this block is unchecked; this checklist block is the closure basis for marking the stage DONE.
+- Update rule: This stage is DONE because its sole checklist item is checked;
+  this checklist block is the closure basis for the completed additive
+  producer-metadata generation surface.
 
-- [ ] Generate the accepted metadata and handler references deterministically
-      alongside the existing producer contract.
+- [x] Generate the accepted metadata and handler references deterministically
+      in an additive Scala/JSON producer surface while preserving CSM v1 ABI,
+      bootstrap, generated definition, identity/provenance, and projection
+      output unchanged.
 
 ## ACTX-06: Cozy producer handoff
 Stage Status:

@@ -32,14 +32,17 @@ class ScalaGenerator(
     val r = _transformer.transform(model)
     val compositestatemachines = CompositeStateMachineScalaGenerator.generate(compositeStateMachines)
     val projectionmetadata = CompositeStateMachineProjectionMetadata.canonicalJson(compositeStateMachines)
+    val actionproducermetadata = CompositeStateMachineActionProducerMetadata.generate(compositeStateMachines)
+    val actionproducermetadatajson = CompositeStateMachineActionProducerMetadata.canonicalJson(compositeStateMachines)
     val metadata = ComponentApiContractMetadata.generate(model) match {
       case Right(document) => document
       case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
     }
     val builder = Realm.Builder()
     builder.set(CompositeStateMachineProjectionMetadata.metadataPath, projectionmetadata)
+    builder.set(CompositeStateMachineActionProducerMetadata.metadataPath, actionproducermetadatajson)
     if (!metadata.isEmpty)
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
-    STree(r.realm + compositestatemachines + builder.build())
+    STree(r.realm + compositestatemachines + actionproducermetadata + builder.build())
   }
 }

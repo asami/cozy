@@ -9,9 +9,11 @@ updated_at=2026-09-08
 
 This document is the accepted ACTX-02 design authority for the v1 producer-side
 semantic metadata contract of a CML Action. It freezes the meaning and authored
-surface of the metadata; ACTX-04 now parses and statically validates this
-surface into normalized Cozy source metadata. Cozy does not claim to generate,
-execute, or prove the consumer runtime contract here.
+surface of the metadata; ACTX-04 parses and statically validates this surface
+into normalized Cozy source metadata, and ACTX-05 generates the separate
+producer surface described in [CML Action Producer Metadata
+Generation](cml-action-producer-generation.md). Cozy does not execute or prove
+the consumer runtime contract here.
 
 Cozy remains the producer. The consumer runtime owns UnitOfWork admission,
 provider and optional 2PC selection, execution, rollback, compensation
@@ -88,9 +90,11 @@ Compensation Handler Binding](cml-action-compensation-handler-binding.md)
 authority; ACTX-04 implements direct-field parsing and static validation of
 these rules in the normalized source model.
 
-This is an additive design surface only. ACTX-04 does not change generated
-representation, ABI, projection metadata, or output; those remain ACTX-05
-work.
+This is an additive design surface. ACTX-05 emits the normalized metadata in a
+separate producer Scala/JSON surface with schema version
+`cozy.cml.action-producer-metadata.v1`. It does not change the existing CSM v1
+generated ABI, bootstrap, generated definition `definition`, or CSM projection
+metadata/output.
 
 ## Explicit non-goals
 
@@ -118,13 +122,15 @@ typed source metadata. A compensation handler is accepted only for
 opaque and no handler implementation or registry is resolved.
 
 The existing [CML Composite StateMachine Action Algebra](cml-composite-statemachine-action-algebra.md)
-continues to own logical Action identity and occurrence provenance. Later
-generation and handoff work may carry this metadata to the consumer. ACTX-04's
-Scala parser and executable specifications implement the source normalization;
-this design authority does not define generated or runtime behavior.
+continues to own logical Action identity and occurrence provenance. ACTX-05
+joins its generated records to those existing identities without emitting an
+occurrence record or asserting execution order. ACTX-04's Scala parser and
+executable specifications implement source normalization; [CML Action Producer
+Metadata Generation](cml-action-producer-generation.md) defines the generated
+surface.
 
 The accepted [CML Action Compensation Handler Binding](cml-action-compensation-handler-binding.md)
 authority defines the action-level association without binding a reference to
-an `ActionOccurrence` or exposing handler implementation. ACTX-05 owns
-deterministic generation of this normalized metadata; ACTX-06 and ACTX-07 own
-later producer handoff and acceptance evidence.
+an `ActionOccurrence` or exposing handler implementation. ACTX-05 owns the
+completed deterministic generation of this normalized metadata; ACTX-06 and
+ACTX-07 remain open for producer handoff and acceptance evidence.

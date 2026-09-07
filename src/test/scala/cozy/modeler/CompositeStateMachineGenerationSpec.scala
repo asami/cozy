@@ -49,14 +49,20 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
 
     "generate the standalone typed Scala ABI" which {
       "emit deterministic Composite StateMachine source through both public Scala routes" in {
-        Given("a temporary valid multi-constituent CML source and empty output for each Scala route")
+        Given("temporary metadata-bearing and legacy CML sources with empty output for each Scala route")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val input = base.resolve("target/test-input/composite-statemachine-generation.cml")
+        val legacyinput = base.resolve("target/test-input/composite-statemachine-generation-legacy.cml")
         val normalout = base.resolve("target/test-generated/composite-statemachine-generation-normal")
         val valueout = base.resolve("target/test-generated/composite-statemachine-generation-value")
+        val legacynormalout = base.resolve("target/test-generated/composite-statemachine-generation-legacy-normal")
+        val legacyvalueout = base.resolve("target/test-generated/composite-statemachine-generation-legacy-value")
         delete_recursively(normalout)
         delete_recursively(valueout)
+        delete_recursively(legacynormalout)
+        delete_recursively(legacyvalueout)
         write_file(input, _source())
+        write_file(legacyinput, _legacy_source())
 
         When("the public component Scala generation path is invoked twice")
         cozy.Cozy.main(Array("modeler-scala", input.toString, "--save", normalout.toString))
@@ -70,6 +76,10 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", valueout.toString))
         val valuesecond = tree_snapshot(valueout)
 
+        And("the public Scala routes generate a legacy source without Action producer metadata")
+        cozy.Cozy.main(Array("modeler-scala", legacyinput.toString, "--save", legacynormalout.toString))
+        cozy.Cozy.main(Array("modeler-scala-value", legacyinput.toString, "--save", legacyvalueout.toString))
+
         Then("both routes emit byte-identical fixed ABI/bootstrap sources and typed definitions in normalized source order")
         val normalroot = normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
         val valueroot = valueout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
@@ -81,6 +91,17 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         val valuedefinition = valueroot.resolve("OrderProgressCompositeStateMachine1.scala")
         val normalprojection = normalout.resolve(CompositeStateMachineProjectionMetadata.metadataPath)
         val valueprojection = valueout.resolve(CompositeStateMachineProjectionMetadata.metadataPath)
+        val producerroot = "target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/actionproducer"
+        val normalproducerroot = normalout.resolve(producerroot)
+        val valueproducerroot = valueout.resolve(producerroot)
+        val normalproducerabi = normalproducerroot.resolve("CompositeStateMachineActionProducerMetadataAbi.scala")
+        val valueproducerabi = valueproducerroot.resolve("CompositeStateMachineActionProducerMetadataAbi.scala")
+        val normalproducerbootstrap = normalproducerroot.resolve("CompositeStateMachineActionProducerMetadataBootstrap.scala")
+        val valueproducerbootstrap = valueproducerroot.resolve("CompositeStateMachineActionProducerMetadataBootstrap.scala")
+        val normalproducerdefinition = normalproducerroot.resolve("OrderProgressActionProducerMetadata1.scala")
+        val valueproducerdefinition = valueproducerroot.resolve("OrderProgressActionProducerMetadata1.scala")
+        val normalproducermetadata = normalout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
+        val valueproducermetadata = valueout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
         Files.exists(normalabi) shouldBe true
         Files.exists(valueabi) shouldBe true
         Files.exists(normalbootstrap) shouldBe true
@@ -89,6 +110,14 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.exists(valuedefinition) shouldBe true
         Files.exists(normalprojection) shouldBe true
         Files.exists(valueprojection) shouldBe true
+        Files.exists(normalproducerabi) shouldBe true
+        Files.exists(valueproducerabi) shouldBe true
+        Files.exists(normalproducerbootstrap) shouldBe true
+        Files.exists(valueproducerbootstrap) shouldBe true
+        Files.exists(normalproducerdefinition) shouldBe true
+        Files.exists(valueproducerdefinition) shouldBe true
+        Files.exists(normalproducermetadata) shouldBe true
+        Files.exists(valueproducermetadata) shouldBe true
         Files.readString(normalabi) should include ("package domain.composite.statemachine")
         Files.readString(normalabi) should include ("val VERSION: String = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(normalabi) should include ("final case class ConstituentBinding")
@@ -122,6 +151,72 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(normalprojection) should include ("\"schemaVersion\":\"cozy.cml.composite-statemachine-projection.v1\"")
         Files.readString(normalprojection) should include ("\"constituentActions\"")
         Files.readString(normalprojection) should include ("\"derivedActions\"")
+
+        And("the separate producer surface joins existing definition and Action identities with normalized metadata")
+        Files.readString(normalproducerabi) should include ("package domain.composite.statemachine.actionproducer")
+        Files.readString(normalproducerabi) should include ("val VERSION: String = \"cozy.cml.action-producer-metadata.v1\"")
+        Files.readString(normalproducerabi) should include ("final case class Idempotency(required: Boolean, keyRef: Option[String])")
+        Files.readString(normalproducerabi) shouldBe Files.readString(valueproducerabi)
+        val expectedproducerbootstrap = """package domain.composite.statemachine.actionproducer
+          |
+          |object CompositeStateMachineActionProducerMetadataBootstrap {
+          |  val schemaVersion: String = "cozy.cml.action-producer-metadata.v1"
+          |  val metadata: Vector[CompositeStateMachineActionProducerMetadataAbi.ActionMetadata] = Vector(OrderProgressActionProducerMetadata1.metadata).flatten
+          |}
+          |""".stripMargin
+        Files.readString(normalproducerbootstrap) shouldBe expectedproducerbootstrap
+        Files.readString(valueproducerbootstrap) shouldBe expectedproducerbootstrap
+        Files.readString(normalproducerdefinition) shouldBe Files.readString(valueproducerdefinition)
+        Files.readString(normalproducerdefinition) should include ("definitionIdentity = \"OrderProgress\"")
+        Files.readString(normalproducerdefinition) should include ("actionId = \"capture-payment\"")
+        Files.readString(normalproducerdefinition) should include ("effectClass = \"EXTERNAL\"")
+        Files.readString(normalproducerdefinition) should include ("transactionRequirement = \"OUTSIDE_UNIT_OF_WORK\"")
+        Files.readString(normalproducerdefinition) should include ("Idempotency(required = true, keyRef = Some(\"payment-command\"))")
+        Files.readString(normalproducerdefinition) should include ("compensationHandlerRef = Some(\"cancel-payment\")")
+        Files.readString(normalproducermetadata) shouldBe Files.readString(valueproducermetadata)
+        Files.readString(normalproducermetadata) should include ("\"schemaVersion\":\"cozy.cml.action-producer-metadata.v1\"")
+        Files.readString(normalproducermetadata) should include ("\"definitionIdentity\":\"OrderProgress\"")
+        Files.readString(normalproducermetadata) should include ("\"actionId\":\"capture-payment\"")
+        Files.readString(normalproducermetadata) should include ("\"effectClass\":\"EXTERNAL\"")
+        Files.readString(normalproducermetadata) should include ("\"transactionRequirement\":\"OUTSIDE_UNIT_OF_WORK\"")
+        Files.readString(normalproducermetadata) should include ("\"idempotency\":{\"required\":true,\"keyRef\":\"payment-command\"}")
+        Files.readString(normalproducermetadata) should include ("\"compensationHandlerRef\":\"cancel-payment\"")
+
+        And("legacy Actions emit no producer-metadata records while CSM v1 output remains unchanged")
+        val legacynormalroot = legacynormalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
+        val legacyvalueroot = legacyvalueout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
+        val legacynormalproducerroot = legacynormalout.resolve(producerroot)
+        val legacyvalueproducerroot = legacyvalueout.resolve(producerroot)
+        val legacynormalmetadata = legacynormalout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
+        val legacyvaluemetadata = legacyvalueout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
+        Files.readString(legacynormalroot.resolve("CompositeStateMachineAbi.scala")) shouldBe Files.readString(normalabi)
+        Files.readString(legacyvalueroot.resolve("CompositeStateMachineAbi.scala")) shouldBe Files.readString(valueabi)
+        Files.readString(legacynormalroot.resolve("CompositeStateMachineBootstrap.scala")) shouldBe Files.readString(normalbootstrap)
+        Files.readString(legacyvalueroot.resolve("CompositeStateMachineBootstrap.scala")) shouldBe Files.readString(valuebootstrap)
+        val legacynormaldefinition = Files.readString(legacynormalroot.resolve("OrderProgressCompositeStateMachine1.scala"))
+        val legacyvaluedefinition = Files.readString(legacyvalueroot.resolve("OrderProgressCompositeStateMachine1.scala"))
+        legacynormaldefinition should include ("abiVersion = \"cozy.cml.composite-statemachine.v1\"")
+        legacyvaluedefinition should include ("abiVersion = \"cozy.cml.composite-statemachine.v1\"")
+        legacynormaldefinition should include ("object OrderProgressCompositeStateMachine1")
+        legacyvaluedefinition should include ("object OrderProgressCompositeStateMachine1")
+        legacynormaldefinition should include ("val definition: CompositeStateMachineAbi.Definition")
+        legacyvaluedefinition should include ("val definition: CompositeStateMachineAbi.Definition")
+        legacynormaldefinition should not include ("CompositeStateMachineActionProducerMetadata")
+        legacyvaluedefinition should not include ("CompositeStateMachineActionProducerMetadata")
+        val legacynormalprojection = Files.readString(legacynormalout.resolve(CompositeStateMachineProjectionMetadata.metadataPath))
+        val legacyvalueprojection = Files.readString(legacyvalueout.resolve(CompositeStateMachineProjectionMetadata.metadataPath))
+        legacynormalprojection should include ("\"schemaVersion\":\"cozy.cml.composite-statemachine-projection.v1\"")
+        legacyvalueprojection should include ("\"schemaVersion\":\"cozy.cml.composite-statemachine-projection.v1\"")
+        legacynormalprojection should include ("\"definitions\"")
+        legacyvalueprojection should include ("\"definitions\"")
+        legacynormalprojection should not include ("cozy.cml.action-producer-metadata.v1")
+        legacyvalueprojection should not include ("cozy.cml.action-producer-metadata.v1")
+        Files.exists(legacynormalproducerroot.resolve("OrderProgressActionProducerMetadata1.scala")) shouldBe false
+        Files.exists(legacyvalueproducerroot.resolve("OrderProgressActionProducerMetadata1.scala")) shouldBe false
+        Files.readString(legacynormalmetadata) shouldBe "{\"schemaVersion\":\"cozy.cml.action-producer-metadata.v1\",\"definitions\":[]}"
+        Files.readString(legacyvaluemetadata) shouldBe Files.readString(legacynormalmetadata)
+        Files.readString(legacynormalproducerroot.resolve("CompositeStateMachineActionProducerMetadataBootstrap.scala")) should include ("= Vector.empty")
+        Files.readString(legacyvalueproducerroot.resolve("CompositeStateMachineActionProducerMetadataBootstrap.scala")) should include ("= Vector.empty")
 
         And("the component route remains additive while the value route has no component facade")
         Files.exists(normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/CompositeSampleComponent.scala")) shouldBe true
@@ -289,6 +384,11 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
       |kind = OPERATION
       |operation = capturePayment
       |input = payment.subject
+      |effect = EXTERNAL
+      |transaction = OUTSIDE_UNIT_OF_WORK
+      |idempotency = REQUIRED
+      |idempotency-key = payment-command
+      |compensation-handler = cancel-payment
       |
       |### CONSTITUENT-ACTION
       |
@@ -369,5 +469,15 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
       |###### TYPE
       |
       |PaymentResult
+      |""".stripMargin
+
+  private def _legacy_source(): String = _source().replace(_action_metadata_source, "")
+
+  private val _action_metadata_source =
+    """effect = EXTERNAL
+      |transaction = OUTSIDE_UNIT_OF_WORK
+      |idempotency = REQUIRED
+      |idempotency-key = payment-command
+      |compensation-handler = cancel-payment
       |""".stripMargin
 }

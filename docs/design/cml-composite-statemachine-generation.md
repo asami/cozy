@@ -87,6 +87,14 @@ The Composite StateMachine Realm is additive. Existing SimpleModeler Scala
 output and optional `target/cozy/component-api-model.json` metadata are retained
 and are not overwritten by this generated ABI.
 
+ACTX-05 adds a separate [CML Action Producer Metadata
+Generation](cml-action-producer-generation.md) surface under the sibling
+`domain.composite.statemachine.actionproducer` package and at
+`target/cozy/cml-action-producer-metadata.json`. It is not part of this CSM v1
+ABI: `CompositeStateMachineAbi.scala`, `CompositeStateMachineBootstrap.scala`,
+per-definition `definition`, logical Action identity, occurrence provenance,
+and `target/cozy/composite-statemachine-projection.json` remain unchanged.
+
 ## Explicit Deferrals
 
 CSM-07 does not decide or implement:
