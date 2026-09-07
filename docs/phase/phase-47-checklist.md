@@ -6,9 +6,10 @@ non-normative and records progress only; the phase contract remains
 
 Phase Status: IN_PROGRESS
 
-Scope: CSM-01 through CSM-08 are the completed slices recorded here. Phase 47.1, Phase
-47.2, successor work, and `asami/goldenport-cncf` are outside this ledger
-entry. The factual evidence for CSM-01 is the
+Scope: CSM-01 through CSM-10 are the completed Cozy slices recorded here. CSM-10
+is complete only as the user-authorized producer-side handoff; the CNCF runtime
+acceptance proof remains in `goldenport-cncf` Phase 64 SWF-10. Phase 47.1,
+Phase 47.2, and successor work are outside this ledger entry. The factual evidence for CSM-01 is the
 [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md);
 the accepted semantic authority for CSM-02 is [CML Composite StateMachine
 Semantics](../design/cml-composite-statemachine.md); the accepted static-analysis
@@ -172,19 +173,43 @@ Stage Status:
       `P47-CSM09-VAL-002` passed 2 suites / 6 tests with SBT and wrapper exit
       0 and lock released; the CSM-09 independent review sealed `PASS`.
 
-## CSM-10: Cross-repository acceptance
+## CSM-10: Cross-repository producer handoff
 
 Stage Status:
 
-- Current status: OPEN
-- Owner: Cozy Phase 47 cross-repository acceptance
-- Update rule: mark complete only when the concrete checklist condition below
-  is checked.
+- Current status: DONE
+- Owner: Cozy Phase 47 producer-side handoff; `goldenport-cncf` Phase 64
+  SWF-10 owns runtime acceptance.
+- Update rule: this is a Cozy producer-side handoff only; this Cozy stage is
+  complete only when the authorized handoff is recorded. CNCF runtime
+  execution and ComponentFactory acceptance must not be inferred here.
 - Dependency record (2026-09-07): at
   `goldenport-cncf@696ae0664a51737525cb35422dbb84d01eb76400`, CNCF Phase 63
   and Phase 64 are both planned. Phase 64 depends on Phase 63 closure and its
   CML-first acceptance checklist is entirely unchecked. No CSM-10 runtime
   acceptance may be inferred from producer-side generation alone.
+- Decision Resolution Record:
+  - decision_id: `P47-CSM10-EXTERNAL-ACCEPTANCE-001`
+  - answer identity: 2026-09-07 user instruction to move confirmation to the
+    CNCF side and close the Cozy side
+  - selected option: reassign the runtime acceptance proof to CNCF Phase 64
+    while completing Cozy's producer-side handoff
+  - affected boundary: Phase 47 CSM-10 at
+    `14915d800cdc882b6b2dfb80774cb994e8f2cc66`; no CNCF runtime acceptance
+    is claimed by this record
+  - authorized next state: PLAN
+  - consumed: true
 
-- [ ] Accept a real multi-constituent CML model through Cozy, generated
-      metadata, and the explicitly admitted CNCF runtime boundary.
+- Producer evidence handed to the consumer:
+  - CSM-07 generated ABI: `9fcb474359f1f7d253c0512acb7d1607e5b685ca`
+  - CSM-08 bootstrap registry: `048d2a61fae6f609b18a307eb425d29270d5ba67`
+  - CSM-09 projection metadata: `6ba8c6065f689b5b327eea3991c86bff04dd0e70`
+  - dependency record: `14915d800cdc882b6b2dfb80774cb994e8f2cc66`
+  - consumer baseline: `goldenport-cncf@696ae0664a51737525cb35422dbb84d01eb76400`
+
+- [x] Complete the user-authorized Cozy producer-side handoff of generated
+      Composite StateMachine ABI, bootstrap registry, and projection metadata
+      to `goldenport-cncf` Phase 64 SWF-10.
+- [x] Record the non-claim that CNCF runtime execution and ComponentFactory
+      acceptance are not proven in Cozy and remain a consumer-owned Phase 64
+      acceptance obligation after Phase 63 closure.

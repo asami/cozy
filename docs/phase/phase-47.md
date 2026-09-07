@@ -80,17 +80,26 @@ semantics.
 | CSM-07 | SimpleModeler generation | [Accepted generated ABI](../design/cml-composite-statemachine-generation.md) projects stable typed definitions, ordered constituent bindings/rules/actions, source identities, and deterministic Scala metadata without a runtime policy. | completed |
 | CSM-08 | CNCF metadata/bootstrap contract | [Accepted typed bootstrap registry](../design/cml-composite-statemachine-bootstrap.md) always emits a fixed source-level `CompositeStateMachineBootstrap` registry for a future CNCF ComponentFactory while retaining CSM-07 definition ABI verification. | completed |
 | CSM-09 | Visualization/projection metadata | [Deterministic Cozy projection metadata](../design/cml-composite-statemachine-projection.md) preserves declared composite/constituent state, derivation configurations, derived-action transition references, and action placement without consumer interpretation. | completed |
-| CSM-10 | Cross-repository acceptance | A real CML model with multiple constituent StateMachines, derived composite states, lower/upper actions, and a Workflow specialization passes Cozy -> generated metadata -> CNCF runtime acceptance. | planned |
+| CSM-10 | Cross-repository producer handoff | Cozy's generated Composite StateMachine ABI, bootstrap registry, and projection metadata are handed to CNCF Phase 64 SWF-10 for the separately owned runtime and ComponentFactory acceptance proof. | completed |
 
-### CSM-10 execution dependency
+### CSM-10 producer-side handoff
 
-CSM-10 remains planned. At the recorded consumer revision
+CSM-10 is complete only as Cozy's producer-side handoff, under the 2026-09-07
+user-authorized decision recorded in the Phase 47 checklist. At the recorded consumer revision
 `goldenport-cncf@696ae0664a51737525cb35422dbb84d01eb76400` (2026-09-07),
 the required CNCF [Phase 63](https://github.com/asami/goldenport-cncf/blob/main/docs/phase/phase-63.md)
 and [Phase 64](https://github.com/asami/goldenport-cncf/blob/main/docs/phase/phase-64.md)
 are both planned; Phase 64's runtime acceptance work has not begun. This is a
-dependency record only: it neither admits a hand-written runtime definition nor
-marks the CSM-10 acceptance condition complete.
+consumer-owned dependency record only. It neither admits a hand-written runtime
+definition nor proves CNCF runtime execution or ComponentFactory acceptance in
+Cozy.
+
+The producer evidence handed to the consumer is limited to CSM-07 commit
+`9fcb474359f1f7d253c0512acb7d1607e5b685ca`, CSM-08 commit
+`048d2a61fae6f609b18a307eb425d29270d5ba67`, CSM-09 commit
+`6ba8c6065f689b5b327eea3991c86bff04dd0e70`, and the dependency record commit
+`14915d800cdc882b6b2dfb80774cb994e8f2cc66`. The actual runtime acceptance
+proof belongs to `goldenport-cncf` Phase 64 SWF-10 after Phase 63 closes.
 
 CSM-01 record: [Phase 47 checklist](phase-47-checklist.md) and [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md).
 
@@ -205,9 +214,11 @@ callbacks, or raw expression strings when a typed model reference/IR exists.
 - Every Workflow-specific construct has explicit justification as mandatory and
   non-generalizable.
 - StateMachine semantics are not duplicated under Workflow-specific names.
-- Generated definitions are accepted by CNCF Phase 64 through normal
-  ComponentFactory bootstrap.
-- Cross-repository acceptance starts from real CML source.
+- Cozy's generated definitions are handed off to CNCF Phase 64 SWF-10 through
+  the normal ComponentFactory bootstrap contract; the CNCF repository owns the
+  runtime acceptance proof.
+- The CNCF-side cross-repository runtime acceptance, when its admitted Phase
+  64 work executes, starts from real CML source.
 - The same model remains usable for visualization and review metadata.
 
 ## Non-Goals
