@@ -79,12 +79,16 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         val valuebootstrap = valueroot.resolve("CompositeStateMachineBootstrap.scala")
         val normaldefinition = normalroot.resolve("OrderProgressCompositeStateMachine1.scala")
         val valuedefinition = valueroot.resolve("OrderProgressCompositeStateMachine1.scala")
+        val normalprojection = normalout.resolve(CompositeStateMachineProjectionMetadata.metadataPath)
+        val valueprojection = valueout.resolve(CompositeStateMachineProjectionMetadata.metadataPath)
         Files.exists(normalabi) shouldBe true
         Files.exists(valueabi) shouldBe true
         Files.exists(normalbootstrap) shouldBe true
         Files.exists(valuebootstrap) shouldBe true
         Files.exists(normaldefinition) shouldBe true
         Files.exists(valuedefinition) shouldBe true
+        Files.exists(normalprojection) shouldBe true
+        Files.exists(valueprojection) shouldBe true
         Files.readString(normalabi) should include ("package domain.composite.statemachine")
         Files.readString(normalabi) should include ("val Version: String = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(normalabi) should include ("final case class ConstituentBinding")
@@ -112,6 +116,12 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(valuedefinition) should include ("LogicalAction(\"capture-payment\", \"OPERATION\"")
         Files.readString(valuedefinition) should include ("ConstituentAction(\"payment-captured-exit\"")
         Files.readString(valuedefinition) should include ("DerivedAction(\"completed\"")
+
+        And("the fixed Cozy projection document is present at its exact path with byte-identical route output")
+        Files.readAllBytes(normalprojection).toVector shouldBe Files.readAllBytes(valueprojection).toVector
+        Files.readString(normalprojection) should include ("\"schemaVersion\":\"cozy.cml.composite-statemachine-projection.v1\"")
+        Files.readString(normalprojection) should include ("\"constituentActions\"")
+        Files.readString(normalprojection) should include ("\"derivedActions\"")
 
         And("the component route remains additive while the value route has no component facade")
         Files.exists(normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/CompositeSampleComponent.scala")) shouldBe true

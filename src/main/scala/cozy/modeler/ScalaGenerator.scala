@@ -12,8 +12,8 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   May.  5, 2025
- *  version May.  5, 2025
- * @version Jul. 12, 2026
+ *  version Jul. 12, 2026
+ * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
@@ -31,16 +31,15 @@ class ScalaGenerator(
   def generate(p: MPackage): STree = {
     val r = _transformer.transform(model)
     val compositestatemachines = CompositeStateMachineScalaGenerator.generate(compositeStateMachines)
+    val projectionmetadata = CompositeStateMachineProjectionMetadata.canonicalJson(compositeStateMachines)
     val metadata = ComponentApiContractMetadata.generate(model) match {
       case Right(document) => document
       case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
     }
-    if (metadata.isEmpty)
-      STree(r.realm + compositestatemachines)
-    else {
-      val builder = Realm.Builder()
+    val builder = Realm.Builder()
+    builder.set(CompositeStateMachineProjectionMetadata.metadataPath, projectionmetadata)
+    if (!metadata.isEmpty)
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
-      STree(r.realm + compositestatemachines + builder.build())
-    }
+    STree(r.realm + compositestatemachines + builder.build())
   }
 }

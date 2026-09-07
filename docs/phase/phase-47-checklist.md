@@ -160,13 +160,17 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47 visualization/projection metadata
 - Update rule: mark complete only when the concrete checklist condition below
   is checked.
 
-- [ ] Preserve composite and constituent state, rule matches, derived
+- [x] Preserve composite and constituent state, rule matches, derived
       transitions, action placement, and review metadata for the accepted model.
+      The [CSM-09 projection authority](../design/cml-composite-statemachine-projection.md)
+      fixes the deterministic Cozy document boundary. Evidence:
+      `P47-CSM09-VAL-002` passed 2 suites / 6 tests with SBT and wrapper exit
+      0 and lock released; the CSM-09 independent review sealed `PASS`.
 
 ## CSM-10: Cross-repository acceptance
 
