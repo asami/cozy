@@ -32,6 +32,10 @@ semantics.
 - Composite StateMachine is the primary new CML abstraction.
 - Workflow is modeled as a specialization/profile of Composite StateMachine,
   not as a parallel independent language.
+- The accepted CSM-02 semantic contract is recorded in
+  [CML Composite StateMachine Semantics](../design/cml-composite-statemachine.md),
+  which is the authority for constituent bindings, state configuration,
+  derivation, derived transitions, and the future projection boundary.
 - Existing StateMachine concepts such as State, Transition, Trigger/Event,
   Guard/Predicate, Action/Effect, hierarchy/history, and identity are reused
   where semantically valid.
@@ -63,7 +67,7 @@ semantics.
 | ID | Stage | Outcome | Status |
 | --- | --- | --- | --- |
 | CSM-01 | Current-model inventory | Existing StateMachine grammar/model/generation, action/effect representation, and any current Workflow syntax/implementation are inventoried without conflating unrelated uses of the word workflow. | completed |
-| CSM-02 | Composite StateMachine semantics | Constituent-machine binding, role/identity, state configuration, derivation rules, derived transition semantics, and projection semantics are defined. | planned |
+| CSM-02 | Composite StateMachine semantics | [Accepted semantic contract](../design/cml-composite-statemachine.md) defines constituent-machine binding, role/identity, state configuration, derivation rules, derived transition semantics, and the future projection boundary. | completed |
 | CSM-03 | Static composite analysis | Rule completeness/exclusivity, reachable configurations, impossible/dead states, redundant rules, and derived transition graph analysis are defined. | planned |
 | CSM-04 | Action algebra and composition model | Constituent/composite actions share one typed logical action model that can be composed as a Free program and interpreted later by CNCF. | planned |
 | CSM-05 | Workflow specialization analysis | Candidate Workflow-only requirements are tested against the composite model and only mandatory residual semantics are retained. | planned |
@@ -94,40 +98,9 @@ Inventory at least:
 
 ## Composite State Derivation Model
 
-The preferred model is to treat constituent state as authoritative and derive
-higher-level composite state from the current state configuration.
-
-Conceptually:
-
-```text
-StateConfiguration(
-  order    = Accepted,
-  payment  = Authorized,
-  shipment = Waiting
-)
-       |
-       v
-CompositeStateRule
-       |
-       v
-ReadyToShip
-```
-
-A composite state rule is a pure predicate over role-qualified constituent
-state values. The exact CML syntax remains open, but the semantic contract must
-support deterministic evaluation and static analysis.
-
-For each reachable configuration the rule system should ideally produce exactly
-one composite state:
-
-```text
-0 matches  -> UnmappedConfiguration
-1 match    -> valid CompositeState
-2+ matches -> AmbiguousConfiguration
-```
-
-Partial mappings may be permitted only when explicitly modeled; they must not
-silently become an unknown/default state.
+CSM-02 freezes the document-level derivation contract in the [accepted CML
+Composite StateMachine semantics](../design/cml-composite-statemachine.md).
+The phase document does not duplicate that authority or define CML syntax.
 
 ## Static Analysis
 
@@ -218,24 +191,12 @@ and after-commit rules.
 
 ## Composite StateMachine Questions
 
-The phase must resolve or explicitly defer:
-
-- how constituent StateMachines are declared or referenced;
-- role-qualified binding when the same machine type appears more than once;
-- ownership versus reference/coordination semantics;
-- exact state-rule syntax and rule evaluation semantics;
-- whether exactly-one rule matching is mandatory for every reachable
-  configuration;
-- how constituent committed transitions produce a new configuration;
-- how a configuration change produces zero or one derived composite transition;
-- whether composite transitions reuse exactly the existing transition model;
-- execution ordering of constituent and composite actions;
-- action algebra shape and generated representation;
-- how local transactional versus after-commit effects are identified without
-  embedding provider logic in CML;
-- how nested Composite StateMachines are represented;
-- how stable identity/version/source location is preserved through generation;
-- how the model is projected for diagrams and review.
+CSM-02's accepted semantic decisions are recorded in the [CML Composite
+StateMachine semantics](../design/cml-composite-statemachine.md). Remaining
+questions are intentionally reserved for the later CSM-03 through CSM-10
+slices, including static analysis, action algebra, Workflow specialization,
+grammar, generation, CNCF integration, visualization, and cross-repository
+acceptance.
 
 ## Workflow Specialization Rule
 

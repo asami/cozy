@@ -6,10 +6,12 @@ non-normative and records progress only; the phase contract remains
 
 Phase Status: IN_PROGRESS
 
-Scope: CSM-01 is the only completed slice recorded here. Phase 47.1, Phase
+Scope: CSM-01 and CSM-02 are the completed slices recorded here. Phase 47.1, Phase
 47.2, successor work, and `asami/goldenport-cncf` are outside this ledger
 entry. The factual evidence for CSM-01 is the
-[current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md).
+[current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md);
+the accepted semantic authority for CSM-02 is [CML Composite StateMachine
+Semantics](../design/cml-composite-statemachine.md).
 
 ## CSM-01: Current-model fact inventory and canonical ledger
 
@@ -40,12 +42,13 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47 Composite StateMachine semantics
-- Update rule: mark complete only when the concrete checklist condition below
-  is checked.
+- Update rule: mark DONE only when the checklist item below is checked; the
+  [accepted CML Composite StateMachine semantics](../design/cml-composite-statemachine.md)
+  provides supporting evidence.
 
-- [ ] Define constituent-machine binding, role/identity, state configuration,
+- [x] Define constituent-machine binding, role/identity, state configuration,
       derivation rules, derived transition semantics, and projection semantics.
 
 ## CSM-03: Static composite analysis
