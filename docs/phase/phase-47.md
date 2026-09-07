@@ -36,6 +36,10 @@ semantics.
   [CML Composite StateMachine Semantics](../design/cml-composite-statemachine.md),
   which is the authority for constituent bindings, state configuration,
   derivation, derived transitions, and the future projection boundary.
+- The accepted CSM-03 static-analysis contract is recorded in
+  [CML Composite StateMachine Static Analysis](../design/cml-composite-statemachine-static-analysis.md),
+  which is the authority for normalized analysis input, configuration-domain,
+  may-reachability, rule, liveness, and derived-graph semantics.
 - Existing StateMachine concepts such as State, Transition, Trigger/Event,
   Guard/Predicate, Action/Effect, hierarchy/history, and identity are reused
   where semantically valid.
@@ -68,7 +72,7 @@ semantics.
 | --- | --- | --- | --- |
 | CSM-01 | Current-model inventory | Existing StateMachine grammar/model/generation, action/effect representation, and any current Workflow syntax/implementation are inventoried without conflating unrelated uses of the word workflow. | completed |
 | CSM-02 | Composite StateMachine semantics | [Accepted semantic contract](../design/cml-composite-statemachine.md) defines constituent-machine binding, role/identity, state configuration, derivation rules, derived transition semantics, and the future projection boundary. | completed |
-| CSM-03 | Static composite analysis | Rule completeness/exclusivity, reachable configurations, impossible/dead states, redundant rules, and derived transition graph analysis are defined. | planned |
+| CSM-03 | Static composite analysis | [Accepted static-analysis contract](../design/cml-composite-statemachine-static-analysis.md) defines normalized analysis input, rule completeness/exclusivity, reachability status, impossible/dead states, redundancy findings, and derived transition-graph provenance. | completed |
 | CSM-04 | Action algebra and composition model | Constituent/composite actions share one typed logical action model that can be composed as a Free program and interpreted later by CNCF. | planned |
 | CSM-05 | Workflow specialization analysis | Candidate Workflow-only requirements are tested against the composite model and only mandatory residual semantics are retained. | planned |
 | CSM-06 | Grammar and validation | CML syntax and semantic validation are added/refined for Composite StateMachine, derivation rules, actions, and Workflow specialization. | planned |
@@ -104,41 +108,10 @@ The phase document does not duplicate that authority or define CML syntax.
 
 ## Static Analysis
 
-Because constituent StateMachines are finite models, Cozy should derive or
-symbolically analyze the reachable configuration space rather than treating
-composite rules as opaque runtime predicates.
-
-Required analysis includes, where tractable:
-
-- rule coverage;
-- rule overlap/ambiguity;
-- impossible rules;
-- redundant/subsumed rules;
-- reachable versus unreachable composite states;
-- dead composite states/configurations;
-- unexpected composite transitions;
-- constituent transitions that leave the composite state unchanged;
-- composite transitions that can arise from multiple distinct constituent
-  transitions; and
-- model-size/complexity diagnostics when explicit configuration enumeration is
-  not practical.
-
-The derived composite transition graph is itself an important model artifact:
-
-```text
-constituent transition graphs
-        +
-composite-state derivation rules
-        |
-        v
-reachable configuration graph
-        |
-        v
-derived composite transition graph
-```
-
-This graph should be available to generation, visualization, review, and CNCF
-metadata rather than recomputed independently by each consumer.
+The accepted static-analysis semantics are defined in the [CML Composite
+StateMachine Static Analysis](../design/cml-composite-statemachine-static-analysis.md)
+authority. Later consumers use that one analysis contract rather than
+recomputing independent meanings; implementation mechanics remain deferred.
 
 ## Action Model
 
@@ -191,12 +164,12 @@ and after-commit rules.
 
 ## Composite StateMachine Questions
 
-CSM-02's accepted semantic decisions are recorded in the [CML Composite
-StateMachine semantics](../design/cml-composite-statemachine.md). Remaining
-questions are intentionally reserved for the later CSM-03 through CSM-10
-slices, including static analysis, action algebra, Workflow specialization,
-grammar, generation, CNCF integration, visualization, and cross-repository
-acceptance.
+CSM-02 and CSM-03's accepted decisions are recorded in the [CML Composite
+StateMachine semantics](../design/cml-composite-statemachine.md) and [CML
+Composite StateMachine Static Analysis](../design/cml-composite-statemachine-static-analysis.md).
+Remaining questions are intentionally reserved for the later CSM-04 through
+CSM-10 slices, including action algebra, Workflow specialization, grammar,
+generation, CNCF integration, visualization, and cross-repository acceptance.
 
 ## Workflow Specialization Rule
 

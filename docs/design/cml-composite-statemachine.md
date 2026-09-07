@@ -103,7 +103,9 @@ deferred:
 - a Workflow keyword or Workflow profile syntax;
 - action ordering or action algebra;
 - transaction, compensation, or recovery semantics;
-- static-analysis mechanics;
+- static-analysis mechanics. Static-analysis semantics are defined by the
+  accepted [CML Composite StateMachine Static Analysis](cml-composite-statemachine-static-analysis.md)
+  authority; implementation and integration mechanics remain deferred;
 - generators and CNCF integration;
 - visualization; and
 - external repositories or cross-repository acceptance.
