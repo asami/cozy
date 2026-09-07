@@ -1,6 +1,6 @@
 # Phase 47 - CML Composite StateMachine and Workflow Modeling
 
-Status: in-progress
+Status: completed
 Planned at: 2026-09-05
 Depends on: Phase 32 where applicable
 Cross-repository consumer: `asami/goldenport-cncf` Phase 64
@@ -100,6 +100,18 @@ The producer evidence handed to the consumer is limited to CSM-07 commit
 `6ba8c6065f689b5b327eea3991c86bff04dd0e70`, and the dependency record commit
 `14915d800cdc882b6b2dfb80774cb994e8f2cc66`. The actual runtime acceptance
 proof belongs to `goldenport-cncf` Phase 64 SWF-10 after Phase 63 closes.
+
+### Phase closure boundary
+
+Phase 47 closes the Cozy-owned Composite StateMachine semantics, generated ABI,
+bootstrap registry, projection metadata, and CSM-10 producer handoff. The
+Phase review finding `CB-P47-001` was corrected to generate the public
+constant as `VERSION`; its focused generation-spec validation and independent
+focused re-review are retained as closure evidence. The nonblocking source
+header observation `HYG-P47-MODELER-HEADER` is handed off separately. The
+adopted `DEV-P47-001` record remains the sole route for CNCF runtime and
+ComponentFactory acceptance, owned by `goldenport-cncf` Phase 64 SWF-10 after
+Phase 63 closes. This closure makes no consumer-runtime acceptance claim.
 
 CSM-01 record: [Phase 47 checklist](phase-47-checklist.md) and [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md).
 

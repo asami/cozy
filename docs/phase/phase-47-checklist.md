@@ -4,7 +4,7 @@ This checklist is the authoritative Phase 47 progress ledger. It is
 non-normative and records progress only; the phase contract remains
 `docs/phase/phase-47.md`.
 
-Phase Status: IN_PROGRESS
+Phase Status: DONE
 
 Scope: CSM-01 through CSM-10 are the completed Cozy slices recorded here. CSM-10
 is complete only as the user-authorized producer-side handoff; the CNCF runtime
@@ -22,6 +22,18 @@ The accepted CSM-06 grammar-and-validation authority is [CML Composite
 StateMachine Grammar and Validation](../design/cml-composite-statemachine-grammar-validation.md).
 The accepted CSM-08 bootstrap authority is [CML Composite StateMachine Bootstrap
 Registry](../design/cml-composite-statemachine-bootstrap.md).
+
+## Phase closure
+
+Closure basis: all CSM-01 through CSM-10 Cozy stages are DONE. The full Phase
+review identified `CB-P47-001`; the accepted bounded repair changes the new
+generated public constant to `VERSION`, with `P47-CB001-VAL-001` passing the
+focused generation specification and the independent focused re-review sealing
+`PASS`. `HYG-P47-MODELER-HEADER` is a separately handed-off maintenance item.
+`DEV-P47-001` remains an adopted external obligation: CNCF runtime execution
+and ComponentFactory acceptance belong only to `goldenport-cncf` Phase 64
+SWF-10 after Phase 63 closure. Phase 47 therefore closes as a Cozy
+producer-side result and asserts no consumer-runtime acceptance.
 
 ## CSM-01: Current-model fact inventory and canonical ledger
 

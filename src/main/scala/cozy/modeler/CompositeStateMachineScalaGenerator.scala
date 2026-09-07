@@ -27,7 +27,7 @@ private[modeler] object CompositeStateMachineScalaGenerator {
     s"""package domain.composite.statemachine
        |
        |object CompositeStateMachineAbi {
-       |  val Version: String = ${_quote(CompositeStateMachineDefinition.ABI_VERSION)}
+       |  val VERSION: String = ${_quote(CompositeStateMachineDefinition.ABI_VERSION)}
        |
        |  final case class SourceIdentity(line: Option[Int])
        |  final case class StateMachineReference(name: String)

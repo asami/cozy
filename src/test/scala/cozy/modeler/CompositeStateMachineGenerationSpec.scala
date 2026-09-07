@@ -90,10 +90,10 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.exists(normalprojection) shouldBe true
         Files.exists(valueprojection) shouldBe true
         Files.readString(normalabi) should include ("package domain.composite.statemachine")
-        Files.readString(normalabi) should include ("val Version: String = \"cozy.cml.composite-statemachine.v1\"")
+        Files.readString(normalabi) should include ("val VERSION: String = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(normalabi) should include ("final case class ConstituentBinding")
         Files.readString(normalabi) should include ("final case class DerivedAction")
-        Files.readString(valueabi) should include ("val Version: String = \"cozy.cml.composite-statemachine.v1\"")
+        Files.readString(valueabi) should include ("val VERSION: String = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(normalabi) shouldBe Files.readString(valueabi)
         val expectedbootstrap = """package domain.composite.statemachine
           |
@@ -153,7 +153,7 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
           .get("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/CompositeStateMachineBootstrap.scala")
           .collect { case value: org.goldenport.realm.Realm.StringData => value.string }
           .getOrElse(fail("Missing regenerated Composite StateMachine bootstrap"))
-        generatedabi should include ("val Version: String = \"cozy.cml.composite-statemachine.v1\"")
+        generatedabi should include ("val VERSION: String = \"cozy.cml.composite-statemachine.v1\"")
         val expectedbootstrap = """package domain.composite.statemachine
           |
           |object CompositeStateMachineBootstrap {
