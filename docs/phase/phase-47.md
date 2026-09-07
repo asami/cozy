@@ -1,6 +1,6 @@
 # Phase 47 - CML Composite StateMachine and Workflow Modeling
 
-Status: planned
+Status: in-progress
 Planned at: 2026-09-05
 Depends on: Phase 32 where applicable
 Cross-repository consumer: `asami/goldenport-cncf` Phase 64
@@ -62,7 +62,7 @@ semantics.
 
 | ID | Stage | Outcome | Status |
 | --- | --- | --- | --- |
-| CSM-01 | Current-model inventory | Existing StateMachine grammar/model/generation, action/effect representation, and any current Workflow syntax/implementation are inventoried without conflating unrelated uses of the word workflow. | planned |
+| CSM-01 | Current-model inventory | Existing StateMachine grammar/model/generation, action/effect representation, and any current Workflow syntax/implementation are inventoried without conflating unrelated uses of the word workflow. | completed |
 | CSM-02 | Composite StateMachine semantics | Constituent-machine binding, role/identity, state configuration, derivation rules, derived transition semantics, and projection semantics are defined. | planned |
 | CSM-03 | Static composite analysis | Rule completeness/exclusivity, reachable configurations, impossible/dead states, redundant rules, and derived transition graph analysis are defined. | planned |
 | CSM-04 | Action algebra and composition model | Constituent/composite actions share one typed logical action model that can be composed as a Free program and interpreted later by CNCF. | planned |
@@ -72,6 +72,8 @@ semantics.
 | CSM-08 | CNCF metadata/bootstrap contract | Generated output is aligned with CNCF Phase 64 ComponentFactory/runtime admission and interpreter boundaries. | planned |
 | CSM-09 | Visualization/projection metadata | Composite/constituent state, rule matches, derived transitions, and action placement are preserved for meta APIs, CBD Support, BoK visualization, and diagnostics. | planned |
 | CSM-10 | Cross-repository acceptance | A real CML model with multiple constituent StateMachines, derived composite states, lower/upper actions, and a Workflow specialization passes Cozy -> generated metadata -> CNCF runtime acceptance. | planned |
+
+CSM-01 record: [Phase 47 checklist](phase-47-checklist.md) and [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md).
 
 ## Required Inventory
 
