@@ -116,13 +116,15 @@ identity, distinct declared composite `FROM` and `TO`, and an `ACTION`; its
 placement is fixed as `derived-transition` and is not authored separately.
 
 The future producer-side v1 metadata contract is frozen separately by the
-[CML Action Producer Metadata](cml-action-producer-metadata.md) authority.
-That contract is additive and is not part of this currently implemented
-grammar: Actions with no Phase 47.1 metadata remain valid, while the future
-`EFFECT`, `TRANSACTION`, `IDEMPOTENCY`, `IDEMPOTENCY-KEY`, and
+[CML Action Producer Metadata](cml-action-producer-metadata.md) authority, with
+the producer-only compensation association defined by the accepted [CML Action
+Compensation Handler Binding](cml-action-compensation-handler-binding.md)
+authority. That contract is additive and is not part of this currently
+implemented grammar: Actions with no Phase 47.1 metadata remain valid, while
+the future `EFFECT`, `TRANSACTION`, `IDEMPOTENCY`, `IDEMPOTENCY-KEY`, and
 `COMPENSATION-HANDLER` surface is not currently parsed or accepted. The current
 exclusion of transaction, retry, and compensation metadata remains in force
-until ACTX-04 implements that surface.
+until ACTX-04 implements parser/static validation and binding resolution.
 
 ## Diagnostics and preservation
 
@@ -144,7 +146,8 @@ created or interpreted.
 CSM-07 owns generated definition IR and ABI. CSM-08 owns CNCF bootstrap and
 runtime admission. CSM-09 owns visualization and projection metadata. CSM-10
 owns cross-repository acceptance. ACTX-02 owns the future producer-side
-metadata meaning referenced above; ACTX-03 and ACTX-04 own its later
-compensation association and validation work. This slice also does not decide
-runtime execution, transaction, recovery, provider integration, visualization,
-or a Workflow language.
+metadata meaning referenced above; ACTX-03 owns the accepted producer-only
+compensation association, while ACTX-04 owns its later parser/static
+validation and binding resolution and ACTX-05 owns deterministic generation.
+This slice also does not decide runtime execution, transaction, recovery,
+provider integration, visualization, or a Workflow language.

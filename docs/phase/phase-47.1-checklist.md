@@ -46,12 +46,18 @@ Stage Status:
 
 ## ACTX-03: Compensation handler binding
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47.1 compensation-handler binding owner
-- Update rule: This stage remains OPEN while any checklist item in this block is unchecked; this checklist block is the closure basis for marking the stage DONE.
+- Update rule: This stage is DONE because its sole checklist item is complete;
+  the closure basis is the accepted [CML Action Compensation Handler
+  Binding](../design/cml-action-compensation-handler-binding.md) authority,
+  including its action-level association, occurrence-provenance, and explicit
+  parser/runtime boundaries.
 
-- [ ] Define stable producer-side association and validation for an application
-      compensation-handler reference without embedding handler implementation.
+- [x] Define the stable producer-side association and its semantic applicability
+      boundary for an application compensation-handler reference without
+      embedding handler implementation; executable/parser validation and binding
+      resolution remain deferred to ACTX-04.
 
 ## ACTX-04: Static validation
 Stage Status:

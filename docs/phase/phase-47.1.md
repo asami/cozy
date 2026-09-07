@@ -50,6 +50,13 @@ Cozy currently executes or proves those runtime outcomes.
   compensation-handler reference, and derived ordering/provenance needed by a
   consumer; it does not add provider configuration or runtime execution. The
   exact ACTX-02 contract is frozen in [CML Action Producer Metadata](../design/cml-action-producer-metadata.md).
+- ACTX-03 accepts the producer-only [CML Action Compensation Handler
+  Binding](../design/cml-action-compensation-handler-binding.md): one optional
+  opaque, application-owned stable symbolic reference is associated with the
+  existing logical `actionId`, not with an `ActionOccurrence`. It does not
+  re-author the Action or expose handler body, provider, or execution
+  semantics. Parser/static validation and binding resolution remain ACTX-04;
+  deterministic generation remains ACTX-05.
 - The generated producer contract continues to align with the existing CNCF
   `UnitOfWorkOp` execution algebra; no parallel StateMachine-specific execution
   algebra is introduced by Cozy.
@@ -102,6 +109,21 @@ additive surface and does not claim current parser acceptance.
 
 Retry counts, backoff, timeout, circuit breakers, transport tuning, and provider
 transaction configuration are CNCF runtime policy rather than CML semantics.
+
+## ACTX-03 accepted compensation-handler binding
+
+The accepted [CML Action Compensation Handler Binding](../design/cml-action-compensation-handler-binding.md)
+authority defines the future producer-only association. Every Action occurrence
+retains its own causal provenance; when later consumer metadata carries the
+action-level reference, a consumer may attribute actual completed external
+effects to individual occurrences. The association does not claim that an
+occurrence was executed, committed, or compensated.
+
+Business compensation is meaningful only after the consumer runtime reports a
+completed external effect outside an admitted atomic UnitOfWork. The
+association never makes an `EXTERNAL` effect technically rollbackable, and
+`REQUIRED` admission failure remains consumer reject behavior. This ACTX-03
+authority imposes no executable or parser validation.
 
 A separate reversibility enum is not required for v1. Operationally:
 
@@ -223,7 +245,7 @@ Provider capability remains a CNCF admission concern.
 | --- | --- | --- | --- |
 | ACTX-01 | Existing execution inventory | Current Cozy CML actions, generated projections, and the producer/consumer evidence boundary are inventoried. | completed |
 | ACTX-02 | Minimal metadata contract | [`CML Action Producer Metadata`](../design/cml-action-producer-metadata.md) freezes the v1 producer-side `actionId`, effect class, transaction requirement, idempotency, compensation handler reference, and derived ordering/provenance contract. | completed |
-| ACTX-03 | Compensation handler binding | Stable CML/generated association to application compensation handler is defined without embedding handler implementation. | planned |
+| ACTX-03 | Compensation handler binding | [CML Action Compensation Handler Binding](../design/cml-action-compensation-handler-binding.md) defines the stable producer-only action-level association without embedding handler implementation; parser/static validation and binding resolution remain ACTX-04. | completed |
 | ACTX-04 | Static validation | Handler resolution, transaction consistency, idempotency, external-effect recovery boundary, and ordering checks are implemented where tractable. | planned |
 | ACTX-05 | Generation | Metadata and handler references compile deterministically alongside the existing UnitOfWork program binding. | planned |
 | ACTX-06 | Cozy producer handoff | Cozy records and hands off the future producer contract; consumer runtime ownership is explicit. | planned |

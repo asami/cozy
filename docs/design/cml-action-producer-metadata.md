@@ -47,8 +47,10 @@ The fields have these exact meanings and values:
   stable producer-side symbolic reference; it is not runtime state and does not
   encode retry policy.
 - `compensationHandlerRef` is optional and is only an opaque, stable reference
-  to an application handler. Its association, resolution, and validation
-  implementation are deferred to ACTX-03 and ACTX-04.
+  to an application handler. Its producer-only association meaning is frozen
+  by the accepted [CML Action Compensation Handler Binding](cml-action-compensation-handler-binding.md)
+  authority; parser/static validation and binding resolution remain deferred to
+  ACTX-04.
 - `ordering / provenance` is derived from existing constituent and derived
   Action occurrence data. It is not a separate authored field and is not an
   execution-order claim.
@@ -79,8 +81,11 @@ with no Phase 47.1 metadata fields remains valid and unchanged. If any Phase
 47.1 metadata field is present, `EFFECT`, `TRANSACTION`, and `IDEMPOTENCY` are
 mandatory. `IDEMPOTENCY-KEY` occurs exactly when `IDEMPOTENCY=REQUIRED`; it is
 not admitted with `NOT_REQUIRED` and is not omitted from a `REQUIRED(keyRef)`
-declaration. `COMPENSATION-HANDLER` remains opaque until the ACTX-03/ACTX-04
-association and validation work defines its treatment.
+declaration. `COMPENSATION-HANDLER` remains opaque in the authored surface. Its
+producer-only association meaning is defined by the accepted [CML Action
+Compensation Handler Binding](cml-action-compensation-handler-binding.md)
+authority; parser acceptance, static validation, and binding resolution remain
+deferred to ACTX-04.
 
 This is an additive design surface only. ACTX-02 does not implement this
 grammar, parser behavior, validation, or generated representation.
@@ -113,3 +118,11 @@ The existing [CML Composite StateMachine Action Algebra](cml-composite-statemach
 continues to own logical Action identity and occurrence provenance. Later
 generation and handoff work may carry this metadata to the consumer, but this
 document changes no Scala, parser, generator, test, or runtime behavior.
+
+The accepted [CML Action Compensation Handler Binding](cml-action-compensation-handler-binding.md)
+authority defines the future action-level association without binding a
+reference to an `ActionOccurrence` or exposing handler implementation. The
+current [CML Composite StateMachine Grammar and Validation](cml-composite-statemachine-grammar-validation.md)
+authority continues to exclude compensation syntax; ACTX-04 owns its later
+parser/static validation and binding resolution, and ACTX-05 owns deterministic
+generation.
