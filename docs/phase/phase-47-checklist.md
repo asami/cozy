@@ -17,6 +17,8 @@ The accepted action-algebra authority for CSM-04 is [CML Composite StateMachine
 Action Algebra](../design/cml-composite-statemachine-action-algebra.md).
 The accepted Workflow-specialization authority for CSM-05 is [CML Workflow
 Specialization Classification](../design/cml-workflow-specialization.md).
+The accepted CSM-06 grammar-and-validation authority is [CML Composite
+StateMachine Grammar and Validation](../design/cml-composite-statemachine-grammar-validation.md).
 
 ## CSM-01: Current-model fact inventory and canonical ledger
 
@@ -105,12 +107,12 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47 grammar and validation
 - Update rule: mark complete only when the concrete checklist condition below
   is checked.
 
-- [ ] Add or refine CML syntax and semantic validation for the accepted
+- [x] Add or refine CML syntax and semantic validation for the accepted
       Composite StateMachine and any justified Workflow specialization.
 
 ## CSM-07: SimpleModeler generation

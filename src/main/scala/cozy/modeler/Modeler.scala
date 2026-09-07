@@ -98,28 +98,7 @@ class Modeler(
     model: KaleidoxModel,
     name: String
   ): Option[StateMachineClass] =
-    model.stateMachineModel.getClass(name).orElse {
-      model.getEntityModel.flatMap { entities =>
-        val segments = name.split("\\.", 2)
-        segments.toList match {
-          case entityname :: machinename :: Nil if entityname.nonEmpty && machinename.nonEmpty =>
-            entities.get(entityname).flatMap(_.stateMachines.find(_.name == machinename))
-          case entityname :: Nil if entityname.nonEmpty =>
-            entities.get(entityname).flatMap { entity =>
-              entity.stateMachines match {
-                case Vector() => None
-                case machine +: Vector() => Some(machine)
-                case machines =>
-                  val candidates = machines.map(_.name).mkString(", ")
-                  RAISE.syntaxErrorFault(
-                    s"Entity '$entityname' has multiple StateMachine candidates: $candidates."
-                  )
-              }
-            }
-          case _ => None
-        }
-      }
-    }
+    Modeler._select_state_machine(model, name)
 
   private[modeler] def requireNamedHistoryField(p: StateMachineClass): Unit = {
     def _has_named_history_transition_(rule: StateMachineRule): Boolean = {
@@ -488,6 +467,33 @@ class Modeler(
 }
 
 object Modeler {
+  private[modeler] def _select_state_machine(
+    model: KaleidoxModel,
+    name: String
+  ): Option[StateMachineClass] =
+    model.stateMachineModel.getClass(name).orElse {
+      model.getEntityModel.flatMap { entities =>
+        val segments = name.split("\\.", 2)
+        segments.toList match {
+          case entityname :: machinename :: Nil if entityname.nonEmpty && machinename.nonEmpty =>
+            entities.get(entityname).flatMap(_.stateMachines.find(_.name == machinename))
+          case entityname :: Nil if entityname.nonEmpty =>
+            entities.get(entityname).flatMap { entity =>
+              entity.stateMachines match {
+                case Vector() => None
+                case machine +: Vector() => Some(machine)
+                case machines =>
+                  val candidates = machines.map(_.name).mkString(", ")
+                  RAISE.syntaxErrorFault(
+                    s"Entity '$entityname' has multiple StateMachine candidates: $candidates."
+                  )
+              }
+            }
+          case _ => None
+        }
+      }
+    }
+
   private[modeler] def _require_composite_state_name(rule: StateMachineRule): String =
     rule.name.map(_.trim).filter(_.nonEmpty).getOrElse {
       RAISE.syntaxErrorFault("StateMachine composite state requires a name.")
@@ -772,8 +778,9 @@ object Modeler {
     def apply(
       p: KaleidoxModel,
       predefinedResultCatalog: PredefinedResultCatalog,
-      componentStyleCatalog: ComponentStyleCatalog
-    ): ModelBuilder = {
+    componentStyleCatalog: ComponentStyleCatalog
+  ): ModelBuilder = {
+      CompositeStateMachineCml.validate(p)
       val relationships = ModelerRelationshipCml.relationshipDefinitions(p)
       val operationbindings = ModelerRelationshipCml.operationBindings(p, relationships)
       val leafcontracts = ModelerRelationshipCml.serviceOperationLeafContracts(p)

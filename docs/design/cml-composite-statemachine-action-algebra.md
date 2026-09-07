@@ -102,8 +102,10 @@ The current one-nonempty-line transition action text projected as `MAction` or
 is not executable, and is not ActionProgram input solely because its text has a
 matching name. No current code is changed by this authority.
 
-CSM-05 owns Workflow residual analysis. CSM-06 owns CML action grammar,
-resolution, and diagnostics. CSM-07 owns deterministic generated IR and ABI.
+CSM-05 owns Workflow residual analysis. CSM-06's accepted [CML Composite
+StateMachine Grammar and
+Validation](cml-composite-statemachine-grammar-validation.md) owns CML action
+grammar, resolution, and diagnostics. CSM-07 owns deterministic generated IR and ABI.
 CSM-08 owns CNCF interpretation and admission. CSM-09 owns visualization
 metadata. Phase 47.1 owns transaction, reversibility, compensation, and
 recovery semantics.

@@ -20,8 +20,10 @@ semantics.
 
 The accepted [CML Workflow Specialization
 Classification](cml-workflow-specialization.md) records that CSM-05 retained
-no mandatory Workflow-only semantic residual. It leaves any keyword or profile
-syntax to CSM-06 and does not alter this constituent, role, subject,
+no mandatory Workflow-only semantic residual. The accepted CSM-06 [CML
+Composite StateMachine Grammar and
+Validation](cml-composite-statemachine-grammar-validation.md) admits no
+Workflow keyword or profile syntax and does not alter this constituent, role, subject,
 configuration, or derived-transition contract.
 
 ## Constituent bindings

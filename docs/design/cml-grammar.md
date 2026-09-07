@@ -50,6 +50,7 @@ Typical established areas include:
   - `COMPONENTLET`
   - `EXTENSIONPOINT`
   - `SUBSYSTEM`
+  - `COMPOSITE-STATEMACHINE` (Phase 47 CSM-06)
 - literate model interpretation
   - structural layer
   - metadata layer
@@ -121,6 +122,15 @@ When grammar is still being discussed or actively implemented:
 - keep the active contract in `docs/notes/cml-grammar-latest.md`
 - keep discussion history in `docs/journal`
 - move stabilized results here only after they are no longer in active flux
+
+## Phase 47 Composite StateMachine Grammar
+
+The accepted Composite StateMachine grammar and normalizing validation surface
+is defined by [CML Composite StateMachine Grammar and
+Validation](cml-composite-statemachine-grammar-validation.md). It adds the
+canonical `COMPOSITE-STATEMACHINE` root only; `WORKFLOW` is not admitted as a
+CML root, keyword, or profile because CSM-05 established no mandatory
+Workflow-only residual semantics.
 
 ## Remaining Active Grammar Work
 
