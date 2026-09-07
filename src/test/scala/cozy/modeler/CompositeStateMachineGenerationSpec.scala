@@ -70,15 +70,19 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         cozy.Cozy.main(Array("modeler-scala-value", input.toString, "--save", valueout.toString))
         val valuesecond = tree_snapshot(valueout)
 
-        Then("both routes emit the fixed shared ABI and typed definition in normalized source order")
+        Then("both routes emit byte-identical fixed ABI/bootstrap sources and typed definitions in normalized source order")
         val normalroot = normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
         val valueroot = valueout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
         val normalabi = normalroot.resolve("CompositeStateMachineAbi.scala")
         val valueabi = valueroot.resolve("CompositeStateMachineAbi.scala")
+        val normalbootstrap = normalroot.resolve("CompositeStateMachineBootstrap.scala")
+        val valuebootstrap = valueroot.resolve("CompositeStateMachineBootstrap.scala")
         val normaldefinition = normalroot.resolve("OrderProgressCompositeStateMachine1.scala")
         val valuedefinition = valueroot.resolve("OrderProgressCompositeStateMachine1.scala")
         Files.exists(normalabi) shouldBe true
         Files.exists(valueabi) shouldBe true
+        Files.exists(normalbootstrap) shouldBe true
+        Files.exists(valuebootstrap) shouldBe true
         Files.exists(normaldefinition) shouldBe true
         Files.exists(valuedefinition) shouldBe true
         Files.readString(normalabi) should include ("package domain.composite.statemachine")
@@ -87,6 +91,16 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(normalabi) should include ("final case class DerivedAction")
         Files.readString(valueabi) should include ("val Version: String = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(normalabi) shouldBe Files.readString(valueabi)
+        val expectedbootstrap = """package domain.composite.statemachine
+          |
+          |object CompositeStateMachineBootstrap {
+          |  val bootstrapAbiVersion: String = "cozy.cml.composite-statemachine-bootstrap.v1"
+          |  val definitions: Vector[CompositeStateMachineAbi.Definition] = Vector(OrderProgressCompositeStateMachine1.definition)
+          |}
+          |""".stripMargin
+        Files.readString(normalbootstrap) shouldBe expectedbootstrap
+        Files.readString(valuebootstrap) shouldBe expectedbootstrap
+        Files.readString(normalbootstrap) shouldBe Files.readString(valuebootstrap)
         Files.readString(normaldefinition) should include ("abiVersion = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(valuedefinition) should include ("abiVersion = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(normaldefinition) shouldBe Files.readString(valuedefinition)
@@ -106,6 +120,42 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         And("each public route remains deterministic")
         normalfirst shouldBe normalsecond
         valuefirst shouldBe valuesecond
+      }
+
+      "emit a stable typed empty bootstrap source without Composite StateMachine definitions" in {
+        Given("an empty normalized Composite StateMachine definition collection")
+        val definitions = Vector.empty[CompositeStateMachineDefinition]
+
+        When("the typed Scala generator emits the shared Composite StateMachine sources repeatedly")
+        val generated = CompositeStateMachineScalaGenerator.generate(definitions)
+        val regenerated = CompositeStateMachineScalaGenerator.generate(definitions)
+
+        Then("the fixed ABI and bootstrap are present with a typed empty definition vector")
+        val generatedabi = generated
+          .get("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/CompositeStateMachineAbi.scala")
+          .collect { case value: org.goldenport.realm.Realm.StringData => value.string }
+          .getOrElse(fail("Missing generated Composite StateMachine ABI"))
+        val generatedbootstrap = generated
+          .get("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/CompositeStateMachineBootstrap.scala")
+          .collect { case value: org.goldenport.realm.Realm.StringData => value.string }
+          .getOrElse(fail("Missing generated Composite StateMachine bootstrap"))
+        val regeneratedbootstrap = regenerated
+          .get("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/CompositeStateMachineBootstrap.scala")
+          .collect { case value: org.goldenport.realm.Realm.StringData => value.string }
+          .getOrElse(fail("Missing regenerated Composite StateMachine bootstrap"))
+        generatedabi should include ("val Version: String = \"cozy.cml.composite-statemachine.v1\"")
+        val expectedbootstrap = """package domain.composite.statemachine
+          |
+          |object CompositeStateMachineBootstrap {
+          |  val bootstrapAbiVersion: String = "cozy.cml.composite-statemachine-bootstrap.v1"
+          |  val definitions: Vector[CompositeStateMachineAbi.Definition] = Vector.empty
+          |}
+          |""".stripMargin
+        generatedbootstrap shouldBe expectedbootstrap
+        regeneratedbootstrap shouldBe expectedbootstrap
+
+        And("no per-definition source is emitted")
+        generated.get("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/CompositeStateMachine1.scala").isEmpty shouldBe true
       }
 
       "use locale-neutral definition names through the typed Scala generator boundary" in {

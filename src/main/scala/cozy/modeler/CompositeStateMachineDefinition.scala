@@ -23,6 +23,7 @@ final case class CompositeStateMachineDefinition(
 
 object CompositeStateMachineDefinition {
   val ABI_VERSION: String = "cozy.cml.composite-statemachine.v1"
+  val bootstrapAbiVersion: String = "cozy.cml.composite-statemachine-bootstrap.v1"
 }
 
 final case class CompositeStateMachineSourceIdentity(line: Option[Int])

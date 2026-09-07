@@ -50,13 +50,15 @@ deliberately omit locations. It never invents a source file path.
 ## Generated Scala ABI
 
 Both `modeler-scala` and `modeler-scala-value` pass normalized definitions to
-the Cozy Scala generator. When the CML model declares Composite StateMachines,
-generation writes the following source tree in addition to the ordinary
-SimpleModeler Realm output:
+the Cozy Scala generator. CSM-08 refines this generated output's presence and
+typed discovery surface through [CML Composite StateMachine Bootstrap Registry](cml-composite-statemachine-bootstrap.md).
+Every generation writes the following shared source tree in addition to the
+ordinary SimpleModeler Realm output:
 
 ```text
 target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/
   CompositeStateMachineAbi.scala
+  CompositeStateMachineBootstrap.scala
   <definition>CompositeStateMachine<n>.scala
 ```
 
@@ -70,6 +72,10 @@ object exposes:
 ```scala
 val definition: CompositeStateMachineAbi.Definition
 ```
+
+`CompositeStateMachineBootstrap.scala` and its fixed typed registry are owned
+by CSM-08. Per-definition files are emitted only for normalized Composite
+StateMachine definitions.
 
 Generated source uses Scala string escaping for all CML text. Definitions retain
 CML declaration order; configurations are reordered to the constituent-role

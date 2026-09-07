@@ -78,7 +78,7 @@ semantics.
 | CSM-05 | Workflow specialization analysis | [Accepted classification](../design/cml-workflow-specialization.md) tests candidate requirements against the composite model and retains zero mandatory Workflow-only residual semantics. | completed |
 | CSM-06 | Grammar and validation | [Accepted grammar and validation](../design/cml-composite-statemachine-grammar-validation.md) adds normalized Composite StateMachine syntax and semantic validation without admitting a Workflow language. | completed |
 | CSM-07 | SimpleModeler generation | [Accepted generated ABI](../design/cml-composite-statemachine-generation.md) projects stable typed definitions, ordered constituent bindings/rules/actions, source identities, and deterministic Scala metadata without a runtime policy. | completed |
-| CSM-08 | CNCF metadata/bootstrap contract | Generated output is aligned with CNCF Phase 64 ComponentFactory/runtime admission and interpreter boundaries. | planned |
+| CSM-08 | CNCF metadata/bootstrap contract | [Accepted typed bootstrap registry](../design/cml-composite-statemachine-bootstrap.md) always emits a fixed source-level `CompositeStateMachineBootstrap` registry for a future CNCF ComponentFactory while retaining CSM-07 definition ABI verification. | completed |
 | CSM-09 | Visualization/projection metadata | Composite/constituent state, rule matches, derived transitions, and action placement are preserved for meta APIs, CBD Support, BoK visualization, and diagnostics. | planned |
 | CSM-10 | Cross-repository acceptance | A real CML model with multiple constituent StateMachines, derived composite states, lower/upper actions, and a Workflow specialization passes Cozy -> generated metadata -> CNCF runtime acceptance. | planned |
 
@@ -150,10 +150,11 @@ durable wait/progression, pending work, completion/cancellation, and history.
 ## Generation Contract
 
 CSM-07's accepted generated-ABI authority is [CML Composite StateMachine
-Generated ABI](../design/cml-composite-statemachine-generation.md). It owns the
-typed Cozy projection and standalone deterministic Scala source surface. CSM-08
-through CSM-10 retain CNCF mapping/runtime, visualization, and cross-repository
-acceptance respectively.
+Generated ABI](../design/cml-composite-statemachine-generation.md). Its CSM-08
+[typed bootstrap registry](../design/cml-composite-statemachine-bootstrap.md)
+refinement owns the always-present direct source-level discovery surface only.
+It does not add CNCF runtime admission or interpretation; CSM-09 and CSM-10
+retain visualization and cross-repository acceptance respectively.
 
 The generated representation must preserve at least:
 

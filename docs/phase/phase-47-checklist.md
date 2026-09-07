@@ -6,8 +6,7 @@ non-normative and records progress only; the phase contract remains
 
 Phase Status: IN_PROGRESS
 
-Scope: CSM-01 through CSM-06 are the completed slices recorded here before CSM-07 is
-recorded. Phase 47.1, Phase
+Scope: CSM-01 through CSM-08 are the completed slices recorded here. Phase 47.1, Phase
 47.2, successor work, and `asami/goldenport-cncf` are outside this ledger
 entry. The factual evidence for CSM-01 is the
 [current-model inventory](../notes/cml-composite-statemachine-workflow-inventory.md);
@@ -20,6 +19,8 @@ The accepted Workflow-specialization authority for CSM-05 is [CML Workflow
 Specialization Classification](../design/cml-workflow-specialization.md).
 The accepted CSM-06 grammar-and-validation authority is [CML Composite
 StateMachine Grammar and Validation](../design/cml-composite-statemachine-grammar-validation.md).
+The accepted CSM-08 bootstrap authority is [CML Composite StateMachine Bootstrap
+Registry](../design/cml-composite-statemachine-bootstrap.md).
 
 ## CSM-01: Current-model fact inventory and canonical ledger
 
@@ -140,13 +141,20 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47 CNCF metadata/bootstrap contract
 - Update rule: mark complete only when the concrete checklist condition below
   is checked.
 
-- [ ] Align generated output with the CNCF Phase 64 ComponentFactory and
-      runtime-admission boundary.
+- [x] Emit the fixed typed `CompositeStateMachineBootstrap` source entrypoint
+      from both public Scala routes, with the exact bootstrap ABI version and
+      direct declaration-ordered definition references (or a typed
+      `Vector.empty` when no definitions normalize). Evidence:
+      `CompositeStateMachineGenerationSpec` proves byte-identical route output,
+      exact bootstrap source members/direct reference, and stable typed-empty
+      bootstrap generation; the accepted [bootstrap authority](../design/cml-composite-statemachine-bootstrap.md)
+      preserves CSM-07 definition ABI verification and defers CNCF admission
+      and interpretation.
 
 ## CSM-09: Visualization/projection metadata
 

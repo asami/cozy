@@ -14,12 +14,11 @@ private[modeler] object CompositeStateMachineScalaGenerator {
 
   def generate(definitions: Vector[CompositeStateMachineDefinition]): Realm = {
     val builder = Realm.Builder()
-    if (definitions.nonEmpty) {
-      builder.set(s"${_root}/CompositeStateMachineAbi.scala", _abi_source)
-      definitions.zipWithIndex.foreach { case (definition, index) =>
-        val objectname = _object_name(definition, index)
-        builder.set(s"${_root}/$objectname.scala", _definition_source(definition, objectname))
-      }
+    builder.set(s"${_root}/CompositeStateMachineAbi.scala", _abi_source)
+    builder.set(s"${_root}/CompositeStateMachineBootstrap.scala", _bootstrap_source(definitions))
+    definitions.zipWithIndex.foreach { case (definition, index) =>
+      val objectname = _object_name(definition, index)
+      builder.set(s"${_root}/$objectname.scala", _definition_source(definition, objectname))
     }
     builder.build()
   }
@@ -45,6 +44,24 @@ private[modeler] object CompositeStateMachineScalaGenerator {
        |  final case class Definition(abiVersion: String, identity: String, name: String, source: SourceIdentity, constituents: Vector[ConstituentBinding], states: Vector[State], derivations: Vector[Derivation], initialConfiguration: Option[Configuration], actions: Vector[LogicalAction], constituentActions: Vector[ConstituentAction], derivedActions: Vector[DerivedAction])
        |}
        |""".stripMargin
+
+  private def _bootstrap_source(definitions: Vector[CompositeStateMachineDefinition]): String = {
+    val references = definitions.zipWithIndex.map { case (definition, index) =>
+      s"${_object_name(definition, index)}.definition"
+    }
+    val definitionvector = if (references.nonEmpty) {
+      references.mkString("Vector(", ", ", ")")
+    } else {
+      "Vector.empty"
+    }
+    s"""package domain.composite.statemachine
+       |
+       |object CompositeStateMachineBootstrap {
+       |  val bootstrapAbiVersion: String = ${_quote(CompositeStateMachineDefinition.bootstrapAbiVersion)}
+       |  val definitions: Vector[CompositeStateMachineAbi.Definition] = $definitionvector
+       |}
+       |""".stripMargin
+  }
 
   private def _definition_source(
     definition: CompositeStateMachineDefinition,
