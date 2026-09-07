@@ -47,8 +47,9 @@ Cozy currently executes or proves those runtime outcomes.
 
 - Future Cozy producer metadata carries the semantic action identity, effect
   class, transaction requirement, idempotency requirement, optional
-  compensation-handler reference, and ordering/provenance needed by a
-  consumer; it does not add provider configuration or runtime execution.
+  compensation-handler reference, and derived ordering/provenance needed by a
+  consumer; it does not add provider configuration or runtime execution. The
+  exact ACTX-02 contract is frozen in [CML Action Producer Metadata](../design/cml-action-producer-metadata.md).
 - The generated producer contract continues to align with the existing CNCF
   `UnitOfWorkOp` execution algebra; no parallel StateMachine-specific execution
   algebra is introduced by Cozy.
@@ -68,7 +69,9 @@ Cozy currently executes or proves those runtime outcomes.
 
 ## Minimal Action Metadata
 
-For v1, keep Action metadata small and semantic:
+For v1, keep Action metadata small and semantic. The exact producer-side
+contract is the accepted [CML Action Producer Metadata](../design/cml-action-producer-metadata.md)
+authority:
 
 ```text
 ActionMetadata
@@ -82,15 +85,20 @@ ActionMetadata
 
 Interpretation:
 
-- `actionId`: stable logical action identity;
-- `effectClass`: at minimum distinguishes local versus externally visible
-  effect where this is part of model meaning;
-- `transactionRequirement`: logical atomicity requirement, without provider
-  configuration;
-- `idempotency`: semantic requirement/key contract needed for safe re-execution;
-- `compensationHandlerRef`: optional stable application handler reference for an
-  external effect requiring business reversal;
-- `ordering/provenance`: causal placement and constituent/composite source.
+- `actionId` is the existing logical Action identity and is never re-authored;
+- `effectClass` is exactly `LOCAL` or `EXTERNAL`;
+- `transactionRequirement` is exactly `REQUIRED` or `OUTSIDE_UNIT_OF_WORK`;
+- `idempotency` is exactly `NOT_REQUIRED` or `REQUIRED(keyRef)`;
+- `compensationHandlerRef` is an optional opaque stable application-handler
+  reference; and
+- ordering/provenance is derived from existing constituent/derived occurrence
+  data rather than authored separately.
+
+If any future metadata field is authored, `EFFECT`, `TRANSACTION`, and
+`IDEMPOTENCY` are mandatory. `IDEMPOTENCY-KEY` occurs exactly with
+`IDEMPOTENCY=REQUIRED`; `COMPENSATION-HANDLER` remains opaque until ACTX-03/04.
+Legacy Actions with no Phase 47.1 metadata remain valid. This is a future
+additive surface and does not claim current parser acceptance.
 
 Retry counts, backoff, timeout, circuit breakers, transport tuning, and provider
 transaction configuration are CNCF runtime policy rather than CML semantics.
@@ -214,7 +222,7 @@ Provider capability remains a CNCF admission concern.
 | ID | Stage | Outcome | Status |
 | --- | --- | --- | --- |
 | ACTX-01 | Existing execution inventory | Current Cozy CML actions, generated projections, and the producer/consumer evidence boundary are inventoried. | completed |
-| ACTX-02 | Minimal metadata contract | `actionId`, effect class, transaction requirement, idempotency, compensation handler reference, and ordering/provenance are frozen. | planned |
+| ACTX-02 | Minimal metadata contract | [`CML Action Producer Metadata`](../design/cml-action-producer-metadata.md) freezes the v1 producer-side `actionId`, effect class, transaction requirement, idempotency, compensation handler reference, and derived ordering/provenance contract. | completed |
 | ACTX-03 | Compensation handler binding | Stable CML/generated association to application compensation handler is defined without embedding handler implementation. | planned |
 | ACTX-04 | Static validation | Handler resolution, transaction consistency, idempotency, external-effect recovery boundary, and ordering checks are implemented where tractable. | planned |
 | ACTX-05 | Generation | Metadata and handler references compile deterministically alongside the existing UnitOfWork program binding. | planned |

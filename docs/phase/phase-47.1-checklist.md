@@ -34,11 +34,15 @@ Stage Status:
 
 ## ACTX-02: Minimal metadata contract
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 47.1 minimal metadata contract owner
-- Update rule: This stage remains OPEN while any checklist item in this block is unchecked; this checklist block is the closure basis for marking the stage DONE.
+- Update rule: This stage is DONE because its sole checklist item is complete;
+  the closure basis is the accepted [CML Action Producer Metadata](../design/cml-action-producer-metadata.md)
+  authority, including its additive authored surface, exact v1 values, and
+  explicit current-grammar and consumer-runtime boundaries.
 
-- [ ] Freeze the v1 semantic action metadata contract.
+- [x] Freeze the v1 semantic action metadata contract in the [CML Action
+      Producer Metadata](../design/cml-action-producer-metadata.md) authority.
 
 ## ACTX-03: Compensation handler binding
 Stage Status:
