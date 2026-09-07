@@ -13,7 +13,7 @@ import org.goldenport.io.InputSource
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 29, 2026
+ * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSpec
@@ -140,6 +140,130 @@ final class CozyMediaSpec
           Then("the descriptor and switch retain their independent meanings")
           config.descriptorFile shouldBe descriptor
           config.dryRun shouldBe true
+        }
+      }
+
+      "parse paired explicit SmartDox site context without accepting unknown or partial flags" in {
+        _with_temp_dir("site-context-cli") { root =>
+          Given("a media descriptor and explicit canonical site inputs")
+          val site = root.resolve("site").toAbsolutePath.normalize()
+          val siteconfig = site.resolve("site.conf")
+          val descriptor = site.resolve("media.yaml")
+          _write(root.resolve("conf/cozy/config.yaml"), _project_config_yaml("site", "site", "smartdox"))
+          _write(siteconfig, "site.base-url = https://example.test")
+          _write(site.resolve("knowledge/article.dox"), "Article\n=======\n")
+          _write_png(site.resolve("infographic/web-ja.png"), 1600, 900)
+          _write(descriptor, _media_yaml("copy").replace("profiles:\n  site:\n    root: publication\n", ""))
+
+          When("the paired equals-form options are parsed and resolved against the selected profile")
+          val config = CozyMedia.CommandConfig.create(List(
+            "--site-root=" + site,
+            "--site-config=" + siteconfig,
+            "--profile=site",
+            descriptor.toString
+          ))
+          val plan = CozyMedia.resolvePlan(config)
+          val partial = intercept[RuntimeException] {
+            CozyMedia.CommandConfig.create(List("--site-root=" + site, descriptor.toString))
+          }
+          val unknown = intercept[RuntimeException] {
+            CozyMedia.CommandConfig.create(List("--site-rooot=" + site, descriptor.toString))
+          }
+
+          Then("only the exact paired flags select the configured SmartDox publication profile")
+          config.siteRoot shouldBe Some(site)
+          config.siteConfig shouldBe Some(siteconfig)
+          plan.effectiveProfile.flatMap(_.siteKind) shouldBe Some("smartdox")
+          plan.siteContext.map(_.root) shouldBe Some(site.toRealPath())
+          partial.getMessage should include_text("--site-root and --site-config")
+          unknown.getMessage should not be empty
+        }
+      }
+
+      "admit a nested DoxSite root beneath its configured publication root and reject an external supplied root" in {
+        _with_temp_dir("site-context-contained-root") { root =>
+          Given("a repository-root SmartDox profile with a nested DoxSite root, config, and knowledge source")
+          val site = root.resolve("src/main/doxsite").toAbsolutePath.normalize()
+          val siteconfig = site.resolve("site.conf")
+          val descriptor = root.resolve("media.yaml")
+          val outside = root.resolveSibling(root.getFileName.toString + "-outside").toAbsolutePath.normalize()
+          try {
+            _write(root.resolve("conf/cozy/config.yaml"), _project_config_yaml("site", ".", "smartdox"))
+            _write(siteconfig, "site.base-url = https://example.test")
+            _write(site.resolve("knowledge/article.dox"), "Article\n=======\n")
+            _write_png(root.resolve("infographic/web-ja.png"), 1600, 900)
+            _write(descriptor, _media_yaml("copy").replace("knowledge/article.dox", "src/main/doxsite/knowledge/article.dox").replace("profiles:\n  site:\n    root: publication\n", ""))
+            Files.createDirectories(outside)
+
+            When("Cozy resolves the nested authoritative DoxSite root and an external attempted root")
+            val plan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site), siteConfig = Some(siteconfig)))
+            val external = intercept[RuntimeException] {
+              CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(outside), siteConfig = Some(siteconfig)))
+            }
+
+            Then("only the nested root is accepted and receipt routes remain rooted at that DoxSite")
+            plan.siteContext.map(_.root) shouldBe Some(site.toRealPath())
+            plan.siteContext.map(_.configRoute) shouldBe Some("site.conf")
+            plan.siteContext.map(_.documentRoute) shouldBe Some("knowledge/article.dox")
+            external.getMessage should include_text("contained by the selected SmartDox profile root")
+          } finally {
+            _delete(outside)
+          }
+        }
+      }
+
+      "require an explicitly selected configured SmartDox profile without context fallback discovery" in {
+        _with_temp_dir("site-context-profile") { root =>
+          Given("a supplied site root and config plus a descriptor-only site profile")
+          val site = root.resolve("site").toAbsolutePath.normalize()
+          val siteconfig = site.resolve("site.conf")
+          val descriptor = site.resolve("media.yaml")
+          _write(siteconfig, "site.base-url = https://example.test")
+          _write(site.resolve("knowledge/article.dox"), "Article\n=======\n")
+          _write_png(site.resolve("infographic/web-ja.png"), 1600, 900)
+          _write(descriptor, _media_yaml("copy"))
+
+          When("Cozy resolves a paired site request with the selected descriptor-only profile but no project configuration")
+          val failure = intercept[RuntimeException] {
+            CozyMedia.resolvePlan(CozyMedia.CommandConfig(
+              descriptor,
+              profile = Some("site"),
+              siteRoot = Some(site),
+              siteConfig = Some(siteconfig)
+            ))
+          }
+
+          Then("it fails closed rather than discovering a root or config from the current directory")
+          failure.getMessage should include_text("Media site context requires a configured SmartDox publication profile: site")
+        }
+      }
+
+      "reject invalid supplied site root, config, and knowledge source deterministically" in {
+        _with_temp_dir("site-context-invalid-inputs") { root =>
+          Given("a selected SmartDox profile and a fully explicit media package")
+          val site = root.resolve("site").toAbsolutePath.normalize()
+          val siteconfig = site.resolve("site.conf")
+          val source = site.resolve("knowledge/article.dox")
+          val descriptor = site.resolve("media.yaml")
+          _write(root.resolve("conf/cozy/config.yaml"), _project_config_yaml("site", "site", "smartdox"))
+          _write(siteconfig, "site.base-url = https://example.test")
+          _write(source, "Article\n=======\n")
+          _write_png(site.resolve("infographic/web-ja.png"), 1600, 900)
+          _write(descriptor, _media_yaml("copy").replace("profiles:\n  site:\n    root: publication\n", ""))
+          def _request_(rootpath: Path = site, configpath: Path = siteconfig): CozyMedia.CommandConfig =
+            CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(rootpath), siteConfig = Some(configpath))
+
+          When("the explicit root, config, and source are each made invalid")
+          val invalidroot = intercept[RuntimeException](CozyMedia.resolvePlan(_request_(root.resolve("missing-site"))))
+          val invalidconfig = intercept[RuntimeException](CozyMedia.resolvePlan(_request_(configpath = site.resolve("missing.conf"))))
+          Files.delete(source)
+          Files.createDirectories(source)
+          val invalidsource = intercept[RuntimeException](CozyMedia.resolvePlan(_request_()))
+
+          Then("Cozy fails at the supplied boundary without current-directory discovery")
+          invalidroot.getMessage should include_text("Media site root")
+          invalidconfig.getMessage should include_text("Media site config")
+          invalidsource.getMessage should include_text("Media site document source")
         }
       }
     }

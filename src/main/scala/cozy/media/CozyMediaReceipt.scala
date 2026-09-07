@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReceipt {
@@ -118,6 +118,8 @@ private[cozy] object CozyMediaReceipt {
   private val _schema = "cozy.media.v1"
   private val _receipt_schema = "cozy.media.receipt.v2"
   private val _reserved_prefix = "cozy:"
+  private val _site_config_evidence_id = _reserved_prefix + "site-config"
+  private val _site_document_route_evidence_id = _reserved_prefix + "site-document-route"
 
   def validateConfig(config: Config): Unit = {
     val ids = config.inputs.map { input =>
@@ -170,6 +172,12 @@ private[cozy] object CozyMediaReceipt {
     val descriptor = Option(plan).getOrElse(_invalid("Media receipt plan must be defined"))
     val root = descriptor.descriptorRoot
     val config = descriptor.descriptor.receipt.getOrElse(Config(Vector.empty, None))
+    val site = CozyMedia.requireSiteContext(descriptor).toVector.flatMap { context =>
+      Vector(
+        _site_evidence(_site_config_evidence_id, "site-configuration", context.config, context.configRoute),
+        _site_evidence(_site_document_route_evidence_id, "site-document-route", context.source, context.documentRoute)
+      )
+    }
     val automatic = Vector(
       _evidence(_automatic_id("descriptor"), "descriptor", descriptor.descriptorFile, root, "bytes", direct = false),
       _evidence(_automatic_id("knowledge"), "knowledge", descriptor.knowledgeSource, root, "bytes", direct = false)
@@ -194,7 +202,7 @@ private[cozy] object CozyMediaReceipt {
       val path = _relative_path(root, input.path, s"Media receipt input $id path")
       _evidence(id, role, path, root, normalization, direct = true)
     }
-    val inputs = (automatic ++ explicit).sortBy(_.id)
+    val inputs = (automatic ++ site ++ explicit).sortBy(_.id)
     val duplicates = inputs.groupBy(_.id).collect { case (id, values) if values.size > 1 => id }.toVector.sorted
     duplicates.headOption.foreach(id => _invalid(s"Media receipt input ids must be unique: $id"))
     val producer = _producer(config)
@@ -593,6 +601,12 @@ private[cozy] object CozyMediaReceipt {
     Evidence(id, role, relative, normalization, hash)
   }
 
+  private def _site_evidence(id: String, role: String, path: Path, route: String): Evidence = {
+    if (!_direct_regular_file(path))
+      _invalid(s"Media site receipt input must be a current direct non-symlink regular file: $path")
+    Evidence(id, role, _receipt_relative_path(route, "Media site receipt route"), "bytes", _sha256(path))
+  }
+
   private def _evidence_json(value: Evidence): Json =
     Json.obj(
       "id" -> Json.fromString(value.id),
@@ -612,7 +626,12 @@ private[cozy] object CozyMediaReceipt {
       case "bytes" | "structured-document" => _exact_string(objectvalue, "normalization", "Media receipt input evidence")
       case _ => _invalid("Media receipt input evidence normalization must be bytes or structured-document")
     }
-    Evidence(id, role, path, normalization, _sha256_string(_exact_string(objectvalue, "sha256", "Media receipt input evidence")))
+    val evidence = Evidence(id, role, path, normalization, _sha256_string(_exact_string(objectvalue, "sha256", "Media receipt input evidence")))
+    if (evidence.id == _site_config_evidence_id && (evidence.role != "site-configuration" || evidence.normalization != "bytes"))
+      _invalid("Media site configuration receipt evidence must use site-configuration bytes identity")
+    if (evidence.id == _site_document_route_evidence_id && (evidence.role != "site-document-route" || evidence.normalization != "bytes"))
+      _invalid("Media site document-route receipt evidence must use site-document-route bytes identity")
+    evidence
   }
 
   private def _structured_document_sha256(path: Path): String = {

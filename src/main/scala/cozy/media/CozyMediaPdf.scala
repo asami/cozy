@@ -8,7 +8,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 29, 2026
- * @version Aug. 30, 2026
+ * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPdf {
@@ -86,6 +86,7 @@ private[cozy] object CozyMediaPdf {
   def build(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, runner: CozyMedia.ProcessRunner): String = {
     val resource = resolved.resource
     val configuration = resource.articlePdf.getOrElse(_invalid(s"Article PDF configuration is missing: ${resource.id}"))
+    val sitecontext = CozyMedia.requireSiteContext(plan)
     val source = resolved.source.getOrElse(_invalid(s"Article PDF source is missing: ${resource.id}"))
     val output = resolved.output.getOrElse(_invalid(s"Article PDF output is missing: ${resource.id}"))
     if (source != plan.knowledgeSource || !_direct_regular_file(source))
@@ -106,7 +107,9 @@ private[cozy] object CozyMediaPdf {
         "--output", staged.toString,
         "--locale", resource.language.get,
         "--latex-format", configuration.latexFormat
-      )
+      ) ++ sitecontext.toVector.flatMap { context =>
+        Vector("--site-root", context.root.toString, "--site-config", context.config.toString)
+      }
       val exit = runner.run(command, plan.descriptorRoot)
       if (exit != 0)
         _invalid(s"Article PDF renderer failed for ${resource.id}: exit=$exit")
@@ -116,6 +119,7 @@ private[cozy] object CozyMediaPdf {
         _invalid(s"Article PDF source changed during build: ${resource.id}")
       if (!_direct_regular_file(infographic.source.get))
         _invalid(s"Article PDF infographic authority source changed during build: ${resource.id}")
+      CozyMedia.requireSiteContext(plan)
       val after = CozyMediaReceipt.capture(plan).inputSetSha256
       if (before != after)
         _invalid(s"Article PDF inputs changed during build; no fresh acceptance evidence was written: ${resource.id}")

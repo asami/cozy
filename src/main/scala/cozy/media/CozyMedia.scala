@@ -1,12 +1,10 @@
 package cozy.media
 
 import org.goldenport.RAISE
-import org.goldenport.cli.spec
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.goldenport.io.StringInputSource
 import cozy.config.CozyProjectContext
-import cozy.runtime.CozyCliArgs
 import cozy.video.CozyVideo
 import io.circe.{Decoder, HCursor, Json}
 import java.nio.ByteBuffer
@@ -20,7 +18,7 @@ import scala.util.control.NonFatal
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -198,6 +196,9 @@ private[cozy] object CozyMedia {
     def sourcePath: Option[Path] = configuration.map(_.sourcePath)
   }
 
+  type SiteContext = CozyMediaSiteContext.SiteContext
+  val SiteContext = CozyMediaSiteContext.SiteContext
+
   final case class Plan(
     descriptorFile: Path,
     descriptorRoot: Path,
@@ -206,7 +207,8 @@ private[cozy] object CozyMedia {
     resources: Vector[ResolvedResource],
     context: CozyProjectContext.Context,
     profiles: Map[String, EffectiveProfile],
-    effectiveProfile: Option[EffectiveProfile]
+    effectiveProfile: Option[EffectiveProfile],
+    siteContext: Option[SiteContext] = None
   ) {
     def profile(id: String): Option[EffectiveProfile] = profiles.get(id)
   }
@@ -226,24 +228,8 @@ private[cozy] object CozyMedia {
     }
   }
 
-  final case class CommandConfig(
-    descriptorFile: Path,
-    target: Option[String] = None,
-    profile: Option[String] = None,
-    dryRun: Boolean = false
-  )
-  object CommandConfig {
-    def create(args: List[String], requireProfile: Boolean = false): CommandConfig = {
-      val parsed = CozyCliArgs.parseStrict(_p_media_file, _p_target, _p_profile, _p_dry_run)(_normalize_property_args(args))
-      val descriptorfile = parsed.argument("media-file").map(CozyCliArgs.toPath).getOrElse(
-        RAISE.invalidArgumentFault("Missing media descriptor")
-      )
-      val profile = parsed.property("profile")
-      if (requireProfile && profile.isEmpty)
-        RAISE.invalidArgumentFault("Missing --profile for media publish")
-      CommandConfig(descriptorfile, parsed.property("target"), profile, parsed.flag("dry-run"))
-    }
-  }
+  type CommandConfig = CozyMediaSiteContext.CommandConfig
+  val CommandConfig = CozyMediaSiteContext.CommandConfig
 
   sealed trait DestinationState
   object DestinationState {
@@ -308,13 +294,8 @@ private[cozy] object CozyMedia {
     outcome: PublicationOutcome
   )
 
-  private val _p_media_file = spec.Parameter.argumentFile("media-file")
-  private val _p_target = spec.Parameter.property("target")
-  private val _p_profile = spec.Parameter.property("profile")
-  private val _p_dry_run = spec.Parameter("dry-run", spec.Parameter.SwitchKind)
   private val _schema = "cozy.media.v1"
   private val _build_kinds = Set("copy", "svg-to-png", "prebuilt", "video-project", "presentation", "article-pdf", "summary-slides-pdf")
-  private val _property_options = Set("target", "profile")
   private val _publication_layer_names = Vector("built-in", "user", "project-conf", "project-local", "package-conf", "package-local")
 
   private def _optional_article_media_field[A: Decoder](c: HCursor, field: String): Decoder.Result[Option[A]] =
@@ -536,6 +517,7 @@ private[cozy] object CozyMedia {
     CozyMediaPublicationTransaction.commit(prepared, beforefirstinstall)
 
   private def _plan(config: CommandConfig, descriptorbytes: Option[Vector[Byte]] = None): Plan = {
+    val sitecontextrequest = config.siteContextRequest
     val descriptorfile = config.descriptorFile.toAbsolutePath.normalize()
     if (!_is_direct_regular_file(descriptorfile))
       RAISE.invalidArgumentFault(s"Missing media descriptor: $descriptorfile")
@@ -558,6 +540,7 @@ private[cozy] object CozyMedia {
       ))
     }
     val knowledgesource = _resolve_relative(descriptorroot, descriptor.knowledge.source, "knowledge.source")
+    val sitecontext = CozyMediaSiteContext.resolve(sitecontextrequest, effectiveprofile, knowledgesource)
     val unresolved = descriptor.resources.map { resource =>
       val source = resource.source.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.source"))
       val output = resource.output.map(_resolve_relative(descriptorroot, _, s"resources.${resource.id}.output"))
@@ -569,7 +552,7 @@ private[cozy] object CozyMedia {
       }.toMap
       ResolvedResource(resource, source, output, project, publications, Action.Build)
     }
-    val preliminary = Plan(descriptorfile, descriptorroot, descriptor, knowledgesource, unresolved, context, profiles, effectiveprofile)
+    val preliminary = Plan(descriptorfile, descriptorroot, descriptor, knowledgesource, unresolved, context, profiles, effectiveprofile, sitecontext)
     preliminary.copy(resources = unresolved.map { resolved =>
       val action = CozyMediaReceipt.action(preliminary, resolved)
       val selected =
@@ -578,6 +561,18 @@ private[cozy] object CozyMedia {
       resolved.copy(action = selected)
     })
   }
+
+  private[cozy] def requireSiteContext(plan: Plan): Option[SiteContext] =
+    plan.siteContext.map { expected =>
+      val current = CozyMediaSiteContext.resolve(Some(expected.root -> expected.config), plan.effectiveProfile, expected.source).getOrElse(
+        _invalid("Media site context is required")
+      )
+      if (current != expected)
+        _invalid("Media site context canonical identity changed")
+      expected
+    }
+
+  private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 
   private def _validate_descriptor(
     descriptor: Descriptor,
@@ -966,15 +961,4 @@ private[cozy] object CozyMedia {
 
   private def _is_direct_regular_file(path: Path): Boolean = path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
 
-  private def _normalize_property_args(args: List[String]): List[String] =
-    args.flatMap {
-      case x if x.startsWith("--") && x.contains("=") =>
-        val keyvalue = x.drop(2).split("=", 2)
-        if (keyvalue.length == 2 && _property_options.contains(keyvalue(0)))
-          List("--" + keyvalue(0), keyvalue(1))
-        else
-          List(x)
-      case x =>
-        List(x)
-    }
 }

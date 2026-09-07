@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Aug. 29, 2026
  *  version Aug. 30, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -239,6 +239,119 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
     }
 
+    "forward only the validated canonical SmartDox site operands after the frozen PDF argv" in {
+      _with_temp_dir("site-context-argv") { root =>
+        Given("an Article PDF beneath a selected configured SmartDox site profile")
+        val site = root.resolve("site").toAbsolutePath.normalize()
+        val siteconfig = site.resolve("site.conf")
+        val descriptor = site.resolve("media.json")
+        _write(root.resolve("conf/cozy/config.yaml"), _smartdox_profile("site"))
+        _write(siteconfig, "site.base-url = https://example.test")
+        _write(site.resolve("knowledge/article.dox"), "article")
+        _write_infographic(site)
+        _write(descriptor, _descriptor())
+        var recordedcommand = Vector.empty[String]
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            recordedcommand = command
+            _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "site-context")
+            0
+          }
+        }
+
+        When("Cozy builds with the explicit paired site context")
+        CozyMedia.build(CozyMedia.CommandConfig(
+          descriptor,
+          profile = Some("site"),
+          siteRoot = Some(site),
+          siteConfig = Some(siteconfig)
+        ), runner)
+
+        Then("SmartDox receives the existing PDF operands followed only by canonical root and config")
+        val staged = recordedcommand(4)
+        recordedcommand shouldBe Vector(
+          "smartdox", "pdf", site.resolve("knowledge/article.dox").toRealPath().toString,
+          "--output", staged,
+          "--locale", "ja",
+          "--latex-format", "business",
+          "--site-root", site.toRealPath().toString,
+          "--site-config", siteconfig.toRealPath().toString
+        )
+      }
+    }
+
+    "reject partial, missing, escaping, and symlinked site context before a renderer can run" in {
+      _with_temp_dir("site-context-rejection") { root =>
+        Given("a selected SmartDox profile, prior accepted-state bytes, and a recording fake renderer")
+        val site = root.resolve("site").toAbsolutePath.normalize()
+        val siteconfig = site.resolve("site.conf")
+        val descriptor = site.resolve("media.json")
+        val outside = root.resolveSibling(root.getFileName.toString + "-outside.conf")
+        val outsidesource = root.resolveSibling(root.getFileName.toString + "-outside.dox")
+        val linkedconfig = site.resolve("linked.conf")
+        val linkedroot = root.resolve("site-link")
+        val output = site.resolve("target/cozy-media/article-ja.pdf")
+        val manifest = site.resolve("target/cozy-media/manifest.json")
+        try {
+          _write(root.resolve("conf/cozy/config.yaml"), _smartdox_profile("site"))
+          _write(siteconfig, "site.base-url = https://example.test")
+          _write(outside, "site.base-url = https://outside.example.test")
+          _write(outsidesource, "outside article")
+          _write(site.resolve("knowledge/article.dox"), "article")
+          _write_infographic(site)
+          _write(descriptor, _descriptor())
+          _write_pdf(output, "previous")
+          _write(manifest, "previous-receipt")
+          Files.createSymbolicLink(linkedconfig, outside)
+          Files.createSymbolicLink(linkedroot, site)
+          var rendererinvoked = false
+          val runner = new CozyMedia.ProcessRunner {
+            def run(command: Vector[String], workingdirectory: Path): Int = {
+              rendererinvoked = true
+              _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "unexpected")
+              0
+            }
+          }
+
+          When("Cozy receives incomplete, missing, escaping, or symlinked entries")
+          val partial = intercept[RuntimeException] {
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site)), runner)
+          }
+          val missing = intercept[RuntimeException] {
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site), siteConfig = Some(site.resolve("missing.conf"))), runner)
+          }
+          val escaping = intercept[RuntimeException] {
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site), siteConfig = Some(outside)), runner)
+          }
+          val symlinked = intercept[RuntimeException] {
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site), siteConfig = Some(linkedconfig)), runner)
+          }
+          val symlinkedroot = intercept[RuntimeException] {
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(linkedroot), siteConfig = Some(siteconfig)), runner)
+          }
+          Files.delete(site.resolve("knowledge/article.dox"))
+          Files.createSymbolicLink(site.resolve("knowledge/article.dox"), outsidesource)
+          val symlinkedsource = intercept[RuntimeException] {
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site), siteConfig = Some(siteconfig)), runner)
+          }
+
+          Then("the Cozy-owned validation fails before the runner or accepted-state replacement")
+          partial.getMessage should include("--site-root and --site-config")
+          missing.getMessage should include("Media site config")
+          escaping.getMessage should include("contained by the canonical site root")
+          symlinked.getMessage should include("direct regular non-symlink")
+          symlinkedroot.getMessage should include("direct non-symlink directory")
+          symlinkedsource.getMessage should include("direct regular non-symlink")
+          rendererinvoked shouldBe false
+          Files.readString(output, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nprevious"
+          Files.readString(manifest, StandardCharsets.UTF_8) shouldBe "previous-receipt"
+        } finally {
+          Files.deleteIfExists(outside)
+          Files.deleteIfExists(outsidesource)
+        }
+      }
+    }
+
     "preserve prior output and receipt visibility when rendering fails" in {
       _with_temp_dir("failure") { root =>
         Given("an existing PDF and manifest before a failing render")
@@ -463,6 +576,17 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       |}
       |""".stripMargin
   }
+
+  private def _smartdox_profile(root: String): String =
+    s"""project:
+       |  id: example
+       |  kind: smartdox-site
+       |media:
+       |  publication-profiles:
+       |    site:
+       |      root: $root
+       |      site-kind: smartdox
+       |""".stripMargin
 
   private def _write(path: Path, text: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

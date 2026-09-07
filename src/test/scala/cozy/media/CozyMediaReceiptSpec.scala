@@ -3,6 +3,7 @@ package cozy.media
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.nio.file.attribute.FileTime
+import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -12,7 +13,7 @@ import io.circe.parser.parse
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep.  2, 2026
+ * @version Sep.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -95,6 +96,71 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
 
         Then("planning rebuilds on the receipt content identity")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("example: build")
+      }
+    }
+
+    "bind selected site configuration and document-route identities without serializing the site root" in {
+      _with_temp_dir("site-context") { root =>
+        Given("an accepted Article PDF with explicit selected SmartDox site context")
+        val site = root.resolve("site").toAbsolutePath.normalize()
+        val siteconfig = site.resolve("site.conf")
+        val source = site.resolve("knowledge/article.dox")
+        val descriptor = site.resolve("media.json")
+        _write(root.resolve("conf/cozy/config.yaml"), _smartdox_profile("site"))
+        _write(siteconfig, "site.base-url = https://example.test")
+        _write(source, "knowledge")
+        _write(site.resolve("infographic/article-ja.svg"), "<svg>infographic</svg>")
+        _write(descriptor, _article_pdf_descriptor)
+        val config = CozyMedia.CommandConfig(
+          descriptor,
+          profile = Some("site"),
+          siteRoot = Some(site),
+          siteConfig = Some(siteconfig)
+        )
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            _write(Path.of(command(command.indexOf("--output") + 1)), "%PDF-1.7\naccepted")
+            0
+          }
+        }
+
+        When("Cozy accepts the PDF with the validated site inputs")
+        CozyMedia.build(config, runner)
+        val receipt = _manifest_resource_json(site.resolve("target/cozy-media/manifest.json"), "article-pdf-ja").hcursor.downField("receipt")
+        val inputs = receipt.downField("inputs").focus.flatMap(_.asArray).getOrElse(fail("receipt inputs are required"))
+        def _evidence_(id: String): io.circe.Json = inputs.find(_.hcursor.get[String]("id").toOption.contains(id)).getOrElse(fail(s"missing receipt evidence: $id"))
+        val initial = CozyMediaReceipt.capture(CozyMedia.resolvePlan(config)).inputSetSha256
+
+        Then("the receipt carries root-relative authoritative configuration and source-route identities only")
+        val configuration = _evidence_("cozy:site-config").hcursor
+        configuration.get[String]("role").toOption shouldBe Some("site-configuration")
+        configuration.get[String]("path").toOption shouldBe Some("site.conf")
+        configuration.get[String]("sha256").toOption shouldBe Some(_sha256(siteconfig))
+        val documentroute = _evidence_("cozy:site-document-route").hcursor
+        documentroute.get[String]("role").toOption shouldBe Some("site-document-route")
+        documentroute.get[String]("path").toOption shouldBe Some("knowledge/article.dox")
+        documentroute.get[String]("sha256").toOption shouldBe Some(_sha256(source))
+        Files.readString(site.resolve("target/cozy-media/manifest.json"), StandardCharsets.UTF_8) should not include site.toString
+
+        When("the authoritative site configuration changes")
+        _write(siteconfig, "site.base-url = https://changed.example.test")
+        val changedconfiguration = CozyMediaReceipt.capture(CozyMedia.resolvePlan(config)).inputSetSha256
+
+        Then("the old receipt is stale through its configuration identity")
+        changedconfiguration should not be initial
+        CozyMedia.plan(config) should include("article-pdf-ja: build")
+
+        When("the same document bytes are mapped from a new canonical site route")
+        val remapped = site.resolve("knowledge/remapped-article.dox")
+        _write(remapped, "knowledge")
+        _write(descriptor, _article_pdf_descriptor.replace("knowledge/article.dox", "knowledge/remapped-article.dox"))
+        val reroutedplan = CozyMedia.resolvePlan(config)
+        val rerouted = CozyMediaReceipt.capture(reroutedplan)
+
+        Then("the captured route evidence and currentness distinguish the new source-to-public-page identity")
+        rerouted.inputs.find(_.id == "cozy:site-document-route").map(_.path) shouldBe Some("knowledge/remapped-article.dox")
+        rerouted.inputSetSha256 should not be changedconfiguration
+        CozyMedia.plan(config) should include("article-pdf-ja: build")
       }
     }
 
@@ -282,7 +348,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       |    {"id": "prebuilt", "kind": "document", "source": "prebuilt.txt", "build": "prebuilt"}
       |  ]
       |}
-       |""".stripMargin
+      |""".stripMargin
 
   private def _article_pdf_descriptor: String =
     """{
@@ -299,7 +365,21 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       |    "articleMedia": {"role": "infographic", "publicPath": "/articles/example/infographic-ja.svg"}
       |  }]
       |}
-      |""".stripMargin
+       |""".stripMargin
+
+  private def _smartdox_profile(root: String): String =
+    s"""project:
+       |  id: example
+       |  kind: smartdox-site
+       |media:
+       |  publication-profiles:
+       |    site:
+       |      root: $root
+       |      site-kind: smartdox
+       |""".stripMargin
+
+  private def _sha256(path: Path): String =
+    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(x => f"${x & 0xff}%02x").mkString
 
   private def _with_temp_dir[A](name: String)(f: Path => A): A = {
     val work = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/cozy-media-receipt-spec")
