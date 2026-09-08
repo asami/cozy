@@ -11,7 +11,7 @@ import CozyMedia._
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPublicationTransaction {
@@ -86,6 +86,7 @@ private[cozy] object CozyMediaPublicationTransaction {
         resolved.resource,
         target,
         plan.context,
+        plan.siteContext,
         effectiveprofile,
         profile,
         profileroot,
@@ -149,9 +150,11 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault("Prepared media publications must not be empty")
     publications.foreach(_validate_prepared_publication)
     _validate_unique_destinations(publications)
-    publications.groupBy(publication => (publication.descriptorFile, publication.profile, publication.target, publication.force)).foreach {
-      case ((descriptorfile, profile, target, force), values) =>
-        val plan = CozyMedia.resolvePlan(CommandConfig(descriptorfile, target = target, profile = Some(profile)))
+    publications.groupBy(publication => (publication.descriptorFile, publication.profile, publication.target, publication.force, publication.siteContext)).foreach {
+      case ((descriptorfile, profile, target, force, sitecontext), values) =>
+        val plan = CozyMedia.resolvePlan(values.head.commandConfig)
+        if (plan.siteContext != sitecontext)
+          RAISE.invalidArgumentFault("Prepared media publication site context has changed")
         val candidates = _selected(plan, target).filter(_.publications.contains(profile))
         if (candidates.isEmpty)
           RAISE.invalidArgumentFault(s"Prepared media publication candidate set has changed: $descriptorfile")
@@ -166,7 +169,7 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault("Prepared media publication must not be null")
     if (publication.descriptorFile == null || publication.descriptorRoot == null || publication.descriptor == null || publication.resource == null)
       RAISE.invalidArgumentFault("Prepared media publication descriptor evidence must not be null")
-    if (publication.profile == null || publication.profile.trim.isEmpty || publication.context == null || publication.effectiveProfile == null || publication.profileRoot == null || publication.profileRootIdentity == null || publication.publishablePath == null || publication.destination == null || publication.destinationIdentity == null)
+    if (publication.profile == null || publication.profile.trim.isEmpty || publication.context == null || publication.siteContext == null || publication.effectiveProfile == null || publication.profileRoot == null || publication.profileRootIdentity == null || publication.publishablePath == null || publication.destination == null || publication.destinationIdentity == null)
       RAISE.invalidArgumentFault("Prepared media publication path evidence must not be null or empty")
     if (publication.destinationState == null || publication.disposition == null)
       RAISE.invalidArgumentFault("Prepared media publication state must not be null")
@@ -184,7 +187,9 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
     if (!_is_sha256(publication.inputSetSha256))
       RAISE.invalidArgumentFault("Prepared media publication input-set identity is invalid")
-    val currentplan = CozyMedia.resolvePlan(CommandConfig(publication.descriptorFile, target = publication.target, profile = Some(publication.profile)))
+    val currentplan = CozyMedia.resolvePlan(publication.commandConfig)
+    if (currentplan.siteContext != publication.siteContext)
+      RAISE.invalidArgumentFault("Prepared media publication site context has changed")
     val expectedprofile = CozyMedia.effectiveProfile(currentplan, publication.profile)
     if (publication.effectiveProfile != expectedprofile)
       RAISE.invalidArgumentFault("Prepared media publication effective profile evidence has changed")

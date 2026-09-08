@@ -25,7 +25,8 @@ private object CozyArticleMediaWipCommandFixture {
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -108,6 +109,93 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
           Json.stringify(strict) should not include "renderer"
         }
       }
+
+      "register site-aware PDF receipts only for the current paired site context" in {
+        val sources = Vector(
+          "ordinary-dox" -> ("development-process/domain-modeling.dox", "development-process/domain-modeling-route.dox"),
+          "document-project" -> ("development-process/domain-modeling.dox/index.dox", "development-process/domain-modeling.dox/route/index.dox")
+        )
+        sources.foreach { case (name, routes) =>
+          _with_site_context_pdf_fixture(name, routes._1) { fixture =>
+            val siteconfig = fixture.project.resolve("site.conf")
+            val args = List(
+              "media",
+              "register-site-wip",
+              fixture.descriptor.toString,
+              "--publication",
+              fixture.publication.toString,
+              "--website",
+              fixture.website.toString,
+              "--site-root",
+              fixture.project.toString,
+              "--site-config",
+              siteconfig.toString
+            )
+            val context = CozyMedia.CommandConfig(
+              fixture.descriptor,
+              profile = Some("site"),
+              siteRoot = Some(fixture.project),
+              siteConfig = Some(siteconfig)
+            )
+            val descriptorbytes = Files.readAllBytes(fixture.descriptor).toVector
+            val pdf = fixture.project.resolve("output/article.pdf")
+            val pdfbytes = Files.readAllBytes(pdf).toVector
+            val receipt = fixture.project.resolve("target/cozy-media/manifest.json")
+            val receiptbytes = Files.readAllBytes(receipt).toVector
+
+            Given(s"a WIP $name authoring descriptor whose PDF receipt was built with one paired site context")
+            val currentoutput = _capture(CozyMedia.execute(args))._2
+            val currenttree = _tree(fixture.publication)
+            val currentwebsite = _tree(fixture.website)
+
+            When("the site configuration base URL changes without rebuilding the accepted PDF")
+            _write(siteconfig, "site.base-url = https://changed.example.test\n")
+            val staleconfig = _failure(CozyMedia.execute(args))
+
+            Then("WIP registration rejects the stale context before replacing the registry or descriptor")
+            staleconfig.getMessage should include("receipt.v2")
+            _tree(fixture.publication) shouldBe currenttree
+            _tree(fixture.website) shouldBe currentwebsite
+            Files.readAllBytes(fixture.descriptor).toVector shouldBe descriptorbytes
+            Files.readAllBytes(pdf).toVector shouldBe pdfbytes
+            Files.readAllBytes(receipt).toVector shouldBe receiptbytes
+
+            When("the receipt is rebuilt with the same paired context")
+            _write(siteconfig, "site.base-url = https://example.test\n")
+            CozyMedia.build(context)
+            val routereceiptbytes = Files.readAllBytes(receipt).toVector
+            _capture(CozyMedia.execute(args))
+
+            And("the document source route changes without rebuilding the accepted PDF")
+            _write(fixture.project.resolve(routes._2), s"${name} route")
+            val descriptorafterconfig = Files.readString(fixture.descriptor, StandardCharsets.UTF_8)
+            _write(fixture.descriptor, descriptorafterconfig.replace(routes._1, routes._2))
+            val routetree = _tree(fixture.publication)
+            val staleroute = _failure(CozyMedia.execute(args))
+
+            Then("the changed route is stale until WIP registration rebuilds the receipt with that same context")
+            staleroute.getMessage should include("receipt.v2")
+            _tree(fixture.publication) shouldBe routetree
+            Files.readAllBytes(pdf).toVector shouldBe pdfbytes
+            Files.readAllBytes(receipt).toVector shouldBe routereceiptbytes
+            _write(pdf, s"%PDF-1.7\n${name} regenerated article")
+            val regeneratedpdfbytes = Files.readAllBytes(pdf).toVector
+            CozyMedia.build(context)
+            val regenerateddescriptorbytes = Files.readAllBytes(fixture.descriptor).toVector
+            val registered = _capture(CozyMedia.execute(args))
+            registered._1 shouldBe true
+            registered._2 should include("article-pdf: locale=ja, role=article_pdf, reuse")
+            currentoutput should include("article-pdf: locale=ja, role=article_pdf, reuse")
+            Files.readAllBytes(fixture.descriptor).toVector shouldBe regenerateddescriptorbytes
+            Files.readAllBytes(pdf).toVector shouldBe regeneratedpdfbytes
+            val strict = CozyArticleMediaRegistry.load(fixture.publication).entries.find(
+              _.path == "metadata/article-media/development-process/domain-modeling.json"
+            ).get.metadata
+            (((strict \ "variants").as[JsObject] \ "ja" \ "article_pdf" \ "media_type").as[String]) shouldBe "application/pdf"
+          }
+        }
+      }
+
     }
 
     "parse the frozen strict grammar" which {
@@ -117,13 +205,15 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
           val descriptor = fixture.descriptor.toString
           val publication = fixture.publication.toString
           val website = fixture.website.toString
+          val siteroot = fixture.project.toString
+          val siteconfig = fixture.project.resolve("site.conf").toString
 
           When("the parser receives accepted and rejected forms")
           val separated = CozyArticleMediaWipCommand.Config.create(List(
-            descriptor, "--publication", publication, "--website", website, "--target", "video-ja", "--dry-run"
+            descriptor, "--publication", publication, "--website", website, "--target", "video-ja", "--site-root", siteroot, "--site-config", siteconfig, "--dry-run"
           ))
           val equals = CozyArticleMediaWipCommand.Config.create(List(
-            descriptor, "--publication=" + publication, "--website=" + website, "--target=-video-ja"
+            descriptor, "--publication=" + publication, "--website=" + website, "--target=-video-ja", "--site-root=" + siteroot, "--site-config=" + siteconfig
           ))
           val missingpublication = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--website", website)))
           val missingwebsite = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication)))
@@ -131,20 +221,30 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
           val unknown = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--unknown")))
           val duplicatepublication = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--publication=" + publication, "--website", website)))
           val duplicatewebsite = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--website=" + website)))
+          val duplicatesiteroot = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--site-root", siteroot, "--site-root=" + siteroot, "--site-config", siteconfig)))
+          val duplicatesiteconfig = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--site-root", siteroot, "--site-config", siteconfig, "--site-config=" + siteconfig)))
+          val partialsiteroot = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--site-root", siteroot)))
+          val partialsiteconfig = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--site-config", siteconfig)))
           val duplicatetarget = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--target=x", "--target=y")))
           val duplicatedryrun = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--dry-run", "--dry-run")))
           val profile = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--profile=x")))
           val separatedleadingdash = _failure(CozyArticleMediaWipCommand.Config.create(List(descriptor, "--publication", publication, "--website", website, "--target", "-video-ja")))
 
           Then("only exact unambiguous syntax is admitted")
-          separated shouldBe CozyArticleMediaWipCommand.Config(fixture.descriptor, fixture.publication, fixture.website, Some("video-ja"), dryRun = true)
+          separated shouldBe CozyArticleMediaWipCommand.Config(fixture.descriptor, fixture.publication, fixture.website, Some("video-ja"), dryRun = true, siteRoot = Some(fixture.project), siteConfig = Some(fixture.project.resolve("site.conf")))
           equals.target shouldBe Some("-video-ja")
+          equals.siteRoot shouldBe Some(fixture.project)
+          equals.siteConfig shouldBe Some(fixture.project.resolve("site.conf"))
           missingpublication.getMessage should include("Missing --publication")
           missingwebsite.getMessage should include("Missing --website")
           extra.getMessage should include("exactly one media-file")
           unknown.getMessage should include("Unknown media register-site-wip option")
           duplicatepublication.getMessage should include("Duplicate --publication")
           duplicatewebsite.getMessage should include("Duplicate --website")
+          duplicatesiteroot.getMessage should include("Duplicate --site-root")
+          duplicatesiteconfig.getMessage should include("Duplicate --site-config")
+          partialsiteroot.getMessage should include("--site-root and --site-config")
+          partialsiteconfig.getMessage should include("--site-root and --site-config")
           duplicatetarget.getMessage should include("Duplicate --target")
           duplicatedryrun.getMessage should include("Duplicate --dry-run")
           profile.getMessage should include("--profile is not supported")
@@ -159,11 +259,11 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
 
         When("the WIP registration command is selected")
         val help = CozyScaffold.helpText.split("\\n").dropWhile(_ !=
-          "  media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--dry-run]"
+          "  media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]"
         ).take(2).mkString("\n")
 
         Then("the exact syntax and concise purpose are visible")
-        help should include("media register-site-wip <media-file> --publication <publication-root> --website <website-root>")
+        help should include("media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]")
         help should include("Install validated local WIP video")
         help should not include "descriptorEvidence"
         help should not include "sha256"
@@ -215,6 +315,22 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
       f(fixture)
     }
 
+  private def _with_site_context_pdf_fixture[A](name: String, source: String)(f: CozyArticleMediaWipCommandFixture.Data => A): A =
+    _with_fixture(name) { fixture =>
+      _write(fixture.project.resolve("conf/cozy/config.yaml"), _site_project_config)
+      _write(fixture.descriptor, _site_pdf_media_yaml(source))
+      _write(fixture.project.resolve(source), s"= Domain Modeling\nsite:[/docs/$name]\n")
+      _write(fixture.project.resolve("site.conf"), "site.base-url = https://example.test\n")
+      _write(fixture.project.resolve("output/article.pdf"), "%PDF-1.7\nsite-aware article")
+      CozyMedia.build(CozyMedia.CommandConfig(
+        fixture.descriptor,
+        profile = Some("site"),
+        siteRoot = Some(fixture.project),
+        siteConfig = Some(fixture.project.resolve("site.conf"))
+      ))
+      f(fixture)
+    }
+
   private def _project_config: String =
     """project:
       |  id: simplemodeling-org
@@ -223,6 +339,17 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
       |  publication-profiles:
       |    site:
       |      root: profile
+      |      site-kind: smartdox
+      |""".stripMargin
+
+  private def _site_project_config: String =
+    """project:
+      |  id: simplemodeling-org
+      |  kind: smartdox-site
+      |media:
+      |  publication-profiles:
+      |    site:
+      |      root: .
       |      site-kind: smartdox
       |""".stripMargin
 
@@ -313,6 +440,30 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
       |      publicPath: /en/development-process/pdf/example/summary.pdf
       |      mediaType: application/pdf
       |""".stripMargin
+
+  private def _site_pdf_media_yaml(source: String): String =
+    s"""schema: cozy.media.v1
+       |knowledge:
+       |  id: media-package/domain-modeling
+       |  source: $source
+       |profiles:
+       |  site:
+       |    root: .
+       |articleMedia:
+       |  articleIdentity: development-process/domain-modeling
+       |  publicationProfile: site
+       |resources:
+       |  - id: article-pdf
+       |    kind: document
+       |    language: ja
+       |    source: output/article.pdf
+       |    build: prebuilt
+       |    articleMedia:
+       |      role: article_pdf
+       |      publicPath: /ja/development-process/pdf/domain-modeling/article.pdf
+       |      mediaType: application/pdf
+       |      label: Domain Modeling PDF
+       |""".stripMargin
 
   private def _tree(root: Path): Vector[(String, Vector[Byte])] = {
     val stream = Files.walk(root)

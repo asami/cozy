@@ -101,10 +101,19 @@ errors fail before publication mutation.
 ## Command
 
 ```text
-cozy media register-site <media-file> --publication <dir> [--target <resource-id>] [--dry-run]
+cozy media register-site <media-file> --publication <dir> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]
 ```
 
 `--publication` is required and names the SmartDox publication-bundle root.
+`--site-root` and `--site-config` are an optional inseparable pair. When
+supplied, they select the same validated SmartDox site context used by a
+site-aware media build: both paths must be direct non-symlink authorities, the
+configuration must belong to the supplied site root, and the selected source
+must belong to that site. Registration reconstructs its media plan with this
+context, so receipt currentness includes the canonical site configuration and
+localized document route rather than accepting a context-free substitute.
+The `register-site-wip` command accepts the same paired options and applies the
+same receipt-currentness reconstruction before its local WIP transaction.
 `--dry-run` executes the complete read-only preflight and reports deterministic
 candidate `id`, exact locale, and `resources[*].articleMedia.role` values, followed by
 the same plan a non-dry run would register. It fails on malformed blocks, an

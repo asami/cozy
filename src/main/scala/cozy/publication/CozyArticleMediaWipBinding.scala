@@ -15,7 +15,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaWipBinding {
@@ -23,7 +24,9 @@ private[cozy] object CozyArticleMediaWipBinding {
     descriptorFile: Path,
     publicationRoot: Path,
     websiteRoot: Path,
-    target: Option[String] = None
+    target: Option[String] = None,
+    siteRoot: Option[Path] = None,
+    siteConfig: Option[Path] = None
   )
 
   final case class DirectoryEvidence(
@@ -84,7 +87,12 @@ private[cozy] object CozyArticleMediaWipBinding {
     val normalizedconfig = _normalize_config(config)
     val descriptorsnapshot = _file_snapshot(normalizedconfig.descriptorFile, "descriptor")
     val mediaplan = CozyMedia.resolvePlan(
-      CozyMedia.CommandConfig(normalizedconfig.descriptorFile, target = normalizedconfig.target),
+      CozyMedia.CommandConfig(
+        normalizedconfig.descriptorFile,
+        target = normalizedconfig.target,
+        siteRoot = normalizedconfig.siteRoot,
+        siteConfig = normalizedconfig.siteConfig
+      ),
       descriptorsnapshot.bytes
     )
     if (mediaplan == null || mediaplan.descriptor == null || mediaplan.descriptorFile != normalizedconfig.descriptorFile)
@@ -235,13 +243,15 @@ private[cozy] object CozyArticleMediaWipBinding {
 
   private def _normalize_config(config: Config): Config = {
     if (config == null || config.descriptorFile == null || config.publicationRoot == null ||
-      config.websiteRoot == null || config.target == null)
+      config.websiteRoot == null || config.target == null || config.siteRoot == null || config.siteConfig == null)
       _invalid("Article-media WIP binding configuration must be defined")
     Config(
       _normalized_host_path(config.descriptorFile, "descriptor"),
       _normalized_host_path(config.publicationRoot, "publication root"),
       _normalized_host_path(config.websiteRoot, "website root"),
-      config.target.map(CozyArticleMediaNormalization.requireExactTrimmed(_, "Article-media WIP binding target"))
+      config.target.map(CozyArticleMediaNormalization.requireExactTrimmed(_, "Article-media WIP binding target")),
+      config.siteRoot,
+      config.siteConfig
     )
   }
 

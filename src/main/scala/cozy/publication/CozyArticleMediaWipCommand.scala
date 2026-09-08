@@ -6,7 +6,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaWipCommand {
@@ -15,7 +16,9 @@ private[cozy] object CozyArticleMediaWipCommand {
     publicationRoot: Path,
     websiteRoot: Path,
     target: Option[String] = None,
-    dryRun: Boolean = false
+    dryRun: Boolean = false,
+    siteRoot: Option[Path] = None,
+    siteConfig: Option[Path] = None
   )
 
   object Config {
@@ -26,6 +29,8 @@ private[cozy] object CozyArticleMediaWipCommand {
       var publication: Option[String] = None
       var website: Option[String] = None
       var target: Option[String] = None
+      var siteroot: Option[String] = None
+      var siteconfig: Option[String] = None
       var dryrun = false
       var index = 0
       while (index < args.size) {
@@ -50,6 +55,18 @@ private[cozy] object CozyArticleMediaWipCommand {
             index += 2
           case value if value.startsWith("--target=") =>
             target = _unique_option(target, _exact_value(value.drop("--target=".length), "--target"), "--target")
+            index += 1
+          case "--site-root" =>
+            siteroot = _unique_option(siteroot, _option_value(args, index, "--site-root"), "--site-root")
+            index += 2
+          case value if value.startsWith("--site-root=") =>
+            siteroot = _unique_option(siteroot, _exact_value(value.drop("--site-root=".length), "--site-root"), "--site-root")
+            index += 1
+          case "--site-config" =>
+            siteconfig = _unique_option(siteconfig, _option_value(args, index, "--site-config"), "--site-config")
+            index += 2
+          case value if value.startsWith("--site-config=") =>
+            siteconfig = _unique_option(siteconfig, _exact_value(value.drop("--site-config=".length), "--site-config"), "--site-config")
             index += 1
           case "--dry-run" =>
             if (dryrun)
@@ -78,7 +95,8 @@ private[cozy] object CozyArticleMediaWipCommand {
       val websiteroot = website.map(x => _direct_root(_host_path(x, "--website"), "website root")).getOrElse(
         _invalid("Missing --website for media register-site-wip")
       )
-      Config(descriptorfile, publicationroot, websiteroot, target, dryrun)
+      val sitecontext = _site_context(siteroot, siteconfig)
+      Config(descriptorfile, publicationroot, websiteroot, target, dryrun, sitecontext._1, sitecontext._2)
     }
   }
 
@@ -87,13 +105,15 @@ private[cozy] object CozyArticleMediaWipCommand {
 
   def execute(config: Config): String = {
     if (config == null || config.descriptorFile == null || config.publicationRoot == null ||
-      config.websiteRoot == null || config.target == null)
+      config.websiteRoot == null || config.target == null || config.siteRoot == null || config.siteConfig == null)
       _invalid("Article-media WIP command configuration must be defined")
     val plan = CozyArticleMediaWipBinding.plan(CozyArticleMediaWipBinding.Config(
       config.descriptorFile,
       config.publicationRoot,
       config.websiteRoot,
-      config.target
+      config.target,
+      config.siteRoot,
+      config.siteConfig
     ))
     val result = CozyArticleMediaWipTransaction.execute(plan, config.dryRun)
     _render(result.plan, config.dryRun)
@@ -137,6 +157,14 @@ private[cozy] object CozyArticleMediaWipCommand {
   private def _host_path(value: String, label: String): Path =
     try Path.of(value).toAbsolutePath.normalize() catch {
       case NonFatal(_) => _invalid(s"$label path is invalid")
+    }
+
+  private def _site_context(siteroot: Option[String], siteconfig: Option[String]): (Option[Path], Option[Path]) =
+    (siteroot, siteconfig) match {
+      case (None, None) => None -> None
+      case (Some(root), Some(config)) =>
+        Some(_host_path(root, "--site-root")) -> Some(_host_path(config, "--site-config"))
+      case _ => _invalid("Media --site-root and --site-config must be supplied together")
     }
 
   private def _direct_root(path: Path, label: String): Path = {

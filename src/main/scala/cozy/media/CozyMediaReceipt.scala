@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Sep.  7, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReceipt {
@@ -267,13 +267,10 @@ private[cozy] object CozyMediaReceipt {
   }
 
   def requirePreparedInputSet(publication: CozyMedia.PreparedPublication): Unit = {
-    val currentinputset = capture(
-      CozyMedia.resolvePlan(CozyMedia.CommandConfig(
-        publication.descriptorFile,
-        target = publication.target,
-        profile = Some(publication.profile)
-      ))
-    ).inputSetSha256
+    val plan = CozyMedia.resolvePlan(publication.commandConfig)
+    if (plan.siteContext != publication.siteContext)
+      _invalid("Prepared media publication site context has changed")
+    val currentinputset = capture(plan).inputSetSha256
     if (currentinputset != publication.inputSetSha256)
       _invalid(s"Prepared media publication inputs have changed: ${publication.resource.id}")
   }

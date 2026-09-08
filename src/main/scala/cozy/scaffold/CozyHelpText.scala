@@ -2,9 +2,8 @@ package cozy.scaffold
 
 /*
  * @since   Aug. 25, 2026
- *  version Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep.  3, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -246,10 +245,10 @@ private[cozy] object CozyHelpText {
       |  media scaffold article <slug> --profile business --language <tag> --save <dir>
       |      Atomically create an article media package without fabricating a template binary or rendered PPTX.
       |
-      |  media register-site <media-file> --publication <dir> [--target <resource-id>] [--dry-run]
+      |  media register-site <media-file> --publication <dir> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]
       |      Register declared published site-media evidence as provider-neutral SmartDox article-media metadata.
       |
-      |  media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--dry-run]
+      |  media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]
       |      Install validated local WIP video and register provider-neutral SmartDox article-media metadata.
       |
       |  modeler-scala <model-file> --save <dir> [--generation-source-identity <project-relative-path>]

@@ -15,13 +15,16 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteBinding {
   final case class Config(
     descriptorFile: Path,
-    target: Option[String] = None
+    target: Option[String] = None,
+    siteRoot: Option[Path] = None,
+    siteConfig: Option[Path] = None
   )
 
   sealed trait Role {
@@ -88,12 +91,18 @@ private[cozy] object CozyArticleMediaSiteBinding {
   )
 
   def plan(config: Config): Plan = {
-    if (config == null || config.descriptorFile == null || config.target == null)
+    if (config == null || config.descriptorFile == null || config.target == null ||
+      config.siteRoot == null || config.siteConfig == null)
       _invalid("Article-media site binding configuration must be defined")
     val descriptorfile = _normalized_host_path(config.descriptorFile, "descriptor")
     val descriptorsnapshot = _file_snapshot(descriptorfile, "descriptor")
     val mediaplan = CozyMedia.resolvePlan(
-      CozyMedia.CommandConfig(descriptorfile, target = config.target),
+      CozyMedia.CommandConfig(
+        descriptorfile,
+        target = config.target,
+        siteRoot = config.siteRoot,
+        siteConfig = config.siteConfig
+      ),
       descriptorsnapshot.bytes
     )
     if (mediaplan == null || mediaplan.descriptor == null || mediaplan.descriptorFile != descriptorfile)

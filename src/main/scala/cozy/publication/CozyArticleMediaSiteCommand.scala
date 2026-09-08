@@ -6,7 +6,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 11, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteCommand {
@@ -14,7 +14,9 @@ private[cozy] object CozyArticleMediaSiteCommand {
     descriptorFile: Path,
     publicationRoot: Path,
     target: Option[String] = None,
-    dryRun: Boolean = false
+    dryRun: Boolean = false,
+    siteRoot: Option[Path] = None,
+    siteConfig: Option[Path] = None
   )
 
   object Config {
@@ -24,6 +26,8 @@ private[cozy] object CozyArticleMediaSiteCommand {
       var descriptor: Option[String] = None
       var publication: Option[String] = None
       var target: Option[String] = None
+      var siteroot: Option[String] = None
+      var siteconfig: Option[String] = None
       var dryrun = false
       var index = 0
       while (index < args.size) {
@@ -42,6 +46,18 @@ private[cozy] object CozyArticleMediaSiteCommand {
             index += 2
           case value if value.startsWith("--target=") =>
             target = _unique_option(target, _exact_value(value.drop("--target=".length), "--target"), "--target")
+            index += 1
+          case "--site-root" =>
+            siteroot = _unique_option(siteroot, _option_value(args, index, "--site-root"), "--site-root")
+            index += 2
+          case value if value.startsWith("--site-root=") =>
+            siteroot = _unique_option(siteroot, _exact_value(value.drop("--site-root=".length), "--site-root"), "--site-root")
+            index += 1
+          case "--site-config" =>
+            siteconfig = _unique_option(siteconfig, _option_value(args, index, "--site-config"), "--site-config")
+            index += 2
+          case value if value.startsWith("--site-config=") =>
+            siteconfig = _unique_option(siteconfig, _exact_value(value.drop("--site-config=".length), "--site-config"), "--site-config")
             index += 1
           case "--dry-run" =>
             if (dryrun)
@@ -69,7 +85,8 @@ private[cozy] object CozyArticleMediaSiteCommand {
       val publicationroot = publication.map(_host_path(_, "--publication")).getOrElse(
         _invalid("Missing --publication for media register-site")
       )
-      Config(descriptorfile, _direct_publication_root(publicationroot), target, dryrun)
+      val sitecontext = _site_context(siteroot, siteconfig)
+      Config(descriptorfile, _direct_publication_root(publicationroot), target, dryrun, sitecontext._1, sitecontext._2)
     }
   }
 
@@ -85,7 +102,8 @@ private[cozy] object CozyArticleMediaSiteCommand {
     config: Config,
     beforeEvidenceRevalidation: () => Unit
   ): String = {
-    if (config == null || config.descriptorFile == null || config.publicationRoot == null || config.target == null)
+    if (config == null || config.descriptorFile == null || config.publicationRoot == null || config.target == null ||
+      config.siteRoot == null || config.siteConfig == null)
       _invalid("Article-media site command configuration must be defined")
     if (beforeEvidenceRevalidation == null)
       _invalid("Article-media site command before-evidence-revalidation callback must be defined")
@@ -93,7 +111,9 @@ private[cozy] object CozyArticleMediaSiteCommand {
     val publicationroot = rootevidence.real
     val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
       descriptorFile = config.descriptorFile,
-      target = config.target
+      target = config.target,
+      siteRoot = config.siteRoot,
+      siteConfig = config.siteConfig
     ))
     val updates = plan.candidates.map(candidate =>
       CozyArticleMediaRegistry.SiteRoleUpdate(plan.articleIdentity, candidate.variant)
@@ -146,6 +166,14 @@ private[cozy] object CozyArticleMediaSiteCommand {
   private def _host_path(value: String, label: String): Path =
     try Path.of(value).toAbsolutePath.normalize() catch {
       case NonFatal(_) => _invalid(s"$label path is invalid")
+    }
+
+  private def _site_context(siteroot: Option[String], siteconfig: Option[String]): (Option[Path], Option[Path]) =
+    (siteroot, siteconfig) match {
+      case (None, None) => None -> None
+      case (Some(root), Some(config)) =>
+        Some(_host_path(root, "--site-root")) -> Some(_host_path(config, "--site-config"))
+      case _ => _invalid("Media --site-root and --site-config must be supplied together")
     }
 
   private def _direct_publication_root(path: Path): Path = {

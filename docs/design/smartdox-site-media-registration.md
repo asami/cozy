@@ -27,6 +27,14 @@ supported product commands after their respective accepted outputs exist; they
 never hand-edit publication bundles. A future standalone registration skill
 may orchestrate the command.
 
+For site-aware resources, `register-site` and `register-site-wip` accept the
+same paired `--site-root` and `--site-config` authority as build and publish.
+The commands pass the resolved `CozyMediaSiteContext` into registration-plan
+and receipt-currentness reconstruction. A missing half, unsafe path, changed
+site configuration, or changed localized route therefore fails closed; an
+unchanged authoring descriptor can register its accepted current artifact
+without a compatibility receipt.
+
 The command produces provider-neutral SmartDox registry input. A later `dox
 site` consumes that input. Registration neither creates the article source nor
 changes SmartDox's ordinary source discovery.

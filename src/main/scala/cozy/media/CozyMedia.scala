@@ -18,7 +18,7 @@ import scala.util.control.NonFatal
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
- * @version Sep.  7, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -276,6 +276,7 @@ private[cozy] object CozyMedia {
     resource: Resource,
     target: Option[String],
     context: CozyProjectContext.Context,
+    siteContext: Option[SiteContext],
     effectiveProfile: EffectiveProfile,
     profile: String,
     profileRoot: Path,
@@ -287,7 +288,16 @@ private[cozy] object CozyMedia {
     destinationState: DestinationState,
     force: Boolean,
     disposition: PublicationDisposition
-  )
+  ) {
+    def commandConfig: CommandConfig =
+      CommandConfig(
+        descriptorFile,
+        target = target,
+        profile = Some(profile),
+        siteRoot = siteContext.map(_.root),
+        siteConfig = siteContext.map(_.config)
+      )
+  }
 
   final case class PublicationResult(
     prepared: PreparedPublication,

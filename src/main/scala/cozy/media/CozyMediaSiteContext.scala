@@ -8,7 +8,7 @@ import cozy.runtime.CozyCliArgs
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep.  7, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaSiteContext {
@@ -118,18 +118,24 @@ private[cozy] object CozyMediaSiteContext {
     val absolute = _absolute_site_path(path, label)
     if (Files.isSymbolicLink(absolute) || !Files.isDirectory(absolute, LinkOption.NOFOLLOW_LINKS))
       _invalid(s"$label must be a direct non-symlink directory: $absolute")
-    try absolute.toRealPath() catch {
+    val canonical = try absolute.toRealPath() catch {
       case NonFatal(_) => _invalid(s"$label must be a current direct non-symlink directory: $absolute")
     }
+    if (canonical != absolute)
+      _invalid(s"$label must be a direct non-symlink directory: $absolute")
+    canonical
   }
 
   private def _canonical_direct_file(path: Path, label: String): Path = {
     val absolute = _absolute_site_path(path, label)
     if (Files.isSymbolicLink(absolute) || !Files.isRegularFile(absolute, LinkOption.NOFOLLOW_LINKS))
       _invalid(s"$label must be a direct regular non-symlink file: $absolute")
-    try absolute.toRealPath() catch {
+    val canonical = try absolute.toRealPath() catch {
       case NonFatal(_) => _invalid(s"$label must be a current direct regular non-symlink file: $absolute")
     }
+    if (canonical != absolute)
+      _invalid(s"$label must be a direct regular non-symlink file: $absolute")
+    canonical
   }
 
   private def _absolute_site_path(path: Path, label: String): Path = {

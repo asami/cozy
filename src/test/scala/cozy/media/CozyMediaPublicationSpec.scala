@@ -11,7 +11,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 25, 2026
+ *  version Aug. 25, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPublicationSpec
@@ -56,6 +57,94 @@ final class CozyMediaPublicationSpec
           Files.exists(destination, LinkOption.NOFOLLOW_LINKS) shouldBe false
           Files.exists(destination.getParent, LinkOption.NOFOLLOW_LINKS) shouldBe false
           _temporary_siblings(destination) shouldBe Vector.empty
+        }
+      }
+
+      "retain configured SmartDox site context through prepared publication currentness" in {
+        _with_work("prepared-site-context") { dir =>
+          Given("an ordinary copy resource with a selected configured SmartDox site context")
+          val site = dir.resolve("site").toAbsolutePath.normalize()
+          val siteconfig = site.resolve("site.conf")
+          val descriptor = site.resolve("media.yaml")
+          val destination = site.resolve("images/summary-ja.png")
+          _write(dir.resolve("conf/cozy/config.yaml"), _smartdox_profile("site"))
+          _write(siteconfig, "site.base-url = https://example.test")
+          _write(site.resolve("knowledge/article.dox"), "knowledge")
+          _write(site.resolve("inputs/summary-ja.svg"), "source")
+          _write(descriptor, _site_context_descriptor)
+          val config = CozyMedia.CommandConfig(
+            descriptor,
+            profile = Some("site"),
+            siteRoot = Some(site),
+            siteConfig = Some(siteconfig)
+          )
+          CozyMedia.build(config)
+          val prepared = CozyMedia.preparePublication(config, force = true)
+
+          When("the prepared context's site configuration changes before commit")
+          _write(siteconfig, "site.base-url = https://changed.example.test")
+          val stale = _failure(CozyMedia.commitPublication(prepared))
+
+          Then("the retained context participates in currentness before any destination write")
+          prepared.head.siteContext.map(_.config) shouldBe Some(siteconfig.toRealPath())
+          stale.getMessage should include_text("inputs have changed")
+          Files.exists(destination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+          When("the same canonical site context is restored")
+          _write(siteconfig, "site.base-url = https://example.test")
+          val results = CozyMedia.commitPublication(prepared)
+
+          Then("the prepared ordinary media resource is installed")
+          results.map(_.outcome) shouldBe Vector(CozyMedia.PublicationOutcome.Created)
+          Files.readString(destination, StandardCharsets.UTF_8) shouldBe "source"
+        }
+      }
+
+      "reject configured SmartDox site-context aliases before build output or receipt mutation" in {
+        _with_work("site-context-intermediate-symlink") { dir =>
+          Given("a configured SmartDox site context whose supplied root and config can each traverse a symbolic-link ancestor")
+          val site = dir.resolve("site").toAbsolutePath.normalize()
+          val siteconfig = site.resolve("site.conf")
+          val descriptor = site.resolve("media.yaml")
+          val output = site.resolve("target/cozy-media/summary-ja.png")
+          val registry = site.resolve("target/cozy-media/manifest.json")
+          _write(dir.resolve("conf/cozy/config.yaml"), _smartdox_profile("site"))
+          _write(siteconfig, "site.base-url = https://example.test")
+          _write(site.resolve("knowledge/article.dox"), "knowledge")
+          _write(site.resolve("inputs/summary-ja.svg"), "source")
+          _write(descriptor, _site_context_descriptor)
+          val aliasparent = dir.resolve("site-alias")
+          Files.createSymbolicLink(aliasparent, dir)
+          val aliasroot = aliasparent.resolve("site")
+          val aliasconfig = aliasroot.resolve("site.conf")
+          val rootaliasconfig = CozyMedia.CommandConfig(
+            descriptor,
+            profile = Some("site"),
+            siteRoot = Some(aliasroot),
+            siteConfig = Some(siteconfig)
+          )
+          val configaliasroot = CozyMedia.CommandConfig(
+            descriptor,
+            profile = Some("site"),
+            siteRoot = Some(site),
+            siteConfig = Some(aliasconfig)
+          )
+
+          When("the configured site context resolves through the supplied site-root alias")
+          val rooterror = _failure(CozyMedia.build(rootaliasconfig))
+
+          Then("the shared plan boundary rejects the root alias before output or receipt mutation")
+          rooterror.getMessage should include_text("Media site root must be a direct non-symlink directory")
+          Files.exists(output, LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.exists(registry, LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+          When("the configured site context resolves through the supplied site-config alias")
+          val configerror = _failure(CozyMedia.build(configaliasroot))
+
+          Then("the shared plan boundary rejects the config alias before output or receipt mutation")
+          configerror.getMessage should include_text("Media site config must be a direct regular non-symlink file")
+          Files.exists(output, LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.exists(registry, LinkOption.NOFOLLOW_LINKS) shouldBe false
         }
       }
 
@@ -609,6 +698,34 @@ final class CozyMediaPublicationSpec
     )
     descriptor
   }
+
+  private def _site_context_descriptor: String =
+    """schema: cozy.media.v1
+      |knowledge:
+      |  id: development-process/example
+      |  source: knowledge/article.dox
+      |resources:
+      |  - id: summary-ja
+      |    kind: image
+      |    language: ja
+      |    role: detailed-infographic
+      |    source: inputs/summary-ja.svg
+      |    output: target/cozy-media/summary-ja.png
+      |    build: copy
+      |    publications:
+      |      site: images/summary-ja.png
+      |""".stripMargin
+
+  private def _smartdox_profile(root: String): String =
+    s"""project:
+       |  id: example
+       |  kind: smartdox-site
+       |media:
+       |  publication-profiles:
+       |    site:
+       |      root: $root
+       |      site-kind: smartdox
+       |""".stripMargin
 
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
