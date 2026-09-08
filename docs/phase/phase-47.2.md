@@ -1,298 +1,123 @@
-# Phase 47.2 - CML Action Compilation and Testability Contract
+# Phase 47.2 - UnitOfWork Planning and Deterministic Test Foundation
 
-Status: planned
+Status: completed; release validation and distinct release-commit evidence pending
 Planned at: 2026-09-05
-Revised at: 2026-09-05
+Revised at: 2026-09-08
 Depends on: Phase 47.1
-Cross-repository consumer: `asami/goldenport-cncf` Phase 64.2
+Successor: [Phase 47.2.1](phase-47.2.1.md)
+Cross-repository consumer work: `asami/goldenport-cncf` Phase 64.2
 
 ## Purpose
 
-Define how CML StateMachine, Composite StateMachine, and Workflow logical
-actions compile into CNCF's existing Free × UnitOfWork execution model, and
-make the resulting models directly testable without production infrastructure.
-
-This phase does **not** introduce a second execution algebra.
-
-The governing pipeline is:
-
-```text
-CML StateMachine / Composite StateMachine / Workflow
-  -> pure transition/rule model
-  -> logical CML Action references
-  -> Action Resolver / Compiler
-  -> ExecProgram[A]
-       = Program[UnitOfWorkOp, A]
-  -> generated ABI/metadata
-  -> CNCF UnitOfWork analysis / interpreter
-```
-
-CML owns logical model/action meaning. CNCF already owns the canonical execution
-algebra through `UnitOfWorkOp[A]` and the Free × UnitOfWork model.
-
-## Existing CNCF Authority
-
-The existing CNCF execution contract is authoritative:
-
-```text
-UnitOfWorkOp[A]
-  = canonical executable-intent algebra
-
-ExecProgram[A]
-  = Program[UnitOfWorkOp, A]
-
-ExecUowM[A]
-  = UowM[UnitOfWorkOp, A]
-```
-
-Therefore CML must not create parallel `ActionOp` families such as
-`EntityAction`, `EventAction`, `OperationAction`, `JobAction`, or
-`RuntimeAction` as a second runtime algebra unless later evidence proves a
-strictly model-level IR is required and it cannot compile directly to
-`ExecProgram`.
-
-The default is:
-
-```text
-CML Logical Action
-      |
-      v
-Action Binding / Compiler
-      |
-      v
-ExecProgram[UnitOfWorkOp]
-```
-
-## CML Logical Action Boundary
-
-CML actions remain model elements, for example:
-
-```text
-ACTION recordAuthorization
-ACTION reserveShipment
-ACTION releaseShipment
-```
-
-A logical action is not itself a `UnitOfWorkOp` case class. It names and types a
-model-level intent that must resolve to an executable UnitOfWork program.
-
-The binding/compilation contract must preserve, where applicable:
-
-- logical action identity;
-- source/model element identity;
-- target/model references;
-- input/result type references;
-- transaction capability requirement;
-- reversibility semantics;
-- compensation action reference;
-- idempotency semantics/key derivation contract;
-- ordering/dependency identity;
-- constituent/composite provenance;
-- source location; and
-- generated ABI/version identity.
-
-Transaction capability and reversibility remain orthogonal as defined by Phase
-47.1.
-
-## Program Composition
-
-StateMachine actions compile to existing CNCF Free/UnitOfWork programs.
-
-Conceptually:
-
-```text
-recordAuthorization
-  -> ExecProgram[Unit]
-
-reserveShipment
-  -> ExecProgram[Unit]
-
-constituentProgram *> compositeProgram
-  -> one composed ExecProgram[Unit]
-```
-
-The program is still structured executable intent, not immediate side effect.
-Composition must preserve deterministic order and provenance.
-
-No required CML action may rely on opaque callbacks, raw script strings, or
-provider handles as the canonical path.
-
-## StateMachine / Composite StateMachine Continuity
-
-The same compilation path is used for all levels:
-
-```text
-simple StateMachine transition action
-      -> ExecProgram
-
-constituent StateMachine action
-      -> ExecProgram
-
-composite derived-transition action
-      -> ExecProgram
-
-Workflow specialization action
-      -> ExecProgram
-```
-
-This preserves one executable-intent language across StateMachine, Composite
-StateMachine, Workflow, ordinary CNCF Actions, and direct/declarative execution.
-
-## Transaction and Effect Semantics
-
-`ExecProgram` does not mean "one database transaction".
-
-Existing `UnitOfWorkOp` already includes local datastore/entity operations and
-externally observable operations such as HTTP/process execution. Therefore CML
-must preserve logical transaction/reversibility requirements and let CNCF
-analyze the resulting Free structure.
-
-Expected runtime planning remains conceptually:
-
-```text
-ExecProgram
-   -> UnitOfWork analysis / planner
-      +-- local atomic segment
-      +-- distributed atomic / 2PC segment
-      +-- after-commit compensatable segment
-      +-- irreversible segment
-   -> interpreter / drivers
-```
-
-CML expresses required semantics; it does not encode XA/JTA/provider APIs.
-
-## Testability Principle
-
-Testability is a first-class semantic requirement.
-
-A generated StateMachine/Composite StateMachine/Workflow must support at least:
-
-1. **Pure model tests**
-   - transition selection;
-   - guard/predicate evaluation;
-   - composite-state derivation;
-   - derived transition graph;
-   - rule coverage/ambiguity/reachability.
-2. **Program tests**
-   - resolved `ExecProgram` structure;
-   - constituent/composite ordering and provenance;
-   - compensation/idempotency/transaction metadata;
-   - no real external effect required.
-3. **Interpreter/runtime contract tests**
-   - deterministic fake/test UnitOfWork interpreter/drivers;
-   - injected success/failure at selected executable intents;
-   - atomic abort expectation;
-   - compensation-plan expectation;
-   - runtime integration tests only where required.
-
-Ordinary model/unit tests must not require a real database, network service,
-scheduler, clock, randomness source, or external provider.
-
-## Deterministic Environment
-
-Nondeterministic inputs affecting observable behavior must remain injectable.
-Candidate capabilities include:
-
-```text
-Clock
-IdGenerator
-RandomSource
-ExternalResultStub
-Subject/Tenant Context
-```
-
-Where CNCF already has execution-context abstractions, reuse them instead of
-creating CML-specific capability systems.
-
-## Static Validation
-
-Cozy/SimpleModeler should detect, where possible:
-
-- unknown logical action references;
-- missing action binding/compiler target;
-- missing target/model references;
-- missing required compensation action;
-- compensation signature/type incompatibility;
-- impossible ordering dependencies;
-- duplicate logical effects where identity is explicit;
-- invalid idempotency declarations;
-- action cycles introduced by model composition;
-- a required transaction semantic that is internally contradictory; and
-- opaque/non-testable action bindings that bypass the Free × UnitOfWork path.
-
-Provider/runtime capability remains CNCF admission responsibility.
-
-## Representative Acceptance Model
-
-Use the Order/Payment/Shipment composite example:
-
-```text
-Payment.Pending -> Authorized
-  action: recordAuthorization
-
-OrderFulfillment.WaitingForPayment -> ReadyToShip
-  action: reserveShipment
-
-reserveShipment
-  reversibility = compensatable
-  compensation = releaseShipment
-```
-
-The fixture must prove:
-
-- logical action references resolve deterministically;
-- lower and upper actions compile into composable `ExecProgram` values;
-- provenance and order survive generation;
-- compensation references survive generation;
-- transaction/reversibility/idempotency semantics survive generation;
-- pure tests derive the expected composite state/transition;
-- a test UnitOfWork interpreter can inspect/execute the program without real
-  external I/O;
-- injected failure at `recordAuthorization` aborts the atomic transition; and
-- CNCF Phase 64.2 can analyze/plan the resulting `ExecProgram` without CML
-  syntax parsing.
-
-## Work Stack
-
-| ID | Stage | Outcome | Status |
-| --- | --- | --- | --- |
-| ACP-01 | Existing execution inventory | Existing CML action/effect syntax plus CNCF `UnitOfWorkOp`, `ExecProgram`, Free/UoW DSLs, interpreter, and metadata are cataloged. | planned |
-| ACP-02 | Logical-action boundary | CML action identity, typing, metadata, compensation, idempotency, and binding semantics are frozen without introducing a second runtime algebra. | planned |
-| ACP-03 | Resolver/compiler contract | CML logical actions resolve/compile deterministically to `ExecProgram[UnitOfWorkOp, A]`. | planned |
-| ACP-04 | Composition contract | Constituent/composite/Workflow programs compose with deterministic causal order and provenance. | planned |
-| ACP-05 | Testability contract | Pure model APIs, deterministic environment inputs, program inspection, failure injection, and property-test hooks are defined. | planned |
-| ACP-06 | Generation/ABI | SimpleModeler emits stable action binding/program metadata compatible with CNCF UnitOfWork execution. | planned |
-| ACP-07 | Static validation | Binding, compensation, ordering, idempotency, type, and Free/UoW-path validation are implemented where tractable. | planned |
-| ACP-08 | Cross-repository acceptance | Shared Order/Payment/Shipment CML fixture compiles to `ExecProgram` and passes CNCF Phase 64.2 analysis/test-interpreter acceptance. | planned |
-
-## Acceptance
-
-- No parallel canonical execution algebra is introduced for StateMachine or
-  Workflow.
-- CML logical actions compile to CNCF `ExecProgram` / `UnitOfWorkOp`.
-- Lower and upper StateMachine actions compose through the existing Free/UoW
-  mechanism.
-- StateMachine and Workflow behavior is testable without production I/O.
-- Transaction/reversibility/compensation/idempotency semantics survive CML ->
-  generated program unchanged in meaning.
-- CNCF can analyze and execute the resulting program without understanding CML
-  syntax.
-
-## Non-Goals
-
+Establish the consumer-side execution inventory, `UnitOfWorkOp` effect
+classification, planner model, and deterministic test-runtime foundation that
+will consume a later Cozy CML logical-action compiler result. This retained
+first delivery unit preserves the original Phase 47.2 identity.
+
+`UnitOfWorkOp[A]` remains CNCF's canonical executable-intent algebra and
+`ExecProgram[A] = Program[UnitOfWorkOp, A]` remains its canonical program
+shape. This Phase records and proves the consumer foundation; it does not yet
+implement a CML compiler or compile an Order/Payment/Shipment fixture.
+
+## Split note — 2026-09-08
+
+The user approved the ordered sequence `47.2 -> 47.2.1 -> 47.2.2` through
+the explicit `$cncf-split-phase Phase 47.2` request, with the final child
+identity corrected to `47.2.2`. The pre-split estimate was 19–24 hours, so it
+materially exceeded the preferred 4–8 hour packing band. The split partitions
+the previously planned ACP and UTP work exactly once:
+
+| Phase | Closure result | Estimate |
+| --- | --- | --- |
+| 47.2 | Consumer inventory, effect classification, planner contract, and deterministic test foundation | 6–8 h |
+| 47.2.1 | Cozy logical-action boundary, resolver/compiler, generated ABI, and static validation | 6–7 h |
+| 47.2.2 | Cross-level composition and Order/Payment/Shipment execution acceptance | 7–8 h |
+
+No completed Phase 47.2 work existed to move. The added Phase, handoff,
+validation, review, and commit overhead is accepted because each child now has
+one independently closable acceptance boundary. No expensive reasoning kernel
+remains open: the existing `UnitOfWorkOp` authority and the no-parallel-action
+algebra decision are settled. The user-selected `gpt-5.6-terra / xhigh` remains
+the least-cost compatible parent profile for the protected cross-repository
+contracts; there is no profile-transition handoff.
+
+### Pre-split gate evidence
+
+The former Phase Plan Gate reported `SPLIT_REQUIRED` for the combined 19–24 h
+scope. That is dated pre-split evidence only and is not the current gate of
+this retained child.
+
+### Current structural gate
+
+Phase Plan Gate: PROCEED
+
+- target: approximate-six-hour packing target; preferred 4–8 h band
+- planning_demand: bounded-settled
+- recommended_parent_profile: gpt-5.6-terra / xhigh
+- profile_cost_role: lower-cost execution
+- expensive_reasoning_kernel: none
+- frozen_profile_transition_handoff: none
+- parent_reasoning_mode_policy: standard
+- estimated_at_recommended_profile: 6–8 h; within preferred band
+- merge_attempts_for_every_sub_4h_child: none
+- adjacent_merge_structural_rejection_evidence: none
+- profile_cost_only_rejection_forbidden: true
+- short_child_exception: none
+- overhead_tradeoff: two added Phase handoffs replace an over-band combined
+  closure; the resulting independently reviewable contracts outweigh that
+  overhead
+- agent_reasoning_mode_policy: default standard; consider pro only at an
+  eligible agent launch when frozen quality-first evidence justifies it
+- runtime_suitability: re-evaluate in the Phase execution task
+- source: approved split from Phase 47.2
+
+## In-scope work
+
+The work ledger for this child is:
+
+| ID | Consumer-owned outcome | Status |
+| --- | --- | --- |
+| ACP-01 | Cross-repository execution inventory records the present CML action/effect surface and the CNCF `UnitOfWorkOp`, `ExecProgram`, Free/UoW DSL, interpreter, metadata, and test boundaries. | done |
+| UTP-01 | `asami/goldenport-cncf` inventories `UnitOfWorkOp`, `ExecProgram`, `ExecUowM`, direct/declarative DSLs, interpreter/drivers, metadata, and existing tests. | done |
+| UTP-03 | Existing `UnitOfWorkOp` cases are classified for local, 2PC, after-commit, compensatable, and irreversible planning where relevant. | done |
+| UTP-04 | The consumer freezes explicit segment planning, ordering, capability admission, idempotency, and compensation planning. | done |
+| UTP-05 | The consumer defines/implements program inspection, fake drivers, typed result stubbing, and deterministic failure injection. | done |
+
+`ACP-01` is the sole Cozy item in this child. `UTP-01`, `UTP-03`, `UTP-04`, and
+`UTP-05` remain CNCF-owned work in Phase 64.2; this Phase owns only their
+cross-repository sequencing and the evidence boundary. No action resolver,
+generated ABI, Action compilation, or fixture acceptance is duplicated here.
+
+## Closure criteria
+
+- The inventory identifies the present producer and consumer seams without
+  asserting that CML is already executable through them.
+- `UnitOfWorkOp` remains the sole canonical executable-intent algebra; no
+  StateMachine/Workflow `ActionOp` family is introduced.
+- The committed CNCF foundation classifies all 51 existing `UnitOfWorkOp`
+  constructors, preserves ordered occurrence and external-boundary planning,
+  and provides deterministic typed recording and failure injection without
+  production I/O.
+- The final Step accumulator test passed 9 specifications in 2 suites with no
+  failures, and the independent full Phase review `P472-PHASE-FULL-REVIEW-001`
+  sealed no Current Phase Blocker, Hygiene, or Development Candidate.
+- The frozen consumer contract is sufficient for Phase 47.2.1 to bind CML
+  logical actions directly to `ExecProgram`; Phase 47.2.1 and Phase 47.2.2
+  remain planned and unstarted.
+- The matching checklist records the completed child boundary. Final full
+  validation and the distinct release commit are the remaining mechanical
+  closure gate; neither is claimed by this document alone.
+
+## Non-goals
+
+- Defining CML action identity or a CML resolver/compiler.
+- Generating a Cozy Action binding/program ABI.
+- Executing a StateMachine/Workflow transition or the shared fixture.
 - Replacing or duplicating `UnitOfWorkOp`.
-- Creating a new CNCF `ActionOp` hierarchy for StateMachine/Workflow.
-- Encoding XA/JTA/provider APIs in CML.
-- Building a universal effect system.
-- Hiding unknown actions behind `Any`, scripts, callbacks, or provider handles.
-- Requiring one specific Scala testing framework.
+- Introducing provider I/O as the default test path.
 
 ## References
 
-- `phase-47.md`
-- `phase-47.1.md`
-- `../notes/cml-composite-statemachine-workflow-proposal.md`
-- `../notes/cml-action-transaction-compensation-proposal.md`
-- `asami/goldenport-cncf/docs/design/free-unitofwork-execution-model.md`
-- `asami/goldenport-cncf/src/main/scala/org/goldenport/cncf/unitofwork/UnitOfWorkOp.scala`
+- [Phase 47.2 checklist](phase-47.2-checklist.md)
+- [Phase 47.2.1](phase-47.2.1.md)
 - `asami/goldenport-cncf/docs/phase/phase-64.2.md`
