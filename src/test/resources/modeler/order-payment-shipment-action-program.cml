@@ -1,0 +1,257 @@
+# COMPONENT
+
+## OrderPaymentShipment
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## PaymentCommand
+
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+
+| name | type   | multiplicity |
+|------+--------+--------------|
+| id   | string | 1            |
+
+## ShipmentCommand
+
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+
+| name | type   | multiplicity |
+|------+--------+--------------|
+| id   | string | 1            |
+
+## PaymentResult
+
+### EXTENDS
+
+OperationResult
+
+## ShipmentResult
+
+### EXTENDS
+
+OperationResult
+
+# COMPOSITE-STATEMACHINE
+
+## OrderPaymentShipment
+
+### CONSTITUENT
+
+#### payment
+
+state-machine = PaymentLifecycle
+subject = payment
+subject-type = PaymentCommand
+
+#### shipment
+
+state-machine = ShipmentLifecycle
+subject = shipment
+subject-type = ShipmentCommand
+
+### STATE
+
+#### AwaitingPayment
+
+#### AwaitingShipment
+
+#### AuthorizedPayment
+
+#### AuthorizedShipment
+
+### DERIVATION
+
+#### awaiting-payment
+
+state = AwaitingPayment
+when = payment.Awaiting, shipment.Waiting
+
+#### awaiting-shipment
+
+state = AwaitingShipment
+when = payment.Awaiting, shipment.Reserved
+
+#### authorized-payment
+
+state = AuthorizedPayment
+when = payment.Authorized, shipment.Waiting
+
+#### authorized-shipment
+
+state = AuthorizedShipment
+when = payment.Authorized, shipment.Reserved
+
+### INITIAL
+
+payment.Awaiting, shipment.Waiting
+
+### ACTION
+
+#### record-authorization
+
+kind = OPERATION
+operation = PaymentService.recordAuthorization
+input = payment.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = REQUIRED
+idempotency-key = record-authorization
+
+#### reserve-shipment
+
+kind = OPERATION
+operation = ShipmentService.reserveShipment
+input = shipment.subject
+effect = EXTERNAL
+transaction = OUTSIDE_UNIT_OF_WORK
+idempotency = REQUIRED
+idempotency-key = reserve-shipment
+compensation-handler = release-shipment
+
+#### release-shipment
+
+kind = OPERATION
+operation = ShipmentService.releaseShipment
+input = shipment.subject
+effect = EXTERNAL
+transaction = OUTSIDE_UNIT_OF_WORK
+idempotency = REQUIRED
+idempotency-key = release-shipment
+
+### CONSTITUENT-ACTION
+
+#### payment-authorization-exit
+
+role = payment
+from = Awaiting
+to = Authorized
+on = authorized
+placement = exit
+action = record-authorization
+
+#### payment-authorization-transition
+
+role = payment
+from = Awaiting
+to = Authorized
+on = authorized
+placement = transition
+action = record-authorization
+
+#### payment-authorization-entry
+
+role = payment
+from = Awaiting
+to = Authorized
+on = authorized
+placement = entry
+action = record-authorization
+
+### DERIVED-ACTION
+
+#### reserve-shipment
+
+from = AwaitingPayment
+to = AwaitingShipment
+action = reserve-shipment
+
+# STATE-MACHINE
+
+## PaymentLifecycle
+
+### STATE
+
+#### Awaiting
+
+##### TRANSITION
+
+to = Authorized
+on = authorized
+
+#### Authorized
+
+## ShipmentLifecycle
+
+### STATE
+
+#### Waiting
+
+##### TRANSITION
+
+to = Reserved
+on = reserved
+
+#### Reserved
+
+# SERVICE
+
+## PaymentService
+
+### OPERATION
+
+#### recordAuthorization
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+PaymentCommand
+
+##### OUTPUT
+
+###### TYPE
+
+PaymentResult
+
+## ShipmentService
+
+### OPERATION
+
+#### reserveShipment
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ShipmentCommand
+
+##### OUTPUT
+
+###### TYPE
+
+ShipmentResult
+
+#### releaseShipment
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ShipmentCommand
+
+##### OUTPUT
+
+###### TYPE
+
+ShipmentResult
