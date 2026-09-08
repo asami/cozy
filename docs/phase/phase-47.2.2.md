@@ -1,7 +1,7 @@
 # Phase 47.2.2 - CML Composition and Cross-Repository Execution Acceptance
 
-Status: Cozy producer focused validation passed; lightweight review and final
-release in progress; CNCF consumer acceptance pending
+Status: FINAL — Cozy producer closure accepted by this final release commit;
+CNCF consumer acceptance remains external pending
 Planned at: 2026-09-08
 Split from: [Phase 47.2](phase-47.2.md)
 Depends on: Phase 47.2.1
@@ -57,9 +57,9 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| ACP-04 | Cozy producer fixture preserves deterministic causal order and provenance. | in progress — focused validation passed; review/release pending |
-| ACP-05 | Cozy producer descriptor rendering is deterministic and property-testable. | in progress — focused validation passed; review/release pending |
-| ACP-08 | Cozy prepares the shared Order/Payment/Shipment fixture and exact producer handoff. | in progress — focused validation passed; review/release pending |
+| ACP-04 | Cozy producer fixture preserves deterministic causal order and provenance. | DONE |
+| ACP-05 | Cozy producer descriptor rendering is deterministic and property-testable. | DONE |
+| ACP-08 | Cozy prepares the shared Order/Payment/Shipment fixture and exact producer handoff. | DONE |
 | UTP-02 | CNCF admits and versions the received CML compilation ABI after Phase 64.1. | external pending |
 | UTP-06 | CNCF proves production execution preserves logical program/plan identities and structured outcomes. | external pending |
 | UTP-07 | CNCF proves simple/local StateMachine success, rejection, and abort behavior. | external pending |
@@ -74,7 +74,10 @@ admission, runtime execution, compensation, recovery, or algebra closure.
 ## Closure criteria
 
 - Cozy focused validation receipt `P4722-VAL-003` passed with 2 succeeded and 0
-  failed; lightweight review and final release remain in progress.
+  failed; the mandatory Phase full review `P4722-PHASE-FULL-REVIEW-001` passed.
+- The final Cozy repository suite `P4722-SBT-004` passed and is bound to this
+  distinct Phase release commit, which is the authoritative Cozy acceptance
+  record.
 - The checked-in fixture generates through the real modeler-scala route twice
   with byte-identical logical-action Scala and JSON descriptors.
 - The fixture retains the three payment placements before the derived shipment

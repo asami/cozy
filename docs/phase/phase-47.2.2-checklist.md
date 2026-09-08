@@ -2,11 +2,11 @@
 
 This checklist is the authoritative progress ledger for the final unit of the
 approved Phase 47.2 split. It consumes the frozen Phase 47.2.1 compiler/ABI
-handoff and records the validated Cozy producer boundary; lightweight review,
-final release, and external CNCF acceptance remain open.
+handoff and records the closed Cozy producer boundary; CNCF acceptance remains
+external pending.
 
-Status: Cozy focused validation passed; lightweight review and final release in
-progress; external consumer acceptance pending
+Status: FINAL — Cozy producer closure accepted by this final release commit;
+external consumer acceptance pending
 Depends on: Phase 47.2.1
 Predecessor: Phase 47.2.1
 
@@ -14,13 +14,14 @@ Predecessor: Phase 47.2.1
 
 Stage Status:
 
-- Current status: IN-PROGRESS (focused validation passed; lightweight review and
-  final release pending)
+- Current status: COMPLETE
+- Current step: Cozy producer closure is released with the final full-suite
+  receipt and this Phase release commit.
 - Owner: Cozy Phase 47.2.2.
-- Update rule: Focused validation covers the checked-in producer fixture,
-  deterministic descriptor generation, causal order, provenance, metadata, and
-  property evidence. Lightweight review and final release are still required;
-  consumer execution remains external pending.
+- Update rule: Focused validation, mandatory Phase review, final repository
+  validation, and this release commit close the checked-in producer fixture,
+  deterministic descriptor generation, causal order, provenance, metadata,
+  and property evidence. Consumer execution remains external pending.
 
 - [x] Generate the checked-in fixture twice through the real modeler-scala route
       with byte-identical logical-action Scala and JSON artifacts.
@@ -29,8 +30,8 @@ Stage Status:
 - [x] Prove repeated canonical descriptor rendering is byte-stable with
       ScalaCheck.
 - [x] Focused validation receipt `P4722-VAL-003`: 2 succeeded, 0 failed.
-- [ ] Complete lightweight review and final release closure for the Cozy
-      producer boundary.
+- [x] Complete the final release commit for the Cozy producer boundary after
+      the accepted lightweight review, Phase review, and repository validation.
 
 ## ACP-08 / UTP-06 through UTP-08: Shared execution acceptance
 
@@ -82,6 +83,7 @@ Stage Status:
 - [x] The producer fixture, executable specification, and exact handoff are
       prepared within the Cozy boundary.
 - [x] Cozy focused validation passed (`P4722-VAL-003`: 2 succeeded, 0 failed).
-- [ ] Lightweight review and final release closure remain in progress.
+- [x] Lightweight review, mandatory Phase review, final repository validation,
+      and this release commit are complete.
 - [ ] CNCF Phase 64.1 prerequisite and Phase 64.2 external acceptance close
       under CNCF authority.

@@ -44,6 +44,18 @@ Current phase state:
   reuses composite semantics as far as possible. Its planned child phases
   retain the linked action/transaction and compilation/testability contracts;
   it is coordinated with CNCF Phases 64 through 64.2.
+- Planned Document Project sequence: `phase-48.md` scaffolds the accepted
+  presentation-semantics authority and `phase-49.md` integrates it with normal
+  workflow state, operations, review, and currentness. `phase-56.md` then adds
+  native typed provider execution, atomic evidence closure, closed executable
+  planning state, and structural-by-default verification. `phase-57.md` adds
+  current-public Work Product export, a SimpleModeling.org target binding, and
+  the native publication-preparation skill boundary. This is a greenfield
+  sequence and does not preserve the legacy article-media workflow.
+- Active media-registration correction: `phase-55.md` propagates one effective
+  site-root/site-config authority through build, receipt validation,
+  `register-site`, and `register-site-wip`. It is an independent prerequisite
+  for the Phase 57 SimpleModeling.org target binding.
 - Most recent closed phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. Under the explicit 2026-08-26
   one-Phase authorization, its internal Steps are P30-00 through P30-03. The
@@ -306,7 +318,12 @@ separately created work under `P461-DEC-ROOT-001` and are excluded from this
 Phase; no successor Phase is created here.
 
 Phase 47 is planned separately from closed Phase 33. Its work-ledger authority
-is `phase-47.md`, with planned child ledgers `phase-47.1.md` and
-`phase-47.2.md`; its non-normative planning inputs are
+is `phase-47.md`, with child ledgers `phase-47.1.md`, `phase-47.2.md`,
+`phase-47.2.1.md`, and `phase-47.2.2.md`. On 2026-09-08, the former 19–24 hour
+Phase 47.2 plan was approved as the ordered `47.2 -> 47.2.1 -> 47.2.2`
+sequence: consumer UnitOfWork planning/test foundation, Cozy logical-action
+compiler/generated ABI, then Cozy's Order/Payment/Shipment composition
+handoff. Phase 47.2.2 closes that Cozy producer boundary only; CNCF Phase 64.2
+retains consumer execution acceptance. Its non-normative planning inputs are
 `docs/notes/cml-composite-statemachine-workflow-proposal.md` and
 `docs/journal/2026/09/2026-09-05-composite-statemachine-workflow-modeling-direction.md`.
