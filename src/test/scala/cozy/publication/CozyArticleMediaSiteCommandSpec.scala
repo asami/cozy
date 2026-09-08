@@ -550,6 +550,10 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
           "missing-pair" -> { fixture: SiteCommandPart5Fixture.Data =>
             List("media", "register-site", fixture.descriptor.toString, "--publication", fixture.registryroot.toString)
           },
+          "relative-root" -> { fixture: SiteCommandPart5Fixture.Data =>
+            List("media", "register-site", fixture.descriptor.toString, "--publication", fixture.registryroot.toString,
+              "--site-root", "relative-site-root", "--site-config", fixture.root.resolve("site.conf").toString)
+          },
           "root-symlink" -> { fixture: SiteCommandPart5Fixture.Data =>
             val alias = fixture.root.resolve("site-root-alias")
             Files.createSymbolicLink(alias, fixture.root)
@@ -584,18 +588,25 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
         )
         outcomes.foreach { case (name, command) =>
           _with_site_context_pdf_fixture("unsafe-" + name, "knowledge/part-5.dox") { fixture =>
+            Given(s"an accepted registration and a $name unsafe or absent paired site context")
             val siteconfig = fixture.root.resolve("site.conf")
             val current = CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(List(
               fixture.descriptor.toString, "--publication", fixture.registryroot.toString,
               "--site-root", fixture.root.toString, "--site-config", siteconfig.toString
             )))
+            val unsafecommand = command(fixture).drop(2)
             val before = _registry_tree(fixture.registryroot)
             val receipt = fixture.root.resolve("target/cozy-media/manifest.json")
             val receiptbytes = Files.readAllBytes(receipt).toVector
-            val error = _failure(CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(command(fixture).drop(2))))
+
+            When(s"$name is parsed and executed")
+            val error = _failure(CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(unsafecommand)))
 
             Then(s"$name fails closed without replacing the accepted registry")
             error.getMessage should not be empty
+            if (name == "relative-root") {
+              error.getMessage should include("--site-root path must be absolute")
+            }
             _registry_tree(fixture.registryroot) shouldBe before
             Files.readAllBytes(receipt).toVector shouldBe receiptbytes
             current should include("article-pdf: locale=ja, role=article_pdf")

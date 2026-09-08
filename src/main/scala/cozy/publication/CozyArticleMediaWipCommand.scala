@@ -159,11 +159,20 @@ private[cozy] object CozyArticleMediaWipCommand {
       case NonFatal(_) => _invalid(s"$label path is invalid")
     }
 
+  private def _site_path(value: String, label: String): Path = {
+    val path = try Path.of(value) catch {
+      case NonFatal(_) => _invalid(s"$label path is invalid")
+    }
+    if (!path.isAbsolute)
+      _invalid(s"$label path must be absolute")
+    path.normalize()
+  }
+
   private def _site_context(siteroot: Option[String], siteconfig: Option[String]): (Option[Path], Option[Path]) =
     (siteroot, siteconfig) match {
       case (None, None) => None -> None
       case (Some(root), Some(config)) =>
-        Some(_host_path(root, "--site-root")) -> Some(_host_path(config, "--site-config"))
+        Some(_site_path(root, "--site-root")) -> Some(_site_path(config, "--site-config"))
       case _ => _invalid("Media --site-root and --site-config must be supplied together")
     }
 

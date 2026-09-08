@@ -52,10 +52,12 @@ Current phase state:
   current-public Work Product export, a SimpleModeling.org target binding, and
   the native publication-preparation skill boundary. This is a greenfield
   sequence and does not preserve the legacy article-media workflow.
-- Active media-registration correction: `phase-55.md` propagates one effective
+- Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite
-  for the Phase 57 SimpleModeling.org target binding.
+  for the Phase 57 SimpleModeling.org target binding; its closure makes no
+  publication, deployment, upload, push, adapter-deletion, or external-consumer
+  claim.
 - Most recent closed phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. Under the explicit 2026-08-26
   one-Phase authorization, its internal Steps are P30-00 through P30-03. The

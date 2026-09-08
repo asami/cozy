@@ -1,9 +1,10 @@
 # Phase 55: Site-Context-Preserving Media Registration
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-09-07
 Implementation started: 2026-09-08
+Closure prepared: 2026-09-08
 
 Development item: DEV-021
 
@@ -17,7 +18,7 @@ receipt.
 
 ## P55-01: Canonical Site Context Selection
 
-Stage Status: IN PROGRESS
+Stage Status: COMPLETE
 
 - Freeze one canonical way to recover the effective paired `site-root` and
   `site-config` authority during registration.
@@ -31,7 +32,7 @@ Stage Status: IN PROGRESS
 
 ## P55-02: Registration Currentness Integration
 
-Stage Status: IN PROGRESS
+Stage Status: COMPLETE
 
 - Propagate the selected site context through
   `CozyArticleMediaSiteCommand.Config`, `CozyArticleMediaSiteBinding.plan`, and
@@ -44,13 +45,13 @@ Stage Status: IN PROGRESS
 
 ## P55-03: Ordinary and Document Project Acceptance
 
-Stage Status: PLANNED
+Stage Status: COMPLETE
 
-The command, binding, prepared-publication, and receipt-currentness path now
-carry the explicit paired context. Remaining acceptance closes the ordinary and
-Document Project media cases, unsafe-path rejection matrix, unchanged
-context-free compatibility, and full Cozy validation before this Phase can be
-marked complete.
+The command, binding, prepared-publication, and receipt-currentness path carry
+the explicit paired context. Ordinary and Document Project media acceptance,
+the unsafe-path rejection matrix, and context-free compatibility are covered
+by the accepted focused specifications. The release commit is bound only after
+the required post-edit full Cozy validation succeeds.
 
 - Build and directly register Japanese and English article PDFs containing
   `site:[...]` links from their original authoring descriptors.
@@ -85,6 +86,20 @@ register directly from their original descriptors with exact accepted artifact
 and receipt bytes; stale and unsafe context changes remain rejected; packages
 without site context remain compatible; focused specifications and full Cozy
 validation pass; and independent review finds no Current Phase Blocker.
+
+## Closure Evidence
+
+- Step implementation is accepted in Cozy commit
+  `faf00577f8bc0149ab5d0fe99abb9aec5f01243e`
+  (`feat(media): preserve site context during registration`).
+- The Phase full review found the relative paired-path admission and one
+  executable-specification boundary defect; the bounded repair is accepted by
+  focused re-review with no Current Phase Blocker, Hygiene, or Development
+  Candidate.
+- Focused repair validation `P55-PHASE-REPAIR-VAL-001` passed 24 tests across
+  the normal and WIP registration command specifications. The final full Cozy
+  validation is the post-edit release gate; this Phase makes no publication,
+  deployment, upload, push, adapter deletion, or external-consumer claim.
 
 ## References
 

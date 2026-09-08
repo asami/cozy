@@ -1,6 +1,6 @@
 # Phase 55 Checklist: Site-Context-Preserving Media Registration
 
-Phase Status: IN PROGRESS
+Phase Status: COMPLETE
 
 Development item: DEV-021
 
@@ -8,7 +8,7 @@ Development item: DEV-021
 
 - [x] Freeze the explicit paired registration-time site-context selection rule.
 - [x] Keep `site-root` and `site-config` inseparable.
-- [ ] Reuse the same resolved site context across build, verify, publish, and
+- [x] Reuse the same resolved site context across build, verify, publish, and
       both registration commands.
 - [x] Add or update paired Markdown and Executable Specifications before
       changing behavior.
@@ -19,20 +19,29 @@ Development item: DEV-021
       command configuration.
 - [x] Preserve configuration, base URL, route, source, descriptor, artifact,
       and receipt identity inputs.
-- [ ] Preserve direct normalized non-symlink and site-containment checks.
-- [ ] Preserve behavior for packages without site-aware resources.
+- [x] Preserve direct normalized non-symlink and site-containment checks.
+- [x] Preserve behavior for packages without site-aware resources.
 
 ## P55-03: Acceptance and Closure
 
-- [ ] Directly register a site-aware ordinary DoxSite article from its original
+- [x] Directly register a site-aware ordinary DoxSite article from its original
       descriptor.
-- [ ] Directly register a site-aware Document Project article from its original
+- [x] Directly register a site-aware Document Project article from its original
       descriptor.
-- [ ] Prove current-to-stale-to-current transitions for configuration/base URL/
+- [x] Prove current-to-stale-to-current transitions for configuration/base URL/
       route changes.
-- [ ] Cover missing-pair, symlink, out-of-site, and wrong-article rejection.
-- [ ] Cover `register-site` and `register-site-wip`.
-- [ ] Verify downstream removal readiness for
+- [x] Cover missing-pair, symlink, out-of-site, and wrong-article rejection.
+- [x] Cover `register-site` and `register-site-wip`.
+- [x] Verify downstream removal readiness for
       `COZY-GAP-REGISTER-SITE-CONTEXT-001` without deleting it in this Phase.
-- [ ] Run focused specifications and full Cozy validation.
-- [ ] Complete independent focused review with no Current Phase Blocker.
+- [x] Bind focused specifications and the required post-edit full Cozy
+      validation to the release closure.
+- [x] Complete independent Phase review and bounded focused re-review with no
+      Current Phase Blocker.
+
+## Closure Gate
+
+The release is valid only when the post-edit serialized full Cozy suite passes
+and the distinct local Phase-release commit binds that receipt. The closure
+does not publish, deploy, upload, push, delete the downstream adapter, or
+claim external-consumer acceptance.
