@@ -613,7 +613,9 @@ private[cozy] object CozyDocumentProject {
       temporary = Some(staging)
       _write(staging.resolve("document-project.yaml"), _descriptor_yaml(slug, profile, language, workspace))
       _write(staging.resolve("index.dox"), s"$slug\n${"=" * slug.length}\n\nDocument Project source.\n")
-      _write(staging.resolve(s"content/core-$language.yaml"), _core_yaml(slug, language))
+      val core = staging.resolve(s"content/core-$language.yaml")
+      _write(core, _core_yaml(slug, language))
+      _write(staging.resolve(s"content/presentation-semantics-$language.yaml"), _presentation_semantics_yaml(slug, language, _sha256(core)))
       _write(staging.resolve("infographic/infographic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Document Project infographic</title></svg>\n")
       _write(staging.resolve("presentation/visual-pages.yaml"), "pages: []\n")
       _write(staging.resolve("review/README.md"), "# Review\n\nReview material belongs here.\n")
@@ -740,6 +742,25 @@ private[cozy] object CozyDocumentProject {
        |id: $slug:core:$language
        |language: $language
        |accepted: []
+       |""".stripMargin
+
+  private def _presentation_semantics_yaml(slug: String, language: String, coreidentity: String): String =
+    s"""schema: cozy.content-core.presentation-semantics.v2
+       |id: $slug-presentation-$language
+       |contentCore:
+       |  id: $slug:core:$language
+       |  language: $language
+       |  identity: sha256:$coreidentity
+       |composition: {}
+       |storyFlow:
+       |  id: $slug-story-flow-$language
+       |  transitions: []
+       |structures: []
+       |projectionPolicy:
+       |  schema: cozy.content-core.projection-policy.v1
+       |  id: $slug-projection-policy-$language
+       |  revision: 1
+       |  bindings: []
        |""".stripMargin
 
   private def _scaffold_result(destination: Path, slug: String, profile: String, language: String, workspace: String): String =

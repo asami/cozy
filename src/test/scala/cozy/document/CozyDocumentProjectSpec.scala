@@ -23,35 +23,105 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
     "public Document Project behavior" which {
     "scaffold public no-video and video profile skeletons without fake outputs" in {
       _with_temp_dir("cozy-document-project-scaffold") { root =>
-        Given("an existing direct parent and three absent Document Project packages")
+        Given("an existing direct parent and four absent Document Project packages")
         val standardparent = Files.createDirectory(root.resolve("standard-parent"))
         val videoparent = Files.createDirectory(root.resolve("video-parent"))
         val bokparent = Files.createDirectory(root.resolve("bok-parent"))
+        val bokvideoparent = Files.createDirectory(root.resolve("bok-video-parent"))
 
         When("the public profile commands scaffold their packages")
         val standardoutput = _execute(List("document-project", "scaffold", "standard-doc", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", standardparent.toString))
         val videooutput = _execute(List("document-project", "scaffold", "video-doc", "--profile", "standard-video", "--language", "ja", "--workspace", "bok", "--save", videoparent.toString))
         val bokoutput = _execute(List("document-project", "scaffold", "bok-doc", "--profile", "bok", "--language", "en", "--workspace", "bok", "--save", bokparent.toString))
+        val bokvideooutput = _execute(List("document-project", "scaffold", "bok-video-doc", "--profile", "bok-video", "--language", "en", "--workspace", "bok", "--save", bokvideoparent.toString))
         val standard = standardparent.resolve("standard-doc.dox")
         val video = videoparent.resolve("video-doc.dox")
         val bok = bokparent.resolve("bok-doc.dox")
+        val bokvideo = bokvideoparent.resolve("bok-video-doc.dox")
 
         Then("each profile contains only its declared authored sources")
         _relative_files(standard) shouldBe Set(
           "document-project.yaml", "index.dox", "content/core-en.yaml", "infographic/infographic.svg",
-          "presentation/visual-pages.yaml", "review/README.md"
+          "content/presentation-semantics-en.yaml", "presentation/visual-pages.yaml", "review/README.md"
         )
         _relative_files(video) shouldBe Set(
           "document-project.yaml", "index.dox", "content/core-ja.yaml", "infographic/infographic.svg",
-          "presentation/visual-pages.yaml", "review/README.md", "video/storyboard.md"
+          "content/presentation-semantics-ja.yaml", "presentation/visual-pages.yaml", "review/README.md", "video/storyboard.md"
         )
         _relative_files(bok) shouldBe _relative_files(standard)
+        _relative_files(bokvideo) shouldBe Set(
+          "document-project.yaml", "index.dox", "content/core-en.yaml", "infographic/infographic.svg",
+          "content/presentation-semantics-en.yaml", "presentation/visual-pages.yaml", "review/README.md", "video/storyboard.md"
+        )
         Files.readString(standard.resolve("content/core-en.yaml"), StandardCharsets.UTF_8) should include("accepted: []")
         Files.exists(standard.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(standard.resolve("dashboard.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         standardoutput should startWith("Cozy Document Project Scaffold")
         videooutput should include("workspace: bok")
         bokoutput should include("profile: bok")
+        bokvideooutput should include("profile: bok-video")
+      }
+    }
+
+    "scaffold a deterministic authoring-incomplete Phase 46 presentation semantics sibling" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-scaffold") { root =>
+        Given("two distinct parents for identical public standard-video scaffold inputs")
+        val firstparent = Files.createDirectory(root.resolve("first-parent"))
+        val secondparent = Files.createDirectory(root.resolve("second-parent"))
+
+        When("the identical projects are scaffolded")
+        val command = List("document-project", "scaffold", "article-nine", "--profile", "standard-video", "--language", "en", "--workspace", "bok")
+        _execute(command ++ List("--save", firstparent.toString))
+        _execute(command ++ List("--save", secondparent.toString))
+        val first = firstparent.resolve("article-nine.dox")
+        val second = secondparent.resolve("article-nine.dox")
+        val core = first.resolve("content/core-en.yaml")
+        val semantics = first.resolve("content/presentation-semantics-en.yaml")
+        val semanticstext = Files.readString(semantics, StandardCharsets.UTF_8)
+
+        Then("the strict v2 authoring skeleton binds exact Core bytes without fabricated semantics or aliases")
+        semanticstext should include("schema: cozy.content-core.presentation-semantics.v2")
+        semanticstext should include("id: article-nine-presentation-en")
+        semanticstext should include("id: article-nine:core:en")
+        semanticstext should include(s"identity: sha256:${_sha256(core)}")
+        semanticstext should include("composition: {}")
+        semanticstext should include("storyFlow:\n  id: article-nine-story-flow-en\n  transitions: []")
+        semanticstext should include("structures: []")
+        semanticstext should include("schema: cozy.content-core.projection-policy.v1")
+        semanticstext should include("id: article-nine-projection-policy-en")
+        semanticstext should include("revision: 1")
+        semanticstext should include("bindings: []")
+        semanticstext should not include "intent:"
+        semanticstext should not include "media:"
+        semanticstext should not include "emphasis:"
+        semanticstext should not include "claims:"
+        semanticstext should not include "accepted:"
+
+        And("identical profile inputs in distinct parents produce byte-identical Core and semantic authoring files")
+        Files.readAllBytes(second.resolve("content/core-en.yaml")) shouldBe Files.readAllBytes(core)
+        Files.readAllBytes(second.resolve("content/presentation-semantics-en.yaml")) shouldBe Files.readAllBytes(semantics)
+      }
+    }
+
+    "retain generated presentation semantics when a public video scaffold is promoted to the hidden Article 9 profile" in {
+      _with_temp_dir("cozy-document-project-article-nine-promotion") { root =>
+        Given("a public standard-video scaffold for an Article 9-style package")
+        val parent = Files.createDirectory(root.resolve("parent"))
+        _execute(List("document-project", "scaffold", "article-nine", "--profile", "standard-video", "--language", "ja", "--workspace", "bok", "--save", parent.toString))
+        val project = parent.resolve("article-nine.dox")
+        val descriptor = project.resolve("document-project.yaml")
+        val semantics = project.resolve("content/presentation-semantics-ja.yaml")
+        val semanticsbytes = Files.readAllBytes(semantics)
+
+        When("the existing descriptor promotion changes only the registered hidden profile identity")
+        Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("profile: standard-video", "profile: simplemodeling-org-video"), StandardCharsets.UTF_8)
+
+        Then("the generated strict semantic authority remains direct authored scaffold output rather than a hand-written promotion artifact")
+        Files.isRegularFile(semantics, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readAllBytes(semantics) shouldBe semanticsbytes
+        Files.readString(semantics, StandardCharsets.UTF_8) should include(s"identity: sha256:${_sha256(project.resolve("content/core-ja.yaml"))}")
+        Files.readString(descriptor, StandardCharsets.UTF_8) should include("profile: simplemodeling-org-video")
+        CozyDocumentProject._load_project(project).profile shouldBe "simplemodeling-org-video"
       }
     }
 
@@ -1980,6 +2050,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val command = List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString)
         _execute(command)
         val marker = parent.resolve("sample.dox/index.dox")
+        val semantics = parent.resolve("sample.dox/content/presentation-semantics-en.yaml")
+        val semanticsbefore = Files.readAllBytes(semantics)
         Files.writeString(marker, "preserved authored source\n", StandardCharsets.UTF_8)
 
         When("the same destination is requested again")
@@ -1988,6 +2060,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("the atomic scaffold gate rejects and leaves existing authored content intact")
         failure should include("DP-SCAFFOLD-001")
         Files.readString(marker, StandardCharsets.UTF_8) shouldBe "preserved authored source\n"
+        Files.readAllBytes(semantics) shouldBe semanticsbefore
       }
     }
 
