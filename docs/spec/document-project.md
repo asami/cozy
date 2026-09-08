@@ -944,6 +944,7 @@ The `standard` profile MUST create exactly these authored paths:
   index.dox
   content/
     core-<language>.yaml
+    presentation-semantics-<language>.yaml
   infographic/
     infographic.svg
   presentation/
@@ -952,10 +953,17 @@ The `standard` profile MUST create exactly these authored paths:
     README.md
 ```
 
-The `standard-video` and `bok-video` profiles MUST create exactly the
-`standard` paths plus `video/storyboard.md`; `bok` creates the same paths as
-`standard`. `simplemodeling-org` profiles are registered but hidden and MUST
-NOT be offered by scaffold or public help. Omitted branches MUST
+The public `standard`, `standard-video`, `bok`, and `bok-video` profiles MUST
+all participate in this presentation-semantics scaffold and MUST each write
+the exact sibling path `content/presentation-semantics-<language>.yaml`.
+That sibling binds its `contentCore` identity to the direct generated Core
+bytes through the Phase 46 `contentCore` identity rule. It is an
+authoring-incomplete scaffold surface, not accepted or validated semantics,
+and makes no renderer, receipt, workflow, state, currentness, confirmation,
+publication, or delivery claim. The `standard-video` and `bok-video` profiles
+MUST create exactly the `standard` paths plus `video/storyboard.md`; `bok`
+creates the same paths as `standard`. `simplemodeling-org` profiles are
+registered but hidden and MUST NOT be offered by scaffold or public help. Omitted branches MUST
 NOT receive fake completed artifacts.  Scaffold MUST preserve regular
 `index.dox` article-expression authority and MUST NOT perform SmartDox host
 discovery or source projection.  It MUST write no `target/`, generated state,

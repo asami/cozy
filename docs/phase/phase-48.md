@@ -1,8 +1,10 @@
 # Phase 48: Document Project Presentation Semantics Scaffold
 
-Status: PLANNED
+Status: COMPLETE
 
 Plan date: 2026-09-06
+Implementation started: 2026-09-09
+Closure prepared: 2026-09-09
 
 Development item: DEV-018
 
@@ -21,7 +23,7 @@ public cross-media confirmation operation remain successor work under DEV-018.
 
 ## P48-01: Scaffold Contract
 
-Stage Status: PLANNED
+Stage Status: COMPLETE
 
 - Keep the existing `document-project scaffold` command grammar.
 - Do not add a semantic-model selection option.
@@ -39,7 +41,7 @@ Stage Status: PLANNED
 
 ## P48-02: Authoring-Incomplete Skeleton
 
-Stage Status: PLANNED
+Stage Status: COMPLETE
 
 The governing rule is:
 
@@ -58,7 +60,7 @@ Scaffold creates the semantic workspace, not the semantics.
 
 ## P48-03: Scaffold Evidence
 
-Stage Status: PLANNED
+Stage Status: COMPLETE
 
 Required executable evidence:
 
@@ -74,6 +76,18 @@ Required executable evidence:
 
 Article 9 is a scaffold-readiness driver only in this Phase. End-to-end Article
 9 production is not claimed.
+
+## Release Closure
+
+Phase 48 closes the public-profile scaffold surface only. The accepted
+implementation writes the strict sibling authority for `standard`,
+`standard-video`, `bok`, and `bok-video`, binds it directly to the generated
+Content Core bytes, and deliberately leaves semantic authoring incomplete.
+The Phase 49 workflow/state, operation, review, currentness, and
+confirmation-operation work remains separately planned. The final full Cozy
+suite and the distinct local phase-release commit are the release evidence;
+this closure performs no publication, deployment, upload, push, or external
+mutation.
 
 ## Exclusions
 

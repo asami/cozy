@@ -44,9 +44,17 @@ Current phase state:
   reuses composite semantics as far as possible. Its planned child phases
   retain the linked action/transaction and compilation/testability contracts;
   it is coordinated with CNCF Phases 64 through 64.2.
-- Planned Document Project sequence: `phase-48.md` scaffolds the accepted
-  presentation-semantics authority and `phase-49.md` integrates it with normal
-  workflow state, operations, review, and currentness. `phase-56.md` then adds
+- Planned semantic-metadata sequence: `phase-54.md` retains the first,
+  site-editing-ready stable identity and versioned publication foundation;
+  `phase-54.1.md` adds Structure, `phase-54.2.md` adds Classification,
+  `phase-54.3.md` adds Workflow and StateMachine, and `phase-54.4.md` closes
+  Use Case navigation and consumer-neutral fixture acceptance. The sequence is
+  a Cozy metadata supplier and does not edit or publish SimpleModeling.org.
+- Most recently closed Document Project scaffold phase: `phase-48.md` adds the
+  strict, authoring-incomplete presentation-semantics sibling for the selected
+  public profiles while preserving the closed Phase 46/46.1 contracts.
+  `phase-49.md` remains planned for normal workflow state, operations, review,
+  and currentness integration. `phase-56.md` then adds
   native typed provider execution, atomic evidence closure, closed executable
   planning state, and structural-by-default verification. `phase-57.md` adds
   current-public Work Product export, a SimpleModeling.org target binding, and

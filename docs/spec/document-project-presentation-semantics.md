@@ -11,8 +11,15 @@ accept workflows are unchanged. Phase 46 adds the strict sibling input
 v2 document binds an already admitted v1 Core and never extends, migrates,
 scans, defaults, or compatibility-reads v1.
 
-There is no descriptor, CLI, scaffold, renderer, receipt, or output change at
-this boundary.
+The existing Phase 48 public scaffold is the only scaffold/output
+clarification at this boundary: it writes a strict v2 authored sibling at
+`content/presentation-semantics-<language>.yaml` for exactly the public
+profiles `standard`, `standard-video`, `bok`, and `bok-video`. The sibling's
+`contentCore` binds the direct generated Core bytes through the Phase 46
+identity rule. This generated file is an authoring-incomplete scaffold surface,
+not accepted or validated semantics, and does not claim a valid V2 document.
+It does not change the Phase 46 schema, diagnostics, or validation boundary,
+or the Phase 46.1 renderer, receipt, and generated-output boundary.
 
 ## V2 shape
 
