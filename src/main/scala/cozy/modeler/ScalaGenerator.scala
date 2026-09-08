@@ -13,7 +13,8 @@ import org.goldenport.realm.Realm
 /*
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
@@ -34,6 +35,8 @@ class ScalaGenerator(
     val projectionmetadata = CompositeStateMachineProjectionMetadata.canonicalJson(compositeStateMachines)
     val actionproducermetadata = CompositeStateMachineActionProducerMetadata.generate(compositeStateMachines)
     val actionproducermetadatajson = CompositeStateMachineActionProducerMetadata.canonicalJson(compositeStateMachines)
+    val actionprogram = CompositeStateMachineActionProgram.generate(compositeStateMachines)
+    val actionprogramjson = CompositeStateMachineActionProgram.canonicalJson(compositeStateMachines)
     val metadata = ComponentApiContractMetadata.generate(model) match {
       case Right(document) => document
       case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
@@ -41,8 +44,9 @@ class ScalaGenerator(
     val builder = Realm.Builder()
     builder.set(CompositeStateMachineProjectionMetadata.metadataPath, projectionmetadata)
     builder.set(CompositeStateMachineActionProducerMetadata.metadataPath, actionproducermetadatajson)
+    builder.set(CompositeStateMachineActionProgram.metadataPath, actionprogramjson)
     if (!metadata.isEmpty)
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
-    STree(r.realm + compositestatemachines + actionproducermetadata + builder.build())
+    STree(r.realm + compositestatemachines + actionproducermetadata + actionprogram + builder.build())
   }
 }

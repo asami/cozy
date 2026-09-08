@@ -10,7 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -102,6 +103,19 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         val valueproducerdefinition = valueproducerroot.resolve("OrderProgressActionProducerMetadata1.scala")
         val normalproducermetadata = normalout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
         val valueproducermetadata = valueout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
+        val actionprogramroot = "target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine/actionprogram"
+        val normalactionprogramroot = normalout.resolve(actionprogramroot)
+        val valueactionprogramroot = valueout.resolve(actionprogramroot)
+        val normalactionprogramabi = normalactionprogramroot.resolve("CompositeStateMachineActionProgramAbi.scala")
+        val valueactionprogramabi = valueactionprogramroot.resolve("CompositeStateMachineActionProgramAbi.scala")
+        val normalactionprogramcompiler = normalactionprogramroot.resolve("LogicalActionCompiler.scala")
+        val valueactionprogramcompiler = valueactionprogramroot.resolve("LogicalActionCompiler.scala")
+        val normalactionprogrambootstrap = normalactionprogramroot.resolve("CompositeStateMachineActionProgramBootstrap.scala")
+        val valueactionprogrambootstrap = valueactionprogramroot.resolve("CompositeStateMachineActionProgramBootstrap.scala")
+        val normalactionprogramdefinition = normalactionprogramroot.resolve("OrderProgressActionProgram1.scala")
+        val valueactionprogramdefinition = valueactionprogramroot.resolve("OrderProgressActionProgram1.scala")
+        val normalactionprogramjson = normalout.resolve(CompositeStateMachineActionProgram.metadataPath)
+        val valueactionprogramjson = valueout.resolve(CompositeStateMachineActionProgram.metadataPath)
         Files.exists(normalabi) shouldBe true
         Files.exists(valueabi) shouldBe true
         Files.exists(normalbootstrap) shouldBe true
@@ -118,6 +132,16 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.exists(valueproducerdefinition) shouldBe true
         Files.exists(normalproducermetadata) shouldBe true
         Files.exists(valueproducermetadata) shouldBe true
+        Files.exists(normalactionprogramabi) shouldBe true
+        Files.exists(valueactionprogramabi) shouldBe true
+        Files.exists(normalactionprogramcompiler) shouldBe true
+        Files.exists(valueactionprogramcompiler) shouldBe true
+        Files.exists(normalactionprogrambootstrap) shouldBe true
+        Files.exists(valueactionprogrambootstrap) shouldBe true
+        Files.exists(normalactionprogramdefinition) shouldBe true
+        Files.exists(valueactionprogramdefinition) shouldBe true
+        Files.exists(normalactionprogramjson) shouldBe true
+        Files.exists(valueactionprogramjson) shouldBe true
         Files.readString(normalabi) should include ("package domain.composite.statemachine")
         Files.readString(normalabi) should include ("val VERSION: String = \"cozy.cml.composite-statemachine.v1\"")
         Files.readString(normalabi) should include ("final case class ConstituentBinding")
@@ -182,6 +206,35 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(normalproducermetadata) should include ("\"idempotency\":{\"required\":true,\"keyRef\":\"payment-command\"}")
         Files.readString(normalproducermetadata) should include ("\"compensationHandlerRef\":\"cancel-payment\"")
 
+        And("the logical-action compiler surface is additive, byte-identical through both routes, and keeps occurrence descriptors separate from existing v1 output")
+        Files.readString(normalactionprogramabi) should include ("package domain.composite.statemachine.actionprogram")
+        Files.readString(normalactionprogramabi) should include ("val VERSION: String = \"cozy.cml.logical-action-program.v1\"")
+        Files.readString(normalactionprogramabi) should include ("final case class CompiledOccurrence")
+        Files.readString(normalactionprogramabi) shouldBe Files.readString(valueactionprogramabi)
+        Files.readString(normalactionprogramcompiler) should include ("type ExecProgram[A] = org.goldenport.cncf.unitofwork.ExecProgram[A]")
+        Files.readString(normalactionprogramcompiler) should include ("final case class MissingMetadata")
+        Files.readString(normalactionprogramcompiler) should include ("final case class IncompatibleBinding")
+        Files.readString(normalactionprogramcompiler) should include ("Free.pure[org.goldenport.cncf.unitofwork.UnitOfWorkOp, Unit](())")
+        Files.readString(normalactionprogramcompiler) shouldBe Files.readString(valueactionprogramcompiler)
+        val expectedactionprogrambootstrap = """package domain.composite.statemachine.actionprogram
+          |
+          |object CompositeStateMachineActionProgramBootstrap {
+          |  val schemaVersion: String = "cozy.cml.logical-action-program.v1"
+          |  val definitions: Vector[CompositeStateMachineActionProgramAbi.Definition] = Vector(OrderProgressActionProgram1.definition)
+          |}
+          |""".stripMargin
+        Files.readString(normalactionprogrambootstrap) shouldBe expectedactionprogrambootstrap
+        Files.readString(valueactionprogrambootstrap) shouldBe expectedactionprogrambootstrap
+        Files.readString(normalactionprogramdefinition) shouldBe Files.readString(valueactionprogramdefinition)
+        Files.readString(normalactionprogramdefinition) should include ("occurrenceId = \"constituent:payment-captured-exit:1\"")
+        Files.readString(normalactionprogramdefinition) should include ("occurrenceId = \"constituent:payment-captured-transition:2\"")
+        Files.readString(normalactionprogramdefinition) should include ("occurrenceId = \"derived:completed:3\"")
+        Files.readString(normalactionprogramdefinition) should include ("metadata = Some(CompositeStateMachineActionProgramAbi.ActionMetadata(")
+        Files.readString(normalactionprogramjson) shouldBe Files.readString(valueactionprogramjson)
+        Files.readString(normalactionprogramjson) should include ("\"schemaVersion\":\"cozy.cml.logical-action-program.v1\"")
+        Files.readString(normalactionprogramjson) should include ("\"occurrenceId\":\"constituent:payment-captured-exit:1\"")
+        Files.readString(normalactionprogramjson) should include ("\"occurrenceId\":\"derived:completed:3\"")
+
         And("legacy Actions emit no producer-metadata records while CSM v1 output remains unchanged")
         val legacynormalroot = legacynormalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
         val legacyvalueroot = legacyvalueout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/composite/statemachine")
@@ -189,6 +242,12 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         val legacyvalueproducerroot = legacyvalueout.resolve(producerroot)
         val legacynormalmetadata = legacynormalout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
         val legacyvaluemetadata = legacyvalueout.resolve(CompositeStateMachineActionProducerMetadata.metadataPath)
+        val legacynormalactionprogramroot = legacynormalout.resolve(actionprogramroot)
+        val legacyvalueactionprogramroot = legacyvalueout.resolve(actionprogramroot)
+        val legacynormalactionprogramdefinition = legacynormalactionprogramroot.resolve("OrderProgressActionProgram1.scala")
+        val legacyvalueactionprogramdefinition = legacyvalueactionprogramroot.resolve("OrderProgressActionProgram1.scala")
+        val legacynormalactionprogramjson = legacynormalout.resolve(CompositeStateMachineActionProgram.metadataPath)
+        val legacyvalueactionprogramjson = legacyvalueout.resolve(CompositeStateMachineActionProgram.metadataPath)
         Files.readString(legacynormalroot.resolve("CompositeStateMachineAbi.scala")) shouldBe Files.readString(normalabi)
         Files.readString(legacyvalueroot.resolve("CompositeStateMachineAbi.scala")) shouldBe Files.readString(valueabi)
         Files.readString(legacynormalroot.resolve("CompositeStateMachineBootstrap.scala")) shouldBe Files.readString(normalbootstrap)
@@ -217,6 +276,15 @@ final class CompositeStateMachineGenerationSpec extends AnyWordSpec with Matcher
         Files.readString(legacyvaluemetadata) shouldBe Files.readString(legacynormalmetadata)
         Files.readString(legacynormalproducerroot.resolve("CompositeStateMachineActionProducerMetadataBootstrap.scala")) should include ("= Vector.empty")
         Files.readString(legacyvalueproducerroot.resolve("CompositeStateMachineActionProducerMetadataBootstrap.scala")) should include ("= Vector.empty")
+
+        And("legacy CML keeps its existing v1 output while the new compiler descriptor records missing metadata for producer-side rejection")
+        Files.exists(legacynormalactionprogramdefinition) shouldBe true
+        Files.exists(legacyvalueactionprogramdefinition) shouldBe true
+        Files.readString(legacynormalactionprogramdefinition) shouldBe Files.readString(legacyvalueactionprogramdefinition)
+        Files.readString(legacynormalactionprogramdefinition) should include ("metadata = None")
+        Files.readString(legacynormalactionprogramroot.resolve("LogicalActionCompiler.scala")) should include ("MissingMetadata")
+        Files.readString(legacynormalactionprogramjson) shouldBe Files.readString(legacyvalueactionprogramjson)
+        Files.readString(legacynormalactionprogramjson) should include ("\"metadata\":null")
 
         And("the component route remains additive while the value route has no component facade")
         Files.exists(normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/CompositeSampleComponent.scala")) shouldBe true
