@@ -1,7 +1,8 @@
 # Phase 47.2.1 - CML Logical-Action Compiler and Generated ABI
 
-Status: planned
+Status: DONE
 Planned at: 2026-09-08
+Closed at: 2026-09-08 (effective with the Phase 47.2.1 final release commit)
 Split from: [Phase 47.2](phase-47.2.md)
 Depends on: Phase 47.2
 Successor: [Phase 47.2.2](phase-47.2.2.md)
@@ -51,11 +52,11 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| ACP-02 | Freeze CML logical-action identity, typing, metadata, compensation, idempotency, and binding semantics without a second runtime algebra. | planned |
-| ACP-03 | Resolve/compile CML logical actions deterministically to `ExecProgram[UnitOfWorkOp, A]`. | planned |
-| ACP-06 | Emit stable SimpleModeler action binding/program metadata compatible with CNCF UnitOfWork execution. | planned |
-| ACP-07 | Implement tractable binding, compensation, ordering, idempotency, type, and Free/UoW-path validation. | planned |
-| UTP-02 | CNCF Phase 64.2 admits and versions the received CML compilation ABI. | planned |
+| ACP-02 | Freeze CML logical-action identity, typing, metadata, compensation, idempotency, and binding semantics without a second runtime algebra. | DONE |
+| ACP-03 | Resolve/compile CML logical actions deterministically to `ExecProgram[UnitOfWorkOp, A]`. | DONE |
+| ACP-06 | Emit stable SimpleModeler action binding/program metadata compatible with CNCF UnitOfWork execution. | DONE |
+| ACP-07 | Implement tractable binding, compensation, ordering, idempotency, type, and Free/UoW-path validation. | DONE |
+| UTP-02 | CNCF Phase 64.2 admits and versions the received CML compilation ABI. | external pending |
 
 `UTP-02` remains a CNCF-owned consumer admission item. The generated producer
 contract and its versioned handoff are the only cross-repository responsibility
@@ -74,8 +75,8 @@ of this child.
 - The exact ABI/version is recorded as a Cozy producer handoff for CNCF UTP-02;
   CNCF admission remains pending, is not a Cozy closure condition, and is not
   claimed by this child.
-- The matching checklist, focused validation/review, and future child release
-  closure are complete.
+- The matching checklist, focused validation/review, and this release closure
+  are complete. Phase 47.2.2 remains a separately planned successor.
 
 ## Non-goals
 
