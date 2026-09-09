@@ -3,8 +3,9 @@
 ## Status and authority
 
 This document records the stable design intent for the Document Project v2
-authoring boundary in Phase 45. It is design, not an executable implementation
-or a replacement for the Phase 45 checklist, which remains the progress ledger.
+authoring boundary in Phase 45 and the native execution boundary in Phase 56.
+It is design, not an executable implementation or a replacement for the Phase
+checklists, which remain the progress ledger.
 The normative behavior contract is [Document Project
 Specification](../spec/document-project.md).
 
@@ -149,7 +150,7 @@ V2 replaces the earlier authored descriptor, workflow, evidence, and state
 contract identities. There is no reader, migration, legacy evidence/state
 fallback, or compatibility branch for the retired contract.
 
-## Phase 42.1 evidence and attempt boundary
+## Historical Phase 42.1 evidence and attempt boundary
 
 This design records the Phase 42.1 evidence boundary.  DP42-03B implements the
 disposable snapshot cache; DP42-03C implements recorded single-operation
@@ -180,8 +181,9 @@ the closed status vocabularies.  Existing source assets may be
 `satisfied`/`current`; absent output or receipt-dependent evidence remains
 `missing`/`blocked`/`pending`.  Standard's disabled video products explicitly
 use `coverage: not-applicable`, `readiness: omitted`, and the profile reason
-`profile standard disables video branch`, never completion.  DP42-03C
-implements immutable append-only attempts and recorded dispatch only.  DP42-03D
+`profile standard disables video branch`, never completion. Historically,
+DP42-03C implemented immutable append-only attempts and recorded dispatch
+only. DP42-03D
 adds the optional sidecar evidence that derives retained receipt currentness
 and dependency-driven `stale` state without changing media receipt contracts.
 
@@ -210,7 +212,8 @@ no Core or state cache, and infers no downstream operation. A completed
 dialogue remains provenance until the distinct human acceptance record replaces
 the Content Core.
 
-DP42-03C creates `evidence/attempts` only for an eligible normal run; the
+Historically, DP42-03C created `evidence/attempts` only for an eligible normal
+run; the
 directories and files must be direct, non-symlinked project entries.  Each
 attempt is written to a same-directory temporary file and published with
 `ATOMIC_MOVE` without replacement.  Collisions or publication failures leave
@@ -273,11 +276,11 @@ article, slides, and video consumers.
 `inspect` and `verify` remain non-authoritative: they may write only that
 disposable snapshot cache, never an attempt, receipt, acceptance, authored
 source, registry, workspace integration, aggregate build, publication,
-deployment, upload, or downstream operation. `run` dispatches
-exactly one declared registered operation that produces a selected Work Product and
-creates one append-only attempt, while `--dry-run` reports the same selected
-operation, provider, and profile without persistence.  It does not infer
-downstream execution.  This boundary
+deployment, upload, or downstream operation. The historical Phase 42.1 `run`
+dispatch created one append-only attempt for a selected operation, while its
+`--dry-run` reported the same selected operation, provider, and profile without
+persistence. It did not infer downstream execution. Phase 56 supersedes that
+record-only normal-run behavior below. This historical boundary
 does not alter the closed descriptor fields, common workflow DAG, profiles,
 Work Product roles, criteria, gates, operation IDs, provider bindings, retained
 media/SmartDox/Visual Page/Phase-41 authorities, or public command grammar.
@@ -405,12 +408,14 @@ that an operation produces a selected Work Product, not that it is runtime-ready
 The command creates no
 target, dashboard, state, attempt, receipt, registry, delivery, or output file.
 
-`run` validates the descriptor, Core, and command-admitted initial sources,
-then resolves its declared operation before applying reserved-form and selected
-Work Product admission. An unreserved eligible run records one attempt without invoking its provider or
-creating output, receipt, Core write-back, state cache, or downstream work.
-`--dry-run` reports the selected operation, provider, and profile without
-creating evidence. An unknown, inactive-optional, or profile-disabled operation rejects with
+Before Phase 56, `run` validated the descriptor, Core, and command-admitted
+initial sources, then resolved its declared operation before applying
+reserved-form and selected Work Product admission. An unreserved eligible run
+recorded one attempt without invoking its provider or creating output, receipt,
+Core write-back, state cache, or downstream work. Its `--dry-run` reported the
+selected operation, provider, and profile without creating evidence. This
+historical behavior is superseded by the native result boundary below. An
+unknown, inactive-optional, or profile-disabled operation rejects with
 `DP-OP-001`; malformed or unsafe input retains its earlier diagnostic
 precedence and neither rejection creates evidence.
 
@@ -753,10 +758,49 @@ provider bindings.  SmartDox source projection and host discovery are also
 outside this kernel.  No deferred capability is accepted or claimed by this
 design.
 
+## Phase 56 native provider execution boundary
+
+Phase 56 replaces only the normal generic `run` path's historical record-only
+dispatch. The public grammar remains `cozy document-project run <project>
+--operation <logical-operation> [--dry-run]`, but it now resolves the declared
+logical operation, provider binding, participating prerequisite Work Products,
+direct authoritative inputs, and bounded output destination before it invokes a
+provider.
+
+The workflow declares one native provider contract in this Phase:
+`article.render-review` through `cozy-review-projection`, with exactly one
+output identity, `article-review-html`, at
+`target/document-project/article-review.html` with media type `text/html`.
+The provider invokes the existing deterministic article-review HTML projection
+as an implementation detail. It is not an adapter for `cozy-article-media` or
+any publication-preparation workflow.
+
+A native provider result is one of `executed`, `blocked`, or `failed`.
+`executed` carries at least one typed output identity/path/media type, diagnostics,
+and a generated receipt identity and value. Empty outputs or an absent receipt
+are failures, never execution success. Known bindings without a native provider
+return a typed `blocked` result naming the operation, binding, provider, and
+missing capability before output or evidence side effects.
+
+`--dry-run` performs the same resolution and admission without invoking a
+provider or creating a target, evidence, attempt, receipt file, or currentness
+state. The normal native result creates only its declared HTML output. It does
+not call the Document Project evidence model, append an Operation Attempt,
+accept evidence, establish currentness, or infer downstream work. Existing
+`cozy.document-operation-attempt.v1` files remain parseable historical evidence
+only; Phase 56 does not write them.
+
+Phase 56.1 exclusively owns accepted output/receipt/attempt/currentness
+closure. Phase 56.2 exclusively owns closed executable state and verification
+policy. Phase 57 exclusively owns publication export. These boundaries do not
+authorize a compatibility adapter, receipt adoption, delivery, deployment, or
+another native provider.
+
 ## Related authorities
 
 - Normative contract: [Document Project Specification](../spec/document-project.md)
-- Phase plan: [Phase 42](../phase/phase-42.md)
-- Progress ledger: [Phase 42 checklist](../phase/phase-42-checklist.md)
+- Native execution phase: [Phase 56](../phase/phase-56.md)
+- Historical phase: [Phase 42](../phase/phase-42.md)
+- Progress ledgers: [Phase 56 checklist](../phase/phase-56-checklist.md) and [Phase 42 checklist](../phase/phase-42-checklist.md)
 - Planning input only: [workflow-management proposal](../notes/document-project-workflow-management-specification-proposal.md)
   and [Content Core direction](../journal/2026/08/2026-08-30-document-project-content-core-direction.md)

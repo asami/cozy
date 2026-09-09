@@ -7,13 +7,12 @@ import io.circe.Json
 import java.security.MessageDigest
 import java.nio.charset.StandardCharsets
 import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 9, 2026
+ * @version Sep. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProject {
@@ -447,94 +446,160 @@ private[cozy] object CozyDocumentProject {
     }.toSet
     if (!operation.produces.exists(activeproducts.contains))
       _failure("DP-OP-001", s"logical operation $operationid is disabled for profile ${descriptor.profile}")
-    val provider = operation.providerBinding
+    val binding = resolved.definition.providerBindings.find(_.id == operation.providerBinding).getOrElse(
+      _descriptor_failure(s"logical operation $operationid has no declared provider binding")
+    )
+    val declaration = CozyDocumentWorkflow.nativeProviderDeclaration(operationid) match {
+      case Right(value) => value
+      case Left(cause) => _descriptor_failure(cause)
+    }
+    declaration.foreach { value =>
+      _admit_native_run_inputs(project, descriptor, operation, resolved)
+      value.outputs.foreach(_admit_native_output_destination(project, _))
+    }
     if (dryrun)
-      s"Cozy Document Project Run\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\nmode: dry-run\noutcome: not-recorded\nattempt: none"
+      _native_run_resolution(project, descriptor, operation, binding, declaration)
     else {
-      val attemptid = UUID.randomUUID().toString
-      val attempt = _write_operation_attempt(project, descriptor, operationid, provider, attemptid)
-      s"Cozy Document Project Run\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: $operationid\nprovider: $provider\nprofile: ${descriptor.profile}\noutcome: recorded\nattempt: ${_project_relative(project, attempt)}"
+      declaration match {
+        case Some(value) =>
+          val destinations = value.outputs.map(_admit_native_output_destination(project, _))
+          _native_run_result(
+            project,
+            descriptor,
+            operation,
+            binding,
+            CozyDocumentProjectProvider.execute(CozyDocumentProjectProvider.Request(project, descriptor, operation, value, destinations))
+          )
+        case None => _native_run_result(project, descriptor, operation, binding, CozyDocumentProjectProvider.unavailable(operation, binding))
+      }
     }
   }
 
-  private def _write_operation_attempt(
+  private def _admit_native_run_inputs(
     project: Path,
     descriptor: Descriptor,
-    operationid: String,
-    provider: String,
-    attemptid: String
+    operation: CozyDocumentWorkflow.LogicalOperation,
+    resolved: CozyDocumentWorkflow.ResolvedWorkflow
+  ): Unit = {
+    operation.consumes.foreach { workproductid =>
+      resolved.workProducts.find(_.workProduct.id == workproductid) match {
+        case Some(value) if value.isParticipating => ()
+        case Some(_) => _failure("DP-OP-001", s"logical operation ${operation.id} prerequisite Work Product is not selected: $workproductid")
+        case None => _descriptor_failure(s"logical operation ${operation.id} references a missing prerequisite Work Product: $workproductid")
+      }
+    }
+    operation.consumes.foreach {
+      case "content-core" => _direct_file(project, descriptor.contentCore, "Content Core authority")
+      case "article-source" => _direct_file(project, "index.dox", "article source authority")
+      case "visual-pages" => _direct_file(project, "presentation/visual-pages.yaml", "Visual Page authority")
+      case workproductid => _failure("DP-OP-001", s"native provider prerequisite Work Product has no direct authority admission: $workproductid")
+    }
+  }
+
+  private def _admit_native_output_destination(
+    project: Path,
+    output: CozyDocumentWorkflow.OutputDeclaration
   ): Path = {
-    val evidencedirectory = project.resolve("evidence").normalize()
-    val attemptsdirectory = evidencedirectory.resolve("attempts").normalize()
-    if (!evidencedirectory.startsWith(project) || !attemptsdirectory.startsWith(project))
-      _failure("DP-PATH-001", "attempt evidence directory must be contained in the project")
-    var createdevidence = false
-    var createdattempts = false
-    var temporary: Option[Path] = None
-    try {
-      if (Files.exists(evidencedirectory, LinkOption.NOFOLLOW_LINKS))
-        _direct_directory(evidencedirectory, "attempt evidence directory")
-      else {
-        Files.createDirectory(evidencedirectory)
-        createdevidence = true
-      }
-      if (Files.exists(attemptsdirectory, LinkOption.NOFOLLOW_LINKS))
-        _direct_directory(attemptsdirectory, "attempts directory")
-      else {
-        Files.createDirectory(attemptsdirectory)
-        createdattempts = true
-      }
-      val destination = attemptsdirectory.resolve(s"$attemptid.yaml").normalize()
-      if (!destination.startsWith(attemptsdirectory) || Files.exists(destination, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(destination))
-        _failure("DP-PATH-001", s"attempt evidence already exists or has an unsafe path: $attemptid")
-      val temporaryfile = Files.createTempFile(attemptsdirectory, s".$attemptid-", ".tmp")
-      temporary = Some(temporaryfile)
-      Files.write(temporaryfile, _operation_attempt_yaml(project, descriptor, operationid, provider, attemptid).getBytes(StandardCharsets.UTF_8))
-      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE)
-      temporary = None
-      destination
-    } catch {
-      case _: AtomicMoveNotSupportedException => _failure("DP-PATH-001", "attempt evidence requires an atomic move")
-      case NonFatal(_) => _failure("DP-PATH-001", "attempt evidence cannot be published without overwriting existing evidence")
-    } finally {
-      temporary.foreach(Files.deleteIfExists)
-      if (createdattempts && Files.exists(attemptsdirectory, LinkOption.NOFOLLOW_LINKS)) {
-        try Files.deleteIfExists(attemptsdirectory) catch { case NonFatal(_) => () }
-      }
-      if (createdevidence && Files.exists(evidencedirectory, LinkOption.NOFOLLOW_LINKS)) {
-        try Files.deleteIfExists(evidencedirectory) catch { case NonFatal(_) => () }
-      }
+    val destination = project.resolve(output.path).normalize()
+    val projectionroot = project.resolve("target").resolve("document-project").normalize()
+    if (!destination.startsWith(projectionroot) || destination.getFileName.toString != "article-review.html" || output.mediaType != "text/html")
+      _failure("DP-PATH-001", "native provider output destination is outside its declared HTML boundary")
+    if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)))
+      _failure("DP-PATH-001", "native provider output destination must be a direct regular file or absent")
+    var parent = Option(destination.getParent)
+    while (parent.nonEmpty && parent.get.startsWith(project)) {
+      val path = parent.get
+      if (Files.isSymbolicLink(path))
+        _failure("DP-PATH-001", "native provider output parent must not contain a symbolic link")
+      if (Files.exists(path, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+        _failure("DP-PATH-001", "native provider output parent must be a direct directory")
+      parent = Option(path.getParent)
     }
+    destination
   }
 
-  private def _operation_attempt_yaml(
+  private def _native_run_resolution(
     project: Path,
     descriptor: Descriptor,
-    operationid: String,
-    provider: String,
-    attemptid: String
+    operation: CozyDocumentWorkflow.LogicalOperation,
+    binding: CozyDocumentWorkflow.ProviderBinding,
+    declaration: Option[CozyDocumentWorkflow.NativeProviderDeclaration]
+  ): String = declaration match {
+    case Some(value) =>
+      val outputs = value.outputs.map { output =>
+        s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}"
+      }.mkString("\n")
+      s"Cozy Document Project Run\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: ${operation.id}\nprovider-binding: ${binding.id}\nprovider: ${binding.provider}\nprofile: ${descriptor.profile}\nmode: dry-run\noutcome: resolved\noutputs:\n$outputs\ndiagnostics:\n  - native provider invocation was not requested\nreceipt: pending\nevidence: none\ncurrentness: unchanged"
+    case None =>
+      _native_run_result(project, descriptor, operation, binding, CozyDocumentProjectProvider.unavailable(operation, binding), Some("dry-run"))
+  }
+
+  private def _native_run_result(
+    project: Path,
+    descriptor: Descriptor,
+    operation: CozyDocumentWorkflow.LogicalOperation,
+    binding: CozyDocumentWorkflow.ProviderBinding,
+    result: CozyDocumentProjectProvider.ProviderResult,
+    mode: Option[String] = None
   ): String = {
-    val sources = _state_sources(project, descriptor)
-    val expectedsourcecount = if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile)) 7 else 6
-    if (sources.size != expectedsourcecount)
-      _failure("DP-PATH-001", "initial authored sources changed before attempt evidence publication")
-    val inputs = sources.map { case (relative, path) =>
-      s"  - path: $relative\n    sha256: ${_sha256(path)}"
+    val heading = Vector(
+      "Cozy Document Project Run",
+      s"project: ${descriptor.id}",
+      "schema: cozy.document-project.v2",
+      s"operation: ${operation.id}",
+      s"provider-binding: ${binding.id}",
+      s"provider: ${binding.provider}",
+      s"profile: ${descriptor.profile}"
+    ) ++ mode.map(value => s"mode: $value")
+    val details = result match {
+      case CozyDocumentProjectProvider.Executed(outputs, diagnostics, receipt)
+          if outputs.nonEmpty && diagnostics.nonEmpty && receipt.identity.trim.nonEmpty && receipt.value.trim.nonEmpty =>
+        val outputlines = outputs.map { output =>
+          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}"
+        }.mkString("\n")
+        Vector(
+          "outcome: executed",
+          "outputs:",
+          outputlines,
+          "diagnostics:"
+        ) ++ diagnostics.map(value => s"  - $value") ++ Vector(
+          "receipt:",
+          s"  identity: ${receipt.identity}",
+          s"  value: ${receipt.value}",
+          "evidence: none",
+          "currentness: unchanged"
+        )
+      case CozyDocumentProjectProvider.Executed(_, _, _) =>
+        Vector(
+          "outcome: failed",
+          "diagnostics:",
+          "  - native provider returned empty outputs, diagnostics, or receipt data",
+          "evidence: none",
+          "currentness: unchanged"
+        )
+      case CozyDocumentProjectProvider.Blocked(_, blockedbinding, provider, capability, diagnostics) =>
+        Vector(
+          "outcome: blocked",
+          s"binding: $blockedbinding",
+          s"provider: $provider",
+          s"missing-capability: $capability",
+          "diagnostics:"
+        ) ++ diagnostics.map(value => s"  - $value") ++ Vector(
+          "evidence: none",
+          "currentness: unchanged"
+        )
+      case CozyDocumentProjectProvider.Failed(_, failedbinding, provider, diagnostics) =>
+        Vector(
+          "outcome: failed",
+          s"binding: $failedbinding",
+          s"provider: $provider",
+          "diagnostics:"
+        ) ++ diagnostics.map(value => s"  - $value") ++ Vector(
+          "evidence: none",
+          "currentness: unchanged"
+        )
     }
-    (Vector(
-      "schema: cozy.document-operation-attempt.v1",
-      s"id: $attemptid",
-      s"operation: $operationid",
-      s"provider: $provider",
-      s"profile: ${descriptor.profile}",
-      "inputs:"
-    ) ++ inputs ++ Vector(
-      "outcome: recorded",
-      "diagnostics:",
-      "  - provider execution is deferred; this dispatch was recorded only",
-      "outputs: []",
-      "receipt: none"
-    )).mkString("\n") + "\n"
+    (heading ++ details).mkString("\n")
   }
 
   private[cozy] def _project_relative(project: Path, path: Path): String =

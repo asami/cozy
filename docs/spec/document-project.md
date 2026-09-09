@@ -2,8 +2,8 @@
 
 ## Status and scope
 
-This is the normative Phase 45 contract for the Document Project v2 authoring
-boundary. Its stable design intent is [Document Project
+This is the normative Phase 45 Document Project v2 authoring contract, extended
+by the Phase 56 native execution boundary. Its stable design intent is [Document Project
 Design](../design/document-project.md). The Phase 45 checklist is a progress
 ledger, not a behavior contract.
 
@@ -389,7 +389,7 @@ MUST NOT become semantic, workflow, renderer, receipt, or status authority and
 MUST NOT write back into authored sources.  Phase 42.1 Slice DP42-04A defines
 their public purpose-oriented commands and deterministic output contract below.
 
-## Phase 42.1 evidence and attempt contract
+## Historical Phase 42.1 evidence and attempt contract
 
 This section is the normative Phase 42.1 evidence boundary.  DP42-03B
 implements the disposable snapshot cache described here, DP42-03C implements
@@ -435,8 +435,8 @@ projections may be `satisfied`/`current`; absent output or receipt-dependent
 evidence remains `missing`, `blocked`, and `pending`.  A disabled standard
 video entry MUST be `coverage: not-applicable` and `readiness: omitted`, with
 `reason: profile standard disables video branch`; it MUST never be treated as
-complete.  DP42-03C implements immutable append-only attempts and recorded
-dispatch only.  DP42-03D supplies the optional retained receipt, review, and
+complete. Historically, DP42-03C implemented immutable append-only attempts
+and recorded dispatch only. DP42-03D supplies the optional retained receipt, review, and
 dependency evidence used to derive `stale` without timestamp inference.
 
 `cozy.document-operation-attempt.v1` MUST be durable append-only evidence at
@@ -452,8 +452,8 @@ attempt identifier; `operation` and `provider` MUST be the declared operation
 and its frozen workflow provider binding; and `profile` MUST be copied from
 the descriptor.  `inputs` MUST be the fixed-order direct project-relative
 descriptor, Core, and initial authored source identities, each containing only
-`path` and a lowercase hexadecimal SHA-256 `sha256`.  A recorded dispatch MUST
-use `outcome: recorded`, one diagnostic that provider execution is deferred and
+`path` and a lowercase hexadecimal SHA-256 `sha256`. A historical recorded
+dispatch used `outcome: recorded`, one diagnostic that provider execution is deferred and
 the dispatch was recorded only, `outputs: []`, and `receipt: none`.  It MUST
 not invoke a provider, generate a deliverable, create a receipt, write back
 the Core, update the disposable snapshot, or infer downstream work.  Accepted
@@ -490,11 +490,12 @@ consumers `stale`.
 command MAY write only the disposable snapshot cache above; it MUST NOT write
 an attempt, receipt, acceptance, authored source, registry, workspace
 integration, aggregate build, publication, deployment, upload, or downstream
-operation.  DP42-03C `run` admits exactly one declared, registered operation
-that produces a selected Work Product and creates exactly one append-only
-attempt, or, with `--dry-run`, reports the selected operation, provider, and
-profile without creating any cache, evidence, output, or other file.  It MUST
-NOT infer downstream execution.  The closed descriptor fields, common workflow
+operation. Before Phase 56, DP42-03C `run` admitted exactly one declared,
+registered operation that produced a selected Work Product and created exactly
+one append-only attempt, or, with `--dry-run`, reported the selected operation,
+provider, and profile without creating any cache, evidence, output, or other
+file. It did not infer downstream execution. This historical record-only
+behavior is superseded by the native typed run contract below. The closed descriptor fields, common workflow
 DAG, profiles, Work Product roles, criteria, gates, operation IDs, provider
 bindings, retained media/SmartDox/Visual Page/Phase-41 authorities, and public
 command grammar remain otherwise unchanged. Retired v1 compatibility is not a
@@ -750,7 +751,7 @@ receipt behavior.
 
 The declared `presentation.render-confirmation` logical operation is reserved
 for that sole review form and MUST NOT become a generic `run` alias.
-After declared-operation admission, either the dry-run or recording generic
+After declared-operation admission, either the dry-run or native generic
 form MUST reject with `DP-OP-001` before optional-product participation,
 provider dispatch, output, receipt, state mutation, or Operation Attempt
 evidence. The diagnostic identifies `presentation.render-confirmation` as
@@ -999,13 +1000,12 @@ protocol adds no schema/version, remote/provider, or compatibility behavior.
   After successful validation it MUST regenerate only the disposable snapshot
   cache specified above and MUST identify its project-relative location in
   output.  Failed validation MUST create no new cache.
-- `run --operation` MUST validate the descriptor, Core, and all command-admitted
-  initial authored sources before any evidence write.  It MUST admit exactly
-  one declared logical operation that produces a selected Work Product. A normal
-  eligible run MUST record one append-only attempt and MUST NOT invoke a
-  provider, generate a deliverable or receipt, write the Core or state cache,
-  or infer downstream work.  `--dry-run` uses the same admission and reports
-  the operation, provider, and profile without creating an attempt or cache.
+- Before Phase 56, `run --operation` validated the descriptor, Core, and all
+  command-admitted initial authored sources before an evidence write. It
+  admitted one declared logical operation that produced a selected Work Product,
+  recorded one append-only attempt, and did not invoke a provider. Its
+  `--dry-run` used the same admission without an attempt or cache. The Phase 56
+  native typed run contract below supersedes this historical behavior.
   An unknown operation or a declared operation for an inactive optional or
   profile-disabled Work Product MUST reject with `DP-OP-001`; malformed or unsafe project input retains its
   earlier descriptor/path diagnostic precedence.  Rejection MUST create no
@@ -1143,11 +1143,61 @@ Work Product roles, criteria, gates, operations, or provider bindings.  This
 specification MUST NOT be represented as implementing, accepting, or proving
 compatibility for those deferred matters.
 
+## Phase 56 native typed run contract
+
+Phase 56 supersedes the historical normal-run record-only dispatch. The public
+grammar remains exactly:
+
+```text
+cozy document-project run <project> --operation <logical-operation> [--dry-run]
+```
+
+Before native provider invocation, `run` MUST resolve the declared logical
+operation and binding, admit participating prerequisite Work Products, admit
+their direct authoritative inputs, and admit every declared output destination.
+Unsafe, missing, non-authoritative, unselected, or prerequisite-invalid input
+MUST reject before provider invocation. The generic form continues to reject
+`content-core.compose` and `presentation.render-confirmation` through their
+separate public contracts.
+
+The immutable workflow declares exactly one Phase 56 native provider/output
+binding: `article.render-review` through `cozy-review-projection`, producing
+only output identity `article-review-html` at
+`target/document-project/article-review.html` with media type `text/html`.
+No other declared binding is implicitly emulated. A known binding with no
+native provider MUST return a typed `blocked` result that names the logical
+operation, provider binding, provider, and missing capability before an output
+or evidence side effect.
+
+A native provider result MUST be exactly `executed`, `blocked`, or `failed`.
+An `executed` result MUST carry one or more typed outputs, each with identity,
+path, and media type, nonempty diagnostics, and a generated receipt identity
+and value. Empty outputs, an absent receipt, or an empty receipt identity/value
+MUST be a `failed` result and MUST NOT be rendered as execution success. The
+P56 provider may use the deterministic existing article-review HTML projection
+directly, but MUST NOT call the Document Project evidence model or a
+compatibility adapter.
+
+`--dry-run` MUST report the admitted typed resolution without invoking a
+provider or creating a target, evidence, attempt, receipt file, or currentness
+mutation. A normal executed result creates only the declared HTML output. It
+MUST NOT append an Operation Attempt, accept evidence, establish currentness,
+write a receipt file, or infer downstream work. Existing
+`cozy.document-operation-attempt.v1` files remain historical evidence and may
+be parsed by their existing reader; Phase 56 normal run MUST NOT write one.
+
+Accepted output/receipt/attempt/currentness closure is excluded to Phase 56.1.
+Closed executable state and verification policy are excluded to Phase 56.2.
+Publication export and every external delivery action are excluded to Phase 57.
+No compatibility wrapper for `cozy-article-media` or earlier publication
+preparation is permitted.
+
 ## Related authorities
 
 - Stable design: [Document Project Design](../design/document-project.md)
-- Phase plan: [Phase 42](../phase/phase-42.md)
-- Progress ledger: [Phase 42 checklist](../phase/phase-42-checklist.md)
+- Native execution phase: [Phase 56](../phase/phase-56.md)
+- Historical phase: [Phase 42](../phase/phase-42.md)
+- Progress ledgers: [Phase 56 checklist](../phase/phase-56-checklist.md) and [Phase 42 checklist](../phase/phase-42-checklist.md)
 - Retained media contract: [Media Package specification](media-package.md)
   and [Media Package operation design](../design/media-package-operation.md)
 - Retained Visual Page contract: [Visual Page specification](visual-page.md)

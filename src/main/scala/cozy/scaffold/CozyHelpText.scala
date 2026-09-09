@@ -3,7 +3,7 @@ package cozy.scaffold
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep.  9, 2026
+ * @version Sep. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -29,7 +29,7 @@ private[cozy] object CozyHelpText {
       |  document-project verify <project>
       |  document-project run <project> --operation <logical-operation> [--dry-run]
       |  document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
-      |      Inspect, plan, verify, run a declared operation, scaffold a package, or generate read-only projections.
+      |      Inspect, plan, verify, execute one admitted native operation, scaffold a package, or generate read-only projections.
       |      Dashboard defaults to target/document-project/project-dashboard.html; --save selects the exact requested path.
       |      Core review defaults to target/document-project/core-review.html.
       |      Article review defaults to target/document-project/article-review.html and is admitted only when article-review-html is selected.
@@ -42,6 +42,8 @@ private[cozy] object CozyHelpText {
       |      Slide Logical Chart visualizes current Content Core and Visual Page IR; Video Logical Chart also visualizes storyboard IR, all as read-only projections.
       |      Projections are deterministic, self-contained, and HTML-escaped. They otherwise write only the selected output; default Article and Video review also write one local disposable generated-review receipt beside the default HTML.
       |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.
+      |      Generic run resolves typed provider/output declarations before execution. Native run currently executes only article.render-review through cozy-review-projection at target/document-project/article-review.html (text/html); other declared providers report an explicit missing-capability block. --dry-run reports that typed resolution without invoking a provider or writing output, evidence, or currentness.
+      |      Native run reports typed output identity/path/media type, diagnostics, and a generated receipt value. It does not append an Operation Attempt, accept evidence, or establish currentness.
       |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, attempts, delivery state, or external/provider receipts.
       |      Content Core candidate accepts a completed direct JSON/YAML dialogue bundle and records durable local evidence; it never invokes an AI provider or changes Content Core.
       |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.

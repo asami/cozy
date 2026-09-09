@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 9, 2026
+ * @version Sep. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -535,19 +535,20 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "admit article review HTML only as a selected recorded dry run" in {
+    "resolve article review HTML as a selected native typed dry run" in {
       _with_temp_dir("cozy-document-project-v2-article-review") { root =>
         Given("a v2 project that explicitly selects article-review-html")
         val project = _scaffolded_project(root, "article-review")
         val descriptor = project.resolve("document-project.yaml")
         Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - article-review-html"), StandardCharsets.UTF_8)
 
-        When("the declared review operation is admitted only as a recorded dry run")
+        When("the declared review operation is resolved without native invocation")
         val output = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review", "--dry-run"))
 
-        Then("the selected first-class Work Product records its declared dry-run operation without generating output")
+        Then("the selected first-class Work Product reports its typed dry-run resolution without generating output")
         output should include("operation: article.render-review")
         output should include("mode: dry-run")
+        output should include("outcome: resolved")
       }
     }
 
@@ -1093,7 +1094,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("the reports distinguish deterministic active, omitted, blocked, and eligible model categories")
         standardplan should include("required: work-product content-core [authority, required]")
         standardplan should include("profile-disabled: work-product video-storyboard [plan, disabled: profile standard disables video branch]")
-        standardplan should include("blocked: operation article.render-pdf [execution and Operation Attempts are reserved for Phase 42.1]")
+        standardplan should include("blocked: operation article.render-pdf [native execution is declared only for currently available providers; Operation Attempts are historical evidence]")
         standardplan should include("eligible: operation article.render-pdf [provider: smartdox-rendering]")
         videoplan should include("required: work-product video-storyboard [plan, required]")
         videoplan should not include "profile standard disables video branch"
@@ -2364,70 +2365,127 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "record one immutable attempt for each eligible run without executing a provider" in {
+    "execute the sole native Article review provider and retain no P56 evidence authority" in {
       _with_temp_dir("cozy-document-project-run") { root =>
-        Given("an admitted standard Document Project")
+        Given("an admitted standard Document Project with Article review selected")
         val parent = Files.createDirectory(root.resolve("parent"))
         _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
         val project = parent.resolve("sample.dox")
-        val attempts = project.resolve("evidence/attempts")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
         val authored = project.resolve("index.dox")
         val authoredbytes = Files.readAllBytes(authored)
 
-        When("dry-run admits the declared operation")
-        val dryrun = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf", "--dry-run"))
+        When("dry-run resolves the admitted native provider without invocation")
+        val dryrun = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review", "--dry-run"))
 
-        Then("dry-run reports the selected operation and does not persist any evidence")
-        dryrun should include("operation: article.render-pdf")
-        dryrun should include("provider: smartdox-rendering")
+        Then("dry-run reports the typed declaration without target, attempt, or currentness mutation")
+        dryrun should include("operation: article.render-review")
+        dryrun should include("provider-binding: cozy-review-projection")
         dryrun should include("profile: standard")
-        dryrun should include("outcome: not-recorded")
-        Files.exists(attempts, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        dryrun should include("outcome: resolved")
+        dryrun should include("identity: article-review-html")
+        dryrun should include("path: target/document-project/article-review.html")
+        dryrun should include("mediaType: text/html")
+        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
-        When("an eligible operation is run twice")
-        val firstoutput = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
-        val firstattempt = project.resolve(firstoutput.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
-        val firstbytes = Files.readAllBytes(firstattempt)
-        val secondoutput = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
-        val secondattempt = project.resolve(secondoutput.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
+        When("the admitted native operation is run")
+        val output = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
 
-        Then("each run records one canonical attempt and preserves the first immutable bytes")
-        firstoutput should include("outcome: recorded")
-        secondoutput should include("outcome: recorded")
-        firstattempt should not equal secondattempt
-        Files.readAllBytes(firstattempt) shouldBe firstbytes
+        Then("the typed result carries the one HTML output, diagnostics, and generated receipt")
+        output should include("outcome: executed")
+        output should include("identity: article-review-html")
+        output should include("path: target/document-project/article-review.html")
+        output should include("mediaType: text/html")
+        output should include("native review projection rendered")
+        output should include("receipt:")
+        output should include("cozy.document-project.native-receipt:")
+        output should include("evidence: none")
+        output should include("currentness: unchanged")
         Files.readAllBytes(authored) shouldBe authoredbytes
-        _relative_files(attempts).size shouldBe 2
-        val attempttext = Files.readString(firstattempt, StandardCharsets.UTF_8)
-        attempttext.linesIterator.filterNot(_.startsWith(" ")).map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
-          "schema", "id", "operation", "provider", "profile", "inputs", "outcome", "diagnostics", "outputs", "receipt"
-        )
-        attempttext.linesIterator.take(10).toVector shouldBe Vector(
-          "schema: cozy.document-operation-attempt.v1",
-          attempttext.linesIterator.drop(1).next(),
-          "operation: article.render-pdf",
-          "provider: smartdox-rendering",
-          "profile: standard",
-          "inputs:",
-          "  - path: document-project.yaml",
-          attempttext.linesIterator.drop(7).next(),
-          "  - path: content/core-en.yaml",
-          attempttext.linesIterator.drop(9).next()
-        )
-        attempttext should include("outcome: recorded")
-        attempttext should include("provider execution is deferred; this dispatch was recorded only")
-        attempttext should include("outputs: []")
-        attempttext should include("receipt: none")
-        attempttext should include("path: index.dox")
-        attempttext should include("path: infographic/infographic.svg")
-        attempttext should include("path: presentation/visual-pages.yaml")
-        attempttext should include("path: review/README.md")
-
-        And("recorded dispatch creates no generated state or deliverable")
-        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.exists(project.resolve("target/document-project/article-review.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("state"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("operation-receipt-evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("a known binding without a native provider is run")
+        val blocked = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
+
+        Then("it is explicitly blocked without a new output or an Operation Attempt")
+        blocked should include("outcome: blocked")
+        blocked should include("operation: article.render-pdf")
+        blocked should include("provider-binding: smartdox-rendering")
+        blocked should include("missing-capability: native typed provider execution is unavailable")
+        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "admit Article review inputs and output destination before native provider invocation" in {
+      _with_temp_dir("cozy-document-project-native-run-admission") { root =>
+        Given("a selected Article review project whose authoritative article source is symbolic")
+        val sourceparent = Files.createDirectory(root.resolve("source-parent"))
+        _execute(List("document-project", "scaffold", "source", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", sourceparent.toString))
+        val sourceproject = sourceparent.resolve("source.dox")
+        _activate_optional_work_products(sourceproject, "standard", Vector("article-review-html"))
+        val externalarticle = root.resolve("external-index.dox")
+        Files.writeString(externalarticle, "external\n", StandardCharsets.UTF_8)
+        Files.delete(sourceproject.resolve("index.dox"))
+        Files.createSymbolicLink(sourceproject.resolve("index.dox"), externalarticle)
+
+        When("the native operation is requested with the unsafe authoritative input")
+        val sourcefailure = _failure(List("document-project", "run", sourceproject.toString, "--operation", "article.render-review"))
+
+        Then("input admission rejects it before output or evidence mutation")
+        _diagnostic_tokens(sourcefailure) shouldBe Vector("DP-PATH-001")
+        Files.exists(sourceproject.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(sourceproject.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        Given("a second selected Article review project whose declared output destination is symbolic")
+        val outputparent = Files.createDirectory(root.resolve("output-parent"))
+        _execute(List("document-project", "scaffold", "output", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", outputparent.toString))
+        val outputproject = outputparent.resolve("output.dox")
+        _activate_optional_work_products(outputproject, "standard", Vector("article-review-html"))
+        val externaloutput = root.resolve("external-review.html")
+        Files.writeString(externaloutput, "unchanged\n", StandardCharsets.UTF_8)
+        Files.createDirectories(outputproject.resolve("target/document-project"))
+        Files.createSymbolicLink(outputproject.resolve("target/document-project/article-review.html"), externaloutput)
+
+        When("the native operation is requested with the unsafe declared output")
+        val outputfailure = _failure(List("document-project", "run", outputproject.toString, "--operation", "article.render-review"))
+
+        Then("output admission rejects it before provider invocation or an Operation Attempt")
+        _diagnostic_tokens(outputfailure) shouldBe Vector("DP-PATH-001")
+        Files.readString(externaloutput, StandardCharsets.UTF_8) shouldBe "unchanged\n"
+        Files.exists(outputproject.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject empty native provider output declarations as failed results" in {
+      _with_temp_dir("cozy-document-project-native-provider-result") { root =>
+        Given("an admitted selected Article review project and an empty provider declaration")
+        val project = _scaffolded_project(root, "empty-result")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+        val descriptor = CozyDocumentProject._load_project(project)
+        val operation = CozyDocumentWorkflow.declaredOperation("article.render-review") match {
+          case Right(Some(value)) => value
+          case _ => throw new RuntimeException("article.render-review must be declared")
+        }
+        val declaration = CozyDocumentWorkflow.NativeProviderDeclaration("article.render-review", "cozy-review-projection", Vector.empty)
+
+        When("the provider receives no declared output")
+        val result = CozyDocumentProjectProvider.execute(CozyDocumentProjectProvider.Request(project, descriptor, operation, declaration, Vector.empty))
+
+        Then("it cannot represent execution success without outputs and a receipt")
+        result shouldBe CozyDocumentProjectProvider.Failed(
+          "article.render-review",
+          "cozy-review-projection",
+          "unresolved provider",
+          Vector("native provider requires one admitted destination for every declared output")
+        )
+        Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -2796,19 +2854,21 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "record the activated video source identity without executing its provider" in {
+    "block the activated video operation when its native provider is unavailable" in {
       _with_temp_dir("cozy-document-project-run-video") { root =>
         Given("an admitted standard-video Document Project")
         val parent = Files.createDirectory(root.resolve("parent"))
         _execute(List("document-project", "scaffold", "sample", "--profile", "standard-video", "--language", "en", "--workspace", "directory", "--save", parent.toString))
         val project = parent.resolve("sample.dox")
 
-        When("the activated video operation is recorded")
+        When("the activated video operation is requested")
         val output = _execute(List("document-project", "run", project.toString, "--operation", "video.render-review"))
-        val attempt = project.resolve(output.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
 
-        Then("the attempt includes the direct storyboard identity and no generated output")
-        Files.readString(attempt, StandardCharsets.UTF_8) should include("path: video/storyboard.md")
+        Then("the typed block names the unavailable provider without an attempt or generated output")
+        output should include("outcome: blocked")
+        output should include("provider-binding: cozy-video")
+        output should include("missing-capability: native typed provider execution is unavailable")
+        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("video-review"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
@@ -2948,7 +3008,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.exists(standalone.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(bok.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
-        When("the selected local operations are recorded without provider execution")
+        When("the selected local operations without native providers are requested")
         val standaloneoperations = Vector(
           "article.render-pdf",
           "summary-slides.render-pdf",
@@ -2969,25 +3029,21 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val bokoutputs = bokoperations.map(operation => _execute(List("document-project", "run", bok.toString, "--operation", operation)))
         val bokvideofailure = _failure(List("document-project", "run", bok.toString, "--operation", "video.render-review"))
 
-        Then("every selected dispatch is recorded only and the disabled BoK video operation remains rejected")
+        Then("every unavailable selected dispatch is explicitly blocked and the disabled BoK video operation remains rejected")
         standaloneoperations.zip(standaloneoutputs).foreach { case (operation, output) =>
           output should include(s"operation: $operation")
-          output should include("outcome: recorded")
-          val attempt = standalone.resolve(output.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
-          Files.readString(attempt, StandardCharsets.UTF_8) should include("provider execution is deferred; this dispatch was recorded only")
-          Files.readString(attempt, StandardCharsets.UTF_8) should include("outputs: []")
+          output should include("outcome: blocked")
+          output should include("missing-capability: native typed provider execution is unavailable")
         }
         bokoperations.zip(bokoutputs).foreach { case (operation, output) =>
           output should include(s"operation: $operation")
-          output should include("outcome: recorded")
-          val attempt = bok.resolve(output.linesIterator.find(_.startsWith("attempt: ")).get.stripPrefix("attempt: "))
-          Files.readString(attempt, StandardCharsets.UTF_8) should include("provider execution is deferred; this dispatch was recorded only")
-          Files.readString(attempt, StandardCharsets.UTF_8) should include("outputs: []")
+          output should include("outcome: blocked")
+          output should include("missing-capability: native typed provider execution is unavailable")
         }
         bokvideofailure should include("DP-OP-001")
         bokvideofailure should include("disabled for profile bok")
-        _relative_files(standalone.resolve("evidence/attempts")).size shouldBe standaloneoperations.size
-        _relative_files(bok.resolve("evidence/attempts")).size shouldBe bokoperations.size
+        Files.exists(standalone.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(bok.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
         When("the standalone Core review is generated")
         _execute(List("document-project", "review", standalone.toString, "--kind", "core"))

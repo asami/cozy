@@ -2,7 +2,7 @@ package cozy.document
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep.  4, 2026
+ * @version Sep. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentWorkflow {
@@ -43,6 +43,12 @@ private[cozy] object CozyDocumentWorkflow {
   final case class Gate(id: String, description: String, criteria: Vector[String])
   final case class EvidenceReference(id: String, description: String)
   final case class ProviderBinding(id: String, provider: String)
+  final case class OutputDeclaration(identity: String, path: String, mediaType: String)
+  final case class NativeProviderDeclaration(
+    operationId: String,
+    providerBinding: String,
+    outputs: Vector[OutputDeclaration]
+  )
   final case class LogicalOperation(
     id: String,
     providerBinding: String,
@@ -92,7 +98,7 @@ private[cozy] object CozyDocumentWorkflow {
     eligibleOperations: Vector[LogicalOperation]
   )
 
-  val executionReservedExplanation: String = "execution and Operation Attempts are reserved for Phase 42.1"
+  val executionReservedExplanation: String = "native execution is declared only for currently available providers; Operation Attempts are historical evidence"
 
   def documentProduction: WorkflowDefinition = _document_production
 
@@ -110,6 +116,12 @@ private[cozy] object CozyDocumentWorkflow {
 
   def declaredOperation(operationId: String): Either[String, Option[LogicalOperation]] =
     Right(_validated_document_production().operations.find(_.id == operationId))
+
+  def nativeProviderDeclaration(operationId: String): Either[String, Option[NativeProviderDeclaration]] =
+    Right({
+      _validated_document_production()
+      _native_provider_declarations.find(_.operationId == operationId)
+    })
 
   def resolve(profileId: String, activeOptionalWorkProductIds: Vector[String] = Vector.empty): Either[String, ResolvedWorkflow] = {
     val definition = _validated_document_production()
@@ -360,6 +372,14 @@ private[cozy] object CozyDocumentWorkflow {
     LogicalOperation("operation-receipt.record", "cozy-operation-receipt", Vector("content-core-candidate", "content-core", "core-review-html", "presentation-semantics", "article-source", "article-html", "article-review-html", "article-pdf", "visual-pages", "slide-review-html", "summary-slides-pdf", "infographic-svg", "infographic-png", "video-storyboard", "video-review", "video-deliverable", "explanation-structure-review-html", "video-logical-chart-html", "presentation-confirmation-html"), Vector("operation-receipt-evidence"))
   )
 
+  private val _native_provider_declarations = Vector(
+    NativeProviderDeclaration(
+      "article.render-review",
+      "cozy-review-projection",
+      Vector(OutputDeclaration("article-review-html", "target/document-project/article-review.html", "text/html"))
+    )
+  )
+
   private val _work_products = Vector(
     WorkProduct("content-core-candidate", "Content Core candidate", WorkProductRole.Candidate, "content-core.compose", Vector("content-core.review", "operation-receipt.record"), Vector("content-core-candidate-composed"), Vector.empty, Vector("content-core-acceptance"), Vector("content-core-reference")),
     WorkProduct("content-core", "Content Core", WorkProductRole.Authority, "content-core.review", Vector("content-core.render-review", "presentation.author", "article.compose", "article.render-review", "visual-pages.author", "infographic.compose", "video.compose-storyboard", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record"), Vector("content-core-accepted"), Vector("content-core-candidate"), Vector("content-core-acceptance"), Vector("content-core-reference")),
@@ -455,10 +475,50 @@ private[cozy] object CozyDocumentWorkflow {
   )
 
   private def _validated_document_production(): WorkflowDefinition = {
-    val errors = validate(_document_production)
+    val errors = validate(_document_production) ++ _native_provider_declaration_errors(_document_production)
     if (errors.nonEmpty)
       throw new IllegalStateException(s"invalid document-production workflow: ${errors.mkString("; ")}")
     _document_production
+  }
+
+  private def _native_provider_declaration_errors(definition: WorkflowDefinition): Vector[String] = {
+    val operationids = definition.operations.map(_.id)
+    val bindingids = definition.providerBindings.map(_.id).toSet
+    val errors = Vector.newBuilder[String]
+    if (_native_provider_declarations.map(_.operationId).distinct.size != _native_provider_declarations.size)
+      errors += "native provider declarations must be unique by logical operation"
+    _native_provider_declarations.foreach { declaration =>
+      val operation = definition.operations.find(_.id == declaration.operationId)
+      if (!operationids.contains(declaration.operationId))
+        errors += s"native provider declaration references unknown logical operation: ${declaration.operationId}"
+      if (!bindingids.contains(declaration.providerBinding))
+        errors += s"native provider declaration references unknown provider binding: ${declaration.providerBinding}"
+      operation.foreach { value =>
+        if (value.providerBinding != declaration.providerBinding)
+          errors += s"native provider declaration binding differs from logical operation: ${declaration.operationId}"
+      }
+      if (declaration.operationId != "article.render-review" || declaration.providerBinding != "cozy-review-projection")
+        errors += "only article.render-review/cozy-review-projection is a native provider declaration in Phase 56"
+      if (declaration.outputs.isEmpty)
+        errors += s"native provider declaration has no bounded outputs: ${declaration.operationId}"
+      if (declaration.outputs.map(_.identity).distinct.size != declaration.outputs.size)
+        errors += s"native provider declaration has duplicate output identities: ${declaration.operationId}"
+      if (declaration.outputs.map(_.path).distinct.size != declaration.outputs.size)
+        errors += s"native provider declaration has duplicate output paths: ${declaration.operationId}"
+      declaration.outputs.foreach { output =>
+        if (output.identity.trim.isEmpty || output.path.trim.isEmpty || output.mediaType.trim.isEmpty)
+          errors += s"native provider declaration has empty output metadata: ${declaration.operationId}"
+        if (!output.path.startsWith("target/document-project/") || output.path.split("/", -1).exists(part => part.isEmpty || part == "." || part == ".."))
+          errors += s"native provider declaration has unsafe output path: ${declaration.operationId}"
+        if (!output.mediaType.contains("/"))
+          errors += s"native provider declaration has invalid output media type: ${declaration.operationId}"
+        operation.foreach { value =>
+          if (!value.produces.contains(output.identity))
+            errors += s"native provider declaration output is not produced by logical operation: ${declaration.operationId}/${output.identity}"
+        }
+      }
+    }
+    errors.result()
   }
 
   private def _dependency_cycle_work_product_ids(workproducts: Vector[WorkProduct]): Vector[String] = {
