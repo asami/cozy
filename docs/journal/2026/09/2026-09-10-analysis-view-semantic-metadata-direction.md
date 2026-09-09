@@ -1,22 +1,47 @@
-# Analysis View Semantic Metadata Direction
+# Analysis View Semantic Metadata and Semantic Strength Direction
 
 Date: 2026-09-10
 
 ## Decision
 
-Cozy will support the new Textus CBD Support analysis-view direction by extending its semantic publication contract rather than by introducing independent Mono-Koto or Event Storming models.
+Cozy will support Textus CBD Support analysis and engineering views by extending its semantic publication contract rather than introducing independent Mono-Koto, Event Storming, or presentation-specific models.
 
-CBD Support now treats Mono-Koto Analysis, Use Case, and Event Storming as stakeholder-facing projections over the same Canonical Component Design Model used by Entity, Event, Structure, Classification, Workflow, Flowchart, and StateMachine views.
+The stronger architectural decision is that **Cozy guarantees the model semantic strength required to construct each claimed supported view faithfully**.
 
-Cozy's responsibility is therefore to publish faithful, machine-readable, cross-linked semantics with stable identities.
+Cozy's responsibility is not merely to publish fields. It must expose the semantic capabilities and stable cross-references needed by a consumer to construct a view without parsing CML source, matching labels, or guessing missing meaning.
+
+```text
+View Requirement
+    -> Required Semantic Capability
+    -> Cozy Semantic IR
+    -> Published Semantic Contract
+    -> Faithful Projection
+```
+
+When the available admitted semantics are weaker than a view requirement, Cozy reports an explicit capability gap. CBD Support must not compensate by reconstructing semantics heuristically.
+
+## Working View Capability Model
+
+Representative requirements are:
+
+- Mono-Koto: terminology/BoK linkage plus admitted conceptual grouping and structural/behavioral cross-reference.
+- Use Case: Actor, goal, trigger, flows, participants, operations/events, realizing Workflow.
+- Event Storming: Actor, Command/Operation, Aggregate/Entity, Event, cause/consequence, affected subject, Workflow reaction/policy, subsequent action/event.
+- Entity: stable identity and Entity/Value/Aggregate semantics.
+- Structure: relation kind, cardinality, navigability, ownership and lifecycle strength sufficient to distinguish composition, aggregation, and association.
+- Classification: generalization, trait, powertype and independent dimensions.
+- Event: Command/Event, origin/cause, consequence/reaction and affected subject.
+- Workflow: purpose, activities, control flow, participants, rules/reactions and effects.
+- StateMachine: states, transitions, triggers, guards, actions/effects and owning subject.
+- Flowchart: no weaker Cozy model; CBD Support may simplify faithful Workflow semantics for communication.
+
+This is a capability contract rather than a one-schema-per-view design.
 
 ## Terminology Direction
 
-Mono-Koto must be linked to glossary/BoK terminology. Cozy already distinguishes BoK mono/koto classification from CML model classification; that separation remains correct.
+Mono-Koto must be linked to glossary/BoK terminology. BoK Mono/Koto classification remains separate from CML model classification.
 
-The additional requirement is to preserve explicit term references from CML semantic elements so consumers can navigate between terminology and engineering semantics without relying on labels.
-
-Cozy does not resolve synonym candidates such as alternate business words based only on string similarity. Such interpretation remains attributable glossary/BoK or consumer-review work.
+Cozy preserves explicit term references from semantic elements so consumers can navigate terminology and engineering semantics without labels. Cozy does not resolve synonyms from string similarity.
 
 ## Event Storming Direction
 
@@ -31,31 +56,44 @@ Use Case Actor
   -> Command / Operation / Event
 ```
 
-Cozy should publish cross-references that support this traversal where modeled. Event Storming itself does not become a CML runtime abstraction solely for presentation purposes.
-
-Actor information should remain rooted in Use Case semantics. External Component/dependency and Query/View links should be published where CML already models them; missing concepts should remain explicit gaps.
+Cozy publishes the admitted cross-references needed for this traversal. Event Storming itself does not become a CML runtime abstraction solely for presentation.
 
 ## Workflow / Flowchart Direction
 
-Workflow metadata remains faithful and complete enough for engineering consumption. The downstream Flowchart view may intentionally simplify Workflow for non-engineering communication. No simplification should leak into Cozy's semantic representation.
+Workflow metadata remains faithful. A downstream Flowchart may intentionally simplify Workflow for non-engineering communication, but no simplification leaks into Cozy's semantic model or publication contract.
+
+## Three-System Responsibility
+
+The responsibility split is now stated as:
+
+```text
+Cozy
+  Model Semantic Strength
+  "What meaning does the model guarantee?"
+
+CNCF
+  Runtime Semantic Strength
+  "What modeled meaning can be executed, enforced, and observed?"
+
+Textus CBD Support
+  Projection / Review
+  "How is that meaning presented, navigated, reviewed, and reported?"
+```
+
+This gives downstream consumers a clear rule: a view may only claim semantics that its supplier contract actually guarantees.
 
 ## Phase 54 Consequence
 
-Phase 54 will be expanded to cover:
+Phase 54 must be evaluated by semantic capability, not field count. Consumer fixtures should prove semantic questions and traversals, including explicit absence when required strength is unavailable.
 
-- terminology/BoK semantic references;
-- command/event cause, consequence, and affected-domain cross-references;
-- Actor links rooted in Use Case;
-- workflow rule/reaction links needed for event-causal traversal;
-- external-system and Query/View inventory/publication where authoritative representations exist;
-- consumer fixtures proving Mono-Koto terminology navigation and Event Storming-style traversal without CML source parsing.
-
-This keeps the architecture clean:
+Future views should follow the same process:
 
 ```text
-CML -> Cozy semantic graph -> CBD Support projections
-                         \
-                          -> CNCF runtime semantics/evidence
+new View
+  -> identify required semantic capabilities
+  -> compare with Cozy semantic strength
+  -> extend CML/IR/publication only where authoritative semantics are genuinely missing
+  -> expose explicit gaps otherwise
 ```
 
-Cozy supplies semantic truth and identity; consumers decide how to present it.
+This avoids accumulating presentation-specific metadata and keeps Cozy a consumer-neutral semantic contract provider.
