@@ -394,6 +394,8 @@ private[cozy] object CozyDocumentProject {
       case Right(None) => _failure("DP-OP-001", s"undeclared logical operation: $operationid")
       case Left(cause) => _descriptor_failure(cause)
     }
+    if (operation.id == "presentation.render-confirmation")
+      _failure("DP-OP-001", "presentation.render-confirmation is reserved for document-project review --kind presentation")
     val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => _descriptor_failure(cause)

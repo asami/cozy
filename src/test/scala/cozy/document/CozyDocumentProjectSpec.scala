@@ -564,6 +564,128 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         definition.profiles.flatMap(_.bindings.map(_.disposition.value)).toSet shouldBe Set("required", "optional", "disabled")
       }
 
+      "register required presentation semantics and optional presentation confirmation in every profile" in {
+        Given("the immutable document-production definition")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val semantics = definition.workProducts.find(_.id == "presentation-semantics").get
+        val confirmation = definition.workProducts.find(_.id == "presentation-confirmation-html").get
+
+        When("the static presentation Work Products and their profile bindings are resolved")
+        val bindings = definition.profiles.map { profile =>
+          profile.id -> profile.bindings.map(binding => binding.workProductId -> binding.disposition).toMap
+        }.toMap
+
+        Then("presentation semantics is the required strict authority with its closed static links")
+        semantics.role shouldBe CozyDocumentWorkflow.WorkProductRole.Authority
+        semantics.producer shouldBe "presentation.author"
+        semantics.criteria shouldBe Vector("presentation-semantics-validated")
+        semantics.dependencies shouldBe Vector("content-core")
+        semantics.gates shouldBe Vector("presentation-semantics-validation")
+        semantics.evidenceReferences shouldBe Vector("presentation-semantics-reference")
+        bindings.values.foreach { binding =>
+          binding("presentation-semantics") shouldBe CozyDocumentWorkflow.WorkProductDisposition.Required
+        }
+
+        And("presentation confirmation remains a distinct optional review projection in every profile")
+        confirmation.role shouldBe CozyDocumentWorkflow.WorkProductRole.ReviewProjection
+        confirmation.producer shouldBe "presentation.render-confirmation"
+        confirmation.criteria shouldBe Vector("presentation-confirmation-rendered")
+        confirmation.dependencies shouldBe Vector("presentation-semantics")
+        confirmation.gates shouldBe Vector("presentation-confirmation")
+        confirmation.evidenceReferences shouldBe Vector("presentation-confirmation-reference")
+        bindings.values.foreach { binding =>
+          binding("presentation-confirmation-html") shouldBe CozyDocumentWorkflow.WorkProductDisposition.Optional
+        }
+      }
+
+      "bind the frozen presentation producers consumers and receipt edges exactly once" in {
+        Given("the immutable document-production definition")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val operations = definition.operations.map(operation => operation.id -> operation).toMap
+        val products = definition.workProducts.map(product => product.id -> product).toMap
+        val providers = definition.providerBindings.map(binding => binding.id -> binding.provider).toMap
+
+        When("the presentation authority and confirmation operations are inspected")
+        val author = operations("presentation.author")
+        val confirmation = operations("presentation.render-confirmation")
+        val receipt = operations("operation-receipt.record")
+
+        Then("each operation uses its closed Cozy-owned provider and exact product boundary")
+        author.providerBinding shouldBe "cozy-presentation-semantics"
+        author.consumes shouldBe Vector("content-core")
+        author.produces shouldBe Vector("presentation-semantics")
+        confirmation.providerBinding shouldBe "cozy-presentation-confirmation"
+        confirmation.consumes shouldBe Vector("presentation-semantics")
+        confirmation.produces shouldBe Vector("presentation-confirmation-html")
+        providers("cozy-presentation-semantics") shouldBe "Cozy Presentation Semantics adapter"
+        providers("cozy-presentation-confirmation") shouldBe "Cozy Presentation Confirmation adapter"
+
+        And("the consumers and future operation receipt record both declared presentation products")
+        products("content-core").consumers shouldBe Vector("content-core.render-review", "presentation.author", "article.compose", "article.render-review", "visual-pages.author", "infographic.compose", "video.compose-storyboard", "slide-logical-chart.render-review", "video-logical-chart.render-review", "operation-receipt.record")
+        products("presentation-semantics").consumers shouldBe Vector("article.compose", "visual-pages.author", "video.compose-storyboard", "presentation.render-confirmation", "operation-receipt.record")
+        products("presentation-confirmation-html").consumers shouldBe Vector("operation-receipt.record")
+        receipt.consumes should contain("presentation-semantics")
+        receipt.consumes should contain("presentation-confirmation-html")
+      }
+
+      "order downstream semantic production after the shared presentation authority without a descriptor DAG" in {
+        _with_temp_dir("cozy-document-project-p49-static-workflow") { root =>
+          Given("the immutable workflow definition and a scaffolded closed descriptor")
+          val definition = CozyDocumentWorkflow.documentProduction
+          val productids = definition.workProducts.map(_.id)
+          val project = _scaffolded_project(root, "static-workflow")
+          val descriptor = Files.readString(project.resolve("document-project.yaml"), StandardCharsets.UTF_8)
+
+          When("the static producer and Work Product dependency edges are compared")
+          val operations = definition.operations.map(operation => operation.id -> operation).toMap
+          val products = definition.workProducts.map(product => product.id -> product).toMap
+
+          Then("the authority follows Content Core and precedes its article Visual Page video and confirmation consumers")
+          val contentcoreindex = productids.indexOf("content-core")
+          val presentationindex = productids.indexOf("presentation-semantics")
+          val confirmationindex = productids.indexOf("presentation-confirmation-html")
+          presentationindex should be > contentcoreindex
+          productids.indexOf("article-source") should be > presentationindex
+          productids.indexOf("visual-pages") should be > presentationindex
+          productids.indexOf("video-storyboard") should be > presentationindex
+          confirmationindex should be > productids.indexOf("video-storyboard")
+          Vector("article.compose", "visual-pages.author", "video.compose-storyboard").foreach { operationid =>
+            operations(operationid).consumes should contain("presentation-semantics")
+          }
+          Vector("article-source", "visual-pages", "video-storyboard").foreach { productid =>
+            products(productid).dependencies should contain("presentation-semantics")
+          }
+
+          And("the graph remains an immutable Workflow Definition rather than descriptor-owned state")
+          definition.id shouldBe "document-production"
+          definition.workProducts.map(_.id) should contain("presentation-semantics")
+          definition.workProducts.map(_.id) should contain("presentation-confirmation-html")
+          descriptor should not include "presentation-semantics"
+          descriptor should not include "presentation-confirmation-html"
+          descriptor should not include "presentation.author"
+          descriptor should not include "presentation.render-confirmation"
+        }
+      }
+
+      "keep article expression review distinct from shared presentation confirmation" in {
+        Given("the immutable document-production definition")
+        val definition = CozyDocumentWorkflow.documentProduction
+        val products = definition.workProducts.map(product => product.id -> product).toMap
+
+        When("the two review-projection identities are compared")
+        val article = products("article-review-html")
+        val confirmation = products("presentation-confirmation-html")
+
+        Then("article review retains its article expression operation and dependencies")
+        article.producer shouldBe "article.render-review"
+        article.dependencies shouldBe Vector("content-core", "article-source", "visual-pages")
+
+        And("presentation confirmation retains its separate shared-semantics operation and dependency")
+        confirmation.producer shouldBe "presentation.render-confirmation"
+        confirmation.dependencies shouldBe Vector("presentation-semantics")
+        confirmation.id should not be article.id
+      }
+
       "reject duplicate Work Product ids before a projection can use them" in {
         Given("the immutable definition with a duplicate Work Product")
         val definition = CozyDocumentWorkflow.documentProduction
@@ -1930,6 +2052,33 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "reserve selected presentation confirmation from generic run without creating evidence" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-admission") { root =>
+        Given("an admitted standard project with optional presentation confirmation selected")
+        val project = _scaffolded_project(root, "presentation-confirmation-admission")
+        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
+
+        When("dry-run and recording generic confirmation operations are requested")
+        val dryrunfailure = _failure(List("document-project", "run", project.toString, "--operation", "presentation.render-confirmation", "--dry-run"))
+        val recordingfailure = _failure(List("document-project", "run", project.toString, "--operation", "presentation.render-confirmation"))
+
+        Then("both requests return only the reserved-operation diagnostic before evidence publication")
+        _diagnostic_tokens(dryrunfailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(recordingfailure) shouldBe Vector("DP-OP-001")
+        dryrunfailure should include("presentation.render-confirmation is reserved for document-project review --kind presentation")
+        recordingfailure should include("presentation.render-confirmation is reserved for document-project review --kind presentation")
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("the reserved future presentation review form reaches the live parser")
+        val reviewfailure = _failure(List("document-project", "review", project.toString, "--kind", "presentation"))
+
+        Then("the parser continues to reject the future kind without creating a confirmation route")
+        _diagnostic_tokens(reviewfailure) shouldBe Vector("DP-CLI-001")
+        reviewfailure should include("review --kind must be core, article, slides, video, slide-logical-chart, or video-logical-chart")
+        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
     "reject unsafe initial run input before writing an attempt" in {
       _with_temp_dir("cozy-document-project-run-input") { root =>
         Given("a standard scaffold whose required initial source is replaced by a symbolic link")
@@ -2262,8 +2411,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         standalonestate.linesIterator.filter(line => line.nonEmpty && !line.startsWith(" ")).map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
           "schema", "project", "profile", "workspace", "sources", "evidence", "criteria", "workProducts"
         )
-        standalonestate should include("criteria:\n  satisfied: 3\n  total: 18")
-        bokstate should include("criteria:\n  satisfied: 3\n  total: 14")
+        standalonestate should include("criteria:\n  satisfied: 3\n  total: 20")
+        bokstate should include("criteria:\n  satisfied: 3\n  total: 16")
         bokstate should include("notApplicable:\n    - id: video-storyboard-authored\n      reason: \"profile bok disables video branch\"")
 
         When("the local review and dashboard projections are requested for both fixtures")
@@ -2306,8 +2455,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           dashboard should include("<h2>Criterion coverage</h2>")
           dashboard should include("<table aria-label=\"Criterion coverage\">")
         }
-        standalonedashboard should include("6/18 applicable criteria satisfied")
-        bokdashboard should include("4/14 applicable criteria satisfied")
+        standalonedashboard should include("6/20 applicable criteria satisfied")
+        bokdashboard should include("4/16 applicable criteria satisfied")
         standalonedashboard should include("video-review<br/><span>Video review HTML</span></th><td>required</td><td>review-projection</td><td>required")
         standalonedashboard should include("video-deliverable<br/><span>Video deliverable</span></th><td>required</td><td>deliverable</td><td>required")
         bokdashboard should include("video-review<br/><span>Video review HTML</span></th><td>profile-disabled</td><td>review-projection</td><td>disabled")

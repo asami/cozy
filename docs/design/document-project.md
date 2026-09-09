@@ -295,13 +295,14 @@ gate, evidence-reference, and provider-binding references are closed; product
 dependencies are acyclic; required metadata is non-empty; and every profile
 binds only the closed Work Product set.
 
-The definition's stable initial Work Products are:
+The definition's stable Work Products are:
 
 | Work Product id | Role | no-video | video |
 | --- | --- | --- | --- |
 | `content-core-candidate` | candidate | optional | optional |
 | `content-core` | authority | required | required |
 | `core-review-html` | review-projection | optional | optional |
+| `presentation-semantics` | authority | required | required |
 | `article-source` | authority | required | required |
 | `article-html` | site-deliverable | required | required |
 | `article-review-html` | review-projection | optional | optional |
@@ -314,6 +315,7 @@ The definition's stable initial Work Products are:
 | `video-storyboard`, `video-review`, `video-deliverable` | plan/review/deliverable | disabled with profile reason | required |
 | `explanation-structure-review-html` | review-projection | optional | optional |
 | `video-logical-chart-html` | review-projection | disabled with profile reason | optional |
+| `presentation-confirmation-html` | review-projection | optional | optional |
 | `operation-receipt-evidence` | receipt | optional | optional |
 
 `required`, `optional`, and `disabled` are visibly different dispositions.
@@ -345,6 +347,57 @@ do not discover a provider or execute an adapter in DP42-02.  Criteria, gates,
 and evidence references are static identity links, not completion, currentness,
 review, receipt, or lifecycle fields.
 
+### Phase 49 presentation-semantics authority
+
+Phase 49 extends the closed code-owned definition without adding a descriptor
+field or a second semantic model. `presentation-semantics` is required for all
+six registered profiles. Its stable producer is `presentation.author`, bound
+only to `cozy-presentation-semantics`; it consumes and directly depends on
+`content-core`, with criterion `presentation-semantics-validated`, gate
+`presentation-semantics-validation`, and evidence reference
+`presentation-semantics-reference`.
+
+The authority is consumed directly by `article.compose`,
+`visual-pages.author`, `video.compose-storyboard`,
+`presentation.render-confirmation`, and `operation-receipt.record`.
+`article-source`, `visual-pages`, and `video-storyboard` therefore directly
+depend on it. Workflow order records the authority after `content-core` and
+before these semantic products and `presentation-confirmation-html`; it is an
+immutable Workflow Definition edge, never a descriptor DAG.
+
+`presentation-confirmation-html` is separately optional for all six profiles.
+Its producer is `presentation.render-confirmation`, bound only to
+`cozy-presentation-confirmation`; it consumes and directly depends only on
+`presentation-semantics`, with criterion
+`presentation-confirmation-rendered`, gate `presentation-confirmation`, and
+evidence reference `presentation-confirmation-reference`. The future
+`operation-receipt.record` declaration consumes both presentation products,
+but this is not receipt creation or semantic success.
+
+The closed semantic-authority state vocabulary is `missing`,
+`authoring-incomplete`, `invalid`, `current`, and `stale`. Missing means that
+the direct authoring surface is absent. Authoring-incomplete means the direct
+scaffolded source cannot pass the existing strict Phase-46 validator; invalid
+means an authored candidate reached strict loading and failed `DP-SEM-*`.
+Current means strict validation produced the accepted typed semantic identity
+for current direct Core bytes. Stale means an earlier accepted semantic or
+confirmation identity no longer agrees with bound Core or semantic inputs.
+The first three states never create an accepted semantic identity, coverage
+success, or confirmation receipt. No receipt can substitute for strict
+validation or coverage.
+
+Article review remains an article-expression projection produced by
+`article.render-review`. It is not an alias, predecessor, or alternate output
+for the shared Story Flow, Explanation Structure, and article/slide/video
+mapping confirmation represented by `presentation-confirmation-html`.
+
+Phase 49 freezes this static contract only. Phase 49.1 owns strict loading and
+the `verify`, `inspect`, `plan`, and Dashboard state surfaces; Phase 49.2 owns
+the parser route, Phase-46.1 adapter, confirmation publication, and receipt;
+Phase 49.3 owns stale propagation and Article-9-shaped operational acceptance.
+No renderer, receipt writer, CLI parser/help, dashboard, confirmation output,
+or semantic/descriptor schema behavior changes in Phase 49.
+
 `plan` resolves this definition read-only. It emits deterministic `required`,
 `active-optional`, `inactive-optional`, and `profile-disabled` Work Product
 lines, plus `blocked` and `eligible` logical-operation lines. `eligible` means
@@ -353,13 +406,21 @@ The command creates no
 target, dashboard, state, attempt, receipt, registry, delivery, or output file.
 
 `run` validates the descriptor, Core, and command-admitted initial sources,
-then admits exactly one declared operation that produces a selected Work Product. A
-normal eligible run records one attempt without invoking its provider or
+then resolves its declared operation before applying reserved-form and selected
+Work Product admission. An unreserved eligible run records one attempt without invoking its provider or
 creating output, receipt, Core write-back, state cache, or downstream work.
 `--dry-run` reports the selected operation, provider, and profile without
 creating evidence. An unknown, inactive-optional, or profile-disabled operation rejects with
 `DP-OP-001`; malformed or unsafe input retains its earlier diagnostic
 precedence and neither rejection creates evidence.
+
+`presentation.render-confirmation` remains a declared workflow identity, but
+generic `run` is not an alternate confirmation route. Once its declaration is
+resolved, generic dry-run and recording requests reject with `DP-OP-001`
+before optional-product participation, provider or attempt handling, output,
+receipt, or state behavior. The stable diagnostic reserves it for
+`document-project review --kind presentation`; the closed six-kind review
+parser and help remain unchanged until Phase 49.2.
 
 ## Initial authored kernel
 
@@ -450,6 +511,21 @@ cozy document-project content-core candidate <project> <dialogue>
 cozy document-project content-core feedback <project> <candidate-id> <feedback>
 cozy document-project content-core accept <project> <candidate-id> <acceptance>
 ```
+
+Phase 49 additionally reserves exactly one future confirmation form:
+
+```text
+cozy document-project review <project> --kind presentation [--save <confirmation.html>]
+```
+
+The sole frozen confirmation kind is `presentation`; there is no alias or
+alternative `run` form. It remains absent from the live parser and help until
+Phase 49.2. Its frozen destination roles are
+`target/document-project/presentation-confirmation.html` for confirmation HTML
+and `target/document-project/presentation-confirmation.receipt.yaml` for the
+receipt. They are not files, evidence, route behavior, or publication in
+Phase 49; Phase 49.2 alone adds parser routing, adapter invocation, output
+publication, and receipt emission.
 
 Dashboard defaults to `target/document-project/project-dashboard.html`; Core,
 Article, slide, video, Slide Logical Chart, and Video Logical Chart review default to

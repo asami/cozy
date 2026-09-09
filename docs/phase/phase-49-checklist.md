@@ -1,78 +1,60 @@
-# Phase 49 Checklist: Document Project Presentation Semantics Workflow Integration
+# Phase 49 Checklist: Document Project Presentation Semantics Workflow Authority
 
-Phase Status: PLANNED
+Phase Status: IN_PROGRESS
 
 Predecessors: Phase 46, Phase 46.1, Phase 48
+Successor: [Phase 49.1](phase-49.1.md)
+
+Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 
 ## P49-01: Workflow Work Product and State
 
-- [ ] Register `presentation-semantics` as an `authority` Work Product.
-- [ ] Bind Content Core as its direct upstream semantic dependency.
-- [ ] Bind dependent article/slide/video semantic work and cross-media
+- [x] Register `presentation-semantics` as an `authority` Work Product.
+- [x] Bind Content Core as its direct upstream semantic dependency.
+- [x] Bind dependent article/slide/video semantic work and cross-media
   confirmation downstream without copying the DAG into project descriptors.
-- [ ] Derive `missing`, `authoring-incomplete`, `invalid`, `current`, and
+- [x] Derive `missing`, `authoring-incomplete`, `invalid`, `current`, and
   `stale` states deterministically.
-- [ ] Prove authoring-incomplete state does not create accepted semantic
+- [x] Prove authoring-incomplete state does not create accepted semantic
   identity, coverage success, or confirmation receipt.
 
-## P49-02: Verify / Inspect / Plan / Dashboard
+## P49-02: Public Cross-Media Confirmation Grammar
 
-- [ ] Route `verify` through the existing Phase-46 semantic loader/validator.
-- [ ] Preserve `DP-SEM-*` diagnostics without a permissive alias reader.
-- [ ] Prove valid semantics are admissible to the Phase-46.1 projection
-  boundary.
-- [ ] Expose schema, Core binding/currentness, Story Step/Transition counts,
-  Structure count, projection availability, and coverage state in `inspect`.
-- [ ] Make `plan` place Presentation Semantics between Content Core and
-  dependent article/slide/video semantic work.
-- [ ] Block dependent work deterministically when semantics are missing,
-  incomplete, invalid, or stale according to the accepted state model.
-- [ ] Make Dashboard expose Presentation Semantics as a production stage and
-  recommend the exact authoring authority/action when it is the first blocker.
-- [ ] Prove Dashboard remains read-only and does not author semantic content.
-
-## P49-03: Public Cross-Media Confirmation Route
-
-- [ ] Freeze the public Document Project command/operation grammar for shared
+- [x] Freeze the public Document Project command/operation grammar for shared
   presentation confirmation.
-- [ ] Route the public operation to the accepted Phase-46.1 implementation.
-- [ ] Keep `article-review.html` and shared cross-media confirmation distinct.
-- [ ] Generate deterministic default confirmation HTML and receipt outputs.
-- [ ] Require no package-private Scala API use by Document Project callers.
-- [ ] Reuse existing renderer/receipt/coverage behavior; add no parallel
-  implementation.
+- [x] Reserve `presentation.render-confirmation` from generic `run` in both
+  dry-run and recording forms before provider or attempt behavior, while the
+  six-kind review parser and help remain unchanged for Phase 49.2.
+- [x] Freeze the boundary between `article-review.html` and the shared
+  cross-media confirmation Work Product.
+- [x] Freeze deterministic confirmation HTML and receipt destination roles for
+  Phase 49.2 to implement.
 
-## P49-04: Currentness and Stale Propagation
+### Step acceptance evidence — P49-01/P49-02
 
-- [ ] Content Core identity change makes presentation semantics stale.
-- [ ] Presentation-semantics stale state propagates to dependent semantic
-  projections and confirmation.
-- [ ] Presentation-semantics identity change invalidates prior dependent
-  projection/confirmation receipt identities.
-- [ ] No automatic write-back rewrites stale semantic authority.
-- [ ] Receipt currentness remains separate from semantic coverage.
-- [ ] A current receipt cannot substitute for coverage verification.
+- Focused executable specification: `CozyDocumentProjectSpec`, 81 passed and
+  0 failed (`54817-20260909T013640Z`, 2026-09-09).
+- Lightweight Step review identified CPB-001; its narrowly scoped fix received
+  a focused re-review PASS with no remaining findings. The frozen review
+  disposition is `cc695e84621101af928b7e8672c0f8f415486b9356ae7ce141a0e67fcd90a677`.
 
-## P49-05: Article 9 Operational Driver
+## Moved unfinished scope
 
-- [ ] Start from a Phase-48-style scaffolded semantic workspace.
-- [ ] Author enough real Story Flow / Explanation Structure semantics to pass
-  strict validation.
-- [ ] Exercise `verify`, `inspect`, `plan`, and Dashboard through the public
-  Document Project surface.
-- [ ] Generate shared cross-media confirmation through the public route.
-- [ ] Exercise at least one upstream identity change and prove stale
-  propagation/recovery.
-- [ ] Prove no out-of-band hand-built confirmation HTML is required.
-- [ ] Keep editorial completion/publication/deployment outside Phase closure.
+- [Phase 49.1](phase-49.1-checklist.md) owns strict validation plus
+  `inspect`, `plan`, and Dashboard behavior.
+- [Phase 49.2](phase-49.2-checklist.md) owns public confirmation routing and
+  Phase-46.1 kernel reuse.
+- [Phase 49.3](phase-49.3-checklist.md) owns stale propagation and the
+  Article-9-shaped operational driver.
 
 ## Closure
 
-- [ ] Focused executable specifications pass.
-- [ ] Existing Document Project review/dashboard behavior remains compatible
-  outside the newly participating semantic authority.
+- [x] Focused executable specifications cover the Work Product/state and
+  public-operation grammar contract.
+- [x] Existing Document Project behavior remains compatible outside the newly
+  participating semantic authority.
 - [ ] Required full Cozy validation passes.
 - [ ] Independent Phase review converges with no unresolved Current Phase
   Blocker.
-- [ ] Release closure records exact evidence without claiming Article 9
-  publication or external mutation.
+- [ ] Release closure records the Phase-49 handoff without claiming later
+  surface, confirmation-route, stale-driver, or external work.
