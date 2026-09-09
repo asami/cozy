@@ -1,41 +1,34 @@
-# Phase 56 Checklist: Document Project Native Production Execution
+# Phase 56 Checklist: Typed Provider Execution Contract
 
-Phase Status: PLANNED
+Phase Status: COMPLETE
 
 Development item: DEV-019
 
+phase=[Phase 56](phase-56.md)
+
+Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
+
 ## P56-01: Typed Provider Execution
 
-- [ ] Freeze the public `document-project run` operation and provider-binding
+- [x] Freeze the public `document-project run` operation and provider-binding
       contract.
-- [ ] Resolve one admitted logical operation and typed provider binding.
-- [ ] Validate exact authorities, prerequisites, provider availability, and
-      output boundary before execution.
-- [ ] Return typed output identities, media types, diagnostics, and receipts.
-- [ ] Keep missing-provider and empty-output/no-receipt attempts unsuccessful.
+- [x] Resolve one admitted logical operation and typed provider binding.
+- [x] Validate exact authorities, prerequisites, provider availability, and
+      declared output boundary before execution.
+- [x] Return typed output identities, media types, diagnostics, and receipt
+      evidence without treating the result as accepted evidence.
+- [x] Keep missing-provider and empty-output/no-receipt results explicitly
+      blocked or failed; do not accept them as successful evidence.
+- [x] Freeze the typed native-dispatch/result handoff for Phase 56.1.
+- [x] Complete focused provider-dispatch specifications, review, release
+      closure, and reproducible evidence for this child only.
 
-## P56-02: Atomic Evidence Closure
+## Closure Gate
 
-- [ ] Validate output path, media type, hash, and receipt before acceptance.
-- [ ] Append the attempt and derive currentness from the same accepted result.
-- [ ] Reject partial output/evidence closure.
-- [ ] Preserve deterministic failure recovery and append-only attempt history.
-
-## P56-03: Executable Planning State
-
-- [ ] Define closed states for selection, prerequisite readiness, provider
-      availability, output currentness, and immediate executability.
-- [ ] Project those states consistently through inspect, plan, verify, and
-      Dashboard.
-- [ ] Preserve planning as read-only.
-- [ ] Consume rather than duplicate Phase 49 presentation-semantics state.
-
-## P56-04: Verification Policy and Closure
-
-- [ ] Add typed `structural | visual` verification policy.
-- [ ] Make structural verification the default without review rasterization.
-- [ ] Require explicit user selection for minimum bounded visual verification.
-- [ ] Keep public image outputs distinct from temporary review images.
-- [ ] Run focused provider/evidence/planning/verification specifications.
-- [ ] Run full Cozy validation.
-- [ ] Complete independent focused review with no Current Phase Blocker.
+- [x] P56-01 accepted at `817129f663d2ba961c92fb93933699cae8a7b018`.
+- [x] CPB-001 and CPB-002 repaired in the bounded cycle-1 closure loop and
+      sealed by focused re-review; the release-header re-review is clean.
+- [x] Final full Cozy validation passed: 1,802 succeeded, 0 failed, 133 suites
+      completed, and the SBT lock was released.
+- [x] Successor planning for Phases 56.1, 56.2, and 57 remains preserved and
+      unstarted.

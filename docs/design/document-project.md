@@ -771,14 +771,19 @@ The workflow declares one native provider contract in this Phase:
 `article.render-review` through `cozy-review-projection`, with exactly one
 output identity, `article-review-html`, at
 `target/document-project/article-review.html` with media type `text/html`.
-The provider invokes the existing deterministic article-review HTML projection
-as an implementation detail. It is not an adapter for `cozy-article-media` or
-any publication-preparation workflow.
+Before provider invocation, its direct authoritative inputs are admitted as
+Content Core, `index.dox`, `presentation/visual-pages.yaml`, and the directly
+consumed `infographic/infographic.svg`; the infographic is admitted at this
+boundary even though it is not a declared Work Product prerequisite. The
+provider invokes the existing deterministic article-review HTML projection as
+an implementation detail. It is not an adapter for `cozy-article-media` or any
+publication-preparation workflow.
 
 A native provider result is one of `executed`, `blocked`, or `failed`.
 `executed` carries at least one typed output identity/path/media type, diagnostics,
-and a generated receipt identity and value. Empty outputs or an absent receipt
-are failures, never execution success. Known bindings without a native provider
+and a generated receipt identity and value returned in memory only. That typed
+receipt is not a persisted receipt file. Empty outputs or an absent receipt are
+failures, never execution success. Known bindings without a native provider
 return a typed `blocked` result naming the operation, binding, provider, and
 missing capability before output or evidence side effects.
 

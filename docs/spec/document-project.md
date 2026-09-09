@@ -1155,10 +1155,14 @@ cozy document-project run <project> --operation <logical-operation> [--dry-run]
 Before native provider invocation, `run` MUST resolve the declared logical
 operation and binding, admit participating prerequisite Work Products, admit
 their direct authoritative inputs, and admit every declared output destination.
-Unsafe, missing, non-authoritative, unselected, or prerequisite-invalid input
-MUST reject before provider invocation. The generic form continues to reject
-`content-core.compose` and `presentation.render-confirmation` through their
-separate public contracts.
+For `article.render-review`, those direct authoritative inputs include Content
+Core, `index.dox`, `presentation/visual-pages.yaml`, and the directly consumed
+`infographic/infographic.svg`; the infographic MUST be admitted at this
+pre-invocation boundary even though it is not a declared Work Product
+prerequisite. Unsafe, missing, non-authoritative, unselected, or
+prerequisite-invalid input MUST reject before provider invocation. The generic
+form continues to reject `content-core.compose` and
+`presentation.render-confirmation` through their separate public contracts.
 
 The immutable workflow declares exactly one Phase 56 native provider/output
 binding: `article.render-review` through `cozy-review-projection`, producing
@@ -1172,11 +1176,12 @@ or evidence side effect.
 A native provider result MUST be exactly `executed`, `blocked`, or `failed`.
 An `executed` result MUST carry one or more typed outputs, each with identity,
 path, and media type, nonempty diagnostics, and a generated receipt identity
-and value. Empty outputs, an absent receipt, or an empty receipt identity/value
-MUST be a `failed` result and MUST NOT be rendered as execution success. The
-P56 provider may use the deterministic existing article-review HTML projection
-directly, but MUST NOT call the Document Project evidence model or a
-compatibility adapter.
+and value returned in memory only. The typed receipt MUST NOT be represented as
+a persisted receipt file. Empty outputs, an absent receipt, or an empty receipt
+identity/value MUST be a `failed` result and MUST NOT be rendered as execution
+success. The P56 provider may use the deterministic existing article-review
+HTML projection directly, but MUST NOT call the Document Project evidence model
+or a compatibility adapter.
 
 `--dry-run` MUST report the admitted typed resolution without invoking a
 provider or creating a target, evidence, attempt, receipt file, or currentness

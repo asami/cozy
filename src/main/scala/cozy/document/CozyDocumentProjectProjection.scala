@@ -10,7 +10,7 @@ import org.smartdox.parser.Dox2Parser
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep.  3, 2026
+ * @version Sep. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectProjection {
@@ -165,7 +165,13 @@ private[cozy] object CozyDocumentProjectProjection {
     )
   }
 
-  private[cozy] def articleReviewHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
+  private[cozy] def articleReviewHtml(project: Path, descriptor: CozyDocumentProject.Descriptor): String =
+    _article_review_html(project, descriptor, None)
+
+  private[cozy] def articleReviewExecutionHtml(project: Path, descriptor: CozyDocumentProject.Descriptor, outputPath: String): String =
+    _article_review_html(project, descriptor, Some(outputPath))
+
+  private def _article_review_html(project: Path, descriptor: CozyDocumentProject.Descriptor, executionoutputpath: Option[String]): String = {
     _require_work_product(descriptor, "article-review-html", "article.render-review")
     val articlepath = CozyDocumentProject._direct_file(project, "index.dox", "article source")
     val visualpagespath = CozyDocumentProject._direct_file(project, "presentation/visual-pages.yaml", "Visual Page source")
@@ -192,6 +198,12 @@ private[cozy] object CozyDocumentProjectProjection {
     }.mkString("\n")
     val terminology = _article_declaration(sections, "Terminology")
     val mediaplacement = _article_declaration(sections, "Media placement")
+    val executionnotice = executionoutputpath match {
+      case Some(outputpath) =>
+        s"Native article.render-review execution produced this HTML and writes only the declared HTML output <code>${_html_escape(outputpath)}</code>. It does not persist a receipt file, Operation Attempt, evidence, currentness, or acceptance state. This output is not a renderer, publication, compatibility adapter, or successor-owned persistence."
+      case None =>
+        "No provider execution, renderer input, production receipt, rendered frame, candidate, feedback, acceptance, state-cache persistence, or authored-input mutation occurs. The default generated-review receipt is local output evidence only, not a renderer or production receipt."
+    }
     _html_page(
       s"Cozy Document Project Article Review - ${descriptor.id}",
       descriptor.language,
@@ -212,7 +224,7 @@ private[cozy] object CozyDocumentProjectProjection {
          |<p>The editable infographic remains a separate expression authority related to the article and its visual flow; this review does not render or alter it.</p>
          |<h2>Current verified input identities</h2>
          |${_input_identity_table(project, Vector(articlepath, visualpagespath, infographicpath, project.resolve(descriptor.contentCore)))}
-         |<p class="notice">No provider execution, renderer input, production receipt, rendered frame, candidate, feedback, acceptance, state-cache persistence, or authored-input mutation occurs. The default generated-review receipt is local output evidence only, not a renderer or production receipt.</p>
+         |<p class="notice">$executionnotice</p>
          |<script>(function(){var root=document.getElementById('article-review-pages');if(!root){return;}var pages=Array.prototype.slice.call(root.querySelectorAll('.review-page'));var state=document.getElementById('article-review-page-state');var current=0;function show(index){if(!pages.length){return;}current=Math.max(0,Math.min(index,pages.length-1));pages.forEach(function(page,position){page.hidden=position!==current;});root.setAttribute('data-current-page',String(current+1));state.textContent='Page '+(current+1)+' of '+pages.length;}root.querySelector('[data-page-action="previous"]').addEventListener('click',function(){show(current-1);});root.querySelector('[data-page-action="next"]').addEventListener('click',function(){show(current+1);});root.addEventListener('keydown',function(event){if(event.key==='ArrowLeft'){event.preventDefault();show(current-1);}if(event.key==='ArrowRight'){event.preventDefault();show(current+1);}if(event.key==='Home'){event.preventDefault();show(0);}if(event.key==='End'){event.preventDefault();show(pages.length-1);}});root.tabIndex=0;show(0);}());</script>""".stripMargin
     )
   }

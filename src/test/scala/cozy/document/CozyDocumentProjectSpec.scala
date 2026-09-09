@@ -1610,6 +1610,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         review should include("Phase-41 Projection selector: unavailable; the v2 descriptor declares no accepted Phase-41 selector")
         review should include("Current verified input identities")
         review should include("&lt;script&gt;")
+        review should include("No provider execution, renderer input")
+        review should not include("Native article.render-review execution")
         review should not include("Visual <script> & intent")
         review should not include("<pre><code>")
         review should not include("pages:")
@@ -2402,6 +2404,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         output should include("cozy.document-project.native-receipt:")
         output should include("evidence: none")
         output should include("currentness: unchanged")
+        val nativehtml = Files.readString(project.resolve("target/document-project/article-review.html"), StandardCharsets.UTF_8)
+        nativehtml should include("Native article.render-review execution")
+        nativehtml should include("writes only the declared HTML output")
+        nativehtml should include("does not persist a receipt file, Operation Attempt, evidence, currentness, or acceptance state")
+        nativehtml should include("not a renderer, publication, compatibility adapter, or successor-owned persistence")
+        nativehtml should not include("No provider execution, renderer input")
         Files.readAllBytes(authored) shouldBe authoredbytes
         Files.exists(project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe true
         Files.exists(project.resolve("target/document-project/article-review.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
@@ -2459,6 +2467,41 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _diagnostic_tokens(outputfailure) shouldBe Vector("DP-PATH-001")
         Files.readString(externaloutput, StandardCharsets.UTF_8) shouldBe "unchanged\n"
         Files.exists(outputproject.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        Given("a third selected Article review project whose infographic source is missing")
+        val missingparent = Files.createDirectory(root.resolve("missing-parent"))
+        _execute(List("document-project", "scaffold", "missing", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", missingparent.toString))
+        val missingproject = missingparent.resolve("missing.dox")
+        _activate_optional_work_products(missingproject, "standard", Vector("article-review-html"))
+        Files.delete(missingproject.resolve("infographic/infographic.svg"))
+
+        When("the native operation is requested with the missing infographic authority")
+        val missingfailure = _failure(List("document-project", "run", missingproject.toString, "--operation", "article.render-review"))
+
+        Then("infographic admission rejects it before output or an Operation Attempt")
+        _diagnostic_tokens(missingfailure) shouldBe Vector("DP-PATH-001")
+        missingfailure should include("must be a direct regular non-symlink file")
+        Files.exists(missingproject.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(missingproject.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        Given("a fourth selected Article review project whose infographic source is symbolic")
+        val symbolicparent = Files.createDirectory(root.resolve("symbolic-parent"))
+        _execute(List("document-project", "scaffold", "symbolic", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", symbolicparent.toString))
+        val symbolicproject = symbolicparent.resolve("symbolic.dox")
+        _activate_optional_work_products(symbolicproject, "standard", Vector("article-review-html"))
+        val externalinfographic = root.resolve("external-infographic.svg")
+        Files.writeString(externalinfographic, "<svg>external</svg>\n", StandardCharsets.UTF_8)
+        Files.delete(symbolicproject.resolve("infographic/infographic.svg"))
+        Files.createSymbolicLink(symbolicproject.resolve("infographic/infographic.svg"), externalinfographic)
+
+        When("the native operation is requested with the symbolic infographic authority")
+        val symbolicfailure = _failure(List("document-project", "run", symbolicproject.toString, "--operation", "article.render-review"))
+
+        Then("symbolic infographic admission rejects it before output or an Operation Attempt")
+        _diagnostic_tokens(symbolicfailure) shouldBe Vector("DP-PATH-001")
+        symbolicfailure should include("must be a direct regular non-symlink file")
+        Files.exists(symbolicproject.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(symbolicproject.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 

@@ -494,6 +494,8 @@ private[cozy] object CozyDocumentProject {
       case "visual-pages" => _direct_file(project, "presentation/visual-pages.yaml", "Visual Page authority")
       case workproductid => _failure("DP-OP-001", s"native provider prerequisite Work Product has no direct authority admission: $workproductid")
     }
+    if (operation.id == "article.render-review")
+      _direct_file(project, "infographic/infographic.svg", "infographic source")
   }
 
   private def _admit_native_output_destination(

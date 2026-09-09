@@ -78,7 +78,7 @@ private[cozy] object CozyDocumentProjectProvider {
       Failed(request.operation.id, declaration.providerBinding, "Cozy review projection adapter", Vector("article review native provider requires its sole declared HTML output"))
     else {
       try {
-        val html = CozyDocumentProjectProjection.articleReviewHtml(request.project, request.descriptor)
+        val html = CozyDocumentProjectProjection.articleReviewExecutionHtml(request.project, request.descriptor, output.path)
         CozyDocumentProjectProjection.publish(destination, html)
         if (!Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS) || Files.size(destination) == 0)
           Failed(request.operation.id, declaration.providerBinding, "Cozy review projection adapter", Vector("native provider published no usable output"))
