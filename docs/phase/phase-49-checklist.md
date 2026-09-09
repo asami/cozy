@@ -1,6 +1,6 @@
 # Phase 49 Checklist: Document Project Presentation Semantics Workflow Authority
 
-Phase Status: IN_PROGRESS
+Phase Status: COMPLETE
 
 Predecessors: Phase 46, Phase 46.1, Phase 48
 Successor: [Phase 49.1](phase-49.1.md)
@@ -53,8 +53,9 @@ Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
   public-operation grammar contract.
 - [x] Existing Document Project behavior remains compatible outside the newly
   participating semantic authority.
-- [ ] Required full Cozy validation passes.
-- [ ] Independent Phase review converges with no unresolved Current Phase
-  Blocker.
-- [ ] Release closure records the Phase-49 handoff without claiming later
+- [x] Required full Cozy validation passes (`88630-20260909T022507Z`: 1,779
+  succeeded, 0 failed, 133 suites completed).
+- [x] Independent Phase review converges with no unresolved Current Phase
+  Blocker (`0a7215b9ee2aab884c8a529c8732a8da1d1919d7a033435aec252df6b4f532e4`).
+- [x] Release closure records the Phase-49 handoff without claiming later
   surface, confirmation-route, stale-driver, or external work.

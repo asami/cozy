@@ -1,9 +1,10 @@
 # Phase 49: Document Project Presentation Semantics Workflow Authority
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-09-06
 Revised: 2026-09-09
+Closure prepared: 2026-09-09
 
 Development item: DEV-018
 
@@ -86,8 +87,8 @@ Stage Status:
 - Current status: DONE
 - Owner: Phase 49 P49-01/P49-02 acceptance
 - Update rule: DONE because every P49-01 checklist item is checked. The Phase
-  remains IN_PROGRESS until its separate full-validation, independent-review,
-  and release-closure checklist items are checked.
+  is complete only with its separate full-validation, independent-review, and
+  release-closure evidence.
 
 - Register `presentation-semantics` as a first-class `authority` Work Product in
   the immutable `document-production` workflow.
@@ -155,6 +156,23 @@ The matching checklist, focused executable specifications, review, full Cozy
 validation, and release closure apply only to this child. Later read-only
 surfaces, confirmation routing, stale propagation, and Article-9-shaped driver
 acceptance remain separately planned.
+
+## Release Closure
+
+Phase 49 closes the immutable Document Project `presentation-semantics`
+authority, its deterministic workflow state/dependency contract, and the public
+cross-media confirmation-operation grammar only. The release evidence is the
+sealed full Phase review
+`0a7215b9ee2aab884c8a529c8732a8da1d1919d7a033435aec252df6b4f532e4`
+with no Current Phase Blocker, Hygiene, or Development Candidate, plus the
+required full Cozy suite (`88630-20260909T022507Z`: 1,779 succeeded, 0 failed,
+133 suites completed).
+
+The handoff to Phase 49.1 is the accepted static Work Product/state/dependency
+and public-operation grammar. Read-only workflow surfaces, public confirmation
+routing, stale propagation, Article-9-shaped operational acceptance,
+publication, deployment, upload, push, and external mutation remain outside
+this closure.
 
 ## Primary References
 
