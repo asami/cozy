@@ -8,7 +8,7 @@ import CozyExplanationJson._
 /*
  * @since   Aug. 28, 2026
  *  version Aug. 28, 2026
- * @version Sep.  4, 2026
+ * @version Sep.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanation {
@@ -140,6 +140,44 @@ private[cozy] object CozyExplanation {
   )
   private[media] val _product_mechanism_roles = Vector(Role("mechanism", 1, required = true))
   private[media] val _problem_solution_roles = Vector(Role("problem", 1, required = true), Role("solution", 2, required = true))
+
+  private[cozy] def fixedCatalog: ValidatedCatalog = {
+    val catalog = Catalog(
+      "software-explanation",
+      1,
+      Vector(SubjectPattern("software-product", 1, _software_product_facts)),
+      Vector(
+        ExplanationPattern(
+          "problem-solution",
+          1,
+          Vector(PatternReference("software-product", 1)),
+          Vector(Definition("problem", "text", required = true), Definition("solution", "text", required = true)),
+          _problem_solution_roles
+        ),
+        ExplanationPattern(
+          "product-mechanism",
+          1,
+          Vector(PatternReference("software-product", 1)),
+          Vector(Definition("mechanismLinks", "mechanism-link-list", required = true)),
+          _product_mechanism_roles
+        ),
+        ExplanationPattern(
+          "product-overview",
+          1,
+          Vector(PatternReference("software-product", 1)),
+          Vector.empty,
+          _product_overview_roles
+        )
+      ),
+      _reserved_ids
+    )
+    ValidatedCatalog(catalog, canonicalCatalogJson(catalog), catalogIdentity(catalog))
+  }
+
+  private[cozy] def fixedPresentationCatalog: PresentationCatalog = {
+    val catalog = CozyVisualPage.fixedCatalog
+    PresentationCatalog(catalog, CozyVisualPage.catalogIdentity(catalog), CozyVisualPage.logicalCatalogIdentity(catalog))
+  }
 
   def parseCatalogJson(text: String): Catalog = _parse_catalog(_parse_json(text, "$"), "$")
 

@@ -36,7 +36,7 @@ private[cozy] object CozyDocumentProjectProjection {
     }.mkString("\n")
     val detailrows = products.map { item =>
       val product = item.value.workProduct
-      s"""<tr><th scope="row">${_html_escape(product.id)}</th><td>${_html_list(product.dependencies)}</td><td>${_html_escape(product.producer)}</td><td>${_html_list(product.consumers)}</td><td>${_html_list(product.evidenceReferences)}</td><td>${_html_escape(_next_action(item))}</td></tr>"""
+      s"""<tr><th scope="row">${_html_escape(product.id)}</th><td>${_html_list(product.dependencies)}</td><td>${_html_escape(product.producer)}</td><td>${_html_list(product.consumers)}</td><td>${_html_list(product.evidenceReferences)}</td><td>${_html_escape(_next_action(item, descriptor))}</td></tr>"""
     }.mkString("\n")
     val coreentries = _core_entries(project, descriptor)
     val coreentryrows = if (coreentries.isEmpty) "<tr><td colspan=\"2\">none accepted</td></tr>" else coreentries.map { case (id, text) =>
@@ -85,8 +85,8 @@ private[cozy] object CozyDocumentProjectProjection {
     val blockerlist = _dashboard_product_list(blockingproducts, "No prioritized blockers / 優先ブロッカーはありません。")
     val reviewlist = _dashboard_product_list(reviewproducts, "No pending review / 保留中のレビューはありません。")
     val deliverablelist = _dashboard_deliverable_list(currentdeliverables)
-    val recommended = blockingproducts.headOption.map(_dashboard_recommended_action).getOrElse("No recommended action: all participating Work Products are current and ready. / 推奨される次のアクションはありません。参加中の成果物はすべて現在の状態で準備済みです。")
-    val eligibleactions = _dashboard_safe_action_list(participatingproducts)
+    val recommended = blockingproducts.headOption.map(item => _dashboard_recommended_action(item, descriptor)).getOrElse("No recommended action: all participating Work Products are current and ready. / 推奨される次のアクションはありません。参加中の成果物はすべて現在の状態で準備済みです。")
+    val eligibleactions = _dashboard_safe_action_list(participatingproducts, descriptor)
     val optionallist = _dashboard_optional_list(optionalproducts)
     _html_page(
       s"Cozy Document Project Dashboard - ${descriptor.id}",
@@ -448,11 +448,15 @@ private[cozy] object CozyDocumentProjectProjection {
     s"""<table aria-label="Current verified input identities"><thead><tr><th scope="col">Project-local input</th><th scope="col">Currentness</th><th scope="col">SHA-256</th></tr></thead><tbody>$rows</tbody></table>"""
   }
 
-  private def _next_action(product: CozyDocumentProjectEvidence.WorkProductState): String = {
+  private def _next_action(
+    product: CozyDocumentProjectEvidence.WorkProductState,
+    descriptor: CozyDocumentProject.Descriptor
+  ): String = {
     val workproduct = product.value.workProduct
     if (product.readiness == "omitted") "No action: omitted by this profile"
     else if (product.readiness == "not-selected") "No action: optional Work Product is not selected"
     else if (product.readiness != "blocked" && product.coverage == "satisfied" && product.currentness == "current") "No action: current"
+    else if (workproduct.id == "presentation-semantics") CozyDocumentProject.presentationSemanticsAuthoringInstruction(descriptor)
     else workproduct.role match {
       case CozyDocumentWorkflow.WorkProductRole.Authority => s"Author or accept ${workproduct.label}"
       case CozyDocumentWorkflow.WorkProductRole.Plan => s"Author ${workproduct.label}"
@@ -506,20 +510,36 @@ private[cozy] object CozyDocumentProjectProjection {
   private def _dashboard_deliverable_list(products: Vector[CozyDocumentProjectEvidence.WorkProductState]): String =
     _dashboard_product_list(products, "No current/ready deliverables are available. / 現在かつ準備済みの成果物はありません。")
 
-  private def _dashboard_recommended_action(item: CozyDocumentProjectEvidence.WorkProductState): String = {
+  private def _dashboard_recommended_action(
+    item: CozyDocumentProjectEvidence.WorkProductState,
+    descriptor: CozyDocumentProject.Descriptor
+  ): String = {
     val product = item.value.workProduct
     val reason = item.reason.map(value => s"; ${_html_escape(value)}").getOrElse("")
-    val command = _dashboard_safe_action_command(product)
-    s"<strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.readiness)}$reason<br/><span>Safe contract / 安全な契約:</span> <code>${_html_escape(command)}</code>"
+    if (product.id == "presentation-semantics") {
+      val instruction = CozyDocumentProject.presentationSemanticsAuthoringInstruction(descriptor)
+      s"<strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.readiness)}$reason<br/><span>Authoring instruction / 作成指示:</span> ${_html_escape(instruction)}"
+    } else {
+      val command = _dashboard_safe_action_command(product)
+      s"<strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.readiness)}$reason<br/><span>Safe contract / 安全な契約:</span> <code>${_html_escape(command)}</code>"
+    }
   }
 
-  private def _dashboard_safe_action_list(products: Vector[CozyDocumentProjectEvidence.WorkProductState]): String = {
+  private def _dashboard_safe_action_list(
+    products: Vector[CozyDocumentProjectEvidence.WorkProductState],
+    descriptor: CozyDocumentProject.Descriptor
+  ): String = {
     if (products.isEmpty) {
       "<li>No participating Work Product has a safe action preview. / 安全なアクションのプレビューがある参加中の成果物はありません。</li>"
     } else {
       products.map { item =>
         val product = item.value.workProduct
-        s"""<li><strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — selected-by-contract preview / 契約上選択済みのプレビュー<br/><code>${_html_escape(_dashboard_safe_action_command(product))}</code></li>"""
+        val action = product.id match {
+          case "presentation-semantics" if Set("blocked", "failed").contains(item.readiness) => CozyDocumentProject.presentationSemanticsAuthoringInstruction(descriptor)
+          case "presentation-semantics" => "No action: Presentation Semantics is current and ready; Dashboard does not run authoring."
+          case _ => _dashboard_safe_action_command(product)
+        }
+        s"""<li><strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — selected-by-contract preview / 契約上選択済みのプレビュー<br/><code>${_html_escape(action)}</code></li>"""
       }.mkString("\n")
     }
   }

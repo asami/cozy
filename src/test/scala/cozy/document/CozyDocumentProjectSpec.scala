@@ -1,7 +1,7 @@
 package cozy.document
 
 import cozy.scaffold.CozyHelpText
-import cozy.media.CozyMedia
+import cozy.media.{CozyExplanation, CozyMedia, CozyVisualPage}
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
@@ -63,7 +63,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "scaffold a deterministic authoring-incomplete Phase 46 presentation semantics sibling" in {
+    "scaffold a deterministic authoring-incomplete Phase 48 presentation semantics sibling" in {
       _with_temp_dir("cozy-document-project-presentation-semantics-scaffold") { root =>
         Given("two distinct parents for identical public standard-video scaffold inputs")
         val firstparent = Files.createDirectory(root.resolve("first-parent"))
@@ -103,6 +103,201 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "derive the exact Phase 48 authoring-incomplete presentation-semantics state" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-state") { root =>
+        Given("a standard project with its exact Phase 48 presentation-semantics sibling")
+        val project = _scaffolded_project(root, "semantic-state")
+
+        When("inspect derives the disposable state and verify attempts strict admission")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+        val verification = _failure(List("document-project", "verify", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("authoring-incomplete exposes unavailable semantic values, the strict fault, and the complete missing Work Product row")
+        inspect should include("presentationSemantics.schemaIdentity: cozy.content-core.presentation-semantics.v2")
+        inspect should include("presentationSemantics.semanticIdentity: unavailable")
+        inspect should include("presentationSemantics.state: authoring-incomplete")
+        inspect should include("presentationSemantics.storyStepCount: unavailable")
+        inspect should include("presentationSemantics.storyTransitionCount: unavailable")
+        inspect should include("presentationSemantics.structureCount: unavailable")
+        inspect should include("presentationSemantics.coverage: unavailable")
+        _diagnostic_tokens(verification) shouldBe Vector("DP-SEM-006")
+        state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked")
+        Files.exists(project.resolve("target/document-project/presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("target/document-project/presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "derive missing presentation-semantics source state" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-missing") { root =>
+        Given("a scaffolded project whose declared semantic source is absent")
+        val project = _scaffolded_project(root, "semantic-missing")
+        Files.delete(project.resolve("content/presentation-semantics-en.yaml"))
+
+        When("inspect derives the disposable work-product state")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+
+        Then("the semantic Work Product is missing rather than invalid or stale")
+        inspect should include("presentationSemantics.state: missing")
+        inspect should include("presentationSemantics.contentCore.currentness: unavailable")
+        Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked")
+      }
+    }
+
+    "derive stale presentation-semantics state only for an exact prior Core binding" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-stale") { root =>
+        Given("a Phase 48 semantic source bound to the exact original Core identity")
+        val project = _scaffolded_project(root, "semantic-stale")
+        val core = project.resolve("content/core-en.yaml")
+        val original = Files.readString(core, StandardCharsets.UTF_8)
+        val originalidentity = _sha256(core)
+        Files.writeString(core, original.replace("accepted: []", "accepted:\n  - id: accepted\n    text: accepted"), StandardCharsets.UTF_8)
+        Files.writeString(project.resolve("content/presentation-semantics-en.yaml"), CozyDocumentProject._presentation_semantics_yaml("semantic-stale", "en", originalidentity), StandardCharsets.UTF_8)
+
+        When("inspect and strict verify read the source after the Core bytes change")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+        val verification = _failure(List("document-project", "verify", project.toString))
+
+        Then("only the direct strict Core-binding fault is represented as stale")
+        inspect should include("presentationSemantics.state: stale")
+        inspect should include("presentationSemantics.contentCore.currentness: stale")
+        _diagnostic_tokens(verification) shouldBe Vector("DP-SEM-005")
+        verification should include("path=$.contentCore")
+      }
+    }
+
+    "derive invalid presentation-semantics state for incompatible candidates and independent root faults" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-invalid") { root =>
+        Given("a scaffolded project with candidate sources that are not the exact admitted Core binding")
+        val project = _scaffolded_project(root, "semantic-invalid")
+        val semantics = project.resolve("content/presentation-semantics-en.yaml")
+        val core = project.resolve("content/core-en.yaml")
+        val identity = _sha256(core)
+        val wrongid = CozyDocumentProject._presentation_semantics_yaml("other-project", "en", identity)
+        val wronglanguage = CozyDocumentProject._presentation_semantics_yaml("semantic-invalid", "ja", identity)
+        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted\n    text: accepted"), StandardCharsets.UTF_8)
+        val staleidentity = CozyDocumentProject._presentation_semantics_yaml("semantic-invalid", "en", identity)
+        val stalewithrootorderfault = staleidentity.replace(
+          "schema: cozy.content-core.presentation-semantics.v2\nid: semantic-invalid-presentation-en",
+          "id: semantic-invalid-presentation-en\nschema: cozy.content-core.presentation-semantics.v2"
+        )
+
+        When("each incompatible candidate is inspected and strictly verified")
+        Files.writeString(semantics, wrongid, StandardCharsets.UTF_8)
+        val wrongidstate = _execute(List("document-project", "inspect", project.toString))
+        val wrongidfailure = _failure(List("document-project", "verify", project.toString))
+        Files.writeString(semantics, wronglanguage, StandardCharsets.UTF_8)
+        val wronglanguagestate = _execute(List("document-project", "inspect", project.toString))
+        val wronglanguagefailure = _failure(List("document-project", "verify", project.toString))
+        Files.writeString(semantics, stalewithrootorderfault, StandardCharsets.UTF_8)
+        val rootfaultstate = _execute(List("document-project", "inspect", project.toString))
+        val rootfaultfailure = _failure(List("document-project", "verify", project.toString))
+
+        Then("wrong Core id or language is unavailable and invalid, while an independent root fault overrides stale state")
+        wrongidstate should include("presentationSemantics.state: invalid")
+        wrongidstate should include("presentationSemantics.contentCore.currentness: unavailable")
+        _diagnostic_tokens(wrongidfailure) shouldBe Vector("DP-SEM-005")
+        wronglanguagestate should include("presentationSemantics.state: invalid")
+        wronglanguagestate should include("presentationSemantics.contentCore.currentness: unavailable")
+        _diagnostic_tokens(wronglanguagefailure) shouldBe Vector("DP-SEM-005")
+        rootfaultstate should include("presentationSemantics.state: invalid")
+        rootfaultstate should include("presentationSemantics.contentCore.currentness: stale")
+        _diagnostic_tokens(rootfaultfailure) shouldBe Vector("DP-SEM-002")
+      }
+    }
+
+    "verify a complete fixed-catalog presentation-semantics document and retain read-only coverage evidence" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-current") { root =>
+        Given("an existing standard English scaffold with a complete fixed-catalog presentation-semantics sibling")
+        val project = _scaffolded_project(root, "semantic-current")
+        _write_valid_presentation_semantics(project)
+
+        When("inspect derives state and document-project verify admits the authored semantics")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+        val verify = _execute(List("document-project", "verify", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("the reports expose the current semantic identity, fixed-catalog counts, and satisfied projection coverage")
+        inspect should include("presentationSemantics.state: current")
+        inspect should include("presentationSemantics.semanticIdentity: sha256:")
+        inspect should include("presentationSemantics.contentCore.currentness: current")
+        inspect should include("presentationSemantics.storyStepCount: 2")
+        inspect should include("presentationSemantics.storyTransitionCount: 1")
+        inspect should include("presentationSemantics.structureCount: 2")
+        inspect should include("presentationSemantics.projectionAvailability: available")
+        inspect should include("presentationSemantics.coverage: satisfied")
+        verify should include("Cozy Document Project Verify")
+        verify should include("presentationSemantics.projectionAvailability: available")
+        state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
+        Files.exists(project.resolve("target/document-project/presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("target/document-project/presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "retain current semantic state while blocking projection coverage for a missing Structure" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-coverage") { root =>
+        Given("an existing standard English scaffold with one absent Structure in an otherwise valid fixed-catalog document")
+        val project = _scaffolded_project(root, "semantic-coverage")
+        _write_valid_presentation_semantics(project, includeproblemstructure = false)
+
+        When("inspect derives the semantic state and document-project verify reports projection completeness")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+        val verification = _execute(List("document-project", "verify", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("semantic validation remains current while typed projection availability fails and evidence readiness is blocked")
+        inspect should include("presentationSemantics.state: current")
+        inspect should include("presentationSemantics.storyStepCount: 2")
+        inspect should include("presentationSemantics.structureCount: 1")
+        inspect should include("presentationSemantics.projectionAvailability: failed")
+        inspect should include("presentationSemantics.coverage: unavailable")
+        verification should include("Cozy Document Project Verify")
+        verification should include("presentationSemantics.projectionAvailability: failed")
+        state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: current\n    review: pending\n    readiness: blocked")
+      }
+    }
+
+    "report malformed presentation-semantics YAML before authored root-order validation" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-malformed") { root =>
+        Given("a complete fixed-catalog presentation-semantics document")
+        val project = _scaffolded_project(root, "semantic-malformed")
+        val semantics = project.resolve("content/presentation-semantics-en.yaml")
+        _write_valid_presentation_semantics(project)
+
+        When("the semantic source is replaced with malformed YAML")
+        Files.writeString(semantics, "schema: [\n", StandardCharsets.UTF_8)
+        val failure = _failure(List("document-project", "verify", project.toString))
+
+        Then("the parser diagnostic precedes authored root-order validation")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-SEM-001")
+      }
+    }
+
+    "report parseable reordered, missing, and extra presentation-semantics root fields as authored root-order faults" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-root-order") { root =>
+        Given("a complete fixed-catalog presentation-semantics document in canonical authored root order")
+        val project = _scaffolded_project(root, "semantic-root-order")
+        _write_valid_presentation_semantics(project)
+        val semantics = project.resolve("content/presentation-semantics-en.yaml")
+        val canonical = Files.readString(semantics, StandardCharsets.UTF_8)
+        val reordered = canonical.replace(
+          "schema: cozy.content-core.presentation-semantics.v2\nid: semantic-root-order-presentation-en",
+          "id: semantic-root-order-presentation-en\nschema: cozy.content-core.presentation-semantics.v2"
+        )
+        val missing = canonical.replaceFirst("(?s)storyFlow:\\n.*?\\nstructures:", "structures:")
+        val extra = canonical + "extra: value\n"
+
+        When("each raw root-map shape is verified through the strict file loader")
+        val failures = Vector(reordered, missing, extra).map { value =>
+          Files.writeString(semantics, value, StandardCharsets.UTF_8)
+          _failure(List("document-project", "verify", project.toString))
+        }
+
+        Then("each parseable noncanonical raw root map is rejected with the established strict diagnostic")
+        failures.foreach(value => _diagnostic_tokens(value) shouldBe Vector("DP-SEM-002"))
+      }
+    }
+
     "retain generated presentation semantics when a public video scaffold is promoted to the hidden Article 9 profile" in {
       _with_temp_dir("cozy-document-project-article-nine-promotion") { root =>
         Given("a public standard-video scaffold for an Article 9-style package")
@@ -125,29 +320,27 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "admit the exact closed descriptor and Core through inspect and verify" in {
+    "inspect the exact closed descriptor and Core while strict verify rejects incomplete semantics" in {
       _with_temp_dir("cozy-document-project-admission") { root =>
         Given("a standard scaffold with the closed descriptor and Content Core")
         val parent = Files.createDirectory(root.resolve("parent"))
         _execute(List("document-project", "scaffold", "sample", "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
         val project = parent.resolve("sample.dox")
 
-        When("inspect and verify read the admitted project")
+        When("inspect reads the admitted project and strict verify validates its Presentation Semantics")
         val inspect = _execute(List("document-project", "inspect", project.toString))
-        val verify = _execute(List("document-project", "verify", project.toString))
+        val verify = _failure(List("document-project", "verify", project.toString))
 
-        Then("both reports identify the project and descriptor schema")
+        Then("inspect identifies the project and descriptor schema while strict verify returns the semantic diagnostic")
         inspect should startWith("Cozy Document Project Inspect")
         inspect should include("project: sample")
         inspect should include("schema: cozy.document-project.v2")
-        verify should startWith("Cozy Document Project Verify")
-        verify should include("schema: cozy.document-project.v2")
+        verify should include("DP-SEM-")
 
-        And("successful inspections and verification expose only a deterministic disposable state cache")
+        And("the successful inspection, rather than strict verify, exposes only a deterministic disposable state cache")
         val state = project.resolve("target/document-project/state.yaml")
         Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS) shouldBe true
         inspect should include("state: target/document-project/state.yaml")
-        verify should include("state: target/document-project/state.yaml")
         val firststate = Files.readString(state, StandardCharsets.UTF_8)
         firststate should include("schema: cozy.document-project-state.v2")
         firststate should include("workProducts:")
@@ -832,6 +1025,132 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "project presentation semantics blockers and the deterministic authoring action through plan" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-plan") { root =>
+        Given("four projects whose Content Core is admitted while Presentation Semantics is missing, incomplete, invalid, or stale")
+        def _admit_core_(project: Path): Unit = {
+          val slug = project.getFileName.toString.stripSuffix(".dox")
+          val core = project.resolve("content/core-en.yaml")
+          Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-core\n    text: Accepted core"), StandardCharsets.UTF_8)
+          Files.writeString(project.resolve("content/presentation-semantics-en.yaml"), CozyDocumentProject._presentation_semantics_yaml(slug, "en", _sha256(core)), StandardCharsets.UTF_8)
+        }
+        val missing = _scaffolded_project(root, "plan-missing")
+        _admit_core_(missing)
+        Files.delete(missing.resolve("content/presentation-semantics-en.yaml"))
+        val incomplete = _scaffolded_project(root, "plan-incomplete")
+        _admit_core_(incomplete)
+        val invalid = _scaffolded_project(root, "plan-invalid")
+        _admit_core_(invalid)
+        Files.writeString(invalid.resolve("content/presentation-semantics-en.yaml"), "schema: [\n", StandardCharsets.UTF_8)
+        val stale = _scaffolded_project(root, "plan-stale")
+        val stalecore = stale.resolve("content/core-en.yaml")
+        val prioridentity = _sha256(stalecore)
+        Files.writeString(stalecore, Files.readString(stalecore, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-core\n    text: Accepted core"), StandardCharsets.UTF_8)
+        Files.writeString(stale.resolve("content/presentation-semantics-en.yaml"), CozyDocumentProject._presentation_semantics_yaml("plan-stale", "en", prioridentity), StandardCharsets.UTF_8)
+
+        When("plan derives each project without executing an operation")
+        val plans = Vector(
+          "missing" -> _execute(List("document-project", "plan", missing.toString)),
+          "authoring-incomplete" -> _execute(List("document-project", "plan", incomplete.toString)),
+          "invalid" -> _execute(List("document-project", "plan", invalid.toString)),
+          "stale" -> _execute(List("document-project", "plan", stale.toString))
+        )
+
+        Then("every plan places Presentation Semantics after Content Core and before its dependent semantic Work Products")
+        plans.foreach { case (state, plan) =>
+          plan should include("required: work-product content-core [authority, required")
+          plan should include("required: work-product presentation-semantics [authority, required")
+          plan should include("required: work-product article-source [authority, required")
+          plan.indexOf("work-product content-core [") should be < plan.indexOf("work-product presentation-semantics [")
+          plan.indexOf("work-product presentation-semantics [") should be < plan.indexOf("work-product article-source [")
+          plan should include(s"state: $state")
+          plan should include(s"readiness: ${if (state == "invalid") "failed" else "blocked"}")
+          plan should include("reason:")
+          plan should include("next-action: presentation-semantics [Author the project-local sibling content/presentation-semantics-en.yaml to the strict v2 contract (cozy.content-core.presentation-semantics.v2); after authoring, use document-project verify <project> only for validation.]")
+          plan should not include "run <project> --operation presentation.author"
+        }
+
+        And("planning creates no target, state, evidence, confirmation, receipt, or semantic output artifact")
+        Vector(missing, incomplete, invalid, stale).foreach { project =>
+          Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.exists(project.resolve("state"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.exists(project.resolve("presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.exists(project.resolve("presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        }
+      }
+    }
+
+    "derive Presentation Semantics Plan state without unrelated retained evidence" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-plan-evidence") { root =>
+        Given("a project with complete current fixed-catalog Presentation Semantics and a malformed retained evidence sidecar")
+        val project = _scaffolded_project(root, "plan-semantics-evidence")
+        _write_valid_presentation_semantics(project)
+        val sidecar = project.resolve("evidence/document-project.yaml")
+        Files.createDirectories(sidecar.getParent)
+        Files.writeString(sidecar, "schema: [\n", StandardCharsets.UTF_8)
+
+        When("Plan derives only the Presentation Semantics state")
+        val plan = _execute(List("document-project", "plan", project.toString))
+        val inspectfailure = _failure(List("document-project", "inspect", project.toString))
+
+        Then("Plan remains available with current semantic coverage while inspect preserves its strict retained-evidence failure")
+        plan should include("required: work-product presentation-semantics [authority, required]; state: current; coverage: satisfied; currentness: current; readiness: ready")
+        plan should include("reason: strict semantics, projection, and semantic coverage are current")
+        plan should not include("next-action: presentation-semantics")
+        inspectfailure should include("DP-DESC-002")
+      }
+    }
+
+    "use the exact Presentation Semantics authoring instruction for the first Dashboard blocker" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-dashboard") { root =>
+        Given("a project with a strictly admissible Content Core and an authoring-incomplete semantic sibling")
+        val project = _scaffolded_project(root, "dashboard-semantics")
+        val core = project.resolve("content/core-en.yaml")
+        val semantics = project.resolve("content/presentation-semantics-en.yaml")
+        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-core\n    text: Accepted core"), StandardCharsets.UTF_8)
+        Files.writeString(semantics, CozyDocumentProject._presentation_semantics_yaml("dashboard-semantics", "en", _sha256(core)), StandardCharsets.UTF_8)
+        val corebytes = Files.readAllBytes(core)
+        val semanticsbytes = Files.readAllBytes(semantics)
+        val descriptorbytes = Files.readAllBytes(project.resolve("document-project.yaml"))
+
+        When("Dashboard projects the read-only snapshot")
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("Presentation Semantics is the first blocker and its exact authoring instruction is shown")
+        dashboard should include("presentation-semantics</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        dashboard.indexOf("<strong>Presentation semantics</strong>") should be >= 0
+        dashboard should include("Author the project-local sibling content/presentation-semantics-en.yaml to the strict v2 contract (cozy.content-core.presentation-semantics.v2); after authoring, use document-project verify &lt;project&gt; only for validation.")
+        dashboard should not include("run &lt;project&gt; --operation presentation.author")
+        dashboard should not include("presentation-confirmation.html")
+        dashboard should not include("presentation-confirmation.receipt.yaml")
+
+        And("Dashboard does not alter semantic source, descriptor bytes, or emit semantic receipts")
+        Files.readAllBytes(core) shouldBe corebytes
+        Files.readAllBytes(semantics) shouldBe semanticsbytes
+        Files.readAllBytes(project.resolve("document-project.yaml")) shouldBe descriptorbytes
+        Files.exists(project.resolve("target/document-project/presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("target/document-project/presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "project current Presentation Semantics as a non-running Dashboard no-action" in {
+      _with_temp_dir("cozy-document-project-presentation-semantics-dashboard-current") { root =>
+        Given("a project with complete current fixed-catalog Presentation Semantics")
+        val project = _scaffolded_project(root, "dashboard-semantics-current")
+        _write_valid_presentation_semantics(project)
+
+        When("Dashboard projects its read-only action surface")
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+
+        Then("Presentation Semantics reports its explicit current no-action without a presentation author run command")
+        dashboard should include("No action: Presentation Semantics is current and ready; Dashboard does not run authoring.")
+        dashboard should not include("cozy document-project run &lt;project&gt; --operation presentation.author --dry-run")
+      }
+    }
+
     "reject a regular-file scaffold parent at the path gate" in {
       _with_temp_dir("cozy-document-project-scaffold-parent") { root =>
         Given("an existing regular file used as a scaffold parent")
@@ -951,11 +1270,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "dashboard", project.toString))
         val dashboard = project.resolve("target/document-project/project-dashboard.html")
 
-        Then("review-projection Work Products remain blocked and identify generation as the next action")
+        Then("review-projection Work Products remain blocked and identify stale Presentation Semantics dependency propagation")
         val initialdashboardtext = Files.readString(dashboard, StandardCharsets.UTF_8)
         initialdashboardtext should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
         initialdashboardtext should include("Generate Core review HTML")
-        initialdashboardtext should include("slide-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        initialdashboardtext should include("presentation-semantics</th><td>missing</td><td>stale</td><td>pending</td><td>blocked")
+        initialdashboardtext should include("slide-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
         initialdashboardtext should include("Generate Slide review HTML")
 
         When("the default core and slide reviews are generated before the dashboard is repeated")
@@ -966,7 +1286,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "dashboard", project.toString))
         val secondbytes = Files.readAllBytes(dashboard)
 
-        Then("the default dashboard is self-contained, escaped, structurally accessible, and byte-identical")
+        Then("the default dashboard is self-contained, escaped, structurally accessible, byte-identical, and explicit about stale Presentation Semantics dependencies")
         firstoutput should startWith("Cozy Document Project Dashboard")
         Files.isRegularFile(dashboard, LinkOption.NOFOLLOW_LINKS) shouldBe true
         firstbytes shouldBe secondbytes
@@ -986,7 +1306,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboardtext should include("Consumer operations")
         dashboardtext should include("no receipt or currentness authority")
         dashboardtext should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
-        dashboardtext should include("slide-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        dashboardtext should include("presentation-semantics</th><td>missing</td><td>stale</td><td>pending</td><td>blocked")
+        dashboardtext should include("slide-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
         dashboardtext should include("<a href=\"core-review.html\">core-review.html</a>")
         dashboardtext should include("<a href=\"slides-review.html\">slides-review.html</a>")
         dashboardtext should include("<a href=\"../../infographic/infographic.svg\">../../infographic/infographic.svg</a>")
@@ -1364,9 +1685,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the standard dashboard reconstructs the generated Slide Logical Chart")
         _execute(List("document-project", "dashboard", standard.toString))
 
-        Then("the generated Slide Logical Chart is satisfied, current, and ready without a receipt")
+        Then("the generated Slide Logical Chart remains stale because Presentation Semantics has already made Visual Page IR stale")
         val standardcurrentchart = Files.readString(standard.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        standardcurrentchart should include("explanation-structure-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready</td>")
+        standardcurrentchart should include("presentation-semantics</th><td>missing</td><td>stale</td><td>pending</td><td>blocked")
+        standardcurrentchart should include("visual-pages</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
+        standardcurrentchart should include("explanation-structure-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
 
         When("the current standard Visual Page IR changes without regenerating the Slide Logical Chart")
         Files.writeString(standardvisualpages, "pages: [\"changed slide visual\"]\n", StandardCharsets.UTF_8)
@@ -1419,12 +1742,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the standard-video dashboard is projected")
         _execute(List("document-project", "dashboard", video.toString))
 
-        Then("the Slide Logical Chart remains missing while the Video Logical Chart is satisfied, current, and ready")
+        Then("the Slide Logical Chart remains missing while the Video Logical Chart is stale and blocked by a declared dependency")
         val dashboardtext = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
         dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("explanation-structure-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
         dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
-        dashboardtext should include("video-logical-chart-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready</td>")
+        dashboardtext should include("video-logical-chart-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
         dashboardtext should include("phase-41-explanation-structure")
         dashboardtext should include("content-core")
         dashboardtext should include("slide-logical-chart")
@@ -2245,7 +2568,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.readString(bok.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("Generate Article site HTML with Cozy Site")
         Files.readString(hidden.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("href=\"video-logical-chart-review.html\"")
         _failure(List("document-project", "review", bok.toString, "--kind", "video-logical-chart")) should include("logical operation video-logical-chart.render-review is disabled for profile bok")
-        _execute(List("document-project", "verify", hidden.toString)) should include("Cozy Document Project Verify")
+        _failure(List("document-project", "verify", hidden.toString)) should include("DP-SEM-")
         CozyHelpText._text should not include("simplemodeling-org")
       }
     }
@@ -2311,20 +2634,20 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.exists(standalone.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(bok.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
-        When("plan and verify prove the bounded local drivers without external acceptance")
+        When("plan resolves the bounded local drivers while strict verify rejects incomplete semantics")
         val standaloneplan = _execute(List("document-project", "plan", standalone.toString))
         val bokplan = _execute(List("document-project", "plan", bok.toString))
-        val standaloneverify = _execute(List("document-project", "verify", standalone.toString))
-        val bokverify = _execute(List("document-project", "verify", bok.toString))
+        val standaloneverify = _failure(List("document-project", "verify", standalone.toString))
+        val bokverify = _failure(List("document-project", "verify", bok.toString))
 
-        Then("each driver resolves its selected profile and verifies only its local package")
+        Then("each Plan resolves its selected profile while strict verify rejects only its local incomplete semantics")
         standaloneplan should include("eligible: operation video.render-review [provider: cozy-video]")
         bokplan should include("eligible: operation article.render-pdf [provider: smartdox-rendering]")
         bokplan should include("profile-disabled: work-product video-review [review-projection, disabled: profile bok disables video branch]")
-        standaloneverify should include("Cozy Document Project Verify")
-        bokverify should include("Cozy Document Project Verify")
-        Files.exists(standalone.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
-        Files.exists(bok.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        standaloneverify should include("DP-SEM-")
+        bokverify should include("DP-SEM-")
+        Files.exists(standalone.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(bok.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
         When("the selected local operations are recorded without provider execution")
         val standaloneoperations = Vector(
@@ -3024,6 +3347,132 @@ parity:
     _execute(List("document-project", "scaffold", slug, "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
     parent.resolve(s"$slug.dox")
   }
+
+  private def _write_valid_presentation_semantics(project: Path, includeproblemstructure: Boolean = true): Unit = {
+    val slug = project.getFileName.toString.stripSuffix(".dox")
+    val core = project.resolve("content/core-en.yaml")
+    val composition = _fixed_presentation_composition()
+    val problemstructure = _presentation_structure_yaml("problem-structure", "problem-step", "Problem", "The prior reader path was permissive.", "Show the reader-facing problem.")
+    val solutionstructure = _presentation_structure_yaml("solution-structure", "solution-step", "Solution", "The typed path preserves declared content.", "Show the reader-facing solution.")
+    val structures = if (includeproblemstructure) Vector(problemstructure, solutionstructure) else Vector(solutionstructure)
+    val bindings = for {
+      medium <- Vector("article", "slides", "video")
+      logicalpattern <- Vector("sequence", "causal-chain")
+    } yield _presentation_policy_binding_yaml(medium, logicalpattern)
+    val value = s"""schema: cozy.content-core.presentation-semantics.v2
+id: $slug-presentation-en
+contentCore:
+  id: $slug:core:en
+  language: en
+  identity: sha256:${_sha256(core)}
+composition: ${CozyExplanation.canonicalCompositionJson(composition)}
+storyFlow:
+  id: $slug-story-flow-en
+  transitions:
+    - id: problem-causes-solution
+      relationType: causes
+      fromStepId: problem-step
+      toStepId: solution-step
+structures:
+${structures.map(_indent(_, 2)).mkString("\n")}
+projectionPolicy:
+  schema: cozy.content-core.projection-policy.v1
+  id: $slug-projection-policy-en
+  revision: 1
+  bindings:
+${bindings.map(_indent(_, 4)).mkString("\n")}
+"""
+    Files.writeString(project.resolve("content/presentation-semantics-en.yaml"), value, StandardCharsets.UTF_8)
+  }
+
+  private def _fixed_presentation_composition(): CozyExplanation.Composition = {
+    val catalog = CozyExplanation.fixedCatalog
+    val none = Vector.empty[String]
+    val facts = Vector(
+      CozyExplanation.Fact("name", CozyExplanation.JsonString("Cozy"), none, none),
+      CozyExplanation.Fact("vision", CozyExplanation.JsonString("Make presentation semantics explicit"), none, none),
+      CozyExplanation.Fact("goals", CozyExplanation.JsonArray(Vector(_labeled_value("goal", "Reliable plans"))), none, none),
+      CozyExplanation.Fact("context", CozyExplanation.JsonString("Typed document workflow"), none, none),
+      CozyExplanation.Fact("useCases", CozyExplanation.JsonArray(Vector(_labeled_value("use-case", "Explain document semantics"))), none, none),
+      CozyExplanation.Fact("mainScenario", CozyExplanation.JsonObject(Vector(
+        "id" -> CozyExplanation.JsonString("scenario"),
+        "label" -> CozyExplanation.JsonString("Normalize a document"),
+        "steps" -> CozyExplanation.JsonArray(Vector(_labeled_value("scenario-step", "Validate semantics")))
+      )), none, none),
+      CozyExplanation.Fact("mechanisms", CozyExplanation.JsonArray(Vector(_labeled_value("mechanism", "Typed validation"))), none, none)
+    )
+    val problem = CozyExplanation.CompositionStep(
+      "problem-step", 1, "problem",
+      Vector(CozyExplanation.Claim("problem-claim", "The prior reader path was permissive.", "primary", none, none)),
+      _presentation_sequence(), none, none, Vector(CozyExplanation.ParameterSelection("problem"))
+    )
+    val solution = CozyExplanation.CompositionStep(
+      "solution-step", 2, "solution",
+      Vector(CozyExplanation.Claim("solution-claim", "The typed path preserves declared content.", "primary", none, none)),
+      _presentation_causal_chain(), none, none, Vector(CozyExplanation.ParameterSelection("solution"))
+    )
+    CozyExplanation.Composition(
+      "document-composition",
+      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.identity),
+      CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
+      CozyExplanation.Explanation(
+        CozyExplanation.PatternReference("problem-solution", 1),
+        Vector(
+          CozyExplanation.Parameter("problem", CozyExplanation.JsonString("The reader-facing path was permissive.")),
+          CozyExplanation.Parameter("solution", CozyExplanation.JsonString("The sibling schema is typed and closed."))
+        ),
+        Vector(problem, solution)
+      ),
+      Vector.empty,
+      Vector.empty
+    )
+  }
+
+  private def _labeled_value(id: String, label: String): CozyExplanation.JsonValue = CozyExplanation.JsonObject(Vector(
+    "id" -> CozyExplanation.JsonString(id),
+    "label" -> CozyExplanation.JsonString(label),
+    "sourceRefs" -> CozyExplanation.JsonArray(Vector.empty),
+    "assetRefs" -> CozyExplanation.JsonArray(Vector.empty)
+  ))
+
+  private def _presentation_sequence(): CozyVisualPage.Logical = CozyVisualPage.Logical(
+    "sequence",
+    Vector(
+      CozyVisualPage.Node("first", "step", "Reader input", Vector.empty),
+      CozyVisualPage.Node("second", "step", "Typed boundary", Vector.empty)
+    ),
+    Vector(CozyVisualPage.Relation("next", "next", "first", "second", Vector.empty))
+  )
+
+  private def _presentation_causal_chain(): CozyVisualPage.Logical = CozyVisualPage.Logical(
+    "causal-chain",
+    Vector(
+      CozyVisualPage.Node("cause", "cause", "Closed schema", Vector.empty),
+      CozyVisualPage.Node("effect", "effect", "Faithful projection", Vector.empty)
+    ),
+    Vector(
+      CozyVisualPage.Relation("causes", "causes", "cause", "effect", Vector.empty),
+      CozyVisualPage.Relation("enables", "enables", "cause", "effect", Vector.empty)
+    )
+  )
+
+  private def _presentation_structure_yaml(id: String, stepid: String, heading: String, text: String, intent: String): String =
+    s"""- id: $id
+  storyStepId: $stepid
+  article:
+    articleHeading: "$heading"
+    visibleText:
+      - "$text"
+    visualIntent: "$intent"
+  visualOverrides: []"""
+
+  private def _presentation_policy_binding_yaml(medium: String, logicalpattern: String): String =
+    s"""- medium: $medium
+  logicalPattern: $logicalpattern
+  visual:
+    pattern: flow-horizontal
+    parameters:
+      showRelationLabels: true"""
 
   private def _write_sidecar(project: Path, evidence: Map[String, String] = Map.empty, profileid: String = "standard", activeoptionalworkproducts: Vector[String] = Vector.empty): Unit = {
     val selected = _activate_optional_work_products(project, profileid, activeoptionalworkproducts)

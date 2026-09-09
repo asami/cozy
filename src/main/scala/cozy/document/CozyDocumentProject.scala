@@ -78,7 +78,6 @@ private[cozy] object CozyDocumentProject {
               val state = _write_state_snapshot(project, descriptor)
               println(_with_state(verification, state))
             case "run" =>
-              _verify(project, descriptor)
               println(_run(project, descriptor, operation.getOrElse(""), dryrun))
             case "dashboard" =>
               val destination = CozyDocumentProjectProjection.admitDestination(project, save, "project-dashboard.html")
@@ -385,7 +384,8 @@ private[cozy] object CozyDocumentProject {
   private def _verify(project: Path, descriptor: Descriptor): String = {
     if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile))
       _direct_file(project, "video/storyboard.md", "initial authored source")
-    s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2"
+    val semantics = CozyDocumentProjectPresentationSemanticsState.requireCurrent(project, descriptor)
+    s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2\n${CozyDocumentProjectPresentationSemanticsState.summary(semantics)}"
   }
 
   private def _run(project: Path, descriptor: Descriptor, operationid: String, dryrun: Boolean): String = {
@@ -498,8 +498,10 @@ private[cozy] object CozyDocumentProject {
   private[cozy] def _project_relative(project: Path, path: Path): String =
     project.relativize(path).toString.replace('\\', '/')
 
-  private def _inspect(project: Path, descriptor: Descriptor, state: Path): String =
-    _with_state(s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}", state)
+  private def _inspect(project: Path, descriptor: Descriptor, state: Path): String = {
+    val semantics = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
+    _with_state(s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}\n${CozyDocumentProjectPresentationSemanticsState.summary(semantics)}", state)
+  }
 
   private def _with_state(output: String, state: Path): String = {
     val reference = Vector(state.getParent.getParent.getFileName, state.getParent.getFileName, state.getFileName).mkString("/")
@@ -567,30 +569,41 @@ private[cozy] object CozyDocumentProject {
   private def _sha256(path: Path): String =
     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
+  private[cozy] def presentationSemanticsAuthoringInstruction(descriptor: Descriptor): String =
+    s"Author the project-local sibling content/presentation-semantics-${descriptor.language}.yaml to the strict v2 contract (cozy.content-core.presentation-semantics.v2); after authoring, use document-project verify <project> only for validation."
+
   private def _plan(project: Path, descriptor: Descriptor): String = {
     val workflowplan = CozyDocumentWorkflow.plan(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => _descriptor_failure(cause)
     }
+    val presentationstate = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
     val requiredlines = workflowplan.selectedWorkProducts.collect {
-      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.Required => s"required: ${_plan_work_product_line(value)}"
+      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.Required => s"required: ${_plan_work_product_line(value, presentationstate)}"
     }
     val activeoptionallines = workflowplan.selectedWorkProducts.collect {
-      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => s"active-optional: ${_plan_work_product_line(value)}"
+      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => s"active-optional: ${_plan_work_product_line(value, presentationstate)}"
     }
-    val inactiveoptionallines = workflowplan.inactiveOptionalWorkProducts.map(value => s"inactive-optional: ${_plan_work_product_line(value)}")
-    val profiledisabledlines = workflowplan.profileDisabledWorkProducts.map(value => s"profile-disabled: ${_plan_work_product_line(value)}")
+    val inactiveoptionallines = workflowplan.inactiveOptionalWorkProducts.map(value => s"inactive-optional: ${_plan_work_product_line(value, presentationstate)}")
+    val profiledisabledlines = workflowplan.profileDisabledWorkProducts.map(value => s"profile-disabled: ${_plan_work_product_line(value, presentationstate)}")
     val blockedlines = workflowplan.blockedOperations.map(value => s"blocked: operation ${value.id} [${CozyDocumentWorkflow.executionReservedExplanation}]")
     val eligiblelines = workflowplan.eligibleOperations.map(value => s"eligible: operation ${value.id} [provider: ${value.providerBinding}]")
+    val semanticaction = Vector(presentationstate).collect {
+      case value if Set("blocked", "failed").contains(CozyDocumentProjectPresentationSemanticsState.evidenceReadiness(value)) =>
+        s"next-action: presentation-semantics [${presentationSemanticsAuthoringInstruction(descriptor)}]"
+    }
     (Vector(
       "Cozy Document Project Plan",
       s"project: ${descriptor.id}",
       s"package: $project",
       "schema: cozy.document-project.v2"
-    ) ++ requiredlines ++ activeoptionallines ++ inactiveoptionallines ++ profiledisabledlines ++ blockedlines ++ eligiblelines).mkString("\n")
+    ) ++ requiredlines ++ activeoptionallines ++ inactiveoptionallines ++ profiledisabledlines ++ semanticaction ++ blockedlines ++ eligiblelines).mkString("\n")
   }
 
-  private def _plan_work_product_line(value: CozyDocumentWorkflow.ResolvedWorkProduct): String = {
+  private def _plan_work_product_line(
+    value: CozyDocumentWorkflow.ResolvedWorkProduct,
+    presentationstate: CozyDocumentProjectPresentationSemanticsState.State
+  ): String = {
     val product = value.workProduct
     val binding = value.binding
     val selection = value.selection match {
@@ -599,7 +612,11 @@ private[cozy] object CozyDocumentProject {
       case _ => ""
     }
     val reason = binding.reason.map(text => s": $text").getOrElse("")
-    s"work-product ${product.id} [${product.role.value}, ${binding.disposition.value}$selection$reason]"
+    val state = if (product.id == "presentation-semantics")
+      s"; state: ${presentationstate.semanticState}; coverage: ${CozyDocumentProjectPresentationSemanticsState.evidenceCoverage(presentationstate)}; currentness: ${CozyDocumentProjectPresentationSemanticsState.evidenceCurrentness(presentationstate)}; readiness: ${CozyDocumentProjectPresentationSemanticsState.evidenceReadiness(presentationstate)}; reason: ${presentationstate.reason}"
+    else
+      ""
+    s"work-product ${product.id} [${product.role.value}, ${binding.disposition.value}$selection$reason]$state"
   }
 
   private def _scaffold(slug: String, profile: String, language: String, workspace: String, parentvalue: String): Path = {
@@ -746,7 +763,7 @@ private[cozy] object CozyDocumentProject {
        |accepted: []
        |""".stripMargin
 
-  private def _presentation_semantics_yaml(slug: String, language: String, coreidentity: String): String =
+  private[cozy] def _presentation_semantics_yaml(slug: String, language: String, coreidentity: String): String =
     s"""schema: cozy.content-core.presentation-semantics.v2
        |id: $slug-presentation-$language
        |contentCore:

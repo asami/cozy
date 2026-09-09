@@ -7,7 +7,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep.  4, 2026
+ * @version Sep.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
@@ -157,6 +157,9 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
       )
     )
   )
+
+  private[cozy] def fixedCatalog: Catalog =
+    Catalog("presentation", 1, _relations, _logical_patterns, _visual_patterns)
 
   def parseJson(text: String): Document = _parse_document(_parse_json(text, "$"), "$")
   def parseYaml(text: String): Document = _parse_document(_parse_yaml(text, "$"), "$")

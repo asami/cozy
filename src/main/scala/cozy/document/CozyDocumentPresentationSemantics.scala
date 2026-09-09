@@ -6,12 +6,12 @@ import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.nio.file.{Files, LinkOption, Path}
 import java.security.MessageDigest
 import org.goldenport.config.StructuredDocumentLoader
-import org.goldenport.io.{InputSource, StringInputSource}
+import org.goldenport.io.StringInputSource
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep.  4, 2026
- * @version Sep.  4, 2026
+ * @version Sep.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentPresentationSemantics {
@@ -71,6 +71,9 @@ private[cozy] object CozyDocumentPresentationSemantics {
   private val _token_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
   private val _identity_pattern = "sha256:[0-9a-f]{64}".r
 
+  private[cozy] def fixedCatalogs: Catalogs =
+    Catalogs(CozyExplanation.fixedCatalog, CozyExplanation.fixedPresentationCatalog)
+
   def load(
     core: Path,
     semantics: Path,
@@ -87,6 +90,17 @@ private[cozy] object CozyDocumentPresentationSemantics {
       case fault: CozyVisualPage.VisualPageFault => _fail("DP-SEM-010", "$catalog", fault.getMessage)
       case NonFatal(e) => _fail("DP-SEM-006", "$catalog", _message(e))
     }
+    _validate(coresnapshot, semanticsvalue, catalogs, bindings)
+  }
+
+  private[cozy] def load(
+    core: Path,
+    semantics: Path,
+    catalogs: Catalogs,
+    bindings: CozyExplanation.ResourceBindings
+  ): Validated = {
+    val coresnapshot = _load_core_snapshot(core, "$core")
+    val semanticsvalue = _load_document(semantics, "$")
     _validate(coresnapshot, semanticsvalue, catalogs, bindings)
   }
 
@@ -478,9 +492,31 @@ private[cozy] object CozyDocumentPresentationSemantics {
   )))
 
   private def _load_document(path: Path, label: String): Json = {
-    _direct_file(path, label)
-    try StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
+    val direct = _direct_file(path, label)
+    val text = try {
+      val bytes = Files.readAllBytes(direct)
+      StandardCharsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(java.nio.ByteBuffer.wrap(bytes))
+        .toString
+    } catch {
+      case NonFatal(e) => _fail("DP-SEM-001", label, _message(e))
+    }
+    val value = try StructuredDocumentLoader.loadJson(StringInputSource(text, direct.toUri)).take
     catch { case NonFatal(e) => _fail("DP-SEM-001", label, _message(e)) }
+    val root = _object(value, label)
+    _authored_root_fields(text, label)
+    _exact_fields(root, _root_fields, label)
+    Json.fromJsonObject(JsonObject.fromIterable(_root_fields.map(name => name -> _field(root, name, label))))
+  }
+
+  private def _authored_root_fields(text: String, path: String): Unit = {
+    val fields = text.stripPrefix("\ufeff").linesIterator.collect {
+      case line if line.matches("[A-Za-z][A-Za-z0-9]*\\s*:.*") => line.takeWhile(_ != ':').trim
+    }.toVector
+    if (fields != _root_fields)
+      _fail("DP-SEM-002", path, s"must have exactly ordered fields: ${_root_fields.mkString(", ")}")
   }
 
   private def _load_core_snapshot(path: Path, label: String): CoreSnapshot = {

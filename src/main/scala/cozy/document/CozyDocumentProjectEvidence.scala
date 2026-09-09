@@ -13,7 +13,7 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep.  3, 2026
+ * @version Sep.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectEvidence {
@@ -58,7 +58,12 @@ private[cozy] object CozyDocumentProjectEvidence {
     criteria: Vector[CriterionState]
   )
 
-  private final case class EvidenceStatus(currentness: String, reason: Option[String])
+  private final case class EvidenceStatus(
+    currentness: String,
+    reason: Option[String],
+    coverage: Option[String] = None,
+    readiness: Option[String] = None
+  )
   private final case class GeneratedReviewReceipt(kind: String, output: FileIdentity, inputs: Vector[FileIdentity])
 
   private val _sidecar_schema = "cozy.document-project-evidence.v2"
@@ -339,6 +344,7 @@ private[cozy] object CozyDocumentProjectEvidence {
   ): Vector[WorkProductState] = {
     val sourcepaths = sources.map(_.path).toSet
     val coreaccepted = CozyDocumentProject._core_has_accepted_entries(project, descriptor)
+    val presentationstate = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
     val declared = sidecar.map(_.products.map(value => value.id -> value).toMap).getOrElse(Map.empty)
     val initial = resolved.workProducts.map { value =>
       val binding = value.binding
@@ -353,14 +359,16 @@ private[cozy] object CozyDocumentProjectEvidence {
         product.id -> _generated_review_status(project, descriptor, sourcepaths, "video")
       } else if (Set("explanation-structure-review-html", "video-logical-chart-html").contains(product.id)) {
         product.id -> _logical_chart_status(project, descriptor, sourcepaths, product.id)
+      } else if (product.id == "presentation-semantics") {
+        product.id -> _presentation_status(presentationstate)
       } else {
         product.id -> declared.get(product.id).map(entry => _evidence_status(project, entry.evidence, declared)).getOrElse(_source_status(descriptor, product.id, sourcepaths))
       }
     }.toMap
-    val initiallycurrent = initial.collect { case (id, EvidenceStatus("current", _)) => id }.toSet
-    val stale = _stale_products(resolved, initial.collect { case (id, EvidenceStatus("stale", _)) => id }.toSet)
+    val initiallycurrent = initial.collect { case (id, EvidenceStatus("current", _, _, _)) => id }.toSet
+    val stale = _stale_products(resolved, initial.collect { case (id, EvidenceStatus("stale", _, _, _)) => id }.toSet)
     val withstale = initial.map {
-      case (id, EvidenceStatus(currentness, _)) if currentness != "not-applicable" && currentness != "nonparticipating" && stale.contains(id) &&
+      case (id, EvidenceStatus(currentness, _, _, _)) if currentness != "not-applicable" && currentness != "nonparticipating" && stale.contains(id) &&
           (!Set("explanation-structure-review-html", "video-logical-chart-html").contains(id) || currentness == "current") =>
         id -> EvidenceStatus("stale", Some("a declared dependency is stale"))
       case item => item
@@ -381,15 +389,15 @@ private[cozy] object CozyDocumentProjectEvidence {
       val review =
         if (value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional || value.selection == CozyDocumentWorkflow.WorkProductSelection.ProfileDisabled) "not-applicable"
         else declared.get(product.id).map(entry => _review_status(project, descriptor, entry.review)).getOrElse("pending")
-      val coverage =
+      val coverage = evidence.coverage.getOrElse(
         if (currentness == "not-applicable" || currentness == "nonparticipating") {
           "not-applicable"
         } else if (currentness == "current" && (product.id != "content-core" || coreaccepted)) {
           "satisfied"
         } else {
           "missing"
-        }
-      val readiness =
+        })
+      val readiness = evidence.readiness.getOrElse(
         if (currentness == "not-applicable") {
           "omitted"
         } else if (currentness == "nonparticipating") {
@@ -400,7 +408,7 @@ private[cozy] object CozyDocumentProjectEvidence {
           "ready"
         } else {
           "blocked"
-        }
+        })
       val reason =
         if (currentness == "not-applicable") {
           binding.reason
@@ -414,6 +422,14 @@ private[cozy] object CozyDocumentProjectEvidence {
       WorkProductState(value, coverage, currentness, review, readiness, reason)
     }
   }
+
+  private def _presentation_status(state: CozyDocumentProjectPresentationSemanticsState.State): EvidenceStatus =
+    EvidenceStatus(
+      CozyDocumentProjectPresentationSemanticsState.evidenceCurrentness(state),
+      Some(state.reason),
+      Some(CozyDocumentProjectPresentationSemanticsState.evidenceCoverage(state)),
+      Some(CozyDocumentProjectPresentationSemanticsState.evidenceReadiness(state))
+    )
 
   private def _evidence_status(project: Path, evidence: Evidence, declared: Map[String, ProductEvidence]): EvidenceStatus = evidence match {
     case NoEvidence => EvidenceStatus("missing", Some("declared evidence is missing"))
