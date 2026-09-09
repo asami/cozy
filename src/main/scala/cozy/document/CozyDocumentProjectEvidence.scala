@@ -361,6 +361,8 @@ private[cozy] object CozyDocumentProjectEvidence {
         product.id -> _logical_chart_status(project, descriptor, sourcepaths, product.id)
       } else if (product.id == "presentation-semantics") {
         product.id -> _presentation_status(presentationstate)
+      } else if (product.id == "presentation-confirmation-html") {
+        product.id -> _presentation_confirmation_status(project, presentationstate)
       } else {
         product.id -> declared.get(product.id).map(entry => _evidence_status(project, entry.evidence, declared)).getOrElse(_source_status(descriptor, product.id, sourcepaths))
       }
@@ -430,6 +432,38 @@ private[cozy] object CozyDocumentProjectEvidence {
       Some(CozyDocumentProjectPresentationSemanticsState.evidenceCoverage(state)),
       Some(CozyDocumentProjectPresentationSemanticsState.evidenceReadiness(state))
     )
+
+  private def _presentation_confirmation_status(
+    project: Path,
+    state: CozyDocumentProjectPresentationSemanticsState.State
+  ): EvidenceStatus = {
+    if (state.semanticState != "current" || state.coverageState != "satisfied") {
+      EvidenceStatus("missing", Some("presentation semantics coverage is not satisfied"))
+    } else {
+      state.validated match {
+        case None => EvidenceStatus("missing", Some("presentation semantics validation is unavailable"))
+        case Some(validated) =>
+          val projection = CozyDocumentCrossMediaProjection.project(validated)
+          val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+          val receipt = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
+          val expectedhtml = rendered.html.getBytes(StandardCharsets.UTF_8)
+          val expectedreceipt = (CozyDocumentCrossMediaReceipt.canonicalJson(receipt) + "\n").getBytes(StandardCharsets.UTF_8)
+          val htmlpath = project.resolve("target/document-project/presentation-confirmation.html").normalize()
+          val receiptpath = project.resolve("target/document-project/presentation-confirmation.receipt.yaml").normalize()
+          if (!Files.exists(htmlpath, LinkOption.NOFOLLOW_LINKS) || !Files.exists(receiptpath, LinkOption.NOFOLLOW_LINKS)) {
+            EvidenceStatus("missing", Some("default presentation confirmation HTML or receipt is not generated"))
+          } else {
+            val htmlfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, htmlpath), "presentation confirmation HTML")
+            val receiptfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, receiptpath), "presentation confirmation receipt")
+            if (Files.readAllBytes(htmlfile).sameElements(expectedhtml) && Files.readAllBytes(receiptfile).sameElements(expectedreceipt)) {
+              EvidenceStatus("current", None)
+            } else {
+              EvidenceStatus("stale", Some("default presentation confirmation HTML or receipt does not match current semantics"))
+            }
+          }
+      }
+    }
+  }
 
   private def _evidence_status(project: Path, evidence: Evidence, declared: Map[String, ProductEvidence]): EvidenceStatus = evidence match {
     case NoEvidence => EvidenceStatus("missing", Some("declared evidence is missing"))

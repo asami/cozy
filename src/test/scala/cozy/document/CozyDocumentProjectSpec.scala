@@ -320,6 +320,86 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
+    "drive an Article 9-shaped hidden video profile through presentation currentness and recovery" in {
+      _with_temp_dir("cozy-document-project-phase-493-s2") { root =>
+        Given("an English Article 9 standard-video scaffold in the bok workspace")
+        val parent = Files.createDirectory(root.resolve("article-nine-parent"))
+        _execute(List("document-project", "scaffold", "article-nine", "--profile", "standard-video", "--language", "en", "--workspace", "bok", "--save", parent.toString))
+        val project = parent.resolve("article-nine.dox")
+        val descriptor = project.resolve("document-project.yaml")
+        val semantics = project.resolve("content/presentation-semantics-en.yaml")
+        val core = project.resolve("content/core-en.yaml")
+        val html = project.resolve("target/document-project/presentation-confirmation.html")
+        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+        Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("profile: standard-video", "profile: simplemodeling-org-video"), StandardCharsets.UTF_8)
+        _activate_optional_work_products(project, "simplemodeling-org-video", Vector("presentation-confirmation-html"))
+        _write_valid_presentation_semantics(project)
+        val semanticsbytes = Files.readAllBytes(semantics)
+        val descriptorbytes = Files.readAllBytes(descriptor)
+
+        When("verify, inspect, plan, Dashboard, and the default presentation review are run")
+        val verify = _execute(List("document-project", "verify", project.toString))
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+        val plan = _execute(List("document-project", "plan", project.toString))
+        val dashboardresult = _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        val review = _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        _execute(List("document-project", "inspect", project.toString))
+        val initialstate = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val oldhtmlbytes = Files.readAllBytes(html)
+        val oldreceiptbytes = Files.readAllBytes(receipt)
+
+        Then("strict semantic coverage is current and the selected confirmation is planned and generated")
+        verify should include("presentationSemantics.projectionAvailability: available")
+        inspect should include("presentationSemantics.state: current")
+        inspect should include("presentationSemantics.contentCore.currentness: current")
+        inspect should include("presentationSemantics.coverage: satisfied")
+        plan should include("active-optional: work-product presentation-confirmation-html [review-projection, optional; selected]")
+        dashboardresult should include("Dashboard")
+        dashboard should include("presentation-confirmation-html")
+        dashboard should include("Presentation confirmation HTML")
+        review should include("Presentation Confirmation")
+        Files.isRegularFile(html, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.isRegularFile(receipt, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.readString(receipt, StandardCharsets.UTF_8) should include("\"projectionIdentity\":")
+        initialstate should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
+
+        When("the Content Core bytes change and read-only inspection plus public presentation review run")
+        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: article-nine-change\n    text: Article Nine Change"), StandardCharsets.UTF_8)
+        val staleinspect = _execute(List("document-project", "inspect", project.toString))
+        val stale = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        val refusal = _failure(List("document-project", "review", project.toString, "--kind", "presentation"))
+
+        Then("the Core change makes both semantic authority and confirmation stale without rewriting retained bytes")
+        staleinspect should include("presentationSemantics.contentCore.currentness: stale")
+        stale should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
+        _diagnostic_tokens(refusal) shouldBe Vector("DP-SEM-005")
+        Files.readAllBytes(semantics) shouldBe semanticsbytes
+        Files.readAllBytes(descriptor) shouldBe descriptorbytes
+        Files.readAllBytes(html) shouldBe oldhtmlbytes
+        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
+
+        Given("the stale project is explicitly reauthored through the existing strict semantic authoring helper")
+        _write_valid_presentation_semantics(project)
+        Files.readAllBytes(html) shouldBe oldhtmlbytes
+        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
+
+        When("the public presentation review runs again after reauthoring")
+        val reauthoredinspect = _execute(List("document-project", "inspect", project.toString))
+        val reauthoredstate = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        _execute(List("document-project", "inspect", project.toString))
+        val recovered = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("only the same public confirmation route replaces retained bytes and recovers ready evidence")
+        reauthoredinspect should include("presentationSemantics.state: current")
+        reauthoredstate should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
+        recovered should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
+        Files.readAllBytes(html) should not equal oldhtmlbytes
+        Files.readAllBytes(receipt) should not equal oldreceiptbytes
+      }
+    }
+
     "inspect the exact closed descriptor and Core while strict verify rejects incomplete semantics" in {
       _with_temp_dir("cozy-document-project-admission") { root =>
         Given("a standard scaffold with the closed descriptor and Content Core")
@@ -2396,6 +2476,113 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.readAllBytes(html) shouldBe firsthtml
         Files.readAllBytes(receipt) shouldBe firstreceipt
         Files.readString(receipt, StandardCharsets.UTF_8) should include("\"projectionIdentity\":")
+      }
+    }
+
+    "propagate a changed Core identity to selected semantic products and retained confirmation without write-back" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-core-stale") { root =>
+        Given("a current project with selected confirmation and logical-chart semantic products")
+        val project = _scaffolded_project(root, "presentation-confirmation-core-stale")
+        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html", "explanation-structure-review-html"))
+        _write_valid_presentation_semantics(project)
+        val core = project.resolve("content/core-en.yaml")
+        val semantics = project.resolve("content/presentation-semantics-en.yaml")
+        val descriptor = project.resolve("document-project.yaml")
+        val html = project.resolve("target/document-project/presentation-confirmation.html")
+        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+        val chart = project.resolve("target/document-project/slide-logical-chart-review.html")
+
+        When("the confirmation and selected semantic chart are generated, then the Core identity changes")
+        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        _execute(List("document-project", "review", project.toString, "--kind", "slide-logical-chart"))
+        val semanticsbytes = Files.readAllBytes(semantics)
+        val descriptorbytes = Files.readAllBytes(descriptor)
+        val htmlbytes = Files.readAllBytes(html)
+        val receiptbytes = Files.readAllBytes(receipt)
+        val chartbytes = Files.readAllBytes(chart)
+        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: changed-core\n    text: Changed Core"), StandardCharsets.UTF_8)
+        _execute(List("document-project", "inspect", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("the stale Core dependency reaches Presentation Semantics, every selected dependent semantic product, and confirmation")
+        state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: visual-pages\n    role: authority\n    disposition: required\n    selection: required\n    criterion: visual-pages-authored\n    coverage: missing\n    currentness: stale")
+        state should include("id: explanation-structure-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: slide-logical-chart-rendered\n    coverage: missing\n    currentness: stale")
+        state should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
+
+        And("semantic authorities, the descriptor, and retained generated bytes remain untouched by inspection")
+        Files.readAllBytes(semantics) shouldBe semanticsbytes
+        Files.readAllBytes(descriptor) shouldBe descriptorbytes
+        Files.readAllBytes(html) shouldBe htmlbytes
+        Files.readAllBytes(receipt) shouldBe receiptbytes
+        Files.readAllBytes(chart) shouldBe chartbytes
+      }
+    }
+
+    "stale a retained confirmation for a changed valid semantic identity until public review recovers it" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-semantic-stale") { root =>
+        Given("a current project with selected presentation confirmation and retained default bytes")
+        val project = _scaffolded_project(root, "presentation-confirmation-semantic-stale")
+        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
+        _write_valid_presentation_semantics(project)
+        val semantics = project.resolve("content/presentation-semantics-en.yaml")
+        val html = project.resolve("target/document-project/presentation-confirmation.html")
+        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        val oldhtmlbytes = Files.readAllBytes(html)
+        val oldreceiptbytes = Files.readAllBytes(receipt)
+
+        When("the authored Presentation Semantics identity changes while remaining valid")
+        Files.writeString(
+          semantics,
+          Files.readString(semantics, StandardCharsets.UTF_8).replace("The prior reader path was permissive.", "The revised reader path remains explicit."),
+          StandardCharsets.UTF_8
+        )
+        _execute(List("document-project", "inspect", project.toString))
+        val stale = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("the prior default confirmation HTML and receipt are stale without being rewritten")
+        stale should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: satisfied\n    currentness: current")
+        stale should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
+        Files.readAllBytes(html) shouldBe oldhtmlbytes
+        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
+
+        Given("the prior confirmation is stale while its retained HTML and receipt bytes remain unchanged")
+        When("the existing public presentation review is run")
+        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        _execute(List("document-project", "inspect", project.toString))
+        val recovered = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("only the public review route recovers current, satisfied, and ready confirmation evidence")
+        recovered should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
+        Files.readAllBytes(html) should not equal oldhtmlbytes
+        Files.readAllBytes(receipt) should not equal oldreceiptbytes
+      }
+    }
+
+    "keep coverage-failed semantics blocked despite previously current confirmation receipt bytes" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-coverage") { root =>
+        Given("a current project with selected confirmation and retained current default bytes")
+        val project = _scaffolded_project(root, "presentation-confirmation-coverage")
+        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
+        _write_valid_presentation_semantics(project)
+        val html = project.resolve("target/document-project/presentation-confirmation.html")
+        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        val oldhtmlbytes = Files.readAllBytes(html)
+        val oldreceiptbytes = Files.readAllBytes(receipt)
+
+        When("the semantic source changes to a current but projection-coverage-failed identity")
+        _write_valid_presentation_semantics(project, includeproblemstructure = false)
+        _execute(List("document-project", "inspect", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("retained receipt bytes do not make semantic coverage or confirmation ready")
+        state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: current\n    review: pending\n    readiness: blocked")
+        state should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked")
+        Files.readAllBytes(html) shouldBe oldhtmlbytes
+        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
       }
     }
 
