@@ -722,6 +722,7 @@ cozy document-project inspect <project>
 cozy document-project plan <project>
 cozy document-project dashboard <project> [--save <dashboard.html>]
 cozy document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
+cozy document-project review <project> --kind presentation [--save <confirmation.html>]
 cozy document-project content-core candidate <project> <dialogue>
 cozy document-project content-core feedback <project> <candidate-id> <feedback>
 cozy document-project content-core accept <project> <candidate-id> <acceptance>
@@ -730,32 +731,30 @@ cozy document-project run <project> --operation <logical-operation> [--dry-run]
 cozy document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
 ```
 
-Phase 49 reserves one additional confirmation spelling, and no alias,
-alternative `run` spelling, or other review kind is frozen for it:
-
-```text
-cozy document-project review <project> --kind presentation [--save <confirmation.html>]
-```
-
-`review --kind presentation` is reserved rather than currently admitted.
-Until Phase 49.2, the live parser and help retain the six existing review
-kinds and do not route, render, publish, or emit a receipt for this form. The
-reserved default destination roles are exactly
-`target/document-project/presentation-confirmation.html` for confirmation HTML
-and `target/document-project/presentation-confirmation.receipt.yaml` for its
-receipt. They are not current output files, receipt evidence, or a
-publication contract in Phase 49. Phase 49.2 alone implements their routing,
-adapter use, atomic publication, and receipt emission.
+`review --kind presentation` is the sole presentation-confirmation spelling:
+there is no alias, alternative `run` spelling, or other confirmation kind.
+It is available only when the optional `presentation-confirmation-html` Work
+Product participates in the resolved workflow through its declared
+`presentation.render-confirmation` producer; an unselected or profile-disabled
+product rejects with `DP-OP-001` before semantics, projection, output, or
+receipt behavior. It then requires current typed Presentation Semantics,
+projects and renders only through the fixed cross-media adapter, and verifies
+complete coverage before publication. Without `--save`, it atomically publishes exactly
+`target/document-project/presentation-confirmation.html` and the canonical
+typed receipt at `target/document-project/presentation-confirmation.receipt.yaml`.
+With `--save`, it atomically publishes only the requested confirmation HTML
+and does not create or replace the default receipt. Strict-currentness or
+coverage failure writes neither confirmation file. This confirmation is
+distinct from Article review and does not use Article or Video generated-review
+receipt behavior.
 
 The declared `presentation.render-confirmation` logical operation is reserved
-for that sole future review form and MUST NOT become a generic `run` alias.
+for that sole review form and MUST NOT become a generic `run` alias.
 After declared-operation admission, either the dry-run or recording generic
 form MUST reject with `DP-OP-001` before optional-product participation,
 provider dispatch, output, receipt, state mutation, or Operation Attempt
 evidence. The diagnostic identifies `presentation.render-confirmation` as
-reserved for `document-project review --kind presentation`. This admission
-guard does not expand the live review parser or help beyond its six current
-kinds.
+reserved for `document-project review --kind presentation`.
 
 After the CLI and Phase gates, `<project>` MUST be an existing direct
 non-symlink directory whose name ends in `.dox`; it MUST NOT be an arbitrary
@@ -777,14 +776,15 @@ without it, the output MUST be written to the deterministic project-local
 path is used exactly as requested; a Project-internal save path is admitted
 only under the projection boundary below. The currently admitted `review`
 parser requires one of `core`, `article`, `slides`, `video`,
-`slide-logical-chart`, or `video-logical-chart` and accepts
+`slide-logical-chart`, `video-logical-chart`, or `presentation` and accepts
 the same optional save path; its defaults are
 `target/document-project/core-review.html`,
 `target/document-project/article-review.html`,
 `target/document-project/slides-review.html`,
 `target/document-project/video-review.html`, and
 `target/document-project/slide-logical-chart-review.html` and
-`target/document-project/video-logical-chart-review.html`, respectively. Review
+`target/document-project/video-logical-chart-review.html`, and
+`target/document-project/presentation-confirmation.html`, respectively. Review
 never accepts or exposes a logical-operation identifier.  The command namespace MUST
 remain distinct from existing software Project knowledge-package and `cozy
 media` commands.  No compatibility alias or ambiguous dispatch is permitted.
@@ -799,8 +799,10 @@ same-directory temporary file moved with `ATOMIC_MOVE`; symlinks, non-direct
 destinations, and non-directory nearest existing parents MUST reject with
 `DP-PATH-001`.  An implementation MUST NOT fall back to direct writing or a
 non-atomic move. A default Article or Video review additionally writes its
-disposable generated-review receipt beside the fixed HTML output; dashboard and
-explicit-save review write only their selected HTML projection.
+disposable generated-review receipt beside the fixed HTML output. A default
+Presentation confirmation additionally writes its canonical typed receipt beside
+the fixed HTML output; explicit `--save` review writes only its selected HTML
+projection.
 
 After normalization, a destination that is inside the admitted Project package
 MUST be under `<project>/target/document-project/` and its filename MUST end
@@ -1093,7 +1095,8 @@ output MUST also identify package, workflow, profile, and workspace.  A
 successful dashboard MUST begin with `Cozy Document Project Dashboard` and a
 successful review MUST begin with `Cozy Document Project Core Review`,
 `Cozy Document Project Article Review`, `Cozy Document Project Slide Review`, `Cozy Document Project Video Review`,
-`Cozy Document Project Slide Logical Chart`, or `Cozy Document Project Video Logical Chart`;
+`Cozy Document Project Slide Logical Chart`, `Cozy Document Project Video Logical Chart`, or
+`Cozy Document Project Presentation Confirmation`;
 each MUST identify the project, profile, schema, and selected output.  Dashboard
 and review HTML MUST be UTF-8,
 self-contained, deterministic for unchanged inputs, structurally accessible

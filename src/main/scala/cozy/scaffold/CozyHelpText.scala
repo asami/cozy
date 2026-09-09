@@ -3,7 +3,7 @@ package cozy.scaffold
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep.  8, 2026
+ * @version Sep.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -22,6 +22,7 @@ private[cozy] object CozyHelpText {
       |  document-project plan <project>
       |  document-project dashboard <project> [--save <dashboard.html>]
       |  document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
+      |  document-project review <project> --kind presentation [--save <confirmation.html>]
       |  document-project content-core candidate <project> <dialogue>
       |  document-project content-core feedback <project> <candidate-id> <feedback>
       |  document-project content-core accept <project> <candidate-id> <acceptance>
@@ -35,7 +36,9 @@ private[cozy] object CozyHelpText {
       |      Slide review defaults to target/document-project/slides-review.html.
       |      Video review defaults to target/document-project/video-review.html; --save overrides it.
       |      Slide and video logical charts default to target/document-project/slide-logical-chart-review.html and video-logical-chart-review.html; --save overrides them.
+      |      Presentation confirmation defaults to target/document-project/presentation-confirmation.html and atomically writes its canonical receipt to target/document-project/presentation-confirmation.receipt.yaml; --save writes only the requested confirmation HTML.
       |      Review is purpose-oriented and exposes no logical-operation IDs. Article review projects article/Core/Visual Page relationships without site rendering; video review projects typed semantic scenes. Video review and video logical charts are admitted only for video profiles.
+      |      Presentation confirmation validates current typed presentation semantics and complete cross-media coverage before publication; it is distinct from Article review and never uses generated-review receipts.
       |      Slide Logical Chart visualizes current Content Core and Visual Page IR; Video Logical Chart also visualizes storyboard IR, all as read-only projections.
       |      Projections are deterministic, self-contained, and HTML-escaped. They otherwise write only the selected output; default Article and Video review also write one local disposable generated-review receipt beside the default HTML.
       |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.

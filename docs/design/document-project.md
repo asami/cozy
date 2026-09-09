@@ -370,7 +370,7 @@ Its producer is `presentation.render-confirmation`, bound only to
 `cozy-presentation-confirmation`; it consumes and directly depends only on
 `presentation-semantics`, with criterion
 `presentation-confirmation-rendered`, gate `presentation-confirmation`, and
-evidence reference `presentation-confirmation-reference`. The future
+evidence reference `presentation-confirmation-reference`. The separate
 `operation-receipt.record` declaration consumes both presentation products,
 but this is not receipt creation or semantic success.
 
@@ -419,8 +419,7 @@ generic `run` is not an alternate confirmation route. Once its declaration is
 resolved, generic dry-run and recording requests reject with `DP-OP-001`
 before optional-product participation, provider or attempt handling, output,
 receipt, or state behavior. The stable diagnostic reserves it for
-`document-project review --kind presentation`; the closed six-kind review
-parser and help remain unchanged until Phase 49.2.
+`document-project review --kind presentation`.
 
 ## Initial authored kernel
 
@@ -502,30 +501,35 @@ receipt; explicit `--save` does not replace it. The historical Phase-42
 `DP-PHASE-001` dashboard rejection is retained only as compatibility history
 and is not emitted by Phase 42.1.
 
-The exact Phase 42.1 public forms are:
+The exact public forms are:
 
 ```text
 cozy document-project dashboard <project> [--save <dashboard.html>]
 cozy document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
+cozy document-project review <project> --kind presentation [--save <confirmation.html>]
 cozy document-project content-core candidate <project> <dialogue>
 cozy document-project content-core feedback <project> <candidate-id> <feedback>
 cozy document-project content-core accept <project> <candidate-id> <acceptance>
 ```
 
-Phase 49 additionally reserves exactly one future confirmation form:
-
-```text
-cozy document-project review <project> --kind presentation [--save <confirmation.html>]
-```
-
-The sole frozen confirmation kind is `presentation`; there is no alias or
-alternative `run` form. It remains absent from the live parser and help until
-Phase 49.2. Its frozen destination roles are
-`target/document-project/presentation-confirmation.html` for confirmation HTML
-and `target/document-project/presentation-confirmation.receipt.yaml` for the
-receipt. They are not files, evidence, route behavior, or publication in
-Phase 49; Phase 49.2 alone adds parser routing, adapter invocation, output
-publication, and receipt emission.
+The sole confirmation kind is `presentation`; there is no alias or alternative
+`run` form. It is admitted through the live parser and help as
+`document-project review <project> --kind presentation [--save <confirmation.html>]`.
+The route is available only while the optional
+`presentation-confirmation-html` Work Product participates in the resolved
+workflow through its declared `presentation.render-confirmation` producer;
+unselected or profile-disabled participation rejects with `DP-OP-001` before
+semantics, projection, output, or receipt behavior. It then requires current
+typed Presentation Semantics, projects and renders through the fixed cross-media
+adapter, and verifies coverage before it publishes.
+Without `--save`, its exact destinations are
+`target/document-project/presentation-confirmation.html` and
+`target/document-project/presentation-confirmation.receipt.yaml`, published
+atomically through the existing safe output behavior with the canonical typed
+receipt. With `--save`, it publishes only the requested confirmation HTML and
+does not create or replace the default receipt. Strict-currentness or coverage
+failure writes neither file. This remains distinct from Article review and does
+not invoke Article or Video generated-review receipt behavior.
 
 Dashboard defaults to `target/document-project/project-dashboard.html`; Core,
 Article, slide, video, Slide Logical Chart, and Video Logical Chart review default to

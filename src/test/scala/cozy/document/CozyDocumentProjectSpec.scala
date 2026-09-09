@@ -2375,7 +2375,116 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "reserve selected presentation confirmation from generic run without creating evidence" in {
+    "publish deterministic presentation confirmation defaults with the canonical receipt" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation") { root =>
+        Given("a current Presentation Semantics project with presentation confirmation selected")
+        val project = _scaffolded_project(root, "presentation-confirmation")
+        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
+        _write_valid_presentation_semantics(project)
+        val html = project.resolve("target/document-project/presentation-confirmation.html")
+        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+
+        When("the default presentation confirmation is run twice")
+        val first = _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        val firsthtml = Files.readAllBytes(html)
+        val firstreceipt = Files.readAllBytes(receipt)
+        val second = _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+
+        Then("the exact default HTML and canonical typed receipt are atomically replaced with deterministic bytes")
+        first should include("Presentation Confirmation")
+        second should include("Presentation Confirmation")
+        Files.readAllBytes(html) shouldBe firsthtml
+        Files.readAllBytes(receipt) shouldBe firstreceipt
+        Files.readString(receipt, StandardCharsets.UTF_8) should include("\"projectionIdentity\":")
+      }
+    }
+
+    "publish a requested presentation confirmation without default output or receipt" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-custom-save") { root =>
+        Given("a fresh current Presentation Semantics project with presentation confirmation selected")
+        val project = _scaffolded_project(root, "presentation-confirmation-custom-save")
+        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
+        _write_valid_presentation_semantics(project)
+        val custom = root.resolve("saved-confirmation.html")
+        val html = project.resolve("target/document-project/presentation-confirmation.html")
+        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+
+        When("a requested presentation confirmation is saved")
+        _execute(List("document-project", "review", project.toString, "--kind", "presentation", "--save", custom.toString))
+
+        Then("only the requested confirmation HTML exists")
+        Files.isRegularFile(custom, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.exists(html, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(receipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "keep default Article review output and its generated-review receipt distinct from presentation confirmation" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-article-review") { root =>
+        Given("a current Presentation Semantics project with Article review and presentation confirmation selected")
+        val project = _scaffolded_project(root, "presentation-confirmation-article-review")
+        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html", "article-review-html"))
+        _write_valid_presentation_semantics(project)
+        val presentationhtml = project.resolve("target/document-project/presentation-confirmation.html")
+        val presentationreceipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+
+        When("default Article review is generated")
+        _execute(List("document-project", "review", project.toString, "--kind", "article"))
+
+        Then("Article review retains only its own output and generated-review receipt")
+        Files.isRegularFile(project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.isRegularFile(project.resolve("target/document-project/article-review.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.exists(presentationhtml, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(presentationreceipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "refuse strict-currentness and projection-coverage presentation confirmation without files" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-refusal") { root =>
+        Given("selected presentation confirmation projects with incomplete semantics and incomplete projection coverage")
+        val incomplete = _scaffolded_project(root, "presentation-incomplete")
+        _activate_optional_work_products(incomplete, "standard", Vector("presentation-confirmation-html"))
+        val incompletehtml = incomplete.resolve("target/document-project/presentation-confirmation.html")
+        val incompletereceipt = incomplete.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+        val coverage = _scaffolded_project(root, "presentation-coverage")
+        _activate_optional_work_products(coverage, "standard", Vector("presentation-confirmation-html"))
+        _write_valid_presentation_semantics(coverage, includeproblemstructure = false)
+        val coveragehtml = coverage.resolve("target/document-project/presentation-confirmation.html")
+        val coveragereceipt = coverage.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+
+        When("presentation confirmation reaches strict validation and projection coverage refusal")
+        val incompletefailure = _failure(List("document-project", "review", incomplete.toString, "--kind", "presentation"))
+        val coveragefailure = _failure(List("document-project", "review", coverage.toString, "--kind", "presentation"))
+
+        Then("neither refusal publishes confirmation HTML or a typed receipt")
+        _diagnostic_tokens(incompletefailure) shouldBe Vector("DP-SEM-006")
+        _diagnostic_tokens(coveragefailure) shouldBe Vector("DP-PROJ-001")
+        Files.exists(incompletehtml, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(incompletereceipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(coveragehtml, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(coveragereceipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject unselected presentation confirmation without publishing output" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-unselected") { root =>
+        Given("a standard project whose optional presentation confirmation Work Product is not selected")
+        val project = _scaffolded_project(root, "presentation-confirmation-unselected")
+        val html = project.resolve("target/document-project/presentation-confirmation.html")
+        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
+
+        When("presentation confirmation review is requested")
+        val failure = _failure(List("document-project", "review", project.toString, "--kind", "presentation"))
+
+        Then("the existing not-selected operation diagnostic is returned before confirmation HTML or receipt publication")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+        failure should include("logical operation presentation.render-confirmation is not selected for profile standard")
+        Files.exists(html, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(receipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "admit presentation review while preserving generic run rejection without creating evidence" in {
       _with_temp_dir("cozy-document-project-presentation-confirmation-admission") { root =>
         Given("an admitted standard project with optional presentation confirmation selected")
         val project = _scaffolded_project(root, "presentation-confirmation-admission")
@@ -2392,12 +2501,15 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         recordingfailure should include("presentation.render-confirmation is reserved for document-project review --kind presentation")
         Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
-        When("the reserved future presentation review form reaches the live parser")
-        val reviewfailure = _failure(List("document-project", "review", project.toString, "--kind", "presentation"))
+        When("the presentation review form and public help reach their live admissions")
+        _write_valid_presentation_semantics(project)
+        val review = _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
+        val help = CozyHelpText._text
 
-        Then("the parser continues to reject the future kind without creating a confirmation route")
-        _diagnostic_tokens(reviewfailure) shouldBe Vector("DP-CLI-001")
-        reviewfailure should include("review --kind must be core, article, slides, video, slide-logical-chart, or video-logical-chart")
+        Then("the parser and help admit exactly the presentation kind without a generic route")
+        review should include("Presentation Confirmation")
+        help should include("document-project review <project> --kind presentation [--save <confirmation.html>]")
+        _failure(List("document-project", "review", project.toString, "--kind", "presentation-confirmation")) should include("DP-CLI-001")
         Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
@@ -3201,6 +3313,7 @@ ${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:artic
       help should include("document-project inspect <project>")
       help should include("document-project dashboard <project> [--save <dashboard.html>]")
       help should include("document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]")
+      help should include("document-project review <project> --kind presentation [--save <confirmation.html>]")
       help should include("document-project content-core candidate <project> <dialogue>")
       help should include("document-project content-core feedback <project> <candidate-id> <feedback>")
       help should include("document-project content-core accept <project> <candidate-id> <acceptance>")

@@ -84,8 +84,27 @@ private[cozy] object CozyDocumentProject {
               val html = CozyDocumentProjectProjection.dashboardHtml(project, descriptor, destination)
               CozyDocumentProjectProjection.publish(destination, html)
               println(CozyDocumentProjectProjection.projectionResult("Dashboard", project, descriptor, destination))
+            case "review" if kind.contains("presentation") =>
+              _require_presentation_confirmation(descriptor)
+              val semantics = CozyDocumentProjectPresentationSemanticsState.requireCurrent(project, descriptor)
+              val validated = semantics.validated.getOrElse(_failure("DP-SEM-001", "presentation semantics validation is unavailable"))
+              val projection = CozyDocumentCrossMediaProjection.project(validated)
+              val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+              val coverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, projection, rendered)
+              if (!coverage.satisfied) {
+                val diagnostic = coverage.diagnostics.head
+                _failure(diagnostic.code, coverage.diagnostics.map(value => s"${value.code} path=${value.path} reason=${value.reason}").mkString("; "))
+              }
+              val receipt = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
+              val destination = CozyDocumentProjectProjection.admitDestination(project, save, "presentation-confirmation.html")
+              CozyDocumentProjectProjection.publish(destination, rendered.html)
+              if (save.isEmpty) {
+                val receiptdestination = project.resolve("target").resolve("document-project").resolve("presentation-confirmation.receipt.yaml").normalize()
+                CozyDocumentProjectProjection.publish(receiptdestination, CozyDocumentCrossMediaReceipt.canonicalJson(receipt) + "\n")
+              }
+              println(CozyDocumentProjectProjection.projectionResult("Presentation Confirmation", project, descriptor, destination))
             case "review" =>
-              val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|article|slides|video|slide-logical-chart|video-logical-chart"))
+              val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|article|slides|video|slide-logical-chart|video-logical-chart|presentation"))
               val html = reviewkind match {
                 case "core" => CozyDocumentProjectProjection.coreReviewHtml(project, descriptor)
                 case "article" => CozyDocumentProjectProjection.articleReviewHtml(project, descriptor)
@@ -93,7 +112,7 @@ private[cozy] object CozyDocumentProject {
                 case "video" => CozyDocumentProjectProjection.videoReviewHtml(project, descriptor)
                 case "slide-logical-chart" => CozyDocumentProjectProjection.slideLogicalChartHtml(project, descriptor)
                 case "video-logical-chart" => CozyDocumentProjectProjection.videoLogicalChartHtml(project, descriptor)
-                case _ => _failure("DP-CLI-001", "review --kind must be core, article, slides, video, slide-logical-chart, or video-logical-chart")
+                case _ => _failure("DP-CLI-001", "review --kind must be core, article, slides, video, slide-logical-chart, video-logical-chart, or presentation")
               }
               val destination = CozyDocumentProjectProjection.admitDestination(project, save, s"$reviewkind-review.html")
               CozyDocumentProjectProjection.publish(destination, html)
@@ -145,8 +164,8 @@ private[cozy] object CozyDocumentProject {
       _failure("DP-CLI-002", "run requires --operation <logical-operation>")
     if (command == "review") {
       parsed.values.get("kind") match {
-        case None => _failure("DP-CLI-002", "review requires --kind core|article|slides|video|slide-logical-chart|video-logical-chart")
-        case Some(value) if !Set("core", "article", "slides", "video", "slide-logical-chart", "video-logical-chart").contains(value) => _failure("DP-CLI-001", "review --kind must be core, article, slides, video, slide-logical-chart, or video-logical-chart")
+        case None => _failure("DP-CLI-002", "review requires --kind core|article|slides|video|slide-logical-chart|video-logical-chart|presentation")
+        case Some(value) if !Set("core", "article", "slides", "video", "slide-logical-chart", "video-logical-chart", "presentation").contains(value) => _failure("DP-CLI-001", "review --kind must be core, article, slides, video, slide-logical-chart, video-logical-chart, or presentation")
         case _ => ()
       }
     }
@@ -386,6 +405,29 @@ private[cozy] object CozyDocumentProject {
       _direct_file(project, "video/storyboard.md", "initial authored source")
     val semantics = CozyDocumentProjectPresentationSemanticsState.requireCurrent(project, descriptor)
     s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2\n${CozyDocumentProjectPresentationSemanticsState.summary(semantics)}"
+  }
+
+  private def _require_presentation_confirmation(descriptor: Descriptor): Unit = {
+    val workproductid = "presentation-confirmation-html"
+    val operationid = "presentation.render-confirmation"
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
+      case Right(value) => value
+      case Left(cause) => _descriptor_failure(cause)
+    }
+    val operation = CozyDocumentWorkflow.declaredOperation(operationid) match {
+      case Right(Some(value)) => value
+      case Right(None) => _failure("DP-OP-001", s"undeclared logical operation: $operationid")
+      case Left(cause) => _descriptor_failure(cause)
+    }
+    if (!operation.produces.contains(workproductid))
+      _descriptor_failure(s"logical operation $operationid does not produce Work Product $workproductid")
+    resolved.workProducts.find(_.workProduct.id == workproductid) match {
+      case Some(value) if value.isParticipating => ()
+      case Some(value) if value.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional =>
+        _failure("DP-OP-001", s"logical operation $operationid is not selected for profile ${descriptor.profile}")
+      case Some(_) => _failure("DP-OP-001", s"logical operation $operationid is disabled for profile ${descriptor.profile}")
+      case None => _descriptor_failure(s"document-production Work Product is missing: $workproductid")
+    }
   }
 
   private def _run(project: Path, descriptor: Descriptor, operationid: String, dryrun: Boolean): String = {
