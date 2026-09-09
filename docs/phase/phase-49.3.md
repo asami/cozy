@@ -1,6 +1,6 @@
 # Phase 49.3: Presentation Semantics Currentness and Operational Driver
 
-Status: IN PROGRESS
+Status: CLOSED
 
 Plan date: 2026-09-09
 Split from: [Phase 49](phase-49.md)
@@ -51,11 +51,11 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| P493-01 | Propagate a Content Core identity change to stale presentation semantics, dependent semantic projections, and public presentation confirmation. | planned |
-| P493-02 | Make a presentation-semantics identity change invalidate dependent projection and prior confirmation-receipt identities. | planned |
-| P493-03 | Preserve no automatic write-back, receipt-currentness/semantic-coverage distinction, and non-substitution of a current receipt for coverage proof. | planned |
-| P493-04 | Start from a Phase-48-style scaffold, author strict valid Story Flow/Explanation Structure semantics, and exercise verify, inspect, plan, Dashboard, and public confirmation. | planned |
-| P493-05 | Exercise an upstream identity change and recovery, proving no out-of-band hand-built confirmation HTML is required. | planned |
+| P493-01 | Propagate a Content Core identity change to stale presentation semantics, dependent semantic projections, and public presentation confirmation. | done |
+| P493-02 | Make a presentation-semantics identity change invalidate dependent projection and prior confirmation-receipt identities. | done |
+| P493-03 | Preserve no automatic write-back, receipt-currentness/semantic-coverage distinction, and non-substitution of a current receipt for coverage proof. | done |
+| P493-04 | Start from a Phase-48-style scaffold, author strict valid Story Flow/Explanation Structure semantics, and exercise verify, inspect, plan, Dashboard, and public confirmation. | done |
+| P493-05 | Exercise an upstream identity change and recovery, proving no out-of-band hand-built confirmation HTML is required. | done |
 
 ## Closure criteria
 
@@ -67,6 +67,14 @@ Phase Plan Gate: PROCEED
   recovery, without claiming Article 9 publication or external mutation.
 - Focused executable specifications, review, full Cozy validation, and release
   closure complete the final DEV-018 workflow-integration child.
+
+## Release closure
+
+The accepted P493 Step is `81f10e8d669609fcc437ddb38aa6769510f00a86`.
+The independent Phase full review recorded no Current Phase Blocker. The final
+full Cozy suite and this distinct local release commit bind the closed
+DEV-018 workflow-integration child. This closure performs no publication,
+deployment, upload, push, or external mutation.
 
 ## Non-goals
 
