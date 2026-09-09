@@ -1,4 +1,4 @@
-# Phase 54: Semantic Component Model Metadata for Dashboard
+# Phase 54: Semantic Strength and Component Model Metadata for Downstream Views
 
 Status: PLANNED
 
@@ -7,41 +7,71 @@ Updated: 2026-09-10
 
 ## Goal
 
-Publish faithful, machine-readable Component model metadata that allows Textus CBD Support to render semantic DomainModel, Use Case, Mono-Koto Analysis, Event Storming, Workflow/Flowchart, and related views without parsing CML source or reconstructing semantics from names.
+Guarantee and publish the **model semantic strength** required for supported downstream semantic views. Textus CBD Support must be able to construct DomainModel, Use Case, Mono-Koto Analysis, Event Storming, Entity, Structure, Classification, Event, Workflow, Flowchart, and StateMachine projections without parsing CML source or reconstructing semantics from names.
 
-The target consumer is Textus CBD Support Phase 9 Component Dashboard and its stakeholder/engineering projections. Cozy remains the authority for CML/model transformation and publication metadata; Dashboard and analysis-view presentation remain outside Cozy.
+The unit of success is a semantic capability, not a metadata field. Cozy remains authority for CML/model transformation, semantic IR, stable semantic identity, and publication contracts. Presentation remains outside Cozy.
+
+## Semantic Strength Rule
+
+```text
+View Requirement
+      -> Required Semantic Capability
+      -> CML / Cozy Semantic IR
+      -> Published Semantic Contract
+      -> Faithful downstream projection
+```
+
+For every claimed supported view, Phase 54 must identify its required semantic capabilities and demonstrate that the publication contract supplies them. If authoritative semantics are unavailable, record an explicit capability gap. Do not create metadata-only meaning or require consumers to guess.
+
+Working minimum capability targets:
+
+| View | Required semantic strength |
+| --- | --- |
+| Mono-Koto | stable identity, terminology/BoK linkage, admitted conceptual grouping/link information, structural/behavioral cross-reference |
+| Use Case | Actor, goal, trigger, flows, participants, operations/events, realizing Workflow |
+| Event Storming | Actor, Command/Operation, Aggregate/Entity, Event, cause/consequence, affected subject, Workflow policy/reaction, subsequent action/event; external system and Query/View where modeled |
+| Entity | identity, Entity/Value/Aggregate distinction and ownership/identity semantics |
+| Structure | relation kind, roles, cardinality, navigability, composition/aggregation/association, ownership/lifecycle |
+| Classification | generalization, trait, powertype, independent powertype dimensions |
+| Event | Command/Event, cause/origin, consequence/reaction, affected subject and behavioral cross-reference |
+| Workflow | identity/purpose, activities, control flow, branches/merges, participants, rules/reactions, operations/events, effects |
+| Flowchart | faithful Workflow source strength; simplification is downstream only |
+| StateMachine | subject, states, transitions, triggers, guards, actions/effects and behavioral cross-reference |
 
 ## Planning Rule
 
-Each subphase is intended to fit within approximately six hours of focused work once prerequisites are available. Split a subphase before implementation if it proves materially larger.
+Each subphase should fit within approximately six hours of focused work once prerequisites are available. Split before implementation if materially larger.
 
-## Phase 54.1: Existing Metadata Inventory and Stable Identity
+## Phase 54.1: Semantic Capability Inventory and Stable Identity
 
-Inventory current CML IR/generated metadata for Entity, Value, Aggregate, relations, generalization, trait, powertype, Operation/Command, Event, Workflow, StateMachine, Use Case/Actor, external Component/dependency, Query/View, and existing terminology/BoK references.
+Inventory current CML IR/generated metadata and classify each required view capability as:
 
-Freeze stable semantic identity and cross-reference rules needed to navigate among these elements without name-based guessing.
+- already guaranteed;
+- faithfully derivable from admitted semantic IR;
+- partially represented;
+- missing.
 
-Classify each required cross-reference as already available, derivable faithfully from admitted semantic IR, or missing. Missing semantics remain explicit gaps.
+Cover Entity, Value, Aggregate, relations, generalization, trait, powertype, Operation/Command, Event, Workflow, StateMachine, Use Case/Actor, external Component/dependency, Query/View, and terminology/BoK references.
 
-## Phase 54.2: Structure Metadata
+Freeze stable semantic identity and cross-reference rules. Produce a capability-gap ledger before adding presentation-driven fields.
 
-Preserve Entity, Value, Aggregate, composition, aggregation, and association as distinct semantic constructs.
+## Phase 54.2: Structure Semantic Strength
 
-Where declared by CML, metadata should retain endpoint roles, cardinality, navigability, ownership, independent existence, creation/deletion policy, reassignment/reparenting policy, lifecycle propagation, and aggregate boundary.
+Guarantee enough structural semantics to distinguish Entity, Value, Aggregate, composition, aggregation, and association faithfully.
 
-Composition and aggregation must not collapse into a generic association.
+Preserve endpoint roles, cardinality, navigability, ownership, independent existence, create/delete policy, reassignment/reparenting, lifecycle propagation, and aggregate boundary where modeled.
 
-## Phase 54.3: Classification Metadata
+Composition and aggregation must not collapse into generic association.
 
-Preserve generalization, trait, and powertype as distinct semantics while supplying cross-reference information sufficient for one integrated Classification View.
+## Phase 54.3: Classification Semantic Strength
 
-Multiple independent powertype dimensions must remain distinguishable.
+Guarantee generalization, trait, and powertype as distinct semantics with stable cross-references. Preserve multiple independent powertype dimensions.
 
-## Phase 54.4: Workflow and Behavioral Cross-Reference Metadata
+## Phase 54.4: Behavioral and Workflow Semantic Strength
 
-Preserve Workflow identity and purpose, activities, control-flow relations, branch/merge information, participants, affected domain elements, related operations/events, rules/reactions, and declared state effects where modeled.
+Guarantee Workflow identity/purpose, activities, control flow, branches/merges, participants, affected elements, operations/events, rules/reactions, and state effects where modeled.
 
-Add stable cross-references sufficient to follow admitted behavioral causality where available:
+Support admitted behavioral causality:
 
 ```text
 Operation / Command
@@ -55,27 +85,23 @@ Event
   -> downstream Operation / Command / Event
 ```
 
-These links support several downstream projections, including Event Model, Workflow, StateMachine, and Event Storming. The publication contract must distinguish declared semantic relations from derived convenience indexes.
+Distinguish declared relations from faithfully derived convenience indexes.
 
-## Phase 54.5: StateMachine Cross-Reference Metadata
+## Phase 54.5: StateMachine Semantic Strength
 
-Preserve states, transitions, triggers, guards, actions, owning/affected domain element, and stable links to related Workflow activities, operations, events, and rules where declared.
+Guarantee states, transitions, triggers, guards, actions, owning/affected subject, and stable links to Workflow activities, operations, events, and rules where declared.
 
-Ensure transition triggers/effects can be correlated with admitted Event and Workflow identities without label matching.
+Transition trigger/effect correlation must not depend on label matching.
 
-## Phase 54.6: Use Case and Actor Metadata
+## Phase 54.6: Use Case and Actor Semantic Strength
 
-Preserve actor, goal, trigger, preconditions, main/alternative/exception flows, postconditions, participating domain elements, operations/events, collaborators, and realizing Workflow where modeled.
+Guarantee Actor, goal, trigger, preconditions, main/alternative/exception flows, postconditions, participating elements, operations/events, collaborators, and realizing Workflow where modeled.
 
-Actor identity is the normal semantic source for stakeholder/runtime-independent actor navigation. Publish stable links from Actor/Use Case to related workflows, operations, and participating elements where the model supplies them.
+Actor identity is the normal source for stakeholder actor navigation. Do not infer business Actors from implementation/runtime naming.
 
-Do not infer business Actors from operation names, package names, implementation callers, or runtime principals.
+## Phase 54.7: Terminology / BoK Semantic Strength
 
-## Phase 54.7: Terminology / BoK Semantic Linkage
-
-Preserve explicit links between CML semantic elements and glossary/BoK terminology where declared or admitted by an authoritative source.
-
-The contract should support stable references for:
+Preserve explicit links between semantic elements and glossary/BoK terminology where declared/admitted.
 
 ```text
 semanticElementId
@@ -87,22 +113,13 @@ semanticElementId
      - preferred/localized label when supplied
 ```
 
-BoK Mono/Koto classification and CML model classification remain separate axes. Cozy must not collapse them into one enum.
+BoK Mono/Koto classification and CML classification remain separate. `Mono != Entity` and `Koto != Event`. Cozy does not silently resolve synonym candidates.
 
-Mono and Koto remain downstream analysis projections rather than mandatory CML element types:
+If Mono-Koto projection requires conceptual grouping not represented authoritatively, record that capability as missing rather than infer it.
 
-```text
-Mono != Entity
-Koto != Event
-```
+## Phase 54.8: Event Storming Semantic Strength
 
-Cozy does not silently resolve synonym candidates from string similarity. Terminology identity and synonym curation remain glossary/BoK or explicit human decisions.
-
-## Phase 54.8: Event Storming Support Inventory and Cross-Model Contract
-
-Verify that published semantics are sufficient for a downstream consumer to construct an Event Storming-style behavioral projection without source parsing or semantic guessing.
-
-The target traversal is:
+Verify that admitted semantics support downstream traversal:
 
 ```text
 Actor
@@ -113,15 +130,15 @@ Actor
   -> subsequent Command / Operation / Event
 ```
 
-Where authoritative CML semantics exist, include stable links for external Component/dependency and Query/View/read-model concepts. If CML does not currently model a required concept, record an explicit gap rather than inventing syntax or metadata-only semantics.
+Where authoritative semantics exist, include external Component/dependency and Query/View/read-model links. Missing concepts remain explicit capability gaps.
 
-Event Storming itself is not introduced as a new Cozy runtime/model abstraction solely for presentation purposes.
+Event Storming itself is not a new Cozy model abstraction solely for presentation.
 
-## Phase 54.9: Publication Contract and Consumer Fixtures
+## Phase 54.9: Semantic Strength Publication Contract and Consumer Fixtures
 
-Define/version the machine-readable publication contract and add representative fixtures.
+Define/version the machine-readable contract and validate capabilities rather than field presence.
 
-Verify that a downstream consumer can traverse at least:
+Fixtures must demonstrate, where modeled:
 
 ```text
 Term <-> Semantic Element
@@ -131,32 +148,35 @@ Event -> Workflow Rule/Reaction -> Operation/Event
 Workflow -> StateMachine -> Entity
 ```
 
-Also verify that:
+They should also answer representative semantic questions:
 
-- Mono-Koto terminology navigation can be projected from admitted links;
-- Event Storming-style causal traversal can be projected from admitted links;
-- Workflow metadata remains faithful enough for both engineering Workflow rendering and an intentionally simplified downstream Flowchart rendering;
-- unsupported semantics remain explicit rather than synthesized.
+- Which Actor initiates this intent/operation?
+- Which subject does this Command affect?
+- Which Event results and what caused it?
+- Which Workflow reaction follows?
+- Which terminology concept is associated with this element?
+- What lifecycle semantics distinguish this structural relation?
+- Which StateMachine transition is triggered?
 
-Use representative CBD Support-oriented fixtures but keep the publication contract consumer-neutral.
+When the source lacks sufficient semantic strength, fixtures must prove explicit absence rather than guessed completion.
+
+Verify Mono-Koto terminology navigation, Event Storming causal traversal, and faithful Workflow semantics sufficient for both engineering rendering and intentionally simplified downstream Flowchart rendering.
 
 ## Boundaries
 
-- Cozy owns CML syntax, semantic IR, transformation, stable semantic identity, and publication metadata.
-- Cozy publishes admitted terminology/model references but does not own glossary/BoK synonym decisions.
-- Cozy does not own Textus CBD Support Dashboard, Mono-Koto, Event Storming, Flowchart, or Review rendering.
-- Cozy does not own CNCF runtime enforcement or runtime-evidence semantics.
-- Missing CML semantics remain explicit absence; generators must not invent lifecycle, actor, causal, terminology, or grouping semantics.
-- Existing public metadata compatibility must be reviewed before replacing or extending schemas.
-- Workflow metadata remains faithful; downstream presentation simplification must not alter the semantic contract.
+- Cozy owns model semantic strength: CML syntax, semantic IR, transformation, stable identity, semantic capability, and faithful publication.
+- Glossary/BoK owns curated terminology and synonym decisions; Cozy publishes admitted references.
+- CNCF owns runtime semantic strength: execution/enforcement and attributable runtime evidence.
+- Textus CBD Support owns projection/review and reports insufficient supplier semantic strength as gaps.
+- Cozy does not own Dashboard, Mono-Koto, Event Storming, Flowchart, or Review rendering.
+- Missing semantics remain explicit absence; generators must not invent lifecycle, actor, causal, terminology, or grouping semantics.
+- Workflow remains faithful; presentation simplification is downstream.
 
 ## Dependencies
 
-This Phase is a supplier phase for Textus CBD Support Phase 9, especially the communication/analysis, static, dynamic, and cross-view stages.
+This Phase supplies Textus CBD Support Phase 9 communication/analysis, static, dynamic, and cross-view projections. Its lifecycle/behavioral semantics may also be consumed by CNCF Phase 72 and related runtime work.
 
-The lifecycle and behavioral semantics published by this Phase may also be consumed by CNCF Phase 72 and related runtime work. Cozy does not define CNCF enforcement or runtime presentation.
-
-Relevant planning records:
+Relevant records:
 
 - `docs/notes/bok-glossary-cml-classification-alignment.md`
 - `docs/notes/cml-analysis-view-semantic-metadata.md`
@@ -164,4 +184,13 @@ Relevant planning records:
 
 ## Completion Conditions
 
-Phase 54 closes when the published metadata can faithfully express the supported Structure, Classification, Operation/Event, Workflow, StateMachine, Use Case/Actor, and admitted terminology semantics with stable cross-view identity; downstream fixtures can perform terminology navigation and Event Storming-style traversal without CML source parsing or name-based reconstruction; Workflow remains faithful for engineering consumers; representative fixtures pass; and unsupported semantics are explicit rather than synthesized.
+Phase 54 closes only when:
+
+1. required semantic capabilities for every claimed supported view are documented;
+2. each capability is classified as guaranteed, faithfully derivable, or explicitly unavailable;
+3. the publication contract exposes stable identities and sufficient semantic strength without name-based reconstruction;
+4. consumer fixtures prove semantic traversals/questions rather than only schema-field presence;
+5. Mono-Koto terminology navigation and Event Storming-style traversal are faithful where supported;
+6. Structure, Classification, Event, Workflow, StateMachine, and Use Case semantics meet their documented capability requirements;
+7. Workflow remains faithful while downstream Flowchart simplification requires no weakening of the source contract; and
+8. unsupported semantic strength is represented as explicit absence/gaps rather than synthesized meaning.
