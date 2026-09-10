@@ -1686,8 +1686,8 @@ Origin:
 | DEV-015 | Hygiene Resolution Batch final validation receipt `68771-20260901T211250Z` and causal diagnosis on 2026-09-02 | Make SimpleModeler generation request-isolated and safe for simultaneous different-model execution in one JVM, preserve sequential compatibility, and establish the concurrency contract required by normal Cozy test execution and future Web/service hosting. | NEW_PHASE | [Phase 44](../phase/phase-44.md) COMPLETE | RESOLVED |
 | DEV-016 | Article 8 Document Project review on 2026-09-02; Phase 45 split approved on 2026-09-02 | Complete the user-operable Document Project workflow: Content Core candidate/acceptance loop, first-class article and video review, user-oriented dashboard/action selection, optional deliverables, JA/EN and per-artifact alignment, shared-media currentness, and safe SimpleModeling.org Article 8 projection. | NEW_PHASE | [Phase 45](../phase/phase-45.md) COMPLETE → [Phase 45.1](../phase/phase-45.1.md) COMPLETE → [Phase 45.2](../phase/phase-45.2.md) COMPLETE | RESOLVED |
 | DEV-017 | Article 8 confirmation-HTML semantic-loss diagnosis and user clarification on 2026-09-04 | Make Content Core explicitly own Story Flow and per-unit Explanation Structures, normalize them through shared typed Phase 36/37 contracts, and project the same accepted meaning into Cozy-local slides, video, and integrated confirmation HTML with semantic-coverage evidence. The separately created Article 8 driver is excluded. | NEW_PHASE | [Phase 46](../phase/phase-46.md) COMPLETE → [Phase 46.1](../phase/phase-46.1.md) COMPLETE | RESOLVED |
-| DEV-018 | `docs/journal/2026/09/2026-09-06-article-9-presentation-semantics-operational-integration.md` | Make the accepted Phase 46 presentation-semantics authority operable through Document Project scaffold followed by workflow integration, preserving strict validation, explicit authoring-incomplete/current/stale state, and reuse of the Phase 46.1 cross-media confirmation kernel. | NEW_PHASE | [Phase 48](../phase/phase-48.md) COMPLETE → [Phase 49](../phase/phase-49.md) PLANNED | ADOPTED |
-| DEV-019 | `docs/journal/2026/09/2026-09-07-document-project-production-workflow-greenfield-decision.md` | Make `document-project run` execute one typed provider and atomically close validated outputs, receipts, append-only attempts, derived currentness, closed executability state, and structural-by-default verification without adapting the legacy article-media workflow. | NEW_PHASE | [Phase 56](../phase/phase-56.md) PLANNED | ADOPTED |
+| DEV-018 | `docs/journal/2026/09/2026-09-06-article-9-presentation-semantics-operational-integration.md`; user-approved Phase 49 split on 2026-09-09 | Make the accepted Phase 46 presentation-semantics authority operable through Document Project scaffold followed by workflow integration, preserving strict validation, explicit authoring-incomplete/current/stale state, and reuse of the Phase 46.1 cross-media confirmation kernel. | NEW_PHASE | [Phase 48](../phase/phase-48.md) COMPLETE → [Phase 49](../phase/phase-49.md) PLANNED → [Phase 49.1](../phase/phase-49.1.md) PLANNED → [Phase 49.2](../phase/phase-49.2.md) PLANNED → [Phase 49.3](../phase/phase-49.3.md) PLANNED | ADOPTED |
+| DEV-019 | `docs/journal/2026/09/2026-09-07-document-project-production-workflow-greenfield-decision.md`; user-approved Phase 56 split on 2026-09-10 | Make `document-project run` execute one typed provider and atomically close validated outputs, receipts, append-only attempts, derived currentness, closed executability state, and structural-by-default verification without adapting the legacy article-media workflow. | NEW_PHASE | [Phase 56](../phase/phase-56.md) COMPLETE → [Phase 56.1](../phase/phase-56.1.md) COMPLETE → [Phase 56.2](../phase/phase-56.2.md) PLANNED | ADOPTED |
 | DEV-020 | `docs/journal/2026/09/2026-09-07-document-project-production-workflow-greenfield-decision.md` | Export only selected current public Document Project Work Products through a versioned manifest/receipt, add a SimpleModeling.org target binding, and make the future publication-preparation skill a client of native run/verify/export contracts rather than a compatibility adapter. | NEW_PHASE | [Phase 57](../phase/phase-57.md) PLANNED | ADOPTED |
 | DEV-021 | `docs/journal/2026/09/2026-09-07-register-site-context-currentness-gap.md` (`COZY-GAP-REGISTER-SITE-CONTEXT-001`) | Make `media register-site` and `register-site-wip` validate currentness with the same effective site-root/site-config authority as build and receipt creation, preserving direct registration of current site-aware artifacts and fail-closed stale detection. | NEW_PHASE | [Phase 55](../phase/phase-55.md) COMPLETE | RESOLVED |
 | DEV-022 | User-approved Phase 47.2 split on 2026-09-08 | Deliver CML logical actions through the existing CNCF Free × UnitOfWork model in the ordered consumer-foundation, Cozy compiler/ABI, and cross-repository composition-acceptance boundaries. | NEW_PHASE | [Phase 47.2](../phase/phase-47.2.md) release closure pending → [Phase 47.2.1](../phase/phase-47.2.1.md) COMPLETE → [Phase 47.2.2](../phase/phase-47.2.2.md) COMPLETE (Cozy producer; CNCF consumer external pending) | ADOPTED |
@@ -1768,16 +1768,20 @@ Dashboard presentation and external consumer acceptance.
 
 Phase 48 is closed for deterministic public-profile presentation-semantics
 scaffolding with direct generated-Core byte binding and deliberately
-authoring-incomplete semantics. Phase 49 remains the separately planned
-workflow-integration successor under `DEV-018`. Phase 55 is closed for
+authoring-incomplete semantics. The approved Phase 49 sequence retains Phase
+49 for the Work Product/state/public-operation grammar, then Phase 49.1 for
+read-only workflow surfaces, Phase 49.2 for public confirmation routing, and
+Phase 49.3 for stale propagation plus Article-9-shaped local acceptance under
+`DEV-018`. Phase 55 is closed for
 site-context-preserving normal and WIP media registration; it preserves direct
 registration and fail-closed receipt currentness without deleting the downstream
-adapter or claiming external acceptance. After Phase 49, Phase 56 supplies native typed provider execution, atomic evidence
-closure, closed executability state, and structural-by-default verification.
-Phase 57 then supplies Publication Export, its SimpleModeling.org target
-binding, and the native publication-preparation skill boundary. These planned
-Phases do not authorize publication, deployment, upload, push, or production
-site mutation.
+adapter or claiming external acceptance. After Phase 49.3, the approved Phase
+56 sequence completed typed provider execution in Phase 56 and atomic evidence
+closure in Phase 56.1. Phase 56.2 remains planned for closed executability
+state plus structural-by-default verification. Phase 57 then supplies Publication Export, its
+SimpleModeling.org target binding, and the native publication-preparation skill
+boundary. These planned Phases do not authorize publication, deployment,
+upload, push, or production site mutation.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation

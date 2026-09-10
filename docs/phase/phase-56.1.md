@@ -1,8 +1,9 @@
 # Phase 56.1: Document Project Atomic Evidence Closure
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-09-10
+Completion date: 2026-09-10
 Split from: [Phase 56](phase-56.md)
 Depends on: Phase 56
 Successor: [Phase 56.2](phase-56.2.md)
@@ -53,10 +54,10 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| P561-01 | Validate every typed result's output path, media type, hash, and receipt before it can become accepted evidence. | planned |
-| P561-02 | Append the Operation Attempt and derive Work Product and Workflow Instance state from the same accepted evidence boundary. | planned |
-| P561-03 | Reject partial output/evidence closure and preserve append-only attempts with deterministic recovery from provider failure or invalid output. | planned |
-| P561-04 | Freeze the accepted-evidence/currentness handoff that Phase 56.2 uses for closed executability projection. | planned |
+| P561-01 | Validate every typed result's output path, media type, hash, and receipt before it can become accepted evidence. | complete |
+| P561-02 | Append the Operation Attempt and derive Work Product and Workflow Instance state from the same accepted evidence boundary. | complete |
+| P561-03 | Reject partial output/evidence closure and preserve append-only attempts with deterministic recovery from provider failure or invalid output. | complete |
+| P561-04 | Freeze the accepted-evidence/currentness handoff that Phase 56.2 uses for closed executability projection. | complete |
 
 ## Closure criteria
 
@@ -73,6 +74,15 @@ Phase Plan Gate: PROCEED
 - The matching checklist, focused validation, review, full Cozy validation,
   and release closure are complete for this child only. Phase 56.2 remains
   separately planned and unstarted.
+
+## Completion evidence
+
+- Step acceptance: `3e62e7d0a7cd323993a757b7cc135cb70241ba33`.
+- Phase full review `P561-PHASE-FULL-REVIEW-001` found CPB-001 and CPB-002;
+  repair cycle 1 and focused re-review
+  `P561-PHASE-REPAIR-001-REREVIEW-001` closed both findings.
+- Full Cozy `sbt --batch test` release validation and the distinct release
+  commit are bound by this Phase closure.
 
 ## Non-goals
 

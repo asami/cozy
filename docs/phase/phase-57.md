@@ -66,9 +66,12 @@ Stage Status: PLANNED
 
 ## Dependencies
 
-- Phase 49 presentation-semantics workflow integration;
+- the Phase 49 sequence through Phase 49.3 presentation-semantics workflow
+  integration;
 - Phase 55 site-context-preserving media registration; and
-- Phase 56 native provider execution and atomic evidence closure.
+- the full Phase 56 sequence through Phase 56.2: native provider execution,
+  atomic evidence closure, closed executable state, and typed verification
+  policy.
 
 ## Exclusions
 
@@ -93,5 +96,5 @@ independent review finds no Current Phase Blocker.
 - `docs/journal/2026/09/2026-09-07-document-project-production-workflow-greenfield-decision.md`
 - `docs/journal/2026/09/2026-09-07-register-site-context-currentness-gap.md`
 - `docs/phase/phase-55.md`
-- `docs/phase/phase-56.md`
+- `docs/phase/phase-56.2.md`
 - `docs/spec/document-project.md`
