@@ -97,6 +97,68 @@ private[cozy] object CozyDocumentWorkflow {
     blockedOperations: Vector[LogicalOperation],
     eligibleOperations: Vector[LogicalOperation]
   )
+  sealed abstract class NativeLogicalSelection(val value: String)
+
+  object NativeLogicalSelection {
+    case object Selected extends NativeLogicalSelection("selected")
+    case object NotSelected extends NativeLogicalSelection("not-selected")
+    case object ProfileDisabled extends NativeLogicalSelection("profile-disabled")
+  }
+
+  sealed abstract class NativePrerequisiteReadiness(val value: String)
+
+  object NativePrerequisiteReadiness {
+    case object Ready extends NativePrerequisiteReadiness("ready")
+    case object Missing extends NativePrerequisiteReadiness("missing")
+  }
+
+  sealed abstract class NativeProviderAvailability(val value: String)
+
+  object NativeProviderAvailability {
+    case object Available extends NativeProviderAvailability("available")
+    case object Unavailable extends NativeProviderAvailability("unavailable")
+  }
+
+  sealed abstract class NativeAcceptedOutputCurrentness(val value: String)
+
+  object NativeAcceptedOutputCurrentness {
+    case object Current extends NativeAcceptedOutputCurrentness("current")
+    case object Missing extends NativeAcceptedOutputCurrentness("missing")
+    case object Stale extends NativeAcceptedOutputCurrentness("stale")
+  }
+
+  sealed abstract class NativeImmediateExecutability(val value: String)
+
+  object NativeImmediateExecutability {
+    case object Executable extends NativeImmediateExecutability("executable")
+    case object Blocked extends NativeImmediateExecutability("blocked")
+  }
+
+  sealed abstract class VerificationPolicy(val value: String)
+
+  object VerificationPolicy {
+    case object Structural extends VerificationPolicy("structural")
+    case object Visual extends VerificationPolicy("visual")
+
+    def parse(value: String): Option[VerificationPolicy] = value match {
+      case "structural" => Some(Structural)
+      case "visual" => Some(Visual)
+      case _ => None
+    }
+  }
+
+  final case class NativeOperationState(
+    operation: LogicalOperation,
+    outputWorkProductId: String,
+    nativeOutput: Option[OutputDeclaration],
+    logicalSelection: NativeLogicalSelection,
+    prerequisiteReadiness: NativePrerequisiteReadiness,
+    providerAvailability: NativeProviderAvailability,
+    acceptedOutputCurrentness: NativeAcceptedOutputCurrentness,
+    immediateExecutability: NativeImmediateExecutability,
+    presentationSemanticsState: String,
+    reason: String
+  )
 
   val executionReservedExplanation: String = "native execution is declared only for currently available providers; Operation Attempts are historical evidence"
 

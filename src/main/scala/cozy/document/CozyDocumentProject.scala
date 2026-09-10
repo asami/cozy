@@ -31,7 +31,16 @@ private[cozy] object CozyDocumentProject {
   private[cozy] final case class ContentCoreEntry(id: String, text: String)
   private[cozy] final case class ContentCore(id: String, language: String, accepted: Vector[ContentCoreEntry])
 
-  private final case class ProjectRequest(command: String, project: String, operation: Option[String], dryrun: Boolean, kind: Option[String], save: Option[String])
+  private final case class ProjectRequest(
+    command: String,
+    project: String,
+    operation: Option[String],
+    dryrun: Boolean,
+    kind: Option[String],
+    save: Option[String],
+    verificationpolicy: CozyDocumentWorkflow.VerificationPolicy,
+    workproduct: Option[String]
+  )
   private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
@@ -53,7 +62,7 @@ private[cozy] object CozyDocumentProject {
           }
           println(output)
           true
-        case ProjectRequest(command, projectvalue, operation, dryrun, kind, save) =>
+        case ProjectRequest(command, projectvalue, operation, dryrun, kind, save, verificationpolicy, workproduct) =>
           val project = _admit_project(projectvalue)
           if (command == "verify")
             _verify_initial_sources(project)
@@ -69,13 +78,19 @@ private[cozy] object CozyDocumentProject {
             _failure("DP-OP-001", "content-core.compose must be executed with document-project content-core candidate <project> <dialogue>")
           command match {
             case "inspect" =>
-              val state = _write_state_snapshot(project, descriptor)
-              println(_inspect(project, descriptor, state))
+              val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
+              val state = _write_state_snapshot(project, descriptor, snapshot)
+              println(_inspect(project, descriptor, snapshot, state))
             case "plan" => println(_plan(project, descriptor))
             case "verify" =>
-              val verification = _verify(project, descriptor)
-              val state = _write_state_snapshot(project, descriptor)
-              println(_with_state(verification, state))
+              val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
+              val verification = _verify(project, descriptor, snapshot, verificationpolicy, workproduct)
+              verificationpolicy match {
+                case CozyDocumentWorkflow.VerificationPolicy.Structural =>
+                  val state = _write_state_snapshot(project, descriptor, snapshot)
+                  println(_with_state(verification, state))
+                case CozyDocumentWorkflow.VerificationPolicy.Visual => println(verification)
+              }
             case "run" =>
               println(_run(project, descriptor, operation.getOrElse(""), dryrun))
             case "dashboard" =>
@@ -143,7 +158,7 @@ private[cozy] object CozyDocumentProject {
     case "dashboard" :: rest => _project_request("dashboard", rest, Set("save"), Set.empty)
     case "review" :: rest => _project_request("review", rest, Set("kind", "save"), Set.empty)
     case "content-core" :: rest => _content_core_request(rest)
-    case "verify" :: rest => _project_request("verify", rest, Set.empty, Set.empty)
+    case "verify" :: rest => _project_request("verify", rest, Set("mode", "work-product"), Set.empty)
     case "run" :: rest => _project_request("run", rest, Set("operation"), Set("dry-run"))
     case "scaffold" :: rest => _scaffold_request(rest)
     case value :: _ => _failure("DP-CLI-001", s"unknown document-project command: $value")
@@ -168,9 +183,26 @@ private[cozy] object CozyDocumentProject {
         case _ => ()
       }
     }
+    val verificationpolicy =
+      if (command == "verify") {
+        val policy = parsed.values.get("mode").flatMap(CozyDocumentWorkflow.VerificationPolicy.parse).getOrElse {
+          if (parsed.values.contains("mode")) _failure("DP-CLI-001", "verify --mode must be structural or visual")
+          CozyDocumentWorkflow.VerificationPolicy.Structural
+        }
+        policy match {
+          case CozyDocumentWorkflow.VerificationPolicy.Structural if parsed.values.contains("work-product") =>
+            _failure("DP-CLI-001", "structural verify must not select a visual Work Product")
+          case CozyDocumentWorkflow.VerificationPolicy.Visual if !parsed.values.contains("work-product") =>
+            _failure("DP-CLI-002", "visual verify requires --work-product <native-output-work-product>")
+          case _ => ()
+        }
+        policy
+      } else {
+        CozyDocumentWorkflow.VerificationPolicy.Structural
+      }
     if (parsed.positionals.isEmpty)
       _failure("DP-CLI-002", s"$command requires <project>")
-    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"), parsed.values.get("kind"), parsed.values.get("save"))
+    ProjectRequest(command, parsed.positionals.head, parsed.values.get("operation"), parsed.flags.contains("dry-run"), parsed.values.get("kind"), parsed.values.get("save"), verificationpolicy, parsed.values.get("work-product"))
   }
 
   private def _content_core_request(args: List[String]): ContentCoreRequest = {
@@ -399,11 +431,57 @@ private[cozy] object CozyDocumentProject {
       "review/README.md"
     ).foreach(_direct_file(project, _, "initial authored source"))
 
-  private def _verify(project: Path, descriptor: Descriptor): String = {
-    if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile))
-      _direct_file(project, "video/storyboard.md", "initial authored source")
-    val semantics = CozyDocumentProjectPresentationSemanticsState.requireCurrent(project, descriptor)
-    s"Cozy Document Project Verify\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2\n${CozyDocumentProjectPresentationSemanticsState.summary(semantics)}"
+  private def _verify(
+    project: Path,
+    descriptor: Descriptor,
+    snapshot: CozyDocumentProjectEvidence.Snapshot,
+    verificationpolicy: CozyDocumentWorkflow.VerificationPolicy,
+    workproduct: Option[String]
+  ): String = {
+    verificationpolicy match {
+      case CozyDocumentWorkflow.VerificationPolicy.Structural =>
+        if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile))
+          _direct_file(project, "video/storyboard.md", "initial authored source")
+        val semantics = CozyDocumentProjectPresentationSemanticsState.requireCurrent(project, descriptor)
+        (Vector(
+          "Cozy Document Project Verify",
+          s"project: ${descriptor.id}",
+          s"package: $project",
+          "schema: cozy.document-project.v2",
+          "mode: structural",
+          CozyDocumentProjectPresentationSemanticsState.summary(semantics)
+        ) ++ CozyDocumentProjectEvidence.nativeOperationStateLines(snapshot)).mkString("\n")
+      case CozyDocumentWorkflow.VerificationPolicy.Visual =>
+        _visual_verify(project, descriptor, snapshot, workproduct.getOrElse(_failure("DP-CLI-002", "visual verify requires --work-product <native-output-work-product>")))
+    }
+  }
+
+  private def _visual_verify(
+    project: Path,
+    descriptor: Descriptor,
+    snapshot: CozyDocumentProjectEvidence.Snapshot,
+    workproduct: String
+  ): String = {
+    val state = snapshot.nativeOperations.find(_.outputWorkProductId == workproduct).getOrElse(
+      _failure("DP-OP-001", s"visual verify Work Product is not a declared native output: $workproduct")
+    )
+    if (state.logicalSelection != CozyDocumentWorkflow.NativeLogicalSelection.Selected)
+      _failure("DP-OP-001", s"visual verify Work Product is not selected for profile ${descriptor.profile}: $workproduct")
+    val nativeoutput = state.nativeOutput.getOrElse(_failure("DP-OP-001", s"visual verify Work Product is not a declared native output: $workproduct"))
+    if (state.acceptedOutputCurrentness != CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Current)
+      _failure("DP-OP-001", s"visual verify requires current accepted native output evidence: $workproduct")
+    val output = _direct_file(project, nativeoutput.path, "current accepted native output")
+    val destination = CozyDocumentProjectProjection.admitVisualVerificationDestination(project, nativeoutput)
+    CozyDocumentProjectProjection.publish(destination, CozyDocumentProjectProjection.visualVerificationHtml(project, descriptor, nativeoutput, output, destination))
+    (Vector(
+      "Cozy Document Project Verify",
+      s"project: ${descriptor.id}",
+      s"package: $project",
+      "schema: cozy.document-project.v2",
+      "mode: visual",
+      s"work-product: $workproduct",
+      s"temporary-output: ${_project_relative(project, destination)}"
+    ) ++ CozyDocumentProjectEvidence.nativeOperationStateLines(snapshot)).mkString("\n")
   }
 
   private def _require_presentation_confirmation(descriptor: Descriptor): Unit = {
@@ -679,9 +757,24 @@ private[cozy] object CozyDocumentProject {
   private[cozy] def _project_relative(project: Path, path: Path): String =
     project.relativize(path).toString.replace('\\', '/')
 
-  private def _inspect(project: Path, descriptor: Descriptor, state: Path): String = {
+  private def _inspect(
+    project: Path,
+    descriptor: Descriptor,
+    snapshot: CozyDocumentProjectEvidence.Snapshot,
+    state: Path
+  ): String = {
     val semantics = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
-    _with_state(s"Cozy Document Project Inspect\nproject: ${descriptor.id}\npackage: $project\nschema: cozy.document-project.v2\nworkflow: document-production\nprofile: ${descriptor.profile}\nlanguage: ${descriptor.language}\nworkspace: ${descriptor.workspace}\n${CozyDocumentProjectPresentationSemanticsState.summary(semantics)}", state)
+    _with_state((Vector(
+      "Cozy Document Project Inspect",
+      s"project: ${descriptor.id}",
+      s"package: $project",
+      "schema: cozy.document-project.v2",
+      "workflow: document-production",
+      s"profile: ${descriptor.profile}",
+      s"language: ${descriptor.language}",
+      s"workspace: ${descriptor.workspace}",
+      CozyDocumentProjectPresentationSemanticsState.summary(semantics)
+    ) ++ CozyDocumentProjectEvidence.nativeOperationStateLines(snapshot)).mkString("\n"), state)
   }
 
   private def _with_state(output: String, state: Path): String = {
@@ -689,14 +782,18 @@ private[cozy] object CozyDocumentProject {
     s"$output\nstate: $reference"
   }
 
-  private def _write_state_snapshot(project: Path, descriptor: Descriptor): Path = {
+  private def _write_state_snapshot(
+    project: Path,
+    descriptor: Descriptor,
+    snapshot: CozyDocumentProjectEvidence.Snapshot
+  ): Path = {
     val statedirectory = project.resolve("target").resolve("document-project").normalize()
     if (!statedirectory.startsWith(project) || Files.isSymbolicLink(project.resolve("target")) || Files.isSymbolicLink(statedirectory))
       _failure("DP-PATH-001", "state cache directory must be contained in the project and must not be a symbolic link")
     val state = statedirectory.resolve("state.yaml")
     if (Files.isSymbolicLink(state))
       _failure("DP-PATH-001", "state cache file must not be a symbolic link")
-    val stateyaml = _state_yaml(project, descriptor)
+    val stateyaml = _state_yaml(project, descriptor, snapshot)
     try {
       Files.createDirectories(statedirectory)
       val temporary = Files.createTempFile(statedirectory, ".state-", ".tmp")
@@ -712,8 +809,12 @@ private[cozy] object CozyDocumentProject {
     }
   }
 
-  private def _state_yaml(project: Path, descriptor: Descriptor): String = {
-    CozyDocumentProjectEvidence.stateYaml(project, descriptor)
+  private def _state_yaml(
+    project: Path,
+    descriptor: Descriptor,
+    snapshot: CozyDocumentProjectEvidence.Snapshot
+  ): String = {
+    CozyDocumentProjectEvidence.stateYaml(project, descriptor, snapshot)
   }
 
   private[cozy] def _state_sources(project: Path, descriptor: Descriptor): Vector[(String, Path)] = {
@@ -753,7 +854,10 @@ private[cozy] object CozyDocumentProject {
   private[cozy] def presentationSemanticsAuthoringInstruction(descriptor: Descriptor): String =
     s"Author the project-local sibling content/presentation-semantics-${descriptor.language}.yaml to the strict v2 contract (cozy.content-core.presentation-semantics.v2); after authoring, use document-project verify <project> only for validation."
 
-  private def _plan(project: Path, descriptor: Descriptor): String = {
+  private def _plan(
+    project: Path,
+    descriptor: Descriptor
+  ): String = {
     val workflowplan = CozyDocumentWorkflow.plan(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
       case Right(value) => value
       case Left(cause) => _descriptor_failure(cause)
@@ -778,7 +882,7 @@ private[cozy] object CozyDocumentProject {
       s"project: ${descriptor.id}",
       s"package: $project",
       "schema: cozy.document-project.v2"
-    ) ++ requiredlines ++ activeoptionallines ++ inactiveoptionallines ++ profiledisabledlines ++ semanticaction ++ blockedlines ++ eligiblelines).mkString("\n")
+    ) ++ requiredlines ++ activeoptionallines ++ inactiveoptionallines ++ profiledisabledlines ++ semanticaction ++ blockedlines ++ eligiblelines ++ CozyDocumentProjectEvidence.planNativeOperationStateLines(project, descriptor)).mkString("\n")
   }
 
   private def _plan_work_product_line(

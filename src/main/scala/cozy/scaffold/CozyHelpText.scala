@@ -26,7 +26,8 @@ private[cozy] object CozyHelpText {
       |  document-project content-core candidate <project> <dialogue>
       |  document-project content-core feedback <project> <candidate-id> <feedback>
       |  document-project content-core accept <project> <candidate-id> <acceptance>
-      |  document-project verify <project>
+      |  document-project verify <project> [--mode structural]
+      |  document-project verify <project> --mode visual --work-product <native-output-work-product>
       |  document-project run <project> --operation <logical-operation> [--dry-run]
       |  document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
       |      Inspect, plan, verify, execute one admitted native operation, scaffold a package, or generate read-only projections.
@@ -40,10 +41,12 @@ private[cozy] object CozyHelpText {
       |      Review is purpose-oriented and exposes no logical-operation IDs. Article review projects article/Core/Visual Page relationships without site rendering; video review projects typed semantic scenes. Video review and video logical charts are admitted only for video profiles.
       |      Presentation confirmation validates current typed presentation semantics and complete cross-media coverage before publication; it is distinct from Article review and never uses generated-review receipts.
       |      Slide Logical Chart visualizes current Content Core and Visual Page IR; Video Logical Chart also visualizes storyboard IR, all as read-only projections.
+      |      Verify defaults to structural validation of semantic authority, direct prerequisites, hashes, retained evidence, and lightweight text/media properties. Structural verification does not rasterize PDF, slide, video, or image material.
+      |      Visual verification requires both --mode visual and one selected participating native output Work Product. It writes only target/document-project/visual-review/article-review-html.html as a bounded temporary representation of the current accepted article-review-html output; it neither invokes a provider nor changes evidence, receipts, attempts, currentness, or public image Work Products.
       |      Projections are deterministic, self-contained, and HTML-escaped. They otherwise write only the selected output; default Article and Video review also write one local disposable generated-review receipt beside the default HTML.
       |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.
       |      Generic run resolves typed provider/output declarations before execution. Native run currently executes only article.render-review through cozy-review-projection at target/document-project/article-review.html (text/html); other declared providers report an explicit missing-capability block. --dry-run reports that typed resolution without invoking a provider or writing output, evidence, or currentness.
-      |      Native run reports typed output identity/path/media type, diagnostics, and a generated receipt value. It does not append an Operation Attempt, accept evidence, or establish currentness.
+      |      Native run reports typed output identity/path/media type, diagnostics, and a generated receipt value. A validated executed result appends strict accepted v2 evidence and derives currentness; blocked and dry-run results create neither an attempt nor accepted evidence.
       |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, attempts, delivery state, or external/provider receipts.
       |      Content Core candidate accepts a completed direct JSON/YAML dialogue bundle and records durable local evidence; it never invokes an AI provider or changes Content Core.
       |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.

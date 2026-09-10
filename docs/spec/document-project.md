@@ -407,7 +407,7 @@ Successful `inspect` and `verify` MUST regenerate the snapshot after all
 descriptor, Core, and command-specific source validation succeeds.  The
 canonical UTF-8 YAML serialization MUST contain, in this order, `schema`,
 `project`, `profile`, `workspace`, `sources`, `evidence`, `criteria`, and
-`workProducts`.  `schema` is
+`workProducts`, and `nativeOperations`.  `schema` is
 exactly `cozy.document-project-state.v2`; the three identity values are taken
 from the admitted descriptor.  `sources` is a fixed-order list of direct,
 project-relative authored inputs, each with only `path` and its lowercase
@@ -428,6 +428,10 @@ evidence-derived state only, never a writable percentage or acceptance
 authority.
 
 `workProducts` MUST follow the closed `document-production` Work Product order.
+`nativeOperations` MUST follow the same closed logical-operation order and
+record only the derived output Work Product identity, optional declared native
+output identity, five executability values, consumed Presentation Semantics
+state, and a derived reason; it is not an execution request or authority.
 Each entry MUST contain `id`, `role`, `disposition`, `selection`, `criterion`, `coverage`,
 `currentness`, `review`, and `readiness`, using only the DP42-03A vocabularies.
 The source-backed Core, article, infographic, and activated storyboard
@@ -568,7 +572,7 @@ The canonical state YAML is `cozy.document-project-state.v2`. In addition
 to fixed-order authored `sources`, it has a distinct deterministic `evidence`
 section for the optional sidecar and retained attempt path/SHA-256 identities,
 then immutable `criteria` in Workflow Definition criterion order, followed by
-fixed-order `workProducts`.  It contains no absolute path,
+fixed-order `workProducts` and fixed-order `nativeOperations`.  It contains no absolute path,
 timestamp, random value, generated receipt content, or authority override.
 Deleting the cache and inspecting unchanged inputs reconstructs byte-identical
 bytes.  `inspect` and `verify` write only this disposable cache and never write
@@ -727,7 +731,8 @@ cozy document-project review <project> --kind presentation [--save <confirmation
 cozy document-project content-core candidate <project> <dialogue>
 cozy document-project content-core feedback <project> <candidate-id> <feedback>
 cozy document-project content-core accept <project> <candidate-id> <acceptance>
-cozy document-project verify <project>
+cozy document-project verify <project> [--mode structural]
+cozy document-project verify <project> --mode visual --work-product <native-output-work-product>
 cozy document-project run <project> --operation <logical-operation> [--dry-run]
 cozy document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
 ```
@@ -998,11 +1003,25 @@ protocol adds no schema/version, remote/provider, or compatibility behavior.
   Article and Video review may write only the disposable generated-review receipt
   defined above. Review MUST not modify Content Core, accepted entries,
   storyboard, Visual Pages, attempts, existing receipts, or state cache.
-- `verify` MUST inspect declared project material for conformance without
-  mutating authored authority, durable evidence, registration, or delivery.
-  After successful validation it MUST regenerate only the disposable snapshot
-  cache specified above and MUST identify its project-relative location in
-  output.  Failed validation MUST create no new cache.
+- `verify` has the closed `structural | visual` policy. With no `--mode`, it
+  MUST use `structural`; `--mode structural` accepts no Work Product selection.
+  Structural verification MUST inspect semantic authority, selected direct
+  prerequisites, hashes, retained receipts/currentness, and lightweight
+  text/media evidence without rasterizing PDF, slide, video, or image material.
+  It MUST report the same closed executability values as `inspect` and
+  Dashboard, and as `plan` when strict sidecar admission succeeds. After
+  success it may regenerate only the disposable snapshot cache specified
+  above. Failed structural validation MUST create no new cache.
+  `--mode visual` MUST require exactly one `--work-product` naming a selected,
+  participating declared native output Work Product. It may write only the
+  bounded temporary representation
+  `target/document-project/visual-review/article-review-html.html` for the
+  current accepted `article-review-html` native output. It MUST NOT invoke a
+  provider, append an attempt, create or replace accepted evidence or a
+  production receipt, make a Work Product current, write the snapshot cache, or
+  render unrelated PDF, slide, video, or image previews. A selected public
+  image Work Product remains normal production evidence and MUST reject as a
+  visual-only native-output selection.
 - Before Phase 56, `run --operation` validated the descriptor, Core, and all
   command-admitted initial authored sources before an evidence write. It
   admitted one declared logical operation that produced a selected Work Product,
@@ -1223,6 +1242,59 @@ attempt. Closed executable state and verification policy remain excluded to
 Phase 56.2. Publication export and every external delivery action remain
 excluded to Phase 57. No compatibility wrapper for `cozy-article-media` or
 earlier publication preparation is permitted.
+
+## Phase 56.2 executability and verification contract
+
+The read-only executability projection covers every declared logical operation
+without adding a provider, output declaration, or workflow edge. Each row has
+five distinct closed values: logical selection (`selected`, `not-selected`, or
+`profile-disabled`), prerequisite readiness (`ready` or `missing`), provider
+availability (`available` or `unavailable`), accepted-output currentness
+(`current`, `missing`, or `stale`), and immediate executability (`executable`
+or `blocked`). The row also carries the existing Phase 49.3 Presentation
+Semantics state as a consumed value; this contract does not duplicate or
+reinterpret that state.
+
+The existing `article.render-review` declaration is the sole available native
+provider/output boundary. Its accepted-output currentness is `current` only
+when a valid accepted v2 attempt retains exact current direct input and output
+identities; it is `stale` when accepted v2 evidence remains but those identities
+do not. Other declared operations remain visible with provider availability
+`unavailable` until a later phase adds a native provider. Visibility does not
+execute, admit, or emulate any such provider.
+
+`inspect`, structural `verify`, and Dashboard MUST derive these exact values
+from the strict evidence snapshot: the same resolved workflow, direct
+prerequisites, provider capability, retained accepted-v2 evidence, and consumed
+Presentation Semantics state. `plan` MUST derive the same values from the same
+inputs through its non-mutating Plan-only line derivation; with admissible
+retained evidence it is identical to the strict snapshot, while an unreadable
+or malformed optional sidecar is treated as absent only for this Plan
+projection. `inspect`, structural `verify`, and Dashboard retain strict
+sidecar admission. `inspect` and structural `verify` may retain their existing
+disposable state-cache behavior; `plan` does not mutate, and Dashboard does not
+write that cache. `run` remains the sole execution boundary and retains the
+Phase 56/56.1 admission and accepted-evidence behavior unchanged.
+
+The public verification grammar is exactly:
+
+```text
+cozy document-project verify <project> [--mode structural]
+cozy document-project verify <project> --mode visual --work-product <native-output-work-product>
+```
+
+Structural is the default. It validates existing semantic authority, selected
+direct prerequisites, hashes, receipts/currentness, and lightweight text/media
+evidence without rasterizing PDF, slide, video, or image material. Visual
+verification requires the explicit `visual` mode and one selected participating
+native output Work Product. It may create only
+`target/document-project/visual-review/article-review-html.html`, a temporary
+representation of a current accepted `article-review-html` output. It must not
+invoke a provider, append an attempt, create or replace accepted evidence or a
+production receipt, make a Work Product current, write the disposable cache,
+or render unrelated PDF, slide, video, or image previews. A selected public
+image Work Product remains production evidence and cannot be selected as that
+temporary native-output representation.
 
 ## Related authorities
 

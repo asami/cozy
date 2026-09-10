@@ -29,6 +29,10 @@ private[cozy] object CozyDocumentProjectProjection {
       val product = item.value.workProduct
       s"""<tr><th scope="row">${_html_escape(product.id)}</th><td>${_html_escape(item.coverage)}</td><td>${_html_escape(item.currentness)}</td><td>${_html_escape(item.review)}</td><td>${_html_escape(item.readiness)}</td><td>${_html_escape(item.reason.getOrElse(""))}</td></tr>"""
     }.mkString("\n")
+    val nativeoperationrows = snapshot.nativeOperations.map { state =>
+      val summary = CozyDocumentProjectEvidence.nativeOperationStateLine(state)
+      s"""<tr data-executability="${_html_escape(summary)}"><th scope="row">${_html_escape(state.operation.id)}</th><td>${_html_escape(state.outputWorkProductId)}</td><td>${_html_escape(state.logicalSelection.value)}</td><td>${_html_escape(state.prerequisiteReadiness.value)}</td><td>${_html_escape(state.providerAvailability.value)}</td><td>${_html_escape(state.acceptedOutputCurrentness.value)}</td><td>${_html_escape(state.immediateExecutability.value)}</td><td>${_html_escape(state.presentationSemanticsState)}</td><td>${_html_escape(state.reason)}</td></tr>"""
+    }.mkString("\n")
     val satisfiedcriteria = snapshot.criteria.count(_.coverage == "satisfied")
     val applicablecriteria = snapshot.criteria.count(_.coverage != "not-applicable")
     val criteriarows = snapshot.criteria.map { criterion =>
@@ -125,6 +129,8 @@ private[cozy] object CozyDocumentProjectProjection {
          |<table aria-label="Workflow Work Products"><thead><tr><th scope="col">Work Product</th><th scope="col">Selection</th><th scope="col">Role</th><th scope="col">Disposition</th><th scope="col">Provider</th><th scope="col">Gates</th><th scope="col">Nonparticipating or blocking reason</th></tr></thead><tbody>$workflowrows</tbody></table>
          |<h2>Work Product matrix</h2>
          |<table aria-label="Work Product status matrix"><thead><tr><th scope="col">Work Product</th><th scope="col">Coverage</th><th scope="col">Currentness</th><th scope="col">Review</th><th scope="col">readiness</th><th scope="col">Omitted or blocking reason</th></tr></thead><tbody>$matrixrows</tbody></table>
+         |<h2>Native operation executability</h2>
+         |<table aria-label="Native operation executability"><thead><tr><th scope="col">Operation</th><th scope="col">Native output</th><th scope="col">Logical selection</th><th scope="col">Prerequisite readiness</th><th scope="col">Provider availability</th><th scope="col">Accepted-output currentness</th><th scope="col">Immediate executability</th><th scope="col">Presentation semantics</th><th scope="col">Reason</th></tr></thead><tbody>$nativeoperationrows</tbody></table>
          |<h2>Criterion coverage</h2>
          |<p>$satisfiedcriteria/$applicablecriteria applicable criteria satisfied</p>
          |<table aria-label="Criterion coverage"><thead><tr><th scope="col">Criterion</th><th scope="col">Coverage</th><th scope="col">Reason</th></tr></thead><tbody>$criteriarows</tbody></table>
@@ -639,6 +645,36 @@ private[cozy] object CozyDocumentProjectProjection {
   private[cozy] def projectionResult(kind: String, project: Path, descriptor: CozyDocumentProject.Descriptor, destination: Path): String = {
     val reference = if (destination.startsWith(project)) CozyDocumentProject._project_relative(project, destination) else destination.toString
     s"Cozy Document Project $kind\nproject: ${descriptor.id}\nprofile: ${descriptor.profile}\nschema: cozy.document-project.v2\noutput: $reference"
+  }
+
+  private[cozy] def admitVisualVerificationDestination(
+    project: Path,
+    output: CozyDocumentWorkflow.OutputDeclaration
+  ): Path = {
+    if (output.identity != "article-review-html" || output.path != "target/document-project/article-review.html" || output.mediaType != "text/html")
+      CozyDocumentProject._failure("DP-OP-001", "visual verify supports only the declared Article review native output")
+    admitDestination(project, None, "visual-review/article-review-html.html")
+  }
+
+  private[cozy] def visualVerificationHtml(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    output: CozyDocumentWorkflow.OutputDeclaration,
+    outputpath: Path,
+    destination: Path
+  ): String = {
+    val declared = project.resolve(output.path).normalize()
+    if (outputpath != declared || !outputpath.startsWith(project) || !destination.startsWith(project))
+      CozyDocumentProject._failure("DP-PATH-001", "visual verification representation has an unsafe native output boundary")
+    val source = destination.getParent.relativize(outputpath).toString.replace('\\', '/')
+    _html_page(
+      s"Cozy Document Project Visual Verification - ${descriptor.id}",
+      descriptor.language,
+      s"""<h1>Visual Verification</h1>
+         |<p>Project: <code>${_html_escape(descriptor.id)}</code>; selected native output: <code>${_html_escape(output.identity)}</code>.</p>
+         |<p class="notice">This bounded temporary representation embeds the already accepted native HTML output. It does not invoke a provider, rasterize media, create evidence or a receipt, or make a Work Product current.</p>
+         |<iframe title="${_html_escape(output.identity)} visual verification" src="${_html_escape(source)}" style="width:100%;min-height:48rem;border:1px solid #9aa0a6"></iframe>""".stripMargin
+    )
   }
 
   private def _html_page(title: String, language: String, body: String): String =

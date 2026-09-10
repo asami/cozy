@@ -57,13 +57,23 @@ private[cozy] object CozyDocumentProjectProvider {
       Vector(s"native provider binding ${binding.id} has no Phase 56 implementation")
     )
 
+  def isAvailable(
+    operation: CozyDocumentWorkflow.LogicalOperation,
+    declaration: CozyDocumentWorkflow.NativeProviderDeclaration
+  ): Boolean =
+    operation.id == "article.render-review" &&
+      operation.providerBinding == "cozy-review-projection" &&
+      declaration.operationId == operation.id &&
+      declaration.providerBinding == operation.providerBinding &&
+      declaration.outputs == Vector(CozyDocumentWorkflow.OutputDeclaration("article-review-html", "target/document-project/article-review.html", "text/html"))
+
   def execute(request: Request): ProviderResult = {
     val declaration = request.declaration
     if (request.operation.id != declaration.operationId || request.operation.providerBinding != declaration.providerBinding)
       Failed(request.operation.id, request.operation.providerBinding, "unresolved provider", Vector("native provider request does not match its workflow declaration"))
     else if (declaration.outputs.isEmpty || declaration.outputs.size != request.destinations.size)
       Failed(request.operation.id, declaration.providerBinding, "unresolved provider", Vector("native provider requires one admitted destination for every declared output"))
-    else if (request.operation.id == "article.render-review" && declaration.providerBinding == "cozy-review-projection")
+    else if (isAvailable(request.operation, declaration))
       _article_render_review(request)
     else
       Blocked(

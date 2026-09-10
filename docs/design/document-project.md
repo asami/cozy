@@ -166,7 +166,8 @@ inputs reconstructs the identical snapshot.
 Successful `inspect` and `verify` regenerate the cache only after their
 descriptor, Core, and command-specific source validation succeeds.  Its
 canonical UTF-8 YAML keys are ordered `schema`, `project`, `profile`,
-`workspace`, `sources`, `evidence`, `criteria`, and `workProducts`.  The fixed-order `sources` entries
+`workspace`, `sources`, `evidence`, `criteria`, `workProducts`, and
+`nativeOperations`.  The fixed-order `sources` entries
 contain only project-relative direct authored paths and lowercase hexadecimal
 SHA-256 content identities: descriptor, exact Core, `index.dox`, infographic
 SVG, Visual Page source, review README, and directly present storyboard for a
@@ -817,6 +818,43 @@ attempt. Phase 56.2 exclusively owns closed executable state and verification
 policy. Phase 57 exclusively owns publication export. These boundaries do not
 authorize a compatibility adapter, receipt adoption, delivery, deployment, or
 another native provider.
+
+## Phase 56.2 executability projection and verification policy
+
+Phase 56.2 adds one derived executability row for every declared operation; it
+does not change the workflow definition, native provider declarations, or
+Phase 56.1 identity/currentness rules. The row separates logical selection,
+prerequisite readiness, provider availability, accepted-output currentness,
+and immediate executability so that a selected operation with no provider is
+not confused with a missing prerequisite or stale accepted output. The existing
+Presentation Semantics state is carried through this row as a consumed Phase
+49.3 value, not copied into a second semantic model.
+
+The strict evidence snapshot is the shared derivation boundary for `inspect`,
+structural `verify`, and Dashboard; those projections retain strict sidecar
+admission and consume its exact five values. `plan` remains non-mutating and
+uses a Plan-only line derivation from the same resolved workflow, direct
+sources, retained attempts, provider capability, and Presentation Semantics
+state. With admissible retained evidence its values are identical to the
+strict snapshot; an unreadable or malformed optional sidecar is treated as
+absent only for this Plan projection. `inspect` and structural `verify` retain
+only their established disposable-cache write, Dashboard remains cache-free,
+and `run` is still the only command that can execute a provider or affect
+accepted evidence.
+
+Verification is a closed policy. Structural verification is the default and
+examines existing semantic authority, direct prerequisites, identity hashes,
+retained evidence/currentness, and lightweight text/media evidence without
+rasterizing any PDF, slide, video, or image. Visual verification must be named
+explicitly with `--mode visual --work-product <native-output-work-product>`.
+It accepts only a selected, participating, current accepted native output and
+creates the single bounded temporary Article review representation below
+`target/document-project/visual-review/`. That temporary view is neither
+production evidence nor an accepted output: it cannot invoke a provider,
+append an attempt, create or replace a receipt/evidence record, make a Work
+Product current, or inspect unrelated media. A public infographic PNG remains
+an ordinary selected production Work Product and is never a visual-verification
+temporary artifact.
 
 ## Related authorities
 

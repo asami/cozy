@@ -25,10 +25,16 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation
   ): Vector[FileIdentity] =
-    _native_input_paths(descriptor, operation).map { relative =>
+    nativeInputPaths(descriptor, operation).map { relative =>
       val path = CozyDocumentProject._direct_file(project, relative, "native provider direct input")
       FileIdentity(relative, _sha256(path))
     }
+
+  private[cozy] def nativeInputPaths(
+    descriptor: CozyDocumentProject.Descriptor,
+    operation: CozyDocumentWorkflow.LogicalOperation
+  ): Vector[String] =
+    _native_input_paths(descriptor, operation)
 
   def closeNativeExecution(
     project: Path,
@@ -313,7 +319,7 @@ private[cozy] object CozyDocumentProjectNativeEvidence {
     value: Json
   ): Vector[FileIdentity] = {
     val inputvalues = value.asArray.getOrElse(_invalid("Document Project retained v2 attempt inputs must be an array"))
-    val expected = _native_input_paths(descriptor, operation)
+    val expected = nativeInputPaths(descriptor, operation)
     if (inputvalues.size != expected.size)
       _invalid("Document Project retained v2 attempt inputs must match direct native input order")
     inputvalues.zip(expected).map { case (inputvalue, expectedpath) =>

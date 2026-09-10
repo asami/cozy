@@ -90,6 +90,56 @@ final class CozyDocumentProjectNativeEvidenceSpec extends AnyWordSpec with Match
       }
     }
 
+    "keep explicit visual verification bounded to one selected current native output" in {
+      _with_temp_dir("cozy-document-project-visual-verification") { root =>
+        Given("a selected Article review native output, a selected public image Work Product, and accepted native evidence")
+        val project = _scaffolded_project(root, "visual-verification")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html", "infographic-png"))
+
+        When("the selected native Article review operation produces accepted evidence")
+        val accepted = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+
+        Then("the current native output is available for an explicit visual request")
+        accepted should include("outcome: accepted")
+
+        Given("the accepted attempt and native output bytes")
+        val attempts = project.resolve("evidence/attempts")
+        val attemptpaths = _relative_files(attempts)
+        val attemptbytes = attemptpaths.map(path => path -> Files.readAllBytes(attempts.resolve(path))).toMap
+        val nativeoutput = project.resolve("target/document-project/article-review.html")
+        val nativebytes = Files.readAllBytes(nativeoutput)
+        val visualoutput = project.resolve("target/document-project/visual-review/article-review-html.html")
+
+        When("visual verification explicitly selects the current participating native output")
+        val visual = _execute(List("document-project", "verify", project.toString, "--mode", "visual", "--work-product", "article-review-html"))
+        val visualbytes = Files.readAllBytes(visualoutput)
+
+        Then("only the bounded temporary representation is written without provider or evidence mutation")
+        visual should include("mode: visual")
+        visual should include("work-product: article-review-html")
+        visual should include("temporary-output: target/document-project/visual-review/article-review-html.html")
+        Files.readString(visualoutput, StandardCharsets.UTF_8) should include("bounded temporary representation")
+        Files.readString(visualoutput, StandardCharsets.UTF_8) should include("does not invoke a provider")
+        Files.readAllBytes(nativeoutput) shouldBe nativebytes
+        _relative_files(attempts) shouldBe attemptpaths
+        attemptpaths.foreach(path => Files.readAllBytes(attempts.resolve(path)) shouldBe attemptbytes(path))
+        Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(project.resolve("target/document-project/visual-review/infographic-png.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("a selected public image Work Product or structural mode attempts to use the visual-only selection")
+        val imagefailure = _failure(List("document-project", "verify", project.toString, "--mode", "visual", "--work-product", "infographic-png"))
+        val structuralfailure = _failure(List("document-project", "verify", project.toString, "--work-product", "article-review-html"))
+
+        Then("the public image remains normal production evidence and structural verification rejects visual selection")
+        imagefailure should include("DP-OP-001")
+        imagefailure should include("not a declared native output: infographic-png")
+        structuralfailure should include("DP-CLI-001")
+        structuralfailure should include("structural verify must not select a visual Work Product")
+        Files.readAllBytes(visualoutput) shouldBe visualbytes
+        _relative_files(attempts) shouldBe attemptpaths
+      }
+    }
+
     "derive native accepted evidence stale and recovered currentness from exact identities" in {
       _with_temp_dir("cozy-document-project-native-accepted-evidence-currentness") { root =>
         Given("a selected Article review project with one accepted native evidence record")

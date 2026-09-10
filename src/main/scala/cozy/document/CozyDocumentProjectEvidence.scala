@@ -70,7 +70,8 @@ private[cozy] object CozyDocumentProjectEvidence {
     sidecar: Option[Sidecar],
     attempts: Vector[Attempt],
     products: Vector[WorkProductState],
-    criteria: Vector[CriterionState]
+    criteria: Vector[CriterionState],
+    nativeOperations: Vector[CozyDocumentWorkflow.NativeOperationState]
   )
 
   private final case class EvidenceStatus(
@@ -141,7 +142,8 @@ private[cozy] object CozyDocumentProjectEvidence {
     }
     val sidecar = _sidecar(project, descriptor, resolved, sources)
     val attempts = _attempts(project, descriptor)
-    val products = _products(project, descriptor, resolved, sources, sidecar, attempts)
+    val presentationstate = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
+    val products = _products(project, descriptor, resolved, sources, sidecar, attempts, presentationstate)
     val productsbycriterion = products.flatMap { product =>
       product.value.workProduct.criteria.map(_ -> product)
     }.toMap
@@ -157,11 +159,46 @@ private[cozy] object CozyDocumentProjectEvidence {
         case None => CozyDocumentProject._descriptor_failure(s"document-production criterion is not mapped to a Work Product: ${criterion.id}")
       }
     }
-    Snapshot(sources, sidecar, attempts, products, criteria)
+    val nativeoperations = _native_operation_states(project, descriptor, resolved, sources, products, attempts, presentationstate)
+    Snapshot(sources, sidecar, attempts, products, criteria, nativeoperations)
   }
 
-  def stateYaml(project: Path, descriptor: CozyDocumentProject.Descriptor): String = {
-    val value = snapshot(project, descriptor)
+  private[cozy] def nativeOperationStateLine(state: CozyDocumentWorkflow.NativeOperationState): String =
+    s"native-operation ${state.operation.id} [logical-selection: ${state.logicalSelection.value}; prerequisite-readiness: ${state.prerequisiteReadiness.value}; provider-availability: ${state.providerAvailability.value}; accepted-output-currentness: ${state.acceptedOutputCurrentness.value}; immediate-executability: ${state.immediateExecutability.value}; presentation-semantics: ${state.presentationSemanticsState}; reason: ${state.reason}]"
+
+  private[cozy] def nativeOperationStateLines(value: Snapshot): Vector[String] =
+    value.nativeOperations.map(nativeOperationStateLine)
+
+  private[cozy] def planNativeOperationStateLines(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor
+  ): Vector[String] = {
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
+      case Right(value) => value
+      case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
+    }
+    val sources = CozyDocumentProject._state_sources(project, descriptor).map {
+      case (relative, path) => FileIdentity(relative, _sha256(path))
+    }
+    val sidecar = try {
+      _sidecar(project, descriptor, resolved, sources)
+    } catch {
+      case NonFatal(_) => None
+    }
+    val attempts = _attempts(project, descriptor)
+    val presentationstate = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
+    val products = _products(project, descriptor, resolved, sources, sidecar, attempts, presentationstate)
+    _native_operation_states(project, descriptor, resolved, sources, products, attempts, presentationstate).map(nativeOperationStateLine)
+  }
+
+  def stateYaml(project: Path, descriptor: CozyDocumentProject.Descriptor): String =
+    stateYaml(project, descriptor, snapshot(project, descriptor))
+
+  def stateYaml(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    value: Snapshot
+  ): String = {
     val sourceyaml = value.sources.map(identity => s"  - path: ${identity.path}\n    sha256: ${identity.sha256}")
     val evidenceyaml = value.sidecar match {
       case Some(sidecar) =>
@@ -195,13 +232,27 @@ private[cozy] object CozyDocumentProjectEvidence {
     ) ++ _criterion_yaml(value.criteria.filter(_.coverage == "missing")) ++ Vector(
       "  notApplicable:"
     ) ++ _criterion_yaml(value.criteria.filter(_.coverage == "not-applicable"))
+    val nativeoperationyaml = value.nativeOperations.map { state =>
+      Vector(
+        s"  - operation: ${state.operation.id}",
+        s"    output: ${state.outputWorkProductId}",
+        s"    nativeOutput: ${state.nativeOutput.map(_.identity).getOrElse("none")}",
+        s"    logicalSelection: ${state.logicalSelection.value}",
+        s"    prerequisiteReadiness: ${state.prerequisiteReadiness.value}",
+        s"    providerAvailability: ${state.providerAvailability.value}",
+        s"    acceptedOutputCurrentness: ${state.acceptedOutputCurrentness.value}",
+        s"    immediateExecutability: ${state.immediateExecutability.value}",
+        s"    presentationSemantics: ${state.presentationSemanticsState}",
+        s"    reason: ${_yaml_double_quoted(state.reason)}"
+      ).mkString("\n")
+    }
     (Vector(
       "schema: cozy.document-project-state.v2",
       s"project: ${descriptor.id}",
       s"profile: ${descriptor.profile}",
       s"workspace: ${descriptor.workspace}",
       "sources:"
-    ) ++ sourceyaml ++ Vector("evidence:") ++ evidenceyaml ++ Vector("criteria:") ++ criteriayaml ++ Vector("workProducts:") ++ productyaml).mkString("\n") + "\n"
+    ) ++ sourceyaml ++ Vector("evidence:") ++ evidenceyaml ++ Vector("criteria:") ++ criteriayaml ++ Vector("workProducts:") ++ productyaml ++ Vector("nativeOperations:") ++ nativeoperationyaml).mkString("\n") + "\n"
   }
 
   private def _criterion_yaml(criteria: Vector[CriterionState]): Vector[String] =
@@ -366,17 +417,97 @@ private[cozy] object CozyDocumentProjectEvidence {
     NoReview
   }
 
+  private def _native_operation_states(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    resolved: CozyDocumentWorkflow.ResolvedWorkflow,
+    sources: Vector[FileIdentity],
+    products: Vector[WorkProductState],
+    attempts: Vector[Attempt],
+    presentationstate: CozyDocumentProjectPresentationSemanticsState.State
+  ): Vector[CozyDocumentWorkflow.NativeOperationState] = {
+    val sourcepaths = sources.map(_.path).toSet
+    val productsbyid = products.map(value => value.value.workProduct.id -> value).toMap
+    resolved.definition.operations.map { operation =>
+      val outputworkproductid = operation.produces.headOption.getOrElse(
+        CozyDocumentProject._descriptor_failure(s"logical operation has no declared output Work Product: ${operation.id}")
+      )
+      val outputworkproduct = resolved.workProducts.find(_.workProduct.id == outputworkproductid).getOrElse(
+        CozyDocumentProject._descriptor_failure(s"logical operation output Work Product is missing: ${operation.id}/$outputworkproductid")
+      )
+      val nativeproviderdeclaration = CozyDocumentWorkflow.nativeProviderDeclaration(operation.id) match {
+        case Right(value) => value
+        case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
+      }
+      val nativeoutput = nativeproviderdeclaration.flatMap(_.outputs.headOption)
+      val logicalselection =
+        if (outputworkproduct.isParticipating) CozyDocumentWorkflow.NativeLogicalSelection.Selected
+        else if (outputworkproduct.selection == CozyDocumentWorkflow.WorkProductSelection.InactiveOptional) CozyDocumentWorkflow.NativeLogicalSelection.NotSelected
+        else CozyDocumentWorkflow.NativeLogicalSelection.ProfileDisabled
+      val prerequisitereadiness = nativeoutput match {
+        case Some(_) if CozyDocumentProjectNativeEvidence.nativeInputPaths(descriptor, operation).forall(sourcepaths.contains) => CozyDocumentWorkflow.NativePrerequisiteReadiness.Ready
+        case Some(_) => CozyDocumentWorkflow.NativePrerequisiteReadiness.Missing
+        case None if operation.consumes.forall(id => productsbyid.get(id).exists(_.readiness == "ready")) => CozyDocumentWorkflow.NativePrerequisiteReadiness.Ready
+        case None => CozyDocumentWorkflow.NativePrerequisiteReadiness.Missing
+      }
+      val provideravailability = nativeproviderdeclaration match {
+        case Some(declaration) if CozyDocumentProjectProvider.isAvailable(operation, declaration) => CozyDocumentWorkflow.NativeProviderAvailability.Available
+        case _ => CozyDocumentWorkflow.NativeProviderAvailability.Unavailable
+      }
+      val acceptedoutputcurrentness = nativeoutput match {
+        case Some(_) =>
+          val acceptedattempts = attempts.filter(attempt => attempt.schema == _attempt_v2_schema && attempt.operation == operation.id && attempt.outcome == "accepted")
+          if (acceptedattempts.exists(CozyDocumentProjectNativeEvidence.nativeAttemptCurrent(project, _))) CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Current
+          else if (acceptedattempts.nonEmpty) CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Stale
+          else CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Missing
+        case None => productsbyid.get(outputworkproductid).map(_.currentness) match {
+          case Some("current") => CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Current
+          case Some("stale") => CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Stale
+          case _ => CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Missing
+        }
+      }
+      val immediateexecutability =
+        if (logicalselection == CozyDocumentWorkflow.NativeLogicalSelection.Selected &&
+            prerequisitereadiness == CozyDocumentWorkflow.NativePrerequisiteReadiness.Ready &&
+            provideravailability == CozyDocumentWorkflow.NativeProviderAvailability.Available)
+          CozyDocumentWorkflow.NativeImmediateExecutability.Executable
+        else
+          CozyDocumentWorkflow.NativeImmediateExecutability.Blocked
+      val reason =
+        if (logicalselection != CozyDocumentWorkflow.NativeLogicalSelection.Selected)
+          "native output Work Product is not selected"
+        else if (prerequisitereadiness != CozyDocumentWorkflow.NativePrerequisiteReadiness.Ready)
+          "one or more direct native prerequisites are missing or unsafe"
+        else if (provideravailability != CozyDocumentWorkflow.NativeProviderAvailability.Available)
+          "native provider capability is unavailable"
+        else
+          "native operation is immediately executable"
+      CozyDocumentWorkflow.NativeOperationState(
+        operation,
+        outputworkproductid,
+        nativeoutput,
+        logicalselection,
+        prerequisitereadiness,
+        provideravailability,
+        acceptedoutputcurrentness,
+        immediateexecutability,
+        presentationstate.semanticState,
+        reason
+      )
+    }
+  }
+
   private def _products(
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     resolved: CozyDocumentWorkflow.ResolvedWorkflow,
     sources: Vector[FileIdentity],
     sidecar: Option[Sidecar],
-    attempts: Vector[Attempt]
+    attempts: Vector[Attempt],
+    presentationstate: CozyDocumentProjectPresentationSemanticsState.State
   ): Vector[WorkProductState] = {
     val sourcepaths = sources.map(_.path).toSet
     val coreaccepted = CozyDocumentProject._core_has_accepted_entries(project, descriptor)
-    val presentationstate = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
     val declared = sidecar.map(_.products.map(value => value.id -> value).toMap).getOrElse(Map.empty)
     val initial = resolved.workProducts.map { value =>
       val binding = value.binding

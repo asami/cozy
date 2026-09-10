@@ -2941,7 +2941,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         standalonestate should include("path: evidence/document-project.yaml")
         bokstate should include("path: evidence/document-project.yaml")
         standalonestate.linesIterator.filter(line => line.nonEmpty && !line.startsWith(" ")).map(_.takeWhile(_ != ':')).toVector shouldBe Vector(
-          "schema", "project", "profile", "workspace", "sources", "evidence", "criteria", "workProducts"
+          "schema", "project", "profile", "workspace", "sources", "evidence", "criteria", "workProducts", "nativeOperations"
         )
         standalonestate should include("criteria:\n  satisfied: 3\n  total: 20")
         bokstate should include("criteria:\n  satisfied: 3\n  total: 16")
@@ -3400,6 +3400,69 @@ ${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:artic
       }
     }
 
+    "project the same closed executability state through inspect, plan, structural verify, and Dashboard" in {
+      _with_temp_dir("cozy-document-project-executability-projection") { root =>
+        Given("a selected Article review project with current Presentation Semantics and accepted native evidence")
+        val project = _scaffolded_project(root, "executability-projection")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+        _write_valid_presentation_semantics(project)
+
+        When("the admitted native Article review operation is accepted")
+        val native = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+        val descriptor = CozyDocumentProject._load_project(project)
+        val expected = CozyDocumentProjectEvidence.snapshot(project, descriptor).nativeOperations.find(_.operation.id == "article.render-review").map(CozyDocumentProjectEvidence.nativeOperationStateLine).getOrElse(throw new RuntimeException("Article review executability state is missing"))
+        val visualdirectory = project.resolve("target/document-project/visual-review")
+
+        Then("the accepted output establishes the current native executability input")
+        native should include("outcome: accepted")
+
+        When("inspect, plan, default verify, and Dashboard derive the read-only executability projections")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+        val plan = _execute(List("document-project", "plan", project.toString))
+        val verify = _execute(List("document-project", "verify", project.toString))
+        _execute(List("document-project", "dashboard", project.toString))
+        val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("every projection exposes the identical five closed Article review values without executing or rasterizing")
+        Vector(inspect, plan, verify, dashboard).foreach(_ should include(expected))
+        verify should include("mode: structural")
+        state should include("operation: article.render-review\n    output: article-review-html\n    nativeOutput: article-review-html\n    logicalSelection: selected\n    prerequisiteReadiness: ready\n    providerAvailability: available\n    acceptedOutputCurrentness: current\n    immediateExecutability: executable")
+        Files.exists(visualdirectory, LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "derive missing-prerequisite, unavailable-provider, and stale accepted-output executability states" in {
+      _with_temp_dir("cozy-document-project-executability-blocked") { root =>
+        Given("selected native Article review projects for missing prerequisite and accepted-evidence states")
+        val missing = _scaffolded_project(root, "executability-missing")
+        _activate_optional_work_products(missing, "standard", Vector("article-review-html"))
+        val stale = _scaffolded_project(root, "executability-stale")
+        _activate_optional_work_products(stale, "standard", Vector("article-review-html"))
+
+        When("the stale fixture accepts Article review before its direct identity changes")
+        val accepted = _execute(List("document-project", "run", stale.toString, "--operation", "article.render-review"))
+
+        Then("the retained native output is initially accepted")
+        accepted should include("outcome: accepted")
+
+        Given("a missing Article prerequisite and a changed accepted Article identity")
+        Files.delete(missing.resolve("index.dox"))
+        Files.writeString(stale.resolve("index.dox"), "changed after acceptance\n", StandardCharsets.UTF_8)
+
+        When("read-only inspect derives the declared operation states")
+        _execute(List("document-project", "inspect", missing.toString))
+        _execute(List("document-project", "inspect", stale.toString))
+        val missingstates = CozyDocumentProjectEvidence.snapshot(missing, CozyDocumentProject._load_project(missing)).nativeOperations.map(value => value.operation.id -> value).toMap
+        val stalestates = CozyDocumentProjectEvidence.snapshot(stale, CozyDocumentProject._load_project(stale)).nativeOperations.map(value => value.operation.id -> value).toMap
+
+        Then("the model keeps prerequisite, provider, and accepted-output causes distinct")
+        missingstates.get("article.render-review").map(_.prerequisiteReadiness) shouldBe Some(CozyDocumentWorkflow.NativePrerequisiteReadiness.Missing)
+        missingstates.get("article.render-pdf").map(_.providerAvailability) shouldBe Some(CozyDocumentWorkflow.NativeProviderAvailability.Unavailable)
+        stalestates.get("article.render-review").map(_.acceptedOutputCurrentness) shouldBe Some(CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Stale)
+      }
+    }
+
     "publish the frozen public Document Project help forms" in {
       Given("the Cozy public help text")
 
@@ -3414,6 +3477,8 @@ ${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:artic
       help should include("document-project content-core candidate <project> <dialogue>")
       help should include("document-project content-core feedback <project> <candidate-id> <feedback>")
       help should include("document-project content-core accept <project> <candidate-id> <acceptance>")
+      help should include("document-project verify <project> [--mode structural]")
+      help should include("document-project verify <project> --mode visual --work-product <native-output-work-product>")
       help should include("document-project run <project> --operation <logical-operation> [--dry-run]")
       help should include("document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>")
       help should include("Dashboard defaults to target/document-project/project-dashboard.html")
