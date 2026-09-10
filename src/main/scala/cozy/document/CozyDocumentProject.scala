@@ -463,11 +463,13 @@ private[cozy] object CozyDocumentProject {
       declaration match {
         case Some(value) =>
           val destinations = value.outputs.map(_admit_native_output_destination(project, _))
-          _native_run_result(
+          val inputs = CozyDocumentProjectEvidence.captureNativeInputs(project, descriptor, operation)
+          _native_closed_run_result(
             project,
             descriptor,
             operation,
             binding,
+            inputs,
             CozyDocumentProjectProvider.execute(CozyDocumentProjectProvider.Request(project, descriptor, operation, value, destinations))
           )
         case None => _native_run_result(project, descriptor, operation, binding, CozyDocumentProjectProvider.unavailable(operation, binding))
@@ -557,7 +559,7 @@ private[cozy] object CozyDocumentProject {
       case CozyDocumentProjectProvider.Executed(outputs, diagnostics, receipt)
           if outputs.nonEmpty && diagnostics.nonEmpty && receipt.identity.trim.nonEmpty && receipt.value.trim.nonEmpty =>
         val outputlines = outputs.map { output =>
-          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}"
+          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}\n    sha256: ${output.sha256}"
         }.mkString("\n")
         Vector(
           "outcome: executed",
@@ -599,6 +601,76 @@ private[cozy] object CozyDocumentProject {
         ) ++ diagnostics.map(value => s"  - $value") ++ Vector(
           "evidence: none",
           "currentness: unchanged"
+        )
+    }
+    (heading ++ details).mkString("\n")
+  }
+
+  private def _native_closed_run_result(
+    project: Path,
+    descriptor: Descriptor,
+    operation: CozyDocumentWorkflow.LogicalOperation,
+    binding: CozyDocumentWorkflow.ProviderBinding,
+    inputs: Vector[CozyDocumentProjectEvidence.FileIdentity],
+    result: CozyDocumentProjectProvider.ProviderResult
+  ): String = result match {
+    case blocked: CozyDocumentProjectProvider.Blocked =>
+      _native_run_result(project, descriptor, operation, binding, blocked)
+    case executed: CozyDocumentProjectProvider.Executed =>
+      _native_closed_result(project, descriptor, operation, binding, inputs, executed)
+    case failed: CozyDocumentProjectProvider.Failed =>
+      _native_closed_result(project, descriptor, operation, binding, inputs, failed)
+  }
+
+  private def _native_closed_result(
+    project: Path,
+    descriptor: Descriptor,
+    operation: CozyDocumentWorkflow.LogicalOperation,
+    binding: CozyDocumentWorkflow.ProviderBinding,
+    inputs: Vector[CozyDocumentProjectEvidence.FileIdentity],
+    result: CozyDocumentProjectProvider.ProviderResult
+  ): String = {
+    val closure = CozyDocumentProjectEvidence.closeNativeExecution(project, descriptor, operation, inputs, result)
+    val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
+    val product = snapshot.products.find(_.value.workProduct.id == "article-review-html").getOrElse(
+      _descriptor_failure("native accepted-evidence closure has no article-review-html Work Product")
+    )
+    val heading = Vector(
+      "Cozy Document Project Run",
+      s"project: ${descriptor.id}",
+      "schema: cozy.document-project.v2",
+      s"operation: ${operation.id}",
+      s"provider-binding: ${binding.id}",
+      s"provider: ${binding.provider}",
+      s"profile: ${descriptor.profile}"
+    )
+    val details = closure match {
+      case CozyDocumentProjectEvidence.NativeAcceptedClosure(attempt, diagnostics) =>
+        val outputlines = attempt.outputs.map { output =>
+          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}\n    sha256: ${output.sha256}"
+        }.mkString("\n")
+        val output = attempt.outputs.head
+        Vector(
+          "outcome: accepted",
+          "outputs:",
+          outputlines,
+          "diagnostics:"
+        ) ++ diagnostics.map(value => s"  - $value") ++ Vector(
+          "receipt:",
+          s"  identity: ${CozyDocumentProjectProvider.NATIVE_RECEIPT_IDENTITY}",
+          s"  value: ${CozyDocumentProjectProvider.nativeReceiptValue(operation.id, output.path, output.mediaType, output.sha256)}",
+          s"attempt: ${attempt.path.path}",
+          "evidence: accepted",
+          s"currentness: ${product.currentness}"
+        )
+      case CozyDocumentProjectEvidence.NativeFailedClosure(attempt, diagnostics) =>
+        Vector(
+          "outcome: failed",
+          "diagnostics:"
+        ) ++ diagnostics.map(value => s"  - $value") ++ Vector(
+          s"attempt: ${attempt.path.path}",
+          "evidence: failed",
+          s"currentness: ${product.currentness}"
         )
     }
     (heading ++ details).mkString("\n")

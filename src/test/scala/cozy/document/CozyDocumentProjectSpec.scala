@@ -791,7 +791,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         state should include("id: content-core\n    role: authority\n    disposition: required\n    selection: required\n    criterion: content-core-accepted\n    coverage: missing\n    currentness: stale")
         state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: stale\n    review: pending\n    readiness: blocked\n    reason: \"a declared dependency is stale\"")
         state should include(s"path: evidence/attempts/$attemptid.yaml")
-        dashboard should include("failed; historical attempt")
+        dashboard should include("failed; historical v1 attempt; no receipt/currentness authority")
         dashboard should include("Generate Article review HTML")
       }
     }
@@ -1385,7 +1385,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboardtext should include("readiness")
         dashboardtext should include("Producer operation")
         dashboardtext should include("Consumer operations")
-        dashboardtext should include("no receipt or currentness authority")
+        dashboardtext should include("v1 attempts remain historical only")
         dashboardtext should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
         dashboardtext should include("presentation-semantics</th><td>missing</td><td>stale</td><td>pending</td><td>blocked")
         dashboardtext should include("slide-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
@@ -2367,7 +2367,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "execute the sole native Article review provider and retain no P56 evidence authority" in {
+    "close native accepted evidence while preserving dry-run and unavailable-provider contracts" in {
       _with_temp_dir("cozy-document-project-run") { root =>
         Given("an admitted standard Document Project with Article review selected")
         val parent = Files.createDirectory(root.resolve("parent"))
@@ -2394,26 +2394,35 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the admitted native operation is run")
         val output = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
 
-        Then("the typed result carries the one HTML output, diagnostics, and generated receipt")
-        output should include("outcome: executed")
+        Then("the validated result carries the accepted attempt, exact output identity, and derived currentness")
+        output should include("outcome: accepted")
         output should include("identity: article-review-html")
         output should include("path: target/document-project/article-review.html")
         output should include("mediaType: text/html")
+        output should include("sha256:")
         output should include("native review projection rendered")
         output should include("receipt:")
-        output should include("cozy.document-project.native-receipt:")
-        output should include("evidence: none")
-        output should include("currentness: unchanged")
+        output should include("cozy.document-project.native-receipt.v1")
+        output should include("evidence: accepted")
+        output should include("currentness: current")
         val nativehtml = Files.readString(project.resolve("target/document-project/article-review.html"), StandardCharsets.UTF_8)
         nativehtml should include("Native article.render-review execution")
-        nativehtml should include("writes only the declared HTML output")
-        nativehtml should include("does not persist a receipt file, Operation Attempt, evidence, currentness, or acceptance state")
+        nativehtml should include("separate append-only v2 Operation Attempt")
+        nativehtml should include("writes no standalone receipt file or state authority")
         nativehtml should include("not a renderer, publication, compatibility adapter, or successor-owned persistence")
         nativehtml should not include("No provider execution, renderer input")
         Files.readAllBytes(authored) shouldBe authoredbytes
         Files.exists(project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe true
         Files.exists(project.resolve("target/document-project/article-review.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        val attempts = _relative_files(project.resolve("evidence/attempts"))
+        attempts.size shouldBe 1
+        val attempt = project.resolve("evidence/attempts").resolve(attempts.head)
+        val attemptyaml = Files.readString(attempt, StandardCharsets.UTF_8)
+        attemptyaml should include("schema: cozy.document-operation-attempt.v2")
+        attemptyaml should include("outcome: accepted")
+        attemptyaml should include("identity: article-review-html")
+        attemptyaml should include(s"sha256: ${_sha256(project.resolve("target/document-project/article-review.html"))}")
+        attemptyaml should include("receipt:\n  identity: cozy.document-project.native-receipt.v1")
         Files.exists(project.resolve("state"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("operation-receipt-evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("target/document-project/state.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
@@ -2421,12 +2430,145 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("a known binding without a native provider is run")
         val blocked = _execute(List("document-project", "run", project.toString, "--operation", "article.render-pdf"))
 
-        Then("it is explicitly blocked without a new output or an Operation Attempt")
+        Then("it is explicitly blocked without a new output or Operation Attempt")
         blocked should include("outcome: blocked")
         blocked should include("operation: article.render-pdf")
         blocked should include("provider-binding: smartdox-rendering")
         blocked should include("missing-capability: native typed provider execution is unavailable")
-        Files.exists(project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        _relative_files(project.resolve("evidence/attempts")) shouldBe attempts
+      }
+    }
+
+    "derive native accepted evidence stale and recovered currentness from exact identities" in {
+      _with_temp_dir("cozy-document-project-native-accepted-evidence-currentness") { root =>
+        Given("a selected Article review project with one accepted native evidence record")
+        val project = _scaffolded_project(root, "native-evidence-currentness")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+        val article = project.resolve("index.dox")
+        val first = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+        val attempts = project.resolve("evidence/attempts")
+        val firstattempts = _relative_files(attempts)
+        val firstbytes = firstattempts.map(path => path -> Files.readAllBytes(attempts.resolve(path))).toMap
+
+        When("the captured direct Article identity changes and inspect derives currentness")
+        Files.writeString(article, Files.readString(article, StandardCharsets.UTF_8) + "\nChanged after native acceptance.\n", StandardCharsets.UTF_8)
+        _execute(List("document-project", "inspect", project.toString))
+        val stale = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("the accepted evidence is stale instead of treating the retained output as current")
+        first should include("currentness: current")
+        stale should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: stale")
+        _relative_files(attempts) shouldBe firstattempts
+        firstattempts.foreach(path => Files.readAllBytes(attempts.resolve(path)) shouldBe firstbytes(path))
+
+        When("the public native operation runs again against the changed direct identity")
+        val recovered = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+        _execute(List("document-project", "inspect", project.toString))
+        val current = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("a second append-only accepted attempt recovers currentness without replacing the prior evidence")
+        recovered should include("outcome: accepted")
+        recovered should include("currentness: current")
+        current should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: satisfied\n    currentness: current")
+        _relative_files(attempts).size shouldBe 2
+        firstattempts.foreach(path => Files.readAllBytes(attempts.resolve(path)) shouldBe firstbytes(path))
+      }
+    }
+
+    "treat ancestor symbolic evidence paths as stale" in {
+      _with_temp_dir("cozy-document-project-native-ancestor-symbolic-stale") { root =>
+        Given("two selected Article review projects with accepted native evidence")
+        val inputproject = _scaffolded_project(root, "native-input-ancestor")
+        val outputproject = _scaffolded_project(root, "native-output-ancestor")
+        _activate_optional_work_products(inputproject, "standard", Vector("article-review-html"))
+        _activate_optional_work_products(outputproject, "standard", Vector("article-review-html"))
+
+        When("the native Article review operation accepts evidence for both projects")
+        _execute(List("document-project", "run", inputproject.toString, "--operation", "article.render-review"))
+        _execute(List("document-project", "run", outputproject.toString, "--operation", "article.render-review"))
+        val inputattempts = inputproject.resolve("evidence/attempts")
+        val outputattempts = outputproject.resolve("evidence/attempts")
+        val inputattemptpaths = _relative_files(inputattempts)
+        val outputattemptpaths = _relative_files(outputattempts)
+        val inputattemptbytes = inputattemptpaths.map(path => path -> Files.readAllBytes(inputattempts.resolve(path))).toMap
+        val outputattemptbytes = outputattemptpaths.map(path => path -> Files.readAllBytes(outputattempts.resolve(path))).toMap
+        val inputdescriptor = CozyDocumentProject._load_project(inputproject)
+        val outputdescriptor = CozyDocumentProject._load_project(outputproject)
+
+        Then("both accepted evidence snapshots initially report the Article review as current")
+        CozyDocumentProjectEvidence.snapshot(inputproject, inputdescriptor).products.find(_.value.workProduct.id == "article-review-html").map(_.currentness) shouldBe Some("current")
+        CozyDocumentProjectEvidence.snapshot(outputproject, outputdescriptor).products.find(_.value.workProduct.id == "article-review-html").map(_.currentness) shouldBe Some("current")
+
+        Given("the accepted evidence bytes and attempt history are retained")
+        val inputparent = inputproject.resolve("content")
+        val movedinputparent = root.resolve("moved-input-content")
+        val inputbytes = Files.readAllBytes(inputparent.resolve("core-en.yaml"))
+        val outputparent = outputproject.resolve("target/document-project")
+        val movedoutputparent = root.resolve("moved-output-document-project")
+        val outputbytes = Files.readAllBytes(outputparent.resolve("article-review.html"))
+
+        When("the direct input parent and declared output parent are replaced by symlinks to identical moved bytes")
+        Files.move(inputparent, movedinputparent)
+        Files.createSymbolicLink(inputparent, movedinputparent)
+        Files.move(outputparent, movedoutputparent)
+        Files.createSymbolicLink(outputparent, movedoutputparent)
+
+        Then("both Article review snapshots report stale currentness without changing retained bytes")
+        CozyDocumentProjectEvidence.snapshot(inputproject, inputdescriptor).products.find(_.value.workProduct.id == "article-review-html").map(_.currentness) shouldBe Some("stale")
+        CozyDocumentProjectEvidence.snapshot(outputproject, outputdescriptor).products.find(_.value.workProduct.id == "article-review-html").map(_.currentness) shouldBe Some("stale")
+        Files.readAllBytes(inputproject.resolve("content/core-en.yaml")) shouldBe inputbytes
+        Files.readAllBytes(outputproject.resolve("target/document-project/article-review.html")) shouldBe outputbytes
+        inputattemptpaths.foreach(path => Files.readAllBytes(inputattempts.resolve(path)) shouldBe inputattemptbytes(path))
+        outputattemptpaths.foreach(path => Files.readAllBytes(outputattempts.resolve(path)) shouldBe outputattemptbytes(path))
+      }
+    }
+
+    "retain failed v2 history for malformed native execution and provider failure without accepted evidence" in {
+      _with_temp_dir("cozy-document-project-native-accepted-evidence-failure") { root =>
+        Given("an admitted selected Article review project and its captured direct invocation identities")
+        val project = _scaffolded_project(root, "native-evidence-failure")
+        _activate_optional_work_products(project, "standard", Vector("article-review-html"))
+        val descriptor = CozyDocumentProject._load_project(project)
+        val operation = CozyDocumentWorkflow.declaredOperation("article.render-review") match {
+          case Right(Some(value)) => value
+          case _ => throw new RuntimeException("article.render-review must be declared")
+        }
+        val inputs = CozyDocumentProjectEvidence.captureNativeInputs(project, descriptor, operation)
+        val output = project.resolve("target/document-project/article-review.html")
+        Files.createDirectories(output.getParent)
+        Files.writeString(output, "<html>forged output</html>\n", StandardCharsets.UTF_8)
+        val forgedsha = "0" * 64
+        val malformed = CozyDocumentProjectProvider.Executed(
+          Vector(CozyDocumentProjectProvider.ProviderOutput("article-review-html", "target/document-project/article-review.html", "text/html", forgedsha)),
+          Vector("forged executed result"),
+          CozyDocumentProjectProvider.ProviderReceipt(
+            CozyDocumentProjectProvider.NATIVE_RECEIPT_IDENTITY,
+            CozyDocumentProjectProvider.nativeReceiptValue("article.render-review", "target/document-project/article-review.html", "text/html", forgedsha)
+          )
+        )
+
+        When("a malformed executed result and then a provider failure close through the v2 evidence boundary")
+        val malformedclosure = CozyDocumentProjectEvidence.closeNativeExecution(project, descriptor, operation, inputs, malformed)
+        val attempts = project.resolve("evidence/attempts")
+        val malformedattempt = _relative_files(attempts).head
+        val malformedbytes = Files.readAllBytes(attempts.resolve(malformedattempt))
+        val failedclosure = CozyDocumentProjectEvidence.closeNativeExecution(
+          project,
+          descriptor,
+          operation,
+          inputs,
+          CozyDocumentProjectProvider.Failed("article.render-review", "cozy-review-projection", "Cozy review projection adapter", Vector("provider failed after admitted invocation"))
+        )
+        _execute(List("document-project", "inspect", project.toString))
+        val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
+
+        Then("both closures retain failed history while no forged output becomes accepted or current")
+        malformedclosure shouldBe a [CozyDocumentProjectEvidence.NativeFailedClosure]
+        failedclosure shouldBe a [CozyDocumentProjectEvidence.NativeFailedClosure]
+        Files.readAllBytes(attempts.resolve(malformedattempt)) shouldBe malformedbytes
+        _relative_files(attempts).size shouldBe 2
+        Files.readString(attempts.resolve(malformedattempt), StandardCharsets.UTF_8) should include("outcome: failed\ndiagnostics:\n  - \"native provider output sha256 does not match the declared output bytes\"\noutputs:\n  []\nreceipt: none")
+        state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: failed")
       }
     }
 
@@ -3253,7 +3395,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
         And("the dashboard retains the failure as historical evidence")
         _execute(List("document-project", "dashboard", project.toString))
-        Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("failed; historical attempt")
+        Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8) should include("failed; historical v1 attempt; no receipt/currentness authority")
 
         When("a retained attempt with reordered top-level keys is added")
         val reorderedid = "33333333-3333-4333-8333-333333333333"

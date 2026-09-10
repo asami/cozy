@@ -3,7 +3,7 @@
 ## Status and scope
 
 This is the normative Phase 45 Document Project v2 authoring contract, extended
-by the Phase 56 native execution boundary. Its stable design intent is [Document Project
+by the Phase 56 / 56.1 native execution and accepted-evidence boundary. Its stable design intent is [Document Project
 Design](../design/document-project.md). The Phase 45 checklist is a progress
 ledger, not a behavior contract.
 
@@ -924,8 +924,10 @@ protocol adds no schema/version, remote/provider, or compatibility behavior.
   Work Products. The slide chart derives from Content Core and Visual Page IR;
   the video chart derives from those inputs plus storyboard IR and is disabled
   for no-video profiles. Current snapshot data
-  MUST be distinguished from retained historical attempts; initial attempts
-  have no receipt or currentness authority.  It MUST execute no provider and
+  MUST be distinguished from retained attempts. Historical v1 attempts have no
+  receipt or currentness authority, while a valid accepted native v2 attempt
+  derives Article review currentness only through its exact retained identities.
+  It MUST execute no provider and
   persist no authority, candidate, feedback, acceptance, production receipt,
   deliverable,
   workspace, build, publication, deployment, or upload state. The Dashboard
@@ -939,8 +941,9 @@ protocol adds no schema/version, remote/provider, or compatibility behavior.
   when all declared source prerequisites are present; it MUST also show a
   user-facing generate action. For Article and Video review, a missing local
   generated-review receipt is `missing`, while a changed or missing receipt
-  input/default output is `stale`; only a current default output and receipt may
-  show `satisfied`/`current`/`ready`. An explicit disabled binding reason MUST
+  input/default output is `stale`; native Article review v2 evidence instead
+  derives its currentness from its accepted direct input/output identities.
+  An explicit disabled binding reason MUST
   take precedence over these blocked reasons.
 - `review` MUST generate a deterministic, self-contained, read-only HTML
   projection at the kind-specific default or exact optional external save path;
@@ -1143,7 +1146,7 @@ Work Product roles, criteria, gates, operations, or provider bindings.  This
 specification MUST NOT be represented as implementing, accepting, or proving
 compatibility for those deferred matters.
 
-## Phase 56 native typed run contract
+## Phase 56 / 56.1 native accepted-evidence contract
 
 Phase 56 supersedes the historical normal-run record-only dispatch. The public
 grammar remains exactly:
@@ -1175,32 +1178,57 @@ or evidence side effect.
 
 A native provider result MUST be exactly `executed`, `blocked`, or `failed`.
 An `executed` result MUST carry one or more typed outputs, each with identity,
-path, and media type, nonempty diagnostics, and a generated receipt identity
-and value returned in memory only. The typed receipt MUST NOT be represented as
-a persisted receipt file. Empty outputs, an absent receipt, or an empty receipt
-identity/value MUST be a `failed` result and MUST NOT be rendered as execution
-success. The P56 provider may use the deterministic existing article-review
-HTML projection directly, but MUST NOT call the Document Project evidence model
-or a compatibility adapter.
+path, media type, and lowercase SHA-256, nonempty diagnostics, and a receipt
+identity/value returned in memory only. The native receipt identity is exactly
+`cozy.document-project.native-receipt.v1`; its value exactly binds the logical
+operation, declared output path, declared media type, and that output SHA-256.
+The typed receipt MUST NOT be represented as a standalone persisted receipt
+file. Empty outputs, an absent receipt, or empty receipt data is a failed
+result and MUST NOT be rendered as execution success.
+
+Phase 56.1 closes the accepted-evidence boundary. Immediately before native
+provider invocation, `run` captures the ordered direct identities of Content
+Core, `index.dox`, Visual Pages, and the directly consumed infographic. Before
+acceptance it revalidates those identities and the declared output count/order,
+identity/path/media type, direct non-symlink destination, actual output
+SHA-256, provider SHA-256, nonempty diagnostics, and exact native receipt. A
+changed input during execution, a malformed executed result, or a provider
+failure cannot become accepted evidence.
+
+Each attempted native execution after admission appends exactly one strict
+`cozy.document-operation-attempt.v2` UTF-8 document below
+`evidence/attempts/`. Its ordered top-level fields are `schema`, `id`,
+`operation`, `provider`, `profile`, `inputs`, `outcome`, `diagnostics`,
+`outputs`, and `receipt`. An accepted record has ordered direct inputs and
+declared outputs (`identity`, `path`, `mediaType`, `sha256`) plus the exact
+receipt object. A failed record has nonempty diagnostics, `outputs: []`, and
+`receipt: none`. New files are created in safe direct evidence directories
+through a same-directory temporary file and `ATOMIC_MOVE` without replacement.
+This append-only attempt is the sole durable acceptance boundary; no standalone
+receipt file or mutable state authority is created.
+
+The snapshot, inspect output, and dashboard derive `article-review-html`
+currentness from valid accepted v2 evidence only while all captured direct input
+and output identities remain exact. A changed or missing input/output is
+`stale`; a later accepted native run appends another record and recovers
+`current`. Failed v2 history is never success and reports `failed` only when
+no current accepted product evidence remains. Existing
+`cozy.document-operation-attempt.v1` parsing and its historical state behavior
+remain unchanged.
 
 `--dry-run` MUST report the admitted typed resolution without invoking a
 provider or creating a target, evidence, attempt, receipt file, or currentness
-mutation. A normal executed result creates only the declared HTML output. It
-MUST NOT append an Operation Attempt, accept evidence, establish currentness,
-write a receipt file, or infer downstream work. Existing
-`cozy.document-operation-attempt.v1` files remain historical evidence and may
-be parsed by their existing reader; Phase 56 normal run MUST NOT write one.
-
-Accepted output/receipt/attempt/currentness closure is excluded to Phase 56.1.
-Closed executable state and verification policy are excluded to Phase 56.2.
-Publication export and every external delivery action are excluded to Phase 57.
-No compatibility wrapper for `cozy-article-media` or earlier publication
-preparation is permitted.
+mutation. A known unavailable binding remains `blocked` and creates no
+attempt. Closed executable state and verification policy remain excluded to
+Phase 56.2. Publication export and every external delivery action remain
+excluded to Phase 57. No compatibility wrapper for `cozy-article-media` or
+earlier publication preparation is permitted.
 
 ## Related authorities
 
 - Stable design: [Document Project Design](../design/document-project.md)
 - Native execution phase: [Phase 56](../phase/phase-56.md)
+- Accepted-evidence phase: [Phase 56.1](../phase/phase-56.1.md)
 - Historical phase: [Phase 42](../phase/phase-42.md)
 - Progress ledgers: [Phase 56 checklist](../phase/phase-56-checklist.md) and [Phase 42 checklist](../phase/phase-42-checklist.md)
 - Retained media contract: [Media Package specification](media-package.md)

@@ -3,7 +3,7 @@
 ## Status and authority
 
 This document records the stable design intent for the Document Project v2
-authoring boundary in Phase 45 and the native execution boundary in Phase 56.
+authoring boundary in Phase 45 and the native execution / accepted-evidence boundary in Phases 56 and 56.1.
 It is design, not an executable implementation or a replacement for the Phase
 checklists, which remain the progress ledger.
 The normative behavior contract is [Document Project
@@ -591,8 +591,9 @@ currentness, review, readiness, dependencies, producer/consumer operations,
 evidence references, and a user-facing next action. It is the place to see the
 current Project state and the next required or useful action without needing to
 interpret a logical-operation identifier. It distinguishes the current
-snapshot from retained attempts, whose initial records have no receipt or
-currentness authority.  Core review presents accepted Core entries and marks
+snapshot from retained attempts. Historical v1 records have no receipt or
+currentness authority; a valid accepted native v2 record derives Article review
+currentness from its exact retained identities. Core review presents accepted Core entries and marks
 candidate/feedback/acceptance as non-authoritative and not yet persisted.
 Review-projection Work Products remain `missing`/`missing`/`blocked` until the
 corresponding default review HTML exists; if any declared source prerequisite
@@ -607,7 +608,9 @@ projection recomputed from the current project-local IR; a differing output is
 stale with the exact reason `generated logical chart output does not match
 current project IR`. Once the Article or Video default output and receipt, or a
 Logical Chart default output, is current, the dashboard may show
-`satisfied`/`current`/`ready` and a no-action current result. An
+`satisfied`/`current`/`ready` and a no-action current result. Native Article
+review uses its accepted v2 evidence rather than the disposable generated-review
+receipt for that derived currentness. An
 explicit disabled binding reason takes precedence over these blocked reasons.
 The dashboard represents Core review, Slide review, Video review, Slide Logical
 Chart, and Video Logical Chart as distinct review projections. Slide Logical
@@ -758,7 +761,7 @@ provider bindings.  SmartDox source projection and host discovery are also
 outside this kernel.  No deferred capability is accepted or claimed by this
 design.
 
-## Phase 56 native provider execution boundary
+## Phase 56 / 56.1 native provider and accepted-evidence boundary
 
 Phase 56 replaces only the normal generic `run` path's historical record-only
 dispatch. The public grammar remains `cozy document-project run <project>
@@ -780,23 +783,37 @@ an implementation detail. It is not an adapter for `cozy-article-media` or any
 publication-preparation workflow.
 
 A native provider result is one of `executed`, `blocked`, or `failed`.
-`executed` carries at least one typed output identity/path/media type, diagnostics,
-and a generated receipt identity and value returned in memory only. That typed
-receipt is not a persisted receipt file. Empty outputs or an absent receipt are
-failures, never execution success. Known bindings without a native provider
-return a typed `blocked` result naming the operation, binding, provider, and
-missing capability before output or evidence side effects.
+`executed` carries at least one typed output identity/path/media type/SHA-256,
+diagnostics, and an in-memory receipt. The receipt identity is the canonical
+native identity and its value deterministically binds operation, output path,
+media type, and SHA-256. A standalone receipt file is deliberately not an
+authority. Empty or malformed output/diagnostic/receipt data is failure, never
+execution success. Known bindings without a native provider return a typed
+`blocked` result before output or evidence side effects.
+
+Phase 56.1 owns the private accepted-evidence closure after the Phase 56
+admission and provider boundary. It captures the exact ordered direct input
+identities immediately before invocation and revalidates them with the declared
+output identity/path/media type, direct non-symlink output bytes, SHA-256, and
+receipt before accepting an executed result. An input changed during execution
+therefore cannot produce accepted evidence.
+
+The only durable acceptance is one append-only
+`cozy.document-operation-attempt.v2` file per admitted execution attempt.
+Accepted records retain ordered direct inputs, declared output identity/path/
+mediaType/SHA-256, diagnostics, and the canonical receipt; failed records
+retain diagnostics but no outputs or receipt. Writer and reader are strict,
+and the writer uses safe direct evidence directories, a same-directory
+temporary file, and non-replacing `ATOMIC_MOVE`. The snapshot derives Article
+review currentness from valid accepted v2 identities, so a source or output
+change is stale and a later accepted run recovers currentness. A v2 failure is
+history, not success. v1 attempts remain historical records with their existing
+reader and state behavior.
 
 `--dry-run` performs the same resolution and admission without invoking a
 provider or creating a target, evidence, attempt, receipt file, or currentness
-state. The normal native result creates only its declared HTML output. It does
-not call the Document Project evidence model, append an Operation Attempt,
-accept evidence, establish currentness, or infer downstream work. Existing
-`cozy.document-operation-attempt.v1` files remain parseable historical evidence
-only; Phase 56 does not write them.
-
-Phase 56.1 exclusively owns accepted output/receipt/attempt/currentness
-closure. Phase 56.2 exclusively owns closed executable state and verification
+state. The unavailable-provider block remains non-executed and creates no
+attempt. Phase 56.2 exclusively owns closed executable state and verification
 policy. Phase 57 exclusively owns publication export. These boundaries do not
 authorize a compatibility adapter, receipt adoption, delivery, deployment, or
 another native provider.
@@ -805,6 +822,7 @@ another native provider.
 
 - Normative contract: [Document Project Specification](../spec/document-project.md)
 - Native execution phase: [Phase 56](../phase/phase-56.md)
+- Accepted-evidence phase: [Phase 56.1](../phase/phase-56.1.md)
 - Historical phase: [Phase 42](../phase/phase-42.md)
 - Progress ledgers: [Phase 56 checklist](../phase/phase-56-checklist.md) and [Phase 42 checklist](../phase/phase-42-checklist.md)
 - Planning input only: [workflow-management proposal](../notes/document-project-workflow-management-specification-proposal.md)

@@ -1,7 +1,7 @@
 package cozy.document
 
 import java.nio.file.{Files, LinkOption, Path}
-import java.util.UUID
+import java.security.MessageDigest
 import scala.util.control.NonFatal
 
 /*
@@ -10,9 +10,14 @@ import scala.util.control.NonFatal
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectProvider {
+  private[cozy] val NATIVE_RECEIPT_IDENTITY = "cozy.document-project.native-receipt.v1"
+
+  private[cozy] def nativeReceiptValue(operation: String, path: String, mediaType: String, sha256: String): String =
+    s"operation=$operation;output=$path;mediaType=$mediaType;sha256=$sha256"
+
   sealed abstract class ProviderResult
 
-  final case class ProviderOutput(identity: String, path: String, mediaType: String)
+  final case class ProviderOutput(identity: String, path: String, mediaType: String, sha256: String)
   final case class ProviderReceipt(identity: String, value: String)
   final case class Executed(
     outputs: Vector[ProviderOutput],
@@ -83,13 +88,14 @@ private[cozy] object CozyDocumentProjectProvider {
         if (!Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS) || Files.size(destination) == 0)
           Failed(request.operation.id, declaration.providerBinding, "Cozy review projection adapter", Vector("native provider published no usable output"))
         else {
+          val sha256 = _sha256(destination)
           val receipt = ProviderReceipt(
-            s"cozy.document-project.native-receipt:${UUID.randomUUID().toString}",
-            s"operation=${request.operation.id}; output=${output.path}; mediaType=${output.mediaType}"
+            NATIVE_RECEIPT_IDENTITY,
+            nativeReceiptValue(request.operation.id, output.path, output.mediaType, sha256)
           )
           Executed(
-            Vector(ProviderOutput(output.identity, CozyDocumentProject._project_relative(request.project, destination), output.mediaType)),
-            Vector("native review projection rendered; acceptance and currentness remain unchanged"),
+            Vector(ProviderOutput(output.identity, CozyDocumentProject._project_relative(request.project, destination), output.mediaType, sha256)),
+            Vector("native review projection rendered for validated accepted-evidence closure"),
             receipt
           )
         }
@@ -104,4 +110,7 @@ private[cozy] object CozyDocumentProjectProvider {
       }
     }
   }
+
+  private def _sha256(path: Path): String =
+    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 }

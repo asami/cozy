@@ -43,7 +43,11 @@ private[cozy] object CozyDocumentProjectProjection {
       s"""<tr><th scope="row">${_html_escape(id)}</th><td>${_html_escape(text)}</td></tr>"""
     }.mkString("\n")
     val attemptrows = if (snapshot.attempts.isEmpty) "<tr><td colspan=\"2\">none retained</td></tr>" else snapshot.attempts.map { attempt =>
-      s"""<tr><th scope="row">${_html_escape(attempt.path.path)}</th><td>${_html_escape(attempt.outcome)}; historical attempt; no receipt/currentness authority</td></tr>"""
+      val authority =
+        if (attempt.schema == "cozy.document-operation-attempt.v2" && attempt.outcome == "accepted") "accepted v2 evidence; currentness is derived from its exact input and output identities"
+        else if (attempt.schema == "cozy.document-operation-attempt.v2") "v2 failed history; it never establishes accepted evidence or currentness"
+        else "historical v1 attempt; no receipt/currentness authority"
+      s"""<tr><th scope="row">${_html_escape(attempt.path.path)}</th><td>${_html_escape(attempt.outcome)}; $authority</td></tr>"""
     }.mkString("\n")
     val publicsource = snapshot.sidecar match {
       case Some(sidecar) =>
@@ -93,7 +97,7 @@ private[cozy] object CozyDocumentProjectProjection {
       descriptor.language,
       s"""<h1>Cozy Document Project Dashboard</h1>
          |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; workspace: <code>${_html_escape(descriptor.workspace)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
-         |<p class="notice">Current snapshot is derived from admitted authored sources and the closed workflow. Retained attempts are historical evidence only; an initial attempt has no receipt or currentness authority.</p>
+         |<p class="notice">Current snapshot is derived from admitted authored sources and the closed workflow. A valid accepted native v2 attempt derives Article review currentness only while its exact input and output identities remain current; v1 attempts remain historical only.</p>
          |<main id="primary-action-surface">
          |<h2>Current production stage / 現在の制作段階</h2>
          |<p>$stage</p>
@@ -200,7 +204,7 @@ private[cozy] object CozyDocumentProjectProjection {
     val mediaplacement = _article_declaration(sections, "Media placement")
     val executionnotice = executionoutputpath match {
       case Some(outputpath) =>
-        s"Native article.render-review execution produced this HTML and writes only the declared HTML output <code>${_html_escape(outputpath)}</code>. It does not persist a receipt file, Operation Attempt, evidence, currentness, or acceptance state. This output is not a renderer, publication, compatibility adapter, or successor-owned persistence."
+        s"Native article.render-review execution produced this HTML at the declared output <code>${_html_escape(outputpath)}</code>. A valid provider result is closed only by a separate append-only v2 Operation Attempt that binds the declared output and exact direct input identities; it writes no standalone receipt file or state authority. This output is not a renderer, publication, compatibility adapter, or successor-owned persistence."
       case None =>
         "No provider execution, renderer input, production receipt, rendered frame, candidate, feedback, acceptance, state-cache persistence, or authored-input mutation occurs. The default generated-review receipt is local output evidence only, not a renderer or production receipt."
     }
