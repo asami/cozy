@@ -57,10 +57,10 @@ Current phase state:
   child, followed by `phase-49.1.md` for read-only workflow surfaces,
   `phase-49.2.md` for public confirmation routing, and `phase-49.3.md` for
   stale propagation plus Article-9-shaped local acceptance. The approved
-  `phase-56.md` sequence has completed typed native provider execution and
-  `phase-56.1.md` atomic evidence closure. `phase-56.2.md` remains planned for
-  closed executable state plus structural-by-default verification. `phase-57.md`
-  then adds current-public Work Product export, a SimpleModeling.org target
+  `phase-56.md` sequence has completed typed native provider execution,
+  `phase-56.1.md` atomic evidence closure, and `phase-56.2.md` closed
+  executable state plus structural-by-default verification. `phase-57.md`
+  remains planned for current-public Work Product export, a SimpleModeling.org target
   binding, and the native publication-preparation skill boundary. This is a greenfield
   sequence and does not preserve the legacy article-media workflow.
 - Most recently closed local phase: `phase-55.md` preserves one effective

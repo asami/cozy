@@ -1,8 +1,9 @@
 # Phase 56.2: Document Project Executability State and Verification
 
-Status: PLANNED
+Status: COMPLETE
 
 Plan date: 2026-09-10
+Completion date: 2026-09-10
 Split from: [Phase 56](phase-56.md)
 Depends on: Phase 56.1
 Predecessor: [Phase 56.1](phase-56.1.md)
@@ -54,10 +55,10 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| P562-01 | Define closed typed states for logical selection, prerequisite readiness, provider availability, accepted-output currentness, and immediate executability. | planned |
-| P562-02 | Project the same state consistently through `inspect`, `plan`, `verify`, and Dashboard while keeping planning read-only and consuming Phase 49.3 presentation-semantics state. | planned |
-| P562-03 | Introduce and propagate the closed `structural | visual` verification policy through provider and review boundaries. | planned |
-| P562-04 | Make structural verification the default and visual verification explicitly selected, bounded, and distinct from selected public image Work Products. | planned |
+| P562-01 | Define closed typed states for logical selection, prerequisite readiness, provider availability, accepted-output currentness, and immediate executability. | complete |
+| P562-02 | Project the same state consistently through `inspect`, `plan`, `verify`, and Dashboard while keeping planning read-only and consuming Phase 49.3 presentation-semantics state. | complete |
+| P562-03 | Introduce and propagate the closed `structural | visual` verification policy through provider and review boundaries. | complete |
+| P562-04 | Make structural verification the default and visual verification explicitly selected, bounded, and distinct from selected public image Work Products. | complete |
 
 ## Closure criteria
 
@@ -74,8 +75,21 @@ Phase Plan Gate: PROCEED
 - The Phase 49.3 presentation-semantics Work Product state is consumed rather
   than duplicated.
 - The matching checklist, focused validation, review, full Cozy validation, and
-  release closure complete the whole native Phase 56 sequence. Phase 57 remains
-  a separately planned successor.
+  release closure complete this child and the native Phase 56 sequence. Phase 57
+  remains a separately planned successor.
+
+## Completion evidence
+
+- Step acceptance: `cdc7bda18f8aca93131bc3444de76c04c147f383`.
+- Phase full review `PHASE-56.2-FULL-REVIEW-001` found CPB-P562-001 and
+  CPB-P562-002; cycle 1 extracted the projection and executability helpers,
+  and focused re-review
+  `PHASE-56.2-CPB-P562-001-002-FOCUSED-REREVIEW-001` closed both.
+- Full Cozy `sbt --batch test` release validation and the distinct release
+  commit are bound by this Phase closure.
+- The immutable HYG-P562-01 review record is materialized in the canonical
+  greenfield-decision journal; the repair reduced the two originally cited
+  source files below the review threshold without reopening behavior.
 
 ## Non-goals
 

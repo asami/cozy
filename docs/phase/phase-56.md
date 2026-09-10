@@ -139,7 +139,8 @@ returns a typed result or an explicit blocking/failure result without treating
 an empty deferred attempt as success. Its frozen native dispatch/result contract
 is sufficient for Phase 56.1 to perform evidence acceptance. Focused
 specifications, review, full Cozy validation, and release closure apply to this
-child only; Phases 56.1 and 56.2 remain separately planned and unstarted.
+child only; Phases 56.1 and 56.2 close through their own separately recorded
+release closures.
 
 ## Closure Evidence
 
@@ -152,8 +153,9 @@ child only; Phases 56.1 and 56.2 remain separately planned and unstarted.
   Hygiene, or Development Candidate after the required version-history update.
 - The final full Cozy suite passed on the release tree: 1,802 succeeded, 0
   failed, 133 suites completed, and the SBT lock was released.
-- Phase 56.1, Phase 56.2, and Phase 57 remain separately planned and
-  unstarted; their documents and shared planning projections are preserved.
+- Phases 56.1 and 56.2 are separately closed; Phase 57 remains separately
+  planned and unstarted, and its documents and shared planning projections are
+  preserved.
 
 ## References
 

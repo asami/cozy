@@ -81,10 +81,10 @@ private[cozy] object CozyDocumentProject {
               val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
               val state = _write_state_snapshot(project, descriptor, snapshot)
               println(_inspect(project, descriptor, snapshot, state))
-            case "plan" => println(_plan(project, descriptor))
+            case "plan" => println(CozyDocumentProjectVerification.plan(project, descriptor))
             case "verify" =>
               val snapshot = CozyDocumentProjectEvidence.snapshot(project, descriptor)
-              val verification = _verify(project, descriptor, snapshot, verificationpolicy, workproduct)
+              val verification = CozyDocumentProjectVerification.verify(project, descriptor, snapshot, verificationpolicy, workproduct)
               verificationpolicy match {
                 case CozyDocumentWorkflow.VerificationPolicy.Structural =>
                   val state = _write_state_snapshot(project, descriptor, snapshot)
@@ -430,59 +430,6 @@ private[cozy] object CozyDocumentProject {
       "presentation/visual-pages.yaml",
       "review/README.md"
     ).foreach(_direct_file(project, _, "initial authored source"))
-
-  private def _verify(
-    project: Path,
-    descriptor: Descriptor,
-    snapshot: CozyDocumentProjectEvidence.Snapshot,
-    verificationpolicy: CozyDocumentWorkflow.VerificationPolicy,
-    workproduct: Option[String]
-  ): String = {
-    verificationpolicy match {
-      case CozyDocumentWorkflow.VerificationPolicy.Structural =>
-        if (CozyDocumentWorkflow.isVideoProfile(descriptor.profile))
-          _direct_file(project, "video/storyboard.md", "initial authored source")
-        val semantics = CozyDocumentProjectPresentationSemanticsState.requireCurrent(project, descriptor)
-        (Vector(
-          "Cozy Document Project Verify",
-          s"project: ${descriptor.id}",
-          s"package: $project",
-          "schema: cozy.document-project.v2",
-          "mode: structural",
-          CozyDocumentProjectPresentationSemanticsState.summary(semantics)
-        ) ++ CozyDocumentProjectEvidence.nativeOperationStateLines(snapshot)).mkString("\n")
-      case CozyDocumentWorkflow.VerificationPolicy.Visual =>
-        _visual_verify(project, descriptor, snapshot, workproduct.getOrElse(_failure("DP-CLI-002", "visual verify requires --work-product <native-output-work-product>")))
-    }
-  }
-
-  private def _visual_verify(
-    project: Path,
-    descriptor: Descriptor,
-    snapshot: CozyDocumentProjectEvidence.Snapshot,
-    workproduct: String
-  ): String = {
-    val state = snapshot.nativeOperations.find(_.outputWorkProductId == workproduct).getOrElse(
-      _failure("DP-OP-001", s"visual verify Work Product is not a declared native output: $workproduct")
-    )
-    if (state.logicalSelection != CozyDocumentWorkflow.NativeLogicalSelection.Selected)
-      _failure("DP-OP-001", s"visual verify Work Product is not selected for profile ${descriptor.profile}: $workproduct")
-    val nativeoutput = state.nativeOutput.getOrElse(_failure("DP-OP-001", s"visual verify Work Product is not a declared native output: $workproduct"))
-    if (state.acceptedOutputCurrentness != CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Current)
-      _failure("DP-OP-001", s"visual verify requires current accepted native output evidence: $workproduct")
-    val output = _direct_file(project, nativeoutput.path, "current accepted native output")
-    val destination = CozyDocumentProjectProjection.admitVisualVerificationDestination(project, nativeoutput)
-    CozyDocumentProjectProjection.publish(destination, CozyDocumentProjectProjection.visualVerificationHtml(project, descriptor, nativeoutput, output, destination))
-    (Vector(
-      "Cozy Document Project Verify",
-      s"project: ${descriptor.id}",
-      s"package: $project",
-      "schema: cozy.document-project.v2",
-      "mode: visual",
-      s"work-product: $workproduct",
-      s"temporary-output: ${_project_relative(project, destination)}"
-    ) ++ CozyDocumentProjectEvidence.nativeOperationStateLines(snapshot)).mkString("\n")
-  }
 
   private def _require_presentation_confirmation(descriptor: Descriptor): Unit = {
     val workproductid = "presentation-confirmation-html"
@@ -853,56 +800,6 @@ private[cozy] object CozyDocumentProject {
 
   private[cozy] def presentationSemanticsAuthoringInstruction(descriptor: Descriptor): String =
     s"Author the project-local sibling content/presentation-semantics-${descriptor.language}.yaml to the strict v2 contract (cozy.content-core.presentation-semantics.v2); after authoring, use document-project verify <project> only for validation."
-
-  private def _plan(
-    project: Path,
-    descriptor: Descriptor
-  ): String = {
-    val workflowplan = CozyDocumentWorkflow.plan(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
-      case Right(value) => value
-      case Left(cause) => _descriptor_failure(cause)
-    }
-    val presentationstate = CozyDocumentProjectPresentationSemanticsState.derive(project, descriptor)
-    val requiredlines = workflowplan.selectedWorkProducts.collect {
-      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.Required => s"required: ${_plan_work_product_line(value, presentationstate)}"
-    }
-    val activeoptionallines = workflowplan.selectedWorkProducts.collect {
-      case value if value.selection == CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => s"active-optional: ${_plan_work_product_line(value, presentationstate)}"
-    }
-    val inactiveoptionallines = workflowplan.inactiveOptionalWorkProducts.map(value => s"inactive-optional: ${_plan_work_product_line(value, presentationstate)}")
-    val profiledisabledlines = workflowplan.profileDisabledWorkProducts.map(value => s"profile-disabled: ${_plan_work_product_line(value, presentationstate)}")
-    val blockedlines = workflowplan.blockedOperations.map(value => s"blocked: operation ${value.id} [${CozyDocumentWorkflow.executionReservedExplanation}]")
-    val eligiblelines = workflowplan.eligibleOperations.map(value => s"eligible: operation ${value.id} [provider: ${value.providerBinding}]")
-    val semanticaction = Vector(presentationstate).collect {
-      case value if Set("blocked", "failed").contains(CozyDocumentProjectPresentationSemanticsState.evidenceReadiness(value)) =>
-        s"next-action: presentation-semantics [${presentationSemanticsAuthoringInstruction(descriptor)}]"
-    }
-    (Vector(
-      "Cozy Document Project Plan",
-      s"project: ${descriptor.id}",
-      s"package: $project",
-      "schema: cozy.document-project.v2"
-    ) ++ requiredlines ++ activeoptionallines ++ inactiveoptionallines ++ profiledisabledlines ++ semanticaction ++ blockedlines ++ eligiblelines ++ CozyDocumentProjectEvidence.planNativeOperationStateLines(project, descriptor)).mkString("\n")
-  }
-
-  private def _plan_work_product_line(
-    value: CozyDocumentWorkflow.ResolvedWorkProduct,
-    presentationstate: CozyDocumentProjectPresentationSemanticsState.State
-  ): String = {
-    val product = value.workProduct
-    val binding = value.binding
-    val selection = value.selection match {
-      case CozyDocumentWorkflow.WorkProductSelection.ActiveOptional => "; selected"
-      case CozyDocumentWorkflow.WorkProductSelection.InactiveOptional => "; not-selected"
-      case _ => ""
-    }
-    val reason = binding.reason.map(text => s": $text").getOrElse("")
-    val state = if (product.id == "presentation-semantics")
-      s"; state: ${presentationstate.semanticState}; coverage: ${CozyDocumentProjectPresentationSemanticsState.evidenceCoverage(presentationstate)}; currentness: ${CozyDocumentProjectPresentationSemanticsState.evidenceCurrentness(presentationstate)}; readiness: ${CozyDocumentProjectPresentationSemanticsState.evidenceReadiness(presentationstate)}; reason: ${presentationstate.reason}"
-    else
-      ""
-    s"work-product ${product.id} [${product.role.value}, ${binding.disposition.value}$selection$reason]$state"
-  }
 
   private def _scaffold(slug: String, profile: String, language: String, workspace: String, parentvalue: String): Path = {
     val parent = _scaffold_parent(parentvalue)

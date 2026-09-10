@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 29, 2026
- * @version Aug. 29, 2026
+ * @version Sep. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyPdfCommandHelpSpec
@@ -65,7 +65,7 @@ final class CozyPdfCommandHelpSpec
       outputs.head should include("Usage:")
       outputs.head should include("cozy [command] [options]")
       outputs.head should include("pdf <input>")
-      outputs.head.linesIterator.count(_.toLowerCase.contains("pdf")) shouldBe 1
+      outputs.head.linesIterator.count(_.trim.startsWith("pdf <input>")) shouldBe 1
     }
   }
 

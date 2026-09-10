@@ -166,9 +166,8 @@ export exists.
 - Phase 56 is complete for typed native `run` provider dispatch and result
   vocabulary; Phase 56.1 is complete for validated atomic output, receipt,
   append-only-attempt, and derived-currentness closure.
-- Phase 56.2 remains the current child for closed executability-state
-  projections and structural-by-default, explicitly selected visual
-  verification.
+- Phase 56.2 is complete for closed executability-state projections and
+  structural-by-default, explicitly selected visual verification.
 - Publication Export and the SimpleModeling.org target binding remain separate
   Phase 57 work.
 
@@ -184,9 +183,20 @@ one selected current native Article review output and its bounded temporary
 representation. It creates no provider invocation, attempt, accepted evidence,
 production receipt, currentness change, or public-image substitute.
 
-This is an implementation progress record only. Focused validation, review,
-full Cozy validation, and release closure remain unchecked in the Phase 56.2
-checklist; the Phase is not closed.
+Focused validation, Phase review, the behavior-preserving size repair and its
+focused re-review, full Cozy validation, and release closure complete Phase
+56.2. The Phase 56 sequence is now closed; Phase 57 remains separately planned
+and unstarted.
+
+## Phase 56.2 review ledger materialization on 2026-09-10
+
+HYG-P562-01 — CozyDocumentProject.scala and CozyDocumentProjectEvidence.scala are each above the 1,000-line source-size debt threshold after the bounded Phase 56.2 projection change. A safe split requires coordinated movement of CLI/projection and evidence-state call sites across existing source files, so it is outside P562-01A. Target a separately frozen Hygiene task after Phase 56.2 validation and review.
+
+The immutable Step-review record is retained exactly for auditability. The
+subsequent bounded CPB repair extracted the two responsibilities into
+package-private helpers, reduced both original files below the threshold, and
+passed focused re-review without changing the accepted Document Project
+behavior. No successor Phase work is started by this closure.
 
 ## Initial implementation order at the 2026-09-07 decision point
 
