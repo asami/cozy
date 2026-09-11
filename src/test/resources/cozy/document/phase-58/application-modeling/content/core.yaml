@@ -1,0 +1,147 @@
+schema: cozy.content-core.logic-tree.v1
+id: application-modeling
+root:
+  id: application-modeling
+  semanticRole: explanation
+  claims:
+    - series-position
+    - series-continuity
+  structure:
+    pattern: sequence
+    nodes:
+      - id: root-domain-model
+        role: step
+      - id: root-application-model
+        role: step
+    relations:
+      - id: root-domain-to-application
+        relationType: next
+        from: root-domain-model
+        to: root-application-model
+  flow:
+    id: application-modeling-flow
+    transitions:
+      - id: foundation-next-realization
+        relationType: next
+        fromStepId: application-foundation
+        toStepId: use-case-realization
+      - id: realization-next-conclusion
+        relationType: next
+        fromStepId: use-case-realization
+        toStepId: application-conclusion
+  steps:
+    - id: application-foundation
+      semanticRole: context
+      claims:
+        - application-modeling-purpose
+        - domain-and-application-modeling
+      structure:
+        pattern: sequence
+        nodes:
+          - id: foundation-static-view
+            role: step
+          - id: foundation-dynamic-view
+            role: step
+        relations:
+          - id: foundation-static-to-dynamic
+            relationType: next
+            from: foundation-static-view
+            to: foundation-dynamic-view
+      flow:
+        id: application-foundation-flow
+        transitions: []
+      steps: []
+    - id: use-case-realization
+      semanticRole: realization
+      claims:
+        - use-case-as-starting-point
+        - use-case-realization
+        - ui-and-application-boundary
+      structure:
+        pattern: sequence
+        nodes:
+          - id: realization-scenario
+            role: step
+          - id: realization-model
+            role: step
+        relations:
+          - id: realization-scenario-to-model
+            relationType: next
+            from: realization-scenario
+            to: realization-model
+      flow:
+        id: use-case-realization-flow
+        transitions:
+          - id: collaboration-next-execution
+            relationType: next
+            fromStepId: collaboration-and-interaction
+            toStepId: executable-elements
+      steps:
+        - id: collaboration-and-interaction
+          semanticRole: collaboration
+          claims:
+            - collaboration
+            - interaction
+            - static-and-dynamic-views
+          structure:
+            pattern: sequence
+            nodes:
+              - id: collaboration-responsibility
+                role: step
+              - id: collaboration-interaction
+                role: step
+            relations:
+              - id: collaboration-responsibility-to-interaction
+                relationType: next
+                from: collaboration-responsibility
+                to: collaboration-interaction
+          flow:
+            id: collaboration-and-interaction-flow
+            transitions: []
+          steps: []
+        - id: executable-elements
+          semanticRole: execution
+          claims:
+            - event
+            - state-machine
+            - service-and-operation
+          structure:
+            pattern: sequence
+            nodes:
+              - id: execution-event
+                role: step
+              - id: execution-service
+                role: step
+            relations:
+              - id: execution-event-to-service
+                relationType: next
+                from: execution-event
+                to: execution-service
+          flow:
+            id: executable-elements-flow
+            transitions: []
+          steps: []
+    - id: application-conclusion
+      semanticRole: conclusion
+      claims:
+        - modeling-flow
+        - review-and-refinement
+        - traceability
+        - executable-model
+        - model-realization-boundary
+      structure:
+        pattern: sequence
+        nodes:
+          - id: conclusion-review
+            role: step
+          - id: conclusion-cml
+            role: step
+        relations:
+          - id: conclusion-review-to-cml
+            relationType: next
+            from: conclusion-review
+            to: conclusion-cml
+      flow:
+        id: application-conclusion-flow
+        transitions: []
+      steps: []

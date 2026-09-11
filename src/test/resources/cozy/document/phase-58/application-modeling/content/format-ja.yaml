@@ -1,0 +1,80 @@
+schema: cozy.content-core.logic-tree-format.v1
+id: application-modeling-ja
+coreId: application-modeling
+coreIdentity: sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4
+locale: ja
+stepBindings:
+  - id: application-modeling
+    title: "SimpleModeling 第9回 アプリケーションモデリング"
+  - id: application-foundation
+    title: "ドメインモデリングからの出発"
+  - id: use-case-realization
+    title: "ユースケース実現モデル"
+  - id: collaboration-and-interaction
+    title: "協調と相互作用"
+  - id: executable-elements
+    title: "実行可能な要素"
+  - id: application-conclusion
+    title: "レビュー可能な実行可能モデルへの収束"
+claimBindings:
+  - id: series-position
+    text: "第9回では、第8回のドメインモデリング（Domain Modeling）で整理した問題領域の意味と構造を受け、ユースケース（Use Case）をアプリケーションがどのように実現するかをアプリケーションモデリング（Application Modeling）として扱う。ドメインモデリングとアプリケーションモデリングを、SimpleModelingにおける静的側面と動的側面の重点として接続する。"
+  - id: series-continuity
+    text: "第9回では、これまでの回で整備してきたオブジェクト・モデル、知識モデル、文芸モデルの三つの構成要素から、ユースケース・モデルとドメイン・モデルの内容を利用目的に沿って組織し、アプリケーションの振る舞いを表すアプリケーション・モデルへ接続する。"
+  - id: application-modeling-purpose
+    text: "アプリケーションモデリングは、ユースケースをアプリケーションが実現する振る舞いとして具体化し、アプリケーション・モデル（Application Model）を構成する活動である。"
+  - id: domain-and-application-modeling
+    text: "ドメインモデリングは問題領域の意味、構造、規則、境界を中心に扱い、アプリケーションモデリングはユースケースの実現に必要な振る舞い、責務、協調を中心に扱う。両者は独立したモデルではなく、同じSimpleModelingモデルを異なる目的と関心から組織する。静的側面と動的側面は重点の違いを示す補助線であり、モデル要素を排他的に分類するものではない。"
+  - id: use-case-as-starting-point
+    text: "アプリケーションモデリングの出発点はユースケースシナリオ（Use Case Scenario）である。アクターの目的（Actor Goal）に基づく利用者視点のシナリオから、利用者とアプリケーションの接点、およびアプリケーション内部で何が起き、どの要素がその実現に参加するかを明らかにする。"
+  - id: use-case-realization
+    text: "ユースケースシナリオから直接プログラムへ進むのではなく、ユースケース実現モデル（Use Case Realization Model）を構成する。ユースケース実現モデルは、利用者視点のシナリオとアプリケーション内部のモデルを対応付ける、レビュー可能な中間モデルである。"
+  - id: ui-and-application-boundary
+    text: "UIは利用者とアプリケーションの境界として、ユースケースの各場面で必要な情報提示、入力、操作、結果とフィードバックを担う。画面の具体的な配置へ進む前に、ユースケースのステップと、参加者、サービス、操作、イベントとの対応を明らかにする。"
+  - id: collaboration
+    text: "協調（Collaboration）は、ユースケースを実現する参加者、役割（Role）、責務の構造を表す。ユースケースの各場面について、誰が何を担当するのかをモデルとして明示する。"
+  - id: interaction
+    text: "モデル上の相互作用（Interaction）は、協調に属する参加者が具体的なシナリオでどのように連携するかを示す実行例である。ユースケースシナリオの流れを、メッセージ、操作、イベントとその順序を持つアプリケーション内部の振る舞いとして具体化する。"
+  - id: static-and-dynamic-views
+    text: "ドメイン・モデルで明らかにした対象、関係、制約、状態、振る舞いを土台として、アプリケーションモデリングではUI、参加者、協調、相互作用をユースケースの実現へ対応付ける。サービス、操作、イベント、状態機械を単純に動的要素として分類するのではなく、利用目的を実現するための責務、契約、出来事、状態変化を表す要素として組織する。"
+  - id: event
+    text: "イベント（Event）は、アプリケーション内で意味のある出来事を表す。ユースケースシナリオや相互作用に現れる出来事を明示し、状態変化や後続する振る舞いとの関係をモデル化する。"
+  - id: state-machine
+    text: "状態機械（StateMachine）は、状態を持つ対象について、状態と許可される遷移を明示する。ドメイン・モデルで捉えた対象が、ユースケースの進行に伴ってどのように変化するかを表す。"
+  - id: service-and-operation
+    text: "サービス（Service）はユースケース実現に必要なケーパビリティ（Capability）の主要な具体形であり、操作（Operation）はオブジェクトやサービスが責務を公開する呼出契約である。相互作用上の行為をサービスと操作へ対応付け、実行可能な構造として整理する。"
+  - id: modeling-flow
+    text: "アプリケーションモデリングの基本的な流れは、ユースケースシナリオからユースケース実現モデルを構成し、UIと参加者、協調と相互作用を明らかにし、相互作用を実行例として照合しながら、サービス、操作、イベント、状態機械などの実行可能な要素を整理してアプリケーション・モデルへ収束させることである。"
+  - id: review-and-refinement
+    text: "アプリケーション・モデルは一度に完成させるものではない。生成AIがユースケースシナリオとドメイン・モデルから対応案を作成し、textus-cbd-supportがモデルの可視化、差分、根拠、追跡可能性、検証情報を開発者へ提示する。開発者はモデルの意味、対応関係、業務上の妥当性をレビューし、その結果を次の提案と更新へフィードバックする。"
+  - id: traceability
+    text: "アクターの目的、ユースケースシナリオ、UI、ユースケース実現モデル、ドメイン・モデルの要素、相互作用、イベント、状態機械、サービス、操作の対応を保つことで、要求からアプリケーションの振る舞いまでを追跡可能にする。"
+  - id: executable-model
+    text: "アプリケーションモデリングの成果は説明用の図だけではなく、CMLで表現可能な実行可能モデル（Executable Model）へ収束する。相互作用は実行例モデルとして設計と適合性確認に用い、そこからレビューされたサービス、操作、イベント、状態機械、制約をCMLの実行可能モデルへ投影する。"
+  - id: model-realization-boundary
+    text: "アプリケーションモデリングはモデルの実現（Model Realization）とは区別する。アプリケーションモデリングはユースケースから実行可能な意味構造を構成する活動であり、モデルの実現は承認された実行可能モデルをCML、Cozy、プログラム、Textus上の実行へ接続する活動である。"
+nodeBindings:
+  - id: root-domain-model
+    label: "ドメイン・モデル"
+  - id: root-application-model
+    label: "アプリケーション・モデル"
+  - id: foundation-static-view
+    label: "問題領域の意味と構造"
+  - id: foundation-dynamic-view
+    label: "ユースケースを実現する振る舞い"
+  - id: realization-scenario
+    label: "ユースケースシナリオ"
+  - id: realization-model
+    label: "ユースケース実現モデル"
+  - id: collaboration-responsibility
+    label: "参加者・役割・責務"
+  - id: collaboration-interaction
+    label: "相互作用の実行例"
+  - id: execution-event
+    label: "イベントと状態機械"
+  - id: execution-service
+    label: "サービスと操作"
+  - id: conclusion-review
+    label: "根拠と差分によるレビュー"
+  - id: conclusion-cml
+    label: "CMLの実行可能モデル"

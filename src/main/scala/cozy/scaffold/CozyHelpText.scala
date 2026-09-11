@@ -3,7 +3,7 @@ package cozy.scaffold
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep. 10, 2026
+ * @version Sep. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -26,6 +26,7 @@ private[cozy] object CozyHelpText {
       |  document-project content-core candidate <project> <dialogue>
       |  document-project content-core feedback <project> <candidate-id> <feedback>
       |  document-project content-core accept <project> <candidate-id> <acceptance>
+      |  document-project logic-tree render --core <core.yaml> --format <format.yaml> --kind overview|slides --save <output.html>
       |  document-project verify <project> [--mode structural]
       |  document-project verify <project> --mode visual --work-product <native-output-work-product>
       |  document-project run <project> --operation <logical-operation> [--dry-run]
@@ -53,6 +54,7 @@ private[cozy] object CozyHelpText {
       |      Content Core candidate accepts a completed direct JSON/YAML dialogue bundle and records durable local evidence; it never invokes an AI provider or changes Content Core.
       |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.
       |      Candidate, failed dialogue, feedback, and acceptance evidence are append-only below evidence/content-core/; no schema/version, provider, remote, or compatibility path is added.
+      |      Logic Tree render reads only the direct Core and Format authorities and atomically writes the explicitly selected HTML output. It creates no Document Project state, evidence, receipt, provider run, publication, or external mutation.
       |
       |  pdf <input> (use `cozy pdf --help` for PDF options and formats).
       |
