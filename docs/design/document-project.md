@@ -856,25 +856,37 @@ Product current, or inspect unrelated media. A public infographic PNG remains
 an ordinary selected production Work Product and is never a visual-verification
 temporary artifact.
 
-## Phase 57 selection-only public export
+## Phase 57.1 portable public export bundle
 
-Phase 57 adds one read-only admission surface, `document-project export`, not
-a publication pipeline. Its opaque target is public request metadata only: it
-does not resolve a path, site, configuration, binding, or destination and
-cannot influence the source selection. The result reports
-`schema: cozy.document-project.v2` and has exactly one public mapping:
-selected `article-review-html` becomes role `article-review`, media type
-`text/html`, and public path
+Phase 57.1 makes `document-project export` a portable-bundle admission surface,
+not a publication pipeline. Its grammar requires both an opaque target and a
+new `--save` bundle directory. The target resolves neither a path, site,
+configuration, nor binding and cannot influence source selection. The new
+destination is admitted as a direct non-symlink directory before one atomic
+directory installation. The bundle has exactly `manifest.yaml`, `receipt.yaml`,
+and the selected HTML bytes at
 `work-products/article-review-html/article-review.html`.
 
 Admission delegates production proof exclusively to the retained strict v2
-attempt parser, including its exact embedded native receipt validation, then
+attempt parser, including exact embedded native receipt validation, then
 requires current declared input and output identities. Generated-review and
 standalone receipts, temporary review output, sidecars, caches, and all other
-historical or private material are deliberately not alternate proofs. The
-result reports normalized public metadata only and creates no copied bundle,
-manifest, export receipt, currentness state, target/site binding, or external
-delivery action.
+historical or private material are deliberately not alternate proofs.
+
+The versioned manifest contains only the opaque target and the exact selected
+Work Product mapping (identity, role, media type, normalized path, SHA-256).
+The versioned receipt binds manifest and exported-byte identities and carries
+opaque SHA-256 fingerprints for source authority, selection, and retained
+production-receipt authority. A package-visible generic verifier consumes only
+that bundle: it validates shape, direct files, YAML grammar, and the
+manifest-to-receipt-to-output chain without a Document Project. Project-aware
+currentness uses the opaque fingerprints to report source, selection, retained
+production evidence, manifest authority, or output-byte invalidation without
+exposing private project state to the consumer surface.
+
+There is no target/site binding, no legacy no-save form, publication,
+deployment, upload, external delivery, private-state exposure, or Phase 57.2/
+57.3 behavior in this boundary.
 
 ## Related authorities
 

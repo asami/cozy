@@ -42,7 +42,7 @@ private[cozy] object CozyDocumentProject {
     workproduct: Option[String]
   )
   private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
-  private final case class ExportRequest(project: String, target: String)
+  private final case class ExportRequest(project: String, target: String, save: String)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
   private val _slug_pattern = "[a-z0-9][a-z0-9._-]*".r
@@ -145,10 +145,10 @@ private[cozy] object CozyDocumentProject {
             case _ => _failure("DP-CLI-001", s"unsupported document-project command: $command")
           }
           true
-        case ExportRequest(projectvalue, target) =>
+        case ExportRequest(projectvalue, target, save) =>
           val project = _admit_project(projectvalue)
           val descriptor = _load_project(project)
-          println(CozyDocumentProjectExport.metadata(project, descriptor, target))
+          println(CozyDocumentProjectExport.export(project, descriptor, target, save))
           true
         case ScaffoldRequest(slug, profile, language, workspace, parent) =>
           val destination = _scaffold(slug, profile, language, workspace, parent)
@@ -173,13 +173,14 @@ private[cozy] object CozyDocumentProject {
   }
 
   private def _export_request(args: List[String]): ExportRequest = {
-    val parsed = _parse_options(args, Set("target"), Set.empty)
+    val parsed = _parse_options(args, Set("target", "save"), Set.empty)
     if (parsed.positionals.size != 1)
       _failure("DP-CLI-001", "invalid export command grammar")
     val target = parsed.values.getOrElse("target", _failure("DP-CLI-002", "export requires --target <publication-target>"))
+    val save = parsed.values.getOrElse("save", _failure("DP-CLI-002", "export requires --save <bundle-directory>"))
     if (!_slug_pattern.pattern.matcher(target).matches())
       _failure("DP-CLI-001", "export target must be an opaque slug")
-    ExportRequest(parsed.positionals.head, target)
+    ExportRequest(parsed.positionals.head, target, save)
   }
 
   private def _project_request(

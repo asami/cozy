@@ -17,248 +17,192 @@ import org.scalatest.wordspec.AnyWordSpec
  */
 final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Project export" should {
-    "selection-only public metadata" which {
-      "report only the current selected Article review mapping without writing project state" in {
-        _with_temp_dir("cozy-document-project-export") { root =>
-          Given("a selected Article review project with strict current accepted native evidence")
-          val project = _scaffolded_project(root, "export-current")
-          _activate_optional_work_products(project, Vector("article-review-html"))
-          val accepted = _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
-          val before = _tree_identities(project)
-          val nativehash = _sha256(project.resolve("target/document-project/article-review.html"))
+    "atomically publish the portable Article review bundle" in {
+      _with_temp_dir("cozy-document-project-export-bundle") { root =>
+        Given("a selected Article review project with strict current accepted native evidence")
+        val project = _accepted_project(root, "export-current")
+        val output = project.resolve("target/document-project/article-review.html")
+        val bundle = root.resolve("portable-bundle")
 
-          When("two opaque targets request the public selection metadata")
-          val first = _execute(List("document-project", "export", project.toString, "--target", "preview"))
-          val second = _execute(List("document-project", "export", project.toString, "--target", "release-2026"))
+        When("export writes a new opaque-target bundle")
+        val response = _execute(List("document-project", "export", project.toString, "--target", "preview", "--save", bundle.toString))
+        val verified = CozyDocumentProjectExport.verifyBundle(bundle)
 
-          Then("each response retains the sole normalized Article review mapping and no private evidence")
-          accepted should include("outcome: accepted")
-          first should include("schema: cozy.document-project.v2")
-          first should include("project: export-current")
-          first should include("target: preview")
-          first should include("role: article-review")
-          first should include("mediaType: text/html")
-          first should include("path: work-products/article-review-html/article-review.html")
-          first should include(s"sha256: $nativehash")
-          first should not include "attempt:"
-          first should not include "receipt:"
-          first should not include "evidence:"
-          first should not include "state:"
-          first should not include "cache:"
-          first should not include "source:"
-          first should not include "input:"
-          first should not include "provider:"
-          first should not include "sidecar:"
-          first should not include "workflow:"
-          first should not include "filesystem:"
-          first should not include "target/document-project"
-          first should not include project.toString
-          second should include("target: release-2026")
-          second should include("path: work-products/article-review-html/article-review.html")
-          _tree_identities(project) shouldBe before
-        }
+        Then("exactly the manifest, receipt, and preserved normalized HTML are installed")
+        response should include("target: preview")
+        _bundle_files(bundle) shouldBe Set("manifest.yaml", "receipt.yaml", "work-products/article-review-html/article-review.html")
+        Files.readAllBytes(bundle.resolve("work-products/article-review-html/article-review.html")) shouldBe Files.readAllBytes(output)
+        Files.readString(bundle.resolve("manifest.yaml"), StandardCharsets.UTF_8) should include("identity: cozy.document-project-export-manifest.v1")
+        Files.readString(bundle.resolve("receipt.yaml"), StandardCharsets.UTF_8) should include("identity: cozy.document-project-export-receipt.v1")
+        verified.target shouldBe "preview"
+        verified.outputsha256 shouldBe _sha256(output)
       }
+    }
 
-      "reject malformed target grammar, unselected output, generated review material, and stale accepted evidence" in {
-        _with_temp_dir("cozy-document-project-export-rejection") { root =>
-          Given("an unselected project with no native accepted attempt")
-          val unselected = _scaffolded_project(root, "export-unselected")
-          val unselectedbefore = _tree_identities(unselected)
+    "require --save and a new direct destination without compatibility output" in {
+      _with_temp_dir("cozy-document-project-export-destination") { root =>
+        Given("an accepted project, an existing directory, and a symbolic-link destination")
+        val project = _accepted_project(root, "export-destination")
+        val existing = Files.createDirectory(root.resolve("existing-bundle"))
+        val external = Files.createDirectory(root.resolve("external-bundle"))
+        val symbolic = root.resolve("symbolic-bundle")
+        Files.createSymbolicLink(symbolic, external)
 
-          When("export is requested without selection or with a path-like target")
-          val selectionfailure = _failure(List("document-project", "export", unselected.toString, "--target", "preview"))
-          val targetfailure = _failure(List("document-project", "export", unselected.toString, "--target", "site/preview"))
-          val savefailure = _failure(List("document-project", "export", unselected.toString, "--target", "preview", "--save", "result.yaml"))
+        When("export omits --save or selects an existing or symbolic destination")
+        val missing = _failure(List("document-project", "export", project.toString, "--target", "preview"))
+        val existingfailure = _failure(List("document-project", "export", project.toString, "--target", "preview", "--save", existing.toString))
+        val symbolicfailure = _failure(List("document-project", "export", project.toString, "--target", "preview", "--save", symbolic.toString))
 
-          Then("the command fails closed with one CLI or operation diagnostic and creates nothing")
-          _diagnostic_tokens(selectionfailure) shouldBe Vector("DP-OP-001")
-          _diagnostic_tokens(targetfailure) shouldBe Vector("DP-CLI-001")
-          _diagnostic_tokens(savefailure) shouldBe Vector("DP-CLI-001")
-          _tree_identities(unselected) shouldBe unselectedbefore
-
-          Given("a selected project with only a generated Article review receipt")
-          val generated = _scaffolded_project(root, "export-generated")
-          _activate_optional_work_products(generated, Vector("article-review-html"))
-          _execute(List("document-project", "review", generated.toString, "--kind", "article"))
-          val generatedbefore = _tree_identities(generated)
-
-          When("export attempts to use generated review output as production proof")
-          val generatedfailure = _failure(List("document-project", "export", generated.toString, "--target", "preview"))
-
-          Then("generated review material is not admitted as accepted native evidence")
-          _diagnostic_tokens(generatedfailure) shouldBe Vector("DP-OP-001")
-          _tree_identities(generated) shouldBe generatedbefore
-
-          Given("a selected project whose strict accepted Article review evidence is initially current")
-          val stale = _scaffolded_project(root, "export-stale")
-          _activate_optional_work_products(stale, Vector("article-review-html"))
-          _execute(List("document-project", "run", stale.toString, "--operation", "article.render-review"))
-          Files.writeString(stale.resolve("index.dox"), "changed after acceptance\n", StandardCharsets.UTF_8)
-          val stalebefore = _tree_identities(stale)
-
-          When("export observes that a declared direct input identity is stale")
-          val stalefailure = _failure(List("document-project", "export", stale.toString, "--target", "preview"))
-
-          Then("the retained attempt does not qualify and remains untouched")
-          _diagnostic_tokens(stalefailure) shouldBe Vector("DP-OP-001")
-          _tree_identities(stale) shouldBe stalebefore
-        }
+        Then("each request fails closed and leaves no partial bundle")
+        _diagnostic_tokens(missing) shouldBe Vector("DP-CLI-002")
+        _diagnostic_tokens(existingfailure) shouldBe Vector("DP-PATH-001")
+        _diagnostic_tokens(symbolicfailure) shouldBe Vector("DP-PATH-001")
+        _bundle_files(existing) shouldBe Set.empty
+        _bundle_files(external) shouldBe Set.empty
       }
+    }
 
-      "reject a standalone native receipt without a retained accepted v2 attempt" in {
-        _with_temp_dir("cozy-document-project-export-standalone-receipt") { root =>
-          Given("a selected project with plausible native output and a standalone native receipt")
-          val project = _scaffolded_project(root, "export-standalone-receipt")
-          _activate_optional_work_products(project, Vector("article-review-html"))
-          val target = project.resolve("target/document-project")
-          Files.createDirectories(target)
-          val output = target.resolve("article-review.html")
-          Files.writeString(output, "<html><body>standalone native output</body></html>\n", StandardCharsets.UTF_8)
-          val outputhash = _sha256(output)
-          Files.writeString(
-            target.resolve("native-receipt.yaml"),
-            s"identity: cozy.document-project.native-receipt.v1\nvalue: operation=article.render-review;output=target/document-project/article-review.html;mediaType=text/html;sha256=$outputhash\n",
-            StandardCharsets.UTF_8
-          )
-          val before = _tree_identities(project)
+    "reject stale, missing, and unsafe admitted inputs without a partial bundle" in {
+      _with_temp_dir("cozy-document-project-export-input-admission") { root =>
+        Given("three accepted projects with stale, missing, and symbolic Article authority")
+        val stale = _accepted_project(root, "export-stale")
+        val missing = _accepted_project(root, "export-missing")
+        val unsafe = _accepted_project(root, "export-unsafe")
+        Files.writeString(stale.resolve("index.dox"), "changed after acceptance\n", StandardCharsets.UTF_8)
+        Files.delete(missing.resolve("index.dox"))
+        val external = root.resolve("external-index.dox")
+        Files.writeString(external, "external\n", StandardCharsets.UTF_8)
+        Files.delete(unsafe.resolve("index.dox"))
+        Files.createSymbolicLink(unsafe.resolve("index.dox"), external)
+        val staledestination = root.resolve("stale-bundle")
+        val missingdestination = root.resolve("missing-bundle")
+        val unsafedestination = root.resolve("unsafe-bundle")
 
-          When("export is requested without a retained accepted v2 attempt")
-          val failure = _failure(List("document-project", "export", project.toString, "--target", "preview"))
+        When("export evaluates each invalid retained admission")
+        val stalefailure = _failure(List("document-project", "export", stale.toString, "--target", "preview", "--save", staledestination.toString))
+        val missingfailure = _failure(List("document-project", "export", missing.toString, "--target", "preview", "--save", missingdestination.toString))
+        val unsafefailure = _failure(List("document-project", "export", unsafe.toString, "--target", "preview", "--save", unsafedestination.toString))
 
-          Then("the standalone receipt is not accepted and the project remains unchanged")
-          _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
-          _tree_identities(project) shouldBe before
-        }
+        Then("all invalid source states are rejected before any destination exists")
+        _diagnostic_tokens(stalefailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(missingfailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(unsafefailure) shouldBe Vector("DP-OP-001")
+        Files.exists(staledestination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(missingdestination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(unsafedestination, LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
+    }
 
-      "reject a changed accepted output without export mutation" in {
-        _with_temp_dir("cozy-document-project-export-stale-output") { root =>
-          Given("a selected project with an accepted native attempt and current output")
-          val project = _scaffolded_project(root, "export-stale-output")
-          _activate_optional_work_products(project, Vector("article-review-html"))
-          _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
-          val output = project.resolve("target/document-project/article-review.html")
-          Files.writeString(output, "<html><body>changed after acceptance</body></html>\n", StandardCharsets.UTF_8)
-          val before = _tree_identities(project)
+    "derive opaque project-aware invalidation for source selection and retained production evidence" in {
+      _with_temp_dir("cozy-document-project-export-currentness") { root =>
+        Given("three independently exported accepted Article review bundles")
+        val sourceproject = _accepted_project(root, "export-source")
+        val selectionproject = _accepted_project(root, "export-selection")
+        val productionproject = _accepted_project(root, "export-production")
+        val sourcebundle = _export(sourceproject, root.resolve("source-bundle"))
+        val selectionbundle = _export(selectionproject, root.resolve("selection-bundle"))
+        val productionbundle = _export(productionproject, root.resolve("production-bundle"))
+        Files.writeString(sourceproject.resolve("index.dox"), "source changed\n", StandardCharsets.UTF_8)
+        _deactivate_article_review(selectionproject)
+        val attempt = _relative_files(productionproject.resolve("evidence/attempts")).head
+        val attemptpath = productionproject.resolve("evidence/attempts").resolve(attempt)
+        Files.writeString(attemptpath, Files.readString(attemptpath, StandardCharsets.UTF_8).replace("cozy.document-project.native-receipt.v1", "forged-receipt"), StandardCharsets.UTF_8)
 
-          When("export observes that the declared output identity is stale")
-          val failure = _failure(List("document-project", "export", project.toString, "--target", "preview"))
+        When("currentness compares opaque authority fingerprints against the projects")
+        val source = CozyDocumentProjectExport.currentness(sourceproject, CozyDocumentProject._load_project(sourceproject), sourcebundle)
+        val selection = CozyDocumentProjectExport.currentness(selectionproject, CozyDocumentProject._load_project(selectionproject), selectionbundle)
+        val production = CozyDocumentProjectExport.currentness(productionproject, CozyDocumentProject._load_project(productionproject), productionbundle)
 
-          Then("the changed output is rejected with DP-OP-001 and remains untouched")
-          _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
-          _tree_identities(project) shouldBe before
-        }
+        Then("source, selection, and retained production evidence invalidate without private consumer data")
+        source.sourceauthority shouldBe "stale"
+        selection.selection shouldBe "stale"
+        production.retainedproductionevidence shouldBe "stale"
+        Files.readString(sourcebundle.resolve("receipt.yaml"), StandardCharsets.UTF_8) should not include "index.dox"
+        Files.readString(productionbundle.resolve("receipt.yaml"), StandardCharsets.UTF_8) should not include "evidence/attempts"
       }
+    }
 
-      "reject an unsafe manually replaced output without touching external content" in {
-        _with_temp_dir("cozy-document-project-export-unsafe-output") { root =>
-          Given("a selected project with accepted native evidence and an external replacement fixture")
-          val project = _scaffolded_project(root, "export-unsafe-output")
-          _activate_optional_work_products(project, Vector("article-review-html"))
-          _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
-          val external = root.resolve("external-article-review.html")
-          Files.writeString(external, "external fixture content\n", StandardCharsets.UTF_8)
-          val output = project.resolve("target/document-project/article-review.html")
-          Files.delete(output)
-          Files.createSymbolicLink(output, external)
-          val before = _tree_identities(project)
-          val externalbefore = Files.readAllBytes(external)
+    "invalidate source currentness when contentCore moves to a byte-identical local path" in {
+      _with_temp_dir("cozy-document-project-export-source-path") { root =>
+        Given("an exported project and a byte-identical local replacement for descriptor contentCore")
+        val sourceproject = _accepted_project(root, "export-source-path")
+        val sourcebundle = _export(sourceproject, root.resolve("source-path-bundle"))
+        val descriptor = CozyDocumentProject._load_project(sourceproject)
+        val replacementpath = sourceproject.resolve("content/core-en-copy.yaml")
+        Files.write(replacementpath, Files.readAllBytes(sourceproject.resolve(descriptor.contentCore)))
+        val replaceddescriptor = descriptor.copy(contentCore = "content/core-en-copy.yaml")
 
-          When("export observes a manually replaced symbolic-link output")
-          val failure = _failure(List("document-project", "export", project.toString, "--target", "preview"))
+        When("currentness evaluates the descriptor with the replacement contentCore path")
+        val source = CozyDocumentProjectExport.currentness(sourceproject, replaceddescriptor, sourcebundle)
 
-          Then("unsafe output is rejected with DP-OP-001 without changing project or external fixture content")
-          _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
-          _tree_identities(project) shouldBe before
-          Files.isSymbolicLink(output) shouldBe true
-          Files.readAllBytes(external) shouldBe externalbefore
-        }
+        Then("the source authority is stale even though the replacement bytes are identical")
+        source.sourceauthority shouldBe "stale"
       }
+    }
 
-      "fail closed when retained v2 evidence does not retain the exact native receipt" in {
-        _with_temp_dir("cozy-document-project-export-receipt") { root =>
-          Given("a selected Article review project with one accepted native attempt")
-          val project = _scaffolded_project(root, "export-receipt")
-          _activate_optional_work_products(project, Vector("article-review-html"))
-          _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
-          val attempts = project.resolve("evidence/attempts")
-          val attempt = _relative_files(attempts).head
-          val attemptpath = attempts.resolve(attempt)
-          Files.writeString(
-            attemptpath,
-            Files.readString(attemptpath, StandardCharsets.UTF_8).replace("cozy.document-project.native-receipt.v1", "forged-receipt"),
-            StandardCharsets.UTF_8
-          )
-          val before = _tree_identities(project)
+    "reject tampered manifest and exported bytes through the consumer-only verifier" in {
+      _with_temp_dir("cozy-document-project-export-consumer") { root =>
+        Given("portable bundles from accepted projects with isolated tamper fixtures")
+        val manifestproject = _accepted_project(root, "export-manifest")
+        val outputproject = _accepted_project(root, "export-output")
+        val receiptproject = _accepted_project(root, "export-receipt")
+        val missingproject = _accepted_project(root, "export-missing-receipt")
+        val symbolicproject = _accepted_project(root, "export-symbolic-output")
+        val manifestbundle = _export(manifestproject, root.resolve("manifest-bundle"))
+        val outputbundle = _export(outputproject, root.resolve("output-bundle"))
+        val receiptbundle = _export(receiptproject, root.resolve("receipt-bundle"))
+        val missingbundle = _export(missingproject, root.resolve("missing-bundle"))
+        val symbolicbundle = _export(symbolicproject, root.resolve("symbolic-bundle"))
+        Files.writeString(manifestbundle.resolve("manifest.yaml"), Files.readString(manifestbundle.resolve("manifest.yaml"), StandardCharsets.UTF_8).replace("target: preview", "target: release"), StandardCharsets.UTF_8)
+        Files.writeString(outputbundle.resolve("work-products/article-review-html/article-review.html"), "tampered\n", StandardCharsets.UTF_8)
+        Files.writeString(receiptbundle.resolve("receipt.yaml"), "identity: forged\n", StandardCharsets.UTF_8)
+        Files.delete(missingbundle.resolve("receipt.yaml"))
+        val external = root.resolve("external-exported-output.html")
+        Files.writeString(external, "external\n", StandardCharsets.UTF_8)
+        val symbolicoutput = symbolicbundle.resolve("work-products/article-review-html/article-review.html")
+        Files.delete(symbolicoutput)
+        Files.createSymbolicLink(symbolicoutput, external)
 
-          When("export reads the retained accepted attempt")
-          val failure = _failure(List("document-project", "export", project.toString, "--target", "preview"))
+        When("a consumer without any Document Project verifies each bundle")
+        val manifestfailure = _bundle_failure(manifestbundle)
+        val outputfailure = _bundle_failure(outputbundle)
+        val receiptfailure = _bundle_failure(receiptbundle)
+        val missingfailure = _bundle_failure(missingbundle)
+        val symbolicfailure = _bundle_failure(symbolicbundle)
+        val manifeststate = CozyDocumentProjectExport.currentness(manifestproject, CozyDocumentProject._load_project(manifestproject), manifestbundle)
+        val outputstate = CozyDocumentProjectExport.currentness(outputproject, CozyDocumentProject._load_project(outputproject), outputbundle)
 
-          Then("the retained parser rejects the forged receipt without creating export state")
-          _diagnostic_tokens(failure).size shouldBe 1
-          failure should include("retained accepted v2 attempt receipt")
-          _tree_identities(project) shouldBe before
-        }
+        Then("the verifier rejects malformed, missing, symbolic, and tampered content while currentness marks changed identities stale")
+        _diagnostic_tokens(manifestfailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(outputfailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(receiptfailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(missingfailure) shouldBe Vector("DP-OP-001")
+        _diagnostic_tokens(symbolicfailure) shouldBe Vector("DP-OP-001")
+        manifeststate.manifestauthority shouldBe "stale"
+        outputstate.exportedbytes shouldBe "stale"
       }
     }
   }
 
-  private def _scaffolded_project(root: Path, slug: String): Path = {
+  private def _accepted_project(root: Path, slug: String): Path = {
     val parent = Files.createDirectory(root.resolve(s"$slug-parent"))
     _execute(List("document-project", "scaffold", slug, "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
-    parent.resolve(s"$slug.dox")
-  }
-
-  private def _activate_optional_work_products(project: Path, selected: Vector[String]): Unit = {
+    val project = parent.resolve(s"$slug.dox")
     val descriptor = project.resolve("document-project.yaml")
-    val selection = "activeOptionalWorkProducts:\n" + selected.map(id => s"  - $id").mkString("\n")
-    Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", selection), StandardCharsets.UTF_8)
+    Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - article-review-html"), StandardCharsets.UTF_8)
+    _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+    project
   }
 
-  private def _execute(args: List[String]): String = {
-    val bytes = new ByteArrayOutputStream()
-    Console.withOut(new PrintStream(bytes, true, "UTF-8")) {
-      CozyDocumentProject.execute(args) shouldBe true
-    }
-    bytes.toString("UTF-8").trim
-  }
-
-  private def _failure(args: List[String]): String =
-    intercept[RuntimeException] {
-      CozyDocumentProject.execute(args)
-    }.getMessage
-
-  private def _diagnostic_tokens(value: String): Vector[String] =
-    """DP-[A-Z]+-\d{3}""".r.findAllIn(value).toVector
-
-  private def _tree_identities(root: Path): Map[String, String] = {
-    val stream = Files.walk(root)
-    try stream.iterator().asScala.filter(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)).map { path =>
-      root.relativize(path).toString.replace('\\', '/') -> _sha256(path)
-    }.toMap
-    finally stream.close()
-  }
-
-  private def _relative_files(root: Path): Vector[String] = {
-    val stream = Files.list(root)
-    try stream.iterator().asScala.map(_.getFileName.toString).toVector.sorted
-    finally stream.close()
-  }
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
-
-  private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
-    val root = Files.createTempDirectory(name)
-    try body(root)
-    finally _delete(root)
-  }
-
-  private def _delete(path: Path): Unit =
-    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-      val stream = Files.walk(path)
-      try stream.iterator().asScala.toVector.sortBy(_.toString.length).reverse.foreach { item =>
-        try Files.deleteIfExists(item) catch { case NonFatal(_) => () }
-      } finally stream.close()
-    }
+  private def _export(project: Path, bundle: Path): Path = { _execute(List("document-project", "export", project.toString, "--target", "preview", "--save", bundle.toString)); bundle }
+  private def _deactivate_article_review(project: Path): Unit = { val descriptor = project.resolve("document-project.yaml"); Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts:\n  - article-review-html", "activeOptionalWorkProducts: []"), StandardCharsets.UTF_8) }
+  private def _execute(args: List[String]): String = { val bytes = new ByteArrayOutputStream(); Console.withOut(new PrintStream(bytes, true, "UTF-8")) { CozyDocumentProject.execute(args) shouldBe true }; bytes.toString("UTF-8").trim }
+  private def _failure(args: List[String]): String = intercept[RuntimeException] { CozyDocumentProject.execute(args) }.getMessage
+  private def _bundle_failure(bundle: Path): String = intercept[RuntimeException] { CozyDocumentProjectExport.verifyBundle(bundle) }.getMessage
+  private def _diagnostic_tokens(value: String): Vector[String] = """DP-[A-Z]+-\d{3}""".r.findAllIn(value).toVector
+  private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
+  private def _relative_files(root: Path): Vector[String] = { val stream = Files.list(root); try stream.iterator().asScala.map(_.getFileName.toString).toVector.sorted finally stream.close() }
+  private def _bundle_files(root: Path): Set[String] = { if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) Set.empty else { val stream = Files.walk(root); try stream.iterator().asScala.filter(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)).map(root.relativize(_).toString.replace('\\', '/')).toSet finally stream.close() } }
+  private def _with_temp_dir(name: String)(body: Path => Unit): Unit = { val root = Files.createTempDirectory(name); try body(root) finally _delete(root) }
+  private def _delete(path: Path): Unit = if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) { val stream = Files.walk(path); try stream.iterator().asScala.toVector.sortBy(_.toString.length).reverse.foreach { item => try Files.deleteIfExists(item) catch { case NonFatal(_) => () } } finally stream.close() }
 }

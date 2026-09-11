@@ -1296,18 +1296,20 @@ or render unrelated PDF, slide, video, or image previews. A selected public
 image Work Product remains production evidence and cannot be selected as that
 temporary native-output representation.
 
-## Phase 57 selection-only export contract
+## Phase 57.1 portable export bundle contract
 
 The public export grammar is exactly:
 
 ```text
-cozy document-project export <project> --target <publication-target>
+cozy document-project export <project> --target <publication-target> --save <bundle-directory>
 ```
 
 `<publication-target>` is exactly one opaque slug. It is neither a path, URL,
-site configuration, target binding, nor destination selector; `--save` and all
-other options are rejected. The target cannot alter the selected source or
-admit another Work Product.
+site configuration, nor target binding; it cannot alter the selected source or
+admit another Work Product. `--save` is mandatory and identifies a new bundle
+directory. An absent, existing, unsafe, or symbolic-link destination is
+rejected before publication. The completed bundle is installed with one atomic
+directory move, so a failed request leaves no partial destination bundle.
 
 Export admits only selected `article-review-html` when a retained,
 strictly-parsed accepted `cozy.document-operation-attempt.v2` for
@@ -1319,15 +1321,30 @@ temporary output, raw media, sidecars, state caches, candidate history, review
 evidence, private authority, dialogue, and failed or stale attempts do not
 qualify.
 
-The deterministic public metadata reports `schema: cozy.document-project.v2`,
-the descriptor project id, target, and only this mapping:
-`article-review-html` to role `article-review`, media type `text/html`, and
-public path
-`work-products/article-review-html/article-review.html`, with the accepted
-current output SHA-256. It contains no attempt, receipt, input, source path,
-provider, workflow, sidecar, state, or delivery data. Export is selection-only:
-it writes no output, manifest, export receipt, cache, attempt, project file,
-target binding, or external delivery state.
+The atomically installed directory contains exactly `manifest.yaml`,
+`receipt.yaml`, and
+`work-products/article-review-html/article-review.html`. The selected current
+Article review HTML bytes are retained unchanged at that normalized public
+path. The manifest identity is
+`cozy.document-project-export-manifest.v1`; it carries the opaque target and
+exactly one Work Product mapping: `article-review-html`, role
+`article-review`, media type `text/html`, normalized path, and SHA-256. The
+receipt identity is `cozy.document-project-export-receipt.v1`; it binds the
+exact manifest identity/SHA-256 and the exported byte path/SHA-256 identity.
+
+The receipt records opaque SHA-256 authority fingerprints for source authority,
+selection, and the retained accepted native production receipt. It exposes no
+Document Project path, attempt body, receipt body, input, provider, state, or
+source content. A package-visible consumer verifier reads only the bundle and
+strictly rejects missing, malformed, symlinked, extra, or tampered bundle
+content while verifying manifest-to-receipt-to-output identities. Project-aware
+currentness separately detects stale source authority, selection, retained
+production evidence, manifest authority, and exported bytes from these opaque
+fingerprints.
+
+Target/site binding, compatibility forms without `--save`, publication,
+deployment, upload, private-state exposure, and Phase 57.2/57.3 work are out
+of scope.
 
 ## Related authorities
 
