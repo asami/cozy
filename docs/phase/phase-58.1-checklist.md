@@ -65,18 +65,18 @@ Stage Status:
 ## P581-04: Article 9 summary vertical slice
 
 Stage Status:
-- Current status: TODO
+- Current status: DONE
 - Owner: Cozy Document Project summary description and review
 - Update rule: Do not mark DONE until a summary-slide-level explanation is
   represented independently of slide coordinates and traced to both upstream
   authorities.
 
-- [ ] Author `content/ja/summary.yaml` for the real Article 9 project.
-- [ ] Represent selected Step/claim/node/Relation/Flow references, concise
+- [x] Author `content/ja/summary.yaml` for the real Article 9 project.
+- [x] Represent selected Step/claim/node/Relation/Flow references, concise
       headings/messages, order, and emphasis.
-- [ ] Bind the exact accepted Core and Document Description identities.
-- [ ] Generate one deterministic self-contained summary-review HTML.
-- [ ] Prove summary-unit coverage without requiring one physical slide per
+- [x] Bind the exact accepted Core and Document Description identities.
+- [x] Generate one deterministic self-contained summary-review HTML.
+- [x] Prove summary-unit coverage without requiring one physical slide per
       unit in the semantic authority.
 
 ## P581-05: Semantic richness and closure

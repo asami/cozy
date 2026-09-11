@@ -1,0 +1,62 @@
+schema: cozy.summary-description.v1
+id: application-modeling-summary-ja
+core:
+  id: application-modeling
+  identity: sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4
+document:
+  id: application-modeling-document-ja
+  identity: sha256:d4cbd3e51d0e37f582cd538363f80bad3d8d14614b1a8206e7a03735da0ef64c
+locale: ja
+summary:
+  title: SimpleModeling 第9回 アプリケーションモデリング：要約
+  units:
+    - id: foundation-purpose
+      heading: ドメインの意味を利用目的の実現へつなぐ
+      message: アプリケーションモデリングは、ドメインで整理した意味と構造を、利用者の目的を実現する振る舞いと責務へ結びます。
+      emphasis: primary
+      coreRefs:
+        steps: [application-modeling, application-foundation]
+        claims: [application-modeling-purpose, domain-and-application-modeling]
+        nodes: [root-domain-model, root-application-model]
+        relations: [root-domain-to-application]
+        flows: [application-modeling-flow]
+    - id: use-case-model
+      heading: ユースケースから実現モデルを構成する
+      message: シナリオを直接プログラムへ進めず、利用者の目的とアプリケーション内部のモデルを対応付ける実現モデルを構成します。
+      emphasis: primary
+      coreRefs:
+        steps: [use-case-realization]
+        claims: [use-case-as-starting-point, use-case-realization, ui-and-application-boundary]
+        nodes: [realization-scenario, realization-model]
+        relations: [realization-scenario-to-model]
+        flows: [use-case-realization-flow]
+    - id: collaboration-interaction
+      heading: 責務の構造と相互作用の順序を分けて捉える
+      message: 協調では参加者と責務の構造を明示し、相互作用ではその協調をシナリオのメッセージ、操作、イベントとして具体化します。
+      emphasis: supporting
+      coreRefs:
+        steps: [collaboration-and-interaction]
+        claims: [collaboration, interaction, static-and-dynamic-views]
+        nodes: [collaboration-responsibility, collaboration-interaction]
+        relations: [collaboration-responsibility-to-interaction]
+        flows: [collaboration-and-interaction-flow]
+    - id: executable-elements
+      heading: イベントから操作までを実行可能に整理する
+      message: イベント、状態機械、サービス、操作を、ユースケースを実現する責務と呼出契約として組織します。
+      emphasis: supporting
+      coreRefs:
+        steps: [executable-elements]
+        claims: [event, state-machine, service-and-operation]
+        nodes: [execution-event, execution-service]
+        relations: [execution-event-to-service]
+        flows: [executable-elements-flow]
+    - id: review-and-realization
+      heading: 追跡可能性をレビューし、実現へ接続する
+      message: 要求から振る舞いまでの対応を保ち、意味と業務上の妥当性を開発者がレビューして、承認された実行可能モデルを次の実現へ渡します。
+      emphasis: conclusion
+      coreRefs:
+        steps: [application-conclusion]
+        claims: [modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
+        nodes: [conclusion-review, conclusion-cml]
+        relations: [conclusion-review-to-cml]
+        flows: [application-conclusion-flow]

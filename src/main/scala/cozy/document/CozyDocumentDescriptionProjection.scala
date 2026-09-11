@@ -16,6 +16,11 @@ private[cozy] object CozyDocumentDescriptionProjection {
     Rendered(html, "sha256:" + _sha256(html.getBytes(StandardCharsets.UTF_8)))
   }
 
+  def renderSummary(validated: CozyDocumentDescription.ValidatedSummary): Rendered = {
+    val html = _summary_page(validated)
+    Rendered(html, "sha256:" + _sha256(html.getBytes(StandardCharsets.UTF_8)))
+  }
+
   private def _page(validated: CozyDocumentDescription.ValidatedDocument): String = {
     val document = validated.description.document
     val sections = document.sections.map(section => _section(validated, section, 2)).mkString
@@ -23,6 +28,21 @@ private[cozy] object CozyDocumentDescriptionProjection {
        |<html lang="${_html(validated.description.locale)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${_html(document.title)}</title><style>
        |:root{color-scheme:light;font-family:system-ui,sans-serif;line-height:1.7;color:#1c2433;background:#f4f7fb}body{margin:0;padding:2rem}.document-description{max-width:54rem;margin:0 auto;background:#fff;padding:clamp(1.5rem,5vw,4rem);box-shadow:0 .1rem .8rem #17203320}.document-heading{border-bottom:.25rem solid #38618d;margin-bottom:2rem}.document-heading h1{line-height:1.25;margin-bottom:.35rem}.traceability{color:#526174;font-size:.8rem}.document-section{margin:2.3rem 0}.document-section h2,.document-section h3,.document-section h4,.document-section h5,.document-section h6{line-height:1.35;margin:0 0 .7rem}.document-block{margin:1.25rem 0}.document-list{padding-left:1.4rem}.document-example,.document-note{border-left:.35rem solid #38618d;padding:.8rem 1rem;background:#f4f8fc}.document-note{border-color:#9a6a14;background:#fff9e8}.document-example h3,.document-note h3{margin:.1rem 0 .4rem}.logical-structure-projection{margin:1.4rem 0;padding:1rem;border:1px solid #a8bfd4;background:#eef6fb}.logical-structure-projection h3{margin-top:0}.structure-list{margin:.45rem 0;padding-left:1.3rem}.structure-relation{display:inline-block;margin:.2rem .3rem .2rem 0;padding:.15rem .45rem;border:1px solid #b9c8dc;border-radius:.3rem;background:#fff}.reader-content{font-size:1.05rem}@media (max-width:45rem){body{padding:0}.document-description{padding:1.25rem;box-shadow:none}}@media print{body{padding:0;background:#fff}.document-description{max-width:none;padding:0;box-shadow:none}}</style></head>
        |<body><main class="document-description" data-document-id="${_html(validated.description.id)}" data-document-identity="${_html(validated.documentIdentity)}" data-core-id="${_html(validated.core.core.id)}" data-core-identity="${_html(validated.coreIdentity)}"><header class="document-heading"><h1>${_html(document.title)}</h1><p class="traceability">文書ID: ${_html(validated.description.id)} · 文書識別子: ${_html(validated.documentIdentity)} · Core ID: ${_html(validated.core.core.id)} · Core 識別子: ${_html(validated.coreIdentity)}</p></header><div class="reader-content">$sections</div></main></body></html>""".stripMargin
+  }
+
+  private def _summary_page(validated: CozyDocumentDescription.ValidatedSummary): String = {
+    val summary = validated.description.summary
+    val document = validated.document
+    val units = summary.units.map(unit => _summary_unit(validated, unit)).mkString
+    s"""<!doctype html>
+       |<html lang="${_html(validated.description.locale)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${_html(summary.title)}</title><style>
+       |:root{color-scheme:light;font-family:system-ui,sans-serif;line-height:1.7;color:#1c2433;background:#f4f7fb}body{margin:0;padding:2rem}.summary-description{max-width:54rem;margin:0 auto;background:#fff;padding:clamp(1.5rem,5vw,4rem);box-shadow:0 .1rem .8rem #17203320}.summary-heading{border-bottom:.25rem solid #38618d;margin-bottom:2rem}.summary-heading h1{line-height:1.25;margin-bottom:.35rem}.summary-units{display:grid;gap:1rem}.summary-unit{padding:1.1rem 1.25rem;border:1px solid #c7d5e5;border-left:.45rem solid #6c839a;background:#fbfdff}.summary-unit[data-emphasis="primary"]{border-left-color:#38618d;background:#f1f7fc}.summary-unit[data-emphasis="conclusion"]{border-left-color:#9a6a14;background:#fff9e8}.summary-unit h2{line-height:1.35;margin:.05rem 0 .45rem}.summary-message{font-size:1.08rem;margin:.4rem 0}.traceability{color:#526174;font-size:.8rem}.reader-content{font-size:1.05rem}@media (max-width:45rem){body{padding:0}.summary-description{padding:1.25rem;box-shadow:none}}@media print{body{padding:0;background:#fff}.summary-description{max-width:none;padding:0;box-shadow:none}}</style></head>
+       |<body><main class="summary-description" data-summary-id="${_html(validated.description.id)}" data-summary-identity="${_html(validated.summaryIdentity)}" data-document-id="${_html(document.description.id)}" data-document-identity="${_html(document.documentIdentity)}" data-core-id="${_html(document.core.core.id)}" data-core-identity="${_html(document.coreIdentity)}"><header class="summary-heading"><h1>${_html(summary.title)}</h1><p class="traceability">要約ID: ${_html(validated.description.id)} · 要約識別子: ${_html(validated.summaryIdentity)} · 文書ID: ${_html(document.description.id)} · Core ID: ${_html(document.core.core.id)}</p></header><div class="summary-units reader-content">$units</div></main></body></html>""".stripMargin
+  }
+
+  private def _summary_unit(validated: CozyDocumentDescription.ValidatedSummary, unit: CozyDocumentDescription.SummaryUnit): String = {
+    val document = validated.document
+    s"""<article class="summary-unit" data-summary-id="${_html(validated.description.id)}" data-summary-identity="${_html(validated.summaryIdentity)}" data-document-id="${_html(document.description.id)}" data-document-identity="${_html(document.documentIdentity)}" data-core-id="${_html(document.core.core.id)}" data-core-identity="${_html(document.coreIdentity)}" data-unit-id="${_html(unit.id)}" data-emphasis="${_html(unit.emphasis)}"${_references(unit.coreRefs)}><h2>${_html(unit.heading)}</h2><p class="summary-message">${_html(unit.message)}</p><p class="traceability">強調: ${_html(unit.emphasis)}</p></article>"""
   }
 
   private def _section(validated: CozyDocumentDescription.ValidatedDocument, section: CozyDocumentDescription.Section, level: Int): String = {

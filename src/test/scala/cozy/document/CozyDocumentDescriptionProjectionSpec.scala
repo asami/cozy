@@ -33,6 +33,25 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
       }
     }
 
+    "admit the direct Article 9 Japanese Summary authority at its exact current Core and Document bindings" in {
+      _with_temp_dir("cozy-document-description-summary-article-nine") { root =>
+        Given("unchanged copied direct Article 9 Core, Document, and Summary authorities")
+        val fixture = _summary_fixture(root)
+
+        When("the Summary authority is loaded through its typed admission boundary")
+        val validated = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
+
+        Then("the concise authority remains current against both direct upstream byte identities")
+        validated.description.id shouldBe "application-modeling-summary-ja"
+        validated.description.locale shouldBe "ja"
+        validated.description.core.identity shouldBe "sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4"
+        validated.description.document.id shouldBe "application-modeling-document-ja"
+        validated.description.document.identity shouldBe "sha256:d4cbd3e51d0e37f582cd538363f80bad3d8d14614b1a8206e7a03735da0ef64c"
+        validated.summaryIdentity shouldBe "sha256:1e898ea6dbcf0af615caaf67d223dd8f08ef43111ecb033aedbad3bc1d0ae114"
+        validated.description.summary.units.map(_.id) shouldBe Vector("foundation-purpose", "use-case-model", "collaboration-interaction", "executable-elements", "review-and-realization")
+      }
+    }
+
     "render a deterministic human-primary Japanese document with exact secondary Core traceability" in {
       _with_temp_dir("cozy-document-description-projection") { root =>
         Given("one fully admitted Article 9 Japanese Document authority")
@@ -53,6 +72,44 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         first.html should include("data-core-identity=\"sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4\"")
         first.html should include("data-core-relations=\"root-domain-to-application")
         first.html should not include("<table")
+      }
+    }
+
+    "render a deterministic human-primary Japanese summary with exact typed Core and Document traceability" in {
+      _with_temp_dir("cozy-document-description-summary-projection") { root =>
+        Given("one fully admitted Article 9 Japanese Summary authority")
+        val fixture = _summary_fixture(root)
+        val validated = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
+
+        When("the summary review projection is rendered twice")
+        val first = CozyDocumentDescriptionProjection.renderSummary(validated)
+        val second = CozyDocumentDescriptionProjection.renderSummary(validated)
+
+        Then("its exact bytes and identity are stable while authored units, emphasis, and references remain primary and ordered")
+        first shouldBe second
+        first.identity should startWith ("sha256:")
+        first.html should include("SimpleModeling 第9回 アプリケーションモデリング：要約")
+        first.html should include("ドメインの意味を利用目的の実現へつなぐ")
+        first.html should include("要求から振る舞いまでの対応を保ち")
+        first.html should include("data-summary-id=\"application-modeling-summary-ja\"")
+        first.html should include("data-summary-identity=\"sha256:1e898ea6dbcf0af615caaf67d223dd8f08ef43111ecb033aedbad3bc1d0ae114\"")
+        first.html should include("data-document-id=\"application-modeling-document-ja\"")
+        first.html should include("data-document-identity=\"sha256:d4cbd3e51d0e37f582cd538363f80bad3d8d14614b1a8206e7a03735da0ef64c\"")
+        first.html should include("data-core-id=\"application-modeling\"")
+        first.html should include("data-core-identity=\"sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4\"")
+        validated.description.summary.units.foreach { unit =>
+          first.html should include(s"""data-unit-id="${unit.id}"""")
+          first.html should include(s"""data-emphasis="${unit.emphasis}"""")
+          first.html should include(unit.heading)
+          first.html should include(unit.message)
+          first.html should include(s"""data-core-steps="${unit.coreRefs.steps.mkString(" ")}"""")
+          first.html should include(s"""data-core-claims="${unit.coreRefs.claims.mkString(" ")}"""")
+          first.html should include(s"""data-core-nodes="${unit.coreRefs.nodes.mkString(" ")}"""")
+          first.html should include(s"""data-core-relations="${unit.coreRefs.relations.mkString(" ")}"""")
+          first.html should include(s"""data-core-flows="${unit.coreRefs.flows.mkString(" ")}"""")
+        }
+        val positions = validated.description.summary.units.map(unit => first.html.indexOf(s"""data-unit-id="${unit.id}""""))
+        positions shouldBe positions.sorted
       }
     }
 
@@ -95,26 +152,78 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
       }
     }
 
-    "reject unknown, duplicate, and unsupported command forms without an output" in {
-      _with_temp_dir("cozy-document-description-command-rejection") { root =>
-        Given("direct Article 9 authorities and invalid command variants")
-        val fixture = _fixture(root)
-        val unknown = root.resolve("unknown.html")
-        val duplicate = root.resolve("duplicate.html")
-        val kind = root.resolve("kind.html")
+    "publish only the exact summary command output and preserve in-memory projection bytes" in {
+      _with_temp_dir("cozy-document-description-summary-command") { root =>
+        Given("direct Article 9 Core, Document, and Summary authorities with an existing direct output directory")
+        val fixture = _summary_fixture(root)
+        val output = root.resolve("summary-review.html")
+        val validated = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
+        val expected = CozyDocumentDescriptionProjection.renderSummary(validated)
 
-        When("an unknown option, duplicate option, or summary kind is requested")
+        When("the exact closed summary render grammar is executed")
+        val report = _execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--summary", fixture._3.toString, "--kind", "summary", "--save", output.toString))
+
+        Then("the atomically requested HTML equals the in-memory deterministic Summary projection")
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe expected.html
+        report should include("Cozy Summary Description Render")
+        report should include(validated.summaryIdentity)
+        report should include(expected.identity)
+        report should include("application-modeling-document-ja")
+      }
+    }
+
+    "reject missing, extra, duplicate, cross-kind, and malformed Summary command forms without an output" in {
+      _with_temp_dir("cozy-document-description-command-rejection") { root =>
+        Given("direct Article 9 authorities and invalid document or Summary command variants")
+        val fixture = _summary_fixture(root)
+        val missing = root.resolve("missing.html")
+        val crosskind = root.resolve("cross-kind.html")
+        val duplicate = root.resolve("duplicate.html")
+        val malformed = root.resolve("malformed.html")
+        val unsupported = root.resolve("unsupported.html")
+
+        When("a required Summary option is missing, extra, duplicate, malformed, cross-kind, or unsupported")
         val failures = Vector(
-          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--kind", "document", "--save", unknown.toString, "--summary", "summary.yaml"))),
-          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--core", fixture._1.toString, "--document", fixture._2.toString, "--kind", "document", "--save", duplicate.toString))),
-          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--kind", "summary", "--save", kind.toString)))
+          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--kind", "summary", "--save", missing.toString))),
+          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--summary", fixture._3.toString, "--kind", "document", "--save", crosskind.toString))),
+          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--summary", fixture._3.toString, "--summary", fixture._3.toString, "--kind", "summary", "--save", duplicate.toString))),
+          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--summary", "--kind", "summary", "--save", malformed.toString))),
+          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--summary", fixture._3.toString, "--kind", "review", "--save", unsupported.toString)))
         )
 
         Then("the grammar rejects before publishing any output")
         failures.foreach(_.code shouldBe "DESCRIPTION_CLI")
-        Files.exists(unknown, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(missing, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(crosskind, LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(duplicate, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(kind, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(malformed, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(unsupported, LinkOption.NOFOLLOW_LINKS) shouldBe false
+      }
+    }
+
+    "reject stale Summary Core or Document bindings before a summary review output can be published" in {
+      _with_temp_dir("cozy-document-description-summary-currentness") { root =>
+        Given("copied Summary authorities with separately stale direct Core and Document bytes")
+        val corefixture = _summary_fixture(Files.createDirectories(root.resolve("stale-core")))
+        val documentfixture = _summary_fixture(Files.createDirectories(root.resolve("stale-document")))
+        val coreidentity = "sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4"
+        Files.writeString(corefixture._1, Files.readString(corefixture._1, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
+        val currentcoreidentity = CozyDocumentLogicTree.loadCore(corefixture._1).coreIdentity
+        Files.writeString(corefixture._2, Files.readString(corefixture._2, StandardCharsets.UTF_8).replace(coreidentity, currentcoreidentity), StandardCharsets.UTF_8)
+        Files.writeString(documentfixture._2, Files.readString(documentfixture._2, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
+        val coreoutput = root.resolve("stale-core.html")
+        val documentoutput = root.resolve("stale-document.html")
+
+        When("the closed Summary command is executed against either stale upstream binding")
+        val failures = Vector(
+          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", corefixture._1.toString, "--document", corefixture._2.toString, "--summary", corefixture._3.toString, "--kind", "summary", "--save", coreoutput.toString))),
+          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", documentfixture._1.toString, "--document", documentfixture._2.toString, "--summary", documentfixture._3.toString, "--kind", "summary", "--save", documentoutput.toString)))
+        )
+
+        Then("currentness fails closed before either output destination is published")
+        failures.map(_.code) shouldBe Vector("DESCRIPTION_SUMMARY_CORE", "DESCRIPTION_SUMMARY_DOCUMENT")
+        Files.exists(coreoutput, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(documentoutput, LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -185,6 +294,13 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/core.yaml"), core)
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/ja/document.yaml"), document)
     (core, document)
+  }
+
+  private def _summary_fixture(root: Path): (Path, Path, Path) = {
+    val fixture = _fixture(root)
+    val summary = fixture._2.getParent.resolve("summary.yaml")
+    Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/ja/summary.yaml"), summary)
+    (fixture._1, fixture._2, summary)
   }
 
   private def _sections(values: Vector[CozyDocumentDescription.Section]): Vector[CozyDocumentDescription.Section] =
