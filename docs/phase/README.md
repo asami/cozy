@@ -59,10 +59,12 @@ Current phase state:
   stale propagation plus Article-9-shaped local acceptance. The approved
   `phase-56.md` sequence has completed typed native provider execution,
   `phase-56.1.md` atomic evidence closure, and `phase-56.2.md` closed
-  executable state plus structural-by-default verification. `phase-57.md`
-  remains planned for current-public Work Product export, a SimpleModeling.org target
-  binding, and the native publication-preparation skill boundary. This is a greenfield
-  sequence and does not preserve the legacy article-media workflow.
+  executable state plus structural-by-default verification. Phase 57 is closed
+  for selection-only public-export admission; `phase-57.1.md` remains planned for
+  manifest/receipt/currentness, `phase-57.2.md` for the SimpleModeling.org
+  target binding, and `phase-57.3.md` for the native publication-preparation
+  skill boundary. This is a greenfield sequence and does not preserve the
+  legacy article-media workflow.
 - Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite
