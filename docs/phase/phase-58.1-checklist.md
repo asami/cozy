@@ -50,17 +50,17 @@ Stage Status:
 ## P581-03: Article 9 document vertical slice
 
 Stage Status:
-- Current status: TODO
+- Current status: DONE
 - Owner: Cozy Document Project document description and review
 - Update rule: Do not mark DONE until the real Article 9 prose is represented
   and reviewable with exact Core traceability.
 
-- [ ] Author `content/ja/document.yaml` for the real Article 9 project.
-- [ ] Represent sections, headings, paragraphs, lists/examples/notes as needed,
+- [x] Author `content/ja/document.yaml` for the real Article 9 project.
+- [x] Represent sections, headings, paragraphs, lists/examples/notes as needed,
       and exact Core references.
-- [ ] Generate one deterministic self-contained document-review HTML.
-- [ ] Keep diagnostic identities secondary to the readable composed document.
-- [ ] Prove complete document-block and selected Core-reference coverage.
+- [x] Generate one deterministic self-contained document-review HTML.
+- [x] Keep diagnostic identities secondary to the readable composed document.
+- [x] Prove complete document-block and selected Core-reference coverage.
 
 ## P581-04: Article 9 summary vertical slice
 

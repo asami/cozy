@@ -39,7 +39,7 @@ Phase Plan Gate: PROCEED
 | --- | --- | --- |
 | P581-01 | Define paired design/specification contracts for the Document Description and Summary Description DSLs, including exact Core/Document identities, locale, stable references, closed block/unit vocabularies, and the renderer/chrome boundary. | complete |
 | P581-02 | Implement strict typed loading, validation, canonical identity, reference coverage, and deterministic rejection for both DSLs without a permissive Phase 58 format adapter. | complete |
-| P581-03 | Author the real Article 9 Japanese Document Description and generate one self-contained deterministic document-review HTML with exact Core traceability. | planned |
+| P581-03 | Author the real Article 9 Japanese Document Description and generate one self-contained deterministic document-review HTML with exact Core traceability. | complete |
 | P581-04 | Author the real Article 9 Japanese Summary Description and generate one self-contained deterministic summary-review HTML with exact Core and Document traceability. | planned |
 | P581-05 | Prove semantically distinct Logical Patterns, typed Relations, child-Step Flow, currentness, and deterministic output through focused specifications, independent review, full validation, and release closure. | planned |
 
