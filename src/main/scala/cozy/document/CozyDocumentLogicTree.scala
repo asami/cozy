@@ -14,8 +14,8 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 /*
- * @since   Sep. 11, 2026
- * @version Sep. 11, 2026
+ * @since   Sep. 12, 2026
+ * @version Sep. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentLogicTree {
@@ -76,6 +76,18 @@ private[cozy] object CozyDocumentLogicTree {
     lazy val labelsById: Map[String, String] = format.nodeBindings.map(value => value.id -> value.label).toMap
   }
 
+  final case class ValidatedCore(
+    core: Core,
+    coreIdentity: String,
+    depthFirstSteps: Vector[Step]
+  ) {
+    lazy val stepsById: Map[String, Step] = depthFirstSteps.map(value => value.id -> value).toMap
+    lazy val claimsById: Map[String, Claim] = depthFirstSteps.flatMap(_.claims).map(value => value.id -> value).toMap
+    lazy val nodesById: Map[String, Node] = depthFirstSteps.flatMap(_.structure.nodes).map(value => value.id -> value).toMap
+    lazy val relationsById: Map[String, Relation] = depthFirstSteps.flatMap(_.structure.relations).map(value => value.id -> value).toMap
+    lazy val flowsById: Map[String, Flow] = depthFirstSteps.map(_.flow).map(value => value.id -> value).toMap
+  }
+
   final case class LogicTreeFault(code: String, path: String, reason: String)
     extends IllegalArgumentException(s"$code path=$path reason=$reason")
 
@@ -91,6 +103,12 @@ private[cozy] object CozyDocumentLogicTree {
     val corebytes = _read_bytes(corepath, "core")
     val formatbytes = _read_bytes(formatpath, "format")
     _validate(corebytes, _load_document(corepath, corebytes, "core"), formatbytes, _load_document(formatpath, formatbytes, "format"))
+  }
+
+  private[cozy] def loadCore(coreValue: Path): ValidatedCore = {
+    val corepath = _admit_core(coreValue)
+    val corebytes = _read_bytes(corepath, "core")
+    _validate_core(corebytes, _load_document(corepath, corebytes, "core"))
   }
 
   private[cozy] def validate(coreBytes: Array[Byte], coreValue: Json, formatValue: Json): Validated = {
@@ -111,6 +129,13 @@ private[cozy] object CozyDocumentLogicTree {
       _fail("LOGIC_TREE_FORMAT_IDENTITY", "$.coreIdentity", "must bind the direct Core byte SHA-256 identity")
     _validate_wording(core, format)
     Validated(core, format, coreidentity, "sha256:" + _sha256(formatbytes), _depth_first(core.root))
+  }
+
+  private def _validate_core(corebytes: Array[Byte], corevalue: Json): ValidatedCore = {
+    _decode_utf8(corebytes, "$.core")
+    val core = _core(corevalue)
+    _validate_tree(core.root)
+    ValidatedCore(core, "sha256:" + _sha256(corebytes), _depth_first(core.root))
   }
 
   private def _core(value: Json): Core = {
@@ -435,17 +460,37 @@ private[cozy] object CozyDocumentLogicTree {
       case NonFatal(_) => _fail("LOGIC_TREE_SOURCE", s"$$.$label", "cannot be read")
     }
 
-  private def _load_document(path: Path, bytes: Array[Byte], label: String): Json =
+  private[cozy] def _load_document(path: Path, bytes: Array[Byte], label: String): Json =
     try {
       val text = _decode_utf8(bytes, s"$$.$label")
       val options = new LoaderOptions()
       options.setAllowDuplicateKeys(false)
+      options.setAllowRecursiveKeys(false)
+      options.setMaxAliasesForCollections(0)
+      _reject_yaml_indirection(new Yaml(options).parse(new StringReader(text)), s"$$.$label")
       new Yaml(options).load(new StringReader(text))
-      StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
+      StructuredDocumentLoader.loadJson(InputSource(text, path.toUri)).take
     } catch {
       case fault: LogicTreeFault => throw fault
       case NonFatal(_) => _fail("LOGIC_TREE_SOURCE", s"$$.$label", "must be a well-formed JSON/YAML document without lossy structure")
     }
+
+  private def _reject_yaml_indirection(events: java.lang.Iterable[org.yaml.snakeyaml.events.Event], path: String): Unit = {
+    val iterator = events.iterator
+    while (iterator.hasNext) {
+      iterator.next() match {
+        case _: org.yaml.snakeyaml.events.AliasEvent =>
+          _fail("LOGIC_TREE_SOURCE", path, "YAML aliases are not admitted")
+        case value: org.yaml.snakeyaml.events.NodeEvent if value.getAnchor != null =>
+          _fail("LOGIC_TREE_SOURCE", path, "YAML anchors are not admitted")
+        case value: org.yaml.snakeyaml.events.ScalarEvent if value.getTag != null =>
+          _fail("LOGIC_TREE_SOURCE", path, "explicit YAML tags are not admitted")
+        case value: org.yaml.snakeyaml.events.CollectionStartEvent if value.getTag != null =>
+          _fail("LOGIC_TREE_SOURCE", path, "explicit YAML tags are not admitted")
+        case _ =>
+      }
+    }
+  }
 
   private def _decode_utf8(bytes: Array[Byte], path: String): String =
     try StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString catch {

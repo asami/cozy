@@ -34,18 +34,18 @@ Stage Status:
 ## P581-02: Typed authority and validation
 
 Stage Status:
-- Current status: TODO
+- Current status: DONE
 - Owner: Cozy Document Project codecs and validators
 - Update rule: Do not mark DONE until both source authorities fail closed and
   canonical identities cover every admitted semantic field.
 
-- [ ] Implement strict typed loaders for Document and Summary Description.
-- [ ] Reject duplicate keys and malformed or lossy UTF-8/YAML before
+- [x] Implement strict typed loaders for Document and Summary Description.
+- [x] Reject duplicate keys and malformed or lossy UTF-8/YAML before
       normalization.
-- [ ] Reject unknown fields, duplicate identities, invalid locale, unresolved
+- [x] Reject unknown fields, duplicate identities, invalid locale, unresolved
       Core references, and stale Core/Document identities.
-- [ ] Prove deterministic canonical identities and repeated-load equality.
-- [ ] Do not add a permissive `format-ja.yaml` compatibility reader.
+- [x] Prove deterministic canonical identities and repeated-load equality.
+- [x] Do not add a permissive `format-ja.yaml` compatibility reader.
 
 ## P581-03: Article 9 document vertical slice
 
