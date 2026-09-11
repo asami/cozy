@@ -11,6 +11,65 @@ import java.security.MessageDigest
 private[cozy] object CozyDocumentDescriptionProjection {
   final case class Rendered(html: String, identity: String)
 
+  private object JapaneseArticleNineLocale {
+    private val _step_titles = Map(
+      "application-modeling" -> "アプリケーションモデリング",
+      "application-foundation" -> "アプリケーションの基盤",
+      "use-case-realization" -> "ユースケースの実現",
+      "collaboration-and-interaction" -> "協調と相互作用",
+      "executable-elements" -> "実行可能な要素",
+      "application-conclusion" -> "結論"
+    )
+    private val _node_labels = Map(
+      "root-domain-model" -> "ドメインモデル",
+      "root-application-model" -> "アプリケーションモデル",
+      "foundation-static-view" -> "静的ビュー",
+      "foundation-dynamic-view" -> "動的ビュー",
+      "realization-scenario" -> "ユースケースシナリオ",
+      "realization-model" -> "実現モデル",
+      "collaboration-responsibility" -> "責務",
+      "collaboration-interaction" -> "相互作用",
+      "execution-event" -> "イベント",
+      "execution-service" -> "サービス",
+      "conclusion-review" -> "レビュー",
+      "conclusion-cml" -> "CML"
+    )
+    private val _pattern_labels = Map(
+      "sequence" -> "順序",
+      "causal-chain" -> "因果連鎖",
+      "dependency-map" -> "依存関係",
+      "mapping" -> "対応付け"
+    )
+    private val _node_role_labels = Map(
+      "step" -> "要素",
+      "cause" -> "原因",
+      "effect" -> "結果",
+      "dependency" -> "依存対象",
+      "dependent" -> "依存する対象",
+      "source" -> "対応付け元",
+      "target" -> "対応付け先"
+    )
+    private val _relation_type_labels = Map(
+      "next" -> "次へ進む",
+      "causes" -> "引き起こす",
+      "depends-on" -> "依存する",
+      "enables" -> "可能にする",
+      "maps-to" -> "対応付ける"
+    )
+
+    def stepTitle(value: String): String = _label(_step_titles, value)
+    def nodeLabel(value: String): String = _label(_node_labels, value)
+    def patternLabel(value: String): String = _label(_pattern_labels, value)
+    def nodeRoleLabel(value: String): String = _label(_node_role_labels, value)
+    def relationTypeLabel(value: String): String = _label(_relation_type_labels, value)
+    def localStructureHeading: String = "ローカル構造"
+    def directChildFlowHeading: String = "直接の子ステップのフロー"
+    def noDirectChildFlowMessage: String = "直接の子ステップ間のフローはありません。"
+
+    private def _label(labels: Map[String, String], value: String): String =
+      labels.getOrElse(value, "未定義のラベル")
+  }
+
   def render(validated: CozyDocumentDescription.ValidatedDocument): Rendered = {
     val html = _page(validated)
     Rendered(html, "sha256:" + _sha256(html.getBytes(StandardCharsets.UTF_8)))
@@ -26,7 +85,7 @@ private[cozy] object CozyDocumentDescriptionProjection {
     val sections = document.sections.map(section => _section(validated, section, 2)).mkString
     s"""<!doctype html>
        |<html lang="${_html(validated.description.locale)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${_html(document.title)}</title><style>
-       |:root{color-scheme:light;font-family:system-ui,sans-serif;line-height:1.7;color:#1c2433;background:#f4f7fb}body{margin:0;padding:2rem}.document-description{max-width:54rem;margin:0 auto;background:#fff;padding:clamp(1.5rem,5vw,4rem);box-shadow:0 .1rem .8rem #17203320}.document-heading{border-bottom:.25rem solid #38618d;margin-bottom:2rem}.document-heading h1{line-height:1.25;margin-bottom:.35rem}.traceability{color:#526174;font-size:.8rem}.document-section{margin:2.3rem 0}.document-section h2,.document-section h3,.document-section h4,.document-section h5,.document-section h6{line-height:1.35;margin:0 0 .7rem}.document-block{margin:1.25rem 0}.document-list{padding-left:1.4rem}.document-example,.document-note{border-left:.35rem solid #38618d;padding:.8rem 1rem;background:#f4f8fc}.document-note{border-color:#9a6a14;background:#fff9e8}.document-example h3,.document-note h3{margin:.1rem 0 .4rem}.logical-structure-projection{margin:1.4rem 0;padding:1rem;border:1px solid #a8bfd4;background:#eef6fb}.logical-structure-projection h3{margin-top:0}.structure-list{margin:.45rem 0;padding-left:1.3rem}.structure-relation{display:inline-block;margin:.2rem .3rem .2rem 0;padding:.15rem .45rem;border:1px solid #b9c8dc;border-radius:.3rem;background:#fff}.reader-content{font-size:1.05rem}@media (max-width:45rem){body{padding:0}.document-description{padding:1.25rem;box-shadow:none}}@media print{body{padding:0;background:#fff}.document-description{max-width:none;padding:0;box-shadow:none}}</style></head>
+       |:root{color-scheme:light;font-family:system-ui,sans-serif;line-height:1.7;color:#1c2433;background:#f4f7fb}body{margin:0;padding:2rem}.document-description{max-width:54rem;margin:0 auto;background:#fff;padding:clamp(1.5rem,5vw,4rem);box-shadow:0 .1rem .8rem #17203320}.document-heading{border-bottom:.25rem solid #38618d;margin-bottom:2rem}.document-heading h1{line-height:1.25;margin-bottom:.35rem}.traceability{color:#526174;font-size:.8rem}.document-section{margin:2.3rem 0}.document-section h2,.document-section h3,.document-section h4,.document-section h5,.document-section h6{line-height:1.35;margin:0 0 .7rem}.document-block{margin:1.25rem 0}.document-list{padding-left:1.4rem}.document-example,.document-note{border-left:.35rem solid #38618d;padding:.8rem 1rem;background:#f4f8fc}.document-note{border-color:#9a6a14;background:#fff9e8}.document-example h3,.document-note h3{margin:.1rem 0 .4rem}.logical-structure-projection{margin:1.4rem 0;padding:1rem;border:1px solid #a8bfd4;background:#eef6fb}.logical-structure-projection h3{margin-top:0}.local-structure-subsection,.direct-child-flow-subsection{margin:1rem 0}.direct-child-flow-subsection{border-top:1px solid #b9c8dc;padding-top:.8rem}.structure-pattern,.flow-empty{margin:.45rem 0}.structure-list{margin:.45rem 0;padding-left:1.3rem}.structure-role,.structure-relation-type,.flow-relation-type{color:#526174;font-size:.9rem}.structure-relation{display:inline-block;margin:.2rem .3rem .2rem 0;padding:.15rem .45rem;border:1px solid #b9c8dc;border-radius:.3rem;background:#fff}.reader-content{font-size:1.05rem}@media (max-width:45rem){body{padding:0}.document-description{padding:1.25rem;box-shadow:none}}@media print{body{padding:0;background:#fff}.document-description{max-width:none;padding:0;box-shadow:none}}</style></head>
        |<body><main class="document-description" data-document-id="${_html(validated.description.id)}" data-document-identity="${_html(validated.documentIdentity)}" data-core-id="${_html(validated.core.core.id)}" data-core-identity="${_html(validated.coreIdentity)}"><header class="document-heading"><h1>${_html(document.title)}</h1><p class="traceability">文書ID: ${_html(validated.description.id)} · 文書識別子: ${_html(validated.documentIdentity)} · Core ID: ${_html(validated.core.core.id)} · Core 識別子: ${_html(validated.coreIdentity)}</p></header><div class="reader-content">$sections</div></main></body></html>""".stripMargin
   }
 
@@ -67,9 +126,20 @@ private[cozy] object CozyDocumentDescriptionProjection {
 
   private def _logical_structure(validated: CozyDocumentDescription.ValidatedDocument, block: CozyDocumentDescription.LogicalStructure): String = {
     val step = validated.core.stepsById(block.stepRef)
-    val nodes = step.structure.nodes.map(node => s"""<li data-node-id="${_html(node.id)}">${_html(node.id)} <span class="traceability">(${_html(node.role)})</span></li>""").mkString
-    val relations = step.structure.relations.map(relation => s"""<li class="structure-relation" data-relation-id="${_html(relation.id)}">${_html(relation.from)} → ${_html(relation.to)} <span class="traceability">(${_html(relation.relationType)})</span></li>""").mkString
-    s"""<section class="logical-structure-projection" data-block-id="${_html(block.id)}" data-step-id="${_html(step.id)}"><h3>ローカル構造: ${_html(step.id)}</h3><p class="traceability">pattern: ${_html(step.structure.pattern)}</p><ol class="structure-list">$nodes</ol><ul class="structure-list">$relations</ul></section>"""
+    val nodes = step.structure.nodes.map { node =>
+      s"""<li data-node-id="${_html(node.id)}" data-node-role="${_html(node.role)}">${_html(JapaneseArticleNineLocale.nodeLabel(node.id))} <span class="structure-role">（役割: ${_html(JapaneseArticleNineLocale.nodeRoleLabel(node.role))}）</span></li>"""
+    }.mkString
+    val relations = step.structure.relations.map { relation =>
+      s"""<li class="structure-relation" data-relation-id="${_html(relation.id)}" data-relation-type="${_html(relation.relationType)}" data-relation-from="${_html(relation.from)}" data-relation-to="${_html(relation.to)}">${_html(JapaneseArticleNineLocale.nodeLabel(relation.from))} → ${_html(JapaneseArticleNineLocale.nodeLabel(relation.to))} <span class="structure-relation-type">（${_html(JapaneseArticleNineLocale.relationTypeLabel(relation.relationType))}）</span></li>"""
+    }.mkString
+    val flow = step.flow
+    val transitions = if (flow.transitions.isEmpty)
+      s"""<p class="flow-empty">${_html(JapaneseArticleNineLocale.noDirectChildFlowMessage)}</p>"""
+    else
+      flow.transitions.map { transition =>
+        s"""<li data-flow-transition-id="${_html(transition.id)}" data-flow-relation-type="${_html(transition.relationType)}" data-flow-from-step-id="${_html(transition.fromStepId)}" data-flow-to-step-id="${_html(transition.toStepId)}">${_html(JapaneseArticleNineLocale.stepTitle(transition.fromStepId))} → ${_html(JapaneseArticleNineLocale.stepTitle(transition.toStepId))} <span class="flow-relation-type">（${_html(JapaneseArticleNineLocale.relationTypeLabel(transition.relationType))}）</span></li>"""
+      }.mkString
+    s"""<section class="logical-structure-projection" data-block-id="${_html(block.id)}" data-step-id="${_html(step.id)}"><section class="local-structure-subsection" data-step-id="${_html(step.id)}" data-structure-pattern="${_html(step.structure.pattern)}"><h3>${_html(JapaneseArticleNineLocale.localStructureHeading)}: ${_html(JapaneseArticleNineLocale.stepTitle(step.id))}</h3><p class="structure-pattern">パターン: ${_html(JapaneseArticleNineLocale.patternLabel(step.structure.pattern))}</p><ol class="structure-list">$nodes</ol><ul class="structure-list">$relations</ul></section><section class="direct-child-flow-subsection" data-step-id="${_html(step.id)}" data-flow-id="${_html(flow.id)}"><h3>${_html(JapaneseArticleNineLocale.directChildFlowHeading)}: ${_html(JapaneseArticleNineLocale.stepTitle(step.id))}</h3>$transitions</section></section>"""
   }
 
   private def _references(refs: CozyDocumentDescription.References): String =

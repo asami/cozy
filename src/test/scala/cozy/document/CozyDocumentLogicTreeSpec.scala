@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 11, 2026
+ * @version Sep. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -36,8 +36,8 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           validated.claimsById.size shouldBe 18
           validated.claimsById("review-and-refinement") should include("textus-cbd-support")
           validated.labelsById("realization-model") shouldBe "ユースケース実現モデル"
-          validated.stepsById("use-case-realization").flow.transitions.map(_.id) shouldBe Vector("collaboration-next-execution")
-          validated.core.root.structure.pattern shouldBe "sequence"
+          validated.stepsById("use-case-realization").flow.transitions.map(_.id) shouldBe Vector("execution-depends-on-collaboration")
+          validated.core.root.structure.pattern shouldBe "mapping"
         }
       }
 
@@ -66,7 +66,7 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           val original = Files.readString(fixture._1, StandardCharsets.UTF_8)
           val malformed = _write(root.resolve("malformed/core.yaml"), "schema: cozy.content-core.logic-tree.v1\nid: application-modeling\nroot:\n")
           val locale = _write(root.resolve("locale/core.yaml"), original.replace("id: application-modeling\nroot:", "id: application-modeling\nlocale: ja\nroot:"))
-          val label = _write(root.resolve("label/core.yaml"), original.replace("role: step\n    relations:", "role: step\n        label: forbidden\n    relations:"))
+          val label = _write(root.resolve("label/core.yaml"), original.replace("role: target\n    relations:", "role: target\n        label: forbidden\n    relations:"))
           val localizedname = _write(root.resolve("localized/core-ja.yaml"), original)
 
           When("the malformed, locale-bearing, presentation-label, and locale-suffixed Core inputs are submitted")
@@ -130,7 +130,7 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           val duplicatechild = _write(root.resolve("duplicate-child/core.yaml"), flowless.replace("id: executable-elements\n          semanticRole", "id: collaboration-and-interaction\n          semanticRole"))
           val ancestor = _write(root.resolve("ancestor/core.yaml"), flowless.replace("id: executable-elements\n          semanticRole", "id: use-case-realization\n          semanticRole"))
           val duplicatenode = _write(root.resolve("duplicate-node/core.yaml"), original.replace("id: root-application-model", "id: root-domain-model"))
-          val duplicatetransition = _write(root.resolve("duplicate-transition/core.yaml"), original.replace("id: realization-next-conclusion", "id: foundation-next-realization"))
+          val duplicatetransition = _write(root.resolve("duplicate-transition/core.yaml"), original.replace("id: conclusion-depends-on-realization", "id: realization-depends-on-foundation"))
 
           When("the recursive ownership and identity variants are normalized")
           val failures = Vector(
@@ -151,8 +151,8 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           val fixture = _fixture(root)
           val original = Files.readString(fixture._1, StandardCharsets.UTF_8)
           val relation = _write(root.resolve("relation/core.yaml"), original.replace("from: root-domain-model", "from: missing-local-node"))
-          val flow = _write(root.resolve("flow/core.yaml"), original.replace("fromStepId: application-foundation", "fromStepId: collaboration-and-interaction"))
-          val self = _write(root.resolve("self/core.yaml"), original.replace("toStepId: use-case-realization", "toStepId: application-foundation"))
+          val flow = _write(root.resolve("flow/core.yaml"), original.replace("fromStepId: use-case-realization", "fromStepId: collaboration-and-interaction"))
+          val self = _write(root.resolve("self/core.yaml"), original.replace("toStepId: use-case-realization", "toStepId: application-conclusion"))
 
           When("the relation and Flow inputs are admitted")
           val relationfailure = _failure(CozyDocumentLogicTree.load(relation, fixture._2))
@@ -205,8 +205,8 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           first shouldBe second
           first.html should include("id=\"logic-tree-overview\"")
           validated.depthFirstSteps.foreach(step => first.html should include(s"""id="step-${step.id}""""))
-          first.html should include("root-domain-to-application")
-          first.html should include("foundation-next-realization")
+          first.html should include("root-domain-maps-to-application")
+          first.html should include("realization-depends-on-foundation")
           first.html should include("ロジックツリーの概要")
           first.html should include("主張")
           first.html should include("ローカル構造")
@@ -337,10 +337,10 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
       """|      flow:
          |        id: use-case-realization-flow
          |        transitions:
-         |          - id: collaboration-next-execution
-         |            relationType: next
-         |            fromStepId: collaboration-and-interaction
-         |            toStepId: executable-elements""".stripMargin,
+         |          - id: execution-depends-on-collaboration
+         |            relationType: depends-on
+         |            fromStepId: executable-elements
+         |            toStepId: collaboration-and-interaction""".stripMargin,
       """|      flow:
          |        id: use-case-realization-flow
          |        transitions: []""".stripMargin

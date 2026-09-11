@@ -2,7 +2,7 @@ schema: cozy.document-description.v1
 id: application-modeling-document-ja
 core:
   id: application-modeling
-  identity: sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4
+  identity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc
 locale: ja
 document:
   title: SimpleModeling 第9回 アプリケーションモデリング
@@ -13,17 +13,17 @@ document:
         steps: [application-modeling, application-foundation, use-case-realization, collaboration-and-interaction, executable-elements, application-conclusion]
         claims: [series-position, series-continuity, application-modeling-purpose, domain-and-application-modeling, use-case-as-starting-point, use-case-realization, ui-and-application-boundary, collaboration, interaction, static-and-dynamic-views, event, state-machine, service-and-operation, modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
         nodes: [root-domain-model, root-application-model, foundation-static-view, foundation-dynamic-view, realization-scenario, realization-model, collaboration-responsibility, collaboration-interaction, execution-event, execution-service, conclusion-review, conclusion-cml]
-        relations: [root-domain-to-application, foundation-static-to-dynamic, realization-scenario-to-model, collaboration-responsibility-to-interaction, execution-event-to-service, conclusion-review-to-cml]
+        relations: [root-domain-maps-to-application, foundation-dynamic-depends-on-static, realization-scenario-maps-to-model, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction, execution-event-causes-service, execution-event-enables-service, conclusion-cml-depends-on-review]
         flows: [application-modeling-flow, application-foundation-flow, use-case-realization-flow, collaboration-and-interaction-flow, executable-elements-flow, application-conclusion-flow]
       blocks:
         - id: introduction-paragraph
           kind: paragraph
-          text: 第9回では、第8回のドメインモデリングで整理した問題領域の意味と構造を受け、ユースケースをアプリケーションがどのように実現するかをアプリケーションモデリングとして扱います。ドメインモデリングとアプリケーションモデリングは、同じSimpleModelingモデルを静的側面と動的側面という異なる関心から組織する活動です。
+          text: 第9回では、第8回のドメインモデリングで整理した問題領域の意味と構造を受け、ユースケースをアプリケーションがどのように実現するかをアプリケーションモデリングとして扱います。ドメインモデルをアプリケーションモデルへ対応付け、同じSimpleModelingモデルを静的側面と動的側面という異なる関心から組織します。静的ビューを依存対象として、動的ビューはその意味に依存します。
           coreRefs:
             steps: [application-modeling, application-foundation]
             claims: [series-position, series-continuity, application-modeling-purpose, domain-and-application-modeling]
             nodes: [root-domain-model, root-application-model, foundation-static-view, foundation-dynamic-view]
-            relations: [root-domain-to-application, foundation-static-to-dynamic]
+            relations: [root-domain-maps-to-application, foundation-dynamic-depends-on-static]
             flows: [application-modeling-flow, application-foundation-flow]
         - id: introduction-list
           kind: list
@@ -42,13 +42,13 @@ document:
                 steps: [application-foundation]
                 claims: [application-modeling-purpose, domain-and-application-modeling]
                 nodes: [foundation-dynamic-view]
-                relations: [foundation-static-to-dynamic]
+                relations: [foundation-dynamic-depends-on-static]
                 flows: [application-foundation-flow]
           coreRefs:
             steps: [application-foundation]
             claims: [application-modeling-purpose, domain-and-application-modeling]
             nodes: [foundation-static-view, foundation-dynamic-view]
-            relations: [foundation-static-to-dynamic]
+            relations: [foundation-dynamic-depends-on-static]
             flows: [application-foundation-flow]
         - id: introduction-structure
           kind: logical-structure
@@ -60,17 +60,17 @@ document:
             steps: [use-case-realization]
             claims: [use-case-as-starting-point, use-case-realization, ui-and-application-boundary]
             nodes: [realization-scenario, realization-model]
-            relations: [realization-scenario-to-model]
+            relations: [realization-scenario-maps-to-model]
             flows: [use-case-realization-flow]
           blocks:
             - id: realization-paragraph
               kind: paragraph
-              text: アプリケーションモデリングの出発点は、アクターの目的に基づくユースケースシナリオです。シナリオから直接プログラムへ進まず、利用者視点のシナリオとアプリケーション内部のモデルを対応付けるユースケース実現モデルを構成します。
+              text: アプリケーションモデリングの出発点は、アクターの目的に基づくユースケースシナリオです。シナリオから直接プログラムへ進まず、利用者視点のシナリオをアプリケーション内部の実現モデルへ対応付けるユースケース実現モデルを構成します。
               coreRefs:
                 steps: [use-case-realization]
                 claims: [use-case-as-starting-point, use-case-realization]
                 nodes: [realization-scenario, realization-model]
-                relations: [realization-scenario-to-model]
+                relations: [realization-scenario-maps-to-model]
                 flows: [use-case-realization-flow]
             - id: realization-example
               kind: example
@@ -80,7 +80,7 @@ document:
                 steps: [use-case-realization]
                 claims: [ui-and-application-boundary]
                 nodes: [realization-scenario, realization-model]
-                relations: [realization-scenario-to-model]
+                relations: [realization-scenario-maps-to-model]
                 flows: [use-case-realization-flow]
             - id: realization-structure
               kind: logical-structure
@@ -92,17 +92,17 @@ document:
                 steps: [collaboration-and-interaction]
                 claims: [collaboration, interaction, static-and-dynamic-views]
                 nodes: [collaboration-responsibility, collaboration-interaction]
-                relations: [collaboration-responsibility-to-interaction]
+                relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
                 flows: [collaboration-and-interaction-flow]
               blocks:
                 - id: collaboration-paragraph
                   kind: paragraph
-                  text: 協調は、ユースケースを実現する参加者、役割、責務の構造を明示します。相互作用は、その協調に属する参加者が具体的なシナリオでどのように連携するかを、メッセージ、操作、イベントと順序を持つ実行例として具体化します。
+                  text: 協調は、ユースケースを実現する参加者、役割、責務の構造を明示します。責務が相互作用を引き起こすとともに可能にし、相互作用は、その協調に属する参加者が具体的なシナリオでどのように連携するかを、メッセージ、操作、イベントと順序を持つ実行例として具体化します。
                   coreRefs:
                     steps: [collaboration-and-interaction]
                     claims: [collaboration, interaction, static-and-dynamic-views]
                     nodes: [collaboration-responsibility, collaboration-interaction]
-                    relations: [collaboration-responsibility-to-interaction]
+                    relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
                     flows: [collaboration-and-interaction-flow]
                 - id: collaboration-note
                   kind: note
@@ -112,7 +112,7 @@ document:
                     steps: [collaboration-and-interaction]
                     claims: [static-and-dynamic-views]
                     nodes: [collaboration-responsibility, collaboration-interaction]
-                    relations: [collaboration-responsibility-to-interaction]
+                    relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
                     flows: [collaboration-and-interaction-flow]
                 - id: collaboration-structure
                   kind: logical-structure
@@ -124,17 +124,17 @@ document:
                 steps: [executable-elements]
                 claims: [event, state-machine, service-and-operation]
                 nodes: [execution-event, execution-service]
-                relations: [execution-event-to-service]
+                relations: [execution-event-causes-service, execution-event-enables-service]
                 flows: [executable-elements-flow]
               blocks:
                 - id: executable-elements-paragraph
                   kind: paragraph
-                  text: イベントはアプリケーション内で意味のある出来事を表し、状態機械は状態を持つ対象の状態と許可される遷移を明示します。サービスはユースケース実現に必要なケーパビリティの主要な具体形であり、操作は責務を公開する呼出契約です。
+                  text: イベントはアプリケーション内で意味のある出来事を表し、サービスによる処理を引き起こすとともに可能にします。状態機械は状態を持つ対象の状態と許可される遷移を明示します。サービスはユースケース実現に必要なケーパビリティの主要な具体形であり、操作は責務を公開する呼出契約です。
                   coreRefs:
                     steps: [executable-elements]
                     claims: [event, state-machine, service-and-operation]
                     nodes: [execution-event, execution-service]
-                    relations: [execution-event-to-service]
+                    relations: [execution-event-causes-service, execution-event-enables-service]
                     flows: [executable-elements-flow]
                 - id: executable-elements-structure
                   kind: logical-structure
@@ -146,7 +146,7 @@ document:
             steps: [application-conclusion]
             claims: [modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
             nodes: [conclusion-review, conclusion-cml]
-            relations: [conclusion-review-to-cml]
+            relations: [conclusion-cml-depends-on-review]
             flows: [application-conclusion-flow]
           blocks:
             - id: conclusion-paragraph
@@ -156,16 +156,16 @@ document:
                 steps: [application-conclusion]
                 claims: [modeling-flow, traceability]
                 nodes: [conclusion-review, conclusion-cml]
-                relations: [conclusion-review-to-cml]
+                relations: [conclusion-cml-depends-on-review]
                 flows: [application-conclusion-flow]
             - id: conclusion-paragraph-review
               kind: paragraph
-              text: 生成AIは対応案を作成でき、textus-cbd-supportは可視化、差分、根拠、追跡可能性、検証情報を提示できます。しかし意味と業務上の妥当性をレビューし、その結果を次の提案と更新へフィードバックする責任は開発者にあります。
+              text: 生成AIは対応案を作成でき、textus-cbd-supportは可視化、差分、根拠、追跡可能性、検証情報を提示できます。しかし意味と業務上の妥当性をレビューし、CMLをそのレビューに依存して確定し、その結果を次の提案と更新へフィードバックする責任は開発者にあります。
               coreRefs:
                 steps: [application-conclusion]
                 claims: [review-and-refinement, executable-model, model-realization-boundary]
                 nodes: [conclusion-review, conclusion-cml]
-                relations: [conclusion-review-to-cml]
+                relations: [conclusion-cml-depends-on-review]
                 flows: [application-conclusion-flow]
             - id: conclusion-note
               kind: note
@@ -175,7 +175,7 @@ document:
                 steps: [application-conclusion]
                 claims: [executable-model, model-realization-boundary]
                 nodes: [conclusion-cml]
-                relations: [conclusion-review-to-cml]
+                relations: [conclusion-cml-depends-on-review]
                 flows: [application-conclusion-flow]
             - id: conclusion-structure
               kind: logical-structure

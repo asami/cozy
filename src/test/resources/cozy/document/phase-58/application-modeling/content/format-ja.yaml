@@ -1,7 +1,7 @@
 schema: cozy.content-core.logic-tree-format.v1
 id: application-modeling-ja
 coreId: application-modeling
-coreIdentity: sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4
+coreIdentity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc
 locale: ja
 chrome:
   overviewLabel: "ロジックツリーの概要"

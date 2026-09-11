@@ -7,28 +7,28 @@ root:
     - series-position
     - series-continuity
   structure:
-    pattern: sequence
+    pattern: mapping
     nodes:
       - id: root-domain-model
-        role: step
+        role: source
       - id: root-application-model
-        role: step
+        role: target
     relations:
-      - id: root-domain-to-application
-        relationType: next
+      - id: root-domain-maps-to-application
+        relationType: maps-to
         from: root-domain-model
         to: root-application-model
   flow:
     id: application-modeling-flow
     transitions:
-      - id: foundation-next-realization
-        relationType: next
-        fromStepId: application-foundation
-        toStepId: use-case-realization
-      - id: realization-next-conclusion
-        relationType: next
+      - id: realization-depends-on-foundation
+        relationType: depends-on
         fromStepId: use-case-realization
-        toStepId: application-conclusion
+        toStepId: application-foundation
+      - id: conclusion-depends-on-realization
+        relationType: depends-on
+        fromStepId: application-conclusion
+        toStepId: use-case-realization
   steps:
     - id: application-foundation
       semanticRole: context
@@ -36,17 +36,17 @@ root:
         - application-modeling-purpose
         - domain-and-application-modeling
       structure:
-        pattern: sequence
+        pattern: dependency-map
         nodes:
           - id: foundation-static-view
-            role: step
+            role: dependency
           - id: foundation-dynamic-view
-            role: step
+            role: dependent
         relations:
-          - id: foundation-static-to-dynamic
-            relationType: next
-            from: foundation-static-view
-            to: foundation-dynamic-view
+          - id: foundation-dynamic-depends-on-static
+            relationType: depends-on
+            from: foundation-dynamic-view
+            to: foundation-static-view
       flow:
         id: application-foundation-flow
         transitions: []
@@ -58,24 +58,24 @@ root:
         - use-case-realization
         - ui-and-application-boundary
       structure:
-        pattern: sequence
+        pattern: mapping
         nodes:
           - id: realization-scenario
-            role: step
+            role: source
           - id: realization-model
-            role: step
+            role: target
         relations:
-          - id: realization-scenario-to-model
-            relationType: next
+          - id: realization-scenario-maps-to-model
+            relationType: maps-to
             from: realization-scenario
             to: realization-model
       flow:
         id: use-case-realization-flow
         transitions:
-          - id: collaboration-next-execution
-            relationType: next
-            fromStepId: collaboration-and-interaction
-            toStepId: executable-elements
+          - id: execution-depends-on-collaboration
+            relationType: depends-on
+            fromStepId: executable-elements
+            toStepId: collaboration-and-interaction
       steps:
         - id: collaboration-and-interaction
           semanticRole: collaboration
@@ -84,15 +84,19 @@ root:
             - interaction
             - static-and-dynamic-views
           structure:
-            pattern: sequence
+            pattern: causal-chain
             nodes:
               - id: collaboration-responsibility
-                role: step
+                role: cause
               - id: collaboration-interaction
-                role: step
+                role: effect
             relations:
-              - id: collaboration-responsibility-to-interaction
-                relationType: next
+              - id: collaboration-responsibility-causes-interaction
+                relationType: causes
+                from: collaboration-responsibility
+                to: collaboration-interaction
+              - id: collaboration-responsibility-enables-interaction
+                relationType: enables
                 from: collaboration-responsibility
                 to: collaboration-interaction
           flow:
@@ -106,15 +110,19 @@ root:
             - state-machine
             - service-and-operation
           structure:
-            pattern: sequence
+            pattern: causal-chain
             nodes:
               - id: execution-event
-                role: step
+                role: cause
               - id: execution-service
-                role: step
+                role: effect
             relations:
-              - id: execution-event-to-service
-                relationType: next
+              - id: execution-event-causes-service
+                relationType: causes
+                from: execution-event
+                to: execution-service
+              - id: execution-event-enables-service
+                relationType: enables
                 from: execution-event
                 to: execution-service
           flow:
@@ -130,17 +138,17 @@ root:
         - executable-model
         - model-realization-boundary
       structure:
-        pattern: sequence
+        pattern: dependency-map
         nodes:
           - id: conclusion-review
-            role: step
+            role: dependency
           - id: conclusion-cml
-            role: step
+            role: dependent
         relations:
-          - id: conclusion-review-to-cml
-            relationType: next
-            from: conclusion-review
-            to: conclusion-cml
+          - id: conclusion-cml-depends-on-review
+            relationType: depends-on
+            from: conclusion-cml
+            to: conclusion-review
       flow:
         id: application-conclusion-flow
         transitions: []

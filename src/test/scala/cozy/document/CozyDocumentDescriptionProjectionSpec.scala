@@ -28,8 +28,48 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         validated.description.id shouldBe "application-modeling-document-ja"
         validated.description.locale shouldBe "ja"
         validated.core.core.id shouldBe "application-modeling"
-        validated.coreIdentity shouldBe "sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4"
+        validated.coreIdentity shouldBe "sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc"
+        validated.documentIdentity shouldBe "sha256:1f7192fbf4fd47713bc7e6da515d27b5cf7ee91b45805be99a642d5cf31eb4df"
         _sections(validated.description.document.sections).map(_.id) should contain allOf ("application-modeling-introduction", "conclusion-section")
+      }
+    }
+
+    "retain the real Article 9 local Structure and direct-child Flow semantics in exact depth-first order" in {
+      _with_temp_dir("cozy-document-description-article-nine-semantics") { root =>
+        Given("the copied real Article 9 Core and Japanese Document authorities")
+        val fixture = _fixture(root)
+        val validated = CozyDocumentDescription.loadDocument(fixture._1, fixture._2)
+
+        When("the typed recursive Core is admitted for document review")
+        val structures = validated.core.depthFirstSteps.map { step =>
+          (
+            step.id,
+            step.structure.pattern,
+            step.structure.nodes.map(node => node.id -> node.role),
+            step.structure.relations.map(relation => (relation.id, relation.relationType, relation.from, relation.to))
+          )
+        }
+        val flows = validated.core.depthFirstSteps.map { step =>
+          (step.id, step.flow.id, step.flow.transitions.map(transition => (transition.id, transition.relationType, transition.fromStepId, transition.toStepId)))
+        }
+
+        Then("each local Structure and direct-child Flow preserves its catalog-constrained typed meaning")
+        structures shouldBe Vector(
+          ("application-modeling", "mapping", Vector("root-domain-model" -> "source", "root-application-model" -> "target"), Vector(("root-domain-maps-to-application", "maps-to", "root-domain-model", "root-application-model"))),
+          ("application-foundation", "dependency-map", Vector("foundation-static-view" -> "dependency", "foundation-dynamic-view" -> "dependent"), Vector(("foundation-dynamic-depends-on-static", "depends-on", "foundation-dynamic-view", "foundation-static-view"))),
+          ("use-case-realization", "mapping", Vector("realization-scenario" -> "source", "realization-model" -> "target"), Vector(("realization-scenario-maps-to-model", "maps-to", "realization-scenario", "realization-model"))),
+          ("collaboration-and-interaction", "causal-chain", Vector("collaboration-responsibility" -> "cause", "collaboration-interaction" -> "effect"), Vector(("collaboration-responsibility-causes-interaction", "causes", "collaboration-responsibility", "collaboration-interaction"), ("collaboration-responsibility-enables-interaction", "enables", "collaboration-responsibility", "collaboration-interaction"))),
+          ("executable-elements", "causal-chain", Vector("execution-event" -> "cause", "execution-service" -> "effect"), Vector(("execution-event-causes-service", "causes", "execution-event", "execution-service"), ("execution-event-enables-service", "enables", "execution-event", "execution-service"))),
+          ("application-conclusion", "dependency-map", Vector("conclusion-review" -> "dependency", "conclusion-cml" -> "dependent"), Vector(("conclusion-cml-depends-on-review", "depends-on", "conclusion-cml", "conclusion-review")))
+        )
+        flows shouldBe Vector(
+          ("application-modeling", "application-modeling-flow", Vector(("realization-depends-on-foundation", "depends-on", "use-case-realization", "application-foundation"), ("conclusion-depends-on-realization", "depends-on", "application-conclusion", "use-case-realization"))),
+          ("application-foundation", "application-foundation-flow", Vector.empty),
+          ("use-case-realization", "use-case-realization-flow", Vector(("execution-depends-on-collaboration", "depends-on", "executable-elements", "collaboration-and-interaction"))),
+          ("collaboration-and-interaction", "collaboration-and-interaction-flow", Vector.empty),
+          ("executable-elements", "executable-elements-flow", Vector.empty),
+          ("application-conclusion", "application-conclusion-flow", Vector.empty)
+        )
       }
     }
 
@@ -44,10 +84,10 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         Then("the concise authority remains current against both direct upstream byte identities")
         validated.description.id shouldBe "application-modeling-summary-ja"
         validated.description.locale shouldBe "ja"
-        validated.description.core.identity shouldBe "sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4"
+        validated.description.core.identity shouldBe "sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc"
         validated.description.document.id shouldBe "application-modeling-document-ja"
-        validated.description.document.identity shouldBe "sha256:d4cbd3e51d0e37f582cd538363f80bad3d8d14614b1a8206e7a03735da0ef64c"
-        validated.summaryIdentity shouldBe "sha256:1e898ea6dbcf0af615caaf67d223dd8f08ef43111ecb033aedbad3bc1d0ae114"
+        validated.description.document.identity shouldBe "sha256:1f7192fbf4fd47713bc7e6da515d27b5cf7ee91b45805be99a642d5cf31eb4df"
+        validated.summaryIdentity shouldBe "sha256:55b518b61fcb43a2b8d338c082d6eed63742dd7956ff32a85a64f1d34882877c"
         validated.description.summary.units.map(_.id) shouldBe Vector("foundation-purpose", "use-case-model", "collaboration-interaction", "executable-elements", "review-and-realization")
       }
     }
@@ -69,9 +109,41 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         first.html should include("ユースケースから実現モデルへ")
         first.html should include("生成AIは対応案を作成でき")
         first.html should include("data-document-id=\"application-modeling-document-ja\"")
-        first.html should include("data-core-identity=\"sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4\"")
-        first.html should include("data-core-relations=\"root-domain-to-application")
+        first.html should include("data-core-identity=\"sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc\"")
+        first.html should include("data-core-relations=\"root-domain-maps-to-application")
+        first.html should include("data-relation-id=\"collaboration-responsibility-causes-interaction\" data-relation-type=\"causes\"")
+        first.html should include("data-relation-id=\"collaboration-responsibility-enables-interaction\" data-relation-type=\"enables\"")
+        first.html should include("data-relation-id=\"execution-event-causes-service\" data-relation-type=\"causes\"")
+        first.html should include("data-relation-id=\"execution-event-enables-service\" data-relation-type=\"enables\"")
         first.html should not include("<table")
+      }
+    }
+
+    "render separate Japanese reader subsections for each local Structure and direct-child Flow while retaining structural traceability attributes" in {
+      _with_temp_dir("cozy-document-description-local-structure-and-flow") { root =>
+        Given("the fully admitted Article 9 Japanese Document authority")
+        val fixture = _fixture(root)
+        val validated = CozyDocumentDescription.loadDocument(fixture._1, fixture._2)
+
+        When("the document review projection is rendered")
+        val html = CozyDocumentDescriptionProjection.render(validated).html
+
+        Then("localized headings, labels, roles, and typed wording remain distinct from stable data attributes")
+        html should include("<h3>ローカル構造: アプリケーションモデリング</h3>")
+        html should include("<h3>直接の子ステップのフロー: アプリケーションモデリング</h3>")
+        html should include("パターン: 対応付け")
+        html should include("ドメインモデル")
+        html should include("（役割: 対応付け元）")
+        html should include("（対応付ける）")
+        html should include("直接の子ステップ間のフローはありません。")
+        html should include("data-step-id=\"application-modeling\"")
+        html should include("data-structure-pattern=\"mapping\"")
+        html should include("data-node-id=\"root-domain-model\" data-node-role=\"source\"")
+        html should include("data-relation-id=\"root-domain-maps-to-application\" data-relation-type=\"maps-to\"")
+        html should include("data-flow-id=\"application-modeling-flow\"")
+        html should include("data-flow-transition-id=\"realization-depends-on-foundation\" data-flow-relation-type=\"depends-on\"")
+        html should not include("ローカル構造: application-modeling")
+        html should not include("pattern: mapping")
       }
     }
 
@@ -92,11 +164,15 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         first.html should include("ドメインの意味を利用目的の実現へつなぐ")
         first.html should include("要求から振る舞いまでの対応を保ち")
         first.html should include("data-summary-id=\"application-modeling-summary-ja\"")
-        first.html should include("data-summary-identity=\"sha256:1e898ea6dbcf0af615caaf67d223dd8f08ef43111ecb033aedbad3bc1d0ae114\"")
+        first.html should include("data-summary-identity=\"sha256:55b518b61fcb43a2b8d338c082d6eed63742dd7956ff32a85a64f1d34882877c\"")
         first.html should include("data-document-id=\"application-modeling-document-ja\"")
-        first.html should include("data-document-identity=\"sha256:d4cbd3e51d0e37f582cd538363f80bad3d8d14614b1a8206e7a03735da0ef64c\"")
+        first.html should include("data-document-identity=\"sha256:1f7192fbf4fd47713bc7e6da515d27b5cf7ee91b45805be99a642d5cf31eb4df\"")
         first.html should include("data-core-id=\"application-modeling\"")
-        first.html should include("data-core-identity=\"sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4\"")
+        first.html should include("data-core-identity=\"sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc\"")
+        first.html should include("data-core-relations=\"root-domain-maps-to-application\"")
+        first.html should include("data-core-relations=\"realization-scenario-maps-to-model\"")
+        first.html should include("data-core-relations=\"conclusion-cml-depends-on-review\"")
+        first.html should include("data-core-flows=\"application-modeling-flow\"")
         validated.description.summary.units.foreach { unit =>
           first.html should include(s"""data-unit-id="${unit.id}"""")
           first.html should include(s"""data-emphasis="${unit.emphasis}"""")
@@ -131,7 +207,7 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         html should include("document-example")
         html should include("document-note")
         html should include("logical-structure-projection")
-        html should include("data-relation-id=\"root-domain-to-application\"")
+        html should include("data-relation-id=\"root-domain-maps-to-application\"")
       }
     }
 
@@ -206,7 +282,7 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         Given("copied Summary authorities with separately stale direct Core and Document bytes")
         val corefixture = _summary_fixture(Files.createDirectories(root.resolve("stale-core")))
         val documentfixture = _summary_fixture(Files.createDirectories(root.resolve("stale-document")))
-        val coreidentity = "sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4"
+        val coreidentity = "sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc"
         Files.writeString(corefixture._1, Files.readString(corefixture._1, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
         val currentcoreidentity = CozyDocumentLogicTree.loadCore(corefixture._1).coreIdentity
         Files.writeString(corefixture._2, Files.readString(corefixture._2, StandardCharsets.UTF_8).replace(coreidentity, currentcoreidentity), StandardCharsets.UTF_8)
