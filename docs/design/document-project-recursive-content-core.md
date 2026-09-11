@@ -38,21 +38,33 @@ out-of-parent endpoint.
 `cozy.content-core.logic-tree-format.v1` is a separate direct YAML authority.
 It binds `coreId` and `coreIdentity` to the exact direct bytes of `core.yaml`,
 declares a BCP-47 `locale`, and has one-to-one `stepBindings`,
-`claimBindings`, and `nodeBindings`. This makes Japanese wording a format
-choice rather than Core identity or filename state.
+`claimBindings`, and `nodeBindings`. Its closed `chrome` vocabulary owns every
+locale-sensitive fixed phrase emitted by the overview and slides: overview and
+document-title labels, page-count wording, section headings, empty states, and
+navigation labels. This makes Japanese wording a format choice rather than
+Core identity or filename state.
+
+Both direct YAML authorities undergo duplicate-key-rejecting SnakeYAML
+admission on their UTF-8-validated bytes before `StructuredDocumentLoader`
+normalizes them to JSON. The guard rejects a lossy source without becoming a
+second semantic authority; the existing loader remains responsible for JSON
+normalization.
 
 ## Projections and command
 
 The overview is a self-contained, deterministic nested card/tree document:
 each Step card contains claims, its local Structure, direct-child Flow, and
 structural children. Typed Flow edges and local typed relations remain
-reader-facing content rather than diagnostic tables.
+reader-facing content rather than diagnostic tables. Its reader-facing labels
+come only from validated Format chrome; stable HTML structural identifiers do
+not become locale authority.
 
 The slides projection is self-contained 16:9 HTML. It emits one depth-first
 page for every parent and leaf Step. Each page shows its ancestor context,
 claims, local Structure, direct children, direct-child Flow, and deterministic
-previous/next keyboard navigation. Print CSS forces one Step page per printed
-page.
+previous/next keyboard navigation. Its document title, page-count wording,
+empty states, and accessible navigation label also come only from validated
+Format chrome. Print CSS forces one Step page per printed page.
 
 The only public entry point is:
 

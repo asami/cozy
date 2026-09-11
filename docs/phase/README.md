@@ -65,6 +65,11 @@ Current phase state:
   target binding, and `phase-57.3.md` for the native publication-preparation
   skill boundary. This is a greenfield sequence and does not preserve the
   legacy article-media workflow.
+- Most recently closed recursive Content Core phase: `phase-58.md` proves one recursive,
+  locale-independent `content/core.yaml` and projects the real Article 9 logic
+  into a visual tree HTML and one-page-per-Step slide HTML. It does not reopen
+  completed Phase 46/46.1 history or migrate every Document Project; its
+  nonblocking `HYG-P58-001` remains separately tracked.
 - Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite

@@ -1692,6 +1692,7 @@ Origin:
 | DEV-021 | `docs/journal/2026/09/2026-09-07-register-site-context-currentness-gap.md` (`COZY-GAP-REGISTER-SITE-CONTEXT-001`) | Make `media register-site` and `register-site-wip` validate currentness with the same effective site-root/site-config authority as build and receipt creation, preserving direct registration of current site-aware artifacts and fail-closed stale detection. | NEW_PHASE | [Phase 55](../phase/phase-55.md) COMPLETE | RESOLVED |
 | DEV-022 | User-approved Phase 47.2 split on 2026-09-08 | Deliver CML logical actions through the existing CNCF Free × UnitOfWork model in the ordered consumer-foundation, Cozy compiler/ABI, and cross-repository composition-acceptance boundaries. | NEW_PHASE | [Phase 47.2](../phase/phase-47.2.md) release closure pending → [Phase 47.2.1](../phase/phase-47.2.1.md) COMPLETE → [Phase 47.2.2](../phase/phase-47.2.2.md) COMPLETE (Cozy producer; CNCF consumer external pending) | ADOPTED |
 | DEV-023 | Component Dashboard metadata decision on 2026-09-07; user-approved Phase 54 split and SimpleModeling.org editing-consumer priority on 2026-09-09 | Supply versioned, source-attributed CML model metadata in an ordered identity/publication, Structure, Classification, dynamic, and Use Case/fixture sequence. Deliver the stable foundation first for a future editing-oriented SimpleModeling.org consumer, while retaining actual site integration and publication authority outside this supplier sequence. | NEW_PHASE | [Phase 54](../phase/phase-54.md) PLANNED → [Phase 54.1](../phase/phase-54.1.md) PLANNED → [Phase 54.2](../phase/phase-54.2.md) PLANNED → [Phase 54.3](../phase/phase-54.3.md) PLANNED → [Phase 54.4](../phase/phase-54.4.md) PLANNED | ADOPTED |
+| DEV-024 | `docs/journal/2026/09/2026-09-11-phase-58-recursive-content-core-decision.md`; user-approved reconstruction on 2026-09-11 | Replace the flat localized Content Core authoring model in one bounded vertical slice with a locale-independent recursive `content/core.yaml` whose Steps own local Structure, child Flow, and nested child Steps, then project the real Article 9 logic into one overview HTML and one Step-slide HTML. | NEW_PHASE | [Phase 58](../phase/phase-58.md) COMPLETE | RESOLVED |
 
 ## Current Priority
 
@@ -1783,6 +1784,12 @@ admission. Phase 57.1 remains planned for manifest/receipt/currentness, Phase 57
 SimpleModeling.org target binding, and Phase 57.3 for the native
 publication-preparation skill boundary. These planned successors do not
 authorize publication, deployment, upload, push, or production site mutation.
+
+Phase 58 is closed as the bounded semantic reconstruction slice under
+`DEV-024`. It keeps completed Phase 46/46.1 history intact while proving a
+recursive, locale-independent `content/core.yaml` and two visual HTML
+projections with the real Article 9 driver. Wider Document Project migration
+and retirement of prior semantic products remain outside this first slice.
 
 Phase 34 is closed after the candidate final official full Cozy validation.
 The earlier invocation

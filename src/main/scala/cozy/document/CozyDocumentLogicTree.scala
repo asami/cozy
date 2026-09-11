@@ -6,8 +6,10 @@ import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.nio.file.{Files, LinkOption, Path}
 import java.security.MessageDigest
+import java.io.StringReader
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
+import org.yaml.snakeyaml.{LoaderOptions, Yaml}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
@@ -35,6 +37,22 @@ private[cozy] object CozyDocumentLogicTree {
   final case class StepBinding(id: String, title: String)
   final case class ClaimBinding(id: String, text: String)
   final case class NodeBinding(id: String, label: String)
+  final case class Chrome(
+    overviewLabel: String,
+    overviewDocumentTitle: String,
+    slidesDocumentTitle: String,
+    pageCountLabel: String,
+    claimsHeading: String,
+    localStructureHeading: String,
+    directChildrenHeading: String,
+    directChildFlowHeading: String,
+    noDirectChildren: String,
+    noDirectChildFlowTransitions: String,
+    previous: String,
+    next: String,
+    deck: String,
+    navigationAriaLabel: String
+  )
   final case class Format(
     id: String,
     coreId: String,
@@ -42,7 +60,8 @@ private[cozy] object CozyDocumentLogicTree {
     locale: String,
     stepBindings: Vector[StepBinding],
     claimBindings: Vector[ClaimBinding],
-    nodeBindings: Vector[NodeBinding]
+    nodeBindings: Vector[NodeBinding],
+    chrome: Chrome
   )
   final case class Validated(
     core: Core,
@@ -71,7 +90,7 @@ private[cozy] object CozyDocumentLogicTree {
     val formatpath = _admit_format(formatValue)
     val corebytes = _read_bytes(corepath, "core")
     val formatbytes = _read_bytes(formatpath, "format")
-    _validate(corebytes, _load_document(corepath, "core"), formatbytes, _load_document(formatpath, "format"))
+    _validate(corebytes, _load_document(corepath, corebytes, "core"), formatbytes, _load_document(formatpath, formatbytes, "format"))
   }
 
   private[cozy] def validate(coreBytes: Array[Byte], coreValue: Json, formatValue: Json): Validated = {
@@ -167,7 +186,7 @@ private[cozy] object CozyDocumentLogicTree {
 
   private def _format(value: Json): Format = {
     val fields = _object(value, "$")
-    _exact_fields(fields, Set("schema", "id", "coreId", "coreIdentity", "locale", "stepBindings", "claimBindings", "nodeBindings"), "$")
+    _exact_fields(fields, Set("schema", "id", "coreId", "coreIdentity", "locale", "stepBindings", "claimBindings", "nodeBindings", "chrome"), "$")
     if (_string(fields, "schema", "$") != _format_schema)
       _fail("LOGIC_TREE_FORMAT_SCHEMA", "$.schema", s"must be exactly ${_format_schema}")
     val identity = _string(fields, "coreIdentity", "$")
@@ -183,7 +202,8 @@ private[cozy] object CozyDocumentLogicTree {
       locale,
       _array(_field(fields, "stepBindings", "$"), "$.stepBindings").zipWithIndex.map { case (item, index) => _step_binding(item, s"$$.stepBindings[$index]") },
       _array(_field(fields, "claimBindings", "$"), "$.claimBindings").zipWithIndex.map { case (item, index) => _claim_binding(item, s"$$.claimBindings[$index]") },
-      _array(_field(fields, "nodeBindings", "$"), "$.nodeBindings").zipWithIndex.map { case (item, index) => _node_binding(item, s"$$.nodeBindings[$index]") }
+      _array(_field(fields, "nodeBindings", "$"), "$.nodeBindings").zipWithIndex.map { case (item, index) => _node_binding(item, s"$$.nodeBindings[$index]") },
+      _chrome(_field(fields, "chrome", "$"), "$.chrome")
     )
   }
 
@@ -203,6 +223,31 @@ private[cozy] object CozyDocumentLogicTree {
     val fields = _object(value, path)
     _exact_fields(fields, Set("id", "label"), path)
     NodeBinding(_id(_string(fields, "id", path), s"$path.id"), _text(_string(fields, "label", path), s"$path.label"))
+  }
+
+  private def _chrome(value: Json, path: String): Chrome = {
+    val fields = _object(value, path)
+    _exact_fields(fields, Set(
+      "overviewLabel", "overviewDocumentTitle", "slidesDocumentTitle", "pageCountLabel",
+      "claimsHeading", "localStructureHeading", "directChildrenHeading", "directChildFlowHeading",
+      "noDirectChildren", "noDirectChildFlowTransitions", "previous", "next", "deck", "navigationAriaLabel"
+    ), path)
+    Chrome(
+      _text(_string(fields, "overviewLabel", path), s"$path.overviewLabel"),
+      _text(_string(fields, "overviewDocumentTitle", path), s"$path.overviewDocumentTitle"),
+      _text(_string(fields, "slidesDocumentTitle", path), s"$path.slidesDocumentTitle"),
+      _text(_string(fields, "pageCountLabel", path), s"$path.pageCountLabel"),
+      _text(_string(fields, "claimsHeading", path), s"$path.claimsHeading"),
+      _text(_string(fields, "localStructureHeading", path), s"$path.localStructureHeading"),
+      _text(_string(fields, "directChildrenHeading", path), s"$path.directChildrenHeading"),
+      _text(_string(fields, "directChildFlowHeading", path), s"$path.directChildFlowHeading"),
+      _text(_string(fields, "noDirectChildren", path), s"$path.noDirectChildren"),
+      _text(_string(fields, "noDirectChildFlowTransitions", path), s"$path.noDirectChildFlowTransitions"),
+      _text(_string(fields, "previous", path), s"$path.previous"),
+      _text(_string(fields, "next", path), s"$path.next"),
+      _text(_string(fields, "deck", path), s"$path.deck"),
+      _text(_string(fields, "navigationAriaLabel", path), s"$path.navigationAriaLabel")
+    )
   }
 
   private def _validate_tree(root: Step): Unit = {
@@ -234,11 +279,11 @@ private[cozy] object CozyDocumentLogicTree {
   private def _validate_structure(
     structure: Structure,
     catalog: CozyVisualPage.Catalog,
-    stepPath: String,
+    steppath: String,
     nodeids: mutable.Set[String],
     relationids: mutable.Set[String]
   ): Unit = {
-    val path = s"$stepPath.structure"
+    val path = s"$steppath.structure"
     val pattern = catalog.logicalPatterns.find(_.id == structure.pattern).getOrElse(
       _fail("LOGIC_TREE_PATTERN", s"$path.pattern", s"must use a CozyVisualPage logical pattern: ${structure.pattern}")
     )
@@ -289,10 +334,10 @@ private[cozy] object CozyDocumentLogicTree {
     flow: Flow,
     childids: Set[String],
     relationtypes: Set[String],
-    stepPath: String,
+    steppath: String,
     transitionids: mutable.Set[String]
   ): Unit = {
-    val path = s"$stepPath.flow"
+    val path = s"$steppath.flow"
     _unique(flow.transitions.map(_.id), s"$path.transitions", "local transition id")
     _unique(flow.transitions.map(value => s"${value.relationType}\u0000${value.fromStepId}\u0000${value.toStepId}"), s"$path.transitions", "local transition endpoint")
     flow.transitions.foreach { transition =>
@@ -390,8 +435,14 @@ private[cozy] object CozyDocumentLogicTree {
       case NonFatal(_) => _fail("LOGIC_TREE_SOURCE", s"$$.$label", "cannot be read")
     }
 
-  private def _load_document(path: Path, label: String): Json =
-    try StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take catch {
+  private def _load_document(path: Path, bytes: Array[Byte], label: String): Json =
+    try {
+      val text = _decode_utf8(bytes, s"$$.$label")
+      val options = new LoaderOptions()
+      options.setAllowDuplicateKeys(false)
+      new Yaml(options).load(new StringReader(text))
+      StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take
+    } catch {
       case fault: LogicTreeFault => throw fault
       case NonFatal(_) => _fail("LOGIC_TREE_SOURCE", s"$$.$label", "must be a well-formed JSON/YAML document without lossy structure")
     }

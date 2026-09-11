@@ -38,6 +38,9 @@ Current notes:
   Phase 46/46.1 proposal for Content Core Story Flow and per-unit Explanation
   Structures, typed Visual Page/Storyboard projection, and one integrated
   confirmation HTML.
+- `document-project-recursive-content-core-logic-tree-proposal.md`: Phase 58
+  proposal for one locale-independent recursive `content/core.yaml` and its
+  logic-tree overview and Step-slide HTML projections.
 - `scalar-entity-persistence-roundtrip-implementation-proposal.md`: proposed
   Phase 23 implementation boundary, reproduction gates, generated-reader
   change points, and Entity lifecycle verification matrix.

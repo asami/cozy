@@ -83,6 +83,44 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
         }
       }
 
+      "reject a duplicate Core root mapping key before lossy JSON normalization" in {
+        _with_temp_dir("cozy-document-logic-tree-duplicate-core-key") { root =>
+          Given("a direct Article 9 Core with a duplicate root id mapping key")
+          val fixture = _fixture(root)
+          val original = Files.readString(fixture._1, StandardCharsets.UTF_8)
+          val duplicate = _write(
+            root.resolve("duplicate-core-key/core.yaml"),
+            original.replace("id: application-modeling\nroot:", "id: application-modeling\nid: duplicate-application-modeling\nroot:")
+          )
+
+          When("the duplicate-key Core authority is admitted")
+          val failure = _failure(CozyDocumentLogicTree.load(duplicate, fixture._2))
+
+          Then("the source boundary rejects it before a JSON object can collapse the repeated mapping")
+          failure.code shouldBe "LOGIC_TREE_SOURCE"
+          failure.path shouldBe "$.core"
+        }
+      }
+
+      "reject a duplicate Format root mapping key before lossy JSON normalization" in {
+        _with_temp_dir("cozy-document-logic-tree-duplicate-format-key") { root =>
+          Given("a direct Article 9 Format with a duplicate root id mapping key")
+          val fixture = _fixture(root)
+          val original = Files.readString(fixture._2, StandardCharsets.UTF_8)
+          val duplicate = _write(
+            root.resolve("duplicate-format-key/format-ja.yaml"),
+            original.replace("id: application-modeling-ja\ncoreId:", "id: application-modeling-ja\nid: duplicate-application-modeling-ja\ncoreId:")
+          )
+
+          When("the duplicate-key Format authority is admitted")
+          val failure = _failure(CozyDocumentLogicTree.load(fixture._1, duplicate))
+
+          Then("the source boundary rejects it before a JSON object can collapse the repeated mapping")
+          failure.code shouldBe "LOGIC_TREE_SOURCE"
+          failure.path shouldBe "$.format"
+        }
+      }
+
       "reject duplicate identities, repeated ownership, and ancestor re-entry in the recursive Step tree" in {
         _with_temp_dir("cozy-document-logic-tree-ownership") { root =>
           Given("Article 9 variants with a duplicated child, an ancestor-reentered child, and duplicate node and transition identities")
@@ -169,7 +207,13 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           validated.depthFirstSteps.foreach(step => first.html should include(s"""id="step-${step.id}""""))
           first.html should include("root-domain-to-application")
           first.html should include("foundation-next-realization")
-          first.html should include("Direct-child Flow")
+          first.html should include("ロジックツリーの概要")
+          first.html should include("主張")
+          first.html should include("ローカル構造")
+          first.html should include("直接の子ステップのフロー")
+          first.html should include("直接の子ステップ間フロー遷移はありません。")
+          first.html should not include("Logic Tree overview")
+          first.html should not include("Direct-child Flow")
           first.html should not include("<table")
         }
       }
@@ -193,6 +237,16 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           first.html should include("rel=\"next\"")
           first.html should include("ArrowLeft")
           first.html should include("page-break-after:always")
+          first.html should include("ロジックツリーのステップスライド")
+          first.html should include("深さ優先のステップページ")
+          first.html should include("直接の子ステップ")
+          first.html should include("前へ")
+          first.html should include("次へ")
+          first.html should include("スライド一覧")
+          first.html should include("ステップページのナビゲーション")
+          first.html should not include("Logic Tree Step Slides")
+          first.html should not include("depth-first Step pages")
+          first.html should not include("Step page navigation")
         }
       }
 

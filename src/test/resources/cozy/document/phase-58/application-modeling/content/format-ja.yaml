@@ -3,6 +3,21 @@ id: application-modeling-ja
 coreId: application-modeling
 coreIdentity: sha256:c2ea5ceccc33ce9db09a28eaa0064dd329023ed262694a7b14ff03b530989eb4
 locale: ja
+chrome:
+  overviewLabel: "ロジックツリーの概要"
+  overviewDocumentTitle: "ロジックツリーの概要"
+  slidesDocumentTitle: "ロジックツリーのステップスライド"
+  pageCountLabel: "深さ優先のステップページ"
+  claimsHeading: "主張"
+  localStructureHeading: "ローカル構造"
+  directChildrenHeading: "直接の子ステップ"
+  directChildFlowHeading: "直接の子ステップのフロー"
+  noDirectChildren: "直接の子ステップはありません。"
+  noDirectChildFlowTransitions: "直接の子ステップ間フロー遷移はありません。"
+  previous: "前へ"
+  next: "次へ"
+  deck: "スライド一覧"
+  navigationAriaLabel: "ステップページのナビゲーション"
 stepBindings:
   - id: application-modeling
     title: "SimpleModeling 第9回 アプリケーションモデリング"
