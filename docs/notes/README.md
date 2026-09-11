@@ -41,6 +41,9 @@ Current notes:
 - `document-project-recursive-content-core-logic-tree-proposal.md`: Phase 58
   proposal for one locale-independent recursive `content/core.yaml` and its
   logic-tree overview and Step-slide HTML projections.
+- `document-project-document-and-summary-description-dsl-proposal.md`: Phase
+  58.1 proposal for media-independent complete-document and
+  summary-slide-level authoring DSLs over the recursive Content Core.
 - `scalar-entity-persistence-roundtrip-implementation-proposal.md`: proposed
   Phase 23 implementation boundary, reproduction gates, generated-reader
   change points, and Entity lifecycle verification matrix.

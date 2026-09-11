@@ -70,6 +70,11 @@ Current phase state:
   into a visual tree HTML and one-page-per-Step slide HTML. It does not reopen
   completed Phase 46/46.1 history or migrate every Document Project; its
   nonblocking `HYG-P58-001` remains separately tracked.
+- Current recursive Content Core authoring phase: `phase-58.1.md` defines
+  media-independent Document Description and Summary Description DSLs over
+  Phase 58, using `content/<locale>/document.yaml` and `summary.yaml` for the
+  real Article 9 vertical slice. It separates prose and concise semantic
+  content from HTML chrome and physical presentation.
 - Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite
