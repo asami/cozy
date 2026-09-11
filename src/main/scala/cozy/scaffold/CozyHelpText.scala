@@ -29,8 +29,9 @@ private[cozy] object CozyHelpText {
       |  document-project verify <project> [--mode structural]
       |  document-project verify <project> --mode visual --work-product <native-output-work-product>
       |  document-project run <project> --operation <logical-operation> [--dry-run]
+      |  document-project export <project> --target <publication-target>
       |  document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
-      |      Inspect, plan, verify, execute one admitted native operation, scaffold a package, or generate read-only projections.
+      |      Inspect, plan, verify, execute one admitted native operation, export admitted public metadata, scaffold a package, or generate read-only projections.
       |      Dashboard defaults to target/document-project/project-dashboard.html; --save selects the exact requested path.
       |      Core review defaults to target/document-project/core-review.html.
       |      Article review defaults to target/document-project/article-review.html and is admitted only when article-review-html is selected.
@@ -47,6 +48,7 @@ private[cozy] object CozyHelpText {
       |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.
       |      Generic run resolves typed provider/output declarations before execution. Native run currently executes only article.render-review through cozy-review-projection at target/document-project/article-review.html (text/html); other declared providers report an explicit missing-capability block. --dry-run reports that typed resolution without invoking a provider or writing output, evidence, or currentness.
       |      Native run reports typed output identity/path/media type, diagnostics, and a generated receipt value. A validated executed result appends strict accepted v2 evidence and derives currentness; blocked and dry-run results create neither an attempt nor accepted evidence.
+      |      Export accepts one opaque target and reports only the selected current Article review public metadata. It writes no output, manifest, receipt, cache, attempt, or project file and does not bind a site or publication destination.
       |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, attempts, delivery state, or external/provider receipts.
       |      Content Core candidate accepts a completed direct JSON/YAML dialogue bundle and records durable local evidence; it never invokes an AI provider or changes Content Core.
       |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.

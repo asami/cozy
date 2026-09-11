@@ -1296,6 +1296,39 @@ or render unrelated PDF, slide, video, or image previews. A selected public
 image Work Product remains production evidence and cannot be selected as that
 temporary native-output representation.
 
+## Phase 57 selection-only export contract
+
+The public export grammar is exactly:
+
+```text
+cozy document-project export <project> --target <publication-target>
+```
+
+`<publication-target>` is exactly one opaque slug. It is neither a path, URL,
+site configuration, target binding, nor destination selector; `--save` and all
+other options are rejected. The target cannot alter the selected source or
+admit another Work Product.
+
+Export admits only selected `article-review-html` when a retained,
+strictly-parsed accepted `cozy.document-operation-attempt.v2` for
+`article.render-review` has the current declared direct input and output
+identities. The retained-attempt parser's exact embedded native receipt
+validation is the sole production-receipt proof. Generated review receipts,
+standalone receipts, presentation-confirmation receipts, visual-verification
+temporary output, raw media, sidecars, state caches, candidate history, review
+evidence, private authority, dialogue, and failed or stale attempts do not
+qualify.
+
+The deterministic public metadata reports `schema: cozy.document-project.v2`,
+the descriptor project id, target, and only this mapping:
+`article-review-html` to role `article-review`, media type `text/html`, and
+public path
+`work-products/article-review-html/article-review.html`, with the accepted
+current output SHA-256. It contains no attempt, receipt, input, source path,
+provider, workflow, sidecar, state, or delivery data. Export is selection-only:
+it writes no output, manifest, export receipt, cache, attempt, project file,
+target binding, or external delivery state.
+
 ## Related authorities
 
 - Stable design: [Document Project Design](../design/document-project.md)

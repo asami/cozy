@@ -856,6 +856,26 @@ Product current, or inspect unrelated media. A public infographic PNG remains
 an ordinary selected production Work Product and is never a visual-verification
 temporary artifact.
 
+## Phase 57 selection-only public export
+
+Phase 57 adds one read-only admission surface, `document-project export`, not
+a publication pipeline. Its opaque target is public request metadata only: it
+does not resolve a path, site, configuration, binding, or destination and
+cannot influence the source selection. The result reports
+`schema: cozy.document-project.v2` and has exactly one public mapping:
+selected `article-review-html` becomes role `article-review`, media type
+`text/html`, and public path
+`work-products/article-review-html/article-review.html`.
+
+Admission delegates production proof exclusively to the retained strict v2
+attempt parser, including its exact embedded native receipt validation, then
+requires current declared input and output identities. Generated-review and
+standalone receipts, temporary review output, sidecars, caches, and all other
+historical or private material are deliberately not alternate proofs. The
+result reports normalized public metadata only and creates no copied bundle,
+manifest, export receipt, currentness state, target/site binding, or external
+delivery action.
+
 ## Related authorities
 
 - Normative contract: [Document Project Specification](../spec/document-project.md)

@@ -163,6 +163,28 @@ private[cozy] object CozyDocumentProjectEvidence {
     Snapshot(sources, sidecar, attempts, products, criteria, nativeoperations)
   }
 
+  private[cozy] def currentAcceptedNativeAttempt(
+    project: Path,
+    descriptor: CozyDocumentProject.Descriptor,
+    workproduct: String
+  ): Attempt = {
+    val resolved = CozyDocumentWorkflow.resolve(descriptor.profile, descriptor.activeOptionalWorkProducts) match {
+      case Right(value) => value
+      case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
+    }
+    if (!resolved.workProducts.exists(value => value.workProduct.id == workproduct && value.isParticipating))
+      CozyDocumentProject._failure("DP-OP-001", s"export requires selected $workproduct")
+    _attempts(project, descriptor).find { attempt =>
+      attempt.schema == _attempt_v2_schema &&
+        attempt.operation == "article.render-review" &&
+        attempt.outcome == "accepted" &&
+        attempt.products == Vector(workproduct) &&
+        CozyDocumentProjectNativeEvidence.nativeAttemptCurrent(project, attempt)
+    }.getOrElse(
+      CozyDocumentProject._failure("DP-OP-001", "export requires current accepted article.render-review native evidence")
+    )
+  }
+
   private[cozy] def nativeOperationStateLine(state: CozyDocumentWorkflow.NativeOperationState): String =
     CozyDocumentProjectExecutability.nativeOperationStateLine(state)
 
