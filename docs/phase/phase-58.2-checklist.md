@@ -74,21 +74,23 @@ Stage Status:
 ## P582-04: Interactive Summary confirmation
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Summary confirmation renderer
-- Update rule: Mark DONE only when every Article 9 Summary Unit can be reviewed
-  as one deliberate condensation with exact semantic and editorial evidence.
+- Update rule: Mark DONE only when every P582-04 checklist item below is checked
+  and supported by the P582-04A focused validation and sealed Step review. This
+  closure covers the strict v2 Summary renderer only; the real Article 9
+  driver and Cozy locale resource remain P582-05.
 
-- [ ] Render ordered Summary Unit navigation and one selected 16:9
+- [x] Render ordered Summary Unit navigation and one selected 16:9
       slide-level semantic explanation.
-- [ ] Render only explicitly authored coordinate-free diagram items and exact
+- [x] Render only explicitly authored coordinate-free diagram items and exact
       typed Core Relation/Flow edges.
-- [ ] Show exact Core sources and localized retained points for the selected
+- [x] Show exact Core sources and localized retained points for the selected
       unit.
-- [ ] Show explicit omitted/condensed Document elements and localized rationale.
-- [ ] Support mouse and keyboard unit selection with accessible selected-state
+- [x] Show explicit omitted/condensed Document elements and localized rationale.
+- [x] Support mouse and keyboard unit selection with accessible selected-state
       semantics.
-- [ ] Generate one safely escaped, responsive, self-contained deterministic
+- [x] Generate one safely escaped, responsive, self-contained deterministic
       HTML file.
 
 ## P582-05: Article 9 acceptance and closure

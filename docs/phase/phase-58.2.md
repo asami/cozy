@@ -53,7 +53,7 @@ Phase Plan Gate: PROCEED
 | P582-01 | Freeze a semantic and interaction contract from the approved Article 9 reference HTMLs, reconcile prototype-only arrows and ambiguous status wording with the admitted Core, and define DOM/behavior acceptance without byte-equality coupling. | complete |
 | P582-02 | Define and implement strict `cozy.document-description.v2` and `cozy.summary-description.v2` contracts for project-specific semantic labels, coordinate-free summary diagrams, retained points, and explicit Document omissions while preserving closed v1 behavior. | complete |
 | P582-03 | Generate the interactive Document confirmation workspace with recursive containment, distinct child-Step Flow, selected local Structure, prose highlighting, coverage/currentness status, accessibility, and responsive behavior. | complete |
-| P582-04 | Generate the interactive Summary confirmation workspace with ordered unit navigation, one slide-level semantic explanation, exact source inspection, retained points, explicit omissions, accessibility, and responsive behavior. | planned |
+| P582-04 | Generate the interactive Summary confirmation workspace with ordered unit navigation, one slide-level semantic explanation, exact source inspection, retained points, explicit omissions, accessibility, and responsive behavior. | complete |
 | P582-05 | Remove Article 9-specific production-code localization, accept the real Article 9 v2 driver, prove deterministic/safe output and v1 preservation, complete visual and executable review, and close the Phase through normal validation and release workflow. | planned |
 
 ## Authority boundary
