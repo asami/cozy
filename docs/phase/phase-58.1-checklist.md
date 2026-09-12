@@ -1,6 +1,6 @@
 # Phase 58.1 Checklist: Document and Summary Description DSL Vertical Slice
 
-Phase Status: IN_PROGRESS
+Phase Status: COMPLETE
 
 Development item: DEV-025
 
@@ -82,21 +82,21 @@ Stage Status:
 ## P581-05: Semantic richness and closure
 
 Stage Status:
-- Current status: TODO
+- Current status: DONE
 - Owner: Phase 58.1 acceptance
 - Update rule: Do not mark DONE until the real driver, validation, review, and
   release evidence close on one settled tree.
 
-- [ ] Use multiple Logical Patterns and typed Relations in Article 9 where
+- [x] Use multiple Logical Patterns and typed Relations in Article 9 where
       semantically warranted; do not manufacture variety only for coverage.
-- [ ] Make child-Step Flow and Step-local Structure visibly distinct.
-- [ ] Localize reader-facing semantic labels without replacing stable IDs.
-- [ ] Add focused executable specifications covering both DSLs, both review
+- [x] Make child-Step Flow and Step-local Structure visibly distinct.
+- [x] Localize reader-facing semantic labels without replacing stable IDs.
+- [x] Add focused executable specifications covering both DSLs, both review
       outputs, identity/currentness, relationship semantics, and determinism.
-- [ ] Complete one independent full Phase review with no Current Phase
+- [x] Complete one independent full Phase review with no Current Phase
       Blocker.
-- [ ] Complete full Cozy validation through the shared SBT lock.
-- [ ] Close Phase 58.1 through a distinct release commit.
+- [x] Complete full Cozy validation through the shared SBT lock.
+- [x] Close Phase 58.1 through a distinct release commit.
 
 ## Closure boundary
 

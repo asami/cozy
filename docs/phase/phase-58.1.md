@@ -1,6 +1,6 @@
 # Phase 58.1: Document and Summary Description DSL Vertical Slice
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 Plan date: 2026-09-12
 
@@ -33,6 +33,19 @@ Phase Plan Gate: PROCEED
 - short_child_exception: none
 - source: user-approved Phase 58.1 creation on 2026-09-12
 
+## Full Phase review selection
+
+- selected reviewer: `gpt-5.6-terra` / `xhigh`
+- selection evidence: explicit user selection `terra, xhigh` on 2026-09-12;
+  the settled vertical slice simultaneously exercises the typed Core semantic
+  catalog, cascading Core/Document/Summary identities, Japanese reader-facing
+  projection, and executable currentness specifications.
+- reasoning mode: standard; the active reviewer interface exposes the selected
+  model and effort directly and no separate reasoning-mode control.
+- boundary: the complete Phase-base `98f86b287d8cc4cb8340c4b72edc5e50466da6c6`
+  through the accepted P581-01 through P581-05 Step commits, with no unresolved
+  design, repository, public-contract, or acceptance decision.
+
 ## In-scope work
 
 | ID | Outcome | Status |
@@ -41,7 +54,7 @@ Phase Plan Gate: PROCEED
 | P581-02 | Implement strict typed loading, validation, canonical identity, reference coverage, and deterministic rejection for both DSLs without a permissive Phase 58 format adapter. | complete |
 | P581-03 | Author the real Article 9 Japanese Document Description and generate one self-contained deterministic document-review HTML with exact Core traceability. | complete |
 | P581-04 | Author the real Article 9 Japanese Summary Description and generate one self-contained deterministic summary-review HTML with exact Core and Document traceability. | complete |
-| P581-05 | Prove semantically distinct Logical Patterns, typed Relations, child-Step Flow, currentness, and deterministic output through focused specifications, independent review, full validation, and release closure. | planned |
+| P581-05 | Prove semantically distinct Logical Patterns, typed Relations, child-Step Flow, currentness, and deterministic output through focused specifications, independent review, full validation, and release closure. | complete |
 
 ## Authority boundary
 
@@ -118,6 +131,17 @@ Phase Plan Gate: PROCEED
   registration, deployment, upload, push, or external-service mutation.
 - Automatic semantic inference or automatic human acceptance of generated
   prose and summaries.
+
+## Closure record
+
+- The complete Phase review `PHASE-58.1-FULL-PHASE-REVIEW-001` accepted the
+  settled boundary with no Current Phase Blocker.
+- `HYG-P58-001` remains the already-persisted Phase 58 dispatcher-maintenance
+  follow-up; it is neither implementation work nor a new journal record for
+  this Phase.
+- The release workflow binds the final full Cozy validation and local release
+  commit to this closed documentation state. It does not authorize publication,
+  deployment, upload, push, or an external-service action.
 
 ## References
 
