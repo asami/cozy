@@ -33,21 +33,21 @@ Stage Status:
 ## P582-02: Strict v2 authoring authority
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Document and Summary Description DSL
 - Update rule: Mark DONE only when the paired Markdown and executable
   specifications admit all required reference semantics without physical
   layout IR and preserve strict v1 behavior.
 
-- [ ] Define `cozy.document-description.v2` project-specific typed semantic
+- [x] Define `cozy.document-description.v2` project-specific typed semantic
       labels and their exact Core-resolution/coverage rules.
-- [ ] Define `cozy.summary-description.v2` short navigation labels, retained
+- [x] Define `cozy.summary-description.v2` short navigation labels, retained
       points, coordinate-free typed diagrams, and explicit Document omissions.
-- [ ] Keep pixels, coordinates, CSS, HTML, fonts, and pagination outside both
+- [x] Keep pixels, coordinates, CSS, HTML, fonts, and pagination outside both
       authoring DSLs.
-- [ ] Reject unknown fields, duplicate identities, unresolved typed refs,
+- [x] Reject unknown fields, duplicate identities, unresolved typed refs,
       stale upstream identities, missing required labels, and ungrounded edges.
-- [ ] Preserve closed v1 loading, validation, identities, rejection, and
+- [x] Preserve closed v1 loading, validation, identities, rejection, and
       rendering without permissive conversion.
 
 ## P582-03: Interactive Document confirmation
