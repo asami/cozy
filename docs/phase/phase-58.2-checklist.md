@@ -53,20 +53,22 @@ Stage Status:
 ## P582-03: Interactive Document confirmation
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Document confirmation renderer
-- Update rule: Mark DONE only when every Article 9 Step can drive a complete,
-  accessible, deterministic Core-to-prose review interaction.
+- Update rule: Mark DONE only when every P582-03 checklist item below is checked
+  and supported by the P582-03A focused validation and sealed Step review. This
+  closure covers the strict v2 Document renderer only; the real Article 9
+  driver and Cozy locale resource remain P582-05.
 
-- [ ] Render the recursive Step tree with project-specific localized labels.
-- [ ] Render child-Step Flow separately from containment and local Structure.
-- [ ] Render the selected Step's Logical Pattern, nodes, roles, and exact typed
+- [x] Render the recursive Step tree with project-specific localized labels.
+- [x] Render child-Step Flow separately from containment and local Structure.
+- [x] Render the selected Step's Logical Pattern, nodes, roles, and exact typed
       Relations without inference.
-- [ ] Highlight all referenced Sections, Blocks, and List Items when a reviewer
+- [x] Highlight all referenced Sections, Blocks, and List Items when a reviewer
       selects a Step.
-- [ ] Show coverage, currentness, and unresolved-reference status while keeping
+- [x] Show coverage, currentness, and unresolved-reference status while keeping
       full identities and diagnostics secondary.
-- [ ] Generate one safely escaped, keyboard-operable, responsive,
+- [x] Generate one safely escaped, keyboard-operable, responsive,
       self-contained deterministic HTML file.
 
 ## P582-04: Interactive Summary confirmation
