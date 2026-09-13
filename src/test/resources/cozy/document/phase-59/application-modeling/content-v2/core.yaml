@@ -1,0 +1,173 @@
+schema: cozy.content-core.logic-tree.v1
+id: application-modeling
+root:
+  id: application-modeling
+  semanticRole: explanation
+  claims:
+    - series-position
+    - series-continuity
+  structure:
+    pattern: mapping
+    nodes:
+      - id: root-domain-model
+        role: source
+      - id: root-application-model
+        role: target
+    relations:
+      - id: root-domain-maps-to-application
+        relationType: maps-to
+        from: root-domain-model
+        to: root-application-model
+  flow:
+    id: application-modeling-flow
+    transitions:
+      - id: realization-depends-on-foundation
+        relationType: depends-on
+        fromStepId: use-case-realization
+        toStepId: application-foundation
+      - id: conclusion-depends-on-realization
+        relationType: depends-on
+        fromStepId: application-conclusion
+        toStepId: use-case-realization
+  steps:
+    - id: application-foundation
+      semanticRole: context
+      claims:
+        - application-modeling-purpose
+        - domain-and-application-modeling
+      structure:
+        pattern: dependency-map
+        nodes:
+          - id: foundation-static-view
+            role: dependency
+          - id: foundation-dynamic-view
+            role: dependent
+        relations:
+          - id: foundation-dynamic-depends-on-static
+            relationType: depends-on
+            from: foundation-dynamic-view
+            to: foundation-static-view
+      flow:
+        id: application-foundation-flow
+        transitions: []
+      steps: []
+    - id: use-case-realization
+      semanticRole: realization
+      claims:
+        - use-case-as-starting-point
+        - use-case-realization
+        - ui-and-application-boundary
+      structure:
+        pattern: mapping
+        nodes:
+          - id: realization-scenario
+            role: source
+          - id: realization-model
+            role: target
+        relations:
+          - id: realization-scenario-maps-to-model
+            relationType: maps-to
+            from: realization-scenario
+            to: realization-model
+      flow:
+        id: use-case-realization-flow
+        transitions:
+          - id: execution-depends-on-collaboration
+            relationType: depends-on
+            fromStepId: executable-elements
+            toStepId: collaboration-and-interaction
+      steps:
+        - id: collaboration-and-interaction
+          semanticRole: collaboration
+          claims:
+            - collaboration
+            - interaction
+            - static-and-dynamic-views
+          structure:
+            pattern: causal-chain
+            nodes:
+              - id: collaboration-participants
+                role: cause
+              - id: collaboration-responsibility
+                role: cause
+              - id: collaboration-interaction
+                role: effect
+            relations:
+              - id: collaboration-participants-enable-interaction
+                relationType: enables
+                from: collaboration-participants
+                to: collaboration-interaction
+              - id: collaboration-responsibility-causes-interaction
+                relationType: causes
+                from: collaboration-responsibility
+                to: collaboration-interaction
+              - id: collaboration-responsibility-enables-interaction
+                relationType: enables
+                from: collaboration-responsibility
+                to: collaboration-interaction
+          flow:
+            id: collaboration-and-interaction-flow
+            transitions: []
+          steps: []
+        - id: executable-elements
+          semanticRole: execution
+          claims:
+            - event
+            - state-machine
+            - service-and-operation
+          structure:
+            pattern: causal-chain
+            nodes:
+              - id: execution-event
+                role: cause
+              - id: execution-state-machine
+                role: cause
+              - id: execution-service
+                role: effect
+            relations:
+              - id: execution-event-causes-service
+                relationType: causes
+                from: execution-event
+                to: execution-service
+              - id: execution-event-enables-service
+                relationType: enables
+                from: execution-event
+                to: execution-service
+              - id: execution-state-machine-enables-service
+                relationType: enables
+                from: execution-state-machine
+                to: execution-service
+          flow:
+            id: executable-elements-flow
+            transitions: []
+          steps: []
+    - id: application-conclusion
+      semanticRole: conclusion
+      claims:
+        - modeling-flow
+        - review-and-refinement
+        - traceability
+        - executable-model
+        - model-realization-boundary
+      structure:
+        pattern: dependency-map
+        nodes:
+          - id: conclusion-review
+            role: dependency
+          - id: conclusion-cml
+            role: dependent
+          - id: conclusion-ai-proposal-decision
+            role: dependent
+        relations:
+          - id: conclusion-cml-depends-on-review
+            relationType: depends-on
+            from: conclusion-cml
+            to: conclusion-review
+          - id: conclusion-ai-proposal-decision-depends-on-review
+            relationType: depends-on
+            from: conclusion-ai-proposal-decision
+            to: conclusion-review
+      flow:
+        id: application-conclusion-flow
+        transitions: []
+      steps: []

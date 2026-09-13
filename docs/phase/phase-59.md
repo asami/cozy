@@ -68,7 +68,7 @@ Phase Plan Gate: PROCEED
 | P590-01 | Define the strict `cozy.summary-slide-projection.v1` contract in paired design/specification documents: exact v2 Core/Document/Summary/media identities, pre-existing catalog/binding selection, ordered Summary-Unit-to-Visual-Page mappings, provenance/currentness, Article 9 three-page projection, and fail-closed rejection. | complete |
 | P590-02 | Implement strict typed loading and deterministic read-only projection of a canonical Phase 36 `VisualPageSet`, plus a required explicit-output writer, from admitted v2 inputs and the projection profile, using one pre-existing fixed Visual Page binding. | complete |
 | P590-03 | Connect the generated Visual Page Set and that pre-existing binding to the existing Phase 40 `summary-slides-pdf` media route and its existing PDF verification, receipt, and currentness behavior without a parallel renderer or receipt scheme. | complete |
-| P590-04 | Add a real Article 9 Japanese projection driver and executable acceptance for page order, source/structure traceability, semantic marks, deterministic output, current/stale propagation, and rejection paths. | planned |
+| P590-04 | Add a real Article 9 Japanese projection driver and executable acceptance for page order, source/structure traceability, semantic marks, deterministic output, current/stale propagation, and rejection paths. | complete |
 | P590-05 | Complete focused validation, independent full-Phase review, full Cozy validation, and a distinct local Phase release commit for the settled scope. | planned |
 
 ## Authority boundary
@@ -153,6 +153,31 @@ Phase Plan Gate: PROCEED
 5. Executable specifications for normal generation, exact mapping, semantic
    marks, stale propagation, source/profile/catalog/binding rejection, and
    repeated deterministic output.
+
+## P590-04 execution slice
+
+P590-04A is one Article 9 Japanese local-acceptance slice. It owns a static
+test-resource Document Project rooted at
+`src/test/resources/cozy/document/phase-59/application-modeling`: the already
+admitted v2 Core, Japanese Document and Summary descriptions, a Japanese
+Projection Profile, and a `media.yaml` with its accepted Visual Page catalog,
+pre-existing binding, and local presentation dependencies. The Profile must
+declare the complete ordered page sequence selected by the real Summary rather
+than reconstructing source YAML inside a test.
+
+Its executable acceptance owns one dedicated document-project specification.
+It calls `CozySummarySlidePdf` with the existing Phase 40 test renderer seam,
+then verifies the emitted PDF page count and ordered page/source mapping,
+Summary-unit provenance, and distinct existing Visual Page semantics for
+Step-Flow versus step-local Structure. It also proves deterministic repeated
+output and that changes to Core, Document, Summary, Profile, catalog, or
+binding reject or make the accepted PDF stale without a replacement receipt.
+The focused validation additionally runs the owning Phase 58.1 and 58.2
+confirmation specifications.
+
+P590-04A does not change the Phase 40 renderer, its manifest/receipt schema,
+the external site, or presentation layout. No production-source change is
+planned; a failure that requires one widens the Slice and must return to PLAN.
 
 ## Closure criteria
 

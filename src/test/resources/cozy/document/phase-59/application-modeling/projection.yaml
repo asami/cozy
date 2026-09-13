@@ -1,0 +1,70 @@
+schema: cozy.summary-slide-projection.v1
+version: 1
+id: application-modeling-pages-ja-v2
+core:
+  id: application-modeling
+  identity: sha256:6afe2e0a8bc534be97e12fb34dffd0175ee82baccb22b98923f92801d3ee0998
+  path: content-v2/core.yaml
+document:
+  id: application-modeling-document-ja-v2
+  identity: sha256:5e91fb42d9e18ab3a8209de937b691c7ae4075b4ce2e227b6e74fcc6d28703ac
+  path: content-v2/ja/document.yaml
+summary:
+  id: application-modeling-summary-ja-v2
+  identity: sha256:d66661e755bc446c3b90ce6fb45fc15ef0d19a5500af4605dfd935e0564ee744
+  path: content-v2/ja/summary.yaml
+locale: ja
+media:
+  id: application-modeling
+  identity: sha256:a1e376f0701c5694a8bc129117090cdf026d56d9b1ce16ca7810b5918a5db8a1
+  path: media.yaml
+  summarySlidesPdf: summary-slides-pdf
+catalog:
+  id: presentation
+  revision: 1
+  identity: sha256:4a292696d0f8c85833345cae59382c9c2ddb74c9d9488142d0a74706fe102b59
+  path: presentation/catalog.json
+binding:
+  id: business-binding
+  identity: sha256:203279df1af258e201c27d86574d07a89e1289a2cc7b5b6706348d67c92a1dd3
+  profile: business
+  path: presentation/binding.json
+pages:
+  - id: overview-domain-to-application
+    summaryUnitId: application-overview
+    logicalPattern: mapping
+    visualPattern: mapping-columns
+    items:
+      - diagramItemId: overview-domain-model
+        role: source
+      - diagramItemId: overview-application-model
+        role: target
+    edges:
+      - diagramEdgeId: overview-domain-to-application
+    visualParameters:
+      sourceColumnTitle: ドメインモデル
+      targetColumnTitle: アプリケーションモデル
+  - id: overview-realization-to-foundation
+    summaryUnitId: application-overview
+    logicalPattern: dependency-map
+    visualPattern: flow-vertical
+    items:
+      - diagramItemId: overview-realization
+        role: dependent
+      - diagramItemId: overview-foundation
+        role: dependency
+    edges:
+      - diagramEdgeId: overview-realization-to-foundation
+    visualParameters: {}
+  - id: overview-conclusion-to-realization
+    summaryUnitId: application-overview
+    logicalPattern: dependency-map
+    visualPattern: flow-vertical
+    items:
+      - diagramItemId: overview-conclusion
+        role: dependent
+      - diagramItemId: overview-realization
+        role: dependency
+    edges:
+      - diagramEdgeId: overview-conclusion-to-realization
+    visualParameters: {}

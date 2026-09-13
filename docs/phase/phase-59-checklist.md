@@ -105,22 +105,35 @@ typed receipt and review-disposition identities.
 ## P590-04: Article 9 acceptance
 
 Stage Status:
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Phase 59 Article 9 local acceptance
 - Update rule: Do not mark DONE until the local Article 9 fixture demonstrates
   the entire declared projection-to-PDF path with executable evidence.
 
-- [ ] Author the Article 9 Japanese Projection Profile and local media-driver
+Slice P590-04A freezes one local Article 9 Japanese fixture and one executable
+acceptance specification. It introduces no new renderer, receipt schema,
+production source, external operation, or responsive/layout work. The fixture
+must contain a static complete Profile with its declared ordered page sequence;
+test code may generate derived PageSet/PDF output only through the existing
+Phase 59 coordinator and Phase 40 renderer seam.
+
+- [x] Author the Article 9 Japanese Projection Profile and local media-driver
       fixture bound to the already admitted v2 inputs.
-- [ ] Generate the Article 9 summary-slide PDF through the existing Phase 40
+- [x] Generate the Article 9 summary-slide PDF through the existing Phase 40
       route and verify page order/count and exact source mapping.
-- [ ] Verify selected Step Flow and local Structure remain distinct and
+- [x] Verify selected Step Flow and local Structure remain distinct and
       Core-grounded through existing catalog-supported visual semantics, with
       no invented tag text claimed from the Visual Page contract.
-- [ ] Cover stale propagation and invalid/missing source, profile, catalog, and
+- [x] Cover stale propagation and invalid/missing source, profile, catalog, and
       binding cases without fresh PDF receipt visibility.
-- [ ] Preserve Phase 58.1/58.2 confirmation behavior as separate evidence and
+- [x] Preserve Phase 58.1/58.2 confirmation behavior as separate evidence and
       prove their owning specifications remain passing.
+
+Evidence: `P590-04A-FIX-VAL-002` passed the dedicated Article 9 acceptance
+specification, and `P590-04A-ACC-003` passed its P590-02/P590-03 and Phase
+58.1/58.2 accumulator. The independent lightweight review recorded no Current
+Phase Blocker in review-disposition
+`ad50e95af977e87e046a91ed067edd793b01d8007a8ba106618d4b2c1bd318e5`.
 
 ## P590-05: Phase closure
 

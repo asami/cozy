@@ -1,0 +1,52 @@
+schema: cozy.media.v1
+knowledge:
+  id: application-modeling
+  source: content-v2/core.yaml
+languages: [ja]
+resources:
+  - id: article-pdf
+    kind: document
+    language: ja
+    source: article.pdf
+    build: prebuilt
+    articleMedia:
+      role: article_pdf
+      publicPath: /article.pdf
+      mediaType: application/pdf
+  - id: infographic
+    kind: infographic
+    language: ja
+    source: infographic.svg
+    build: prebuilt
+    articleMedia:
+      role: infographic
+      publicPath: /infographic.svg
+      mediaType: image/svg+xml
+  - id: summary-slides-pdf
+    kind: document
+    language: ja
+    source: visual-pages.json
+    output: target/summary-slides.pdf
+    build: summary-slides-pdf
+    articleMedia:
+      role: summary_slides_pdf
+      publicPath: /summary-slides.pdf
+      mediaType: application/pdf
+    summarySlidesPdf:
+      contract: visual-page-v1
+      profile: business
+      catalog: presentation/catalog.json
+      binding: presentation/binding.json
+      slideImages: target/slides
+      montage: target/montage.png
+      rendererManifest: target/renderer.json
+      articlePdf: article-pdf
+      infographic: infographic
+profiles:
+  business:
+    presentation:
+      template: template.pptx
+      renderer:
+        name: cozy-renderer
+        version: "1"
+        command: [cozy-renderer]
