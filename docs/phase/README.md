@@ -88,6 +88,11 @@ Current phase state:
   redesign or mobile/full-responsive parity claim is authorized here without
   observation. V1 behavior and typed authority boundaries remain intact;
   publication and site integration remain outside its boundary.
+- Planned successor: `phase-59.md` connects the closed v2
+  `content/<locale>/summary.yaml` authority to the already accepted Phase 40
+  summary-slide PDF route through an explicit, strict Visual Page projection.
+  It reuses the existing renderer, PDF verification, receipt, and currentness
+  path; it does not begin site integration or redesign a renderer.
 - Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite

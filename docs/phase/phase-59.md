@@ -1,0 +1,203 @@
+# Phase 59: Summary Description to Visual Page PDF Projection
+
+Status: PLANNED
+
+Plan date: 2026-09-13
+
+Development item: DEV-027
+
+Predecessors:
+
+- [Phase 40](phase-40.md): accepted `summary_slides_pdf` rendering,
+  receipt, and currentness route;
+- [Phase 58.1](phase-58.1.md): v2 Document Description and Summary
+  Description authorities; and
+- [Phase 58.2](phase-58.2.md): Article 9 confirmation projections and
+  semantic inspection evidence.
+
+## Goal
+
+Make an admitted v2 `content/<locale>/summary.yaml`, bound to its exact
+`core.yaml` and `document.yaml`, a deterministic input to the already accepted
+Phase 40 `summary_slides_pdf` route.
+
+Phase 59 owns the missing strict projection from concise Summary Description
+meaning into an explicitly bound `VisualPageSet`. It connects that generated
+PageSet with one pre-existing fixed Visual Page binding, then invokes the
+existing Phase 40 renderer, PDF verification, receipt, and currentness
+contracts. It does not create another PDF renderer or turn the Summary
+Description into a layout format.
+
+## Phase Plan Gate
+
+Phase Plan Gate: PROCEED
+
+- target: one Article 9-shaped executable vertical slice; preferred 4–8 h
+  band
+- planning_demand: protected-decision
+- recommended_parent_profile: `gpt-5.6-sol / xhigh`
+- expensive_reasoning_kernel: preserve the v2 semantic-authoring boundary
+  while producing a current, accepted Phase 40 presentation authority with no
+  ungrounded or silently inferred slide meaning
+- estimated_at_recommended_profile: 7–8 h
+- incoming_handoff: closed Phase 40 PDF route and closed Phase 58.1/58.2
+  Article 9 v2 source and confirmation evidence
+- frozen_outcome: an explicit Summary-to-Visual-Page projection profile,
+  deterministic Visual Page generation with a pre-existing binding, and one
+  current Article 9 summary-slide PDF through the existing Phase 40 path
+- short_child_exception: none
+- source: user direction on 2026-09-13 to connect the latest Document Project
+  DSL to the Phase 40 summary-PDF capability
+
+## Full Phase review selection
+
+- selected reviewer: `gpt-5.6-sol` / `xhigh`
+- selection evidence: the Phase crosses three closed authority boundaries
+  (v2 Summary Description, Phase 36 Visual Page, and Phase 40 PDF/receipt)
+  and must prove that currentness and exact source traceability survive their
+  connection without weakening any of them.
+- reasoning mode: standard
+- boundary: the eventual Phase base through all accepted P590-01 through
+  P590-05 Step commits, including an Article 9 driver and no unrelated
+  Document Project migration.
+
+## In-scope work
+
+| ID | Outcome | Status |
+| --- | --- | --- |
+| P590-01 | Define the strict `cozy.summary-slide-projection.v1` contract in paired design/specification documents: exact v2 Core/Document/Summary/media identities, pre-existing catalog/binding selection, ordered Summary-Unit-to-Visual-Page mappings, provenance/currentness, Article 9 three-page projection, and fail-closed rejection. | complete |
+| P590-02 | Implement strict typed loading and deterministic generation of a canonical Phase 36 `VisualPageSet` from admitted v2 inputs and the explicit projection profile, using one pre-existing fixed Visual Page binding. | planned |
+| P590-03 | Connect the generated Visual Page Set and that pre-existing binding to the existing Phase 40 `summary-slides-pdf` media route and its existing PDF verification, receipt, and currentness behavior without a parallel renderer or receipt scheme. | planned |
+| P590-04 | Add a real Article 9 Japanese projection driver and executable acceptance for page order, source/structure traceability, semantic marks, deterministic output, current/stale propagation, and rejection paths. | planned |
+| P590-05 | Complete focused validation, independent full-Phase review, full Cozy validation, and a distinct local Phase release commit for the settled scope. | planned |
+
+## Authority boundary
+
+- `content/core.yaml` remains the locale-independent recursive logic-tree
+  authority established by Phase 58.
+- `content/<locale>/document.yaml` remains the complete localized document
+  authority established by Phase 58.1.
+- `content/<locale>/summary.yaml` remains the localized concise-content
+  authority: it owns selected meaning, order, wording, emphasis, authored
+  semantic diagrams, retained points, and explicit omissions. It does not own
+  CSS, coordinates, fonts, pagination, or PDF parameters.
+- A new explicit Summary Slide Projection Profile is a derived-presentation
+  selection contract. It binds exact source identities and declares the
+  admissible Summary Unit-to-Visual-Page projection, catalog, and Visual
+  Pattern choices. It must not invent a Core node, Relation, Flow, source,
+  retained point, or omission absent from the admitted inputs.
+- The generated `VisualPageSet` and the profile-selected pre-existing binding
+  are the named presentation authorities consumed by the existing Phase 40
+  route. They retain exact source/projection provenance and are stale when any
+  consumed authority or catalog/binding input changes. Phase 59 never generates
+  or changes the binding.
+- Phase 40 remains the sole owner of physical slide rendering, PDF generation,
+  PDF verification, renderer manifest, receipt construction, and PDF review
+  currentness.
+- Phase 58.2 Document and Summary confirmation HTML remains review evidence;
+  it is neither a PDF input nor a second semantic authority.
+
+## Projection requirements
+
+- A projection begins only from explicitly admitted Core, Document, Summary,
+  projection-profile, media descriptor/target, catalog, and pre-existing binding
+  inputs. Missing, unknown, duplicate, stale, or unresolved inputs fail before
+  PDF output or receipt visibility.
+- The profile records the ordered Summary Unit-to-page mapping. One Summary
+  Unit normally corresponds to one page, but any expansion or pagination is a
+  declared projection decision, never a renderer-side convenience or implicit
+  interpretation.
+- Generated pages preserve Summary Unit order and every page records its exact
+  originating Summary Unit and selected Core/Document/Summary/profile/media
+  references. Each selected Summary edge occurs once; every mapping carries its
+  exact endpoint items. A shared endpoint may recur with the same source ID and
+  Core reference only when distinct selected edges require it, while an
+  edge-unrelated item occurs once. Page-local catalog roles do not change Core
+  meaning.
+- Existing Summary-authorized Step Flow and Step-local Structure remain
+  distinguishable through their selected catalog-supported nodes and relations.
+  No relation direction, node role, Logical Pattern, or Visual Pattern may be
+  reversed, flattened, or synthesized merely to make a page look complete;
+  Phase 59 does not add new semantic tag text to the unchanged Visual Page or
+  renderer contracts.
+- Generated Visual Pages use the accepted Phase 36 catalog/binding contract.
+  A selected Visual Pattern is explicit and validated; CSS and physical layout
+  remain the renderer's responsibility.
+- The Phase 40 route is reused as-is for `summary_slides_pdf`; its existing
+  receipt and stale-input checks are extended only by adding this projection's
+  verified inputs to the already established dependency chain.
+
+## Required outputs
+
+1. Paired [design](../design/document-project-summary-slide-pdf-projection.md)
+   and [normative specification](../spec/document-project-summary-slide-pdf-projection.md)
+   for the `cozy.summary-slide-projection.v1` Profile and
+   v2-source-to-Visual-Page projection.
+2. Strict typed profile/source loading, identity and reference validation,
+   canonical VisualPageSet generation using the selected pre-existing binding,
+   and deterministic rejection.
+3. A Document Project operation/driver which reaches the existing
+   `summary-slides-pdf` media build with generated, current Phase 36 inputs.
+4. Article 9 Japanese source/profile/media-driver fixtures and one generated
+   summary-slide PDF with retained provenance evidence.
+5. Executable specifications for normal generation, exact mapping, semantic
+   marks, stale propagation, source/profile/catalog/binding rejection, and
+   repeated deterministic output.
+
+## Closure criteria
+
+- The v2 source authorities, projection profile, generated presentation
+  authorities, and Phase 40 renderer responsibilities are non-overlapping and
+  specified consistently.
+- Every generated page and PDF is traceable to its exact Summary Unit, its
+  bound v2/media source identities, and the accepted Visual Page catalog and
+  pre-existing binding.
+- The Article 9 PDF preserves Summary order and distinguishes selected
+  Step Flow from local Structure wherever the Summary selected them through
+  the existing catalog-supported visual semantics; it does not claim new
+  tag/structure text beyond the unchanged renderer contract.
+- An input mutation to Core, Document, Summary, profile, catalog, binding, or
+  consumed asset makes the derived presentation/PDF stale or rejects the
+  operation deterministically; no fresh receipt is emitted for mixed input.
+- Phase 40's existing PDF role, renderer manifest, PDF integrity check, and
+  receipt/review currentness remain authoritative and passing.
+- Existing Phase 40, Phase 58.1, and Phase 58.2 behavior remains executable
+  and passing.
+- Focused validation, independent full-Phase review, full Cozy validation, and
+  a distinct local Phase release commit close the Phase.
+
+## Exclusions
+
+- Rewriting or replacing the accepted Phase 40 summary-slide PDF renderer,
+  renderer manifest, PDF verifier, receipt format, or review-currentness
+  contract.
+- Adding PDF, PPTX, CSS, coordinates, fonts, physical layout, or automatic
+  pagination fields to `summary.yaml`.
+- Reopening completed Phase 40, Phase 58, Phase 58.1, or Phase 58.2 history.
+- Migrating every Document Project, scaffold/profile redesign, or retirement
+  of earlier semantic products.
+- SmartDox or SimpleModeling.org production integration, publication,
+  registration, deployment, upload, push, or external-service mutation.
+- Automatic semantic inference or automatic acceptance of generated content.
+
+## Execution readiness
+
+- P590-01 is complete. Its checklist is authoritative for progress; no later
+  implementation, test, PDF, review, or release Phase item is claimed complete.
+- P590-01 must freeze the profile schema and exact source-to-page/provenance
+  contract before P590-02 starts implementation.
+- The first driver uses the already admitted local Article 9 v2 inputs. It is
+  not authorization to mutate the external SimpleModeling.org production site.
+
+## References
+
+- [Phase 59 checklist](phase-59-checklist.md)
+- [Phase 59 planning decision](../journal/2026/09/2026-09-13-phase-59-summary-slide-pdf-projection-decision.md)
+- `docs/spec/document-project-document-and-summary-description-v2.md`
+- `docs/design/document-project-summary-slide-pdf-projection.md`
+- `docs/spec/document-project-summary-slide-pdf-projection.md`
+- `docs/spec/visual-page.md`
+- `docs/spec/media-package.md`
+- `docs/phase/phase-40.md`
+- `docs/phase/phase-58.1.md`
+- `docs/phase/phase-58.2.md`

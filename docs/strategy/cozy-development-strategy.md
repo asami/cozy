@@ -1695,6 +1695,7 @@ Origin:
 | DEV-024 | `docs/journal/2026/09/2026-09-11-phase-58-recursive-content-core-decision.md`; user-approved reconstruction on 2026-09-11 | Replace the flat localized Content Core authoring model in one bounded vertical slice with a locale-independent recursive `content/core.yaml` whose Steps own local Structure, child Flow, and nested child Steps, then project the real Article 9 logic into one overview HTML and one Step-slide HTML. | NEW_PHASE | [Phase 58](../phase/phase-58.md) COMPLETE | RESOLVED |
 | DEV-025 | `docs/journal/2026/09/2026-09-12-phase-58.1-document-summary-description-dsl-decision.md`; user-approved Phase 58.1 creation on 2026-09-12 | Add media-independent complete-document and summary-slide-level authoring DSLs over the recursive Content Core, separate localized content from renderer chrome, and prove both with strict Article 9 Japanese review projections that preserve semantically distinct Step Flow and local Structure. | NEW_PHASE | [Phase 58.1](../phase/phase-58.1.md) COMPLETE | RESOLVED |
 | DEV-026 | `docs/journal/2026/09/2026-09-12-phase-58.2-interactive-confirmation-projection-decision.md`; user-approved Phase 58.2 planning on 2026-09-12; operational closure and normal-acceptance resumption decisions on 2026-09-13 | Generate interactive Document and Summary confirmation workspaces equivalent to the approved Article 9 reference behavior, with strict v2 semantic labels, coordinate-free diagrams, retained points, explicit omissions, no renderer-side inference, and preserved v1 contracts. | NEW_PHASE | [Phase 58.2](../phase/phase-58.2.md) COMPLETE; the bounded repair closed one diagnostic-only export-currentness regression without altering Article 9 projection behavior; DP-02 broader redesign remains future and DP-04 remains accepted operational refinement | RESOLVED |
+| DEV-027 | `docs/journal/2026/09/2026-09-13-phase-59-summary-slide-pdf-projection-decision.md`; user direction on 2026-09-13 after Phase 58.2 closure | Project the current bound v2 Summary Description through an explicit source-grounded Visual Page profile and invoke the existing Phase 40 `summary_slides_pdf` route, preserving PDF renderer/receipt/currentness authority and Article 9 local acceptance. | NEW_PHASE | [Phase 59](../phase/phase-59.md) PLANNED | ADOPTED |
 
 ## Current Priority
 
@@ -1760,14 +1761,18 @@ The sequence preserves `UnitOfWorkOp` as the sole execution algebra; CNCF
 Phase 64.2 remains the consumer-owned runtime authority and external
 acceptance owner.
 
-The next semantic-metadata supplier priority is the approved Phase 54 sequence.
-Its retained first child provides the stable identity, provenance, explicit
-absence, and versioned publication foundation that a future
-SimpleModeling.org editing-oriented consumer can use first; it does not edit,
-build, register, publish, deploy, upload, or push the site. The following
-children add Structure, Classification, dynamic Workflow/StateMachine, and
-Use Case/fixture acceptance in that order. Textus CBD Support retains
-Dashboard presentation and external consumer acceptance.
+The immediate Document Project priority is planned Phase 59. It connects the
+current v2 Summary Description to the accepted Phase 40 summary-slide PDF
+route through an explicit, source-grounded Visual Page projection. This Cozy
+producer step reuses the established renderer, PDF verification, receipt, and
+currentness contracts; it does not edit, build, register, publish, deploy,
+upload, or push SimpleModeling.org. The approved Phase 54 semantic-metadata
+supplier sequence remains planned after this priority. Its retained first child
+provides stable identity, provenance, explicit absence, and versioned
+publication foundation for a future editing-oriented SimpleModeling.org
+consumer; following children add Structure, Classification, dynamic
+Workflow/StateMachine, and Use Case/fixture acceptance. Textus CBD Support
+retains Dashboard presentation and external consumer acceptance.
 
 Phase 48 is closed for deterministic public-profile presentation-semantics
 scaffolding with direct generated-Core byte binding and deliberately
