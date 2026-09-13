@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 29, 2026
- * @version Aug. 29, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaSummarySlidesPdf {
@@ -192,9 +192,17 @@ private[cozy] object CozyMediaSummarySlidesPdf {
     }
   }
 
-  def build(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, runner: CozyMedia.ProcessRunner): String = {
+  def build(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, runner: CozyMedia.ProcessRunner): String =
+    build(
+      plan,
+      resolved,
+      resolved.source.getOrElse(_invalid(s"Summary-slides PDF source is missing: ${resolved.resource.id}")),
+      runner
+    )
+
+  def build(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, pageSetInput: Path, runner: CozyMedia.ProcessRunner): String = {
     val configuration = _configuration(resolved)
-    val authority = _authority(plan, resolved)
+    val authority = _authority(plan, resolved, pageSetInput)
     val profile = _profile(plan, configuration, resolved)
     val template = _direct_input(plan.descriptorRoot, profile.template, s"Summary-slides PDF template ${resolved.resource.id}")
     val output = resolved.output.getOrElse(_invalid(s"Summary-slides PDF output is missing: ${resolved.resource.id}"))
@@ -242,8 +250,14 @@ private[cozy] object CozyMediaSummarySlidesPdf {
 
   private def _authority(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Authority = {
     val resource = resolved.resource
+    val pagesetinput = resolved.source.getOrElse(_invalid(s"Summary-slides PDF source is missing: ${resource.id}"))
+    _authority(plan, resolved, pagesetinput)
+  }
+
+  private def _authority(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, pagesetinput: Path): Authority = {
+    val resource = resolved.resource
     val configuration = _configuration(resolved)
-    val source = _direct_input(plan.descriptorRoot, resource.source.getOrElse(_invalid(s"Summary-slides PDF source is missing: ${resource.id}")), s"Summary-slides PDF source ${resource.id}")
+    val source = _require_direct(pagesetinput, s"Summary-slides PDF source ${resource.id}")
     configuration.contract match {
       case value if value == _slide_ir_contract =>
         val document = CozyMediaSlideIr.load(source)

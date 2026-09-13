@@ -18,7 +18,7 @@ import scala.util.control.NonFatal
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
- * @version Sep.  8, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -403,7 +403,13 @@ private[cozy] object CozyMedia {
       )
     }
 
-  def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String = {
+  def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String =
+    _build(config, runner, None)
+
+  private[cozy] def buildSummarySlidesPdf(config: CommandConfig, pageSetInput: Path, runner: ProcessRunner): String =
+    _build(config, runner, Some(pageSetInput))
+
+  private def _build(config: CommandConfig, runner: ProcessRunner, pagesetinput: Option[Path]): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
     val plannedidentity = if (config.dryRun) None else Some(CozyMediaReceipt.capture(mediaplan))
@@ -422,7 +428,12 @@ private[cozy] object CozyMedia {
           CozyMediaPresentation.requireDependenciesCurrent(mediaplan, resolved)
         if (config.target.isDefined && resolved.resource.build == "summary-slides-pdf")
           CozyMediaSummarySlidesPdf.requireDependenciesCurrent(mediaplan, resolved)
-        _build_resource(mediaplan, resolved, runner)
+        _build_resource(
+          mediaplan,
+          resolved,
+          runner,
+          if (resolved.resource.build == "summary-slides-pdf") pagesetinput else None
+        )
       }
     }
     if (!config.dryRun) {
@@ -838,7 +849,7 @@ private[cozy] object CozyMedia {
     s"Cozy Media Slide Verify\nstatus: valid\nresources: ${selected.size}"
   }
 
-  private def _build_resource(plan: Plan, resolved: ResolvedResource, runner: ProcessRunner): String =
+  private def _build_resource(plan: Plan, resolved: ResolvedResource, runner: ProcessRunner, pagesetinput: Option[Path] = None): String =
     resolved.action match {
       case Action.MissingSource =>
         RAISE.invalidArgumentFault(s"Missing media source for ${resolved.resource.id}")
@@ -863,7 +874,7 @@ private[cozy] object CozyMedia {
           case "article-pdf" =>
             return CozyMediaPdf.build(plan, resolved, runner)
           case "summary-slides-pdf" =>
-            return CozyMediaSummarySlidesPdf.build(plan, resolved, runner)
+            return CozyMediaSummarySlidesPdf.build(plan, resolved, pagesetinput.getOrElse(source), runner)
           case other =>
             RAISE.invalidArgumentFault(s"Unsupported executable media build kind: $other")
         }

@@ -1,6 +1,6 @@
 # Phase 59 Checklist: Summary Description to Visual Page PDF Projection
 
-Phase Status: PLANNED
+Phase Status: IN_PROGRESS
 
 Development item: DEV-027
 
@@ -47,42 +47,60 @@ generation; independent clean closure review disposition
 ## P590-02: Strict v2 projection implementation
 
 Stage Status:
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy Summary-to-Visual-Page projector
 - Update rule: Do not mark DONE until generated artifacts are canonical,
   deterministically validated Phase 36 Visual Page inputs and all P590-02
   specifications pass.
 
-- [ ] Implement typed loading and validation of the admitted v2 inputs and
+- [x] Implement typed loading and validation of the admitted v2 inputs and
       Projection Profile without a permissive legacy adapter.
-- [ ] Generate a canonical `cozy.visual-page-set.v1` from the ordered
+- [x] Generate a canonical `cozy.visual-page-set.v1` from the ordered
       projection mapping and bind it to the accepted catalog.
-- [ ] Validate and use the corresponding pre-existing Visual Page binding
+- [x] Keep transformation read-only and require an explicit PageSet writer
+      output; A does not read Phase 40 `source` or independently validate the
+      consumer binding. Retain ordinary output errors without special
+      destination collision/alias/overlap protection.
+- [x] Validate and use the corresponding pre-existing Visual Page binding
       required by the existing Phase 40 direct PDF route; do not generate,
       copy, or modify that binding.
-- [ ] Preserve exact Summary Unit, Core, and Document traceability in generated
+- [x] Preserve exact Summary Unit, Core, and Document traceability in generated
       page identities/provenance without turning confirmation HTML into input.
-- [ ] Prove byte/identity determinism and strict rejection through executable
+- [x] Prove byte/identity determinism and strict rejection through executable
       specifications.
+
+Evidence: P590-03A-VAL-002 ran
+`testOnly cozy.document.CozySummarySlideProjectionSpec cozy.media.CozyMediaSummarySlidesPdfSpec cozy.media.CozyVisualPageSpec`
+successfully (29 tests, three suites). The independent module-connection Step
+review recorded no Current Boundary Blocker; see
+[`2026-09-14-phase-59-module-connection-review.md`](../journal/2026/09/2026-09-14-phase-59-module-connection-review.md).
 
 ## P590-03: Phase 40 PDF route connection
 
 Stage Status:
-- Current status: PLANNED
+- Current status: DONE
 - Owner: Cozy Document Project media integration
 - Update rule: Do not mark DONE until the generated Visual Page authority is
   accepted by the pre-existing Phase 40 `summary-slides-pdf` route and no
   parallel PDF/receipt behavior exists.
 
-- [ ] Bind a Document Project summary-slide PDF operation/driver to the
+- [x] Bind a Document Project summary-slide PDF operation/driver to the
       generated VisualPageSet, catalog, pre-existing binding, and existing media
       descriptor inputs.
-- [ ] Reuse `CozyMediaSummarySlidesPdf` and the existing PDF verifier,
+- [x] Resolve `media.yaml` `source` once in coordinator X and pass the same
+      path to A as output and B as input without relocating withdrawn
+      output-protection checks to X.
+- [x] Reuse `CozyMediaSummarySlidesPdf` and the existing PDF verifier,
       renderer-manifest, receipt, and review-currentness contracts.
-- [ ] Make source/profile/catalog/binding changes stale or reject the derived
+- [x] Make source/profile/catalog/binding changes stale or reject the derived
       PDF through the existing receipt/currentness chain.
-- [ ] Prove that no new PDF renderer, PDF receipt schema, or layout authority
+- [x] Prove that no new PDF renderer, PDF receipt schema, or layout authority
       is introduced.
+
+Evidence: the P590-03A focused receipt covers the in-process coordinator,
+three-page existing Phase 40 fixture route, renderer evidence, and
+currentness/rejection paths. The result-only review journal retains the exact
+typed receipt and review-disposition identities.
 
 ## P590-04: Article 9 acceptance
 

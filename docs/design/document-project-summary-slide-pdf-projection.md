@@ -134,13 +134,31 @@ relation alias, visual chain, or catalog revision.
 
 ## 4. Canonical output and provenance
 
-Successful projection produces exactly one existing canonical
-`cozy.visual-page-set.v1`, written as one direct regular file at the bound media
-descriptor project root—the parent directory of bound `media.yaml`—never under
-`presentation/`, `target/`, or another subdirectory. Its output filename is the
-safe basename named by the selected Phase 40 target resource's `source`, with no
-separator. That target `source` must equal this root-level PageSet filename or
-projection rejects before output. PageSet `id` equals profile `id`; each Page
+The transformation returns one validated canonical `cozy.visual-page-set.v1`
+and provenance without filesystem mutation. Its media descriptor path is returned
+as in-process coordination context, not a new PageSet/provenance schema field.
+A distinct writer takes the validated projection and required explicit
+`pageSetOutput` path and performs ordinary atomic file output.
+
+`CozySummarySlidePdf` is the coordinator (X). It reads the selected media
+resource's `source`, resolves one connection path against the descriptor root,
+and passes it to the converter/writer (A) as output and the existing Phase 40
+route (B) as input. A may validate the bound media descriptor's semantic target,
+catalog, binding, and asset declarations, but never reads the target's `source`
+or compares its output argument with B's input configuration. B consumes the
+explicit path passed through the existing media build flow, retaining its
+renderer, structural verification, receipts, and currentness handling.
+
+The connection retains the root-level normalized project-relative PageSet input
+grammar; this is the existing reference-base contract, not an output-protection
+policy. A does not enumerate protected/generated paths or perform special
+collision, overlap, filesystem-alias, or destination-symlink checks. These checks
+are removed, not relocated to X. Ordinary required-output and write-error handling
+remain. The PageSet need not exist before transformation, and a materially wrong
+configuration is not guaranteed safe against overwriting another file. Semantic
+input validation and Phase 40's existing renderer checks remain independent.
+
+PageSet `id` equals profile `id`; each Page
 `id` equals mapping `id`; Page `knowledge` equals Core `id`; and Page `language`
 equals profile locale. A Visual Page node `id` equals `diagramItemId`; its label
 is the existing localized label resolved for the bound Core reference from the
@@ -178,13 +196,13 @@ manifest, receipt, catalog, or binding.
 
 Validation fails before PageSet output or receipt visibility for missing,
 unknown, duplicate, stale, malformed, unsafe, or mismatched inputs; a media
-target that is not the required existing Phase 40 target; a target source that
-does not name the required root-level PageSet file; unresolved labels;
+target that is not the required existing Phase 40 target; unresolved labels;
 duplicate/missing edge or required-endpoint coverage; unrelated items; a
 profile-supplied `emphasisNode`; invalid roles, relation types, endpoints,
 directions, pattern compatibility, or parameters; and loss, reversal, aliasing,
 or synthesis of Core meaning. Failure preserves prior output and exposes no
-fresh receipt.
+fresh receipt. X rejects invalid connection-source grammar; A reports ordinary
+write failures without a separate output/input-protection guarantee.
 
 This design neither changes source schemas, Visual Page schemas, catalog,
 binding, renderer, receipt, nor Phase 40/58 behavior; adds layout to Summary;

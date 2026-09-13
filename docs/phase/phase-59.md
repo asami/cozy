@@ -1,6 +1,6 @@
 # Phase 59: Summary Description to Visual Page PDF Projection
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 Plan date: 2026-09-13
 
@@ -66,8 +66,8 @@ Phase Plan Gate: PROCEED
 | ID | Outcome | Status |
 | --- | --- | --- |
 | P590-01 | Define the strict `cozy.summary-slide-projection.v1` contract in paired design/specification documents: exact v2 Core/Document/Summary/media identities, pre-existing catalog/binding selection, ordered Summary-Unit-to-Visual-Page mappings, provenance/currentness, Article 9 three-page projection, and fail-closed rejection. | complete |
-| P590-02 | Implement strict typed loading and deterministic generation of a canonical Phase 36 `VisualPageSet` from admitted v2 inputs and the explicit projection profile, using one pre-existing fixed Visual Page binding. | planned |
-| P590-03 | Connect the generated Visual Page Set and that pre-existing binding to the existing Phase 40 `summary-slides-pdf` media route and its existing PDF verification, receipt, and currentness behavior without a parallel renderer or receipt scheme. | planned |
+| P590-02 | Implement strict typed loading and deterministic read-only projection of a canonical Phase 36 `VisualPageSet`, plus a required explicit-output writer, from admitted v2 inputs and the projection profile, using one pre-existing fixed Visual Page binding. | complete |
+| P590-03 | Connect the generated Visual Page Set and that pre-existing binding to the existing Phase 40 `summary-slides-pdf` media route and its existing PDF verification, receipt, and currentness behavior without a parallel renderer or receipt scheme. | complete |
 | P590-04 | Add a real Article 9 Japanese projection driver and executable acceptance for page order, source/structure traceability, semantic marks, deterministic output, current/stale propagation, and rejection paths. | planned |
 | P590-05 | Complete focused validation, independent full-Phase review, full Cozy validation, and a distinct local Phase release commit for the settled scope. | planned |
 
@@ -94,6 +94,16 @@ Phase Plan Gate: PROCEED
 - Phase 40 remains the sole owner of physical slide rendering, PDF generation,
   PDF verification, renderer manifest, receipt construction, and PDF review
   currentness.
+- Phase 59 transformation returns the validated PageSet without filesystem
+  mutation. Its separate writer takes that validated projection and an explicit
+  output path. Coordinator X reads Phase 40 `source` and passes one resolved
+  connection path to A as output and B as input. A does not inspect the consumer
+  source or independently check its agreement. Special destination protection
+  against input/artifact collision, aliases, and overlap is withdrawn, not
+  relocated to X; ordinary write errors and semantic input validation remain.
+  The user's [2026-09-14 module-connection handoff](../journal/2026/09/2026-09-14-phase-59-module-connection-decision.md) supersedes the earlier
+  [output ownership decision](../journal/2026/09/2026-09-14-phase-59-projection-output-ownership-decision.md)
+  without erasing its historical implementation/review evidence.
 - Phase 58.2 Document and Summary confirmation HTML remains review evidence;
   it is neither a PDF input nor a second semantic authority.
 

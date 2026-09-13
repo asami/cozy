@@ -105,15 +105,33 @@ sizes, PDF settings, and physical slots MUST reject.
 
 ## 3. Canonical projection
 
-Before writing output the projector MUST load and validate all bound sources,
-mappings, catalog, binding, and media target. It MUST output exactly one existing
-`cozy.visual-page-set.v1` as one direct regular file at the bound media
-descriptor project root, which is the parent directory of bound `media.yaml`.
-It MUST NOT write the PageSet under `presentation/`, `target/`, or another
-subdirectory. The output filename MUST be the safe basename named by the
-selected Phase 40 target resource's `source`, with no separator; that target
-`source` MUST exactly equal this root-level filename or projection MUST reject
-before output. PageSet `id` MUST equal profile `id`, page order MUST equal
+The projector MUST load and validate all bound sources, mappings, catalog,
+binding, and media target, and return one validated canonical
+`cozy.visual-page-set.v1` with provenance without creating, replacing, or
+deleting files. A separate writer takes an already validated projection and a
+required explicit `pageSetOutput` path. The converter/writer (A) MUST NOT read
+the target resource's `source`, infer its output from that field, or independently
+check agreement with the PDF consumer's input configuration.
+
+The coordinator (X), `CozySummarySlidePdf`, reads the selected `media.yaml`
+resource's `source` and resolves the connection once against the media descriptor
+root. It passes that same path to A as its output and to the existing Phase 40
+PDF route (B) as its input. The connection retains the existing root-level,
+normalized project-relative PageSet source grammar so PageSet source and asset
+references keep their existing media-root base. The PageSet need not exist before
+A generates it. B MUST read the passed input path rather than independently
+choosing a different input from the resource's raw configuration.
+
+A MUST NOT enumerate input/downstream output paths to protect its destination
+or perform special collision, ancestor-overlap, same-file, case-alias, hard-link,
+or symlink destination checks. X MUST NOT reintroduce those withdrawn checks.
+The writer retains ordinary required-argument and filesystem write-error
+handling and atomic replacement of derived bytes. A materially incorrect output
+configuration is not guaranteed safe by this operation. These output-policy
+changes do not weaken input admission, DSL semantic validation, or the existing
+Phase 40 renderer's own validation/receipt/currentness contracts.
+
+PageSet `id` MUST equal profile `id`, page order MUST equal
 mappings order, and every Page `id` MUST equal mapping `id`, `knowledge` MUST
 equal Core `id`, and `language` MUST equal locale. The projector MUST use—not
 generate—the pre-existing selected binding when connecting this PageSet to
@@ -180,10 +198,12 @@ visual chain, or catalog change is permitted.
 Before a PageSet is created or a receipt is visible, projection MUST reject
 unknown, missing, duplicate, stale, malformed, unsafe, or mismatched profile,
 source, catalog, binding, or media fields/identities; invalid locale/target;
-unresolved localized labels; a target source that does not name the required
-root-level PageSet file; duplicate/missing/out-of-unit edges or required
+unresolved localized labels;
+duplicate/missing/out-of-unit edges or required
 endpoints; unrelated items; a profile-supplied `emphasisNode`; invalid Core
 endpoint/role/relation/direction/pattern/parameter/focus mapping; and loss,
 reversal, aliasing, or synthesis of Core meaning. A failure MUST preserve
 previous derived output and expose no fresh PageSet, PDF, receipt, or currentness
-evidence.
+evidence. X rejects an invalid connection-source grammar; the explicit writer
+reports missing output arguments and ordinary filesystem write failures. It
+does not promise protection against a misconfigured output overwriting an input.

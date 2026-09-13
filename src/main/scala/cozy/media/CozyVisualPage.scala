@@ -7,7 +7,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep.  9, 2026
+ * @version Sep. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
@@ -191,6 +191,9 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
       case _: PageSet => _validate_document_source(document, catalog, sourceRoot)
     }
   }
+
+  private[cozy] def validatePageSet(document: PageSet, catalog: Path, sourceRoot: Path): ValidatedDocument =
+    _validate_document_source(document, catalog, sourceRoot)
 
   private[cozy] def validateVisual(logical: Logical, visual: Visual, catalog: Catalog): Visual = {
     val pattern = catalog.visualPatterns.find(_.id == visual.pattern).getOrElse(
