@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ * @version Sep. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -31,6 +31,11 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         first.identity should startWith("sha256:")
         first.html should include(s"""data-output-identity="${first.identity}"""")
         first.html should include("Document &lt;title&gt; &amp; &quot;quoted&quot;")
+        first.html should include("<title>Document &lt;title&gt; &amp; &quot;quoted&quot;</title>")
+        first.html should include("<div class=\"kicker\">Document &lt;title&gt; &amp; &quot;quoted&quot;</div>")
+        first.html should include("<h1>Document confirmation &lt;screen&gt; &amp; &quot;quoted&quot;</h1>")
+        first.html should not include("<h1>Document &lt;title&gt;")
+        first.html should include("<article class=\"article\"><h2>Step &lt;root&gt; &amp; &quot;quoted&quot;</h2>")
         first.html should include("Step &lt;root&gt; &amp; &quot;quoted&quot;")
         first.html should include("aria-label=\"Status &lt;heading&gt; &amp; &quot;quoted&quot;\"")
         first.html should not include("Document <title>")
@@ -50,10 +55,12 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         val childcontrol = _tag(html, s"""data-step-id="${fixture.child.id}"""")
 
         Then("nested native buttons retain localized labels, stable IDs, pressed state, and control-to-detail/prose associations")
-        html should include("<nav id=\"containment-region\" class=\"panel\"")
+        html should include("<section id=\"containment-region\" class=\"panel\"")
         rootcontrol should include("<button type=\"button\"")
         rootcontrol should include("data-step-control=\"true\"")
-        rootbutton should include("Step &lt;root&gt; &amp; &quot;quoted&quot;")
+        rootbutton should include("<small>Generic wording mapping</small>")
+        rootbutton should include("<b>Step &lt;root&gt; &amp; &quot;quoted&quot;</b>")
+        rootcontrol should include(s"""title="${fixture.root.id}""" )
         rootcontrol should include("aria-pressed=\"true\"")
         rootcontrol should include(s"""aria-controls="flow-${fixture.root.id} structure-${fixture.root.id} prose-region"""")
         childcontrol should include("aria-pressed=\"false\"")
@@ -75,33 +82,54 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         val rootitem = _tag(html, "data-list-item-id=\"list-item-root\"")
         val childitem = _tag(html, "data-list-item-id=\"list-item-unselected\"")
 
-        Then("only exact Section Block and List Item memberships highlight while typed Flow and Structure stay in separate regions")
+        Then("only exact Block and List Item memberships highlight while Section wrappers stay flat and typed Flow and Structure stay separate")
         html should include("id=\"flow-region\"")
         html should include("id=\"structure-region\"")
+        html.indexOf("id=\"structure-region\"") should be < html.indexOf("id=\"flow-region\"")
+        html should include("<details id=\"flow-region\"")
+        html should include("""<span class="edge-mark" aria-hidden="true">⇢</span>""")
+        html should include("""<span class="edge-mark" aria-hidden="true">→</span>""")
         html should include(s"""data-flow-id="${fixture.root.flow.id}"""")
         fixture.root.flow.transitions.foreach(transition => html should include(s"""data-flow-transition-id="${transition.id}""""))
         fixture.root.structure.relations.foreach(relation => html should include(s"""data-relation-id="${relation.id}""""))
-        rootsection should include("is-highlighted")
+        fixture.root.flow.transitions.foreach { transition =>
+          html should include(s"""<span class="identity">${transition.toStepId}</span></span></li>""")
+        }
+        rootsection should not include("is-highlighted")
         rootparagraph should include("is-highlighted")
         rootitem should include("is-highlighted")
         childsection should not include("is-highlighted")
         childparagraph should not include("is-highlighted")
         childitem should not include("is-highlighted")
+        Vector(rootsection, childsection, rootparagraph, childparagraph, rootitem, childitem).foreach { tag =>
+          tag should include regex """data-core-flows="[^"]*">"""
+        }
+        _occurrences(html, "<ul class=\"containment-list\">") shouldBe fixture.validated.core.depthFirstSteps.count(_.steps.nonEmpty) + 1
+        html should include("<details class=\"document-block logical-structure-reference")
+        html should include("<summary>Logical Structure reference: Step &lt;root&gt; &amp; &quot;quoted&quot;</summary>")
+        _tag(html, "data-block-id=\"logical-root\"") should not include(" open")
+        html should include("Root &lt;heading&gt; &amp; &quot;quoted&quot;")
+        html should include("Child heading")
+        html should include("Example &lt;text&gt; &amp; &quot;quoted&quot;")
+        html should include("Child note text")
+        html should not include("<code>claim/")
+        html should not include("<code>node/")
+        html should not include("<code>flow/")
         _occurrences(html, "Shared &lt;text&gt; &amp; &quot;quoted&quot;") shouldBe 2
       }
     }
 
-    "make admitted status primary and identities responsive self-contained accessibility evidence secondary" in {
+    "reproduce the reference desktop hierarchy while keeping nested semantic evidence and identities secondary" in {
       _with_temp_dir("cozy-document-confirmation-v2-accessibility") { root =>
         Given("a complete current admitted v2 Document and a complete test-only vocabulary")
         val fixture = _fixture(root)
         val html = CozyDocumentConfirmationProjectionV2.render(fixture.validated, _vocabulary(fixture.validated.core)).html
 
-        When("the confirmation review workspace is composed")
+        When("the content-height confirmation workspace and activation-only reveal are composed")
         val statusposition = html.indexOf("Complete Document coverage")
         val identityposition = html.indexOf("Core identity")
 
-        Then("status precedes secondary identities and the static document contains responsive keyboard-operable self-contained markup")
+        Then("compact status, persistent desktop Core navigation, activation-only reveal, and nested Flow and Structure retain keyboard-operable self-contained evidence")
         html should include("Complete Document coverage")
         html should include("Current admitted sources")
         html should include("No unresolved references")
@@ -112,8 +140,32 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         html should include(s"${fixture.validated.coreIdentity}</dd>")
         html should include(s"${fixture.validated.documentIdentity}</dd>")
         html should include(":focus-visible")
-        html should include("@media (max-width:58rem)")
-        html should include("@media (max-width:42rem)")
+        html should include(".page{max-width:1500px;margin:0 auto;padding:24px}")
+        html should include(".workspace{display:grid;grid-template-columns:minmax(280px,.82fr) 62px minmax(430px,1.4fr);gap:16px;align-items:start}")
+        html should include(".binding{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px")
+        html should include(".containment-list li{position:relative;margin:6px 0}")
+        html should include(".step-control{display:block;width:100%;padding:6px 10px")
+        html should include("<div class=\"guide\">")
+        html should include("<div class=\"binding\"")
+        html should include("<details id=\"flow-region\" class=\"local\"")
+        html should include("<section id=\"structure-region\" class=\"local\"")
+        html should include("<summary>Direct child Flow</summary>")
+        html should include("<details class=\"structure-audit\">")
+        html should include("<div class=\"refs\">")
+        html should include("class=\"relation\"")
+        html should include(".step-control[aria-pressed=\"true\"]{border-left-color:var(--primary);background:var(--primary-soft);color:var(--primary-foreground)}")
+        html should include("h1{margin:3px 0 0;font-size:clamp(25px,3vw,38px);letter-spacing:-.035em}")
+        html should include(".step-control b{display:block;overflow-wrap:anywhere;font-size:13px}")
+        html should include(".document-example,.document-note{background:transparent;color:var(--foreground)}")
+        html should include(".logical-structure-reference{padding:0 0 0 17px;background:transparent;color:var(--foreground)}")
+        html should include(".logical-structure-reference summary{display:inline;font-size:10px;cursor:pointer}")
+        html should include("""@media screen and (min-width:851px){#containment-region{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}}.document-block,.document-list-item{scroll-margin-top:16px}""")
+        html should include("const select=(control,reveal=false)=>")
+        html should include("""if(reveal){const target=targets.find(item=>item.matches('.document-block.is-highlighted,.document-list-item.is-highlighted'));if(target){""")
+        html should include("""if(bounds.top<16||bounds.bottom>window.innerHeight-16)target.scrollIntoView({block:bounds.height>window.innerHeight-32?'start':'center',inline:'nearest',behavior:'auto'})""")
+        html should include("addEventListener('click',()=>select(control,true))")
+        html should include("""select(controls.find(control=>control.getAttribute('aria-pressed')==='true')||controls[0]);""")
+        html should not include(".focus(")
         html should include("aria-live=\"polite\"")
         html should include("aria-describedby=\"status-region\"")
         html should not include("<link")
@@ -250,6 +302,7 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
 
   private def _vocabulary(core: CozyDocumentLogicTree.ValidatedCore): CozyDocumentConfirmationProjectionV2.Vocabulary = {
     val chrome = CozyDocumentConfirmationProjectionV2.Chrome(
+      "Document confirmation <screen> & \"quoted\"",
       "Status <heading> & \"quoted\"",
       "Complete Document coverage",
       "Current admitted sources",

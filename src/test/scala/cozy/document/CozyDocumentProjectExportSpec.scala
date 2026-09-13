@@ -122,6 +122,33 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
       }
     }
 
+    "invalidate retained production currentness when accepted-attempt diagnostics change" in {
+      _with_temp_dir("cozy-document-project-export-diagnostics") { root =>
+        Given("an accepted Article review project and its exported bundle")
+        val project = _accepted_project(root, "export-diagnostics")
+        val bundle = _export(project, root.resolve("diagnostics-bundle"))
+        val attemptname = _relative_files(project.resolve("evidence/attempts")).head
+        val attemptpath = project.resolve("evidence/attempts").resolve(attemptname)
+        val before = Files.readString(attemptpath, StandardCharsets.UTF_8)
+        val after = before.replace(
+          "native review projection rendered for validated accepted-evidence closure",
+          "retained diagnostic changed after export"
+        )
+
+        When("only the retained accepted-attempt diagnostic changes")
+        Files.writeString(attemptpath, after, StandardCharsets.UTF_8)
+        val descriptor = CozyDocumentProject._load_project(project)
+        val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+        Then("retained production evidence is stale while receipt and native identities remain unchanged")
+        after should not be before
+        after.substring(after.indexOf("receipt:")) shouldBe before.substring(before.indexOf("receipt:"))
+        after.split("\\n").toVector.filter(value => value.trim.startsWith("path:") || value.trim.startsWith("sha256:")) shouldBe
+          before.split("\\n").toVector.filter(value => value.trim.startsWith("path:") || value.trim.startsWith("sha256:"))
+        currentness.retainedproductionevidence shouldBe "stale"
+      }
+    }
+
     "invalidate source currentness when contentCore moves to a byte-identical local path" in {
       _with_temp_dir("cozy-document-project-export-source-path") { root =>
         Given("an exported project and a byte-identical local replacement for descriptor contentCore")

@@ -5,11 +5,12 @@ import java.security.MessageDigest
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ * @version Sep. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySummaryConfirmationProjectionV2 {
   final case class Chrome(
+    pageHeading: String,
     statusHeading: String,
     selectedSourcesCurrentAndAdmitted: String,
     noUnresolvedSelectedReferences: String,
@@ -56,28 +57,119 @@ private[cozy] object CozySummaryConfirmationProjectionV2 {
     val summary = validated.description.summary
     val labels = validated.document.description.labels.steps.map(value => value.stepRef -> value.text).toMap
     val nodelabels = validated.document.description.labels.nodes.map(value => value.nodeRef -> value.text).toMap
+    val documenttargets = _document_target_labels(validated.document.description.document, labels)
     val selected = summary.units.head
-    val navigation = summary.units.map(unit => _navigation_item(unit, selected.id)).mkString("<ol class=\"unit-list\">", "", "</ol>")
-    val slides = summary.units.map(unit => _semantic_panel(unit, selected.id, vocabulary)).mkString
-    val evidence = summary.units.map(unit => _evidence_panel(unit, selected.id, validated, labels, nodelabels, vocabulary)).mkString
+    val navigation = summary.units.zipWithIndex.map { case (unit, index) => _navigation_item(unit, selected.id, index) }.mkString(s"""<ol class="flow" style="--summary-unit-count:${summary.units.length}">""", "", "</ol>")
+    val slides = summary.units.zipWithIndex.map { case (unit, index) => _semantic_panel(unit, selected.id, index, summary.units.length, validated, labels, nodelabels, vocabulary) }.mkString
+    val evidence = summary.units.map(unit => _evidence_panel(unit, selected.id, validated, labels, nodelabels, documenttargets, vocabulary)).mkString
     val chrome = vocabulary.chrome
+    val overviewstyles = if (summary.units.exists(_.overview.nonEmpty)) _overview_styles else ""
     s"""<!doctype html>
        |<html lang="${_html(validated.description.locale)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${_html(summary.title)}</title><style>
-       |:root{color-scheme:light;font-family:system-ui,sans-serif;color:#172033;background:#edf2f7;line-height:1.55}body{margin:0}.workspace{max-width:88rem;margin:0 auto;padding:clamp(1rem,3vw,2.5rem)}.workspace-header{margin-bottom:1rem}.workspace-header h1{margin:.1rem 0}.status{border-left:.35rem solid #2563a8;background:#fff;padding:.75rem 1rem;margin:1rem 0}.status h2,.panel h2,.panel h3{margin:.1rem 0 .55rem}.status ul{margin:.25rem 0;padding-left:1.3rem}.workspace-grid{display:grid;grid-template-columns:minmax(15rem,.8fr) minmax(24rem,1.4fr);gap:1rem;align-items:start}.panel{background:#fff;border:1px solid #cbd5e1;border-radius:.45rem;padding:1rem}.unit-list{list-style:none;padding:0;margin:0}.unit-list li+li{margin-top:.5rem}.unit-control{width:100%;text-align:left;background:#f8fafc;border:1px solid #94a3b8;border-radius:.35rem;padding:.55rem .7rem;color:inherit;cursor:pointer}.unit-control[aria-pressed=\"true\"]{background:#dbeafe;border-color:#2563a8;font-weight:700}.unit-control:focus-visible{outline:.22rem solid #e05a00;outline-offset:.18rem}.semantic-panel{aspect-ratio:16 / 9;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(135deg,#f8fafc,#dbeafe);border:1px solid #94a3b8;border-radius:.45rem;padding:clamp(1rem,4vw,2.5rem)}.semantic-panel[data-emphasis=\"primary\"]{border-left:.45rem solid #2563a8}.semantic-panel[data-emphasis=\"supporting\"]{border-left:.45rem solid #64748b}.semantic-panel[data-emphasis=\"conclusion\"]{border-left:.45rem solid #0f766e}.evidence-panel{margin-top:1rem}.detail-panel[hidden]{display:none}.source-groups,.retained-points,.diagram-items,.diagram-edges,.omission-list{padding-left:1.25rem}.source-groups>li,.retained-points>li,.diagram-items>li,.diagram-edges>li,.omission-list>li{margin:.5rem 0}.source-values{padding-left:1.25rem}.identity{font-family:ui-monospace,SFMono-Regular,monospace;font-size:.82em;color:#475569;overflow-wrap:anywhere}.type-wording{color:#334e68;font-weight:600}.evidence-panel h4{margin:1rem 0 .3rem}.secondary{margin-top:1rem;color:#475569}.secondary dl{display:grid;grid-template-columns:max-content 1fr;gap:.3rem .75rem}.secondary dd{margin:0;overflow-wrap:anywhere}@media (max-width:56rem){.workspace-grid{grid-template-columns:1fr}}@media (max-width:38rem){.workspace{padding:.75rem}.panel{padding:.8rem}.semantic-panel{min-height:0}}@media print{.workspace{max-width:none}.unit-control{border-color:#64748b}.detail-panel[hidden]{display:block}}
-       |</style></head><body><main class="workspace" data-summary-id="${_html(validated.description.id)}" data-document-id="${_html(validated.document.description.id)}" data-core-id="${_html(validated.document.core.core.id)}" data-output-identity="${_html(outputidentity)}"><header class="workspace-header"><h1>${_html(summary.title)}</h1></header><section id="status-region" class="status" aria-label="${_html(chrome.statusHeading)}"><h2>${_html(chrome.statusHeading)}</h2><ul><li>${_html(chrome.selectedSourcesCurrentAndAdmitted)}</li><li>${_html(chrome.noUnresolvedSelectedReferences)}</li></ul></section><div class="workspace-grid"><nav id="summary-navigation-region" class="panel" aria-label="${_html(chrome.navigationHeading)}"><h2>${_html(chrome.navigationHeading)}</h2>$navigation</nav><section id="summary-review-region" aria-describedby="status-region"><section id="semantic-panel-region" class="panel" aria-label="${_html(chrome.semanticPanelHeading)}" aria-live="polite"><h2>${_html(chrome.semanticPanelHeading)}</h2>$slides</section><section id="summary-evidence-region" class="panel evidence-panel" aria-label="${_html(chrome.sourcesHeading)}" aria-live="polite">$evidence</section></section></div><details class="secondary"><summary>${_html(chrome.identitiesHeading)}</summary><dl><dt>${_html(chrome.coreIdentityLabel)}</dt><dd>${_html(validated.document.coreIdentity)}</dd><dt>${_html(chrome.documentIdentityLabel)}</dt><dd>${_html(validated.document.documentIdentity)}</dd><dt>${_html(chrome.summaryIdentityLabel)}</dt><dd>${_html(validated.summaryIdentity)}</dd><dt>${_html(chrome.outputIdentityLabel)}</dt><dd data-output-identity="${_html(outputidentity)}">${_html(outputidentity)}</dd></dl></details></main><script>
-       |(function(){const controls=Array.from(document.querySelectorAll('[data-summary-unit-control]'));const panels=Array.from(document.querySelectorAll('[data-summary-unit-panel]'));const select=control=>{const id=control.getAttribute('data-summary-unit-id');controls.forEach(item=>item.setAttribute('aria-pressed',String(item===control)));panels.forEach(panel=>panel.hidden=panel.getAttribute('data-summary-unit-panel')!==id);};controls.forEach(control=>control.addEventListener('click',()=>select(control)));select(controls.find(control=>control.getAttribute('aria-pressed')==='true')||controls[0]);}());
+       |:root{color-scheme:light dark;--background:#f7f8fb;--foreground:#182230;--card:#ffffff;--muted:#eef2f7;--muted-foreground:#607086;--border:#d7dee8;--primary:#2d67b1;--primary-soft:#e8f1fc;--primary-foreground:#133b6e;--ok:#18825d;--font-sans:Inter,"Hiragino Sans","Yu Gothic",sans-serif;--font-mono:ui-monospace,SFMono-Regular,Menlo,monospace}@media (prefers-color-scheme:dark){:root{--background:#111720;--foreground:#e7edf5;--card:#171f2a;--muted:#202b39;--muted-foreground:#a6b3c3;--border:#334154;--primary:#75aef0;--primary-soft:#203955;--primary-foreground:#e3f0ff;--ok:#6dd7ad}}*{box-sizing:border-box}body{margin:0;color:var(--foreground);background:var(--background);font-family:var(--font-sans);line-height:1.45}button{font:inherit}.page{max-width:1500px;margin:0 auto;padding:24px}.header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding-bottom:17px;border-bottom:1px solid var(--border)}.kicker{color:var(--muted-foreground);font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}h1{margin:3px 0 0;font-size:clamp(25px,3vw,38px);letter-spacing:-.035em}.status{display:flex;flex-wrap:wrap;gap:9px 17px;color:var(--muted-foreground);font-size:12px}.status strong{color:var(--foreground)}.flow-label{margin:18px 0 8px;color:var(--muted-foreground);font-size:12px;font-weight:750;letter-spacing:.035em}.flow{display:grid;grid-template-columns:repeat(var(--summary-unit-count),minmax(0,1fr));margin:0 0 18px;padding:0;border:1px solid var(--border);background:var(--card)}.flow li{position:relative;min-width:0;list-style:none;border-right:1px solid var(--border)}.flow li:last-child{border-right:0}.flow li:not(:last-child)::after{content:"›";position:absolute;right:6px;top:50%;transform:translateY(-50%);color:var(--muted-foreground);font-size:20px;pointer-events:none}.flow button{display:block;width:100%;min-height:62px;padding:11px 22px 11px 12px;border:0;border-bottom:3px solid transparent;color:var(--foreground);background:transparent;text-align:left;cursor:pointer}.flow button:hover,.flow button:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}.flow button[aria-pressed="true"]{border-bottom-color:var(--primary);background:var(--primary-soft);color:var(--primary-foreground)}.flow small{display:block;color:var(--muted-foreground);font-size:9px;font-weight:750;letter-spacing:.05em}.flow b{display:block;margin-top:3px;overflow-wrap:anywhere;font-size:11px}.workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(250px,.55fr);gap:18px;align-items:start}.slide-wrap{min-width:0}.slide-number{display:flex;justify-content:space-between;margin-bottom:7px;color:var(--muted-foreground);font-size:11px}.slide{position:relative;display:grid;grid-template-rows:auto 1fr auto;width:100%;aspect-ratio:16 / 9;min-height:400px;overflow:hidden;border:1px solid var(--border);background:var(--card)}.slide::before{content:"";position:absolute;inset:0 auto 0 0;width:8px;background:var(--primary)}.slide-head{padding:clamp(20px,3vw,34px) clamp(28px,4vw,48px) 10px}.slide-head small{color:var(--primary);font-size:10px;font-weight:800;letter-spacing:.08em}.slide h2{margin:4px 0 0;font-size:clamp(22px,3vw,36px);line-height:1.2;letter-spacing:-.03em}.diagram{display:flex;align-items:center;justify-content:center;gap:clamp(6px,1vw,14px);padding:8px clamp(28px,4vw,48px)}.concept{display:flex;flex:1 1 0;align-items:center;justify-content:center;min-height:clamp(80px,10vw,116px);padding:12px;border:1px solid var(--border);background:var(--background);text-align:center;font-size:clamp(11px,1.4vw,17px);font-weight:800;white-space:pre-line}.concept.key{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-foreground)}.arrow{min-width:50px;color:var(--primary);text-align:center;font-size:clamp(20px,3vw,35px);font-weight:800}.arrow small{display:block;color:var(--muted-foreground);font-size:8px;font-weight:750;white-space:nowrap}.message{margin:6px clamp(28px,4vw,48px) clamp(20px,3vw,31px);padding-top:12px;border-top:1px solid var(--border);color:var(--muted-foreground);font-size:clamp(11px,1.35vw,14px)}.inspector{border:1px solid var(--border);background:var(--card)}.inspector>h2{margin:0;padding:13px 15px;border-bottom:1px solid var(--border);font-size:14px}.inspector section{padding:14px 15px;border-bottom:1px solid var(--border)}.inspector section:last-child{border-bottom:0}.inspector h3,.inspector h4{margin:0 0 8px;color:var(--muted-foreground);font-size:10px;letter-spacing:.06em;text-transform:uppercase}.inspector ul,.inspector ol{margin:0;padding-left:17px;font-size:11px}.inspector li{margin:5px 0}.source-groups{display:grid;gap:7px;padding:0!important;list-style:none}.source-groups>li{padding:5px 7px;border-left:2px solid var(--primary);background:var(--muted)}.source-values{margin-top:4px!important}.identity{font-family:var(--font-mono);font-size:.82em;color:var(--muted-foreground);overflow-wrap:anywhere}.type-wording{color:var(--muted-foreground);font-weight:600}.detail-panel[hidden]{display:none}.secondary{margin-top:14px;padding:12px 14px;border-left:3px solid var(--primary);background:var(--muted);color:var(--muted-foreground);font-size:12px}.secondary dl{display:grid;grid-template-columns:max-content 1fr;gap:.3rem .75rem}.secondary dd{margin:0;overflow-wrap:anywhere}@media (max-width:850px){.page{padding:14px}.header{align-items:flex-start;flex-direction:column}.flow{grid-template-columns:1fr}.flow li{border-right:0;border-bottom:1px solid var(--border)}.flow li:last-child{border-bottom:0}.flow li:not(:last-child)::after{content:"↓";right:10px}.workspace{grid-template-columns:1fr}.slide{aspect-ratio:auto;min-height:430px}.diagram{flex-direction:column}.arrow{transform:rotate(90deg)}.arrow small{display:none}}@media print{.page{max-width:none}.unit-control{border-color:var(--border)}.detail-panel[hidden]{display:block}}
+       |.primary-sources{margin:0;padding-left:17px;font-size:11px}.primary-sources li{margin:5px 0}.audit{border-top:1px solid var(--border);padding:14px 15px}.audit summary{cursor:pointer;color:var(--foreground);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}.audit section{padding:10px 0;border:0}.audit h4{margin:0 0 8px}.audit .source-groups{font-size:11px}.audit .omission-target-content{white-space:pre-wrap}
+       |$overviewstyles</style></head><body><div class="page" data-summary-id="${_html(validated.description.id)}" data-document-id="${_html(validated.document.description.id)}" data-core-id="${_html(validated.document.core.core.id)}" data-output-identity="${_html(outputidentity)}"><header class="header"><div><div class="kicker">${_html(summary.title)}</div><h1>${_html(chrome.pageHeading)}</h1></div><div id="status-region" class="status" aria-label="${_html(chrome.statusHeading)}"><span><strong>${_html(chrome.selectedSourcesCurrentAndAdmitted)}</strong></span><span><strong>${_html(chrome.noUnresolvedSelectedReferences)}</strong></span></div></header><div class="flow-label" id="summary-navigation-region" aria-label="${_html(chrome.navigationHeading)}">${_html(chrome.navigationHeading)}</div>$navigation<section id="summary-review-region" class="workspace" aria-describedby="status-region"><section id="semantic-panel-region" class="slide-wrap" aria-label="${_html(chrome.semanticPanelHeading)}" aria-live="polite"><div class="slide-number"><span>${_html(chrome.semanticPanelHeading)}</span><span data-summary-unit-count="true">1 / ${summary.units.length}</span></div>$slides</section><aside id="summary-evidence-region" class="inspector" aria-label="${_html(chrome.sourcesHeading)}" aria-live="polite"><h2>${_html(chrome.sourcesHeading)}</h2>$evidence</aside></section><details class="secondary"><summary>${_html(chrome.identitiesHeading)}</summary><dl><dt>${_html(chrome.coreIdentityLabel)}</dt><dd>${_html(validated.document.coreIdentity)}</dd><dt>${_html(chrome.documentIdentityLabel)}</dt><dd>${_html(validated.document.documentIdentity)}</dd><dt>${_html(chrome.summaryIdentityLabel)}</dt><dd>${_html(validated.summaryIdentity)}</dd><dt>${_html(chrome.outputIdentityLabel)}</dt><dd data-output-identity="${_html(outputidentity)}">${_html(outputidentity)}</dd></dl></details></div><script>
+       |(function(){const controls=Array.from(document.querySelectorAll('[data-summary-unit-control]'));const panels=Array.from(document.querySelectorAll('[data-summary-unit-panel]'));const count=document.querySelector('[data-summary-unit-count]');const select=control=>{const id=control.getAttribute('data-summary-unit-id');controls.forEach(item=>item.setAttribute('aria-pressed',String(item===control)));panels.forEach(panel=>panel.hidden=panel.getAttribute('data-summary-unit-panel')!==id);if(count)count.textContent=(Number(control.getAttribute('data-summary-unit-index'))+1)+" / "+controls.length;};controls.forEach(control=>control.addEventListener('click',()=>select(control)));select(controls.find(control=>control.getAttribute('aria-pressed')==='true')||controls[0]);}());
        |</script></body></html>""".stripMargin
   }
 
-  private def _navigation_item(unit: CozyDocumentDescriptionV2.SummaryUnit, selectedid: String): String = {
+  private def _navigation_item(unit: CozyDocumentDescriptionV2.SummaryUnit, selectedid: String, index: Int): String = {
     val pressed = unit.id == selectedid
-    s"""<li><button type="button" class="unit-control" data-summary-unit-control="true" data-summary-unit-id="${_html(unit.id)}" aria-pressed="$pressed" aria-controls="semantic-${_html(unit.id)} evidence-${_html(unit.id)}">${_html(unit.navigationLabel)} <span class="identity">${_html(unit.id)}</span></button></li>"""
+    s"""<li><button type="button" class="unit-control" data-summary-unit-control="true" data-summary-unit-id="${_html(unit.id)}" data-summary-unit-index="$index" aria-pressed="$pressed" aria-controls="semantic-${_html(unit.id)} evidence-${_html(unit.id)}"><small>${_html(f"${index + 1}%02d")} · ${_html(unit.id)}</small><b>${_html(unit.navigationLabel)}</b></button></li>"""
   }
 
-  private def _semantic_panel(unit: CozyDocumentDescriptionV2.SummaryUnit, selectedid: String, vocabulary: Vocabulary): String = {
+  private def _semantic_panel(
+    unit: CozyDocumentDescriptionV2.SummaryUnit,
+    selectedid: String,
+    index: Int,
+    count: Int,
+    validated: CozyDocumentDescriptionV2.ValidatedSummary,
+    labels: Map[String, String],
+    nodelabels: Map[String, String],
+    vocabulary: Vocabulary
+  ): String = {
     val hidden = if (unit.id == selectedid) "" else " hidden"
     val chrome = vocabulary.chrome
-    s"""<article id="semantic-${_html(unit.id)}" class="detail-panel semantic-panel" data-summary-unit-panel="${_html(unit.id)}" data-summary-slide-panel="true" data-emphasis="${_html(unit.emphasis)}"$hidden><p class="type-wording">${_html(chrome.emphasisHeading)}: ${_html(unit.emphasis)}</p><h3>${_html(unit.heading)}</h3><p>${_html(unit.message)}</p></article>"""
+    val diagram = unit.overview match {
+      case Some(overview) => _overview_panel(unit, overview, validated.document.core, labels, nodelabels, vocabulary)
+      case None => unit.diagram.map(value => _slide_diagram(value, validated.document.core, labels, nodelabels, vocabulary)).getOrElse(s"""<p class="message" data-empty-diagram="true">${_html(chrome.emptyDiagramMessage)}</p>""")
+    }
+    val overviewclass = if (unit.overview.nonEmpty) " summary-overview" else ""
+    val overviewsource = unit.overview.map(value => s""" data-summary-overview-step="${_html(value.stepRef)}"""").getOrElse("")
+    s"""<article id="semantic-${_html(unit.id)}" class="detail-panel semantic-panel slide$overviewclass" data-summary-unit-panel="${_html(unit.id)}" data-summary-slide-panel="true" data-emphasis="${_html(unit.emphasis)}" data-summary-unit-index="$index" data-summary-unit-total="$count"$overviewsource$hidden><header class="slide-head"><small>${_html(chrome.emphasisHeading)} · ${_html(unit.emphasis)}</small><h2>${_html(unit.heading)}</h2></header>$diagram<p class="message">${_html(unit.message)}</p></article>"""
+  }
+
+  private def _overview_panel(
+    unit: CozyDocumentDescriptionV2.SummaryUnit,
+    overview: CozyDocumentDescriptionV2.Overview,
+    core: CozyDocumentLogicTree.ValidatedCore,
+    labels: Map[String, String],
+    nodelabels: Map[String, String],
+    vocabulary: Vocabulary
+  ): String = {
+    val diagram = unit.diagram.get
+    val root = core.stepsById(overview.stepRef)
+    val steps = unit.coreRefs.steps.filterNot(_ == overview.stepRef).map(step => s"""<li data-overview-child-step="${_html(step)}">${_html(labels(step))}</li>""").mkString
+    val flow = diagram.copy(items = diagram.items.filter(_.kind == "step"), edges = diagram.edges.filter(_.kind == "flow-transition"))
+    val structure = diagram.copy(items = diagram.items.filter(_.kind == "node"), edges = diagram.edges.filter(_.kind == "relation"))
+    s"""<div class="overview" data-overview-step="${_html(overview.stepRef)}"><section class="overview-containment" data-overview-region="containment"><h3>${_html(vocabulary.sourceCategories("steps"))}</h3><div class="overview-root" data-core-step-ref="${_html(overview.stepRef)}">${_html(labels(overview.stepRef))}</div><ul>$steps</ul></section><div class="overview-diagrams"><section data-overview-region="flow" data-core-flow-id="${_html(root.flow.id)}"><h3>${_html(vocabulary.sourceCategories("flows"))}</h3>${_slide_diagram(flow, core, labels, nodelabels, vocabulary)}</section><section data-overview-region="structure" data-core-step-ref="${_html(overview.stepRef)}"><h3>${_html(vocabulary.sourceCategories("nodes"))} / ${_html(vocabulary.sourceCategories("relations"))}</h3>${_slide_diagram(structure, core, labels, nodelabels, vocabulary)}</section></div></div>"""
+  }
+
+  private def _slide_diagram(
+    diagram: CozyDocumentDescriptionV2.Diagram,
+    core: CozyDocumentLogicTree.ValidatedCore,
+    labels: Map[String, String],
+    nodelabels: Map[String, String],
+    vocabulary: Vocabulary
+  ): String = {
+    val outgoing = diagram.edges.groupBy(edge => _diagram_start(edge, core)).map { case (key, values) => key -> values.toVector }
+    val concepts = diagram.items.flatMap { item =>
+      val concept = s"""<div class="concept${if (item == diagram.items.head) " key" else ""}" data-diagram-item-id="${_html(item.id)}" data-diagram-item-kind="${_html(item.kind)}" data-core-ref="${_html(item.ref)}">${_html(_diagram_item_label(item, labels, nodelabels))}</div>"""
+      concept +: outgoing.getOrElse(item.ref, Vector.empty).map(edge => _slide_arrow(edge, core, vocabulary))
+    }
+    val rendered = concepts.mkString
+    s"""<div class="diagram" data-summary-diagram="true" aria-label="${_html(vocabulary.chrome.diagramHeading)}">$rendered</div>"""
+  }
+
+  private def _diagram_item_label(item: CozyDocumentDescriptionV2.DiagramItem, labels: Map[String, String], nodelabels: Map[String, String]): String =
+    item.kind match {
+      case "step" => labels(item.ref)
+      case "node" => nodelabels(item.ref)
+    }
+
+  private def _diagram_start(edge: CozyDocumentDescriptionV2.DiagramEdge, core: CozyDocumentLogicTree.ValidatedCore): String =
+    edge.kind match {
+      case "relation" =>
+        val relation = core.relationsById(edge.ref)
+        if (edge.direction == "forward") relation.from else relation.to
+      case "flow-transition" =>
+        val transition = _transition_sources(core)(edge.ref).transition
+        if (edge.direction == "forward") transition.fromStepId else transition.toStepId
+    }
+
+  private def _slide_arrow(edge: CozyDocumentDescriptionV2.DiagramEdge, core: CozyDocumentLogicTree.ValidatedCore, vocabulary: Vocabulary): String = {
+    val wording = edge.kind match {
+      case "relation" => vocabulary.relationTypes(core.relationsById(edge.ref).relationType)
+      case "flow-transition" => vocabulary.flowTypes(_transition_sources(core)(edge.ref).transition.relationType)
+    }
+    val mark = if (edge.kind == "relation") "→" else "⇢"
+    val category = if (edge.kind == "relation") "relations" else "flows"
+    s"""<div class="arrow" data-diagram-edge-id="${_html(edge.id)}" data-diagram-edge-kind="${_html(edge.kind)}" data-core-ref="${_html(edge.ref)}" data-direction="${_html(edge.direction)}"${_edge_source_attributes(edge, core)}><small>${_html(vocabulary.sourceCategories(category))}</small><small>${_html(wording)}</small><span class="edge-mark" aria-hidden="true">$mark</span></div>"""
+  }
+
+  private def _edge_source_attributes(edge: CozyDocumentDescriptionV2.DiagramEdge, core: CozyDocumentLogicTree.ValidatedCore): String = {
+    val (from, to, edgetype, flowid) = edge.kind match {
+      case "relation" =>
+        val relation = core.relationsById(edge.ref)
+        (relation.from, relation.to, relation.relationType, Option.empty[String])
+      case "flow-transition" =>
+        val source = _transition_sources(core)(edge.ref)
+        (source.transition.fromStepId, source.transition.toStepId, source.transition.relationType, Some(source.flowid))
+    }
+    val displayfrom = if (edge.direction == "forward") from else to
+    val displayto = if (edge.direction == "forward") to else from
+    val owner = flowid.map(id => s""" data-core-flow-id="${_html(id)}"""").getOrElse("")
+    s""" data-core-edge-type="${_html(edgetype)}" data-core-from="${_html(from)}" data-core-to="${_html(to)}" data-display-from="${_html(displayfrom)}" data-display-to="${_html(displayto)}"$owner"""
   }
 
   private def _evidence_panel(
@@ -86,20 +178,58 @@ private[cozy] object CozySummaryConfirmationProjectionV2 {
     validated: CozyDocumentDescriptionV2.ValidatedSummary,
     labels: Map[String, String],
     nodelabels: Map[String, String],
+    documenttargets: Map[(String, String), DocumentTarget],
     vocabulary: Vocabulary
   ): String = {
     val hidden = if (unit.id == selectedid) "" else " hidden"
     val chrome = vocabulary.chrome
-    val sources = _references(unit.coreRefs, labels, nodelabels, vocabulary)
+    val sources = unit.coreRefs.steps.map(step => s"""<li>${_html(_step_label(step, labels))}</li>""").mkString("<ul class=\"primary-sources\">", "", "</ul>")
     val points = unit.retainedPoints.map(point =>
-      s"""<li data-retained-point-id="${_html(point.id)}"><p>${_html(point.text)} <span class="identity">${_html(point.id)}</span></p>${_references(point.coreRefs, labels, nodelabels, vocabulary)}</li>"""
-    ).mkString("<ol class=\"retained-points\">", "", "</ol>")
+      s"""<li data-retained-point-id="${_html(point.id)}">${_html(point.text)}</li>"""
+    ).mkString("<ul class=\"retained-points\">", "", "</ul>")
     val diagram = unit.diagram.map(value => _diagram(value, validated.document.core, labels, nodelabels, vocabulary)).getOrElse(s"""<p data-empty-diagram="true">${_html(chrome.emptyDiagramMessage)}</p>""")
     val omissions = unit.omissions.map(omission =>
-      s"""<li data-omission-id="${_html(omission.id)}" data-document-kind="${_html(omission.documentKind)}" data-document-ref="${_html(omission.documentRef)}" data-omission-disposition="${_html(omission.disposition)}"><span class="type-wording">${_html(vocabulary.documentTargetKinds(omission.documentKind))}</span> <span class="identity">${_html(omission.documentRef)}</span> · <span class="type-wording">${_html(vocabulary.omissionDispositions(omission.disposition))}</span><p>${_html(chrome.rationaleHeading)}: ${_html(omission.rationale)}</p></li>"""
-    ).mkString("<ol class=\"omission-list\">", "", "</ol>")
-    s"""<article id="evidence-${_html(unit.id)}" class="detail-panel" data-summary-unit-panel="${_html(unit.id)}" data-summary-evidence-panel="true"$hidden><h2>${_html(unit.heading)} <span class="identity">${_html(unit.id)}</span></h2><h3>${_html(chrome.sourcesHeading)}</h3>$sources<h3>${_html(chrome.retainedPointsHeading)}</h3>$points<h3>${_html(chrome.diagramHeading)}</h3>$diagram<h3>${_html(chrome.omissionsHeading)}</h3>$omissions</article>"""
+      _primary_omission(omission, documenttargets)
+    ).mkString("<ul class=\"omission-list\">", "", "</ul>")
+    val auditpoints = unit.retainedPoints.map(point =>
+      s"""<li data-retained-point-id="${_html(point.id)}"><p>${_html(point.text)} <span class="identity">${_html(point.id)}</span></p>${_references(point.coreRefs, labels, nodelabels, vocabulary)}</li>"""
+    ).mkString("<ol class=\"retained-points\">", "", "</ol>")
+    val auditomissions = unit.omissions.map { omission =>
+      val target = documenttargets.getOrElse((omission.documentKind, omission.documentRef), _fail("SUMMARY_CONFIRMATION_V2_OMISSION_TARGET", s"missing admitted Document target: ${omission.documentKind}/${omission.documentRef}"))
+      s"""<li data-omission-id="${_html(omission.id)}" data-document-kind="${_html(omission.documentKind)}" data-document-ref="${_html(omission.documentRef)}" data-omission-disposition="${_html(omission.disposition)}"><span class="type-wording">${_html(vocabulary.documentTargetKinds(omission.documentKind))}</span> <span class="identity">${_html(omission.documentRef)}</span> · <span class="type-wording">${_html(vocabulary.omissionDispositions(omission.disposition))}</span><p class="omission-target-label">${_html(target.compactlabel)}</p><p class="omission-target-content">${_html(target.fullcontent)}</p><p>${_html(chrome.rationaleHeading)}: ${_html(omission.rationale)}</p></li>"""
+    }.mkString("<ol class=\"omission-list\">", "", "</ol>")
+    val audit = s"""<details class="audit"><summary>${_html(chrome.diagramHeading)}</summary><section><h4>${_html(chrome.sourcesHeading)}</h4>${_references(unit.coreRefs, labels, nodelabels, vocabulary)}</section><section><h4>${_html(chrome.retainedPointsHeading)}</h4>$auditpoints</section><section><h4>${_html(chrome.diagramItemsHeading)} / ${_html(chrome.diagramEdgesHeading)}</h4>$diagram</section><section><h4>${_html(chrome.omissionsHeading)}</h4>$auditomissions</section></details>"""
+    s"""<article id="evidence-${_html(unit.id)}" class="detail-panel" data-summary-unit-panel="${_html(unit.id)}" data-summary-evidence-panel="true"$hidden><section><h3>${_html(vocabulary.sourceCategories("steps"))}</h3>$sources</section><section><h3>${_html(chrome.retainedPointsHeading)}</h3>$points</section><section><h3>${_html(chrome.omissionsHeading)}</h3>$omissions</section>$audit</article>"""
   }
+
+  private def _step_label(stepid: String, labels: Map[String, String]): String =
+    labels.getOrElse(stepid, _fail("SUMMARY_CONFIRMATION_V2_DOCUMENT_LABEL", s"missing Document Step label: $stepid"))
+
+  private def _primary_omission(
+    omission: CozyDocumentDescriptionV2.Omission,
+    documenttargets: Map[(String, String), DocumentTarget]
+  ): String = {
+    val target = documenttargets.getOrElse((omission.documentKind, omission.documentRef), _fail("SUMMARY_CONFIRMATION_V2_OMISSION_TARGET", s"missing admitted Document target: ${omission.documentKind}/${omission.documentRef}"))
+    s"""<li data-omission-id="${_html(omission.id)}" data-document-kind="${_html(omission.documentKind)}" data-document-ref="${_html(omission.documentRef)}" data-omission-disposition="${_html(omission.disposition)}"><span class="omission-label">${_html(target.compactlabel)}</span><p>${_html(omission.rationale)}</p></li>"""
+  }
+
+  private def _document_target_labels(document: CozyDocumentDescriptionV2.Document, labels: Map[String, String]): Map[(String, String), DocumentTarget] =
+    _document_target_labels(document.sections, labels)
+
+  private def _document_target_labels(sections: Vector[CozyDocumentDescriptionV2.Section], labels: Map[String, String]): Map[(String, String), DocumentTarget] =
+    sections.flatMap { section =>
+      val sectiontarget = Vector(("section", section.id) -> DocumentTarget(section.heading, section.heading))
+      val blocktargets = section.blocks.flatMap {
+        case value: CozyDocumentDescriptionV2.Example => Vector(("block", value.id) -> DocumentTarget(value.title, value.text))
+        case value: CozyDocumentDescriptionV2.Note => Vector(("block", value.id) -> DocumentTarget(value.title, value.text))
+        case value: CozyDocumentDescriptionV2.Paragraph => Vector(("block", value.id) -> DocumentTarget(section.heading, value.text))
+        case value: CozyDocumentDescriptionV2.ListBlock => Vector(("block", value.id) -> DocumentTarget(section.heading, value.items.map(_.text).mkString("\n"))) ++ value.items.map(item => ("list-item", item.id) -> DocumentTarget(if (item.text.length > 120) section.heading else item.text, item.text))
+        case value: CozyDocumentDescriptionV2.LogicalStructure =>
+          val label = _step_label(value.stepRef, labels)
+          Vector(("block", value.id) -> DocumentTarget(label, label))
+      }
+      sectiontarget ++ blocktargets ++ _document_target_labels(section.sections, labels)
+    }.toMap
 
   private def _references(
     refs: CozyDocumentDescriptionV2.References,
@@ -157,7 +287,7 @@ private[cozy] object CozySummaryConfirmationProjectionV2 {
         val wording = vocabulary.flowTypes(source.transition.relationType)
         s"""${_html(labels(values.head))} <span class="identity">${_html(values.head)}</span> <span class="type-wording">${_html(wording)}</span> ${_html(labels(values(1)))} <span class="identity">${_html(values(1))}</span>"""
     }
-    s"""<li data-diagram-edge-id="${_html(edge.id)}" data-diagram-edge-kind="${_html(edge.kind)}" data-core-ref="${_html(edge.ref)}" data-direction="${_html(edge.direction)}"><span class="identity">${_html(edge.id)}</span> · <span class="type-wording">${_html(if (edge.kind == "relation") vocabulary.sourceCategories("relations") else vocabulary.sourceCategories("flows"))}</span> <span class="identity">${_html(edge.ref)}</span> · <span class="type-wording">${_html(vocabulary.directions(edge.direction))}</span><div>$endpoints</div></li>"""
+    s"""<li data-diagram-edge-id="${_html(edge.id)}" data-diagram-edge-kind="${_html(edge.kind)}" data-core-ref="${_html(edge.ref)}" data-direction="${_html(edge.direction)}"${_edge_source_attributes(edge, core)}><span class="identity">${_html(edge.id)}</span> · <span class="type-wording">${_html(if (edge.kind == "relation") vocabulary.sourceCategories("relations") else vocabulary.sourceCategories("flows"))}</span> <span class="identity">${_html(edge.ref)}</span> · <span class="type-wording">${_html(vocabulary.directions(edge.direction))}</span><div>$endpoints</div></li>"""
   }
 
   private def _transition_sources(core: CozyDocumentLogicTree.ValidatedCore): Map[String, TransitionSource] =
@@ -170,7 +300,7 @@ private[cozy] object CozySummaryConfirmationProjectionV2 {
   private def _validate_vocabulary(validated: CozyDocumentDescriptionV2.ValidatedSummary, vocabulary: Vocabulary): Unit = {
     val chrome = vocabulary.chrome
     _required(Vector(
-      chrome.statusHeading, chrome.selectedSourcesCurrentAndAdmitted, chrome.noUnresolvedSelectedReferences,
+      chrome.pageHeading, chrome.statusHeading, chrome.selectedSourcesCurrentAndAdmitted, chrome.noUnresolvedSelectedReferences,
       chrome.navigationHeading, chrome.semanticPanelHeading, chrome.emphasisHeading, chrome.retainedPointsHeading,
       chrome.diagramHeading, chrome.diagramItemsHeading, chrome.diagramEdgesHeading, chrome.emptyDiagramMessage,
       chrome.sourcesHeading, chrome.omissionsHeading, chrome.rationaleHeading, chrome.identitiesHeading,
@@ -211,5 +341,7 @@ private[cozy] object CozySummaryConfirmationProjectionV2 {
   }
   private def _fail(code: String, reason: String): Nothing = throw ProjectionFault(code, reason)
 
+  private final case class DocumentTarget(compactlabel: String, fullcontent: String)
+  private val _overview_styles = ".summary-overview h2{font-size:28px}.overview{display:grid;grid-template-rows:auto 1fr;gap:12px;padding:8px clamp(28px,4vw,48px);min-height:0}.overview h3{margin:0 0 7px;color:var(--muted-foreground);font-size:10px;font-weight:750}.overview-root{text-align:center;font-size:13px;font-weight:800}.overview-containment ul{display:flex;gap:10px;margin:6px 0 0;padding:8px 0 0;border-top:1px solid var(--border);list-style:none}.overview-containment li{flex:1;min-width:0;padding:6px;border:1px solid var(--border);background:var(--background);text-align:center;font-size:11px;font-weight:750}.overview-diagrams{display:grid;grid-template-columns:1.35fr 1fr;gap:12px;align-items:center}.overview-diagrams>section{min-width:0;padding:10px;border:1px solid var(--border)}.overview .diagram{padding:0;gap:8px}.overview .concept{min-width:0;min-height:64px;padding:7px;font-size:11px}.overview .arrow{min-width:24px;font-size:24px}.overview .arrow small{font-size:8px}"
   private final case class TransitionSource(flowid: String, transition: CozyDocumentLogicTree.Transition)
 }

@@ -36,8 +36,9 @@ Phase Status: COMPLETE
 
 - [x] Persist `HYG-P48-001` as nonblocking follow-up; it does not reopen the
   accepted Phase 48 scaffold boundary.
-- [x] Keep every Phase 49 workflow/state and confirmation-operation item in
-  the separate successor checklist.
+- [x] Keep every Phase 49 workflow/state/public-operation item and each moved
+  read-only-surface, confirmation-route, stale, and driver item in the
+  separate Phase 49 sequence checklists.
 
 ## Deferred to Successor Work
 

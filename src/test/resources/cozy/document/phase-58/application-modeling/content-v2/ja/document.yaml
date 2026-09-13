@@ -1,0 +1,222 @@
+schema: cozy.document-description.v2
+id: application-modeling-document-ja-v2
+core:
+  id: application-modeling
+  identity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc
+locale: ja
+document:
+  title: SimpleModeling 第9回 アプリケーションモデリング
+  sections:
+    - id: application-modeling-introduction
+      heading: アプリケーションモデリングの位置づけ
+      coreRefs:
+        steps: [application-modeling, application-foundation, use-case-realization, collaboration-and-interaction, executable-elements, application-conclusion]
+        claims: [series-position, series-continuity, application-modeling-purpose, domain-and-application-modeling, use-case-as-starting-point, use-case-realization, ui-and-application-boundary, collaboration, interaction, static-and-dynamic-views, event, state-machine, service-and-operation, modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
+        nodes: [root-domain-model, root-application-model, foundation-static-view, foundation-dynamic-view, realization-scenario, realization-model, collaboration-responsibility, collaboration-interaction, execution-event, execution-service, conclusion-review, conclusion-cml]
+        relations: [root-domain-maps-to-application, foundation-dynamic-depends-on-static, realization-scenario-maps-to-model, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction, execution-event-causes-service, execution-event-enables-service, conclusion-cml-depends-on-review]
+        flows: [application-modeling-flow, application-foundation-flow, use-case-realization-flow, collaboration-and-interaction-flow, executable-elements-flow, application-conclusion-flow]
+      blocks:
+        - id: introduction-paragraph
+          kind: paragraph
+          text: 第9回では、第8回のドメインモデリングで整理した問題領域の意味と構造を受け、ユースケースをアプリケーションがどのように実現するかをアプリケーションモデリングとして扱います。ドメインモデルをアプリケーションモデルへ対応付け、同じSimpleModelingモデルを静的側面と動的側面という異なる関心から組織します。静的ビューを依存対象として、動的ビューはその意味に依存します。
+          coreRefs:
+            steps: [application-modeling, application-foundation]
+            claims: [series-position, series-continuity, application-modeling-purpose, domain-and-application-modeling]
+            nodes: [root-domain-model, root-application-model, foundation-static-view, foundation-dynamic-view]
+            relations: [root-domain-maps-to-application, foundation-dynamic-depends-on-static]
+            flows: [application-modeling-flow, application-foundation-flow]
+        - id: introduction-list
+          kind: list
+          items:
+            - id: introduction-list-domain
+              text: ドメインモデリングは、問題領域の意味、構造、規則、境界を中心に扱います。
+              coreRefs:
+                steps: [application-foundation]
+                claims: [domain-and-application-modeling]
+                nodes: [foundation-static-view]
+                relations: []
+                flows: [application-foundation-flow]
+            - id: introduction-list-application
+              text: アプリケーションモデリングは、ユースケースの実現に必要な振る舞い、責務、協調を中心に扱います。
+              coreRefs:
+                steps: [application-foundation]
+                claims: [application-modeling-purpose, domain-and-application-modeling]
+                nodes: [foundation-dynamic-view]
+                relations: [foundation-dynamic-depends-on-static]
+                flows: [application-foundation-flow]
+          coreRefs:
+            steps: [application-foundation]
+            claims: [application-modeling-purpose, domain-and-application-modeling]
+            nodes: [foundation-static-view, foundation-dynamic-view]
+            relations: [foundation-dynamic-depends-on-static]
+            flows: [application-foundation-flow]
+        - id: introduction-structure
+          kind: logical-structure
+          stepRef: application-modeling
+      sections:
+        - id: use-case-realization-section
+          heading: ユースケースから実現モデルへ
+          coreRefs:
+            steps: [use-case-realization]
+            claims: [use-case-as-starting-point, use-case-realization, ui-and-application-boundary]
+            nodes: [realization-scenario, realization-model]
+            relations: [realization-scenario-maps-to-model]
+            flows: [use-case-realization-flow]
+          blocks:
+            - id: realization-paragraph
+              kind: paragraph
+              text: アプリケーションモデリングの出発点は、アクターの目的に基づくユースケースシナリオです。シナリオから直接プログラムへ進まず、利用者視点のシナリオをアプリケーション内部の実現モデルへ対応付けるユースケース実現モデルを構成します。
+              coreRefs:
+                steps: [use-case-realization]
+                claims: [use-case-as-starting-point, use-case-realization]
+                nodes: [realization-scenario, realization-model]
+                relations: [realization-scenario-maps-to-model]
+                flows: [use-case-realization-flow]
+            - id: realization-example
+              kind: example
+              title: 画面設計へ進む前の確認
+              text: たとえば申請を受け付ける場面では、画面の配置を決める前に、利用者が何を確認し何を入力するか、どの参加者、サービス、操作、イベントが実現に参加するかを対応付けます。
+              coreRefs:
+                steps: [use-case-realization]
+                claims: [ui-and-application-boundary]
+                nodes: [realization-scenario, realization-model]
+                relations: [realization-scenario-maps-to-model]
+                flows: [use-case-realization-flow]
+            - id: realization-structure
+              kind: logical-structure
+              stepRef: use-case-realization
+          sections:
+            - id: collaboration-section
+              heading: 協調と相互作用
+              coreRefs:
+                steps: [collaboration-and-interaction]
+                claims: [collaboration, interaction, static-and-dynamic-views]
+                nodes: [collaboration-responsibility, collaboration-interaction]
+                relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+                flows: [collaboration-and-interaction-flow]
+              blocks:
+                - id: collaboration-paragraph
+                  kind: paragraph
+                  text: 協調は、ユースケースを実現する参加者、役割、責務の構造を明示します。責務が相互作用を引き起こすとともに可能にし、相互作用は、その協調に属する参加者が具体的なシナリオでどのように連携するかを、メッセージ、操作、イベントと順序を持つ実行例として具体化します。
+                  coreRefs:
+                    steps: [collaboration-and-interaction]
+                    claims: [collaboration, interaction, static-and-dynamic-views]
+                    nodes: [collaboration-responsibility, collaboration-interaction]
+                    relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+                    flows: [collaboration-and-interaction-flow]
+                - id: collaboration-note
+                  kind: note
+                  title: 静的と動的は排他的な分類ではありません
+                  text: 対象、関係、制約、状態、振る舞いを土台に、UI、参加者、協調、相互作用を利用目的の実現へ対応付けます。サービスやイベントを単純に動的要素として分けるのではなく、責務、契約、出来事、状態変化を表す要素として組織します。
+                  coreRefs:
+                    steps: [collaboration-and-interaction]
+                    claims: [static-and-dynamic-views]
+                    nodes: [collaboration-responsibility, collaboration-interaction]
+                    relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+                    flows: [collaboration-and-interaction-flow]
+                - id: collaboration-structure
+                  kind: logical-structure
+                  stepRef: collaboration-and-interaction
+              sections: []
+            - id: executable-elements-section
+              heading: 実行可能な要素を整理する
+              coreRefs:
+                steps: [executable-elements]
+                claims: [event, state-machine, service-and-operation]
+                nodes: [execution-event, execution-service]
+                relations: [execution-event-causes-service, execution-event-enables-service]
+                flows: [executable-elements-flow]
+              blocks:
+                - id: executable-elements-paragraph
+                  kind: paragraph
+                  text: イベントはアプリケーション内で意味のある出来事を表し、サービスによる処理を引き起こすとともに可能にします。状態機械は状態を持つ対象の状態と許可される遷移を明示します。サービスはユースケース実現に必要なケーパビリティの主要な具体形であり、操作は責務を公開する呼出契約です。
+                  coreRefs:
+                    steps: [executable-elements]
+                    claims: [event, state-machine, service-and-operation]
+                    nodes: [execution-event, execution-service]
+                    relations: [execution-event-causes-service, execution-event-enables-service]
+                    flows: [executable-elements-flow]
+                - id: executable-elements-structure
+                  kind: logical-structure
+                  stepRef: executable-elements
+              sections: []
+        - id: conclusion-section
+          heading: レビュー可能な実行可能モデルへ収束する
+          coreRefs:
+            steps: [application-conclusion]
+            claims: [modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
+            nodes: [conclusion-review, conclusion-cml]
+            relations: [conclusion-cml-depends-on-review]
+            flows: [application-conclusion-flow]
+          blocks:
+            - id: conclusion-paragraph
+              kind: paragraph
+              text: アプリケーションモデリングは、ユースケースシナリオから実現モデルを構成し、UIと参加者、協調と相互作用を明らかにしながら、サービス、操作、イベント、状態機械を実行可能な構造として整理する流れです。要求から振る舞いまでの対応を保つことで追跡可能性を確保します。
+              coreRefs:
+                steps: [application-conclusion]
+                claims: [modeling-flow, traceability]
+                nodes: [conclusion-review, conclusion-cml]
+                relations: [conclusion-cml-depends-on-review]
+                flows: [application-conclusion-flow]
+            - id: conclusion-paragraph-review
+              kind: paragraph
+              text: 生成AIは対応案を作成でき、textus-cbd-supportは可視化、差分、根拠、追跡可能性、検証情報を提示できます。しかし意味と業務上の妥当性をレビューし、CMLをそのレビューに依存して確定し、その結果を次の提案と更新へフィードバックする責任は開発者にあります。
+              coreRefs:
+                steps: [application-conclusion]
+                claims: [review-and-refinement, executable-model, model-realization-boundary]
+                nodes: [conclusion-review, conclusion-cml]
+                relations: [conclusion-cml-depends-on-review]
+                flows: [application-conclusion-flow]
+            - id: conclusion-note
+              kind: note
+              title: モデリングと実現の境界
+              text: アプリケーションモデリングは、ユースケースから実行可能な意味構造を構成する活動です。承認された実行可能モデルをCML、Cozy、プログラム、Textus上の実行へ接続するモデルの実現とは区別します。
+              coreRefs:
+                steps: [application-conclusion]
+                claims: [executable-model, model-realization-boundary]
+                nodes: [conclusion-cml]
+                relations: [conclusion-cml-depends-on-review]
+                flows: [application-conclusion-flow]
+            - id: conclusion-structure
+              kind: logical-structure
+              stepRef: application-conclusion
+          sections: []
+labels:
+  steps:
+    - stepRef: application-modeling
+      text: アプリケーションモデリング
+    - stepRef: application-foundation
+      text: 基礎となる見方
+    - stepRef: use-case-realization
+      text: ユースケース実現
+    - stepRef: collaboration-and-interaction
+      text: 協調と相互作用
+    - stepRef: executable-elements
+      text: 実行可能な要素
+    - stepRef: application-conclusion
+      text: レビューと実現への接続
+  nodes:
+    - nodeRef: root-domain-model
+      text: ドメインモデル
+    - nodeRef: root-application-model
+      text: アプリケーションモデル
+    - nodeRef: foundation-static-view
+      text: 静的ビュー
+    - nodeRef: foundation-dynamic-view
+      text: 動的ビュー
+    - nodeRef: realization-scenario
+      text: ユースケースシナリオ
+    - nodeRef: realization-model
+      text: 実現モデル
+    - nodeRef: collaboration-responsibility
+      text: 責務の構造
+    - nodeRef: collaboration-interaction
+      text: 相互作用
+    - nodeRef: execution-event
+      text: イベント
+    - nodeRef: execution-service
+      text: サービスと操作
+    - nodeRef: conclusion-review
+      text: 意味と妥当性のレビュー
+    - nodeRef: conclusion-cml
+      text: 承認されたCML

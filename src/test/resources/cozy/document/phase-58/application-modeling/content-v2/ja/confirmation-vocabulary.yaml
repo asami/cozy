@@ -1,0 +1,96 @@
+schema: cozy.document-confirmation-vocabulary.v1
+locale: ja
+document:
+  chrome:
+    pageHeading: 文書確認
+    statusHeading: 確認状態
+    coverageComplete: すべての対象範囲を確認済みです
+    currentSources: 参照元は最新です
+    admittedState: 入力は受理済みです
+    noUnresolvedReferences: 未解決の参照はありません
+    containmentHeading: ロジックツリー
+    flowHeading: 子ステップのフロー
+    structureHeading: 選択ステップ内の構造
+    proseHeading: 文書プレビュー
+    logicalPatternHeading: 論理パターン
+    nodesHeading: ノード
+    nodeRoleHeading: ノードの役割
+    relationsHeading: 関係
+    noDirectChildFlowTransitions: 直接の子ステップ間の遷移はありません
+    logicalStructureReference: 対応する論理構造
+    identitiesHeading: 識別情報
+    coreIdentityLabel: Core 識別子
+    documentIdentityLabel: 文書識別子
+    outputIdentityLabel: 出力識別子
+  logicalPatterns:
+    mapping: 対応
+    dependency-map: 依存関係
+    causal-chain: 因果連鎖
+  nodeRoles:
+    source: 起点
+    target: 対象
+    dependency: 依存先
+    dependent: 依存元
+    cause: 原因
+    effect: 結果
+  relationTypes:
+    maps-to: 対応付け
+    depends-on: 依存する
+    causes: 引き起こす
+    enables: 可能にする
+  flowTypes:
+    maps-to: 対応付け
+    depends-on: 依存する
+    causes: 引き起こす
+    enables: 可能にする
+summary:
+  chrome:
+    pageHeading: 要約確認
+    statusHeading: 確認状態
+    selectedSourcesCurrentAndAdmitted: 選択した要約の参照元は最新で受理済みです
+    noUnresolvedSelectedReferences: 選択した参照に未解決はありません
+    navigationHeading: 要約の移動
+    semanticPanelHeading: 選択した意味の説明
+    emphasisHeading: 強調
+    retainedPointsHeading: このスライドで保持
+    diagramHeading: 詳細な出典と図の対応
+    diagramItemsHeading: 図の項目
+    diagramEdgesHeading: 図の関係
+    emptyDiagramMessage: この要約単位には作成者が指定した図はありません
+    sourcesHeading: 元情報と編集判断
+    omissionsHeading: 要約で省略
+    rationaleHeading: 理由
+    identitiesHeading: 識別情報
+    coreIdentityLabel: Core 識別子
+    documentIdentityLabel: 文書識別子
+    summaryIdentityLabel: 要約識別子
+    outputIdentityLabel: 出力識別子
+  sourceCategories:
+    steps: ステップ
+    claims: 主張
+    nodes: ノード
+    relations: 関係
+    flows: フロー
+  diagramItemKinds:
+    step: ステップ
+    node: ノード
+  relationTypes:
+    maps-to: 対応付け
+    depends-on: 依存する
+    causes: 引き起こす
+    enables: 可能にする
+  flowTypes:
+    maps-to: 対応付け
+    depends-on: 依存する
+    causes: 引き起こす
+    enables: 可能にする
+  documentTargetKinds:
+    section: 節
+    block: 本文ブロック
+    list-item: リスト項目
+  omissionDispositions:
+    omitted: 省略
+    condensed: 要約
+  directions:
+    forward: 順方向
+    inverse: 逆方向

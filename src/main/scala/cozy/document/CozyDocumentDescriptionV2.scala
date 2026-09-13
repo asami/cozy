@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ * @version Sep. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescriptionV2 {
@@ -57,6 +57,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   final case class DiagramItem(id: String, kind: String, ref: String)
   final case class DiagramEdge(id: String, kind: String, ref: String, direction: String)
   final case class Diagram(items: Vector[DiagramItem], edges: Vector[DiagramEdge])
+  final case class Overview(stepRef: String)
   final case class Omission(
     id: String,
     documentKind: String,
@@ -73,7 +74,8 @@ private[cozy] object CozyDocumentDescriptionV2 {
     navigationLabel: String,
     retainedPoints: Vector[RetainedPoint],
     diagram: Option[Diagram],
-    omissions: Vector[Omission]
+    omissions: Vector[Omission],
+    overview: Option[Overview] = None
   )
   final case class Summary(title: String, units: Vector[SummaryUnit])
   final case class SummaryDescription(
@@ -196,6 +198,9 @@ private[cozy] object CozyDocumentDescriptionV2 {
       _summary_unit(item, s"$$.summary.units[$index]", document)
     }
     _unique(units.map(_.id), "$.summary.units", "Summary unit id")
+    val overviews = units.zipWithIndex.filter(_._1.overview.nonEmpty)
+    if (overviews.size > 1 || overviews.headOption.exists(_._2 != 0))
+      _fail("DESCRIPTION_V2_OVERVIEW_POSITION", "$.summary.units", "at most one explicit overview is allowed, as the first unit")
     SummaryDescription(
       _summary_schema,
       _id(_string(fields, "id", "$"), "$.id"),
@@ -324,9 +329,9 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private def _summary_unit(value: Json, path: String, document: ValidatedDocument): SummaryUnit = {
     val fields = _object(value, path)
     val required = Set("id", "heading", "message", "emphasis", "coreRefs", "navigationLabel", "retainedPoints", "omissions")
-    val permitted = required + "diagram"
-    if (fields.keys.toSet != required && fields.keys.toSet != permitted)
-      _fail("DESCRIPTION_V2_FIELDS", path, s"must contain exactly: ${required.toVector.sorted.mkString(", ")}, optionally diagram")
+    val permitted = required ++ Set("diagram", "overview")
+    if (!required.subsetOf(fields.keys.toSet) || !fields.keys.toSet.subsetOf(permitted))
+      _fail("DESCRIPTION_V2_FIELDS", path, s"must contain exactly: ${required.toVector.sorted.mkString(", ")}, optionally diagram and overview")
     val emphasis = _string(fields, "emphasis", path)
     if (!Set("primary", "supporting", "conclusion").contains(emphasis))
       _fail("DESCRIPTION_V2_EMPHASIS", s"$path.emphasis", "must be primary, supporting, or conclusion")
@@ -337,6 +342,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     if (points.isEmpty) _fail("DESCRIPTION_V2_RETAINED_POINTS", s"$path.retainedPoints", "must contain at least one retained point")
     _unique(points.map(_.id), s"$path.retainedPoints", "retained point id")
     val diagram = fields("diagram").map(value => _diagram(value, s"$path.diagram", document.core, refs))
+    val overview = fields("overview").map(value => _overview(value, s"$path.overview", document.core, refs, points, diagram))
     val omissions = _array(_field(fields, "omissions", path), s"$path.omissions").zipWithIndex.map { case (item, index) =>
       _omission(item, s"$path.omissions[$index]", document.documentTargets)
     }
@@ -351,8 +357,34 @@ private[cozy] object CozyDocumentDescriptionV2 {
       _text(_string(fields, "navigationLabel", path), s"$path.navigationLabel"),
       points,
       diagram,
-      omissions
+      omissions,
+      overview
     )
+  }
+
+  private def _overview(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore, refs: References, points: Vector[RetainedPoint], diagram: Option[Diagram]): Overview = {
+    val fields = _object(value, path)
+    _exact_fields(fields, Set("stepRef"), path)
+    val stepref = _id(_string(fields, "stepRef", path), s"$path.stepRef")
+    val root = core.core.root
+    if (stepref != root.id)
+      _fail("DESCRIPTION_V2_OVERVIEW_ROOT", s"$path.stepRef", "must explicitly select the directly admitted Core Root Step")
+    val expected = Coverage(
+      (root.id +: root.steps.map(_.id)).toSet,
+      root.claims.map(_.id).toSet,
+      root.structure.nodes.map(_.id).toSet,
+      root.structure.relations.map(_.id).toSet,
+      Set(root.flow.id)
+    )
+    if (_coverage(refs) != expected || points.exists(point => (_coverage(point.coreRefs) ++ expected) != expected))
+      _fail("DESCRIPTION_V2_OVERVIEW_SCOPE", path, "unit sources must exactly cover Root/direct-child scope and retained-point sources must be subsets")
+    val selected = diagram.getOrElse(_fail("DESCRIPTION_V2_OVERVIEW_DIAGRAM", path, "must explicitly select the complete top-level diagram"))
+    val items = root.steps.map(step => "step" -> step.id).toSet ++ root.structure.nodes.map(node => "node" -> node.id)
+    val edges = root.structure.relations.map(relation => "relation" -> relation.id).toSet ++ root.flow.transitions.map(transition => "flow-transition" -> transition.id)
+    if (selected.items.map(item => item.kind -> item.ref).toSet != items || selected.items.size != items.size ||
+        selected.edges.map(edge => edge.kind -> edge.ref).toSet != edges || selected.edges.size != edges.size)
+      _fail("DESCRIPTION_V2_OVERVIEW_DIAGRAM", path, "must explicitly select every Root Node/direct child Step and Root Relation/Flow transition exactly once")
+    Overview(stepref)
   }
 
   private def _retained_point(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): RetainedPoint = {

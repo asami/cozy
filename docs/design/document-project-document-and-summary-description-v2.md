@@ -86,6 +86,15 @@ nonempty ordered retained points; point IDs are unique within that unit and
 each point owns a nonempty resolving exact `coreRefs`. Each unit also has
 nonempty ordered omissions with IDs unique within that unit.
 
+An explicitly authored first unit may additionally declare
+`overview: { stepRef: <Core Root Step id> }`. A typed `Overview` binds that
+semantic scope, not a layout or guessed role. Admission allows at most one,
+first only, and requires exact complete Root/direct-child reference coverage,
+retained-point reference subsets, and explicit unique diagram items/edges for
+Root local Structure and Root Flow. No descendant-local source is admitted in
+that overview. Existing units without this field remain ordinary, unchanged
+units. No automatic slide, selection, heading or wording is created.
+
 The optional `diagram` is closed with exactly `items` and `edges`; it is
 coordinate-free semantic selection, not layout. A DiagramItem is exactly
 `{ id, kind, ref }`, where `kind` is `step` or `node`, and `ref` resolves to

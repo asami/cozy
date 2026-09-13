@@ -3,6 +3,7 @@ package cozy.document
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.security.MessageDigest
+import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -11,11 +12,97 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ * @version Sep. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Summary Confirmation Projection v2" should {
+    "separate one explicit top-level overview into containment Flow and local Structure without changing ordinary slides" in {
+      _with_temp_dir("cozy-summary-v2-overview-regions") { root =>
+        Given("an explicit Root overview preceding two admitted ordinary units")
+        val validated = _fixture(root).validatedsummary
+        val unit = _overview_unit(validated)
+        val selected = validated.copy(description = validated.description.copy(summary = validated.description.summary.copy(units = unit +: validated.description.summary.units)))
+        val vocabulary = _vocabulary(validated.document.core)
+
+        When("ordinary and overview-bearing Summaries are projected")
+        val before = CozySummaryConfirmationProjectionV2.render(validated, vocabulary).html
+        val html = CozySummaryConfirmationProjectionV2.render(selected, vocabulary).html
+        val containment = _overview_region(html, "containment")
+        val flow = _overview_region(html, "flow")
+        val structure = _overview_region(html, "structure")
+
+        Then("the explicit first slide retains exact Root scope with no containment-as-Flow and no implicit unit")
+        _tag(html, s"""id="semantic-${unit.id}""") should include("data-summary-overview-step")
+        _tag(html, s"""id="semantic-${unit.id}""") should not include(" hidden")
+        _occurrences(html, "data-summary-overview-step=") shouldBe 1
+        containment should include("Step &lt;root&gt; &amp; &quot;quoted&quot;")
+        unit.coreRefs.steps.tail.foreach(step => containment should include(s"""data-overview-child-step="$step"""))
+        containment should not include("data-diagram-edge-id")
+        containment should not include("edge-mark")
+        flow should include("data-core-flow-id")
+        flow should include("⇢")
+        flow should not include("data-diagram-edge-kind=\"relation\"")
+        flow should not include("data-diagram-item-kind=\"node\"")
+        structure should include("→")
+        structure should not include("data-diagram-edge-kind=\"flow-transition\"")
+        structure should not include("data-diagram-item-kind=\"step\"")
+        validated.description.summary.units.foreach { detail =>
+          _slide(html, detail.id).replaceAll("data-summary-unit-(index|total)=\"[0-9]+\"", "").replaceAll(" hidden(?=>)", "") shouldBe _slide(before, detail.id).replaceAll("data-summary-unit-(index|total)=\"[0-9]+\"", "").replaceAll(" hidden(?=>)", "")
+          _evidence(html, detail.id).replaceAll(" hidden(?=>)", "") shouldBe _evidence(before, detail.id).replaceAll(" hidden(?=>)", "")
+        }
+        before should not include("data-overview-region")
+        html should include("aspect-ratio:16 / 9")
+      }
+    }
+
+    "retain explicit overview partition order and typed Core provenance under generated inverse readings" in {
+      _with_temp_dir("cozy-summary-v2-overview-provenance") { root =>
+        Given("a coordinate-free explicit overview of only Root local sources and direct children")
+        val validated = _fixture(root).validatedsummary
+        val unit = _overview_unit(validated)
+        val vocabulary = _vocabulary(validated.document.core)
+
+        When("ScalaCheck varies item order containment order and declared direction")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(Gen.oneOf("forward", "inverse"), Gen.oneOf(true, false)) { (direction, reversed) =>
+          val diagram = unit.diagram.get.copy(items = if (reversed) unit.diagram.get.items.reverse else unit.diagram.get.items, edges = unit.diagram.get.edges.map(_.copy(direction = direction)))
+          val overview = unit.copy(diagram = Some(diagram), coreRefs = unit.coreRefs.copy(steps = if (reversed) unit.coreRefs.steps.reverse else unit.coreRefs.steps))
+          val selected = validated.copy(description = validated.description.copy(summary = validated.description.summary.copy(units = overview +: validated.description.summary.units)))
+          val html = CozySummaryConfirmationProjectionV2.render(selected, vocabulary).html
+          val slide = _slide(html, overview.id)
+          val containment = _overview_region(html, "containment")
+          val groups = Vector("flow" -> "step", "structure" -> "node")
+          val order = groups.forall { case (region, kind) =>
+            val group = _overview_region(html, region)
+            val positions = diagram.items.filter(_.kind == kind).map(item => group.indexOf(s"""data-diagram-item-id="${item.id}"""))
+            positions.forall(_ >= 0) && positions == positions.sorted
+          }
+          val children = overview.coreRefs.steps.filterNot(_ == overview.overview.get.stepRef).map(step => containment.indexOf(s"""data-overview-child-step="$step"""))
+          val exact = diagram.edges.forall { edge =>
+            val source = if (edge.kind == "relation") {
+              val relation = validated.document.core.relationsById(edge.ref)
+              (relation.from, relation.to, relation.relationType)
+            } else {
+              val transition = validated.document.core.core.root.flow.transitions.find(_.id == edge.ref).get
+              (transition.fromStepId, transition.toStepId, transition.relationType)
+            }
+            val tag = _tag(slide, s"""data-diagram-edge-id="${edge.id}""")
+            val from = if (direction == "forward") source._1 else source._2
+            val to = if (direction == "forward") source._2 else source._1
+            tag.contains(s"""data-core-from="${source._1}" data-core-to="${source._2}""") &&
+            tag.contains(s"""data-core-edge-type="${source._3}""") &&
+            tag.contains(s"""data-display-from="$from" data-display-to="$to""") &&
+            (edge.kind == "relation" || tag.contains(s"""data-core-flow-id="${validated.document.core.core.root.flow.id}"""))
+          }
+          order && children.forall(_ >= 0) && children == children.sorted && exact && _occurrences(slide, "data-diagram-edge-id=") == diagram.edges.size
+        })
+
+        Then("containment and typed partitions preserve author order while direction reverses only display endpoints")
+        check.passed shouldBe true
+        check.succeeded should be >= 30
+      }
+    }
+
     "render deterministic self-disclosing output while escaping Summary and Document wording" in {
       _with_temp_dir("cozy-summary-confirmation-v2-determinism") { root =>
         Given("one strictly admitted v2 Summary with text and labels that require HTML escaping")
@@ -31,6 +118,10 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         first.identity should startWith("sha256:")
         first.html should include(s"""data-output-identity="${first.identity}"""")
         first.html should include("Summary &lt;title&gt; &amp; &quot;quoted&quot;")
+        first.html should include("<title>Summary &lt;title&gt; &amp; &quot;quoted&quot;</title>")
+        first.html should include("<div class=\"kicker\">Summary &lt;title&gt; &amp; &quot;quoted&quot;</div>")
+        first.html should include("<h1>Summary confirmation &lt;screen&gt; &amp; &quot;quoted&quot;</h1>")
+        first.html should not include("<h1>Summary &lt;title&gt;")
         first.html should include("Step &lt;root&gt; &amp; &quot;quoted&quot;")
         first.html should include("Status &lt;heading&gt; &amp; &quot;quoted&quot;")
         first.html should not include("Summary <title>")
@@ -54,7 +145,8 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         val secondslide = _tag(html, s"""id="semantic-${secondunit.id}"""")
 
         Then("source order, native selection state, and selected panel associations remain explicit")
-        html should include("<nav id=\"summary-navigation-region\" class=\"panel\"")
+        html should include("<div class=\"flow-label\" id=\"summary-navigation-region\"")
+        html should include("<ol class=\"flow\" style=\"--summary-unit-count:2\"")
         firstcontrol should include("<button type=\"button\"")
         firstcontrol should include("data-summary-unit-control=\"true\"")
         firstcontrol should include("aria-pressed=\"true\"")
@@ -81,6 +173,8 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         val relationtag = _tag(html, s"""data-diagram-edge-id="${relationedge.id}"""")
         val flowtag = _tag(html, s"""data-diagram-edge-id="${flowedge.id}"""")
         val omissiontag = _tag(html, "data-omission-id=\"omission-section\"")
+        val evidenceposition = html.indexOf(s"""id="evidence-${unit.id}"""")
+        val auditposition = html.indexOf("<details class=\"audit\">")
 
         Then("the browser view retains exact typed evidence without inferred diagram or Document content")
         Vector("steps", "claims", "nodes", "relations", "flows").foreach(kind => html should include(s"""data-source-category="$kind"""))
@@ -88,19 +182,92 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         relationtag should include(s"""data-diagram-edge-kind="${relationedge.kind}"""")
         relationtag should include(s"""data-core-ref="${relationedge.ref}"""")
         relationtag should include("data-direction=\"inverse\"")
+        val relation = fixture.validatedsummary.document.core.relationsById(relationedge.ref)
+        relationtag should include(s"""data-core-edge-type="${relation.relationType}"""")
+        relationtag should include(s"""data-core-from="${relation.from}" data-core-to="${relation.to}"""")
+        relationtag should include(s"""data-display-from="${relation.to}" data-display-to="${relation.from}"""")
+        relationtag should not include("data-core-flow-id")
         flowtag should include(s"""data-diagram-edge-kind="${flowedge.kind}"""")
         flowtag should include(s"""data-core-ref="${flowedge.ref}"""")
         flowtag should include("data-direction=\"forward\"")
+        val owner = fixture.validatedsummary.document.core.depthFirstSteps.find(_.flow.transitions.exists(_.id == flowedge.ref)).get
+        val transition = owner.flow.transitions.find(_.id == flowedge.ref).get
+        flowtag should include(s"""data-core-edge-type="${transition.relationType}"""")
+        flowtag should include(s"""data-core-from="${transition.fromStepId}" data-core-to="${transition.toStepId}"""")
+        flowtag should include(s"""data-display-from="${transition.fromStepId}" data-display-to="${transition.toStepId}"""")
+        flowtag should include(s"""data-core-flow-id="${owner.flow.id}"""")
+        html should include("""<small>Relations</small>""")
+        html should include("""<small>Flows</small>""")
+        html should include("""<span class="edge-mark" aria-hidden="true">→</span>""")
+        html should include("""<span class="edge-mark" aria-hidden="true">⇢</span>""")
         html should include(s"""data-diagram-item-kind="step"""")
         html should include(s"""data-diagram-item-kind="node"""")
         omissiontag should include("data-document-kind=\"section\"")
         omissiontag should include("data-document-ref=\"document-root\"")
         omissiontag should include("data-omission-disposition=\"condensed\"")
         html should include("Section &lt;rationale&gt; &amp; &quot;quoted&quot;")
+        html should include("<ul class=\"primary-sources\">")
+        html should include("<ul class=\"retained-points\">")
+        html should include("Root heading")
+        html should include("<details class=\"audit\"><summary>Authored diagram</summary>")
+        auditposition should be > evidenceposition
+        html.substring(evidenceposition, auditposition) should not include(s"<h3>${unit.heading}")
       }
     }
 
-    "show a single responsive selected semantic panel and deliberate selective status" in {
+    "preserve exact adopted edge provenance under generated directions and item order" in {
+      _with_temp_dir("cozy-summary-confirmation-v2-edge-provenance") { root =>
+        Given("an admitted Summary with explicit Relation and Flow edges and unselected Core edges")
+        val fixture = _fixture(root)
+        val validated = fixture.validatedsummary
+        val unit = validated.description.summary.units.head
+        val diagram = unit.diagram.get
+        val core = validated.document.core
+        val vocabulary = _vocabulary(core)
+
+        When("ScalaCheck varies both declared directions and reverses diagram item order")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(Gen.oneOf("forward", "inverse"), Gen.oneOf(true, false)) { (direction, reversed) =>
+          val selecteddiagram = diagram.copy(
+            items = if (reversed) diagram.items.reverse else diagram.items,
+            edges = diagram.edges.map(_.copy(direction = direction))
+          )
+          val selected = validated.copy(description = validated.description.copy(
+            summary = validated.description.summary.copy(units = unit.copy(diagram = Some(selecteddiagram)) +: validated.description.summary.units.tail)
+          ))
+          val html = CozySummaryConfirmationProjectionV2.render(selected, vocabulary).html
+          val exact = selecteddiagram.edges.forall { edge =>
+            val (from, to, edgetype, flowid, mark) = edge.kind match {
+              case "relation" =>
+                val relation = core.relationsById(edge.ref)
+                (relation.from, relation.to, relation.relationType, "", "→")
+              case "flow-transition" =>
+                val owner = core.depthFirstSteps.find(_.flow.transitions.exists(_.id == edge.ref)).get
+                val transition = owner.flow.transitions.find(_.id == edge.ref).get
+                (transition.fromStepId, transition.toStepId, transition.relationType, owner.flow.id, "⇢")
+            }
+            val displayfrom = if (direction == "forward") from else to
+            val displayto = if (direction == "forward") to else from
+            val marker = s"""data-diagram-edge-id="${edge.id}"""
+            val parts = html.split(java.util.regex.Pattern.quote(marker), -1).tail
+            val tags = parts.map(part => part.takeWhile(_ != '>'))
+            tags.length == 2 && tags.forall(tag =>
+              tag.contains(s"""data-core-ref="${edge.ref}""" ) &&
+              tag.contains(s"""data-core-edge-type="$edgetype""" ) &&
+              tag.contains(s"""data-core-from="$from" data-core-to="$to""" ) &&
+              tag.contains(s"""data-display-from="$displayfrom" data-display-to="$displayto""" ) &&
+              (if (flowid.isEmpty) !tag.contains("data-core-flow-id") else tag.contains(s"""data-core-flow-id="$flowid""" ))
+            ) && parts.head.substring(0, parts.head.indexOf("</div>")).contains(s"""<span class="edge-mark" aria-hidden="true">$mark</span>""")
+          }
+          exact && _occurrences(html, "data-diagram-edge-id=") == selecteddiagram.edges.size * 2
+        })
+
+        Then("slide and audit retain exact typed sources and direction-adjusted endpoints without adding edges")
+        check.passed shouldBe true
+        check.succeeded should be >= 30
+      }
+    }
+
+    "show a reference-shaped selected slide and inspector with deliberate selective status" in {
       _with_temp_dir("cozy-summary-confirmation-v2-accessibility") { root =>
         Given("an admitted Summary whose second unit has no authored diagram")
         val fixture = _fixture(root)
@@ -108,11 +275,11 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         val secondunit = fixture.validatedsummary.description.summary.units(1)
         val secondpanel = _tag(html, s"""id="semantic-${secondunit.id}"""")
 
-        When("the self-contained responsive workspace is composed")
+        When("the self-contained reference-shaped workspace is composed")
         val statusposition = html.indexOf("Selected explicit Summary sources are current and admitted")
         val identityposition = html.indexOf("Core identity")
 
-        Then("status stays selective, identities stay secondary, and the native workspace remains accessible")
+        Then("status stays selective, identities stay secondary, and the connected native flow remains accessible")
         secondpanel should include("data-emphasis=\"conclusion\"")
         html should include("data-empty-diagram=\"true\"")
         html should include("Selected explicit Summary sources are current and admitted")
@@ -125,9 +292,18 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         html should include(fixture.validatedsummary.document.documentIdentity)
         html should include(fixture.validatedsummary.summaryIdentity)
         html should include("aspect-ratio:16 / 9")
-        html should not include("aspect-ratio:auto")
+        html should include("@media (max-width:850px){.page{padding:14px}.header{align-items:flex-start;flex-direction:column}.flow{grid-template-columns:1fr}")
         html should include(":focus-visible")
-        html should include("@media (max-width:56rem)")
+        html should include(".flow{display:grid;grid-template-columns:repeat(var(--summary-unit-count),minmax(0,1fr));margin:0 0 18px;padding:0;border:1px solid var(--border);background:var(--card)}")
+        html should include("style=\"--summary-unit-count:2\"")
+        html should include(".flow li:not(:last-child)::after{content:\"›\"")
+        html should include(".workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(250px,.55fr);gap:18px;align-items:start}")
+        html should include("class=\"detail-panel semantic-panel slide\"")
+        html should include("class=\"inspector\"")
+        html should include("<h2>Selected sources</h2>")
+        html should include("aria-label=\"Selected sources\"")
+        html should include("<section><h3>Steps</h3>")
+        html should include("data-summary-diagram=\"true\"")
         html should include("aria-live=\"polite\"")
         html should include("aria-describedby=\"status-region\"")
         html should not include("<link")
@@ -135,6 +311,46 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         html should not include("https://")
         html should not include("<canvas")
         html should not include("fetch(")
+      }
+    }
+
+    "separate compact exact omission labels from full target content in the collapsed audit" in {
+      _with_temp_dir("cozy-summary-confirmation-v2-omission-presentation") { root =>
+        Given("an admitted Summary with a paragraph and long list item owned directly by Root heading")
+        val fixture = _fixture(root)
+        val unit = fixture.validatedsummary.description.summary.units(1)
+        val vocabulary = _vocabulary(fixture.validatedsummary.document.core)
+
+        When("the selected unit evidence is projected without changing its authored target content")
+        val html = CozySummaryConfirmationProjectionV2.render(fixture.validatedsummary, vocabulary).html
+        val evidence = _evidence(html, unit.id)
+        val auditposition = evidence.indexOf("<details class=\"audit\">")
+        val primary = evidence.substring(0, auditposition)
+        val audit = evidence.substring(auditposition)
+
+        Then("exactly three ordered bullet sections show owner headings and rationale while audit preserves all original text and provenance")
+        _occurrences(primary, "<section>") shouldBe 3
+        primary.indexOf("<h3>Steps</h3>") should be < primary.indexOf("<h3>Retained points</h3>")
+        primary.indexOf("<h3>Retained points</h3>") should be < primary.indexOf("<h3>Document omissions</h3>")
+        primary should include("<ul class=\"retained-points\">")
+        primary should include("<ul class=\"omission-list\">")
+        primary should not include("<ol")
+        _occurrences(primary, "<span class=\"omission-label\">Root heading</span>") shouldBe 2
+        primary should include("<p>Paragraph is omitted</p>")
+        primary should include("<p>List item is condensed</p>")
+        primary should not include("Paragraph wording")
+        primary should not include("List item wording")
+        primary should not include("(Omitted)")
+        primary.indexOf("data-omission-id=\"omission-block\"") should be < primary.indexOf("data-omission-id=\"omission-list-item\"")
+        audit should include(_paragraph_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;"))
+        audit should include(_long_item_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;"))
+        audit should include("data-document-kind=\"block\" data-document-ref=\"paragraph-one\" data-omission-disposition=\"omitted\"")
+        audit should include("data-document-kind=\"list-item\" data-document-ref=\"list-item-one\" data-omission-disposition=\"condensed\"")
+        audit should include("<p>Rationale: Paragraph is omitted</p>")
+        audit should include("<p>Rationale: List item is condensed</p>")
+        Vector("steps", "claims", "nodes", "relations", "flows").foreach(kind => audit should include(s"""data-source-category="$kind"""))
+        html should not include("-webkit-line-clamp")
+        html should not include("omission-label-paragraph")
       }
     }
 
@@ -179,6 +395,32 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
 
   private final case class Fixture(validatedsummary: CozyDocumentDescriptionV2.ValidatedSummary)
 
+  private def _overview_unit(validated: CozyDocumentDescriptionV2.ValidatedSummary): CozyDocumentDescriptionV2.SummaryUnit = {
+    val root = validated.document.core.core.root
+    val refs = CozyDocumentDescriptionV2.References(root.id +: root.steps.map(_.id), root.claims.map(_.id), root.structure.nodes.map(_.id), root.structure.relations.map(_.id), Vector(root.flow.id))
+    val items = root.structure.nodes.map(node => CozyDocumentDescriptionV2.DiagramItem(s"overview-node-${node.id}", "node", node.id)) ++ root.steps.map(step => CozyDocumentDescriptionV2.DiagramItem(s"overview-step-${step.id}", "step", step.id))
+    val edges = root.structure.relations.map(relation => CozyDocumentDescriptionV2.DiagramEdge(s"overview-relation-${relation.id}", "relation", relation.id, "forward")) ++ root.flow.transitions.map(transition => CozyDocumentDescriptionV2.DiagramEdge(s"overview-transition-${transition.id}", "flow-transition", transition.id, "forward"))
+    validated.description.summary.units.head.copy(id = "explicit-overview", heading = "Whole document overview", navigationLabel = "Overview", coreRefs = refs, retainedPoints = Vector(CozyDocumentDescriptionV2.RetainedPoint("overview-point", "Root meaning retained", refs)), diagram = Some(CozyDocumentDescriptionV2.Diagram(items, edges)), overview = Some(CozyDocumentDescriptionV2.Overview(root.id)))
+  }
+
+  private def _overview_region(html: String, kind: String): String = {
+    val marker = html.indexOf(s"""data-overview-region="$kind""")
+    require(marker >= 0, s"missing overview region: $kind")
+    val start = html.lastIndexOf("<section", marker)
+    val end = html.indexOf("</section>", marker)
+    html.substring(start, end + "</section>".length)
+  }
+
+  private def _slide(html: String, unitid: String): String = {
+    val start = html.indexOf(s"""<article id="semantic-$unitid""")
+    require(start >= 0, s"missing semantic panel: $unitid")
+    val end = html.indexOf("</article>", start)
+    html.substring(start, end + "</article>".length)
+  }
+
+  private val _paragraph_text = "Paragraph wording <full> & \"quoted\" stays exactly as authored, including this detailed explanation of the source content and the reason it must remain available in the audit without clipping or condensation."
+  private val _long_item_text = "List item wording <full> & \"quoted\" stays exactly as authored, including this detailed item explanation that exceeds the existing compact-target threshold and remains fully available in the audit."
+
   private def _fixture(root: Path): Fixture = {
     val content = Files.createDirectories(root.resolve("content"))
     val locale = Files.createDirectories(content.resolve("ja"))
@@ -219,13 +461,13 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         |      blocks:
         |        - id: paragraph-one
         |          kind: paragraph
-        |          text: Paragraph wording
+        |          text: '${_paragraph_text}'
         |          coreRefs: $refs
         |        - id: list-one
         |          kind: list
         |          items:
         |            - id: list-item-one
-        |              text: List item wording
+        |              text: '${_long_item_text}'
         |              coreRefs: $refs
         |          coreRefs: $refs
         |      sections: []
@@ -331,6 +573,7 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
 
   private def _vocabulary(core: CozyDocumentLogicTree.ValidatedCore): CozySummaryConfirmationProjectionV2.Vocabulary = {
     val chrome = CozySummaryConfirmationProjectionV2.Chrome(
+      "Summary confirmation <screen> & \"quoted\"",
       "Status <heading> & \"quoted\"",
       "Selected explicit Summary sources are current and admitted",
       "No unresolved selected references",
@@ -371,6 +614,13 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
   }
 
   private def _wording(values: Set[String]): Map[String, String] = values.toVector.sorted.map(value => value -> s"Generic wording $value").toMap
+  private def _evidence(html: String, unitid: String): String = {
+    val start = html.indexOf(s"""<article id="evidence-$unitid"""")
+    require(start >= 0, s"missing evidence panel: $unitid")
+    val end = html.indexOf("</article>", start)
+    require(end >= 0, s"missing evidence closing tag: $unitid")
+    html.substring(start, end + "</article>".length)
+  }
   private def _tag(html: String, marker: String): String = {
     val index = html.indexOf(marker)
     require(index >= 0, s"missing marker: $marker")

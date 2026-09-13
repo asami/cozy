@@ -1,0 +1,283 @@
+schema: cozy.summary-description.v2
+id: application-modeling-summary-ja-v2
+core:
+  id: application-modeling
+  identity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc
+document:
+  id: application-modeling-document-ja-v2
+  identity: sha256:98409b67f591480b6e18adfba7531d7b310397728087fdb1a4645686e95b7429
+locale: ja
+summary:
+  title: SimpleModeling 第9回 アプリケーションモデリング：要約
+  units:
+    - id: application-overview
+      overview:
+        stepRef: application-modeling
+      heading: アプリケーションモデリングの全体像
+      message: ドメインの意味を利用者の目的の実現へ対応付け、基礎となる見方、ユースケース実現、レビューと実現への接続を区別して全体を捉えます。
+      emphasis: primary
+      coreRefs:
+        steps: [application-modeling, application-foundation, use-case-realization, application-conclusion]
+        claims: [series-position, series-continuity]
+        nodes: [root-domain-model, root-application-model]
+        relations: [root-domain-maps-to-application]
+        flows: [application-modeling-flow]
+      navigationLabel: 全体像
+      retainedPoints:
+        - id: overview-series-position
+          text: 第8回のドメインモデリングで整理した意味と構造を、ユースケースの実現へつなぎます。
+          coreRefs:
+            steps: [application-modeling]
+            claims: [series-position, series-continuity]
+            nodes: [root-domain-model, root-application-model]
+            relations: [root-domain-maps-to-application]
+            flows: []
+        - id: overview-step-dependencies
+          text: 基礎となる見方を土台にユースケース実現を整理し、その実現を踏まえてレビューへ接続します。
+          coreRefs:
+            steps: [application-foundation, use-case-realization, application-conclusion]
+            claims: []
+            nodes: []
+            relations: []
+            flows: [application-modeling-flow]
+      diagram:
+        items:
+          - id: overview-domain-model
+            kind: node
+            ref: root-domain-model
+          - id: overview-application-model
+            kind: node
+            ref: root-application-model
+          - id: overview-conclusion
+            kind: step
+            ref: application-conclusion
+          - id: overview-realization
+            kind: step
+            ref: use-case-realization
+          - id: overview-foundation
+            kind: step
+            ref: application-foundation
+        edges:
+          - id: overview-domain-to-application
+            kind: relation
+            ref: root-domain-maps-to-application
+            direction: forward
+          - id: overview-realization-to-foundation
+            kind: flow-transition
+            ref: realization-depends-on-foundation
+            direction: forward
+          - id: overview-conclusion-to-realization
+            kind: flow-transition
+            ref: conclusion-depends-on-realization
+            direction: forward
+      omissions:
+        - id: overview-details-condensed
+          documentKind: section
+          documentRef: application-modeling-introduction
+          disposition: condensed
+          rationale: 各ステップ内の詳細は後続の各論スライドと本文で確認します。
+    - id: foundation-purpose
+      heading: ドメインの意味を利用目的の実現へつなぐ
+      message: アプリケーションモデリングは、ドメインモデルを、利用者の目的を実現するアプリケーションモデルへ対応付けます。
+      emphasis: primary
+      coreRefs:
+        steps: [application-modeling, application-foundation, use-case-realization]
+        claims: [series-position, series-continuity, application-modeling-purpose, domain-and-application-modeling]
+        nodes: [root-domain-model, root-application-model]
+        relations: [root-domain-maps-to-application]
+        flows: [application-modeling-flow]
+      navigationLabel: 基礎と目的
+      retainedPoints:
+        - id: foundation-purpose-point
+          text: ドメインの意味を利用者の目的へ対応付けることが出発点です。
+          coreRefs:
+            steps: [application-modeling]
+            claims: [series-position, series-continuity]
+            nodes: [root-domain-model, root-application-model]
+            relations: [root-domain-maps-to-application]
+            flows: [application-modeling-flow]
+      diagram:
+        items:
+          - id: foundation-domain-model
+            kind: node
+            ref: root-domain-model
+          - id: foundation-application-model
+            kind: node
+            ref: root-application-model
+          - id: foundation-use-case-realization
+            kind: step
+            ref: use-case-realization
+          - id: foundation-application-foundation
+            kind: step
+            ref: application-foundation
+        edges:
+          - id: foundation-domain-to-application
+            kind: relation
+            ref: root-domain-maps-to-application
+            direction: forward
+          - id: foundation-realization-to-foundation
+            kind: flow-transition
+            ref: realization-depends-on-foundation
+            direction: forward
+      omissions:
+        - id: foundation-introduction-condensed
+          documentKind: block
+          documentRef: introduction-paragraph
+          disposition: condensed
+          rationale: 導入の詳細は本文で確認します。
+    - id: use-case-model
+      heading: ユースケースから実現モデルを構成する
+      message: シナリオを直接プログラムへ進めず、利用者の目的をアプリケーション内部の実現モデルへ対応付けます。
+      emphasis: primary
+      coreRefs:
+        steps: [use-case-realization]
+        claims: [use-case-as-starting-point, use-case-realization, ui-and-application-boundary]
+        nodes: [realization-scenario, realization-model]
+        relations: [realization-scenario-maps-to-model]
+        flows: [use-case-realization-flow]
+      navigationLabel: ユースケース実現
+      retainedPoints:
+        - id: use-case-model-point
+          text: シナリオと実現モデルを対応付けてから実装の検討へ進みます。
+          coreRefs:
+            steps: [use-case-realization]
+            claims: [use-case-as-starting-point, use-case-realization]
+            nodes: [realization-scenario, realization-model]
+            relations: [realization-scenario-maps-to-model]
+            flows: [use-case-realization-flow]
+      diagram:
+        items:
+          - id: use-case-model-scenario
+            kind: node
+            ref: realization-scenario
+          - id: use-case-model-realization
+            kind: node
+            ref: realization-model
+        edges:
+          - id: use-case-model-scenario-to-realization
+            kind: relation
+            ref: realization-scenario-maps-to-model
+            direction: forward
+      omissions:
+        - id: use-case-example-condensed
+          documentKind: block
+          documentRef: realization-example
+          disposition: condensed
+          rationale: 画面設計の例は本文で確認します。
+    - id: collaboration-interaction
+      heading: 責務の構造と相互作用の順序を分けて捉える
+      message: 協調では参加者と責務の構造を明示し、責務が相互作用を引き起こすとともに可能にして、その協調をシナリオのメッセージ、操作、イベントとして具体化します。
+      emphasis: supporting
+      coreRefs:
+        steps: [collaboration-and-interaction]
+        claims: [collaboration, interaction, static-and-dynamic-views]
+        nodes: [collaboration-responsibility, collaboration-interaction]
+        relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+        flows: [collaboration-and-interaction-flow]
+      navigationLabel: 協調と相互作用
+      retainedPoints:
+        - id: collaboration-interaction-point
+          text: 責務と相互作用は同じものとして混同せず、それぞれの役割を確認します。
+          coreRefs:
+            steps: [collaboration-and-interaction]
+            claims: [collaboration, interaction]
+            nodes: [collaboration-responsibility, collaboration-interaction]
+            relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+            flows: [collaboration-and-interaction-flow]
+      diagram:
+        items:
+          - id: collaboration-interaction-responsibility
+            kind: node
+            ref: collaboration-responsibility
+          - id: collaboration-interaction-interaction
+            kind: node
+            ref: collaboration-interaction
+        edges:
+          - id: collaboration-interaction-responsibility-to-interaction
+            kind: relation
+            ref: collaboration-responsibility-causes-interaction
+            direction: forward
+      omissions:
+        - id: collaboration-note-condensed
+          documentKind: block
+          documentRef: collaboration-note
+          disposition: condensed
+          rationale: 静的と動的の補足は本文で確認します。
+    - id: executable-elements
+      heading: イベントから操作までを実行可能に整理する
+      message: イベントがサービスによる処理を引き起こすとともに可能にする関係を軸に、状態機械、サービス、操作をユースケースを実現する責務と呼出契約として組織します。
+      emphasis: supporting
+      coreRefs:
+        steps: [executable-elements]
+        claims: [event, state-machine, service-and-operation]
+        nodes: [execution-event, execution-service]
+        relations: [execution-event-causes-service, execution-event-enables-service]
+        flows: [executable-elements-flow]
+      navigationLabel: 実行可能な要素
+      retainedPoints:
+        - id: executable-elements-point
+          text: イベント、状態、サービス、操作をユースケース実現の責務として整理します。
+          coreRefs:
+            steps: [executable-elements]
+            claims: [event, state-machine, service-and-operation]
+            nodes: [execution-event, execution-service]
+            relations: [execution-event-causes-service, execution-event-enables-service]
+            flows: [executable-elements-flow]
+      diagram:
+        items:
+          - id: executable-elements-event
+            kind: node
+            ref: execution-event
+          - id: executable-elements-service
+            kind: node
+            ref: execution-service
+        edges:
+          - id: executable-elements-event-to-service
+            kind: relation
+            ref: execution-event-causes-service
+            direction: forward
+      omissions:
+        - id: executable-elements-condensed
+          documentKind: block
+          documentRef: executable-elements-paragraph
+          disposition: condensed
+          rationale: 実行可能な要素の詳細は本文で確認します。
+    - id: review-and-realization
+      heading: 追跡可能性をレビューし、実現へ接続する
+      message: 要求から振る舞いまでの対応を保ち、意味と業務上の妥当性のレビューに依存してCMLを確定し、承認された実行可能モデルを次の実現へ渡します。
+      emphasis: conclusion
+      coreRefs:
+        steps: [application-conclusion]
+        claims: [modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
+        nodes: [conclusion-review, conclusion-cml]
+        relations: [conclusion-cml-depends-on-review]
+        flows: [application-conclusion-flow]
+      navigationLabel: レビューと実現
+      retainedPoints:
+        - id: review-and-realization-point
+          text: レビューで確定したCMLを次の実現へ渡し、対応を追跡可能に保ちます。
+          coreRefs:
+            steps: [application-conclusion]
+            claims: [review-and-refinement, traceability, executable-model]
+            nodes: [conclusion-review, conclusion-cml]
+            relations: [conclusion-cml-depends-on-review]
+            flows: [application-conclusion-flow]
+      diagram:
+        items:
+          - id: review-and-realization-review
+            kind: node
+            ref: conclusion-review
+          - id: review-and-realization-cml
+            kind: node
+            ref: conclusion-cml
+        edges:
+          - id: review-and-realization-review-to-cml
+            kind: relation
+            ref: conclusion-cml-depends-on-review
+            direction: inverse
+      omissions:
+        - id: realization-boundary-condensed
+          documentKind: block
+          documentRef: conclusion-note
+          disposition: condensed
+          rationale: モデリングと実現の境界は本文で確認します。

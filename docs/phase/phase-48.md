@@ -83,8 +83,9 @@ Phase 48 closes the public-profile scaffold surface only. The accepted
 implementation writes the strict sibling authority for `standard`,
 `standard-video`, `bok`, and `bok-video`, binds it directly to the generated
 Content Core bytes, and deliberately leaves semantic authoring incomplete.
-The Phase 49 workflow/state, operation, review, currentness, and
-confirmation-operation work remains separately planned. The final full Cozy
+The Phase 49 sequence’s workflow/state/public-operation grammar, read-only
+surfaces, confirmation routing, and stale/currentness work remains separately
+planned. The final full Cozy
 suite and the distinct local phase-release commit are the release evidence;
 this closure performs no publication, deployment, upload, push, or external
 mutation.

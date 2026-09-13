@@ -48,7 +48,7 @@ units }`.
 
 Each unit MUST contain exactly `id`, `heading`, `message`, `emphasis`,
 `coreRefs`, `navigationLabel`, `retainedPoints`, and `omissions`, plus optional
-`diagram`. Unit IDs are unique and ordered. `heading`, `message`, and
+`diagram` and `overview`. Unit IDs are unique and ordered. `heading`, `message`, and
 `navigationLabel` are nonempty trimmed wording. `emphasis` is exactly
 `primary`, `supporting`, or `conclusion`; `coreRefs` is the v1 exact
 References object and contains at least one resolving value.
@@ -70,6 +70,21 @@ Steps. `inverse` uses the reverse of the Core source reading; it does not
 create or mutate an edge. A Relation edge MUST occur in the unit
 `coreRefs.relations`. A Flow-transition edge MUST have its owner Flow in the
 unit `coreRefs.flows`.
+
+An optional `overview` is exactly `{ stepRef }`, explicitly selecting the Core
+Root Step. At most one overview unit is admitted, and it MUST be the first
+unit. Absence preserves ordinary unit behavior; no overview unit is inferred.
+An overview unit's five-category `coreRefs` MUST exactly cover the Root Step,
+its direct child Steps, Root claims, Root local Nodes/Relations and Root Flow,
+without descendant-local sources. Its retained-point references MUST be
+subsets of this scope. A diagram is required and MUST explicitly select each
+Root Node and direct child Step once, and each Root Relation and Root Flow
+transition once. Original direction choices and author order remain intact.
+Missing, duplicate or out-of-scope overview selection MUST reject with typed
+`DESCRIPTION_V2_OVERVIEW_*` faults, never be filled in by traversal.
+
+This unreleased v2 semantic-selection extension introduces no coordinates,
+layout field or v1 behavior change.
 
 `omissions` is a nonempty ordered array. Each Omission is exactly
 `{ id, documentKind, documentRef, disposition, rationale }`. IDs are unique

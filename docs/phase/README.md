@@ -77,6 +77,11 @@ Current phase state:
   content from HTML chrome and physical presentation, preserves distinct local
   Structure and child-Step Flow, and leaves publication and site integration
   outside its closed boundary.
+- Planned interactive confirmation phase: `phase-58.2.md` evolves the strict
+  Article 9 Document and Summary authorities only as needed to generate the
+  user-approved interactive Core-to-prose and Summary-condensation review
+  workspaces. It preserves v1 behavior, forbids renderer-side semantic
+  inference, and leaves publication and site integration outside its boundary.
 - Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite

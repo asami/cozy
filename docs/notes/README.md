@@ -44,6 +44,9 @@ Current notes:
 - `document-project-document-and-summary-description-dsl-proposal.md`: Phase
   58.1 proposal for media-independent complete-document and
   summary-slide-level authoring DSLs over the recursive Content Core.
+- `document-project-interactive-confirmation-projection-proposal.md`: Phase
+  58.2 proposal for generating interactive Core-to-prose and
+  Summary-condensation confirmation workspaces from strict authoring DSLs.
 - `scalar-entity-persistence-roundtrip-implementation-proposal.md`: proposed
   Phase 23 implementation boundary, reproduction gates, generated-reader
   change points, and Entity lifecycle verification matrix.

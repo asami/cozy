@@ -26,6 +26,12 @@ fallback for generic wording, locale lookup, Article 9 mapping, or semantic
 inference. Production vocabulary and the Article 9 driver remain P582-05
 authority.
 
+Required internal `pageHeading` separates generic screen purpose in `h1`
+from the exact authored Summary title in HTML `title` and the 12px kicker.
+The sample header and workspace grid remain intact. This still-unreleased
+generic presentation extension changes no domain authoring schema, public
+CLI/API, or authored identity and adds no fallback or title inference.
+
 The renderer deterministically rejects a typed admitted Summary with no units
 as `SUMMARY_CONFIRMATION_V2_UNITS` before attempting initial selection. This
 consumer-side preflight preserves a stable projection failure even when an
@@ -39,20 +45,63 @@ order exactly follows `summary.units`. One `aria-pressed` model controls the
 visible semantic panel and evidence panel for that selection; native buttons
 retain keyboard activation and CSS provides visible focus.
 
-The selected semantic explanation is a single renderer-owned responsive 16:9
+The selected semantic explanation is a single renderer-owned desktop-reference 16:9
 panel. It renders precisely its admitted heading, message, and emphasis.
 Aspect ratio is presentation only: the Summary model has no coordinate,
 dimension, slide-layout, or physical-layout field.
 
-Its evidence panel renders only the selection's exact `coreRefs`, retained
-points with their own exact references, optional authored diagram, and
-omissions. Diagram items carry their admitted identity, kind, and Core ref.
+An explicit first `Overview` unit additionally identifies the Core Root. Its
+single slide separates selected Root/direct-child containment from Root Flow
+and Root local Structure. Containment renders the admitted Step-reference
+order and has no arrow. The admitted diagram is partitioned by typed kinds;
+each partition preserves author order, edge direction and exact provenance.
+It adds no graph record. Caller Step/Flow/Node/Relation category wording names
+the regions. Overview-only styles fit these regions inside the existing 16:9
+slide, with the original workspace, colors, native selection and inspector.
+Ordinary slides without the explicit role stay unchanged. Complete top-level
+scope is an admission contract, not renderer inference or all-Core coverage.
+
+Its primary evidence panel has exactly three readable sections: localized
+Step labels, retained point texts, and authored omitted/condensed Document
+content labels resolved by exact kind/reference followed by its rationale. It does
+not repeat the unit heading or ID at the top. A collapsed native audit inside
+the selected evidence panel retains the selection's exact five-category
+`coreRefs`, every retained point with its own exact references, optional
+authored diagram records, and each omission's full target content plus exact kind/reference/disposition/
+rationale. Diagram items carry their admitted identity, kind, and Core ref.
 Relation and Flow-transition edges carry their admitted identity, kind, ref,
 and direction. A Relation reads only its exact Core Relation; a Flow edge
 reads only its exact owning Core Flow transition. Declared `inverse` reverses
 that source reading and does not create an edge. No containment, proximity,
 traversal, order, or inferred diagram element participates. A unit without a
 diagram renders the vocabulary-owned empty-diagram message.
+
+Diagram marks follow Document confirmation, not a new diagram language:
+Structure Relation `→`, direct-child Flow transition `⇢`. Both arrows retain
+their localized type wording and show the caller-owned source category, so
+kind is readable without relying on glyph/color alone. Original Core type,
+from/to, Flow owner and direction-adjusted displayed from/to are retained as
+exact attributes in slide and audit. A private projection helper reads only
+the exact typed Relation or owning Flow transition; it never derives an edge
+from containment, wording or diagram item order. Explicit Summary selection is
+the scope of structural inheritance, not a claim of complete Core coverage.
+Accepted workspace, colors, 16:9 dimensions, author text, primary inspector and
+complete audit remain intact; no generalized framework or schema is introduced.
+The named aside restores an outer `h2` from `sourcesHeading`, matching its
+accessible `aria-label`. Its first primary `h3` instead uses the existing
+`sourceCategories("steps")`, avoiding repeated outer wording. Retained and
+omission primary lists are bullets in authored order; exactly three primary
+sections still precede collapsed audit.
+
+The exact Document target lookup carries a compact label and full content.
+Paragraphs use the directly owning Section heading as their primary label;
+list items use that heading only above the existing 120-character long-target
+threshold. Other targets keep exact existing labels. No authored prose is
+shortened, inferred, or clipped: full target content and rationale live in
+audit, while primary shows the label and authored rationale paragraph.
+Disposition remains exact in audit. Accepted Summary slide text,
+diagram selection/edges/directions, and 16:9 CSS are untouched; only the
+prescribed edge-kind marks and provenance attributes extend diagram markup.
 
 The primary status is deliberately selective: it says only that the selected,
 explicit Summary sources are current/admitted and have no unresolved selected
@@ -66,7 +115,8 @@ The projection emits one safely escaped self-contained HTML document with
 inline CSS and script. The script changes only selected presentation state.
 There is no external resource, network activity, canvas, fixed authored
 coordinate, or pointer-only control. Equal typed inputs render byte-identical
-HTML.
+HTML. The desktop sample layout is the acceptance reference for this pass;
+responsive behavior is not an acceptance priority.
 
 The returned SHA-256 identity is calculated from the deterministic document
 with only every self-disclosing output-identity value normalized to empty.
