@@ -28,18 +28,52 @@ final class CozyDocumentConfirmationVocabularySpec extends AnyWordSpec with Matc
         Then("only complete generic chrome and controlled wording reach the renderer adapters")
         documentvocabulary.chrome.statusHeading shouldBe "確認状態"
         documentvocabulary.chrome.pageHeading shouldBe "文書確認"
+        documentvocabulary.chrome.flowHeading shouldBe "ステップ間の構造"
+        documentvocabulary.chrome.structureHeading shouldBe "ステップ内の構造"
         documentvocabulary.logicalPatterns("causal-chain") shouldBe "因果連鎖"
+        documentvocabulary.logicalPatterns("sequence") shouldBe "順序"
+        documentvocabulary.nodeRoles("step") shouldBe "ステップ"
+        documentvocabulary.relationTypes("next") shouldBe "次へ"
+        documentvocabulary.flowTypes("next") shouldBe "次へ"
         documentvocabulary.nodeRoles("dependency") shouldBe "依存先"
         documentvocabulary.relationTypes("maps-to") shouldBe "対応付け"
         summaryvocabulary.chrome.navigationHeading shouldBe "要約の移動"
         summaryvocabulary.chrome.pageHeading shouldBe "要約確認"
         summaryvocabulary.chrome.sourcesHeading shouldBe "元情報と編集判断"
-        summaryvocabulary.sourceCategories("flows") shouldBe "フロー"
+        summaryvocabulary.sourceCategories("flows") shouldBe "ステップ間の構造"
+        summaryvocabulary.sourceCategories("relations") shouldBe "ステップ内の構造"
         summaryvocabulary.documentTargetKinds("list-item") shouldBe "リスト項目"
         summaryvocabulary.directions("inverse") shouldBe "逆方向"
+        summaryvocabulary.logicalPatterns shouldBe documentvocabulary.logicalPatterns
+        summaryvocabulary.inverseRelationTypes("depends-on") shouldBe "依存される"
+        summaryvocabulary.inverseFlowTypes("causes") shouldBe "引き起こされる"
+        summaryvocabulary.inverseRelationTypes("next") shouldBe "前へ"
+        summaryvocabulary.inverseFlowTypes("next") shouldBe "前へ"
+        val catalog = cozy.media.CozyVisualPage.fixedCatalog
+        documentvocabulary.logicalPatterns.keySet shouldBe catalog.logicalPatterns.map(_.id).toSet
+        documentvocabulary.nodeRoles.keySet shouldBe catalog.logicalPatterns.flatMap(_.nodeRoles.map(_.role)).toSet
+        documentvocabulary.relationTypes.keySet shouldBe catalog.relations.map(_.id).toSet
+        documentvocabulary.flowTypes.keySet shouldBe catalog.relations.map(_.id).toSet
+        summaryvocabulary.inverseRelationTypes.keySet shouldBe catalog.relations.map(_.id).toSet
+        summaryvocabulary.inverseFlowTypes.keySet shouldBe catalog.relations.map(_.id).toSet
         resource should not include "application-modeling"
         resource should not include "アプリケーションモデリング"
         resource should not include "ユースケースから実現モデルへ"
+      }
+    }
+
+    "reject incomplete Catalog wording rather than silently omitting sequence step or next" in {
+      _with_temp_dir("cozy-confirmation-vocabulary-catalog-completeness") { root =>
+        Given("a complete resource with one existing Catalog term missing or an invented term added")
+        val text = Files.readString(_copy_vocabulary(root.resolve("ja")), StandardCharsets.UTF_8)
+        val variants = Vector(text.replace("    sequence: 順序\n", ""), text.replace("    step: ステップ\n", ""), text.replace("    next: 次へ\n", ""), text.replace("    next: 前へ\n", ""), text.replace("    sequence: 順序\n", "    sequence: 順序\n    invented: 未定義\n"))
+        val paths = variants.zipWithIndex.map { case (value, index) => _write(root.resolve(s"catalog-$index/ja/confirmation-vocabulary.yaml"), value) }
+
+        When("either renderer adapter loads each incomplete or extra-key resource")
+        val faults = paths.flatMap(path => Vector(_failure(CozyDocumentConfirmationVocabulary.loadDocument(path, "ja")), _failure(CozyDocumentConfirmationVocabulary.loadSummary(path, "ja"))))
+
+        Then("closed complete key sets reject without best-effort fallback or a new Catalog meaning")
+        faults.foreach(_.code shouldBe "CONFIRMATION_VOCABULARY_FIELDS")
       }
     }
 

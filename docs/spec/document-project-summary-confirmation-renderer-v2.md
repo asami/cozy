@@ -107,6 +107,19 @@ caller-owned source category and existing type wording. Marks MUST NOT depend
 on item order, navigation position, text, or semantic inference, and MUST NOT
 be the sole accessible indication of kind.
 
+Every diagram region heading MUST visibly pair its source-category wording
+with a scope mark: `⇢` for child-Step Flow and `→` for local Node/Relation
+Structure. These heading marks classify the region; they are not graph edges.
+Ordinary unit diagrams MUST partition authored Step/Flow-transition records
+from Node/Relation records into separately headed regions. Region order follows
+the first authored item kind; item and edge order within each partition remains
+authored. Single-kind diagrams have only their own region. No unselected item,
+edge, implicit Flow, or inferred local Structure may be added. Containment
+remains unmarked by either arrow. The bounded partition/heading presentation is
+an explicit exception to the diagram-layout preservation clauses above and
+below; slide dimensions, colors, author text, selection and inspector remain
+unchanged.
+
 Slide and audit edge records MUST expose the exact Core edge type, original
 from/to identities, displayed from/to identities after the declared direction,
 and owning Core Flow identity for Flow transitions. These are projection
@@ -126,7 +139,36 @@ self-disclosing output-identity value normalized to empty. Returned and
 disclosed identities MUST match. The artifact MUST have no external resource,
 network action, canvas, fixed authored coordinate, or pointer-only dependency.
 
+## Typed text tags and endpoint connections
+
+Text-bearing tags MUST expose the exact selected Structure pattern and each
+selected edge type, alongside the existing scope heading. Pattern wording
+comes from the caller's Logical Pattern map; the generic resource reuses its
+Document pattern wording for Summary. Tags are not additional graph edges.
+Each selected diagram item is rendered once, in authored DOM order, without
+automatically emphasizing the first item. Inline SVG connections MUST join
+the exact displayed endpoint elements; separate lanes retain parallel edges
+and branches. Runtime geometry is renderer-owned and uses only those typed
+endpoint attributes, never adjacency or new semantic relationships.
+
+Forward edge labels use caller-owned canonical type wording; inverse labels
+MUST use caller-owned inverse type wording in both slide and audit. Missing
+inverse wording rejects before rendering. Original Core edge direction and
+identities remain unchanged. This bounded correction supersedes the earlier
+diagram-layout/type-wording preservation constraints only. Author text,
+selection, dimensions and primary inspector stay intact.
+
 ## Executable specification coverage
+
+The admitted optional diagram `focusItem` MUST emphasize exactly its selected
+DiagramItem in slide and audit, retaining identity through partitioning,
+forward/inverse display and authored item reordering. The slide uses a visible
+border/background distinction and caller-owned `emphasisHeading` text, so
+color alone is not the indication. The focus selection MUST NOT add, reorder
+or infer items/edges, or change connections. With no focus selection there is
+no emphasized item. Overview and ordinary diagrams follow the same rule.
+This explicit authoring selection is the only exception to the no-automatic-
+emphasis requirement; it introduces no renderer inference or physical layout.
 
 `CozySummaryConfirmationProjectionV2Spec` MUST use `AnyWordSpec`, adjacent
 Given/When/Then clauses, and `should` matchers. It MUST exercise deterministic
@@ -144,3 +186,6 @@ and primary/audit separation with exact full paragraph/item wording.
 Coverage MUST prove mark/category agreement and exact source/type/endpoint/Flow
 owner provenance in both slide and audit, including generated forward/inverse
 directions and reordered diagram items without inference or extra edges.
+Coverage MUST also prove scope marks on overview and ordinary region headings,
+typed partition isolation and authored order under generated item ordering,
+single-kind projection, and the absence of relation marks in containment.

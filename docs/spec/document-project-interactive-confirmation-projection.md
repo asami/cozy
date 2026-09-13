@@ -29,6 +29,23 @@ ordering, or whitespace do or do not equal a reference file. The reference
 SHA-256 values are provenance identities only. Repeated rendering of identical
 admitted sources remains a separate future determinism obligation.
 
+### 1.2 Resumed acceptance scope
+
+The direct user instruction for the resumed normal-acceptance boundary is:
+
+> 正式なレビュー、フルテスト、リリースしてクローズして。
+
+The related presentation instruction is:
+
+> レスポンシブは考慮しなくていよい。サンプルを完全に再現して。
+
+It prioritizes complete sample/Desktop layout and functionality for this
+acceptance boundary. No responsive redesign is required or authorized here.
+Any narrow fallback behavior is characterization only; a mobile or
+full-responsive parity claim requires direct observation. The responsive rules
+in Section 6 remain the future projection contract and are not authorization
+for a redesign in this resumed documentation boundary.
+
 ## 2. Authority and input boundary
 
 The projection MUST preserve these five distinct authorities:

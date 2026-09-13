@@ -1,6 +1,17 @@
 # Phase 58.2 Checklist: Interactive Document and Summary Confirmation Projection
 
-Phase Status: IN PROGRESS
+Phase Status: IN-PROGRESS
+
+Prior operational closure: 2026-09-13 operational handoff with explicit
+deferrals; retained as historical provenance and not normal release acceptance
+
+Normal acceptance resumption: 2026-09-13
+
+Closure basis (historical): the user's decision to stop Phase 58.2 development
+here and refine the screens in actual use. The later direct instruction resumes
+formal normal acceptance in this existing Phase. Future Development Candidate
+history below is not a claim that any resumed execution succeeded. Its
+canonical relocation history is [the operational follow-up list](phase-58.2-operational-follow-up.md).
 
 Development item: DEV-026
 
@@ -96,25 +107,52 @@ Stage Status:
 ## P582-05: Article 9 acceptance and closure
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Phase 58.2 acceptance
-- Update rule: Mark DONE only when the real v2 driver, executable and visual
-  evidence, independent review, full validation, and release closure agree on
-  one settled tree.
+- Update rule: Normal acceptance resumed on 2026-09-13 within the existing
+  Phase. Mark this Step DONE only when the real v2 driver, focused executable
+  and visual evidence, complete lightweight Step review, and the
+  `P582-NORMAL-STEP-COMMIT-001` acceptance commit agree on the accepted tree.
+  Final full Phase review, full validation, and distinct release closure remain
+  separate Phase gates below. The prior operational closure remains historical
+  and does not assert either result.
 
-- [ ] Replace the Article 9-specific production-code localization map with
-      admitted project labels and generic Cozy locale resources.
-- [ ] Author and strictly admit the real Article 9 Japanese v2 Document and
-      Summary sources.
-- [ ] Prove repeated-render byte and identity determinism for both pages.
-- [ ] Prove v1 preservation, safe escaping, strict rejection, exact
+Acceptance direction: the direct user instruction
+「レスポンシブは考慮しなくていよい。サンプルを完全に再現して。」
+prioritizes complete sample/Desktop layout and functionality. No responsive
+redesign is required or authorized here. Narrow fallback evidence is
+characterization only; mobile/full-responsive parity is not claimed without
+observation.
+
+- [x] Replace the Article 9-specific production-code localization map with
+      admitted project labels and generic Cozy locale resources in the v2
+      confirmation path; legacy v1 behavior remains unchanged.
+- [x] Author and strictly admit the real Article 9 Japanese v2 Document and
+      Summary sources in Cozy's `content-v2` driver; this is not external
+      SimpleModeling.org production migration.
+- [x] Prove repeated-render byte and identity determinism for both pages
+      through `CozyDocumentConfirmationDriverSpec` in focused invocation
+      `COZY-CONFIRMATION-TAGS-VAL-002`.
+- [x] Prove v1 preservation, safe escaping, strict rejection, exact
       traceability, selection behavior, and absence of Article-specific
       production-code wording through executable specifications.
-- [ ] Compare generated pages with the approved reference contract at
-      representative desktop and mobile widths and record visual evidence.
+      `P582-NORMAL-VAL-003` passed the eight owning v1/v2, vocabulary,
+      projection, driver, and export suites on the settled candidate tree.
+- [x] Compare the generated pages with the approved sample/Desktop contract
+      and record current visual evidence. The current 1280-pixel-wide
+      loopback check verified Document selection/reveal and Summary navigation,
+      structure marks, inverse-relation wording, no horizontal overflow, and
+      no console error. Per the explicit user direction, this is desktop
+      sample-parity evidence; it makes no mobile or responsive-parity claim.
 - [ ] Complete one independent full Phase review with no Current Phase Blocker.
+      (DP-03 resumed normal-acceptance gate) fresh review of the settled tree is
+      required; prior deferral history is retained.
 - [ ] Complete full Cozy validation through the shared SBT lock.
+      (DP-03 resumed normal-acceptance gate) focused 48/48 success is not
+      substituted for latest-tree full validation.
 - [ ] Close Phase 58.2 through a distinct release commit.
+      (DP-03 resumed normal-acceptance gate) no normal phase-release commit is
+      claimed.
 
 ## Closure boundary
 

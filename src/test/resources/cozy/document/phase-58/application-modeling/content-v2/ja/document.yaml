@@ -2,7 +2,7 @@ schema: cozy.document-description.v2
 id: application-modeling-document-ja-v2
 core:
   id: application-modeling
-  identity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc
+  identity: sha256:6afe2e0a8bc534be97e12fb34dffd0175ee82baccb22b98923f92801d3ee0998
 locale: ja
 document:
   title: SimpleModeling 第9回 アプリケーションモデリング
@@ -12,8 +12,8 @@ document:
       coreRefs:
         steps: [application-modeling, application-foundation, use-case-realization, collaboration-and-interaction, executable-elements, application-conclusion]
         claims: [series-position, series-continuity, application-modeling-purpose, domain-and-application-modeling, use-case-as-starting-point, use-case-realization, ui-and-application-boundary, collaboration, interaction, static-and-dynamic-views, event, state-machine, service-and-operation, modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
-        nodes: [root-domain-model, root-application-model, foundation-static-view, foundation-dynamic-view, realization-scenario, realization-model, collaboration-responsibility, collaboration-interaction, execution-event, execution-service, conclusion-review, conclusion-cml]
-        relations: [root-domain-maps-to-application, foundation-dynamic-depends-on-static, realization-scenario-maps-to-model, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction, execution-event-causes-service, execution-event-enables-service, conclusion-cml-depends-on-review]
+        nodes: [root-domain-model, root-application-model, foundation-static-view, foundation-dynamic-view, realization-scenario, realization-model, collaboration-participants, collaboration-responsibility, collaboration-interaction, execution-event, execution-state-machine, execution-service, conclusion-review, conclusion-cml, conclusion-ai-proposal-decision]
+        relations: [root-domain-maps-to-application, foundation-dynamic-depends-on-static, realization-scenario-maps-to-model, collaboration-participants-enable-interaction, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction, execution-event-causes-service, execution-event-enables-service, execution-state-machine-enables-service, conclusion-cml-depends-on-review, conclusion-ai-proposal-decision-depends-on-review]
         flows: [application-modeling-flow, application-foundation-flow, use-case-realization-flow, collaboration-and-interaction-flow, executable-elements-flow, application-conclusion-flow]
       blocks:
         - id: introduction-paragraph
@@ -91,18 +91,18 @@ document:
               coreRefs:
                 steps: [collaboration-and-interaction]
                 claims: [collaboration, interaction, static-and-dynamic-views]
-                nodes: [collaboration-responsibility, collaboration-interaction]
-                relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+                nodes: [collaboration-participants, collaboration-responsibility, collaboration-interaction]
+                relations: [collaboration-participants-enable-interaction, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
                 flows: [collaboration-and-interaction-flow]
               blocks:
                 - id: collaboration-paragraph
                   kind: paragraph
-                  text: 協調は、ユースケースを実現する参加者、役割、責務の構造を明示します。責務が相互作用を引き起こすとともに可能にし、相互作用は、その協調に属する参加者が具体的なシナリオでどのように連携するかを、メッセージ、操作、イベントと順序を持つ実行例として具体化します。
+                  text: 協調は、ユースケースを実現する参加者、役割、責務の構造を明示します。責務が相互作用を引き起こすとともに可能にし、相互作用は、その協調に属する参加者が具体的なシナリオでどのように連携するかを、メッセージ、操作、イベントと順序を持つ実行例として具体化します。参加者と役割がそろうことも、その相互作用を可能にする条件です。
                   coreRefs:
                     steps: [collaboration-and-interaction]
                     claims: [collaboration, interaction, static-and-dynamic-views]
-                    nodes: [collaboration-responsibility, collaboration-interaction]
-                    relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+                    nodes: [collaboration-participants, collaboration-responsibility, collaboration-interaction]
+                    relations: [collaboration-participants-enable-interaction, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
                     flows: [collaboration-and-interaction-flow]
                 - id: collaboration-note
                   kind: note
@@ -111,8 +111,8 @@ document:
                   coreRefs:
                     steps: [collaboration-and-interaction]
                     claims: [static-and-dynamic-views]
-                    nodes: [collaboration-responsibility, collaboration-interaction]
-                    relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+                    nodes: [collaboration-participants, collaboration-responsibility, collaboration-interaction]
+                    relations: [collaboration-participants-enable-interaction, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
                     flows: [collaboration-and-interaction-flow]
                 - id: collaboration-structure
                   kind: logical-structure
@@ -123,18 +123,18 @@ document:
               coreRefs:
                 steps: [executable-elements]
                 claims: [event, state-machine, service-and-operation]
-                nodes: [execution-event, execution-service]
-                relations: [execution-event-causes-service, execution-event-enables-service]
+                nodes: [execution-event, execution-state-machine, execution-service]
+                relations: [execution-event-causes-service, execution-event-enables-service, execution-state-machine-enables-service]
                 flows: [executable-elements-flow]
               blocks:
                 - id: executable-elements-paragraph
                   kind: paragraph
-                  text: イベントはアプリケーション内で意味のある出来事を表し、サービスによる処理を引き起こすとともに可能にします。状態機械は状態を持つ対象の状態と許可される遷移を明示します。サービスはユースケース実現に必要なケーパビリティの主要な具体形であり、操作は責務を公開する呼出契約です。
+                  text: イベントはアプリケーション内で意味のある出来事を表し、サービスによる処理を引き起こすとともに可能にします。状態機械は状態を持つ対象の状態と許可される遷移を明示します。その状態・遷移の条件を満たすことが、サービスと操作の実行を可能にします。サービスはユースケース実現に必要なケーパビリティの主要な具体形であり、操作は責務を公開する呼出契約です。
                   coreRefs:
                     steps: [executable-elements]
                     claims: [event, state-machine, service-and-operation]
-                    nodes: [execution-event, execution-service]
-                    relations: [execution-event-causes-service, execution-event-enables-service]
+                    nodes: [execution-event, execution-state-machine, execution-service]
+                    relations: [execution-event-causes-service, execution-event-enables-service, execution-state-machine-enables-service]
                     flows: [executable-elements-flow]
                 - id: executable-elements-structure
                   kind: logical-structure
@@ -145,8 +145,8 @@ document:
           coreRefs:
             steps: [application-conclusion]
             claims: [modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
-            nodes: [conclusion-review, conclusion-cml]
-            relations: [conclusion-cml-depends-on-review]
+            nodes: [conclusion-review, conclusion-cml, conclusion-ai-proposal-decision]
+            relations: [conclusion-cml-depends-on-review, conclusion-ai-proposal-decision-depends-on-review]
             flows: [application-conclusion-flow]
           blocks:
             - id: conclusion-paragraph
@@ -155,17 +155,17 @@ document:
               coreRefs:
                 steps: [application-conclusion]
                 claims: [modeling-flow, traceability]
-                nodes: [conclusion-review, conclusion-cml]
-                relations: [conclusion-cml-depends-on-review]
+                nodes: [conclusion-review, conclusion-cml, conclusion-ai-proposal-decision]
+                relations: [conclusion-cml-depends-on-review, conclusion-ai-proposal-decision-depends-on-review]
                 flows: [application-conclusion-flow]
             - id: conclusion-paragraph-review
               kind: paragraph
-              text: 生成AIは対応案を作成でき、textus-cbd-supportは可視化、差分、根拠、追跡可能性、検証情報を提示できます。しかし意味と業務上の妥当性をレビューし、CMLをそのレビューに依存して確定し、その結果を次の提案と更新へフィードバックする責任は開発者にあります。
+              text: 生成AIは対応案を作成でき、textus-cbd-supportは可視化、差分、根拠、追跡可能性、検証情報を提示できます。しかし意味と業務上の妥当性をレビューし、CMLをそのレビューに依存して確定し、その結果を次の提案と更新へフィードバックする責任は開発者にあります。生成AIが作成した対応案の採否も、開発者によるレビューに依存します。
               coreRefs:
                 steps: [application-conclusion]
                 claims: [review-and-refinement, executable-model, model-realization-boundary]
-                nodes: [conclusion-review, conclusion-cml]
-                relations: [conclusion-cml-depends-on-review]
+                nodes: [conclusion-review, conclusion-cml, conclusion-ai-proposal-decision]
+                relations: [conclusion-cml-depends-on-review, conclusion-ai-proposal-decision-depends-on-review]
                 flows: [application-conclusion-flow]
             - id: conclusion-note
               kind: note
@@ -175,7 +175,7 @@ document:
                 steps: [application-conclusion]
                 claims: [executable-model, model-realization-boundary]
                 nodes: [conclusion-cml]
-                relations: [conclusion-cml-depends-on-review]
+                relations: [conclusion-cml-depends-on-review, conclusion-ai-proposal-decision-depends-on-review]
                 flows: [application-conclusion-flow]
             - id: conclusion-structure
               kind: logical-structure
@@ -196,6 +196,12 @@ labels:
     - stepRef: application-conclusion
       text: レビューと実現への接続
   nodes:
+    - nodeRef: collaboration-participants
+      text: 参加者・役割
+    - nodeRef: execution-state-machine
+      text: 状態機械
+    - nodeRef: conclusion-ai-proposal-decision
+      text: 生成AIの提案の採否
     - nodeRef: root-domain-model
       text: ドメインモデル
     - nodeRef: root-application-model

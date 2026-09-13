@@ -67,6 +67,22 @@ caller-supplied type wording and exact typed source attributes. The mark is a
 presentation of edge kind, not a new relation type or an inferred edge. Summary
 confirmation MUST use the same marks for its explicitly adopted typed edges.
 
+Structure and Flow region headings MUST also display their respective `→` and
+`⇢` scope marks beside caller-owned wording. A prose Relation reference chip
+and a native LogicalStructure reference disclosure MUST display `→`; the exact
+reference identity, localized wording and native disclosure behavior remain
+unchanged. Heading/reference marks indicate typed scope, not an additional
+edge. Recursive containment navigation MUST NOT receive either relation arrow
+or be presented as Flow. All marks are supplementary to existing accessible
+wording and exact typed attributes.
+
+Text-bearing tags MUST show caller-owned Logical Pattern wording in Step
+controls and the selected Structure panel, without adding containment arrows.
+Relation/Flow type wording MUST appear as readable tags on exact edges; prose
+Relation chips and LogicalStructure summaries MUST expose the corresponding
+exact type/pattern too. Their typed source, original IDs, selection behavior,
+and full prose stay intact.
+
 The prose region MUST recursively render all admitted Section and Block forms.
 Each Section wrapper renders its own heading and blocks, then closes before
 its recursive child Sections, which follow as siblings. Section wrappers MUST
@@ -145,5 +161,7 @@ unchanged initial-selection call; the emitted script MUST contain no
 It MUST distinguish the generic screen heading from authored title/kicker,
 prove the exact localized root Step article heading, and preserve full text
 and compact native logical-structure disclosure.
+It MUST prove marked Structure/Flow headings, marked exact prose Relation
+chips and LogicalStructure references, and unmarked containment navigation.
 Its vocabulary is test-only and is not a Cozy locale resource or Article 9
 driver.

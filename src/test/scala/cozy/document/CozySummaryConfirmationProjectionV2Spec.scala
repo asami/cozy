@@ -17,6 +17,38 @@ import scala.util.control.NonFatal
  */
 final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Summary Confirmation Projection v2" should {
+    "preserve explicit item focus in ordinary and overview partitions under reordered items and inverse readings" in {
+      _with_temp_dir("cozy-summary-v2-explicit-focus") { root =>
+        Given("an admitted ordinary mixed diagram and an explicit Root overview with no inferred focus")
+        val validated = _fixture(root).validatedsummary
+        val units = Vector(validated.description.summary.units.head, _overview_unit(validated))
+        val vocabulary = _vocabulary(validated.document.core)
+
+        When("ScalaCheck varies diagram kind selected focus item order and edge direction")
+        val choices = units.flatMap(unit => unit.diagram.get.items.map(item => (unit, item)))
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(60), Prop.forAll(Gen.oneOf(choices), Gen.oneOf(true, false), Gen.oneOf("forward", "inverse")) { (choice, reversed, direction) =>
+          val (unit, item) = choice
+          val diagram = unit.diagram.get.copy(focusItem = Some(item.id), items = if (reversed) unit.diagram.get.items.reverse else unit.diagram.get.items, edges = unit.diagram.get.edges.map(_.copy(direction = direction)))
+          val selected = validated.copy(description = validated.description.copy(summary = validated.description.summary.copy(units = Vector(unit.copy(diagram = Some(diagram))))))
+          val html = CozySummaryConfirmationProjectionV2.render(selected, vocabulary).html
+          val slide = _slide(html, unit.id)
+          val evidence = _evidence(html, unit.id)
+          val concept = _tag(slide, s"""data-diagram-item-id="${item.id}""" )
+          val audit = _tag(evidence, s"""data-diagram-item-id="${item.id}""" )
+          concept.contains("class=\"concept key\"") && concept.contains("data-diagram-item-focus=\"true\"") &&
+            audit.contains("data-diagram-item-focus=\"true\"") &&
+            _occurrences(slide, "data-diagram-item-focus=") == 1 && _occurrences(evidence, "data-diagram-item-focus=") == 1 &&
+            _occurrences(slide, "class=\"concept key\"") == 1 && slide.contains("<small class=\"concept-focus\">Emphasis</small>") &&
+            _occurrences(slide, "data-diagram-item-id=") == diagram.items.size && _occurrences(slide, "data-diagram-edge-id=") == diagram.edges.size &&
+            diagram.edges.forall(edge => _tag(slide, s"""data-diagram-edge-id="${edge.id}""" ).contains(s"""data-direction="$direction"""))
+        })
+
+        Then("one explicit concept and its audit entry carry readable emphasis without adding or dropping graph records")
+        check.passed shouldBe true
+        check.succeeded should be >= 60
+      }
+    }
+
     "separate one explicit top-level overview into containment Flow and local Structure without changing ordinary slides" in {
       _with_temp_dir("cozy-summary-v2-overview-regions") { root =>
         Given("an explicit Root overview preceding two admitted ordinary units")
@@ -42,9 +74,11 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         containment should not include("edge-mark")
         flow should include("data-core-flow-id")
         flow should include("⇢")
+        flow should include("""<span class="structure-mark" data-structure-kind="flow" aria-hidden="true">⇢</span> Flows</h3>""")
         flow should not include("data-diagram-edge-kind=\"relation\"")
         flow should not include("data-diagram-item-kind=\"node\"")
         structure should include("→")
+        structure should include("""<span class="structure-mark" data-structure-kind="structure" aria-hidden="true">→</span> Relations</h3>""")
         structure should not include("data-diagram-edge-kind=\"flow-transition\"")
         structure should not include("data-diagram-item-kind=\"step\"")
         validated.description.summary.units.foreach { detail =>
@@ -100,6 +134,107 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         Then("containment and typed partitions preserve author order while direction reverses only display endpoints")
         check.passed shouldBe true
         check.succeeded should be >= 30
+      }
+    }
+
+    "classify ordinary diagram regions with scope marks without mixing Flow and local Structure" in {
+      _with_temp_dir("cozy-summary-v2-ordinary-scope-marks") { root =>
+        Given("an admitted ordinary unit explicitly selecting both Node/Relation and Step/Flow records")
+        val validated = _fixture(root).validatedsummary
+        val unit = validated.description.summary.units.head
+        val diagram = unit.diagram.get
+        val vocabulary = _vocabulary(validated.document.core)
+
+        When("ScalaCheck varies authored item order and declared edge direction")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(Gen.oneOf(true, false), Gen.oneOf("forward", "inverse")) { (reversed, direction) =>
+          val selecteddiagram = diagram.copy(items = if (reversed) diagram.items.reverse else diagram.items, edges = diagram.edges.map(_.copy(direction = direction)))
+          val selected = validated.copy(description = validated.description.copy(summary = validated.description.summary.copy(units = Vector(unit.copy(diagram = Some(selecteddiagram))))))
+          val slide = _slide(CozySummaryConfirmationProjectionV2.render(selected, vocabulary).html, unit.id)
+          val groups = Vector(("structure", "node", "relation", "→", "Relations"), ("flow", "step", "flow-transition", "⇢", "Flows"))
+          val partitions = groups.forall { case (scope, itemkind, edgekind, mark, wording) =>
+            val region = _diagram_region(slide, scope)
+            val positions = selecteddiagram.items.filter(_.kind == itemkind).map(item => region.indexOf(s"""data-diagram-item-id="${item.id}"""))
+            region.contains(s"""<span class="structure-mark" data-structure-kind="$scope" aria-hidden="true">$mark</span> $wording</h3>""") &&
+              positions.forall(_ >= 0) && positions == positions.sorted &&
+              selecteddiagram.items.filterNot(_.kind == itemkind).forall(item => !region.contains(s"""data-diagram-item-id="${item.id}""")) &&
+              selecteddiagram.edges.filter(_.kind == edgekind).forall(edge => region.contains(s"""data-diagram-edge-id="${edge.id}""")) &&
+              selecteddiagram.edges.filterNot(_.kind == edgekind).forall(edge => !region.contains(s"""data-diagram-edge-id="${edge.id}"""))
+          }
+          val scopes = selecteddiagram.items.map(item => if (item.kind == "step") "flow" else "structure").distinct
+          val positions = scopes.map(scope => slide.indexOf(s"""data-diagram-scope="$scope"""))
+          partitions && positions == positions.sorted && _occurrences(slide, "data-diagram-edge-id=") == diagram.edges.size
+        })
+
+        Then("each scope is marked and isolated while authored partition order and exact selected records are retained")
+        check.passed shouldBe true
+        check.succeeded should be >= 30
+      }
+    }
+
+    "mark only the selected scope for a single-kind ordinary diagram" in {
+      _with_temp_dir("cozy-summary-v2-single-scope-marks") { root =>
+        Given("an admitted unit whose diagram can select either only local Structure or only Flow")
+        val validated = _fixture(root).validatedsummary
+        val unit = validated.description.summary.units.head
+        val vocabulary = _vocabulary(validated.document.core)
+
+        When("each explicit single-kind selection is projected")
+        val slides = Vector(("node", "relation", "structure", "flow"), ("step", "flow-transition", "flow", "structure")).map { case (itemkind, edgekind, scope, other) =>
+          val diagram = unit.diagram.get.copy(items = unit.diagram.get.items.filter(_.kind == itemkind), edges = unit.diagram.get.edges.filter(_.kind == edgekind))
+          val selected = validated.copy(description = validated.description.copy(summary = validated.description.summary.copy(units = Vector(unit.copy(diagram = Some(diagram))))))
+          (scope, other, diagram, _slide(CozySummaryConfirmationProjectionV2.render(selected, vocabulary).html, unit.id))
+        }
+
+        Then("there is one marked region and no synthesized region or edge of the other kind")
+        slides.foreach { case (scope, other, diagram, slide) =>
+          slide should include(s"""data-diagram-scope="$scope""" )
+          slide should include(s"""data-structure-kind="$scope""" )
+          slide should not include(s"""data-diagram-scope="$other""" )
+          _occurrences(slide, "data-diagram-item-id=") shouldBe diagram.items.size
+          _occurrences(slide, "data-diagram-edge-id=") shouldBe diagram.edges.size
+        }
+      }
+    }
+
+    "show exact selected pattern tags and unique endpoint-addressable diagram items without arbitrary emphasis" in {
+      _with_temp_dir("cozy-summary-v2-text-tags") { root =>
+        Given("one admitted ordinary unit selecting local Structure and child Flow")
+        val validated = _fixture(root).validatedsummary
+        val unit = validated.description.summary.units.head
+        val vocabulary = _vocabulary(validated.document.core)
+
+        When("the selected unit is projected")
+        val html = CozySummaryConfirmationProjectionV2.render(validated, vocabulary).html
+        val slide = _slide(html, unit.id)
+
+        Then("readable tags carry exact pattern/type identities and connectors address endpoints instead of adjacent items")
+        slide should include("class=\"structure-tag\"")
+        slide should include("data-logical-pattern=\"mapping\"")
+        slide should include("Generic wording mapping")
+        slide should include("class=\"diagram-connections\"")
+        slide should not include("class=\"concept key\"")
+        _occurrences(slide, "data-diagram-item-id=") shouldBe unit.diagram.get.items.size
+        html should include("edge.getAttribute('data-display-from')")
+        html should include("edge.getAttribute('data-display-to')")
+        html should include("path.setAttribute('data-connection-edge-id'")
+      }
+    }
+
+    "reject missing inverse wording rather than rendering a reversed edge with its canonical label" in {
+      _with_temp_dir("cozy-summary-v2-inverse-wording") { root =>
+        Given("an admitted unit with an explicitly inverse Relation edge")
+        val validated = _fixture(root).validatedsummary
+        val unit = validated.description.summary.units.head
+        val diagram = unit.diagram.get.copy(edges = unit.diagram.get.edges.map(_.copy(direction = "inverse")))
+        val selected = validated.copy(description = validated.description.copy(summary = validated.description.summary.copy(units = Vector(unit.copy(diagram = Some(diagram))))))
+        val vocabulary = _vocabulary(validated.document.core).copy(inverseRelationTypes = Map.empty)
+
+        When("the caller omits inverse type wording")
+        val fault = intercept[CozySummaryConfirmationProjectionV2.ProjectionFault](CozySummaryConfirmationProjectionV2.render(selected, vocabulary))
+
+        Then("the vocabulary boundary rejects before output without grammatical inference")
+        fault.code shouldBe "SUMMARY_CONFIRMATION_V2_VOCABULARY"
+        fault.reason should include("inverse Relation type")
       }
     }
 
@@ -196,8 +331,8 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         flowtag should include(s"""data-core-from="${transition.fromStepId}" data-core-to="${transition.toStepId}"""")
         flowtag should include(s"""data-display-from="${transition.fromStepId}" data-display-to="${transition.toStepId}"""")
         flowtag should include(s"""data-core-flow-id="${owner.flow.id}"""")
-        html should include("""<small>Relations</small>""")
-        html should include("""<small>Flows</small>""")
+        html should include(s"""data-structure-type="${relation.relationType}">Relations · Inverse Generic wording ${relation.relationType}</span>""")
+        html should include(s"""data-structure-type="${transition.relationType}">Flows · Generic wording ${transition.relationType}</span>""")
         html should include("""<span class="edge-mark" aria-hidden="true">→</span>""")
         html should include("""<span class="edge-mark" aria-hidden="true">⇢</span>""")
         html should include(s"""data-diagram-item-kind="step"""")
@@ -247,6 +382,14 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
             }
             val displayfrom = if (direction == "forward") from else to
             val displayto = if (direction == "forward") to else from
+            val flowtag = if (flowid.isEmpty) "" else {
+              val flowwording = if (direction == "forward") vocabulary.flowTypes(edgetype) else vocabulary.inverseFlowTypes(edgetype)
+              s"""data-structure-kind="flow" data-structure-type="$edgetype">$flowwording</span>"""
+            }
+            val flowedgetag = if (flowid.isEmpty) "" else {
+              val flowwording = if (direction == "forward") vocabulary.flowTypes(edgetype) else vocabulary.inverseFlowTypes(edgetype)
+              s"""data-structure-kind="flow" data-structure-type="$edgetype">Flows · $flowwording</span>"""
+            }
             val marker = s"""data-diagram-edge-id="${edge.id}"""
             val parts = html.split(java.util.regex.Pattern.quote(marker), -1).tail
             val tags = parts.map(part => part.takeWhile(_ != '>'))
@@ -256,7 +399,12 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
               tag.contains(s"""data-core-from="$from" data-core-to="$to""" ) &&
               tag.contains(s"""data-display-from="$displayfrom" data-display-to="$displayto""" ) &&
               (if (flowid.isEmpty) !tag.contains("data-core-flow-id") else tag.contains(s"""data-core-flow-id="$flowid""" ))
-            ) && parts.head.substring(0, parts.head.indexOf("</div>")).contains(s"""<span class="edge-mark" aria-hidden="true">$mark</span>""")
+            ) && (if (flowid.isEmpty) true else {
+              val slide = _slide(html, unit.id)
+              _occurrences(slide, flowtag) == 1 && _occurrences(slide, flowedgetag) == 1
+            }) &&
+              parts.head.substring(0, parts.head.indexOf("</div>")).contains(s"""<span class="edge-mark" aria-hidden="true">$mark</span>""") &&
+              parts.forall(part => part.substring(0, part.indexOf("</div>")).contains((if (direction == "inverse") "Inverse " else "") + s"Generic wording $edgetype"))
           }
           exact && _occurrences(html, "data-diagram-edge-id=") == selecteddiagram.edges.size * 2
         })
@@ -307,7 +455,7 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         html should include("aria-live=\"polite\"")
         html should include("aria-describedby=\"status-region\"")
         html should not include("<link")
-        html should not include("http://")
+        html.replace("http://www.w3.org/2000/svg", "") should not include("http://")
         html should not include("https://")
         html should not include("<canvas")
         html should not include("fetch(")
@@ -406,6 +554,14 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
   private def _overview_region(html: String, kind: String): String = {
     val marker = html.indexOf(s"""data-overview-region="$kind""")
     require(marker >= 0, s"missing overview region: $kind")
+    val start = html.lastIndexOf("<section", marker)
+    val end = html.indexOf("</section>", marker)
+    html.substring(start, end + "</section>".length)
+  }
+
+  private def _diagram_region(html: String, scope: String): String = {
+    val marker = html.indexOf(s"""data-diagram-scope="$scope""" )
+    require(marker >= 0, s"missing diagram scope: $scope")
     val start = html.lastIndexOf("<section", marker)
     val end = html.indexOf("</section>", marker)
     html.substring(start, end + "</section>".length)
@@ -609,7 +765,10 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
       flowtypes,
       documenttargetkinds,
       omissiondispositions,
-      directions
+      directions,
+      _wording(core.depthFirstSteps.map(_.structure.pattern).toSet),
+      relationtypes.map { case (key, wording) => key -> s"Inverse $wording" },
+      flowtypes.map { case (key, wording) => key -> s"Inverse $wording" }
     )
   }
 

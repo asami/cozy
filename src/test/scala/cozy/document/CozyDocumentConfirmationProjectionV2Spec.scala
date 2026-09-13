@@ -58,7 +58,7 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         html should include("<section id=\"containment-region\" class=\"panel\"")
         rootcontrol should include("<button type=\"button\"")
         rootcontrol should include("data-step-control=\"true\"")
-        rootbutton should include("<small>Generic wording mapping</small>")
+        rootbutton should include("""<span class="structure-tag" data-logical-pattern="mapping">Generic wording mapping</span>""")
         rootbutton should include("<b>Step &lt;root&gt; &amp; &quot;quoted&quot;</b>")
         rootcontrol should include(s"""title="${fixture.root.id}""" )
         rootcontrol should include("aria-pressed=\"true\"")
@@ -106,7 +106,15 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         }
         _occurrences(html, "<ul class=\"containment-list\">") shouldBe fixture.validated.core.depthFirstSteps.count(_.steps.nonEmpty) + 1
         html should include("<details class=\"document-block logical-structure-reference")
-        html should include("<summary>Logical Structure reference: Step &lt;root&gt; &amp; &quot;quoted&quot;</summary>")
+        html should include("""<summary><span class="structure-mark" data-structure-kind="structure" aria-hidden="true">→</span> Logical Structure reference: Step &lt;root&gt; &amp; &quot;quoted&quot; <span class="structure-tag" data-logical-pattern="mapping">Generic wording mapping</span></summary>""")
+        html should include("""<h2><span class="structure-mark" data-structure-kind="structure" aria-hidden="true">→</span> Local Structure</h2>""")
+        html should include("""<summary><span class="structure-mark" data-structure-kind="flow" aria-hidden="true">⇢</span> Direct child Flow</summary>""")
+        val containmentstart = html.indexOf("<ul class=\"containment-list\">")
+        val containmentend = html.indexOf("<section id=\"structure-region\"", containmentstart)
+        html.substring(containmentstart, containmentend) should not include("structure-mark")
+        fixture.root.structure.relations.foreach { relation =>
+          html should include(s"""<code><span class="structure-mark" data-structure-kind="structure" aria-hidden="true">→</span> <span class="structure-tag" data-structure-kind="structure" data-structure-type="${relation.relationType}">Generic wording ${relation.relationType}</span> relation/${relation.id}</code>""")
+        }
         _tag(html, "data-block-id=\"logical-root\"") should not include(" open")
         html should include("Root &lt;heading&gt; &amp; &quot;quoted&quot;")
         html should include("Child heading")
@@ -149,7 +157,7 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         html should include("<div class=\"binding\"")
         html should include("<details id=\"flow-region\" class=\"local\"")
         html should include("<section id=\"structure-region\" class=\"local\"")
-        html should include("<summary>Direct child Flow</summary>")
+        html should include("""<summary><span class="structure-mark" data-structure-kind="flow" aria-hidden="true">⇢</span> Direct child Flow</summary>""")
         html should include("<details class=\"structure-audit\">")
         html should include("<div class=\"refs\">")
         html should include("class=\"relation\"")

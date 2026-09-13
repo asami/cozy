@@ -56,7 +56,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   final case class RetainedPoint(id: String, text: String, coreRefs: References)
   final case class DiagramItem(id: String, kind: String, ref: String)
   final case class DiagramEdge(id: String, kind: String, ref: String, direction: String)
-  final case class Diagram(items: Vector[DiagramItem], edges: Vector[DiagramEdge])
+  final case class Diagram(items: Vector[DiagramItem], edges: Vector[DiagramEdge], focusItem: Option[String] = None)
   final case class Overview(stepRef: String)
   final case class Omission(
     id: String,
@@ -399,7 +399,9 @@ private[cozy] object CozyDocumentDescriptionV2 {
 
   private def _diagram(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore, refs: References): Diagram = {
     val fields = _object(value, path)
-    _exact_fields(fields, Set("items", "edges"), path)
+    val required = Set("items", "edges")
+    if (!required.subsetOf(fields.keys.toSet) || !fields.keys.toSet.subsetOf(required + "focusItem"))
+      _fail("DESCRIPTION_V2_FIELDS", path, "must contain items and edges, optionally focusItem")
     val items = _array(_field(fields, "items", path), s"$path.items").zipWithIndex.map { case (item, index) =>
       _diagram_item(item, s"$path.items[$index]", core)
     }
@@ -409,7 +411,12 @@ private[cozy] object CozyDocumentDescriptionV2 {
     _unique(items.map(_.id) ++ edges.map(_.id), path, "diagram identity")
     val selected = items.map(value => value.kind -> value.ref).toSet
     edges.foreach(edge => _validate_diagram_edge(edge, selected, refs, core, s"$path.edges.${edge.id}"))
-    Diagram(items, edges)
+    val focusitem = fields("focusItem").map(_ => _id(_string(fields, "focusItem", path), s"$path.focusItem"))
+    focusitem.foreach { id =>
+      if (!items.exists(_.id == id))
+        _fail("DESCRIPTION_V2_DIAGRAM_FOCUS", s"$path.focusItem", "must identify one selected DiagramItem in this diagram")
+    }
+    Diagram(items, edges, focusitem)
   }
 
   private def _diagram_item(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): DiagramItem = {

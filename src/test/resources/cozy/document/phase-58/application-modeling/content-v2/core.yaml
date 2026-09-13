@@ -86,11 +86,17 @@ root:
           structure:
             pattern: causal-chain
             nodes:
+              - id: collaboration-participants
+                role: cause
               - id: collaboration-responsibility
                 role: cause
               - id: collaboration-interaction
                 role: effect
             relations:
+              - id: collaboration-participants-enable-interaction
+                relationType: enables
+                from: collaboration-participants
+                to: collaboration-interaction
               - id: collaboration-responsibility-causes-interaction
                 relationType: causes
                 from: collaboration-responsibility
@@ -114,6 +120,8 @@ root:
             nodes:
               - id: execution-event
                 role: cause
+              - id: execution-state-machine
+                role: cause
               - id: execution-service
                 role: effect
             relations:
@@ -124,6 +132,10 @@ root:
               - id: execution-event-enables-service
                 relationType: enables
                 from: execution-event
+                to: execution-service
+              - id: execution-state-machine-enables-service
+                relationType: enables
+                from: execution-state-machine
                 to: execution-service
           flow:
             id: executable-elements-flow
@@ -144,10 +156,16 @@ root:
             role: dependency
           - id: conclusion-cml
             role: dependent
+          - id: conclusion-ai-proposal-decision
+            role: dependent
         relations:
           - id: conclusion-cml-depends-on-review
             relationType: depends-on
             from: conclusion-cml
+            to: conclusion-review
+          - id: conclusion-ai-proposal-decision-depends-on-review
+            relationType: depends-on
+            from: conclusion-ai-proposal-decision
             to: conclusion-review
       flow:
         id: application-conclusion-flow

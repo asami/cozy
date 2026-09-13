@@ -57,12 +57,23 @@ References object and contains at least one resolving value.
 `{ id, text, coreRefs }`; IDs are unique within its unit, text is nonempty and
 trimmed, and coreRefs is exact, resolving, and nonempty.
 
-If present, `diagram` is exactly `{ items, edges }`. A DiagramItem is exactly
+If present, `diagram` requires exactly `items` and `edges`, plus optional
+`focusItem`. A DiagramItem is exactly
 `{ id, kind, ref }`, where kind is `step` or `node` and ref resolves in that
 exact Core type. A DiagramEdge is exactly `{ id, kind, ref, direction }`,
 where kind is `relation` or `flow-transition`, ref resolves to that exact
 Core Relation or transition, and direction is `forward` or `inverse`.
 Diagram item and edge identities MUST not duplicate within their diagram.
+
+`focusItem`, if present, MUST be one stable DiagramItem ID selected in that
+same diagram. It is an explicit semantic emphasis selection, not a Core ID,
+edge ID, physical coordinate or inferred role. Blank, null, wrongly typed or
+unselected IDs MUST reject with `DESCRIPTION_V2_DIAGRAM_FOCUS` for unresolved
+item membership, or the existing typed scalar fault for invalid values.
+Absence means no individual item emphasis; consumers MUST NOT choose one
+from item order, node role, endpoint direction or layout. This bounded
+unreleased v2 extension preserves existing diagrams without `focusItem` and
+does not alter the closed v1 schema.
 
 The selected typed item set MUST represent both source endpoints in declared
 direction: Relation endpoints are Nodes and Flow-transition endpoints are

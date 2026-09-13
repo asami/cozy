@@ -85,6 +85,15 @@ exact attributes in slide and audit. A private projection helper reads only
 the exact typed Relation or owning Flow transition; it never derives an edge
 from containment, wording or diagram item order. Explicit Summary selection is
 the scope of structural inheritance, not a claim of complete Core coverage.
+The same marks also accompany localized diagram-region headings in both
+overview and ordinary slides. Ordinary diagrams separate Step/Flow records
+from Node/Relation records instead of placing different semantic scopes in one
+row. Partition order follows the first authored item kind, and each partition
+retains its item/edge order and exact provenance. Single-kind selection renders
+only that region. A heading mark indicates scope, never another graph edge;
+containment receives neither arrow. This bounded diagram grouping supersedes
+the earlier ordinary-diagram layout-preservation constraint only; author text,
+16:9 dimensions, colors, native selection and inspector remain intact.
 Accepted workspace, colors, 16:9 dimensions, author text, primary inspector and
 complete audit remain intact; no generalized framework or schema is introduced.
 The named aside restores an outer `h2` from `sourcesHeading`, matching its
@@ -123,7 +132,26 @@ with only every self-disclosing output-identity value normalized to empty.
 The final disclosure and `Rendered.identity` therefore match without a
 recursive hash dependency.
 
+## Endpoint and tag refinement
+
+Selected node owners supply exact Logical Pattern tags using caller-owned
+wording. Diagram items stay unique and in authored DOM order; the renderer
+does not select a first-item emphasis. Inline SVG connects the exact displayed
+endpoint elements and uses separate lanes for explicit parallel edges. Native
+selection redraws geometry after revealing the chosen slide. Forward/inverse
+type wording is explicit vocabulary, shared by the slide and audit; no label
+is grammatically inferred. These corrections supersede prior ordinary-layout
+preservation only, without changing Core or Summary admission semantics.
+
 ## Non-goals
+
+An admitted optional `focusItem` supplies exact diagram-local semantic
+emphasis. The renderer decorates only that item with key styling, an explicit
+focus attribute and existing caller-owned emphasis wording, also preserved in
+audit. Typed partitioning and reverse readings never change its identity.
+Omitted focus preserves the no-automatic-emphasis behavior. This bounded
+follow-up consumes the paired v2 selection extension, not a renderer-side
+guess or physical-layout schema.
 
 This renderer changes no v1 model, v2 loader, sibling Document renderer,
 export route, CLI, HTTP/SPI surface, locale resource, Article 9 source, Core

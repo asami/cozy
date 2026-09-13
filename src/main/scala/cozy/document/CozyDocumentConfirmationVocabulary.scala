@@ -31,6 +31,8 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
     diagramitemkinds: Map[String, String],
     summaryrelationtypes: Map[String, String],
     summaryflowtypes: Map[String, String],
+    inverserelationtypes: Map[String, String],
+    inverseflowtypes: Map[String, String],
     documenttargetkinds: Map[String, String],
     omissiondispositions: Map[String, String],
     directions: Map[String, String]
@@ -51,9 +53,9 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
     "diagramEdgesHeading", "emptyDiagramMessage", "sourcesHeading", "omissionsHeading", "rationaleHeading",
     "identitiesHeading", "coreIdentityLabel", "documentIdentityLabel", "summaryIdentityLabel", "outputIdentityLabel"
   )
-  private val _logical_pattern_keys = Set("mapping", "dependency-map", "causal-chain")
-  private val _node_role_keys = Set("source", "target", "dependency", "dependent", "cause", "effect")
-  private val _relation_type_keys = Set("maps-to", "depends-on", "causes", "enables")
+  private val _logical_pattern_keys = Set("sequence", "mapping", "dependency-map", "causal-chain")
+  private val _node_role_keys = Set("step", "source", "target", "dependency", "dependent", "cause", "effect")
+  private val _relation_type_keys = Set("next", "maps-to", "depends-on", "causes", "enables")
   private val _source_category_keys = Set("steps", "claims", "nodes", "relations", "flows")
   private val _diagram_item_kind_keys = Set("step", "node")
   private val _document_target_kind_keys = Set("section", "block", "list-item")
@@ -105,7 +107,10 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
       resource.summaryflowtypes,
       resource.documenttargetkinds,
       resource.omissiondispositions,
-      resource.directions
+      resource.directions,
+      resource.logicalpatterns,
+      resource.inverserelationtypes,
+      resource.inverseflowtypes
     )
   }
 
@@ -144,7 +149,7 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
     val document = _object(_field(fields, "document", "$"), "$.document")
     _exact_fields(document, Set("chrome", "logicalPatterns", "nodeRoles", "relationTypes", "flowTypes"), "$.document")
     val summary = _object(_field(fields, "summary", "$"), "$.summary")
-    _exact_fields(summary, Set("chrome", "sourceCategories", "diagramItemKinds", "relationTypes", "flowTypes", "documentTargetKinds", "omissionDispositions", "directions"), "$.summary")
+    _exact_fields(summary, Set("chrome", "sourceCategories", "diagramItemKinds", "relationTypes", "flowTypes", "inverseRelationTypes", "inverseFlowTypes", "documentTargetKinds", "omissionDispositions", "directions"), "$.summary")
     Resource(
       locale,
       _wording_map(_field(document, "chrome", "$.document"), "$.document.chrome", _document_chrome_keys),
@@ -157,6 +162,8 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
       _wording_map(_field(summary, "diagramItemKinds", "$.summary"), "$.summary.diagramItemKinds", _diagram_item_kind_keys),
       _wording_map(_field(summary, "relationTypes", "$.summary"), "$.summary.relationTypes", _relation_type_keys),
       _wording_map(_field(summary, "flowTypes", "$.summary"), "$.summary.flowTypes", _relation_type_keys),
+      _wording_map(_field(summary, "inverseRelationTypes", "$.summary"), "$.summary.inverseRelationTypes", _relation_type_keys),
+      _wording_map(_field(summary, "inverseFlowTypes", "$.summary"), "$.summary.inverseFlowTypes", _relation_type_keys),
       _wording_map(_field(summary, "documentTargetKinds", "$.summary"), "$.summary.documentTargetKinds", _document_target_kind_keys),
       _wording_map(_field(summary, "omissionDispositions", "$.summary"), "$.summary.omissionDispositions", _omission_disposition_keys),
       _wording_map(_field(summary, "directions", "$.summary"), "$.summary.directions", _direction_keys)

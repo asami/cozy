@@ -1,6 +1,11 @@
 # Phase 58.2: Interactive Document and Summary Confirmation Projection
 
-Status: IN PROGRESS
+Status: IN-PROGRESS
+
+Prior operational closure: 2026-09-13 operational handoff with explicit deferrals;
+retained as historical provenance and not normal release acceptance
+
+Normal acceptance resumption: 2026-09-13
 
 Plan date: 2026-09-12
 
@@ -15,6 +20,21 @@ that are functionally and visually equivalent to the user-approved Article 9
 reference workspaces, while preserving the distinct Core, localized Document,
 localized Summary, locale-resource, and renderer authorities and forbidding
 renderer-side semantic inference.
+
+## Normal acceptance resumption
+
+The direct user instruction on 2026-09-13 was:
+
+> 正式なレビュー、フルテスト、リリースしてクローズして。
+
+This resumes formal normal acceptance within the existing Phase 58.2 boundary;
+it does not create a successor Phase or rewrite the prior operational-closure
+record. The separate instruction
+「レスポンシブは考慮しなくていよい。サンプルを完全に再現して。」
+prioritizes complete sample/Desktop layout and functionality. No responsive
+redesign is required or authorized here. Any narrow fallback behavior is
+characterization only; this status does not claim mobile or full-responsive
+parity without direct observation.
 
 ## Phase Plan Gate
 
@@ -54,7 +74,7 @@ Phase Plan Gate: PROCEED
 | P582-02 | Define and implement strict `cozy.document-description.v2` and `cozy.summary-description.v2` contracts for project-specific semantic labels, coordinate-free summary diagrams, retained points, and explicit Document omissions while preserving closed v1 behavior. | complete |
 | P582-03 | Generate the interactive Document confirmation workspace with recursive containment, distinct child-Step Flow, selected local Structure, prose highlighting, coverage/currentness status, accessibility, and responsive behavior. | complete |
 | P582-04 | Generate the interactive Summary confirmation workspace with ordered unit navigation, one slide-level semantic explanation, exact source inspection, retained points, explicit omissions, accessibility, and responsive behavior. | complete |
-| P582-05 | Remove Article 9-specific production-code localization, accept the real Article 9 v2 driver, prove deterministic/safe output and v1 preservation, complete visual and executable review, and close the Phase through normal validation and release workflow. | planned |
+| P582-05 | Remove Article 9-specific production-code localization, accept the real Article 9 v2 driver, prove deterministic/safe output and v1 preservation, complete visual and executable review, and close the Phase through normal validation and release workflow. | normal acceptance in progress; prior operational closure retained as history |
 
 ## Authority boundary
 
@@ -110,6 +130,17 @@ Before acceptance, the prototype must be semantically reconciled:
 
 ## Closure criteria
 
+The criteria below retain the original normal-release acceptance boundary.
+The earlier 2026-09-13 operational closure and its decision to refine the
+screens in actual use remain historical provenance. The later direct user
+instruction resumes these criteria in the existing Phase. The checklist
+separates retained historical evidence from live acceptance gates, with
+follow-up history recorded in [the operational follow-up list](phase-58.2-operational-follow-up.md).
+No final full Phase review, latest-tree full validation, release commit, or
+external production integration is claimed until its live gate passes. The
+resumption does not change the design/specification contracts or rewrite
+earlier validation and review evidence.
+
 - A reviewer can select any Core Step and distinguish its containment position,
   direct-child Flow, local Structure, and corresponding document prose.
 - A reviewer can select any Summary Unit and inspect its slide-level semantic
@@ -145,6 +176,12 @@ Before acceptance, the prototype must be semantically reconciled:
 
 ## Execution readiness
 
+Historical start conditions follow. Phase 58.2 is active again for the resumed
+normal-acceptance boundary; DP-01 and DP-03 are adopted into this existing
+Phase rather than new successor phases. DP-02's broader long/dense redesign
+remains future work, and its current narrow fallback characterization is a
+scheduled gate rather than successful evidence.
+
 - Record exact identities for the three Article 9 reference files before the
   first implementation Step.
 - Do not mix the currently unrelated Phase 48 worktree changes into Phase 58.2;
@@ -155,6 +192,10 @@ Before acceptance, the prototype must be semantically reconciled:
 ## References
 
 - [Phase 58.2 checklist](phase-58.2-checklist.md)
+- [Operational follow-up list](phase-58.2-operational-follow-up.md)
+- [Normal-acceptance resumption journal](../journal/2026/09/2026-09-13-phase-58.2-normal-acceptance-resumption.md)
+- [Hygiene follow-up journal](../journal/2026/09/2026-09-13-phase-58.2-hygiene-follow-up.md)
+- [Operational closure record](../journal/2026/09/2026-09-13-phase-58.2-operational-closure.md)
 - `docs/notes/document-project-interactive-confirmation-projection-proposal.md`
 - `docs/journal/2026/09/2026-09-12-phase-58.2-interactive-confirmation-projection-decision.md`
 - `docs/spec/document-project-document-and-summary-description-dsl.md`

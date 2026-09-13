@@ -72,6 +72,7 @@ retainedPoints:
 diagram: # optional
   items: [<DiagramItem>]
   edges: [<DiagramEdge>]
+  focusItem: diagram-item-id # optional explicit semantic emphasis
 omissions:
   - id: omission-id
     documentKind: section | block | list-item
@@ -95,13 +96,22 @@ Root local Structure and Root Flow. No descendant-local source is admitted in
 that overview. Existing units without this field remain ordinary, unchanged
 units. No automatic slide, selection, heading or wording is created.
 
-The optional `diagram` is closed with exactly `items` and `edges`; it is
+The optional `diagram` is closed with required `items` and `edges`, plus
+optional `focusItem`; it is
 coordinate-free semantic selection, not layout. A DiagramItem is exactly
 `{ id, kind, ref }`, where `kind` is `step` or `node`, and `ref` resolves to
 that exact Core type. A DiagramEdge is exactly `{ id, kind, ref, direction }`,
 where `kind` is `relation` or `flow-transition`, `ref` resolves to that exact
 Core Relation or nested Flow transition, and `direction` is `forward` or
 `inverse`.
+
+The optional `focusItem` identifies exactly one selected DiagramItem by its
+diagram-local ID. It allows deliberate emphasis without inferring significance
+from position, Core node role or graph direction. Admission rejects unselected
+IDs, edge IDs and invalid scalar values. Diagrams without it retain no item
+emphasis. Partitioning and item reordering must preserve that selection by ID;
+only its containing partition can display it. This additive unreleased v2
+selection has no coordinate, layout representation or v1 adaptation.
 
 For a forward Relation edge, its Core `from` and `to` Nodes must both be
 selected DiagramItems; inverse reverses that reading. For a forward

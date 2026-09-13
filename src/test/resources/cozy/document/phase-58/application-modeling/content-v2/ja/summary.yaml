@@ -2,10 +2,10 @@ schema: cozy.summary-description.v2
 id: application-modeling-summary-ja-v2
 core:
   id: application-modeling
-  identity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc
+  identity: sha256:6afe2e0a8bc534be97e12fb34dffd0175ee82baccb22b98923f92801d3ee0998
 document:
   id: application-modeling-document-ja-v2
-  identity: sha256:98409b67f591480b6e18adfba7531d7b310397728087fdb1a4645686e95b7429
+  identity: sha256:5e91fb42d9e18ab3a8209de937b691c7ae4075b4ce2e227b6e74fcc6d28703ac
 locale: ja
 summary:
   title: SimpleModeling 第9回 アプリケーションモデリング：要約
@@ -97,6 +97,7 @@ summary:
             relations: [root-domain-maps-to-application]
             flows: [application-modeling-flow]
       diagram:
+        focusItem: foundation-application-model
         items:
           - id: foundation-domain-model
             kind: node
@@ -104,20 +105,10 @@ summary:
           - id: foundation-application-model
             kind: node
             ref: root-application-model
-          - id: foundation-use-case-realization
-            kind: step
-            ref: use-case-realization
-          - id: foundation-application-foundation
-            kind: step
-            ref: application-foundation
         edges:
           - id: foundation-domain-to-application
             kind: relation
             ref: root-domain-maps-to-application
-            direction: forward
-          - id: foundation-realization-to-foundation
-            kind: flow-transition
-            ref: realization-depends-on-foundation
             direction: forward
       omissions:
         - id: foundation-introduction-condensed
@@ -146,6 +137,7 @@ summary:
             relations: [realization-scenario-maps-to-model]
             flows: [use-case-realization-flow]
       diagram:
+        focusItem: use-case-model-realization
         items:
           - id: use-case-model-scenario
             kind: node
@@ -171,8 +163,8 @@ summary:
       coreRefs:
         steps: [collaboration-and-interaction]
         claims: [collaboration, interaction, static-and-dynamic-views]
-        nodes: [collaboration-responsibility, collaboration-interaction]
-        relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+        nodes: [collaboration-participants, collaboration-responsibility, collaboration-interaction]
+        relations: [collaboration-participants-enable-interaction, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
         flows: [collaboration-and-interaction-flow]
       navigationLabel: 協調と相互作用
       retainedPoints:
@@ -181,11 +173,15 @@ summary:
           coreRefs:
             steps: [collaboration-and-interaction]
             claims: [collaboration, interaction]
-            nodes: [collaboration-responsibility, collaboration-interaction]
-            relations: [collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
+            nodes: [collaboration-participants, collaboration-responsibility, collaboration-interaction]
+            relations: [collaboration-participants-enable-interaction, collaboration-responsibility-causes-interaction, collaboration-responsibility-enables-interaction]
             flows: [collaboration-and-interaction-flow]
       diagram:
+        focusItem: collaboration-interaction-responsibility
         items:
+          - id: collaboration-interaction-participants
+            kind: node
+            ref: collaboration-participants
           - id: collaboration-interaction-responsibility
             kind: node
             ref: collaboration-responsibility
@@ -193,6 +189,10 @@ summary:
             kind: node
             ref: collaboration-interaction
         edges:
+          - id: collaboration-interaction-participants-to-interaction
+            kind: relation
+            ref: collaboration-participants-enable-interaction
+            direction: forward
           - id: collaboration-interaction-responsibility-to-interaction
             kind: relation
             ref: collaboration-responsibility-causes-interaction
@@ -210,8 +210,8 @@ summary:
       coreRefs:
         steps: [executable-elements]
         claims: [event, state-machine, service-and-operation]
-        nodes: [execution-event, execution-service]
-        relations: [execution-event-causes-service, execution-event-enables-service]
+        nodes: [execution-event, execution-state-machine, execution-service]
+        relations: [execution-event-causes-service, execution-event-enables-service, execution-state-machine-enables-service]
         flows: [executable-elements-flow]
       navigationLabel: 実行可能な要素
       retainedPoints:
@@ -220,14 +220,18 @@ summary:
           coreRefs:
             steps: [executable-elements]
             claims: [event, state-machine, service-and-operation]
-            nodes: [execution-event, execution-service]
-            relations: [execution-event-causes-service, execution-event-enables-service]
+            nodes: [execution-event, execution-state-machine, execution-service]
+            relations: [execution-event-causes-service, execution-event-enables-service, execution-state-machine-enables-service]
             flows: [executable-elements-flow]
       diagram:
+        focusItem: executable-elements-state-machine
         items:
           - id: executable-elements-event
             kind: node
             ref: execution-event
+          - id: executable-elements-state-machine
+            kind: node
+            ref: execution-state-machine
           - id: executable-elements-service
             kind: node
             ref: execution-service
@@ -235,6 +239,10 @@ summary:
           - id: executable-elements-event-to-service
             kind: relation
             ref: execution-event-causes-service
+            direction: forward
+          - id: executable-elements-state-machine-to-service
+            kind: relation
+            ref: execution-state-machine-enables-service
             direction: forward
       omissions:
         - id: executable-elements-condensed
@@ -249,8 +257,8 @@ summary:
       coreRefs:
         steps: [application-conclusion]
         claims: [modeling-flow, review-and-refinement, traceability, executable-model, model-realization-boundary]
-        nodes: [conclusion-review, conclusion-cml]
-        relations: [conclusion-cml-depends-on-review]
+        nodes: [conclusion-review, conclusion-cml, conclusion-ai-proposal-decision]
+        relations: [conclusion-cml-depends-on-review, conclusion-ai-proposal-decision-depends-on-review]
         flows: [application-conclusion-flow]
       navigationLabel: レビューと実現
       retainedPoints:
@@ -259,11 +267,15 @@ summary:
           coreRefs:
             steps: [application-conclusion]
             claims: [review-and-refinement, traceability, executable-model]
-            nodes: [conclusion-review, conclusion-cml]
-            relations: [conclusion-cml-depends-on-review]
+            nodes: [conclusion-review, conclusion-cml, conclusion-ai-proposal-decision]
+            relations: [conclusion-cml-depends-on-review, conclusion-ai-proposal-decision-depends-on-review]
             flows: [application-conclusion-flow]
       diagram:
+        focusItem: review-and-realization-review
         items:
+          - id: review-and-realization-proposal
+            kind: node
+            ref: conclusion-ai-proposal-decision
           - id: review-and-realization-review
             kind: node
             ref: conclusion-review
@@ -271,6 +283,10 @@ summary:
             kind: node
             ref: conclusion-cml
         edges:
+          - id: review-and-realization-proposal-to-review
+            kind: relation
+            ref: conclusion-ai-proposal-decision-depends-on-review
+            direction: forward
           - id: review-and-realization-review-to-cml
             kind: relation
             ref: conclusion-cml-depends-on-review

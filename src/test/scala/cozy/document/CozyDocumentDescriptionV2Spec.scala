@@ -11,11 +11,56 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ * @version Sep. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Description v2" should {
+    "admit only an explicitly selected diagram-local item as focus without changing unfocused diagrams" in {
+      _with_temp_dir("cozy-description-v2-diagram-focus") { root =>
+        Given("an admitted Summary whose diagram has no authored individual focus")
+        val fixture = _fixture(root)
+        val original = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary)
+        val source = Files.readString(fixture.summary, StandardCharsets.UTF_8)
+        val items = original.description.summary.units.head.diagram.get.items
+
+        When("each selected item is explicitly designated by its diagram-local identity")
+        val focused = items.zipWithIndex.map { case (item, index) =>
+          val path = _write(root.resolve(s"focus-$index/ja/summary.yaml"), source.replace("      diagram:\n", s"      diagram:\n        focusItem: ${item.id}\n"))
+          (item.id, path, CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, path))
+        }
+
+        Then("the focus follows that exact item and omitted focus never selects the first item automatically")
+        original.description.summary.units.head.diagram.get.focusItem shouldBe None
+        focused.foreach { case (id, path, validated) =>
+          val diagram = validated.description.summary.units.head.diagram.get
+          diagram.focusItem shouldBe Some(id)
+          diagram.copy(focusItem = None) shouldBe original.description.summary.units.head.diagram.get
+          validated.summaryIdentity shouldBe _identity(path)
+          validated.description.summary.units.tail shouldBe original.description.summary.units.tail
+        }
+      }
+    }
+
+    "reject malformed focus and Core or edge identities instead of treating them as selected diagram items" in {
+      _with_temp_dir("cozy-description-v2-diagram-focus-rejection") { root =>
+        Given("a valid unfocused diagram and separately invalid explicit focus values")
+        val fixture = _fixture(root)
+        val source = Files.readString(fixture.summary, StandardCharsets.UTF_8)
+        val variants = Vector("null", "true", "' '", "unknown-item", "root-domain-model", "edge-root-forward")
+        val paths = variants.zipWithIndex.map { case (value, index) =>
+          _write(root.resolve(s"invalid-focus-$index/ja/summary.yaml"), source.replace("      diagram:\n", s"      diagram:\n        focusItem: $value\n"))
+        }
+
+        When("the typed loader admits each invalid diagram focus")
+        val faults = paths.map(path => _failure(CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, path)))
+
+        Then("scalar shape stable-identity and selected-item membership gates fail at the authored field")
+        faults.map(_.code) shouldBe Vector("DESCRIPTION_V2_STRUCTURE", "DESCRIPTION_V2_STRUCTURE", "DESCRIPTION_V2_ID", "DESCRIPTION_V2_DIAGRAM_FOCUS", "DESCRIPTION_V2_DIAGRAM_FOCUS", "DESCRIPTION_V2_DIAGRAM_FOCUS")
+        faults.foreach(_.path shouldBe "$.summary.units[0].diagram.focusItem")
+      }
+    }
+
     "admit an explicitly authored first overview with exact complete Root and direct-child scope" in {
       _with_temp_dir("cozy-description-v2-overview") { root =>
         Given("a strict Summary with an authored overview and unchanged ordinary units")

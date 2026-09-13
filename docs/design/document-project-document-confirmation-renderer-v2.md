@@ -58,6 +58,15 @@ The two edge kinds share the confirmation-screen reading convention: a local
 Structure Relation uses `→`, and a direct-child Flow transition uses `⇢`.
 The mark accompanies existing localized type wording, without replacing it;
 native Flow disclosure, original sources and workspace placement remain intact.
+The same scope marks accompany Structure/Flow region headings. Exact prose
+Relation chips and collapsed LogicalStructure reference summaries carry `→`,
+making their local-Structure scope visible in the reading pane too. These marks
+are labels, not additional edges; containment Step buttons remain unmarked and
+all localized wording, typed references and native behavior are preserved.
+
+Readable text tags additionally expose the exact caller-owned pattern in Step
+buttons and selected Structure, and exact type wording in edges and prose
+references. A pattern tag is classification, not a containment edge.
 
 The native button uses the one
 `aria-pressed` selection model consistently and programmatically controls the

@@ -33,7 +33,19 @@ unchanged exact resource schema identity. Closed missing/unknown-field
 rejection remains; no compatibility adapter, optional fallback, protocol
 migration, domain authoring change, or public CLI/API extension is added.
 
+Summary also receives existing Document pattern wording and required closed
+inverse Relation/Flow wording maps. The resource schema remains the internal
+still-unreleased v1 identity; all newly required keys reject when missing.
+This supersedes the prior two-key-only restriction, without locale fallback,
+semantic schema changes, or Article-specific terms.
+
 ## Command and publication seam
+
+All four existing fixed-Catalog Logical Patterns, seven node roles, and five
+Relation/Flow types reach the generic adapter, including `sequence`, `step`
+and `next`. Both canonical and inverse maps require that complete type set.
+This corrects the prior three-pattern/four-type subset without changing the
+Catalog, source meaning, fallback rules, or the closed v1 authoring behavior.
 
 `document-project confirmation render` is a closed command with `--core`,
 `--document`, `--vocabulary`, `--kind`, and `--save`; `--summary` is required

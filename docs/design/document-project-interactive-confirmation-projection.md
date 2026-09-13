@@ -32,6 +32,23 @@ conditions. Re-rendering the same admitted sources remains a future
 determinism requirement, but reference-byte equality is never substituted for
 semantic equivalence.
 
+### 1.2 Resumed acceptance scope
+
+The direct user instruction for the resumed normal-acceptance boundary is:
+
+> 正式なレビュー、フルテスト、リリースしてクローズして。
+
+The related presentation instruction is:
+
+> レスポンシブは考慮しなくていよい。サンプルを完全に再現して。
+
+It prioritizes complete sample/Desktop layout and functionality for this
+acceptance boundary. No responsive redesign is required or authorized here.
+Any narrow fallback behavior is characterization only; mobile or
+full-responsive parity must not be claimed without direct observation. The
+future responsive contract in Section 6 remains intact as a contract, but it
+is not a current redesign mandate.
+
 ## 2. Five authority boundaries
 
 The projection preserves five distinct authorities. None may silently absorb

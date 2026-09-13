@@ -77,6 +77,10 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
         summaryvalidated.description.summary.units should have size 6
         summaryvalidated.description.summary.units.head.overview shouldBe Some(CozyDocumentDescriptionV2.Overview("application-modeling"))
         summaryvalidated.description.summary.units.tail.map(_.id) shouldBe Vector("foundation-purpose", "use-case-model", "collaboration-interaction", "executable-elements", "review-and-realization")
+        summaryvalidated.description.summary.units.head.diagram.get.focusItem shouldBe None
+        summaryvalidated.description.summary.units.tail.map(_.diagram.get.focusItem) shouldBe Vector(
+          Some("foundation-application-model"), Some("use-case-model-realization"), Some("collaboration-interaction-responsibility"), Some("executable-elements-state-machine"), Some("review-and-realization-review")
+        )
         summaryvalidated.description.summary.units.foreach { unit =>
           unit.diagram should not be empty
           unit.diagram.get.items.foreach(item =>
@@ -94,6 +98,69 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
         documentvalidated.coreIdentity shouldBe _identity(fixture._1)
         documentvalidated.documentIdentity shouldBe _identity(fixture._2)
         summaryvalidated.summaryIdentity shouldBe _identity(fixture._3)
+      }
+    }
+
+    "render an admitted test-local sequence and next Flow through both strict confirmation commands" in {
+      _with_temp_dir("cozy-confirmation-driver-sequence") { root =>
+        Given("a test-only Catalog variant with Root sequence next edges and correctly rebound raw identities")
+        val fixture = _fixture(root)
+        val oldcoreidentity = _identity(fixture._1)
+        val olddocumentidentity = _identity(fixture._2)
+        val coretext = Files.readString(fixture._1, StandardCharsets.UTF_8)
+        val boundary = coretext.indexOf("\n  steps:\n")
+        boundary should be > 0
+        val roottext = coretext.substring(0, boundary).replace("pattern: mapping", "pattern: sequence").replace("role: source", "role: step").replace("role: target", "role: step").replace("relationType: maps-to", "relationType: next").replace("relationType: depends-on", "relationType: next")
+        Files.writeString(fixture._1, roottext + coretext.substring(boundary), StandardCharsets.UTF_8)
+        Files.writeString(fixture._2, Files.readString(fixture._2, StandardCharsets.UTF_8).replace(oldcoreidentity, _identity(fixture._1)), StandardCharsets.UTF_8)
+        Files.writeString(fixture._3, Files.readString(fixture._3, StandardCharsets.UTF_8).replace(oldcoreidentity, _identity(fixture._1)).replace(olddocumentidentity, _identity(fixture._2)).replace("direction: forward", "direction: inverse"), StandardCharsets.UTF_8)
+        val documentoutput = root.resolve("sequence-document.html")
+        val summaryoutput = root.resolve("sequence-summary.html")
+
+        When("the Document and inverse Summary diagrams are rendered through the production command")
+        _execute(_document_command(fixture, documentoutput))
+        _execute(_summary_command(fixture, summaryoutput))
+        val documenthtml = Files.readString(documentoutput, StandardCharsets.UTF_8)
+        val summaryhtml = Files.readString(summaryoutput, StandardCharsets.UTF_8)
+
+        Then("unchanged fixed Catalog sequence step and next meanings have complete canonical and inverse wording")
+        documenthtml should include("data-logical-pattern=\"sequence\"")
+        documenthtml should include("順序")
+        documenthtml should include("次へ")
+        summaryhtml should include("data-logical-pattern=\"sequence\"")
+        summaryhtml should include("前へ")
+        summaryhtml should include("data-core-edge-type=\"next\"")
+        summaryhtml should include("data-core-from=\"root-domain-model\" data-core-to=\"root-application-model\"")
+        summaryhtml should include("data-display-from=\"root-application-model\" data-display-to=\"root-domain-model\"")
+      }
+    }
+
+    "retain article-grounded missing concepts and exact selected relationships across both review screens" in {
+      _with_temp_dir("cozy-document-confirmation-driver-concepts") { root =>
+        Given("the Article 9 v2 bundle with participants, StateMachine and reviewed proposal decisions")
+        val fixture = _fixture(root)
+        val validated = CozyDocumentDescriptionV2.loadSummary(fixture._1, fixture._2, fixture._3)
+        val core = validated.document.core
+        val vocabulary = CozyDocumentConfirmationVocabulary.loadSummary(fixture._4, "ja")
+
+        When("the exact admitted Summary is rendered")
+        val html = CozySummaryConfirmationProjectionV2.render(validated, vocabulary).html
+
+        Then("all three concepts are selected explicitly while CML still depends on developer review")
+        Vector("collaboration-participants", "execution-state-machine", "conclusion-ai-proposal-decision").foreach { node =>
+          core.nodesById should contain key node
+          validated.description.summary.units.flatMap(_.diagram.toVector.flatMap(_.items.map(_.ref))) should contain(node)
+        }
+        val dependency = core.relationsById("conclusion-cml-depends-on-review")
+        dependency.from shouldBe "conclusion-cml"
+        dependency.to shouldBe "conclusion-review"
+        html should include("参加者・役割")
+        html should include("状態機械")
+        html should include("生成AIの提案の採否")
+        html should include("data-logical-pattern=\"causal-chain\"")
+        html should include("依存される")
+        html should include("data-core-from=\"conclusion-cml\" data-core-to=\"conclusion-review\"")
+        html should include("data-display-from=\"conclusion-review\" data-display-to=\"conclusion-cml\"")
       }
     }
 

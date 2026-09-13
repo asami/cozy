@@ -9,8 +9,8 @@ document:
     admittedState: 入力は受理済みです
     noUnresolvedReferences: 未解決の参照はありません
     containmentHeading: ロジックツリー
-    flowHeading: 子ステップのフロー
-    structureHeading: 選択ステップ内の構造
+    flowHeading: ステップ間の構造
+    structureHeading: ステップ内の構造
     proseHeading: 文書プレビュー
     logicalPatternHeading: 論理パターン
     nodesHeading: ノード
@@ -23,10 +23,12 @@ document:
     documentIdentityLabel: 文書識別子
     outputIdentityLabel: 出力識別子
   logicalPatterns:
+    sequence: 順序
     mapping: 対応
     dependency-map: 依存関係
     causal-chain: 因果連鎖
   nodeRoles:
+    step: ステップ
     source: 起点
     target: 対象
     dependency: 依存先
@@ -34,11 +36,13 @@ document:
     cause: 原因
     effect: 結果
   relationTypes:
+    next: 次へ
     maps-to: 対応付け
     depends-on: 依存する
     causes: 引き起こす
     enables: 可能にする
   flowTypes:
+    next: 次へ
     maps-to: 対応付け
     depends-on: 依存する
     causes: 引き起こす
@@ -69,21 +73,35 @@ summary:
     steps: ステップ
     claims: 主張
     nodes: ノード
-    relations: 関係
-    flows: フロー
+    relations: ステップ内の構造
+    flows: ステップ間の構造
   diagramItemKinds:
     step: ステップ
     node: ノード
   relationTypes:
+    next: 次へ
     maps-to: 対応付け
     depends-on: 依存する
     causes: 引き起こす
     enables: 可能にする
   flowTypes:
+    next: 次へ
     maps-to: 対応付け
     depends-on: 依存する
     causes: 引き起こす
     enables: 可能にする
+  inverseRelationTypes:
+    next: 前へ
+    maps-to: 対応付けられる
+    depends-on: 依存される
+    causes: 引き起こされる
+    enables: 可能にされる
+  inverseFlowTypes:
+    next: 前へ
+    maps-to: 対応付けられる
+    depends-on: 依存される
+    causes: 引き起こされる
+    enables: 可能にされる
   documentTargetKinds:
     section: 節
     block: 本文ブロック
