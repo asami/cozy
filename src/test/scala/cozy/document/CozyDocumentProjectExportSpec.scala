@@ -122,7 +122,7 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
       }
     }
 
-    "invalidate retained production currentness when accepted-attempt diagnostics change" in {
+    "retain retained production currentness when accepted-attempt diagnostics change" in {
       _with_temp_dir("cozy-document-project-export-diagnostics") { root =>
         Given("an accepted Article review project and its exported bundle")
         val project = _accepted_project(root, "export-diagnostics")
@@ -140,12 +140,12 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
         val descriptor = CozyDocumentProject._load_project(project)
         val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
 
-        Then("retained production evidence is stale while receipt and native identities remain unchanged")
+        Then("retained production evidence remains current while receipt and native identities remain unchanged")
         after should not be before
         after.substring(after.indexOf("receipt:")) shouldBe before.substring(before.indexOf("receipt:"))
         after.split("\\n").toVector.filter(value => value.trim.startsWith("path:") || value.trim.startsWith("sha256:")) shouldBe
           before.split("\\n").toVector.filter(value => value.trim.startsWith("path:") || value.trim.startsWith("sha256:"))
-        currentness.retainedproductionevidence shouldBe "stale"
+        currentness.retainedproductionevidence shouldBe "current"
       }
     }
 

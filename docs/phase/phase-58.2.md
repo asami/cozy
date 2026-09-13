@@ -1,6 +1,6 @@
 # Phase 58.2: Interactive Document and Summary Confirmation Projection
 
-Status: IN-PROGRESS
+Status: COMPLETE
 
 Prior operational closure: 2026-09-13 operational handoff with explicit deferrals;
 retained as historical provenance and not normal release acceptance
@@ -74,7 +74,7 @@ Phase Plan Gate: PROCEED
 | P582-02 | Define and implement strict `cozy.document-description.v2` and `cozy.summary-description.v2` contracts for project-specific semantic labels, coordinate-free summary diagrams, retained points, and explicit Document omissions while preserving closed v1 behavior. | complete |
 | P582-03 | Generate the interactive Document confirmation workspace with recursive containment, distinct child-Step Flow, selected local Structure, prose highlighting, coverage/currentness status, accessibility, and responsive behavior. | complete |
 | P582-04 | Generate the interactive Summary confirmation workspace with ordered unit navigation, one slide-level semantic explanation, exact source inspection, retained points, explicit omissions, accessibility, and responsive behavior. | complete |
-| P582-05 | Remove Article 9-specific production-code localization, accept the real Article 9 v2 driver, prove deterministic/safe output and v1 preservation, complete visual and executable review, and close the Phase through normal validation and release workflow. | normal acceptance in progress; prior operational closure retained as history |
+| P582-05 | Remove Article 9-specific production-code localization, accept the real Article 9 v2 driver, prove deterministic/safe output and v1 preservation, complete visual and executable review, and close the Phase through normal validation and release workflow. | complete; prior operational closure retained as history |
 
 ## Authority boundary
 
@@ -136,9 +136,11 @@ screens in actual use remain historical provenance. The later direct user
 instruction resumes these criteria in the existing Phase. The checklist
 separates retained historical evidence from live acceptance gates, with
 follow-up history recorded in [the operational follow-up list](phase-58.2-operational-follow-up.md).
-No final full Phase review, latest-tree full validation, release commit, or
-external production integration is claimed until its live gate passes. The
-resumption does not change the design/specification contracts or rewrite
+The independent full Phase review found one export-currentness regression; its
+receipt-semantic repair and focused re-review closed that finding. Latest-tree
+full validation and this distinct local release commit close the normal gate;
+no external production integration is claimed. The resumption does not change
+the design/specification contracts or rewrite
 earlier validation and review evidence.
 
 - A reviewer can select any Core Step and distinguish its containment position,

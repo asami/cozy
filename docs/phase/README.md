@@ -77,14 +77,12 @@ Current phase state:
   content from HTML chrome and physical presentation, preserves distinct local
   Structure and child-Step Flow, and leaves publication and site integration
   outside its closed boundary.
-- Phase 58.2 is in-progress for formal normal acceptance after its earlier
-  2026-09-13 operational handoff. The direct instruction
-  `正式なレビュー、フルテスト、リリースしてクローズして。` resumes the
-  existing Phase rather than creating a successor. Retained focused evidence
-  and the prior six-Summary/document browser checks remain historical; fresh
-  compatibility, current screen characterization, final full review,
-  latest-tree full validation, and a distinct release commit are live gates in
-  `phase-58.2-operational-follow-up.md`. The instruction
+- Phase 58.2 is complete after formal normal acceptance of the resumed Article
+  9 confirmation boundary. The retained focused evidence and browser checks
+  remain historical provenance; the independent full review identified and the
+  bounded receipt-authority repair closed one export-currentness regression,
+  followed by latest-tree full validation and this distinct local release
+  commit. The instruction
   `レスポンシブは考慮しなくていよい。サンプルを完全に再現して。`
   prioritizes complete sample/Desktop layout and functionality; no responsive
   redesign or mobile/full-responsive parity claim is authorized here without

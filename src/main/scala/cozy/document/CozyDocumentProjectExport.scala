@@ -88,8 +88,9 @@ private[cozy] object CozyDocumentProjectExport {
 
   private def _selection_authority(descriptor: CozyDocumentProject.Descriptor): String = _sha256((descriptor.profile +: descriptor.activeOptionalWorkProducts.sorted).mkString("|").getBytes(StandardCharsets.UTF_8))
   private def _retained_production_receipt_authority(project: Path, attempt: CozyDocumentProjectEvidence.Attempt): String = {
-    val path = CozyDocumentProject._direct_file(project, attempt.path.path, "retained accepted native attempt")
-    _sha256(attempt.path.path.getBytes(StandardCharsets.UTF_8) ++ "\n".getBytes(StandardCharsets.UTF_8) ++ Files.readAllBytes(path))
+    val fields = _object(_load_json(CozyDocumentProject._direct_file(project, attempt.path.path, "retained accepted native attempt"), "retained accepted native attempt"), "retained accepted native attempt")
+    val receipt = _object(_field(fields, "receipt", "retained accepted native attempt"), "retained accepted native production receipt")
+    _sha256((_string(receipt, "identity", "retained accepted native production receipt") + "\n" + _string(receipt, "value", "retained accepted native production receipt")).getBytes(StandardCharsets.UTF_8))
   }
   private def _direct_output(project: Path, relative: String): Path = CozyDocumentProject._direct_file(project, relative, "export accepted output")
 

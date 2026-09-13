@@ -1694,7 +1694,7 @@ Origin:
 | DEV-023 | Component Dashboard metadata decision on 2026-09-07; user-approved Phase 54 split and SimpleModeling.org editing-consumer priority on 2026-09-09 | Supply versioned, source-attributed CML model metadata in an ordered identity/publication, Structure, Classification, dynamic, and Use Case/fixture sequence. Deliver the stable foundation first for a future editing-oriented SimpleModeling.org consumer, while retaining actual site integration and publication authority outside this supplier sequence. | NEW_PHASE | [Phase 54](../phase/phase-54.md) PLANNED → [Phase 54.1](../phase/phase-54.1.md) PLANNED → [Phase 54.2](../phase/phase-54.2.md) PLANNED → [Phase 54.3](../phase/phase-54.3.md) PLANNED → [Phase 54.4](../phase/phase-54.4.md) PLANNED | ADOPTED |
 | DEV-024 | `docs/journal/2026/09/2026-09-11-phase-58-recursive-content-core-decision.md`; user-approved reconstruction on 2026-09-11 | Replace the flat localized Content Core authoring model in one bounded vertical slice with a locale-independent recursive `content/core.yaml` whose Steps own local Structure, child Flow, and nested child Steps, then project the real Article 9 logic into one overview HTML and one Step-slide HTML. | NEW_PHASE | [Phase 58](../phase/phase-58.md) COMPLETE | RESOLVED |
 | DEV-025 | `docs/journal/2026/09/2026-09-12-phase-58.1-document-summary-description-dsl-decision.md`; user-approved Phase 58.1 creation on 2026-09-12 | Add media-independent complete-document and summary-slide-level authoring DSLs over the recursive Content Core, separate localized content from renderer chrome, and prove both with strict Article 9 Japanese review projections that preserve semantically distinct Step Flow and local Structure. | NEW_PHASE | [Phase 58.1](../phase/phase-58.1.md) COMPLETE | RESOLVED |
-| DEV-026 | `docs/journal/2026/09/2026-09-12-phase-58.2-interactive-confirmation-projection-decision.md`; user-approved Phase 58.2 planning on 2026-09-12; operational closure and normal-acceptance resumption decisions on 2026-09-13 | Generate interactive Document and Summary confirmation workspaces equivalent to the approved Article 9 reference behavior, with strict v2 semantic labels, coordinate-free diagrams, retained points, explicit omissions, no renderer-side inference, and preserved v1 contracts. | NEW_PHASE | [Phase 58.2](../phase/phase-58.2.md) IN-PROGRESS (formal normal acceptance resumed; prior operational handoff retained); DP-01/DP-03 are adopted into this Phase, DP-02 broader redesign remains future, and DP-04 remains accepted operational refinement | ADOPTED (normal acceptance resumed) |
+| DEV-026 | `docs/journal/2026/09/2026-09-12-phase-58.2-interactive-confirmation-projection-decision.md`; user-approved Phase 58.2 planning on 2026-09-12; operational closure and normal-acceptance resumption decisions on 2026-09-13 | Generate interactive Document and Summary confirmation workspaces equivalent to the approved Article 9 reference behavior, with strict v2 semantic labels, coordinate-free diagrams, retained points, explicit omissions, no renderer-side inference, and preserved v1 contracts. | NEW_PHASE | [Phase 58.2](../phase/phase-58.2.md) COMPLETE; the bounded repair closed one diagnostic-only export-currentness regression without altering Article 9 projection behavior; DP-02 broader redesign remains future and DP-04 remains accepted operational refinement | RESOLVED |
 
 ## Current Priority
 
@@ -1800,17 +1800,13 @@ authority. Its closure keeps the existing `HYG-P58-001` dispatcher follow-up
 separate and does not authorize SmartDox production integration, publication,
 deployment, upload, push, or external-service mutation.
 
-Phase 58.2 is in-progress for formal normal acceptance under `DEV-026` after
-the user's earlier 2026-09-13 decision to stop development here and refine the
-screens in actual use. The later direct instruction
-`正式なレビュー、フルテスト、リリースしてクローズして。` resumes the
-existing Phase; it does not create a successor. The latest Article 9 Cozy-local
-driver's 48 focused tests and browser checks remain historical evidence, not a
-claim of current normal-release acceptance, final full Phase review,
-latest-tree full Cozy validation, or a distinct release commit. DP-01 and
-DP-03 are adopted into this Phase's live gates; DP-02's broader long/dense
-redesign remains future work, while current narrow fallback characterization is
-scheduled and not claimed successful. The instruction
+Phase 58.2 is complete under `DEV-026`. The resumed normal-acceptance route
+retained the Article 9 focused and browser evidence as provenance, completed
+an independent full Phase review, restored receipt-semantic export currentness
+after its one diagnostic-only regression finding, and completed latest-tree
+full Cozy validation plus a distinct local release commit. DP-02's broader
+long/dense redesign remains future work, while DP-04 remains accepted
+operational refinement. The instruction
 `レスポンシブは考慮しなくていよい。サンプルを完全に再現して。`
 prioritizes complete sample/Desktop layout and functionality; no responsive
 redesign or mobile/full-responsive parity claim is authorized here without
