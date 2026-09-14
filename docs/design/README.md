@@ -18,4 +18,6 @@ Not allowed:
 
 Design documents define stable intent, but they are not the work ledger.
 
+- [Document Project Goal-Driven Generation Design](document-project-goal-driven-generation.md)
+
 See /Users/asami/src/dev2025/cozy/ai/directive/core/document-lifecycle.md.

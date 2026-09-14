@@ -87,7 +87,7 @@ an orchestration or producer skill.
 
 | Step | Observable outcome | Status | Closure basis |
 | --- | --- | --- | --- |
-| P600-06 | Frozen skill/Codex/Cozy responsibilities, goal-to-Core resolution and authored-node/tool invocation contracts | OPEN | Checklist P600-06 |
+| P600-06 | Frozen skill/Codex/Cozy responsibilities, goal-to-Core resolution and authored-node/tool invocation contracts | DONE | Checklist P600-06 |
 | P600-07 | A maintained orchestration skill and producer skills implement shared graph planning and interleaved Codex authoring/Cozy operations | OPEN | Checklist P600-07 |
 | P600-08 | Isolated end-to-end skill execution with actual intermediate document authoring, reuse/update acceptance and independent Phase closure | OPEN | Checklist P600-08 |
 
@@ -132,7 +132,7 @@ release tree in addition to its own focused validation and review.
 
 ## Current handoff
 
-Every implementation Step is OPEN. After Phase 60 closes and its predecessor
-handoff verifies, begin at P600-06. Admit the reverse-resolution and
-forward-generation graph before creating or updating orchestration and producer
-skills under P600-07. Product routes require their actual tool contracts.
+P600-06 is complete. Phase 60 is closed and its predecessor handoff is
+verified. P600-07 is next: it creates or updates orchestration and producer
+skills under the admitted reverse-resolution and forward-generation graph.
+Product routes require their actual tool contracts.

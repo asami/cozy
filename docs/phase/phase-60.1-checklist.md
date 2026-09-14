@@ -1,35 +1,41 @@
 # Phase 60.1 Checklist
 
 Phase status: PLANNED
-Updated: 2026-09-14
+Updated: 2026-09-15
 Scope: Subphase 60B goal-driven DSL dependency resolution and generation
 Ledger for: [Phase 60.1](phase-60.1.md)
 Predecessor: [Phase 60](phase-60.md)
 Repository-full validation: aggregate final owner for `PHASE-60` → `PHASE-60.1`
 
-All implementation items are OPEN. Planning does not complete these items.
+P600-06 is DONE. P600-07 and P600-08 remain OPEN. Planning alone does not
+complete an implementation item.
 
 ## P600-06: Goal-driven DSL dependency contract admission
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy/Codex workflow contract owner
 - Update rule: close against the following admitted-contract checklist and verifiable scenarios
 
-- [ ] A promoted workflow contract makes Document the complete localized prose authority, Core the logical authority, `index.dox` the derived SmartDox representation and Summary the deliberate concise-content authority.
-- [ ] The contract assigns request/dependency planning and dispatch to an orchestration skill, content-bearing intermediate DSL/document authoring to Codex, and admitted deterministic validation/confirmation/rendering actions to Cozy.
-- [ ] A skill-facing operation inventory maps each supported validation/confirmation/conversion/rendering/local-build action to its implemented Cozy contract; capability gaps are explicit, and Cozy is not assigned the overall AI authoring dependency planner.
-- [ ] Each action has an explicit Codex-authoring or Cozy-operation classification, input/output paths, success/failure conditions and next-step handoff; actual operation names come from implemented CLI/API contracts, not invented commands.
-- [ ] The explicit source-to-product graph covers Core-to-Document, Document-to-article, Document/Core-to-Summary, article HTML/PDF, summary-slide PDF, infographic and optional video; it identifies each actual input and authoring versus rendering action.
-- [ ] A product request with explicit project, locale and applicable profile resolves recursively through declared grounding DSL dependencies to Core; the plan exposes reverse traversal and forward dependency order rather than a hard-coded product pipeline.
-- [ ] Each node declares its producer, direct inputs, validation/reuse conditions and supported tool/skill route; multiple prerequisites and shared nodes are preserved, deduplicated and ordered without inferring semantic edges from filenames or prose.
-- [ ] Missing DSLs, invalid/stale existing bindings, unavailable producers and graph cycles have distinct diagnostics; missing Core meaning requires authorized authoring input or clarification, not unsupported invention.
-- [ ] Nonsemantic assets/configuration/tool inputs remain explicit external prerequisites, not fabricated Core-derived DSLs; review/reconciliation back-links are not cyclic generation edges.
-- [ ] Initial creation, prose-only feedback, logical changes, Summary-only edits and direct article edits have explicit source-update and reconciliation rules; accepted article prose never remains solely in `index.dox`.
-- [ ] A capability matrix selects existing maintained skills and tested Cozy/SmartDox/media routes for each requested product, with unsupported routes and Phase 59/61 dependencies explicit rather than claimed complete.
-- [ ] Observable workflow scenarios specify affected-product selection, checkpoints, failure/resume behavior, requested locale/output boundaries and separation of generation from human approval or publication.
-- [ ] The request contract distinguishes source-only editing from explicitly selected product generation and browser display; a preview server or old output does not implicitly select a generation target.
+- [x] A promoted workflow contract makes Document the complete localized prose authority, Core the logical authority, `index.dox` the derived SmartDox representation and Summary the deliberate concise-content authority.
+- [x] The contract assigns request/dependency planning and dispatch to an orchestration skill, content-bearing intermediate DSL/document authoring to Codex, and admitted deterministic validation/confirmation/rendering actions to Cozy.
+- [x] A skill-facing operation inventory maps each supported validation/confirmation/conversion/rendering/local-build action to its implemented Cozy contract; capability gaps are explicit, and Cozy is not assigned the overall AI authoring dependency planner.
+- [x] Each action has an explicit Codex-authoring or Cozy-operation classification, input/output paths, success/failure conditions and next-step handoff; actual operation names come from implemented CLI/API contracts, not invented commands.
+- [x] The explicit source-to-product graph covers Core-to-Document, Document-to-article, Document/Core-to-Summary, article HTML/PDF, summary-slide PDF, infographic and optional video; it identifies each actual input and authoring versus rendering action.
+- [x] A product request with explicit project, locale and applicable profile resolves recursively through declared grounding DSL dependencies to Core; the plan exposes reverse traversal and forward dependency order rather than a hard-coded product pipeline.
+- [x] Each node declares its producer, direct inputs, validation/reuse conditions and supported tool/skill route; multiple prerequisites and shared nodes are preserved, deduplicated and ordered without inferring semantic edges from filenames or prose.
+- [x] Missing DSLs, invalid/stale existing bindings, unavailable producers and graph cycles have distinct diagnostics; missing Core meaning requires authorized authoring input or clarification, not unsupported invention.
+- [x] Nonsemantic assets/configuration/tool inputs remain explicit external prerequisites, not fabricated Core-derived DSLs; review/reconciliation back-links are not cyclic generation edges.
+- [x] Initial creation, prose-only feedback, logical changes, Summary-only edits and direct article edits have explicit source-update and reconciliation rules; accepted article prose never remains solely in `index.dox`.
+- [x] A capability matrix selects existing maintained skills and tested Cozy/SmartDox/media routes for each requested product, with unsupported routes and Phase 59/61 dependencies explicit rather than claimed complete.
+- [x] Observable workflow scenarios specify affected-product selection, checkpoints, failure/resume behavior, requested locale/output boundaries and separation of generation from human approval or publication.
+- [x] The request contract distinguishes source-only editing from explicitly selected product generation and browser display; a preview server or old output does not implicitly select a generation target.
+
+Evidence: paired design/specification contract admission, Class D mechanical
+preflight, and independent protected Step review passed with no Current Phase
+Blocker, Hygiene, or Development Candidate. Review disposition bundle:
+`6a758cf0884eef7c3c1ecaad939e558bec9dbb35ffeb56820aaaa004379029af`.
 
 ## P600-07: Companion skill authoring and integration
 
