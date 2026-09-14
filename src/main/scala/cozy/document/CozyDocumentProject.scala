@@ -42,6 +42,7 @@ private[cozy] object CozyDocumentProject {
     workproduct: Option[String]
   )
   private final case class ContentCoreRequest(command: String, project: String, candidateid: Option[String], input: String)
+  private final case class BuildRequest(project: String, targetid: Option[String], force: Boolean)
   private final case class ExportRequest(project: String, target: String, save: String)
   private final case class ScaffoldRequest(slug: String, profile: String, language: String, workspace: String, parent: String)
   private final case class ParsedOptions(values: Map[String, String], flags: Set[String], positionals: Vector[String])
@@ -62,6 +63,10 @@ private[cozy] object CozyDocumentProject {
             case _ => _failure("DP-CLI-001", s"unsupported content-core command: $command")
           }
           println(output)
+          true
+        case BuildRequest(projectvalue, targetid, force) =>
+          val project = _admit_project(projectvalue)
+          println(CozyDocumentProjectLocalBuildCommand.execute(project, targetid, force).report)
           true
         case ProjectRequest(command, projectvalue, operation, dryrun, kind, save, verificationpolicy, workproduct) =>
           val project = _admit_project(projectvalue)
@@ -163,6 +168,7 @@ private[cozy] object CozyDocumentProject {
     case "plan" :: rest => _project_request("plan", rest, Set.empty, Set.empty)
     case "dashboard" :: rest => _project_request("dashboard", rest, Set("save"), Set.empty)
     case "review" :: rest => _project_request("review", rest, Set("kind", "save"), Set.empty)
+    case "build" :: rest => _build_request(rest)
     case "content-core" :: rest => _content_core_request(rest)
     case "verify" :: rest => _project_request("verify", rest, Set("mode", "work-product"), Set.empty)
     case "run" :: rest => _project_request("run", rest, Set("operation"), Set("dry-run"))
@@ -170,6 +176,13 @@ private[cozy] object CozyDocumentProject {
     case "scaffold" :: rest => _scaffold_request(rest)
     case value :: _ => _failure("DP-CLI-001", s"unknown document-project command: $value")
     case Nil => _failure("DP-CLI-001", "missing document-project command")
+  }
+
+  private def _build_request(args: List[String]): BuildRequest = {
+    val parsed = _parse_options(args, Set("target"), Set("force"))
+    if (parsed.positionals.size != 1)
+      _failure("DP-CLI-001", "invalid build command grammar")
+    BuildRequest(parsed.positionals.head, parsed.values.get("target"), parsed.flags.contains("force"))
   }
 
   private def _export_request(args: List[String]): ExportRequest = {
@@ -310,6 +323,11 @@ private[cozy] object CozyDocumentProject {
     val name = Option(project.getFileName).map(_.toString).getOrElse("")
     if (!name.endsWith(".dox") || Files.isSymbolicLink(project) || !Files.isDirectory(project, LinkOption.NOFOLLOW_LINKS))
       _failure("DP-PATH-001", "project must be an existing direct non-symlink .dox directory")
+    val realproject = try project.toRealPath() catch {
+      case NonFatal(_) => _failure("DP-PATH-001", "project path cannot be resolved")
+    }
+    if (project != realproject)
+      _failure("DP-PATH-001", "project must not traverse a symbolic-link ancestor")
     project
   }
 
