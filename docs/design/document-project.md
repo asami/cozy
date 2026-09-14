@@ -890,6 +890,8 @@ deployment, upload, external delivery, private-state exposure, or Phase 57.2/
 
 ## Related authorities
 
+- Local target contracts: [Document Project Local Build Targets Design](document-project-local-build-targets.md)
+
 - Normative contract: [Document Project Specification](../spec/document-project.md)
 - Native execution phase: [Phase 56](../phase/phase-56.md)
 - Accepted-evidence phase: [Phase 56.1](../phase/phase-56.1.md)

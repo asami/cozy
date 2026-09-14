@@ -1348,6 +1348,8 @@ of scope.
 
 ## Related authorities
 
+- Local target contracts: [Document Project Local Build Targets Specification](document-project-local-build-targets.md)
+
 - Stable design: [Document Project Design](../design/document-project.md)
 - Native execution phase: [Phase 56](../phase/phase-56.md)
 - Accepted-evidence phase: [Phase 56.1](../phase/phase-56.1.md)
