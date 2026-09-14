@@ -47,6 +47,83 @@ final class CozyDocumentProjectLocalBuildCommandSpec extends AnyWordSpec with Ma
       }
     }
 
+    "preserve the closed source boundaries of an Article-9-shaped package" which {
+      "render the initial Document views and direct Article 9 source" in {
+        _with_temp_dir("cozy-document-project-local-build-article-nine-rendering") { root =>
+          Given("a descriptor-free direct package with the Phase-58 Japanese Document inputs and an authored SmartDox Article 9 source")
+          val fixture = _fixture(root)
+          _write(fixture.index, _article_nine_source)
+
+          When("each local confirmation target is initially built")
+          val structurereport = _execute(List("document-project", "build", fixture.project.toString, "--target", "document-structure-html"))
+          val readerreport = _execute(List("document-project", "build", fixture.project.toString, "--target", "document-reader-html"))
+          val articlereport = _execute(List("document-project", "build", fixture.project.toString, "--target", "smartdox-article-html"))
+
+          Then("the two Document views and genuine direct article are installed from their declared inputs")
+          structurereport should include("outcome: built")
+          readerreport should include("outcome: built")
+          articlereport should include("outcome: built")
+          val initialarticle = _html(fixture.project, "smartdox-article-html")
+          initialarticle should include("Article 9 Application Modeling")
+          initialarticle should include("This direct Article 9-shaped SmartDox article remains authored in index.dox.")
+          initialarticle should include("The Article 9 Core remains the logical source.")
+          initialarticle should include("<article")
+          initialarticle should include("<h1")
+          initialarticle should include("<p")
+          initialarticle should include("<ul")
+          initialarticle should include("<li")
+          initialarticle should include("<a href=\"https://example.com/article-9\"")
+          Files.exists(fixture.project.resolve("document-project.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+        }
+      }
+
+      "rebuild only the Document targets after a Document-only prose edit" in {
+        _with_temp_dir("cozy-document-project-local-build-article-nine-boundaries") { root =>
+          Given("a descriptor-free direct package with current Document views and a current authored SmartDox Article 9 output")
+          val fixture = _fixture(root)
+          _write(fixture.index, _article_nine_source)
+          _execute(List("document-project", "build", fixture.project.toString, "--target", "document-structure-html"))
+          _execute(List("document-project", "build", fixture.project.toString, "--target", "document-reader-html"))
+          _execute(List("document-project", "build", fixture.project.toString, "--target", "smartdox-article-html"))
+
+          And("all selected inputs and installed outputs are given controlled current timestamps")
+          val inputtime = FileTime.fromMillis(10000L)
+          val outputtime = FileTime.fromMillis(20000L)
+          val structureoutput = _output(fixture.project, "document-structure-html")
+          val readeroutput = _output(fixture.project, "document-reader-html")
+          val articleoutput = _output(fixture.project, "smartdox-article-html")
+          Vector(fixture.config, fixture.core, fixture.document, fixture.vocabulary, fixture.index).foreach(_set_time(_, inputtime))
+          Vector(structureoutput, readeroutput, articleoutput).foreach(_set_time(_, outputtime))
+          val articlebytes = Files.readAllBytes(articleoutput).toVector
+
+          And("one valid Document Description prose edit newer than the two Document outputs while index.dox remains current")
+          val documentsource = Files.readString(fixture.document, StandardCharsets.UTF_8)
+          val changedprose = "第9回では、更新後のDocument Descriptionの文章だけを確認します。"
+          val changeddocument = documentsource.replace(
+            "第9回では、第8回のドメインモデリングで整理した問題領域の意味と構造を受け、ユースケースをアプリケーションがどのように実現するかをアプリケーションモデリングとして扱います。ドメインモデルをアプリケーションモデルへ対応付け、同じSimpleModelingモデルを静的側面と動的側面という異なる関心から組織します。静的ビューを依存対象として、動的ビューはその意味に依存します。",
+            changedprose
+          )
+          changeddocument should not be documentsource
+          _write(fixture.document, changeddocument)
+          _set_time(fixture.document, FileTime.fromMillis(30000L))
+
+          When("the two Document targets and the unchanged direct article target are requested again")
+          val changedstructurereport = _execute(List("document-project", "build", fixture.project.toString, "--target", "document-structure-html"))
+          val changedreaderreport = _execute(List("document-project", "build", fixture.project.toString, "--target", "document-reader-html"))
+          val currentarticlereport = _execute(List("document-project", "build", fixture.project.toString, "--target", "smartdox-article-html"))
+
+          Then("only the Document views rebuild and render the changed prose while the current article output is reused unchanged")
+          changedstructurereport should include("outcome: built")
+          changedreaderreport should include("outcome: built")
+          _html(fixture.project, "document-structure-html") should include(changedprose)
+          _html(fixture.project, "document-reader-html") should include(changedprose)
+          currentarticlereport should include("outcome: reused")
+          Files.readAllBytes(articleoutput).toVector shouldBe articlebytes
+          Files.getLastModifiedTime(articleoutput, LinkOption.NOFOLLOW_LINKS) shouldBe outputtime
+        }
+      }
+    }
+
     "apply strict-newer, equal-time, configuration, and force freshness rules" which {
       "reuse a newer article output without mutation" in {
         _with_temp_dir("cozy-document-project-local-build-newer-output") { root =>
@@ -239,6 +316,17 @@ final class CozyDocumentProjectLocalBuildCommandSpec extends AnyWordSpec with Ma
     val index = _write(project.resolve("index.dox"), "# Local article\n\nThe direct article source.\n")
     Fixture(project, config, core, document, vocabulary, index)
   }
+
+  private val _article_nine_source =
+    """# Article 9 Application Modeling
+      |
+      |This direct Article 9-shaped SmartDox article remains authored in index.dox.
+      |
+      |- The Article 9 Core remains the logical source.
+      |- The Japanese Document Description remains the local document source.
+      |
+      |- [[https://example.com/article-9][Read the Article 9 source]]
+      |""".stripMargin
 
   private def _configuration(prerequisites: Map[String, Vector[String]]): String = {
     val targets = Vector(
