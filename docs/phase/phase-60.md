@@ -4,10 +4,11 @@ split_full_test_policy=final-only
 validation_ownership=aggregate-deferred
 aggregate_validation_owner=PHASE-60.1
 aggregate_validation_sequence=["PHASE-60","PHASE-60.1"]
-status=planned
+status=closed
 
-Status: PLANNED
+Status: CLOSED
 Plan recorded: 2026-09-14
+Closed: 2026-09-15
 Development item: DEV-028
 
 ## Phase Plan Gate
@@ -75,11 +76,11 @@ the local build boundary. The later authoring-workflow discussion is owned by
 
 | Step | Observable outcome | Status | Closure basis |
 | --- | --- | --- | --- |
-| P600-01 | Frozen source/view/target/CLI contracts, reference UI and make-level dependency specifications | OPEN | Checklist P600-01 |
-| P600-02 | Document-centered DSL projection with secondary Core/diagram navigation and preserved structure/Summary views | OPEN | Checklist P600-02 |
-| P600-03 | Project-local actual-article HTML target delegates normal rendering to SmartDox | OPEN | Checklist P600-03 |
-| P600-04 | Timestamp-driven build/reuse and transitive dependencies with failure-preserving outputs | OPEN | Checklist P600-04 |
-| P600-05 | Isolated fixtures, regression validation, documentation and local-build subphase acceptance | OPEN | Checklist P600-05 |
+| P600-01 | Frozen source/view/target/CLI contracts, reference UI and make-level dependency specifications | DONE | Checklist P600-01 |
+| P600-02 | Document-centered DSL projection with secondary Core/diagram navigation and preserved structure/Summary views | DONE | Checklist P600-02 |
+| P600-03 | Project-local actual-article HTML target delegates normal rendering to SmartDox | DONE | Checklist P600-03 |
+| P600-04 | Timestamp-driven build/reuse and transitive dependencies with failure-preserving outputs | DONE | Checklist P600-04 |
+| P600-05 | Isolated fixtures, regression validation, documentation and local-build subphase acceptance | DONE | Checklist P600-05 |
 
 ## Acceptance and exclusions
 
@@ -95,6 +96,10 @@ to Phase 60.1 and its explicit execution boundary. Existing native source
 validation and acceptance/export contracts are not silently migrated. Phase
 59/61 remain independent capability dependencies where applicable.
 
+The independently specified, tested and reviewed media repair in
+`873694f6dca450e11d48ab70f0969e60176be115` is external release-tree context.
+It is neither accepted nor retested or re-reviewed by Phase 60.
+
 ## Applied split
 
 On 2026-09-14, the pre-goal Phase Entry Gate classified the unsplit Phase 60
@@ -109,9 +114,13 @@ added overhead is one independent review and release commit; the final-only
 aggregate policy leaves the repository-full SBT suite with Phase 60.1. No
 reasoning-cost saving or external-scope authority is claimed by this split.
 
-## Current handoff
+## Closure and successor handoff
 
-All implementation Steps are OPEN. Begin at P600-01. Exact target names,
-descriptor representation and public CLI spelling are not yet implemented.
-After this Phase closes and commits, Phase 60.1 begins at P600-06 with the
-frozen local-build handoff. Product routes require their actual tool contracts.
+P600-01 through P600-05 are complete through accepted Step commits, focused
+validation, accepted Step reviews, and the clean Epoch 2 independent full
+Phase review. The separate release commit records this closure.
+
+This Phase is `aggregate-deferred`: it deliberately does not run or claim the
+repository-full SBT suite. Phase 60.1 remains PLANNED and is the named final
+owner for that one aggregate validation after it completes P600-06 through
+P600-08. No Phase 60.1 implementation starts with this closure.
