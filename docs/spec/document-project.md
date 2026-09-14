@@ -728,6 +728,7 @@ cozy document-project plan <project>
 cozy document-project dashboard <project> [--save <dashboard.html>]
 cozy document-project review <project> --kind core|article|slides|video|slide-logical-chart|video-logical-chart [--save <review.html>]
 cozy document-project review <project> --kind presentation [--save <confirmation.html>]
+cozy document-project build <project> [--target <target-id>] [--force]
 cozy document-project content-core candidate <project> <dialogue>
 cozy document-project content-core feedback <project> <candidate-id> <feedback>
 cozy document-project content-core accept <project> <candidate-id> <acceptance>
@@ -736,6 +737,11 @@ cozy document-project verify <project> --mode visual --work-product <native-outp
 cozy document-project run <project> --operation <logical-operation> [--dry-run]
 cozy document-project scaffold <slug> --profile standard|standard-video|bok|bok-video --language <tag> --workspace directory|bok --save <parent>
 ```
+
+The local-build contract is specified by the [Document Project Local Build
+Targets Specification](document-project-local-build-targets.md). It admits a
+direct, non-symlink `.dox` package without loading or requiring
+`document-project.yaml`.
 
 `review --kind presentation` is the sole presentation-confirmation spelling:
 there is no alias, alternative `run` spelling, or other confirmation kind.
@@ -764,12 +770,12 @@ reserved for `document-project review --kind presentation`.
 
 After the CLI and Phase gates, `<project>` MUST be an existing direct
 non-symlink directory whose name ends in `.dox`; it MUST NOT be an arbitrary
-descriptor filename.  Within an admitted project package,
-`document-project.yaml`, the `content/` directory, and the `contentCore` file
-MUST each be a direct regular non-symlink entry.  The lexically exact relative
-Core path MUST resolve from that package without escaping it.  A failure of any
-of these path-admission requirements MUST reject with `DP-PATH-001` before
-descriptor or Core parsing.
+descriptor filename. For commands other than `build`, within an admitted
+project package, `document-project.yaml`, the `content/` directory, and the
+`contentCore` file MUST each be a direct regular non-symlink entry. The
+lexically exact relative Core path MUST resolve from that package without
+escaping it. A failure of any of these path-admission requirements MUST reject
+with `DP-PATH-001` before descriptor or Core parsing.
 
 When `verify` checks the initial authored source paths, `index.dox`,
 `infographic/infographic.svg`, `presentation/visual-pages.yaml`, and
