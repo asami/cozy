@@ -1,6 +1,6 @@
 # Phase 59: Summary Description to Visual Page PDF Projection
 
-Status: IN_PROGRESS
+Status: CLOSED
 
 Plan date: 2026-09-13
 
@@ -69,7 +69,7 @@ Phase Plan Gate: PROCEED
 | P590-02 | Implement strict typed loading and deterministic read-only projection of a canonical Phase 36 `VisualPageSet`, plus a required explicit-output writer, from admitted v2 inputs and the projection profile, using one pre-existing fixed Visual Page binding. | complete |
 | P590-03 | Connect the generated Visual Page Set and that pre-existing binding to the existing Phase 40 `summary-slides-pdf` media route and its existing PDF verification, receipt, and currentness behavior without a parallel renderer or receipt scheme. | complete |
 | P590-04 | Add a real Article 9 Japanese projection driver and executable acceptance for page order, source/structure traceability, semantic marks, deterministic output, current/stale propagation, and rejection paths. | complete |
-| P590-05 | Continue the settled scope with the frozen Revision 2 relationless standalone Visual Page capability, then complete focused validation, independent full-Phase review, full Cozy validation, and a distinct local Phase release commit. | in progress |
+| P590-05 | Continue the settled scope with the frozen Revision 2 relationless standalone Visual Page capability, then complete focused validation, independent full-Phase review, full Cozy validation, and a distinct local Phase release commit. | complete |
 
 ## Authority boundary
 
@@ -186,13 +186,14 @@ planned; a failure that requires one widens the Slice and must return to PLAN.
 ## P590-05A V2 continuation
 
 P590-05A is the user-approved continuation of the same Article 9 vertical
-slice. It keeps the Revision 1 Visual Page catalog and binding valid, selects
-the closed Revision 2 catalog/binding in the static Article 9 profile, and adds
-the existing root Step `application-modeling` as one edge-free Summary item.
-The profile appends `overview-application-modeling-standalone` after the three
-existing edge mappings. Its resulting Article 9 PageSet/PDF therefore has four
-ordered pages; the fourth contains one `item` node, `standalone-card`, zero
-relations, and no fabricated Core Relation.
+slice. It keeps the Revision 1 Visual Page catalog and binding valid, and
+permits the static Article 9 profile to select the existing root Step
+`application-modeling` once as an edge-free Summary item. Omitting that
+selection preserves the existing three edge-mapping pages. Selecting it with
+the closed Revision 2 catalog/binding appends
+`overview-application-modeling-standalone` after those pages: the resulting
+fourth page contains one `item` node, `standalone-card`, zero relations, and no
+fabricated Core Relation.
 
 The static media descriptor records bytes-normalized receipt inputs for the
 projection profile, Core, Document, Summary, media descriptor, catalog, and
@@ -222,7 +223,9 @@ publication scope.
 - Existing Phase 40, Phase 58.1, and Phase 58.2 behavior remains executable
   and passing.
 - Focused validation, independent full-Phase review, full Cozy validation, and
-  a distinct local Phase release commit close the Phase.
+  this distinct local Phase release commit close the Phase. The final full Cozy
+  suite is `P590-05-FINAL-VAL-001`; its immutable receipt records terminal
+  success, exit code 0, and shared-lock release.
 
 ## Exclusions
 

@@ -1,6 +1,6 @@
 # Phase 59 Checklist: Summary Description to Visual Page PDF Projection
 
-Phase Status: IN_PROGRESS
+Phase Status: CLOSED
 
 Development item: DEV-027
 
@@ -138,30 +138,41 @@ Phase Blocker in review-disposition
 ## P590-05: V2 continuation and Phase closure
 
 Stage Status:
-- Current status: IN_PROGRESS
+- Current status: DONE
 - Owner: Phase 59 closure
 - Update rule: Mark DONE only when all preceding stages are DONE on the settled
   tree and every closure gate below records the same accepted scope.
 
-- [ ] Complete focused validation for the projector, media connection,
+- [x] Complete focused validation for the projector, media connection,
       currentness, and Article 9 acceptance driver.
-- [ ] Complete one independent full-Phase review with no unresolved Current
+- [x] Complete one independent full-Phase review with no unresolved Current
       Phase Blocker.
-- [ ] Complete full Cozy validation through the shared SBT lock.
-- [ ] Complete a distinct local Phase release commit. No publication,
+- [x] Complete full Cozy validation through the shared SBT lock.
+- [x] Complete this distinct local Phase release commit. No publication,
       deployment, upload, push, registration, or external production
       integration is claimed.
+
+Evidence: focused validation passed the projector/media/Article 9 accumulator;
+the independent full-Phase review and focused re-review have no unresolved
+Current Boundary Blocker in review dispositions
+`f649c631c5c47e4fa6f576407e4628a69594fbe6b2143b7dc32ff12ecda738de` and
+`7733f7efaf0f2f72aab304c3db7c433278eda2f2594bb9e35decd622ec29d4c0`.
+`P590-05-FINAL-VAL-001` ran the full `sbt --batch test` through the shared
+lock with terminal success and exit code 0; its immutable command-execution
+receipt is `37924bcb910b341af954554b19162d3a87bb199700d2ff8c072dab2f14a7780b`.
 
 ### P590-05A: Relationless standalone Visual Page continuation
 
 - [x] Freeze the Revision 2-only `standalone`/`standalone-card` catalog and
       binding extension while retaining the accepted Revision 1 shapes.
-- [x] Add the Article 9 edge-free root Step as the fourth source-ordered
-      relationless page without synthesizing a Core Relation.
+- [x] Permit the Article 9 edge-free root Step to be selected zero or once as
+      a source-ordered relationless page without synthesizing a Core Relation;
+      zero selections preserve the three-page Revision 1 result and one
+      selection produces the fourth page.
 - [x] Declare bytes-normalized receipt inputs for profile, Core, Document,
       Summary, media, catalog, and binding, with executable stale-currentness
       scenarios for each individual authority.
-- [ ] Run the parent-selected focused validation and independent review before
+- [x] Run the parent-selected focused validation and independent review before
       closing P590-05; no Phase closure or release claim is made by this slice.
 
 ## Closure boundary

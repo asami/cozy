@@ -182,8 +182,8 @@ catalog, or binding.
 
 ## 4. Article 9 overview acceptance example
 
-`application-overview` MUST be represented by three contiguous explicit mappings
-in Summary order:
+`application-overview` MUST be represented by the following three contiguous
+explicit mappings in Summary order:
 
 1. `overview-domain-model`, `overview-application-model`, and
    `overview-domain-to-application`: `mapping` plus a compatible mapping visual
@@ -196,10 +196,12 @@ in Summary order:
    `overview-conclusion-to-realization`: `dependency-map` plus `flow-vertical`;
    `application-conclusion` -> `use-case-realization`; `depends-on`; roles
    `dependent` -> `dependency`.
-4. `overview-application-modeling-standalone`: Revision 2 `standalone` plus
-   `standalone-card`; the existing root Step
-   `overview-application-modeling`; role `item`; zero relations and zero
-   visual parameters.
+4. If the authored Root Step DiagramItem is explicitly selected once and
+   edge-free, a Revision 2 mapping MAY append as
+   `overview-application-modeling-standalone`: `standalone` plus
+   `standalone-card`; the existing root Step `overview-application-modeling`;
+   role `item`; zero relations and zero visual parameters. Omitting that
+   selection MUST preserve the three-page result.
 
 Each listed edge MUST retain its declared Summary `forward` direction.
 `overview-realization` is the same source item on both dependency pages:

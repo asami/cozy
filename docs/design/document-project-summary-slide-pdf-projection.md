@@ -116,8 +116,11 @@ it cannot include that relationless item.
 
 ## 3. Article 9 overview projection
 
-The Article 9 `application-overview` is an explicit, contiguous three-page
-projection, not an automatic expansion rule:
+The Article 9 `application-overview` requires the following explicit,
+contiguous three-page projection in Summary order; it is not an automatic
+expansion rule. A Revision 2 relationless standalone mapping MAY append only
+after the authored Root Step DiagramItem is explicitly selected once and
+edge-free. Omitting that selection preserves the three-page result:
 
 1. A `mapping` page with a compatible mapping visual pattern maps
    `root-domain-model` to `root-application-model` through the
@@ -128,9 +131,11 @@ projection, not an automatic expansion rule:
 3. A `dependency-map` page with `flow-vertical` maps
    `application-conclusion` to `use-case-realization` through
    `depends-on`, with roles `dependent` -> `dependency`.
-4. A relationless `standalone` page with `standalone-card` maps the existing
-   root Step `application-modeling` as `overview-application-modeling`, role
-   `item`, with zero relations and zero visual parameters.
+4. When the authored Root Step DiagramItem is selected once and edge-free, a
+   relationless `standalone` page with `standalone-card` MAY append and map the
+   existing root Step `application-modeling` as
+   `overview-application-modeling`, role `item`, with zero relations and zero
+   visual parameters.
 
 The three pages bind, respectively, the Summary item/edge IDs
 `overview-domain-model`, `overview-application-model`, and
