@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Sep.  8, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReceipt {
@@ -428,10 +428,6 @@ private[cozy] object CozyMediaReceipt {
       val output = _output(resolved).getOrElse(_invalid(s"Media prebuilt resource has no output: ${resolved.resource.id}"))
       if (!Files.isRegularFile(output))
         _invalid(s"Media prebuilt output must be a current regular file: $output")
-      existing.resources.find(_.id == resolved.resource.id).foreach { previous =>
-        if (previous.sha256 == _sha256(output) && !current(plan, resolved))
-          _invalid(s"Media prebuilt resource is stale and its output was not externally refreshed: ${resolved.resource.id}")
-      }
     }
   }
 
