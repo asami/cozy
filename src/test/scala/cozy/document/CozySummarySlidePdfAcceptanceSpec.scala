@@ -1,6 +1,6 @@
 package cozy.document
 
-import cozy.media.{CozyMedia, CozyVisualPage, CozyVisualPageBinding}
+import cozy.media.{CozyMedia, CozyMediaReceipt, CozyVisualPage, CozyVisualPageBinding}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
@@ -32,18 +32,20 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         val binding = CozyVisualPageBinding.load(fixture.binding, visual)
 
         Then("the emitted PDF has the complete ordered page set and exact source and Summary provenance")
-        _page_count(fixture.pdf) shouldBe 3
+        _page_count(fixture.pdf) shouldBe 4
         visual.document.pages.map(_.id) shouldBe Vector(
           "overview-domain-to-application",
           "overview-realization-to-foundation",
-          "overview-conclusion-to-realization"
+          "overview-conclusion-to-realization",
+          "overview-application-modeling-standalone"
         )
-        visual.document.pages.map(_.logical.pattern) shouldBe Vector("mapping", "dependency-map", "dependency-map")
-        visual.document.pages.map(_.visual.pattern) shouldBe Vector("mapping-columns", "flow-vertical", "flow-vertical")
+        visual.document.pages.map(_.logical.pattern) shouldBe Vector("mapping", "dependency-map", "dependency-map", "standalone")
+        visual.document.pages.map(_.visual.pattern) shouldBe Vector("mapping-columns", "flow-vertical", "flow-vertical", "standalone-card")
         visual.document.pages.map(_.logical.relations.map(relation => (relation.id, relation.relationType, relation.from, relation.to))) shouldBe Vector(
           Vector(("overview-domain-to-application", "maps-to", "overview-domain-model", "overview-application-model")),
           Vector(("overview-realization-to-foundation", "depends-on", "overview-realization", "overview-foundation")),
-          Vector(("overview-conclusion-to-realization", "depends-on", "overview-conclusion", "overview-realization"))
+          Vector(("overview-conclusion-to-realization", "depends-on", "overview-conclusion", "overview-realization")),
+          Vector.empty
         )
         visual.document.pages.foreach { page =>
           page.sources.map(_.id) shouldBe Vector("core", "document", "summary", "profile", "media")
@@ -52,21 +54,34 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
           page.assets.map(_.id) shouldBe Vector("infographic")
         }
         visual.document.pages.head.logical.nodes.map(_.id) shouldBe Vector("overview-domain-model", "overview-application-model")
-        visual.document.pages.tail.flatMap(_.logical.nodes.map(_.id)).toSet should contain allOf ("overview-realization", "overview-foundation", "overview-conclusion")
+        visual.document.pages.tail.flatMap(_.logical.nodes.map(_.id)).toSet should contain allOf ("overview-realization", "overview-foundation", "overview-conclusion", "overview-application-modeling")
+        visual.document.pages.last.logical.nodes.map(node => node.id -> node.role) shouldBe Vector("overview-application-modeling" -> "item")
+        visual.document.pages.last.visual.parameters shouldBe Vector.empty
         connection.projection.provenance.summary.id shouldBe "application-modeling-summary-ja-v2"
         connection.projection.provenance.summary.path shouldBe "content-v2/ja/summary.yaml"
-        connection.projection.provenance.summary.identity shouldBe "sha256:d66661e755bc446c3b90ce6fb45fc15ef0d19a5500af4605dfd935e0564ee744"
+        connection.projection.provenance.summary.identity shouldBe "sha256:241ef33aa477a0cbddddb23d02ace3ed913e3aa95a5dfaeca26a69456490c8db"
         connection.projection.provenance.core.identity shouldBe "sha256:6afe2e0a8bc534be97e12fb34dffd0175ee82baccb22b98923f92801d3ee0998"
         connection.projection.provenance.document.identity shouldBe "sha256:5e91fb42d9e18ab3a8209de937b691c7ae4075b4ce2e227b6e74fcc6d28703ac"
-        connection.projection.provenance.media.identity shouldBe "sha256:a1e376f0701c5694a8bc129117090cdf026d56d9b1ce16ca7810b5918a5db8a1"
-        connection.projection.provenance.catalog.identity shouldBe "sha256:4a292696d0f8c85833345cae59382c9c2ddb74c9d9488142d0a74706fe102b59"
-        connection.projection.provenance.binding.identity shouldBe "sha256:203279df1af258e201c27d86574d07a89e1289a2cc7b5b6706348d67c92a1dd3"
+        connection.projection.provenance.media.identity shouldBe "sha256:e7fcba38324e6a7539b976ebbfcd0050fca5e63368784cc948766116d635fb75"
+        connection.projection.provenance.catalog.identity shouldBe "sha256:1d74ed3a94bf4c0d5f7b336de0763775d2040097abbe873b2eddd606bc34706f"
+        connection.projection.provenance.binding.identity shouldBe "sha256:e6cc253e94926f88bd720b8a876f047da8d8ae5e3242ee088dd513657586f04c"
         connection.projection.provenance.mediaTarget shouldBe "summary-slides-pdf"
         binding.id shouldBe "business-binding"
         binding.profile shouldBe "business"
-        Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"pageCount\":3")
+        Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"pageCount\":4")
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-realization-to-foundation\"")
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-conclusion-to-realization\"")
+        Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-application-modeling-standalone\"")
+        val receipt = CozyMediaReceipt.manifest(fixture.receipt).flatMap(_.resources.find(_.id == "summary-slides-pdf")).flatMap(_.receipt).getOrElse(fail("summary-slides receipt is required"))
+        receipt.inputs.filter(_.id.startsWith("projection-")).map(input => (input.id, input.role, input.path, input.normalization)) shouldBe Vector(
+          ("projection-binding", "projection-binding", "presentation/binding.json", "bytes"),
+          ("projection-catalog", "projection-catalog", "presentation/catalog.json", "bytes"),
+          ("projection-core", "projection-core", "content-v2/core.yaml", "bytes"),
+          ("projection-document", "projection-document", "content-v2/ja/document.yaml", "bytes"),
+          ("projection-media", "projection-media", "media.yaml", "bytes"),
+          ("projection-profile", "projection-profile", "projection.yaml", "bytes"),
+          ("projection-summary", "projection-summary", "content-v2/ja/summary.yaml", "bytes")
+        )
       }
     }
 
@@ -89,6 +104,26 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         Files.readAllBytes(fixture.pdf).toVector shouldBe priorpdf
         Files.readAllBytes(fixture.renderermanifest).toVector shouldBe priormanifest
       }
+    }
+
+    "make the accepted receipt stale after one post-acceptance byte mutation to each projection authority" in {
+      Given("one accepted Article 9 PDF and an isolated Core, Document, Summary, profile, media, catalog, or binding mutation")
+      val mutations: Vector[(String, Fixture => Unit)] = Vector(
+        "core" -> ((fixture: Fixture) => _append(fixture.core, "\n")),
+        "document" -> ((fixture: Fixture) => _append(fixture.document, "\n")),
+        "summary" -> ((fixture: Fixture) => _append(fixture.summary, "\n")),
+        "profile" -> ((fixture: Fixture) => _append(fixture.profile, "\n")),
+        "media" -> ((fixture: Fixture) => _append(fixture.media, "\n")),
+        "catalog" -> ((fixture: Fixture) => _append(fixture.catalog, "\n")),
+        "binding" -> ((fixture: Fixture) => _append(fixture.binding, "\n"))
+      )
+
+      When("each accepted receipt is checked after exactly one declared input changes")
+      val currentness = mutations.map { case (name, mutate) => name -> _currentness_case("cozy-summary-slide-pdf-currentness-" + name)(mutate) }
+
+      Then("the existing receipt schema records all seven authorities and every individual mutation makes that same receipt stale")
+      currentness.map(_._2._1).forall(identity) shouldBe true
+      currentness.map(_._2._2).forall(value => !value) shouldBe true
     }
 
     "reject every independently changed authority before replacing accepted PDF evidence" in {
@@ -162,6 +197,24 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
     priormanifest: Vector[Byte],
     priorreceipt: Vector[Byte]
   )
+
+  private def _currentness_case(name: String)(mutate: Fixture => Unit): (Boolean, Boolean) = {
+    var result = Option.empty[(Boolean, Boolean)]
+    _with_work(name) { root =>
+      val fixture = _copy_fixture(root)
+      _accept_prebuilt_dependencies(fixture)
+      CozySummarySlidePdf.build(root, root.relativize(fixture.profile), _renderer(root))
+      val config = CozyMedia.CommandConfig(fixture.media, target = Some("summary-slides-pdf"))
+      val acceptedplan = CozyMedia.resolvePlan(config)
+      val acceptedresource = acceptedplan.resources.find(_.resource.id == "summary-slides-pdf").getOrElse(fail("summary-slides resource is required"))
+      val before = CozyMediaReceipt.current(acceptedplan, acceptedresource)
+      mutate(fixture)
+      val changedplan = CozyMedia.resolvePlan(config)
+      val changedresource = changedplan.resources.find(_.resource.id == "summary-slides-pdf").getOrElse(fail("summary-slides resource is required"))
+      result = Some(before -> CozyMediaReceipt.current(changedplan, changedresource))
+    }
+    result.get
+  }
 
   private def _copy_fixture(root: Path): Fixture = {
     val source = _resource("/cozy/document/phase-59/application-modeling/projection.yaml").getParent

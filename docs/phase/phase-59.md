@@ -69,7 +69,7 @@ Phase Plan Gate: PROCEED
 | P590-02 | Implement strict typed loading and deterministic read-only projection of a canonical Phase 36 `VisualPageSet`, plus a required explicit-output writer, from admitted v2 inputs and the projection profile, using one pre-existing fixed Visual Page binding. | complete |
 | P590-03 | Connect the generated Visual Page Set and that pre-existing binding to the existing Phase 40 `summary-slides-pdf` media route and its existing PDF verification, receipt, and currentness behavior without a parallel renderer or receipt scheme. | complete |
 | P590-04 | Add a real Article 9 Japanese projection driver and executable acceptance for page order, source/structure traceability, semantic marks, deterministic output, current/stale propagation, and rejection paths. | complete |
-| P590-05 | Complete focused validation, independent full-Phase review, full Cozy validation, and a distinct local Phase release commit for the settled scope. | planned |
+| P590-05 | Continue the settled scope with the frozen Revision 2 relationless standalone Visual Page capability, then complete focused validation, independent full-Phase review, full Cozy validation, and a distinct local Phase release commit. | in progress |
 
 ## Authority boundary
 
@@ -91,6 +91,10 @@ Phase Plan Gate: PROCEED
   route. They retain exact source/projection provenance and are stale when any
   consumed authority or catalog/binding input changes. Phase 59 never generates
   or changes the binding.
+- P590-05A admits only the closed Revision 2 catalog/binding extension for a
+  relationless Summary item: `standalone`/`standalone-card`, one `item`, zero
+  relations, zero visual parameters, and no emphasis. Edge-bearing mappings
+  retain their already accepted resolved Core relation semantics unchanged.
 - Phase 40 remains the sole owner of physical slide rendering, PDF generation,
   PDF verification, renderer manifest, receipt construction, and PDF review
   currentness.
@@ -179,6 +183,25 @@ P590-04A does not change the Phase 40 renderer, its manifest/receipt schema,
 the external site, or presentation layout. No production-source change is
 planned; a failure that requires one widens the Slice and must return to PLAN.
 
+## P590-05A V2 continuation
+
+P590-05A is the user-approved continuation of the same Article 9 vertical
+slice. It keeps the Revision 1 Visual Page catalog and binding valid, selects
+the closed Revision 2 catalog/binding in the static Article 9 profile, and adds
+the existing root Step `application-modeling` as one edge-free Summary item.
+The profile appends `overview-application-modeling-standalone` after the three
+existing edge mappings. Its resulting Article 9 PageSet/PDF therefore has four
+ordered pages; the fourth contains one `item` node, `standalone-card`, zero
+relations, and no fabricated Core Relation.
+
+The static media descriptor records bytes-normalized receipt inputs for the
+projection profile, Core, Document, Summary, media descriptor, catalog, and
+binding. The existing Phase 40 receipt/currentness mechanism must make the
+accepted PDF stale after a byte change to any one of those authorities. This
+continuation does not change the renderer, verifier, receipt schema, layout,
+Phase 40 implementation, Phase 58 sources, Phase 60/61, strategy, site, or
+publication scope.
+
 ## Closure criteria
 
 - The v2 source authorities, projection profile, generated presentation
@@ -191,8 +214,8 @@ planned; a failure that requires one widens the Slice and must return to PLAN.
   Step Flow from local Structure wherever the Summary selected them through
   the existing catalog-supported visual semantics; it does not claim new
   tag/structure text beyond the unchanged renderer contract.
-- An input mutation to Core, Document, Summary, profile, catalog, binding, or
-  consumed asset makes the derived presentation/PDF stale or rejects the
+- An input mutation to Core, Document, Summary, profile, media, catalog,
+  binding, or consumed asset makes the derived presentation/PDF stale or rejects the
   operation deterministically; no fresh receipt is emitted for mixed input.
 - Phase 40's existing PDF role, renderer manifest, PDF integrity check, and
   receipt/review currentness remain authoritative and passing.

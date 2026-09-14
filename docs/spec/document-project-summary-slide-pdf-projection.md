@@ -6,8 +6,10 @@ This specification freezes strict `cozy.summary-slide-projection.v1` admission
 and canonical projection into the accepted Visual Page and Phase 40 summary-slide
 PDF routes. It is paired with
 [`docs/design/document-project-summary-slide-pdf-projection.md`](../design/document-project-summary-slide-pdf-projection.md).
-Existing v1/v2 source, Visual Page, catalog, binding, and Phase 40 PDF contracts
-remain unchanged. MUST and MUST NOT are normative.
+Existing v1/v2 source and Phase 40 PDF contracts remain unchanged. Visual Page
+Revision 1 catalog/binding behavior remains unchanged; this specification admits
+only the closed Revision 2 standalone extension. MUST and MUST NOT are
+normative.
 
 ## 1. Direct profile admission
 
@@ -103,6 +105,16 @@ required selected-catalog parameter once and optional parameters only when
 explicit; aliases, defaults, nulls, renderer IDs, coordinates, CSS, fonts,
 sizes, PDF settings, and physical slots MUST reject.
 
+A relationless mapping is valid only when it selects Revision 2 `standalone`
+with `standalone-card`, has exactly one Summary diagram item in role `item`,
+has zero edges, no `emphasisItem`, and empty `visualParameters`. That item MUST
+not be an endpoint of any declared Summary edge and MUST occur in exactly one
+mapping. The projector MUST NOT synthesize a Core Relation or alternative Core
+meaning for it. Every edge-bearing mapping MUST retain the existing resolved
+relation type, endpoints, direction, and roles and MUST NOT include that
+relationless item. A relation, extra item, parameter, emphasis, hybrid
+logical/visual pair, or edge mix MUST reject.
+
 ## 3. Canonical projection
 
 The projector MUST load and validate all bound sources, mappings, catalog,
@@ -184,6 +196,10 @@ in Summary order:
    `overview-conclusion-to-realization`: `dependency-map` plus `flow-vertical`;
    `application-conclusion` -> `use-case-realization`; `depends-on`; roles
    `dependent` -> `dependency`.
+4. `overview-application-modeling-standalone`: Revision 2 `standalone` plus
+   `standalone-card`; the existing root Step
+   `overview-application-modeling`; role `item`; zero relations and zero
+   visual parameters.
 
 Each listed edge MUST retain its declared Summary `forward` direction.
 `overview-realization` is the same source item on both dependency pages:
@@ -192,6 +208,12 @@ Each listed edge MUST retain its declared Summary `forward` direction.
 permitted page-local reappearance compelled by the distinct edges, not cloning;
 every edge still occurs in one mapping. No inverse reading, relation alias,
 visual chain, or catalog change is permitted.
+
+The Article 9 descriptor MUST declare bytes-normalized receipt inputs for the
+projection profile, Core, Document, Summary, media descriptor, catalog, and
+binding. The unmodified Phase 40 receipt/currentness route MUST record those
+inputs and make the accepted PDF stale after a byte change to any one of them,
+without a receipt-schema, renderer, verifier, or layout change.
 
 ## 5. Fail-closed conditions
 

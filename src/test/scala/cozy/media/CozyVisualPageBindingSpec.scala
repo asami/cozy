@@ -13,7 +13,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 27, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVisualPageBindingSpec
@@ -67,13 +67,35 @@ final class CozyVisualPageBindingSpec
       }
     }
 
+    "require a complete revision-two binding including standalone-card while preserving revision one" in {
+      _with_work("binding-revision-two-standalone") { root =>
+        Given("separate revision-one and revision-two validated catalogs with their exact complete business bindings")
+        val revisionone = _validated()
+        val revisiontwo = _validated(_catalog(2))
+        val legacy = _write(root.resolve("revision-one.json"), _binding_json())
+        val standalone = _write(root.resolve("revision-two.json"), _binding_json(Vector("flow-horizontal", "flow-vertical", "mapping-columns", "standalone-card"), revision = 2))
+        val incomplete = _write(root.resolve("revision-two-incomplete.json"), _binding_json(revision = 2))
+
+        When("the direct binding loader validates the selected catalog revisions")
+        val accepted = Vector(CozyVisualPageBinding.load(legacy, revisionone), CozyVisualPageBinding.load(standalone, revisiontwo))
+        val failure = _failure(CozyVisualPageBinding.load(incomplete, revisiontwo))
+
+        Then("revision one remains complete and revision two binds standalone-card through all five existing semantic slots")
+        accepted.map(_.catalog.revision) shouldBe Vector(1, 2)
+        accepted.head.patterns.map(_.visualPattern) shouldBe Vector("flow-horizontal", "flow-vertical", "mapping-columns")
+        accepted(1).patterns.map(_.visualPattern) shouldBe Vector("flow-horizontal", "flow-vertical", "mapping-columns", "standalone-card")
+        accepted(1).patterns.find(_.visualPattern == "standalone-card").map(_.slots.map(_.semanticSlot)) shouldBe Some(_semantic_slots)
+        failure.getMessage should include_text("VISUAL_PAGE_BINDING_PATTERNS")
+      }
+    }
+
     "fail closed for a catalog pair mismatch and an unknown or unbound visual pattern" in {
       _with_work("binding-resolution") { root =>
         Given("one resolved catalog and complete binding input plus a binding with an unknown pattern")
         val validated = _validated()
         val complete = _write(root.resolve("complete.json"), _binding_json())
         val unknown = _write(root.resolve("unknown.json"), _binding_json(Vector("flow-horizontal", "flow-vertical", "unknown-pattern")))
-        val mismatch = _validated(_catalog.copy(id = "other-catalog"))
+        val mismatch = _validated(_catalog().copy(id = "other-catalog"))
 
         When("the binding is loaded against the mismatched catalog or contains an unbound pattern")
         val catalogfailure = _failure(CozyVisualPageBinding.load(complete, mismatch))
@@ -154,32 +176,35 @@ final class CozyVisualPageBindingSpec
   private val _root_fields = Vector("schema", "version", "id", "profile", "catalog", "patterns")
   private val _semantic_slots = Vector("knowledge", "nodes", "relations", "assets", "parameters")
 
-  private def _catalog: CozyVisualPage.Catalog = CozyVisualPage.Catalog(
-    "core",
-    1,
-    Vector(
+  private def _catalog(revision: Int = 1): CozyVisualPage.Catalog = {
+    val relations = Vector(
       CozyVisualPage.RelationDefinition("next", "from-to"),
       CozyVisualPage.RelationDefinition("causes", "from-to"),
       CozyVisualPage.RelationDefinition("depends-on", "from-to"),
       CozyVisualPage.RelationDefinition("enables", "from-to"),
       CozyVisualPage.RelationDefinition("maps-to", "from-to")
-    ),
-    Vector(
+    )
+    val logicalpatterns = Vector(
       CozyVisualPage.LogicalPattern("sequence", Vector(CozyVisualPage.NodeRole("step", 2, 8)), Vector(CozyVisualPage.RelationRule("next", Vector("step"), Vector("step"), 1, 7, "linear")))
-    ),
-    Vector(
+    )
+    val visualpatterns = Vector(
       CozyVisualPage.VisualPattern("flow-horizontal", Vector("causal-chain", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
       CozyVisualPage.VisualPattern("flow-vertical", Vector("causal-chain", "dependency-map", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
       CozyVisualPage.VisualPattern("mapping-columns", Vector("mapping"), Vector(CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false), CozyVisualPage.ParameterDefinition("sourceColumnTitle", "string", true), CozyVisualPage.ParameterDefinition("targetColumnTitle", "string", true)))
     )
-  )
+    revision match {
+      case 1 => CozyVisualPage.Catalog("core", 1, relations, logicalpatterns, visualpatterns)
+      case 2 => CozyVisualPage.Catalog("core", 2, relations, logicalpatterns :+ CozyVisualPage.LogicalPattern("standalone", Vector(CozyVisualPage.NodeRole("item", 1, 1)), Vector.empty), visualpatterns :+ CozyVisualPage.VisualPattern("standalone-card", Vector("standalone"), Vector.empty))
+      case _ => throw new IllegalArgumentException("unsupported catalog revision")
+    }
+  }
 
-  private def _validated(catalog: CozyVisualPage.Catalog = _catalog): CozyVisualPage.ValidatedDocument = {
+  private def _validated(catalog: CozyVisualPage.Catalog = _catalog()): CozyVisualPage.ValidatedDocument = {
     val page = CozyVisualPage.Page(
       "page-1",
       "knowledge-1",
       "en",
-      CozyVisualPage.CatalogReference("core", 1),
+      CozyVisualPage.CatalogReference("core", catalog.revision),
       CozyVisualPage.Logical(
         "sequence",
         Vector(CozyVisualPage.Node("discover", "step", "Discover", Vector.empty), CozyVisualPage.Node("apply", "step", "Apply", Vector.empty)),
@@ -205,14 +230,15 @@ final class CozyVisualPageBindingSpec
   private def _binding_json(
     patterns: Vector[String] = Vector("flow-horizontal", "flow-vertical", "mapping-columns"),
     shuffled: Boolean = false,
-    rootorder: Vector[String] = _root_fields
+    rootorder: Vector[String] = _root_fields,
+    revision: Int = 1
   ): String = {
     val values = Map(
       "schema" -> "\"cozy.visual-page.binding.v1\"",
       "version" -> "1",
       "id" -> "\"business-default\"",
       "profile" -> "\"business\"",
-      "catalog" -> "{\"id\":\"core\",\"revision\":1}",
+      "catalog" -> ("{\"id\":\"core\",\"revision\":" + revision.toString + "}"),
       "patterns" -> patterns.map(_pattern_json(_, shuffled)).mkString("[", ",", "]")
     )
     rootorder.map(name => "\"" + name + "\":" + values(name)).mkString("{", ",", "}")

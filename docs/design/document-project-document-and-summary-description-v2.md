@@ -92,9 +92,15 @@ An explicitly authored first unit may additionally declare
 semantic scope, not a layout or guessed role. Admission allows at most one,
 first only, and requires exact complete Root/direct-child reference coverage,
 retained-point reference subsets, and explicit unique diagram items/edges for
-Root local Structure and Root Flow. No descendant-local source is admitted in
-that overview. Existing units without this field remain ordinary, unchanged
-units. No automatic slide, selection, heading or wording is created.
+every direct child Step exactly once, every Root local Node exactly once, and
+every Root local Relation and Root Flow transition exactly once. The Root Step
+MAY be explicitly selected once; its absence preserves revision-one overview
+behavior, while one edge-free Root Step selection is eligible for the existing
+revision-two standalone projection. Authored item and edge order remains
+intact; duplicate, missing required, or out-of-scope selection rejects rather
+than being inferred. No descendant-local source is admitted in that overview.
+Existing units without this field remain ordinary, unchanged units. No
+automatic slide, selection, heading or wording is created.
 
 The optional `diagram` is closed with required `items` and `edges`, plus
 optional `focusItem`; it is

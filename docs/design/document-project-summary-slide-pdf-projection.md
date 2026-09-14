@@ -7,8 +7,9 @@ that connects admitted Document Project v2 Core, Document Description, and
 Summary Description inputs to the accepted Visual Page and `summary_slides_pdf`
 routes. It is paired with
 [`docs/spec/document-project-summary-slide-pdf-projection.md`](../spec/document-project-summary-slide-pdf-projection.md).
-It changes neither the v1/v2 source schemas nor the Visual Page, binding,
-catalog, or Phase 40 renderer contracts.
+It changes neither the v1/v2 source schemas nor the Phase 40 renderer contract;
+it preserves the accepted Visual Page Revision 1 catalog/binding shape and
+admits only the closed Revision 2 standalone extension defined here.
 
 ## 1. Ownership and input boundary
 
@@ -104,6 +105,15 @@ selected catalog parameters, each required parameter occurs once and optional
 parameters occur only when explicit. There are no aliases, defaults, CSS,
 coordinates, fonts, page sizes, PDF settings, or physical slots.
 
+Revision 2 adds one closed relationless mapping form only: `logicalPattern:
+standalone` with `visualPattern: standalone-card`, exactly one Summary diagram
+item in role `item`, zero edges, no `emphasisItem`, and empty
+`visualParameters`. Its item is not an endpoint of any declared Summary edge
+and occurs in exactly one mapping. No Core Relation, alternative Core meaning,
+or renderer interpretation is synthesized. Every edge-bearing mapping retains
+the existing edge resolution, roles, endpoints, and direction rules unchanged;
+it cannot include that relationless item.
+
 ## 3. Article 9 overview projection
 
 The Article 9 `application-overview` is an explicit, contiguous three-page
@@ -118,6 +128,9 @@ projection, not an automatic expansion rule:
 3. A `dependency-map` page with `flow-vertical` maps
    `application-conclusion` to `use-case-realization` through
    `depends-on`, with roles `dependent` -> `dependency`.
+4. A relationless `standalone` page with `standalone-card` maps the existing
+   root Step `application-modeling` as `overview-application-modeling`, role
+   `item`, with zero relations and zero visual parameters.
 
 The three pages bind, respectively, the Summary item/edge IDs
 `overview-domain-model`, `overview-application-model`, and
@@ -192,6 +205,13 @@ currentness. The projector outputs only the canonical PageSet and connects it,
 with the pre-existing binding, to that route; it writes no PDF, PPTX, renderer
 manifest, receipt, catalog, or binding.
 
+The Article 9 media descriptor records those seven projection authorities as
+explicit bytes-normalized receipt inputs: projection profile, Core, Document,
+Summary, media descriptor, catalog, and binding. This uses the unmodified
+Phase 40 receipt/currentness route: after acceptance, a byte change to any one
+of them stales the existing PDF receipt without a second receipt type or a
+renderer change.
+
 ## 5. Failure and non-goals
 
 Validation fails before PageSet output or receipt visibility for missing,
@@ -204,6 +224,7 @@ or synthesis of Core meaning. Failure preserves prior output and exposes no
 fresh receipt. X rejects invalid connection-source grammar; A reports ordinary
 write failures without a separate output/input-protection guarantee.
 
-This design neither changes source schemas, Visual Page schemas, catalog,
-binding, renderer, receipt, nor Phase 40/58 behavior; adds layout to Summary;
-invents semantics; or publishes/deploys/registers external media.
+This design neither changes source schemas, Visual Page schemas, the accepted
+Revision 1 catalog/binding shape, renderer, receipt, nor Phase 40/58 behavior;
+adds layout to Summary; invents semantics; or
+publishes/deploys/registers external media.

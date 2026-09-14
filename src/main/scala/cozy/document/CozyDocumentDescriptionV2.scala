@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 13, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescriptionV2 {
@@ -380,10 +380,13 @@ private[cozy] object CozyDocumentDescriptionV2 {
       _fail("DESCRIPTION_V2_OVERVIEW_SCOPE", path, "unit sources must exactly cover Root/direct-child scope and retained-point sources must be subsets")
     val selected = diagram.getOrElse(_fail("DESCRIPTION_V2_OVERVIEW_DIAGRAM", path, "must explicitly select the complete top-level diagram"))
     val items = root.steps.map(step => "step" -> step.id).toSet ++ root.structure.nodes.map(node => "node" -> node.id)
+    val rootitem = "step" -> root.id
+    val selecteditems = selected.items.map(item => item.kind -> item.ref)
+    val admitteditems = selecteditems.toSet
     val edges = root.structure.relations.map(relation => "relation" -> relation.id).toSet ++ root.flow.transitions.map(transition => "flow-transition" -> transition.id)
-    if (selected.items.map(item => item.kind -> item.ref).toSet != items || selected.items.size != items.size ||
+    if ((admitteditems != items && admitteditems != items + rootitem) || selecteditems.size != admitteditems.size ||
         selected.edges.map(edge => edge.kind -> edge.ref).toSet != edges || selected.edges.size != edges.size)
-      _fail("DESCRIPTION_V2_OVERVIEW_DIAGRAM", path, "must explicitly select every Root Node/direct child Step and Root Relation/Flow transition exactly once")
+      _fail("DESCRIPTION_V2_OVERVIEW_DIAGRAM", path, "must explicitly select every direct child Step and Root Node, every Root Relation/Flow transition, and the Root Step zero or one times")
     Overview(stepref)
   }
 

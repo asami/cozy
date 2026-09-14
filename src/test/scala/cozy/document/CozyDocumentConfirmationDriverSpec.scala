@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 13, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -247,7 +247,7 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
     val vocabulary = locale.resolve("confirmation-vocabulary.yaml")
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content-v2/core.yaml"), core)
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content-v2/ja/document.yaml"), document)
-    Files.copy(_resource("/cozy/document/phase-58/application-modeling/content-v2/ja/summary.yaml"), summary)
+    Files.copy(_resource("/cozy/document/phase-59/application-modeling/content-v2/ja/summary.yaml"), summary)
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content-v2/ja/confirmation-vocabulary.yaml"), vocabulary)
     (core, document, summary, vocabulary)
   }

@@ -12,7 +12,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep.  2, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVisualPageSpec
@@ -139,6 +139,47 @@ final class CozyVisualPageSpec
         relationidentities.map(_.logicalIdentities.head._2).distinct should have size 3
         horizontalidentity.logicalIdentities.head._2 shouldBe verticalidentity.logicalIdentities.head._2
         horizontalidentity.visualPageIdentities.head._2 should not be verticalidentity.visualPageIdentities.head._2
+      }
+    }
+
+    "admit only the closed revision-two standalone extension while preserving revision one" in {
+      _with_work("visual-page-revision-two-standalone") { root =>
+        Given("the unchanged revision-one catalog, its exact revision-two standalone extension, and declared direct sources")
+        _write(root.resolve("sources/research.txt"), "research")
+        val revisiononecatalog = _write(root.resolve("catalog-v1.json"), CozyVisualPage.canonicalCatalogJson(_catalog()))
+        val revisiontwocatalog = _write(root.resolve("catalog-v2.json"), CozyVisualPage.canonicalCatalogJson(_catalog(2)))
+        val sequence = _write(root.resolve("sequence.json"), CozyVisualPage.canonicalJson(_sequence_page()))
+        val standalone = _standalone_page()
+        val validstandalone = _write(root.resolve("standalone.json"), CozyVisualPage.canonicalJson(standalone))
+        val relation = _write(root.resolve("standalone-relation.json"), CozyVisualPage.canonicalJson(standalone.copy(logical = standalone.logical.copy(relations = Vector(
+          CozyVisualPage.Relation("unexpected", "next", "overview", "overview", Vector("research"))
+        )))))
+        val cardinality = _write(root.resolve("standalone-cardinality.json"), CozyVisualPage.canonicalJson(standalone.copy(logical = standalone.logical.copy(nodes = standalone.logical.nodes :+ CozyVisualPage.Node("extra", "item", "Extra", Vector("research"))))))
+        val parameter = _write(root.resolve("standalone-parameter.json"), CozyVisualPage.canonicalJson(standalone.copy(visual = CozyVisualPage.Visual("standalone-card", Vector(
+          CozyVisualPage.VisualParameter("unexpected", CozyVisualPage.StringParameter("value"))
+        )))))
+        val hybridcatalog = _write(root.resolve("catalog-hybrid.json"), CozyVisualPage.canonicalCatalogJson(_catalog(2).copy(visualPatterns = _catalog().visualPatterns)))
+
+        When("revision-one and revision-two documents are loaded with standalone boundary violations")
+        val accepted = Vector(CozyVisualPage.load(sequence, revisiononecatalog), CozyVisualPage.load(validstandalone, revisiontwocatalog))
+        val failures = Vector(
+          _failure(CozyVisualPage.load(validstandalone, revisiononecatalog)),
+          _failure(CozyVisualPage.load(relation, revisiontwocatalog)),
+          _failure(CozyVisualPage.load(cardinality, revisiontwocatalog)),
+          _failure(CozyVisualPage.load(parameter, revisiontwocatalog)),
+          _failure(CozyVisualPage.load(validstandalone, hybridcatalog))
+        )
+
+        Then("revision one remains valid and revision two admits exactly one parameterless relationless item")
+        accepted.map(_.catalog.revision) shouldBe Vector(1, 2)
+        accepted(1).document.pages.head.logical shouldBe CozyVisualPage.Logical("standalone", Vector(CozyVisualPage.Node("overview", "item", "Overview", Vector("research"))), Vector.empty)
+        accepted(1).document.pages.head.visual shouldBe CozyVisualPage.Visual("standalone-card", Vector.empty)
+        failures.map(_.getMessage).forall(_.contains("VISUAL_PAGE_")) shouldBe true
+        failures.head.getMessage should include_text("VISUAL_PAGE_CATALOG_RESOLUTION")
+        failures(1).getMessage should include_text("VISUAL_PAGE_RELATION_TYPE")
+        failures(2).getMessage should include_text("VISUAL_PAGE_NODE_CARDINALITY")
+        failures(3).getMessage should include_text("VISUAL_PAGE_PARAMETER_UNKNOWN")
+        failures(4).getMessage should include_text("VISUAL_PAGE_CATALOG_CORE")
       }
     }
 
@@ -374,16 +415,23 @@ final class CozyVisualPageSpec
       Vector(CozyVisualPage.SourceBinding("research", "sources/research.txt"))
     )
 
-  private def _catalog(): CozyVisualPage.Catalog = CozyVisualPage.Catalog(
-    "core", 1,
-    Vector(
+  private def _standalone_page(): CozyVisualPage.Page =
+    CozyVisualPage.Page(
+      "standalone-page", "knowledge-1", "en", CozyVisualPage.CatalogReference("core", 2),
+      CozyVisualPage.Logical("standalone", Vector(CozyVisualPage.Node("overview", "item", "Overview", Vector("research"))), Vector.empty),
+      CozyVisualPage.Visual("standalone-card", Vector.empty), Vector.empty,
+      Vector(CozyVisualPage.SourceBinding("research", "sources/research.txt"))
+    )
+
+  private def _catalog(revision: Int = 1): CozyVisualPage.Catalog = {
+    val relations = Vector(
       CozyVisualPage.RelationDefinition("next", "from-to"),
       CozyVisualPage.RelationDefinition("causes", "from-to"),
       CozyVisualPage.RelationDefinition("depends-on", "from-to"),
       CozyVisualPage.RelationDefinition("enables", "from-to"),
       CozyVisualPage.RelationDefinition("maps-to", "from-to")
-    ),
-    Vector(
+    )
+    val logicalpatterns = Vector(
       CozyVisualPage.LogicalPattern("sequence", Vector(CozyVisualPage.NodeRole("step", 2, 8)), Vector(CozyVisualPage.RelationRule("next", Vector("step"), Vector("step"), 1, 7, "linear"))),
       CozyVisualPage.LogicalPattern("causal-chain", Vector(CozyVisualPage.NodeRole("cause", 1, 7), CozyVisualPage.NodeRole("effect", 1, 7)), Vector(
         CozyVisualPage.RelationRule("causes", Vector("cause"), Vector("effect"), 1, 16, "acyclic"),
@@ -391,13 +439,18 @@ final class CozyVisualPageSpec
       )),
       CozyVisualPage.LogicalPattern("dependency-map", Vector(CozyVisualPage.NodeRole("dependency", 1, 7), CozyVisualPage.NodeRole("dependent", 1, 7)), Vector(CozyVisualPage.RelationRule("depends-on", Vector("dependent"), Vector("dependency"), 1, 16, "acyclic"))),
       CozyVisualPage.LogicalPattern("mapping", Vector(CozyVisualPage.NodeRole("source", 1, 7), CozyVisualPage.NodeRole("target", 1, 7)), Vector(CozyVisualPage.RelationRule("maps-to", Vector("source"), Vector("target"), 1, 16, "bipartite")))
-    ),
-    Vector(
+    )
+    val visualpatterns = Vector(
       CozyVisualPage.VisualPattern("flow-horizontal", Vector("causal-chain", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
       CozyVisualPage.VisualPattern("flow-vertical", Vector("causal-chain", "dependency-map", "sequence"), Vector(CozyVisualPage.ParameterDefinition("emphasisNode", "node-ref", false), CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false))),
       CozyVisualPage.VisualPattern("mapping-columns", Vector("mapping"), Vector(CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false), CozyVisualPage.ParameterDefinition("sourceColumnTitle", "string", true), CozyVisualPage.ParameterDefinition("targetColumnTitle", "string", true)))
     )
-  )
+    revision match {
+      case 1 => CozyVisualPage.Catalog("core", 1, relations, logicalpatterns, visualpatterns)
+      case 2 => CozyVisualPage.Catalog("core", 2, relations, logicalpatterns :+ CozyVisualPage.LogicalPattern("standalone", Vector(CozyVisualPage.NodeRole("item", 1, 1)), Vector.empty), visualpatterns :+ CozyVisualPage.VisualPattern("standalone-card", Vector("standalone"), Vector.empty))
+      case _ => throw new IllegalArgumentException("unsupported catalog revision")
+    }
+  }
 
   private def _write_catalog(root: Path): Path = _write(root.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(_catalog()))
 

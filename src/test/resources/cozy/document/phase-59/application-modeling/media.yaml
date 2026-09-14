@@ -50,3 +50,33 @@ profiles:
         name: cozy-renderer
         version: "1"
         command: [cozy-renderer]
+receipt:
+  inputs:
+    - id: projection-profile
+      role: projection-profile
+      path: projection.yaml
+      normalization: bytes
+    - id: projection-core
+      role: projection-core
+      path: content-v2/core.yaml
+      normalization: bytes
+    - id: projection-document
+      role: projection-document
+      path: content-v2/ja/document.yaml
+      normalization: bytes
+    - id: projection-summary
+      role: projection-summary
+      path: content-v2/ja/summary.yaml
+      normalization: bytes
+    - id: projection-media
+      role: projection-media
+      path: media.yaml
+      normalization: bytes
+    - id: projection-catalog
+      role: projection-catalog
+      path: presentation/catalog.json
+      normalization: bytes
+    - id: projection-binding
+      role: projection-binding
+      path: presentation/binding.json
+      normalization: bytes

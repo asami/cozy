@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 13, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -61,29 +61,38 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
       }
     }
 
-    "admit an explicitly authored first overview with exact complete Root and direct-child scope" in {
+    "admit an explicitly authored first overview with either zero or one Root Step and exact complete direct-child scope" in {
       _with_temp_dir("cozy-description-v2-overview") { root =>
-        Given("a strict Summary with an authored overview and unchanged ordinary units")
+        Given("strict Summaries with authored overviews that respectively omit and explicitly select the Root Step")
         val fixture = _fixture(root)
-        val source = _write(root.resolve("overview/ja/summary.yaml"), _overview_source(fixture))
+        val absent = _write(root.resolve("overview-absent/ja/summary.yaml"), _overview_source(fixture, includeroot = false))
+        val selected = _write(root.resolve("overview-selected/ja/summary.yaml"), _overview_source(fixture))
 
-        When("the explicit overview is admitted")
-        val validated = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, source)
-        val unit = validated.description.summary.units.head
-        val core = validated.document.core.core.root
+        When("both explicit overview forms are admitted")
+        val absentvalidated = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, absent)
+        val selectedvalidated = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, selected)
+        val absentunit = absentvalidated.description.summary.units.head
+        val selectedunit = selectedvalidated.description.summary.units.head
+        val core = selectedvalidated.document.core.core.root
 
-        Then("the Root role, exact references and explicit graph are retained without modifying later units")
-        unit.overview shouldBe Some(CozyDocumentDescriptionV2.Overview(core.id))
-        unit.coreRefs.steps shouldBe core.id +: core.steps.map(_.id)
-        unit.coreRefs.claims shouldBe core.claims.map(_.id)
-        unit.diagram.get.items should have size (core.steps.size + core.structure.nodes.size)
-        unit.diagram.get.edges should have size (core.structure.relations.size + core.flow.transitions.size)
-        validated.description.summary.units.tail shouldBe CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary).description.summary.units
-        validated.summaryIdentity shouldBe _identity(source)
+        Then("both forms retain exact required scope while only the selected form retains one Root Step item")
+        Vector(absentunit, selectedunit).foreach { unit =>
+          unit.overview shouldBe Some(CozyDocumentDescriptionV2.Overview(core.id))
+          unit.coreRefs.steps shouldBe core.id +: core.steps.map(_.id)
+          unit.coreRefs.claims shouldBe core.claims.map(_.id)
+          unit.diagram.get.edges should have size (core.structure.relations.size + core.flow.transitions.size)
+        }
+        absentunit.diagram.get.items.filter(item => item.kind == "step" && item.ref == core.id) should have size 0
+        selectedunit.diagram.get.items.filter(item => item.kind == "step" && item.ref == core.id) should have size 1
+        absentunit.diagram.get.items should have size (core.steps.size + core.structure.nodes.size)
+        selectedunit.diagram.get.items should have size (1 + core.steps.size + core.structure.nodes.size)
+        absentvalidated.description.summary.units.tail shouldBe CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary).description.summary.units
+        absentvalidated.summaryIdentity shouldBe _identity(absent)
+        selectedvalidated.summaryIdentity shouldBe _identity(selected)
       }
     }
 
-    "reject wrong Root scope missing top-level edges duplicate selections and malformed overview fields" in {
+    "reject wrong Root scope duplicate Root Step items missing top-level edges and malformed overview fields" in {
       _with_temp_dir("cozy-description-v2-overview-rejection") { root =>
         Given("an explicit complete overview and independently malformed semantic selections")
         val fixture = _fixture(root)
@@ -95,7 +104,7 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
           source.replace(s"overview: { stepRef: ${core.id} }", s"overview: { stepRef: ${core.id}, width: 500 }"),
           source.replace(s"coreRefs: ${_overview_references(core)}", s"coreRefs: ${_references(CozyDocumentLogicTree.loadCore(fixture.core))}"),
           source.replace(s"          - { id: overview-transition-${transition.id}, kind: flow-transition, ref: ${transition.id}, direction: forward }\n", ""),
-          source.replace("        items:\n", s"        items:\n          - { id: extra-overview-step, kind: step, ref: ${core.steps.head.id} }\n")
+          source.replace("        items:\n", s"        items:\n          - { id: duplicate-overview-root-step, kind: step, ref: ${core.id} }\n")
         )
         val paths = variants.zipWithIndex.map { case (text, index) => _write(root.resolve(s"invalid-$index/ja/summary.yaml"), text) }
 
@@ -353,9 +362,9 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
     s"{ steps: ${_values_(root.id +: root.steps.map(_.id))}, claims: ${_values_(root.claims.map(_.id))}, nodes: ${_values_(root.structure.nodes.map(_.id))}, relations: ${_values_(root.structure.relations.map(_.id))}, flows: [${root.flow.id}] }"
   }
 
-  private def _overview_source(fixture: Fixture): String = {
+  private def _overview_source(fixture: Fixture, includeroot: Boolean = true): String = {
     val root = CozyDocumentLogicTree.loadCore(fixture.core).core.root
-    val items = (root.structure.nodes.map(node => s"          - { id: overview-node-${node.id}, kind: node, ref: ${node.id} }") ++ root.steps.map(step => s"          - { id: overview-step-${step.id}, kind: step, ref: ${step.id} }")).mkString("\n")
+    val items = ((if (includeroot) Vector(s"          - { id: overview-root-step-${root.id}, kind: step, ref: ${root.id} }") else Vector.empty) ++ root.structure.nodes.map(node => s"          - { id: overview-node-${node.id}, kind: node, ref: ${node.id} }") ++ root.steps.map(step => s"          - { id: overview-step-${step.id}, kind: step, ref: ${step.id} }")).mkString("\n")
     val edges = (root.structure.relations.map(relation => s"          - { id: overview-relation-${relation.id}, kind: relation, ref: ${relation.id}, direction: forward }") ++ root.flow.transitions.map(transition => s"          - { id: overview-transition-${transition.id}, kind: flow-transition, ref: ${transition.id}, direction: forward }")).mkString("\n")
     val unit = s"""|    - id: explicit-overview
                    |      overview: { stepRef: ${root.id} }

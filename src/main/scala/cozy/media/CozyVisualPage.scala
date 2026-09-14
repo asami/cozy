@@ -7,7 +7,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep. 13, 2026
+ * @version Sep. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
@@ -158,8 +158,19 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
     )
   )
 
+  private val _revision_two_logical_patterns = _logical_patterns :+
+    LogicalPattern("standalone", Vector(NodeRole("item", 1, 1)), Vector.empty)
+  private val _revision_two_visual_patterns = _visual_patterns :+
+    VisualPattern("standalone-card", Vector("standalone"), Vector.empty)
+
   private[cozy] def fixedCatalog: Catalog =
     Catalog("presentation", 1, _relations, _logical_patterns, _visual_patterns)
+
+  private[cozy] def fixedCatalog(revision: Int): Catalog = revision match {
+    case 1 => fixedCatalog
+    case 2 => Catalog("presentation", 2, _relations, _revision_two_logical_patterns, _revision_two_visual_patterns)
+    case _ => _fail("VISUAL_PAGE_CATALOG_CORE", "$catalog.revision", "catalog revision must be exactly 1 or 2")
+  }
 
   def parseJson(text: String): Document = _parse_document(_parse_json(text, "$"), "$")
   def parseYaml(text: String): Document = _parse_document(_parse_yaml(text, "$"), "$")
@@ -604,8 +615,13 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
   }
 
   private def _validate_catalog(catalog: Catalog, path: String): Unit = {
-    if (catalog.relations != _relations || catalog.logicalPatterns != _logical_patterns || catalog.visualPatterns != _visual_patterns)
-      _fail("VISUAL_PAGE_CATALOG_CORE", path, "catalog must be the exact closed core relation, logical-pattern, and visual-pattern catalog in canonical array order")
+    val expected = catalog.revision match {
+      case 1 => (_logical_patterns, _visual_patterns)
+      case 2 => (_revision_two_logical_patterns, _revision_two_visual_patterns)
+      case _ => _fail("VISUAL_PAGE_CATALOG_CORE", s"$path.revision", "catalog revision must be exactly 1 or 2")
+    }
+    if (catalog.relations != _relations || catalog.logicalPatterns != expected._1 || catalog.visualPatterns != expected._2)
+      _fail("VISUAL_PAGE_CATALOG_CORE", path, "catalog must be the exact closed revision-specific relation, logical-pattern, and visual-pattern catalog in canonical array order")
   }
 
   private def _validate_document(document: Document, catalog: Catalog, root: Path): Document = document match {

@@ -110,6 +110,15 @@ The core catalog is closed. New Relations, patterns, roles, cardinalities, or
 parameter forms require a new catalog revision. A selected revision MUST NOT
 be extended by convention, inference, or renderer behavior.
 
+Revision 1 MUST remain accepted with its original exact catalog shape. Revision
+2 MUST retain every Revision 1 array entry in the original order and append
+only `standalone` and `standalone-card`: `standalone` has exactly one `item`
+node role with `min: 1`, `max: 1`, and an empty `relationRules` array;
+`standalone-card` is compatible only with `standalone` and has an empty
+`parameters` array. Revision 2 MUST reject a relation, extra item, unknown
+parameter, hybrid catalog shape, alias, or inferred pattern. No revision other
+than 1 or 2 is admitted by this contract.
+
 ### 3.1 Relations
 
 The closed `relations` array contains exactly five entries, each exactly
@@ -185,6 +194,11 @@ parameters are the complete exact entries for the initial catalog.
 
 Visual Patterns are projection choices, not semantic authority. Compatibility
 is selected from the catalog, never inferred from visible shape.
+
+For Revision 2, `standalone-card` is the fourth complete binding target. A
+Revision 2 binding MUST include it exactly once with the existing ordered five
+semantic slots `knowledge`, `nodes`, `relations`, `assets`, and `parameters`.
+Revision 1 bindings remain complete with their original three pattern entries.
 
 ## 4. Identity and lossless serializations
 

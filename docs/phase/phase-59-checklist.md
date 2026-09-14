@@ -135,10 +135,10 @@ specification, and `P590-04A-ACC-003` passed its P590-02/P590-03 and Phase
 Phase Blocker in review-disposition
 `ad50e95af977e87e046a91ed067edd793b01d8007a8ba106618d4b2c1bd318e5`.
 
-## P590-05: Phase closure
+## P590-05: V2 continuation and Phase closure
 
 Stage Status:
-- Current status: PLANNED
+- Current status: IN_PROGRESS
 - Owner: Phase 59 closure
 - Update rule: Mark DONE only when all preceding stages are DONE on the settled
   tree and every closure gate below records the same accepted scope.
@@ -151,6 +151,18 @@ Stage Status:
 - [ ] Complete a distinct local Phase release commit. No publication,
       deployment, upload, push, registration, or external production
       integration is claimed.
+
+### P590-05A: Relationless standalone Visual Page continuation
+
+- [x] Freeze the Revision 2-only `standalone`/`standalone-card` catalog and
+      binding extension while retaining the accepted Revision 1 shapes.
+- [x] Add the Article 9 edge-free root Step as the fourth source-ordered
+      relationless page without synthesizing a Core Relation.
+- [x] Declare bytes-normalized receipt inputs for profile, Core, Document,
+      Summary, media, catalog, and binding, with executable stale-currentness
+      scenarios for each individual authority.
+- [ ] Run the parent-selected focused validation and independent review before
+      closing P590-05; no Phase closure or release claim is made by this slice.
 
 ## Closure boundary
 

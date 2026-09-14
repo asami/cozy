@@ -89,9 +89,12 @@ An overview unit's five-category `coreRefs` MUST exactly cover the Root Step,
 its direct child Steps, Root claims, Root local Nodes/Relations and Root Flow,
 without descendant-local sources. Its retained-point references MUST be
 subsets of this scope. A diagram is required and MUST explicitly select each
-Root Node and direct child Step once, and each Root Relation and Root Flow
-transition once. Original direction choices and author order remain intact.
-Missing, duplicate or out-of-scope overview selection MUST reject with typed
+direct child Step once, each Root Node once, and each Root Relation and Root
+Flow transition once. The Root Step MAY be explicitly selected once: zero
+occurrences preserve revision-one overview behavior and one explicit edge-free
+occurrence is eligible for the existing revision-two standalone projection.
+Original direction choices and author order remain intact. Duplicate, missing
+required, or out-of-scope overview selection MUST reject with typed
 `DESCRIPTION_V2_OVERVIEW_*` faults, never be filled in by traversal.
 
 This unreleased v2 semantic-selection extension introduces no coordinates,

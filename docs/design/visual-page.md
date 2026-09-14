@@ -83,6 +83,16 @@ current-page node ID. A new pattern, relation, alias, or parameter form is an
 explicit catalog revision rather than a renderer extension or best-effort
 normalization rule.
 
+Revision 1 remains admitted unchanged with exactly those five relation entries,
+four logical patterns, and three visual patterns. Revision 2 is the one closed
+additive shape: it retains every Revision 1 array entry in its existing order,
+then appends `standalone` as exactly one `item` node (`min=1`, `max=1`) with
+zero relation rules, and appends `standalone-card` as compatible only with
+`standalone` and with zero parameters. Revision 2 admits no hybrid shape,
+relation alias, extra `item`, visual parameter, or inferred rendering meaning.
+The relationless form is still an explicit logical/visual selection, never a
+renderer-side reading of an empty graph.
+
 ## 2. Identity and provenance
 
 The contract has two purposeful identities:
@@ -227,6 +237,11 @@ template path, or executable command. P36-03B validates and identifies the
 business binding; P36-03C consumes it only in the separately discriminated
 presentation route below. Neither binding nor output changes Visual Page
 semantic authority. SmartDox and Textus consumer acceptance remains separate.
+
+Accordingly, a Revision 2 business binding contains the preserved three
+Revision 1 visual-pattern entries and one `standalone-card` entry. That entry
+uses the same complete five semantic slots; it introduces no sixth slot,
+physical-layout meaning, or binding-generation path.
 
 ## 6. Presentation and video coexistence
 

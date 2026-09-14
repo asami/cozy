@@ -57,6 +57,9 @@ summary:
           - id: overview-foundation
             kind: step
             ref: application-foundation
+          - id: overview-application-modeling
+            kind: step
+            ref: application-modeling
         edges:
           - id: overview-domain-to-application
             kind: relation

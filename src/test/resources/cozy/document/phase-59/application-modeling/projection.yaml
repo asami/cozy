@@ -11,22 +11,22 @@ document:
   path: content-v2/ja/document.yaml
 summary:
   id: application-modeling-summary-ja-v2
-  identity: sha256:d66661e755bc446c3b90ce6fb45fc15ef0d19a5500af4605dfd935e0564ee744
+  identity: sha256:241ef33aa477a0cbddddb23d02ace3ed913e3aa95a5dfaeca26a69456490c8db
   path: content-v2/ja/summary.yaml
 locale: ja
 media:
   id: application-modeling
-  identity: sha256:a1e376f0701c5694a8bc129117090cdf026d56d9b1ce16ca7810b5918a5db8a1
+  identity: sha256:e7fcba38324e6a7539b976ebbfcd0050fca5e63368784cc948766116d635fb75
   path: media.yaml
   summarySlidesPdf: summary-slides-pdf
 catalog:
   id: presentation
-  revision: 1
-  identity: sha256:4a292696d0f8c85833345cae59382c9c2ddb74c9d9488142d0a74706fe102b59
+  revision: 2
+  identity: sha256:1d74ed3a94bf4c0d5f7b336de0763775d2040097abbe873b2eddd606bc34706f
   path: presentation/catalog.json
 binding:
   id: business-binding
-  identity: sha256:203279df1af258e201c27d86574d07a89e1289a2cc7b5b6706348d67c92a1dd3
+  identity: sha256:e6cc253e94926f88bd720b8a876f047da8d8ae5e3242ee088dd513657586f04c
   profile: business
   path: presentation/binding.json
 pages:
@@ -67,4 +67,13 @@ pages:
         role: dependency
     edges:
       - diagramEdgeId: overview-conclusion-to-realization
+    visualParameters: {}
+  - id: overview-application-modeling-standalone
+    summaryUnitId: application-overview
+    logicalPattern: standalone
+    visualPattern: standalone-card
+    items:
+      - diagramItemId: overview-application-modeling
+        role: item
+    edges: []
     visualParameters: {}

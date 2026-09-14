@@ -389,9 +389,11 @@ private[cozy] object CozySummarySlideProjection {
   }
 
   private def _validate_catalog_profile(profile: Profile): Unit = {
-    val catalog = CozyVisualPage.fixedCatalog
+    if (!Set(1, 2).contains(profile.catalog.revision))
+      _fail("SUMMARY_SLIDE_PROJECTION_CATALOG", "$.catalog.revision", "must identify an admitted fixed Visual Page catalog revision")
+    val catalog = CozyVisualPage.fixedCatalog(profile.catalog.revision)
     if (profile.catalog.id != catalog.id || profile.catalog.revision != catalog.revision)
-      _fail("SUMMARY_SLIDE_PROJECTION_CATALOG", "$.catalog", "must identify the fixed existing Visual Page catalog")
+      _fail("SUMMARY_SLIDE_PROJECTION_CATALOG", "$.catalog", "must identify the selected fixed Visual Page catalog")
   }
 
   private def _validate_page_set(pageset: CozyVisualPage.PageSet, catalogpath: Path, root: Path): CozyVisualPage.ValidatedDocument =
@@ -435,7 +437,7 @@ private[cozy] object CozySummarySlideProjection {
       _validate_unit_coverage(unitid, profile.pages.filter(_.summaryunitid == unitid), byid(unitid), summary.document.core)
     }
     profile.pages.map { mapping =>
-      _project_page(mapping, byid(mapping.summaryunitid), summary, media, profilepath, corepath, documentpath, summarypath, mediapath)
+      _project_page(mapping, byid(mapping.summaryunitid), summary, media, profilepath, corepath, documentpath, summarypath, mediapath, profile.catalog.revision)
     }
   }
 
@@ -462,14 +464,18 @@ private[cozy] object CozySummarySlideProjection {
         _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ITEM", s"$$.pages.${mapping.id}.items", "must resolve in the selected Summary-unit diagram")
       if (mapping.edges.exists(edge => !edges.contains(edge.diagramedgeid)))
         _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_EDGE", s"$$.pages.${mapping.id}.edges", "must resolve in the selected Summary-unit diagram")
-      val pageresolutions = mapping.edges.map(edge => resolutions(edge.diagramedgeid))
-      val required = pageresolutions.flatMap(value => Vector(value.fromitem.id, value.toitem.id)).toSet
-      if (!required.subsetOf(selecteditems.toSet))
-        _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ENDPOINT", s"$$.pages.${mapping.id}.items", "must contain both exact endpoints of every selected diagram edge")
-      if (mapping.edges.nonEmpty) {
-        val unrelated = selecteditems.filterNot(required.contains)
-        if (unrelated.nonEmpty)
-          _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ITEM", s"$$.pages.${mapping.id}.items", s"contains an item unrelated to its selected edges: ${unrelated.head}")
+      if (mapping.logicalpattern == "standalone" || mapping.visualpattern == "standalone-card") {
+        _validate_standalone_mapping(mapping, selecteditems, endpointids)
+      } else {
+        val pageresolutions = mapping.edges.map(edge => resolutions(edge.diagramedgeid))
+        val required = pageresolutions.flatMap(value => Vector(value.fromitem.id, value.toitem.id)).toSet
+        if (!required.subsetOf(selecteditems.toSet))
+          _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ENDPOINT", s"$$.pages.${mapping.id}.items", "must contain both exact endpoints of every selected diagram edge")
+        if (mapping.edges.nonEmpty) {
+          val unrelated = selecteditems.filterNot(required.contains)
+          if (unrelated.nonEmpty)
+            _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ITEM", s"$$.pages.${mapping.id}.items", s"contains an item unrelated to its selected edges: ${unrelated.head}")
+        }
       }
     }
     items.values.filterNot(item => endpointids.contains(item.id)).foreach { item =>
@@ -477,6 +483,21 @@ private[cozy] object CozySummarySlideProjection {
       if (count != 1)
         _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ITEM", s"$$.pages.$unitid.items", s"edge-free diagram item must occur exactly once: ${item.id}")
     }
+  }
+
+  private def _validate_standalone_mapping(mapping: Mapping, selecteditems: Vector[String], endpointids: Set[String]): Unit = {
+    if (mapping.logicalpattern != "standalone" || mapping.visualpattern != "standalone-card")
+      _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_PATTERN", s"$$.pages.${mapping.id}", "relationless mapping must select exactly standalone with standalone-card")
+    if (selecteditems.size != 1 || mapping.items.head.role != "item")
+      _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ITEM", s"$$.pages.${mapping.id}.items", "relationless mapping must contain exactly one item-role diagram item")
+    if (mapping.edges.nonEmpty)
+      _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_EDGE", s"$$.pages.${mapping.id}.edges", "relationless mapping must not select a diagram edge")
+    if (endpointids.contains(selecteditems.head))
+      _fail("SUMMARY_SLIDE_PROJECTION_MAPPING_ITEM", s"$$.pages.${mapping.id}.items", "relationless mapping item must not occur in a declared diagram edge")
+    if (mapping.emphasisitem.nonEmpty)
+      _fail("SUMMARY_SLIDE_PROJECTION_EMPHASIS", s"$$.pages.${mapping.id}.emphasisItem", "relationless mapping must not select emphasis")
+    if (mapping.visualparameters.nonEmpty)
+      _fail("SUMMARY_SLIDE_PROJECTION_PARAMETER", s"$$.pages.${mapping.id}.visualParameters", "relationless mapping must not supply visual parameters")
   }
 
   private def _project_page(
@@ -488,12 +509,13 @@ private[cozy] object CozySummarySlideProjection {
     corepath: Path,
     documentpath: Path,
     summarypath: Path,
-    mediapath: Path
+    mediapath: Path,
+    catalogrevision: Int
   ): CozyVisualPage.Page = {
     val diagram = unit.diagram.getOrElse(_fail("SUMMARY_SLIDE_PROJECTION_MAPPING_UNIT", s"$$.pages.${mapping.id}", "selected Summary unit must have an authored diagram"))
     val items = diagram.items.map(item => item.id -> item).toMap
     val edges = diagram.edges.map(edge => edge.id -> edge).toMap
-    val catalog = CozyVisualPage.fixedCatalog
+    val catalog = CozyVisualPage.fixedCatalog(catalogrevision)
     val pattern = catalog.logicalPatterns.find(_.id == mapping.logicalpattern).getOrElse(
       _fail("SUMMARY_SLIDE_PROJECTION_PATTERN", s"$$.pages.${mapping.id}.logicalPattern", "must be an existing catalog logical pattern")
     )
@@ -543,6 +565,13 @@ private[cozy] object CozySummarySlideProjection {
     pattern: CozyVisualPage.LogicalPattern,
     core: CozyDocumentLogicTree.ValidatedCore
   ): Unit = {
+    if (mapping.logicalpattern == "standalone") {
+      mappeditems.foreach { case (mapped, item) =>
+        if (mapped.role != "item" || !Set("node", "step").contains(item.kind))
+          _fail("SUMMARY_SLIDE_PROJECTION_ROLE", s"$$.pages.${mapping.id}.items.${item.id}", "relationless mapping item must retain the standalone item role")
+      }
+      return
+    }
     val rules = pattern.relationRules.map(rule => rule.relation -> rule).toMap
     mappeditems.foreach { case (mapped, item) =>
       item.kind match {
