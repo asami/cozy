@@ -1,101 +1,117 @@
-# Phase 60: SmartDox Article and Core Confirmation
+# Phase 60: Document Confirmation Views and Article HTML Build Targets
+
+split_full_test_policy=final-only
+validation_ownership=aggregate-deferred
+aggregate_validation_owner=PHASE-60.1
+aggregate_validation_sequence=["PHASE-60","PHASE-60.1"]
+status=planned
 
 Status: PLANNED
 Plan recorded: 2026-09-14
 Development item: DEV-028
-Plan Gate: PENDING; contracts and upstream capability evidence to be frozen in P600-01
+
+## Phase Plan Gate
+
+Phase Plan Gate: PROCEED
+
+- target: calibrated expected duration centered on 6h; allowed ceiling 8h
+- estimate_calibration: Phase 59 documented 7–8 h and observed 318 min in the
+  same repository and Document Project validation/review/release setting;
+  Phase 60 adds three target/build surfaces, so no shorter-duration multiplier
+  is applied.
+- planning_demand: protected-decision
+- recommended_parent_profile: gpt-5.6-terra / xhigh
+- profile_cost_role: time-bound partition; no reasoning-cost isolation
+- expensive_reasoning_kernel: none
+- frozen_profile_transition_handoff: none
+- parent_reasoning_mode_policy: standard
+- estimated_at_recommended_profile: 7.0–7.8 h including focused validation,
+  independent review, release bookkeeping and commit; within the 8h ceiling.
+- incoming_semantic_handoffs: []
+- merge_attempts_for_every_sub_4h_child: none
+- rebalance_attempts_for_every_sub_5h_child: none
+- adjacent_merge_structural_rejection_evidence: merging this Phase with
+  PHASE-60.1 restores the 860-minute Phase 60 estimate and exceeds the
+  480-minute ceiling.
+- profile_cost_only_rejection_forbidden: true
+- short_child_basis: none
+- overhead_tradeoff: one additional Phase review and release commit; the
+  aggregate final-only policy avoids duplicating the repository-full SBT suite.
+- agent_reasoning_mode_policy: default standard; consider pro only at an
+  eligible agent launch with frozen quality-first evidence.
+- runtime_suitability: re-evaluate in the Phase execution task.
+- source: applied split from Phase 60 on 2026-09-14.
 
 ## Purpose and boundary
 
-Provide a normal SmartDox article review workspace that displays the actual
-`index.dox` article beside its recursive Core logic tree, using explicit
-annotations for bidirectional correspondence.
+Expose structure-centered and document-centered HTML from the same Document
+Description DSL, plus actual `index.dox` rendering through SmartDox, as local
+Cozy Document Project targets. Manage dependencies with ordinary make-level
+file modification times, without hash-based confirmation artifact management.
 
-Codex owns creative article authoring. Cozy owns source validation, the normal
-SmartDox rendering connection, correspondence validation, confirmation UI, and
-an explicit CLI entry point. SmartDox owns annotation syntax/AST/export support;
-missing upstream support is an integration prerequisite, not a private Cozy
-parser implementation.
+This first delivery unit owns only the three local views and their callable Cozy
+operation contracts. It does not create a Codex authoring workflow or edit a
+skill. Phase 60.1 consumes this Phase's committed local-build handoff for the
+separate goal-driven DSL dependency-resolution and generation workflow.
 
-This is a new boundary after closed Phase 58.2. It does not replace ongoing
-Phase 59, change its priority, or reopen accepted Document/Summary projections.
-The Article 9 driver is an isolated fixture, not authority to edit or publish
-SimpleModeling.org.
+This revises the unimplemented Phase 60 article/Core annotation proposal in
+place, as requested by the user. It preserves closed Phase 58.2 and independent
+Phase 59/61 work and priorities. Article 9 is an isolated driver, not
+authorization to edit or publish that site.
 
-## Planning inputs and closure ledger
+## Planning inputs and completion ledger
 
-- [Proposal](../notes/document-project-smartdox-article-confirmation-proposal.md)
-- [Chronological decision](../journal/2026/09/2026-09-14-smartdox-article-and-core-confirmation-decision.md)
+- [Proposal](../notes/document-project-confirmation-views-and-make-dependencies-proposal.md)
+- [Decision journal](../journal/2026/09/2026-09-14-confirmation-views-and-make-dependencies-decision.md)
+- [Prose authority](../journal/2026/09/2026-09-14-document-description-prose-authority-decision.md)
 - [Checklist](phase-60-checklist.md): sole completion ledger
-- [Predecessor Phase 58.2](phase-58.2.md)
-- [Independent Phase 59](phase-59.md)
+- [Earlier Phase 60 decision](../journal/2026/09/2026-09-14-smartdox-article-and-core-confirmation-decision.md): planning history
 
-The proposal is non-normative. P600-01 promotes the admitted contract into
-design/spec documentation and executable specifications before code changes.
+The proposal and journal are non-normative planning inputs. P600-01 promotes
+the local build boundary. The later authoring-workflow discussion is owned by
+[Phase 60.1](phase-60.1.md).
 
-## Subphase 60A: Article confirmation vertical slice
+## Subphase 60A: Three-view local build vertical slice
 
 | Step | Observable outcome | Status | Closure basis |
 | --- | --- | --- | --- |
-| P600-01 | Frozen source/annotation/renderer/CLI contracts and reference UI; explicit upstream dependency admission | OPEN | Checklist P600-01 |
-| P600-02 | Normal SmartDox article rendering with validated, stable typed Core correspondence | OPEN | Checklist P600-02 |
-| P600-03 | Readable article/Core workspace with recursive structure and bidirectional navigation | OPEN | Checklist P600-03 |
-| P600-04 | Explicit operable CLI and deterministic, currentness-aware failure-preserving output | OPEN | Checklist P600-04 |
-| P600-05 | Isolated driver, upstream compatibility evidence, full validation and independent Phase review closure | OPEN | Checklist P600-05 |
+| P600-01 | Frozen source/view/target/CLI contracts, reference UI and make-level dependency specifications | OPEN | Checklist P600-01 |
+| P600-02 | Document-centered DSL projection with secondary Core/diagram navigation and preserved structure/Summary views | OPEN | Checklist P600-02 |
+| P600-03 | Project-local actual-article HTML target delegates normal rendering to SmartDox | OPEN | Checklist P600-03 |
+| P600-04 | Timestamp-driven build/reuse and transitive dependencies with failure-preserving outputs | OPEN | Checklist P600-04 |
+| P600-05 | Isolated fixtures, regression validation, documentation and local-build subphase acceptance | OPEN | Checklist P600-05 |
 
 ## Acceptance and exclusions
 
-Acceptance is an actual annotated `index.dox` rendered through normal SmartDox,
-with working article-to-Core navigation, strict diagnostics, repeatable output,
-and an isolated Antora compatibility check. The existing HTML prototype is a
-reference candidate, not completed integration evidence.
+Acceptance proves the three distinct views, unchanged accepted DSL prose,
+normal SmartDox article rendering, operable CLI and make-style incremental
+build behavior. Renderer freshness is relative to its actual inputs, not proof
+that the latest Document prose has been reflected in `index.dox`.
 
-Automatic creative article generation, PDF/slides/video generation, production
-site integration/preparation, publication, deployment, upload, push, and edits
-to external driver projects are excluded. A future publication consumes the
-same article source, not the confirmation HTML.
+Core annotations in `index.dox`, new hash/receipt management, new PDF/slides/video
+renderers, whole-site/Antora builds, publication, upload, deployment and edits to
+external driver projects are excluded. Skill authoring/reconciliation belongs
+to Phase 60.1 and its explicit execution boundary. Existing native source
+validation and acceptance/export contracts are not silently migrated. Phase
+59/61 remain independent capability dependencies where applicable.
 
-## Companion Codex skill
+## Applied split
 
-`cozy-document-project-article` was created and installed on 2026-09-14 from
-the decision journal's skill-creation handoff. Its source is maintained in
-`codex-customizations/skills/cozy-document-project-article/`; the installed
-entry point is `$cozy-document-project-article`.
+On 2026-09-14, the pre-goal Phase Entry Gate classified the unsplit Phase 60
+as `SPLIT_REQUIRED` for the single reason `time-bound`: calibrated expected
+duration 860 minutes against a 480-minute ceiling. This document retains
+P600-01 through P600-05. P600-06 through P600-08 moved once, still OPEN, to
+[Phase 60.1](phase-60.1.md) and its [checklist](phase-60.1-checklist.md).
 
-The skill accepts a Document Project, explicit locale, and authoring request
-or review feedback. Codex authors/revises the actual `index.dox` from Core and
-localized Document Description, maintaining stable article IDs and supported
-typed Core correspondence. Semantic feedback updates Core and the affected
-Document Description before deriving the article; wording-only feedback does
-not require a Core rewrite.
-
-Once the product contract is available, the skill delegates deterministic
-article/Core confirmation validation and rendering to Cozy through
-`cozy-command-execution`. Ordinary HTML opening uses `web-local-preview` with
-verification-only lifetime and owned-server cleanup after the requested browser
-checks. Only explicitly authorized continuous preview uses
-`cozy-document-project-preview` and its owned-session refresh/lifetime contract.
-Article authoring or HTML opening alone does not authorize a persistent server.
-The skill does not add a parser, renderer, server,
-annotation grammar, or competing review/acceptance authority. Article 9 is a
-validation driver rather than a hard-coded project. Media generation and
-publication operations are separate requests.
-
-Skill metadata and structure have received static checks only. The user
-deferred integrated authoring, CLI, rendering, and browser confirmation until
-Cozy implementation is complete. At that point, adopt the promoted P600-01
-contract and verify the selected installed SmartDox/Cozy capability/version;
-do not assume proposed `BLOCK_ID`/`CORE_REF` syntax or legacy table review is
-the implemented article confirmation operation. The skill's
-`references/integration-handoff.md` retains the deferred verification scenarios.
-
-Skill creation does not close any P600 Step or constitute product integration
-acceptance. This companion workflow performs creative authoring outside Cozy's
-automatic-generation implementation scope; it does not change this Phase's
-completion ledger or existing exclusions.
+The children are sequential. Phase 60.1 receives the committed local target,
+CLI and validation contract from this Phase through its release handoff. The
+added overhead is one independent review and release commit; the final-only
+aggregate policy leaves the repository-full SBT suite with Phase 60.1. No
+reasoning-cost saving or external-scope authority is claimed by this split.
 
 ## Current handoff
 
-All implementation Steps are OPEN. Begin with P600-01; record the exact tested
-SmartDox capability/version and any upstream handoff before integration closure.
-Planning does not assert a supported annotation grammar or runnable new command.
+All implementation Steps are OPEN. Begin at P600-01. Exact target names,
+descriptor representation and public CLI spelling are not yet implemented.
+After this Phase closes and commits, Phase 60.1 begins at P600-06 with the
+frozen local-build handoff. Product routes require their actual tool contracts.
