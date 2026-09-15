@@ -2,7 +2,7 @@
 
 status=provisional
 recorded_at=2026-09-15
-consumer=KnowledgeHub Phase 1 / Textus Mobile / NICT Editing Studio App
+consumer=KnowledgeHub Phase 1 / Textus Flutter Core / NICT Editing Studio App
 related_ui_phases=Phase 50-53 Flutter UI projection series
 
 ## Purpose
@@ -128,12 +128,12 @@ Cozy IR
 
 Initial consumer candidates include contracts required by:
 
-- `asami/textus-mobile`
+- `asami/textus-flutter-core`
 - `KnowledgeHubProject/nict-editing-studio-app`
 - `KnowledgeHubProject/nict-knowledgehub` API boundary
 - CNCF Information / Knowledge projections where explicitly exported to clients
 
-The consumer validates the generator but must not cause Book-specific semantics to enter Cozy core.
+`textus-flutter-core` is the reusable Flutter client foundation; it is not a mobile application product. The consumer validates the generator but must not cause Book-specific semantics to enter Cozy core.
 
 ## Generated / hand-written boundary
 
@@ -161,7 +161,7 @@ Hand-written initially:
 - enum / sealed variant exhaustiveness is represented where possible.
 - JSON round-trip tests pass.
 - generated API DTOs match declared model/operation contracts.
-- Textus Mobile or NICT Editing Studio can consume generated code without `dynamic` domain maps.
+- Textus Flutter Core or NICT Editing Studio can consume generated code without `dynamic` domain maps.
 - generator remains independent of KnowledgeHub Book semantics.
 
 ## Non-goals
