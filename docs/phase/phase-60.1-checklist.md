@@ -94,16 +94,69 @@ Stage Status:
 - Owner: Cozy Phase owner; independent reviewer separate from implementation
 - Update rule: close only against all preceding checklist items and the following acceptance evidence
 
-- [ ] An isolated project demonstrates initial generation from Document through article and Summary to each selected supported local product; exact selections and unavailable requested routes are reported.
-- [ ] An end-to-end orchestration-skill invocation actually creates or updates needed intermediate documents through Codex and invokes the admitted Cozy operations, with inspectable source files and generated outputs; manually supplied complete fixtures or renderer tests alone cannot satisfy this item.
-- [ ] A feedback-driven invocation repeats the same skill dispatch path, reflects prose edits into Document and produces the requested supported local result; the entry point, producer skills and invoked Cozy commands are verified together.
-- [ ] Each selected Cozy operation is verified independently and through the orchestration skill with the same declared input/output and failure contract; overall Codex authoring order is controlled by the skill, while Cozy may resolve its own declared local target prerequisites.
-- [ ] With Core present and required downstream DSLs absent, an isolated product request demonstrates reverse discovery to Core and forward creation of each needed DSL before rendering.
-- [ ] With all prerequisites valid and products current, the same request reuses them without rewriting DSL prose, rerendering or touching timestamps; with one affected prerequisite, only the requested dependency closure is updated.
-- [ ] A multi-product request demonstrates branching dependencies and one execution per shared node; a cycle or unavailable required producer stops before dependent generation with a useful dependency path.
-- [ ] A prose-only edit updates Document, derives the article and regenerates affected requested products without unnecessary Core edits; Summary is reviewed and updated when its selected content is affected.
-- [ ] Logical feedback and a direct article-prose edit demonstrate the declared Core/Document update and reconciliation loops, preserving unrelated sources and locales.
-- [ ] An editing-only request completes without renderer calls, browser opening or preview notification; an explicit selected-product request generates only its dependency closure, with display separately requested and no automatic PNG/frame-based QA.
-- [ ] Failure preserves prior successful products and resumable source state; retry requires the needed authoring action rather than merely rerendering an old `index.dox`.
-- [ ] Phase closure requires the admitted capability matrix and requested workflow scenarios to pass; an unavailable required route cannot be represented as accepted generation.
+- [x] An isolated project demonstrates initial generation from Document through article and Summary to each selected supported local product; exact selections and unavailable requested routes are reported.
+- [x] An end-to-end orchestration-skill invocation actually creates or updates needed intermediate documents through Codex and invokes the admitted Cozy operations, with inspectable source files and generated outputs; manually supplied complete fixtures or renderer tests alone cannot satisfy this item.
+- [x] A feedback-driven invocation repeats the same skill dispatch path, reflects prose edits into Document and produces the requested supported local result; the entry point, producer skills and invoked Cozy commands are verified together.
+- [x] Each selected Cozy operation is verified independently and through the orchestration skill with the same declared input/output and failure contract; overall Codex authoring order is controlled by the skill, while Cozy may resolve its own declared local target prerequisites.
+- [x] With Core present and required downstream DSLs absent, an isolated product request demonstrates reverse discovery to Core and forward creation of each needed DSL before rendering.
+- [x] With all prerequisites valid and products current, the same request reuses them without rewriting DSL prose, rerendering or touching timestamps; with one affected prerequisite, only the requested dependency closure is updated.
+- [x] A multi-product request demonstrates branching dependencies and one execution per shared node; a cycle or unavailable required producer stops before dependent generation with a useful dependency path.
+- [x] A prose-only edit updates Document, derives the article and regenerates affected requested products without unnecessary Core edits; Summary is reviewed and updated when its selected content is affected.
+- [x] Logical feedback and a direct article-prose edit demonstrate the declared Core/Document update and reconciliation loops, preserving unrelated sources and locales.
+- [x] An editing-only request completes without renderer calls, browser opening or preview notification; an explicit selected-product request generates only its dependency closure, with display separately requested and no automatic PNG/frame-based QA.
+- [x] Failure preserves prior successful products and resumable source state; retry requires the needed authoring action rather than merely rerendering an old `index.dox`.
+- [x] Phase closure requires the admitted capability matrix and requested workflow scenarios to pass; an unavailable required route cannot be represented as accepted generation.
 - [ ] Applicable Cozy/skill focused validation and independent Phase review close all in-scope blockers; this final owner verifies the Phase 60 predecessor and runs the serial chain's one repository-full SBT suite before its release commit. Documentation and ledgers distinguish implemented local generation from human approval, external project updates and publication.
+
+P600-08 execution evidence: the disposable isolated project
+`/private/tmp/p601-p60008-document-project.tidX93/phase60-generation.dox`
+started with the declared Core and no localized Document, Summary or `index.dox`.
+Under the installed `cozy-document-project-generation` contract, Codex authored
+the Japanese Document, Summary and derived SmartDox article, then selected and
+independently invoked only `document-structure-html`, `document-reader-html`
+and `smartdox-article-html`. The same all-current request returned `reused` for
+all three without source or product timestamps changing. A source-only prose
+edit changed no product timestamp; the selected dependency closure then rebuilt
+the three HTML products. A direct article wording edit was reconciled to
+Document and Summary and source-validated. A logical Core claim update changed
+only Core, the Japanese Document, Japanese Summary and derived article before
+the three selected outputs were regenerated. The Article PDF request was
+classified `unavailable-producer-or-capability`: neither a declared article
+PDF resource nor a media target/profile exists in the isolated descriptor, so
+no substitute product or Cozy command was selected. Finally, an intentional
+SmartDox parser fault failed before replacement; the prior article HTML stayed
+at SHA-256 `6b24750c86c6e27613fa904c0e62aadccc333e8a586f984d44ba2230d9eaf863`
+and timestamp `1789433510`, and repairing the source rebuilt that node. No
+preview, browser opening, publication, deployment, upload, or external-project
+source edit was selected.
+
+P600-08 closure repair evidence: `/private/tmp/p60008-authoring-trace.dox`
+records the Core-only-before/authoring-after boundary in `BEFORE-AUTHORING.md`
+and `AFTER-AUTHORING.md`. Its authored Document, Summary and `index.dox` have
+the retained SHA-256 identities `125c69b46bbfbaec3fc7a3a411535e420727efe722520d4d693af57c6ecc393f`,
+`9281f62357cbad82a991271a060087dd6c7471bf80533fe57a0421e2befd686d`, and
+`55b035dfe7ab365282cfd87d66be6b5b40fea9eea4c294a569f63af02a6ea154`.
+After the admitted source confirmation, the installed
+`cozy-document-project-generation` dispatch created
+`document-structure-html`, `document-reader-html`, and
+`smartdox-article-html` by separate exact Cozy requests, each through the
+recorded Luna/low command runner. The three output paths are under
+`target/document-project/local-build/<target-id>/index.html`; the source hashes
+remained unchanged before and after rendering.
+
+`/private/tmp/p60008-branch.dox` changes only the disposable target graph for
+this proof: both `document-reader-html` and `smartdox-article-html` declare
+`document-structure-html` as their shared prerequisite. The first selected
+reader request generated structure and reader at timestamp `1789436986`; the
+later article request generated the article at `1789437132` without rewriting
+the shared structure output. `/private/tmp/p60008-cycle.dox` declares
+`document-structure-html -> document-reader-html -> document-structure-html`;
+its exact Cozy request failed before output creation with
+`DP-OP-001: target prerequisite graph contains a cycle` and that full path.
+The trace and branch executions are bound to their reusable runner-session
+records under `.codex-workflow/command-runners/`. The cycle fixture deliberately
+has no runner-state tree: its exact request/result live in the task-private
+`/tmp/skill.cncf.d/cozy-dox-f2aa1a16ba5c5712058d1448df36ba6288369d376d161d2bd744b9a995c69151-d3a11f9c85e68a99d87aa772eeda9405/`
+evidence directory and are bound by execution identity `64b4abcb68d1bef07ab2ff280acce2b1`
+through the trace runner session. No preview, browser, publication, deployment,
+upload, external-project edit, or substitute command was used.
