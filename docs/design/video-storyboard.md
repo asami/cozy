@@ -415,15 +415,16 @@ Existing generated audio-manifest `tailSilence` remains the effective output
 interval, not requested input. Synthesis, rendering, audio-manifest writing,
 evidence, and currentness behavior therefore remain outside this Slice.
 
-The same contract reserves
+P610-02 implements
 `voiceTextNormalization.removeMiddleDots` as an optional false-default boolean
-for final provider speech only. Its future behavior is after existing whitespace
+for final provider speech only. Its behavior is after existing whitespace
 normalization and the single-pass pronunciation dictionary, where it removes
 only U+30FB (`・`). It does not mutate narration, line, caption, headings, or
 any other source/display string; malformed nonboolean configuration fails
 before provider I/O. It neither changes dictionary pass count nor introduces
 general punctuation normalization.
 
-Storyboard/pipeline conversion and all actual speech or timing realization are
-Phase 61.1 work. This compatibility boundary leaves Storyboard v1/v2, generated
+Phase 61.1 exclusively owns Storyboard/pipeline conversion, authored
+trailing-silence timing realization, generated audio-manifest writing, evidence,
+and currentness. This compatibility boundary leaves Storyboard v1/v2, generated
 audio-manifest interpretation, rendering, evidence, and currentness unchanged.

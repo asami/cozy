@@ -1,15 +1,16 @@
 # Phase 61 Checklist
 
-Phase status: IN_PROGRESS
+Phase status: CLOSED
 Updated: 2026-09-15
 Scope: Subphase 61A, Contract Admission and Speech Normalization
 Ledger for: [Phase 61](phase-61.md)
 Successor ledger: [Phase 61.1](phase-61.1-checklist.md)
 Repository-full validation: aggregate deferred to Phase 61.1
 
-P610-01 and P610-02 are CLOSED. Phase 61 remains IN_PROGRESS pending
-independent Step review and acceptance commit; Phase 61.1 remains successor-only
-and unstarted.
+P610-01 and P610-02 are CLOSED and accepted. Phase 61 is CLOSED after its
+full review and focused closure re-review resolved the single documentation
+boundary blocker `CB-P61-001`. Phase 61.1 remains successor-only and
+unstarted.
 Completion requires the linked artifacts and executable/observational
 evidence, not planning text.
 
@@ -53,7 +54,20 @@ requirements above. The focused receipt locator is
 `/tmp/skill.cncf.d/cncf-command-execution-8dec3747a7e495c348d9d9b291ee101fd48408136577fb6dd2a70e036fce7ecd-c15c11d13be1e8908d514915d4fbb40e/command-execution-sha256-747a04785fb599a7d5ab7b95563b090057f627a6db8607242a1162fbb51ee980`
 with digest
 `747a04785fb599a7d5ab7b95563b090057f627a6db8607242a1162fbb51ee980`.
-No Phase closure or successor implementation is claimed.
+The independent focused Step review passed with Review Disposition Bundle
+`69737b8327b8355b8e86ce3dfd2683fc94168418d97272e31f388cbd82b94b8f` and
+the Step acceptance commit is `44b9e2f`. No successor implementation is
+claimed.
+
+## Phase closure evidence
+
+- [x] Both closed Steps are committed: `7675b25` (P610-01) and `44b9e2f`
+  (P610-02).
+- [x] The Phase full review recorded `CB-P61-001`; the frozen design repair
+  and focused re-review resolved it without expanding the Phase boundary.
+- [x] `HYG-P61-001` is recorded in the canonical Phase hygiene journal.
+- [x] The final-only aggregate repository-full SBT suite is explicitly
+  deferred to Phase 61.1, its declared aggregate final owner.
 
 ## Successor handoff
 

@@ -1,15 +1,16 @@
 # Phase 61: Video Contract Admission and Speech Normalization
 
-status=in_progress
+status=closed
 split_full_test_policy=final-only
 validation_ownership=aggregate-deferred
 aggregate_validation_owner=PHASE-61.1
 aggregate_validation_sequence=["PHASE-61","PHASE-61.1"]
 
-Status: IN_PROGRESS
+Status: CLOSED
 Plan recorded: 2026-09-14
 Development item: DEV-029
 Split applied: 2026-09-15
+Closed: 2026-09-15
 Successor: [Phase 61.1](phase-61.1.md)
 
 ## Phase Plan Gate
@@ -73,7 +74,7 @@ P610-01 promotes the admitted policies before code changes.
 | Step | Observable outcome | Status | Closure basis |
 | --- | --- | --- | --- |
 | P610-01 | Frozen speech/display, nested-scene and timing contracts with executable specifications | CLOSED | Focused review disposition `12b16f32735797b2737049ad0a3a0270c9246a48fc3326d6fbd5cc5bc311e4e8`; Checklist P610-01 |
-| P610-02 | Opt-in speech-only middle-dot policy, including dictionary-generated readings | CLOSED | P610-02A executable specification and receipt recorded in Checklist P610-02 |
+| P610-02 | Opt-in speech-only middle-dot policy, including dictionary-generated readings | CLOSED | Commit `44b9e2f`; focused Step review `69737b8327b8355b8e86ce3dfd2683fc94168418d97272e31f388cbd82b94b8f`; Checklist P610-02 |
 
 ## Acceptance and exclusions
 
@@ -89,14 +90,15 @@ Planning does not rebuild the current SimpleModeling.org video.
 
 ## Split handoff
 
-P610-01 and P610-02 are CLOSED. This Phase remains IN_PROGRESS pending
-independent Step review and acceptance commit, after which the closed
-contract and speech-policy boundary hands off to [Phase 61.1](phase-61.1.md)
-for the authored trailing-silence, pipeline and isolated-acceptance work.
-Phase 61.1 remains successor-only and unstarted. The final-only aggregate
-policy defers this Phase's repository-full SBT
-suite to Phase 61.1; focused validation, review, release and commit remain
-required here. A plan is not release or consumer-acceptance evidence.
+P610-01 and P610-02 are CLOSED and accepted in commits `7675b25` and
+`44b9e2f`. The Phase full review identified and the focused re-review resolved
+the single documentation-boundary blocker `CB-P61-001`; no blockers remain.
+The closed contract and implemented speech-policy boundary now hand off to
+[Phase 61.1](phase-61.1.md) for authored trailing-silence, pipeline and
+isolated-acceptance work. Phase 61.1 remains successor-only and unstarted.
+The final-only aggregate policy defers this Phase's repository-full SBT suite
+to Phase 61.1; the focused Step receipts, reviews, release evidence and
+commit recorded here do not claim that aggregate suite.
 
 ## Split provenance
 
