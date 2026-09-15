@@ -581,9 +581,23 @@ effectiveTrailing = max(E, T - L - A, 0)
 ```
 
 The existing generated audio-manifest `tailSilence` remains the effective
-output interval, not the authored requested input. The equations describe a
-future timing implementation; this Slice does not alter synthesis, rendering,
-audio manifests, evidence, or currentness behavior.
+output interval, not the authored requested input. Phase 61.1 realizes that
+timing from the actual normalized WAV and carries both values through Remotion
+props and deterministic review evidence.
+
+The Cozy-only executable acceptance fixture uses Article-9-shaped Japanese
+source and display text containing U+30FB (`・`) with a deterministic local
+provider. It proves that only provider speech loses U+30FB, while source,
+line, and caption remain unchanged. With a requested `0.8`-second final tail,
+the fixture separately proves requested and effective values, final
+visual/caption persistence through the effective tail, and audio/mouth
+activity ending at the actual WAV boundary. Its selected tail still frame is
+visual/timing evidence only; it is not listening acceptance.
+
+The same fixture proves that the independently configured five-second summary
+infographic and credits cards remain separate holds and do not inherit or
+duplicate the final scene tail. It performs no external-provider call, external
+Article 9 project acceptance, publication, upload, or deployment.
 
 Storyboard v1 and v2 strict schemas, canonical serialization, and identity are
 unchanged. This Slice also does not change their historical generated audio

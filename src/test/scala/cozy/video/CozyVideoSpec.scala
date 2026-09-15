@@ -3904,6 +3904,131 @@ final class CozyVideoSpec
 
     }
 
+    "Phase 61.1 deterministic audiovisual acceptance" which {
+      "binds local speech normalization, actual WAV timing, tail evidence, and independent holds without external acceptance" in {
+        _with_temp_dir("cozy-video-phase-61-1-local-acceptance") { dir =>
+          Given("a Cozy-only Article-9-shaped fixture with a local provider, an 0.8-second final tail, and independent five-second cards")
+          val script = dir.resolve("script.json")
+          val audiodir = dir.resolve("build/audio/final")
+          val project = dir.resolve("video_project.json")
+          _write(
+            script,
+            """{
+              |  "narration": {"provider": "voicevox"},
+              |  "voice": {"fallbackSpeakerId": 42},
+              |  "voiceTextNormalization": {"removeMiddleDots": true},
+              |  "characters": {"guide": {"side": "left"}},
+              |  "scenes": [{
+              |    "id": "article-9-final",
+              |    "speaker": "guide",
+              |    "duration": 0.2,
+              |    "tailSilence": 0.8,
+              |    "line": "第9条・平和の原則",
+              |    "caption": "第9条・平和の原則"
+              |  }]
+              |}""".stripMargin
+          )
+          val source = _read(script)
+          _write(
+            dir.resolve("conf/cozy/video/credit-profiles/local-acceptance.yaml"),
+            """schema: cozy.video.credits.v1
+              |profile: local-acceptance
+              |presentation:
+              |  title: {default: Local acceptance credits}
+              |  hold-seconds: 5.0
+              |credits:
+              |  - id: local-acceptance-credit
+              |    label: {default: Local acceptance credit}
+              |    publication-text: {default: Local acceptance credit}
+              |    surfaces: [video]
+              |""".stripMargin
+          )
+          _write(
+            project,
+            """{
+              |  "output": "build/final.mp4",
+              |  "renderer": {"engine": "remotion", "fps": 10, "width": 100, "height": 50},
+              |  "visualEffects": {
+              |    "opening": "none",
+              |    "sectionStart": "none",
+              |    "summary": "overview-and-conclusion-hold",
+              |    "finalPage": "none"
+              |  },
+              |  "credits": {"profile": "local-acceptance", "include": ["local-acceptance-credit"]},
+              |  "parts": [{"id": "final", "type": "dialogue", "script": "script.json"}]
+              |}""".stripMargin
+          )
+          val provider = RecordingVoicevoxClient(audioBytes = _wav_bytes(0.2))
+
+          When("Cozy synthesizes, renders, and writes review evidence through deterministic local seams")
+          CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, audiodir, Some("http://voicevox.example")),
+            provider
+          )
+          CozyVideo.render(
+            CozyVideo.RenderConfig(project, "remotion", toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            ProfileRenderRunner()
+          )
+          val finalvideo = dir.resolve("build/final.mp4")
+          _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(finalvideo)
+          CozyVideo.reviewEvidence(
+            CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review"), toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            ReviewEvidenceRunner()
+          )
+          val providertext = provider.calls.find(_.kind == "audio_query").flatMap(_.text)
+          val audiomanifest = parser.parse(_read(audiodir.resolve("manifest.json"))).toOption.get
+          val audioentry = audiomanifest.asArray.get.head.hcursor
+          val props = parser.parse(_read(dir.resolve("target/cozy-video/remotion/final/props.json"))).toOption.get
+          val scene = props.hcursor.downField("scenes").downArray
+          val timing = props.hcursor.downField("timing")
+          val evidence = parser.parse(_read(dir.resolve("review/review-manifest.json"))).toOption.get
+          val evidencescene = evidence.hcursor.downField("parts").downArray.downField("scenes").downArray
+          val tailframe = evidencescene.downField("frames").downN(1)
+          val dialoguerenderer = _read(dir.resolve("target/cozy-video/remotion/final/src/DialogueVideo.jsx"))
+          val rootrenderer = _read(dir.resolve("target/cozy-video/remotion/final/src/Root.tsx"))
+
+          Then("the fake provider receives only the speech-normalized Article-9-shaped term while source, line, and caption retain U+30FB")
+          providertext shouldBe Some("第9条平和の原則")
+          _read(script) shouldBe source
+          scene.get[String]("line").toOption shouldBe Some("第9条・平和の原則")
+          scene.get[String]("caption").toOption shouldBe Some("第9条・平和の原則")
+
+          And("the authored request, effective generated tail, renderer props, and selected deterministic tail frame remain distinct and consistent")
+          scene.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.8)
+          audioentry.get[Double]("audioDuration").toOption shouldBe Some(0.2)
+          audioentry.get[Double]("tailSilence").toOption shouldBe Some(0.8)
+          scene.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(0.8)
+          scene.get[Int]("audioDurationFrames").toOption shouldBe Some(2)
+          scene.get[Int]("durationFrames").toOption shouldBe Some(10)
+          evidencescene.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.8)
+          evidencescene.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(0.8)
+          evidencescene.downField("audio").get[Double]("durationSeconds").toOption shouldBe Some(0.2)
+          tailframe.get[String]("kind").toOption shouldBe Some("tail")
+          tailframe.get[Int]("absoluteFrame").toOption shouldBe Some(2)
+
+          And("the full final visual and caption surface lasts through the effective tail while audio and mouth activity end at the actual WAV boundary")
+          dialoguerenderer should include_text("speechActive")
+          dialoguerenderer should include_text("speechStarted ? (")
+          dialoguerenderer should include_text("speechLocalFrame < speechDurationFrames")
+          dialoguerenderer should include_text("durationFrames={scene.durationFrames}")
+          rootrenderer should include_text("durationInFrames={contentFrames}")
+          rootrenderer should include_text("scene.audioDurationFrames")
+
+          And("the independently configured infographic and credits cards each retain five seconds without acquiring the final-tail interval")
+          timing.get[Int]("contentFrames").toOption shouldBe Some(10)
+          timing.get[Int]("summaryStartFrame").toOption shouldBe Some(10)
+          timing.get[Int]("summaryFrames").toOption shouldBe Some(50)
+          timing.get[Int]("creditPageStartFrame").toOption shouldBe Some(60)
+          timing.get[Int]("creditPageHoldFrames").toOption shouldBe Some(50)
+          timing.get[Int]("finalPageStartFrame").toOption shouldBe Some(110)
+          timing.get[Int]("totalFrames").toOption shouldBe Some(110)
+        }
+      }
+    }
+
     "review evidence (Part 5)" which {
       "writes deterministic final-video review evidence from Cozy Remotion props and audio manifests" in {
         _with_temp_dir("cozy-video-review-evidence-part-5") { dir =>

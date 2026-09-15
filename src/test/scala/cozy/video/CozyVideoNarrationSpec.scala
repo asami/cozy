@@ -740,6 +740,39 @@ final class CozyVideoNarrationSpec
         }
       }
 
+      "keeps Article-9-shaped Japanese source and display terms intact while normalizing only local provider input" in {
+        Given("a deterministic Cozy-only Japanese fixture with source and caption terms containing U+30FB")
+        _with_script(
+          """{
+            |  "narration": {"provider": "voicevox"},
+            |  "voice": {"fallbackSpeakerId": 42},
+            |  "voiceTextNormalization": {"removeMiddleDots": true},
+            |  "scenes": [{
+            |    "id": "article-9-shaped",
+            |    "duration": 0.2,
+            |    "line": "第9条・平和の原則",
+            |    "caption": "第9条・平和の原則"
+            |  }]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val source = Files.readString(script, StandardCharsets.UTF_8)
+          val client = RecordingVoicevoxClient()
+
+          When("Cozy sends final speech to the local recording provider")
+          CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+            client
+          )
+          val providertext = client.calls.find(_.kind == "audio_query").flatMap(_.text)
+
+          Then("only the provider speech omits U+30FB while the authored source and display text remain unchanged")
+          providertext shouldBe Some("第9条平和の原則")
+          Files.readString(script, StandardCharsets.UTF_8) shouldBe source
+          source should include_text("\"line\": \"第9条・平和の原則\"")
+          source should include_text("\"caption\": \"第9条・平和の原則\"")
+        }
+      }
+
       "preserves middle dots when the option is omitted or false" in {
         Vector(
           "an omitted option" -> "",

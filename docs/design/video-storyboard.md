@@ -412,8 +412,9 @@ effectiveTrailing = max(E, T - L - A, 0)
 ```
 
 Existing generated audio-manifest `tailSilence` remains the effective output
-interval, not requested input. Synthesis, rendering, audio-manifest writing,
-evidence, and currentness behavior therefore remain outside this Slice.
+interval, not requested input. Phase 61.1 realizes the effective interval from
+the actual normalized WAV and projects both requested and effective values into
+Remotion props and deterministic review evidence.
 
 P610-02 implements
 `voiceTextNormalization.removeMiddleDots` as an optional false-default boolean
@@ -426,5 +427,16 @@ general punctuation normalization.
 
 Phase 61.1 exclusively owns Storyboard/pipeline conversion, authored
 trailing-silence timing realization, generated audio-manifest writing, evidence,
-and currentness. This compatibility boundary leaves Storyboard v1/v2, generated
-audio-manifest interpretation, rendering, evidence, and currentness unchanged.
+and currentness. Its Cozy-only deterministic acceptance fixture uses
+Article-9-shaped Japanese source/display terms containing U+30FB with the
+local provider seam: provider speech loses only U+30FB, while source, line, and
+caption remain unchanged. A requested 0.8-second final tail remains distinct
+from its effective generated interval across the audio manifest, renderer
+props, and review evidence. The final visual/caption covers that effective
+tail, while actual audio and character mouth activity end at the WAV boundary.
+The selected tail still frame proves visual/timing state only, never audible
+listening acceptance. Independently configured five-second summary infographic
+and credits holds remain separate and acquire no duplicate final-tail interval.
+This fixture makes no external Article 9 project claim or external provider,
+publication, upload, or deployment call; Storyboard v1/v2, canonical identity,
+and their schemas remain unchanged.
