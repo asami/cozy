@@ -606,6 +606,104 @@ final class CozyVideoNarrationSpec
       }
     }
 
+    "realize actual normalized WAV timing" which {
+      "preserve target-floor compatibility for omitted and explicit-zero tail requests" in {
+        Vector(
+          "a short target floor" -> (0.5, 0.2, 12000),
+          "a long target floor" -> (1.5, 1.2, 36000)
+        ).foreach { case (targetcondition, (targetduration, effectivetail, combinedframes)) =>
+          Vector(
+            "an omitted tail request" -> "",
+            "an explicit zero tail request" -> ", \"tailSilence\": 0.0"
+          ).foreach { case (tailcondition, tailrequest) =>
+            Given(s"a short deterministic provider WAV with $targetcondition and $tailcondition")
+            _with_script(
+              s"""{
+                |  "narration": {"provider": "voicevox"},
+                |  "voice": {"fallbackSpeakerId": 42},
+                |  "scenes": [{"id": "intro", "duration": $targetduration, "leadSilence": 0.1, "line": "Hello"$tailrequest}]
+                |}""".stripMargin
+            ) { (script, output) =>
+              val voicevox = RecordingVoicevoxClient(audioBytes = _wav_bytes(0.2, 24000, 1, Vector(8192)))
+
+              When("Cozy synthesizes and measures the normalized provider WAV")
+              CozyVideo.synthesize(
+                CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+                voicevox
+              )
+              val entry = _manifest_entry(output)
+              val combinedsamples = _wav_pcm16_samples(output.resolve("script.wav"))
+
+              Then("the generated effective tail alone fills the established target floor")
+              entry.hcursor.downField("audioDuration").as[Double].toOption shouldBe Some(0.2)
+              entry.hcursor.downField("tailSilence").as[Double].toOption shouldBe Some(effectivetail)
+              combinedsamples.size shouldBe combinedframes
+            }
+          }
+        }
+      }
+
+      "derive the generated tail from each actual normalized WAV duration" in {
+        Vector(
+          "a short provider WAV" -> (0.2, 0.7, 1.0, 24000),
+          "a long provider WAV" -> (0.8, 0.4, 1.3, 31200)
+        ).foreach { case (condition, (audioduration, effectivetail, effectiveduration, combinedframes)) =>
+          Given(s"$condition with the same target, lead, and authored tail request")
+          _with_script(
+            """{
+              |  "narration": {"provider": "voicevox"},
+              |  "voice": {"fallbackSpeakerId": 42},
+              |  "scenes": [{"id": "intro", "duration": 1.0, "leadSilence": 0.1, "tailSilence": 0.4, "line": "Hello"}]
+              |}""".stripMargin
+          ) { (script, output) =>
+            val voicevox = RecordingVoicevoxClient(audioBytes = _wav_bytes(audioduration, 24000, 1, Vector(8192)))
+
+            When("Cozy synthesizes through the deterministic provider response")
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+              voicevox
+            )
+            val entry = _manifest_entry(output)
+            val combinedsamples = _wav_pcm16_samples(output.resolve("script.wav"))
+
+            Then("the manifest and combined WAV expose the timing derived from the actual provider length")
+            entry.hcursor.downField("audioDuration").as[Double].toOption shouldBe Some(audioduration)
+            entry.hcursor.downField("tailSilence").as[Double].toOption shouldBe Some(effectivetail)
+            combinedsamples.size shouldBe combinedframes
+            combinedsamples.size.toDouble / 24000.0 shouldBe effectiveduration
+          }
+        }
+      }
+
+      "append lead, normalized provider audio, and effective trailing silence once each" in {
+        Given("a long deterministic provider WAV whose authored tail exceeds the target floor")
+        _with_script(
+          """{
+            |  "narration": {"provider": "voicevox"},
+            |  "voice": {"fallbackSpeakerId": 42},
+            |  "scenes": [{"id": "intro", "duration": 1.0, "leadSilence": 0.1, "tailSilence": 0.4, "line": "Hello"}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val voicevox = RecordingVoicevoxClient(audioBytes = _wav_bytes(0.8, 24000, 1, Vector(8192)))
+
+          When("Cozy constructs the combined WAV and generated audio manifest")
+          CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+            voicevox
+          )
+          val entry = _manifest_entry(output)
+          val combinedsamples = _wav_pcm16_samples(output.resolve("script.wav"))
+
+          Then("the combined audio contains one lead, one provider WAV, and one effective tail interval")
+          entry.hcursor.downField("tailSilence").as[Double].toOption shouldBe Some(0.4)
+          combinedsamples.size shouldBe 31200
+          combinedsamples.take(2400).distinct shouldBe Vector(0)
+          combinedsamples.slice(2400, 21600).distinct shouldBe Vector(8192)
+          combinedsamples.drop(21600).distinct shouldBe Vector(0)
+        }
+      }
+    }
+
     "apply speech-only middle-dot normalization" which {
       "removes original and dictionary-produced middle dots after whitespace normalization without recursing" in {
         Given("an enabled script whose one-pass pronunciation reading contains a middle dot and matches another dictionary key")

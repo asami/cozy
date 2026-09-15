@@ -211,16 +211,18 @@ private[cozy] trait CozyVideoNarration {
               audio.voiceId,
               audio.modelIdentity
             )
-          }
+        }
         val audioduration = _wav_duration(scenewav)
         val targetduration = scene.durationSeconds
+        val requestedsilence = scene.tailSilence.getOrElse(0.0)
+        val timing = VideoTiming.evaluate(targetduration, leadsilence, audioduration, requestedsilence, 1)
         if (leadsilence > 0) {
           val leadwav = _audio_output_file(savedir, f"${index + 1}%02d-$fileid-lead.wav")
           _write_silence_wav(leadwav, leadsilence)
           concatparts += leadwav
         }
         concatparts += scenewav
-        val tailsilence = math.max(0.0, targetduration - leadsilence - audioduration)
+        val tailsilence = timing.effectiveTrailing
         if (tailsilence > 0) {
           val silencewav = _audio_output_file(savedir, f"${index + 1}%02d-$fileid-silence.wav")
           _write_silence_wav(silencewav, tailsilence)
