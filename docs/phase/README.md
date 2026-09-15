@@ -93,6 +93,22 @@ Current phase state:
   summary-slide PDF route through an explicit, strict Visual Page projection.
   It reuses the existing renderer, PDF verification, receipt, and currentness
   path; it does not begin site integration or redesign a renderer.
+- Closed split sequence: [Phase 60](phase-60.md) delivered Document
+  Confirmation Views and Article HTML Build Targets through P600-01 to P600-05.
+  [Phase 60.1](phase-60.1.md) delivered the goal-driven Codex DSL
+  dependency-resolution and generation workflow through P600-06 to P600-08.
+  The shared source remains the Document Description, actual `index.dox`
+  rendering remains delegated to SmartDox, and local targets retain ordinary
+  make-level timestamps without hash-based artifact management. The serial
+  `final-only` sequence's repository-full SBT validation is bound by Phase
+  60.1's distinct final release; neither closed checklist starts Phase 61 or
+  changes the independent Phase 59/61 priorities.
+- Planned independent video boundary: [Phase 61](phase-61.md), Video Speech
+  Normalization and Post-Utterance Timing. Speech-only middle-dot removal and
+  authored per-scene trailing silence preserve displayed terms, actual-audio
+  timing and independent infographic/credits holds. The
+  [checklist](phase-61-checklist.md) is entirely OPEN; this does not change
+  Phase 59/60 priority or authorize external-project video/publication work.
 - Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite

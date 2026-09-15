@@ -1,14 +1,14 @@
 # Phase 60.1 Checklist
 
-Phase status: PLANNED
+Phase status: CLOSED
 Updated: 2026-09-15
 Scope: Subphase 60B goal-driven DSL dependency resolution and generation
 Ledger for: [Phase 60.1](phase-60.1.md)
 Predecessor: [Phase 60](phase-60.md)
 Repository-full validation: aggregate final owner for `PHASE-60` → `PHASE-60.1`
 
-P600-06 and P600-07 are DONE. P600-08 remains OPEN. Planning alone does not
-complete an implementation item.
+P600-06 through P600-08 are DONE. This checklist is the authoritative closure
+ledger; Phase 60.1 remains the serial chain's aggregate final-validation owner.
 
 ## P600-06: Goal-driven DSL dependency contract admission
 
@@ -90,7 +90,7 @@ acceptance.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase owner; independent reviewer separate from implementation
 - Update rule: close only against all preceding checklist items and the following acceptance evidence
 
@@ -106,7 +106,7 @@ Stage Status:
 - [x] An editing-only request completes without renderer calls, browser opening or preview notification; an explicit selected-product request generates only its dependency closure, with display separately requested and no automatic PNG/frame-based QA.
 - [x] Failure preserves prior successful products and resumable source state; retry requires the needed authoring action rather than merely rerendering an old `index.dox`.
 - [x] Phase closure requires the admitted capability matrix and requested workflow scenarios to pass; an unavailable required route cannot be represented as accepted generation.
-- [ ] Applicable Cozy/skill focused validation and independent Phase review close all in-scope blockers; this final owner verifies the Phase 60 predecessor and runs the serial chain's one repository-full SBT suite before its release commit. Documentation and ledgers distinguish implemented local generation from human approval, external project updates and publication.
+- [x] Applicable Cozy/skill focused validation and independent Phase review close all in-scope blockers; this final owner verifies the Phase 60 predecessor and runs the serial chain's one repository-full SBT suite before its release commit. Documentation and ledgers distinguish implemented local generation from human approval, external project updates and publication.
 
 P600-08 execution evidence: the disposable isolated project
 `/private/tmp/p601-p60008-document-project.tidX93/phase60-generation.dox`
@@ -160,3 +160,12 @@ has no runner-state tree: its exact request/result live in the task-private
 evidence directory and are bound by execution identity `64b4abcb68d1bef07ab2ff280acce2b1`
 through the trace runner session. No preview, browser, publication, deployment,
 upload, external-project edit, or substitute command was used.
+
+Final closure evidence: full Phase review disposition
+`a5d786d2d903e7090d752feac677a462bf8eab436bf47e51c0a516f3a4552280`
+identified the release-state hygiene record. The bounded Cycle 1 repair's
+focused SBT receipt and clean focused re-review disposition
+`468c570fc15d8a27ce7c98bd14a17c7bdac8a49704de3a180f05f6bdd1baf73d`
+closed the final same-boundary blockers. The aggregate repository-full SBT
+suite and distinct Phase release commit bind this final candidate; they do not
+claim publication, deployment, external-project acceptance or Phase 61 work.

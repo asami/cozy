@@ -1696,6 +1696,23 @@ Origin:
 | DEV-025 | `docs/journal/2026/09/2026-09-12-phase-58.1-document-summary-description-dsl-decision.md`; user-approved Phase 58.1 creation on 2026-09-12 | Add media-independent complete-document and summary-slide-level authoring DSLs over the recursive Content Core, separate localized content from renderer chrome, and prove both with strict Article 9 Japanese review projections that preserve semantically distinct Step Flow and local Structure. | NEW_PHASE | [Phase 58.1](../phase/phase-58.1.md) COMPLETE | RESOLVED |
 | DEV-026 | `docs/journal/2026/09/2026-09-12-phase-58.2-interactive-confirmation-projection-decision.md`; user-approved Phase 58.2 planning on 2026-09-12; operational closure and normal-acceptance resumption decisions on 2026-09-13 | Generate interactive Document and Summary confirmation workspaces equivalent to the approved Article 9 reference behavior, with strict v2 semantic labels, coordinate-free diagrams, retained points, explicit omissions, no renderer-side inference, and preserved v1 contracts. | NEW_PHASE | [Phase 58.2](../phase/phase-58.2.md) COMPLETE; the bounded repair closed one diagnostic-only export-currentness regression without altering Article 9 projection behavior; DP-02 broader redesign remains future and DP-04 remains accepted operational refinement | RESOLVED |
 | DEV-027 | `docs/journal/2026/09/2026-09-13-phase-59-summary-slide-pdf-projection-decision.md`; user direction on 2026-09-13 after Phase 58.2 closure | Project the current bound v2 Summary Description through an explicit source-grounded Visual Page profile and invoke the existing Phase 40 `summary_slides_pdf` route, preserving PDF renderer/receipt/currentness authority and Article 9 local acceptance. | NEW_PHASE | [Phase 59](../phase/phase-59.md) PLANNED | ADOPTED |
+| DEV-028 | `docs/journal/2026/09/2026-09-14-smartdox-article-and-core-confirmation-decision.md`; in-place revision recorded in `2026-09-14-confirmation-views-and-make-dependencies-decision.md`; time-bound split applied on 2026-09-14 | Add structure-centered and document-centered DSL confirmation plus actual SmartDox article HTML through Document Project, with ordinary make-level timestamp dependencies and no hash-based local artifact management; then add goal-driven Codex DSL dependency resolution and generation. | NEW_PHASE | [Phase 60](../phase/phase-60.md) CLOSED, P600-01–P600-05 → [Phase 60.1](../phase/phase-60.1.md) CLOSED, P600-06–P600-08; Phase 60.1 binds the final-only repository-full validation in its release closure | RESOLVED |
+| DEV-029 | `docs/journal/2026/09/2026-09-14-video-middle-dot-and-tail-silence-decision.md`; Article 9 Japanese video feedback and explicit development-planning request on 2026-09-14 | Add opt-in speech-only Japanese middle-dot normalization and scene-authored post-utterance silence based on actual synthesized WAV length, with unchanged display terms, backward-compatible target timing, and aligned pipeline/evidence/currentness. | NEW_PHASE | [Phase 61](../phase/phase-61.md) PLANNED | ADOPTED |
+
+Phase 61 is an independently planned video-authoring boundary. It reuses the
+existing video workflow and encoding contracts, preserves Phase 59/60 work and
+priorities, and leaves all implementation Steps OPEN. Article 9 is an isolated
+driver rather than authorization to edit, regenerate or publish that project.
+
+Phase 60 was split before implementation because its calibrated 860-minute
+delivery could not fit the eight-hour ceiling. Phase 60 closed P600-01 through
+P600-05: two DSL document views, a normal SmartDox article-rendering target and
+ordinary make-level dependency timestamps, without mandatory article/Core
+annotations. Phase 60.1 closed P600-06 through P600-08: the goal-driven Codex
+dependency-resolution and generation workflow. The children are serial and use
+final-only full validation, with Phase 60.1 as the owner. Accepted Phase 58.2
+and independent Phase 59/61 priorities are preserved; no P600 Step remains
+open.
 
 ## Current Priority
 

@@ -5,10 +5,11 @@ validation_ownership=aggregate-final-owner
 aggregate_validation_owner=PHASE-60.1
 aggregate_validation_sequence=["PHASE-60","PHASE-60.1"]
 depends_on=phase-60.md
-status=planned
+status=closed
 
-Status: PLANNED
+Status: CLOSED
 Plan recorded: 2026-09-14
+Closed: 2026-09-15
 Development item: DEV-028 (split child)
 Split from Phase 60: 2026-09-14
 Predecessor: Phase 60
@@ -94,7 +95,7 @@ an orchestration or producer skill.
 | --- | --- | --- | --- |
 | P600-06 | Frozen skill/Codex/Cozy responsibilities, goal-to-Core resolution and authored-node/tool invocation contracts | DONE | Checklist P600-06 |
 | P600-07 | A maintained orchestration skill and producer skills implement shared graph planning and interleaved Codex authoring/Cozy operations | DONE | Checklist P600-07 |
-| P600-08 | Isolated end-to-end skill execution with actual intermediate document authoring, reuse/update acceptance and independent Phase closure | OPEN | Checklist P600-08 |
+| P600-08 | Isolated end-to-end skill execution with actual intermediate document authoring, reuse/update acceptance and independent Phase closure | DONE | Checklist P600-08 |
 
 ## Acceptance and exclusions
 
@@ -135,11 +136,17 @@ evidence, independent review and release commit while recording
 predecessor handoff, then runs the one repository-full SBT suite on its frozen
 release tree in addition to its own focused validation and review.
 
-## Current handoff
+## Closure and successor handoff
 
-P600-06 and P600-07 are complete. Phase 60 is closed and its predecessor
-handoff is verified. P600-07A delivered the resolver/producer skill integration
-in the explicitly admitted skill-source root, with the two review corrections
-closed by focused re-review. P600-08 is next: it must exercise actual isolated
-product requests and their admitted Cozy operations. Product routes require
-their actual tool contracts.
+P600-06 through P600-08 are complete. Phase 60 is closed and its predecessor
+aggregate-deferred handoff is verified. P600-07A delivered the resolver/producer
+skill integration in the explicitly admitted skill-source root, with the two
+review corrections closed by focused re-review. P600-08 exercised actual
+isolated product requests, Codex authoring and admitted Cozy operations.
+
+The independent Phase full review found two same-boundary final-gate repairs;
+Phase Repair Cycle 1 corrected their portable temporary-directory identity and
+stale prebuilt-output receipt behavior. Its focused re-review is clean. This
+aggregate final-owner release binds the serial sequence's one repository-full
+SBT suite and the distinct Phase release commit. It does not begin Phase 61,
+publication, deployment or external-project work.
