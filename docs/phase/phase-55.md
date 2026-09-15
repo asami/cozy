@@ -2,7 +2,7 @@
 
 Status: PLANNED
 planned_at=2026-09-15
-consumer=KnowledgeHub Phase 1 / Textus Mobile / NICT Editing Studio App
+consumer=KnowledgeHub Phase 1 / Textus Flutter Core / NICT Editing Studio App
 relationship=Complements Phase 50-53 Flutter UI projection roadmap
 
 ## Purpose
@@ -10,6 +10,8 @@ relationship=Complements Phase 50-53 Flutter UI projection roadmap
 Add a general Dart target to Cozy that projects canonical model / operation IR into compilable, null-safe Dart model and API boundary code.
 
 Phase 55 intentionally precedes broad Flutter widget generation for the KnowledgeHub consumer. It establishes model continuity first so that Scala/CNCF server contracts and Dart/Flutter client contracts are derived from the same modeling source where applicable.
+
+`asami/textus-flutter-core` is treated as a reusable Flutter client foundation rather than a mobile application product, leaving iPhone / Android / Web / Desktop projection open.
 
 ## Work Stack
 
@@ -22,7 +24,7 @@ Phase 55 intentionally precedes broad Flutter widget generation for the Knowledg
 | DART-05 | JSON codec generation | Generated encode/decode preserves nullability, discriminator, field naming, and representative round-trip semantics. | planned |
 | DART-06 | API DTO and operation contract generation | Request/response/error/result DTOs and typed operation interfaces are generated from canonical operation metadata where available. | planned |
 | DART-07 | Dart package emission | Generator emits a consumable Dart/Flutter package layout with deterministic files/imports and analyzer-clean output. | planned |
-| DART-08 | KnowledgeHub consumer acceptance | Textus Mobile or NICT Editing Studio consumes generated representative contracts against the KnowledgeHub Phase 1 boundary. | planned |
+| DART-08 | KnowledgeHub consumer acceptance | Textus Flutter Core or NICT Editing Studio consumes generated representative contracts against the KnowledgeHub Phase 1 boundary. | planned |
 | DART-09 | Flutter roadmap integration handoff | Reuse points with Logical UI / Phase 50-53 are documented; duplicate model generation in future Flutter UI output is prohibited. | planned |
 
 ## Planning rule
@@ -112,7 +114,7 @@ Generated output should be directly consumable by a Dart/Flutter project and val
 
 Use a small but real KnowledgeHub Phase 1 contract. Acceptance must cross generated code into either:
 
-- `asami/textus-mobile`, or
+- `asami/textus-flutter-core`, or
 - `KnowledgeHubProject/nict-editing-studio-app`
 
 and match the server-side declared contract.
