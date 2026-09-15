@@ -14,14 +14,16 @@ Related:
 
 ## Context
 
-KnowledgeHub Phase 1では、server sideをScala 3 / CNCF / KnowledgeHubで実装し、mobile clientをDart / Flutterで実装する。
+KnowledgeHub Phase 1では、server sideをScala 3 / CNCF / KnowledgeHubで実装し、Flutter client sideをDart / Flutterで実装する。
 
-Mobile側は、
+Flutter側は、
 
-- `asami/textus-mobile`: reusable Flutter Mobile Runtime
+- `asami/textus-flutter-core`: reusable Flutter client foundation / capture runtime
 - `KnowledgeHubProject/nict-editing-studio-app`: Flutter Editing Studio application
 
 の2-project構成とした。
+
+`textus-flutter-core` は「Textusのモバイルアプリ」ではなく、iPhone / Androidを最初のconsumerとしつつ、将来のFlutter Web / Desktopも含めて再利用できるFlutter共通基盤として位置づける。
 
 この構成ではserver/client間で同じmodel semanticsを手作業で二重定義するとdriftが起こりやすい。
 
@@ -103,7 +105,7 @@ Generated:
 
 Hand-written:
 - Editing Studio UX
-- Textus Mobile runtime behavior
+- Textus Flutter Core runtime behavior
 - camera/device integration
 - offline/sync strategy
 - complex Flutter presentation
@@ -127,6 +129,7 @@ Cozy IR
 1. Cozyに汎用Dart code generation targetを追加する。
 2. 最初はModel / JSON / DTO / API contractに限定する。
 3. KnowledgeHub Phase 1をinitial consumerとする。
-4. KnowledgeHub固有generatorにはしない。
-5. Phase 50-53 Flutter UI roadmapは維持し、新Phaseは補完関係とする。
-6. 同じcanonical IRからScala / Dartを投影するmodel continuityを重視する。
+4. `asami/textus-flutter-core`をreusable Flutter client foundationとして扱う。
+5. KnowledgeHub固有generatorにはしない。
+6. Phase 50-53 Flutter UI roadmapは維持し、新Phaseは補完関係とする。
+7. 同じcanonical IRからScala / Dartを投影するmodel continuityを重視する。
