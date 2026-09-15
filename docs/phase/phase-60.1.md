@@ -67,8 +67,13 @@ functions remain explicit capability gaps.
 
 Phase 60.1 consumes the committed Phase 60 local-build handoff. It does not
 reopen the Phase 60 three-view, SmartDox target, CLI, or timestamp contracts.
-This split does not select an external skill-source root: any non-Cozy mutation
-root still requires explicit admission at Phase entry.
+P600-07 consumes a separately committed single-page root Step in the external
+skill-source root `/Users/asami/Dropbox/share/src/2026/codex-customizations`,
+authorized explicitly by the user on 2026-09-15. That root Step is limited to
+the maintained `cozy-document-project-generation` and
+`cozy-document-project-article` skill sources and is recorded at
+`4dfcd809365cb30a0ab9078d46604f567c565b49`. It does not enlarge the Phase
+mutation repository set or its final release commit.
 
 ## Planning inputs and completion ledger
 
@@ -88,7 +93,7 @@ an orchestration or producer skill.
 | Step | Observable outcome | Status | Closure basis |
 | --- | --- | --- | --- |
 | P600-06 | Frozen skill/Codex/Cozy responsibilities, goal-to-Core resolution and authored-node/tool invocation contracts | DONE | Checklist P600-06 |
-| P600-07 | A maintained orchestration skill and producer skills implement shared graph planning and interleaved Codex authoring/Cozy operations | OPEN | Checklist P600-07 |
+| P600-07 | A maintained orchestration skill and producer skills implement shared graph planning and interleaved Codex authoring/Cozy operations | DONE | Checklist P600-07 |
 | P600-08 | Isolated end-to-end skill execution with actual intermediate document authoring, reuse/update acceptance and independent Phase closure | OPEN | Checklist P600-08 |
 
 ## Acceptance and exclusions
@@ -132,7 +137,9 @@ release tree in addition to its own focused validation and review.
 
 ## Current handoff
 
-P600-06 is complete. Phase 60 is closed and its predecessor handoff is
-verified. P600-07 is next: it creates or updates orchestration and producer
-skills under the admitted reverse-resolution and forward-generation graph.
-Product routes require their actual tool contracts.
+P600-06 and P600-07 are complete. Phase 60 is closed and its predecessor
+handoff is verified. P600-07A delivered the resolver/producer skill integration
+in the explicitly admitted skill-source root, with the two review corrections
+closed by focused re-review. P600-08 is next: it must exercise actual isolated
+product requests and their admitted Cozy operations. Product routes require
+their actual tool contracts.
