@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 11, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -230,6 +230,6 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
   private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
   private def _relative_files(root: Path): Vector[String] = { val stream = Files.list(root); try stream.iterator().asScala.map(_.getFileName.toString).toVector.sorted finally stream.close() }
   private def _bundle_files(root: Path): Set[String] = { if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) Set.empty else { val stream = Files.walk(root); try stream.iterator().asScala.filter(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)).map(root.relativize(_).toString.replace('\\', '/')).toSet finally stream.close() } }
-  private def _with_temp_dir(name: String)(body: Path => Unit): Unit = { val root = Files.createTempDirectory(name); try body(root) finally _delete(root) }
+  private def _with_temp_dir(name: String)(body: Path => Unit): Unit = { val root = Files.createTempDirectory(name).toRealPath(); try body(root) finally _delete(root) }
   private def _delete(path: Path): Unit = if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) { val stream = Files.walk(path); try stream.iterator().asScala.toVector.sortBy(_.toString.length).reverse.foreach { item => try Files.deleteIfExists(item) catch { case NonFatal(_) => () } } finally stream.close() }
 }

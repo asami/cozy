@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Sep. 14, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReceipt {
@@ -305,7 +305,7 @@ private[cozy] object CozyMediaReceipt {
     val existing = manifest(_manifest_path(plan)).getOrElse(Manifest(plan.descriptor.knowledge.id, Vector.empty))
     if (existing.knowledge != plan.descriptor.knowledge.id)
       _invalid("Media build manifest knowledge does not match descriptor")
-    _validate_prebuilt_adoption(plan, selected, existing)
+    _validate_prebuilt_adoption(plan, selected, existing, captured)
     val replacements = selected.map { resolved =>
       val output = _output(resolved).getOrElse(
         _invalid(s"Media resource has no receipt output: ${resolved.resource.id}")
@@ -416,18 +416,24 @@ private[cozy] object CozyMediaReceipt {
 
   def prebuiltAcceptanceAllowed(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit = {
     val existing = manifest(_manifest_path(plan)).getOrElse(Manifest(plan.descriptor.knowledge.id, Vector.empty))
-    _validate_prebuilt_adoption(plan, Vector(resolved), existing)
+    val captured = capture(plan)
+    _validate_prebuilt_adoption(plan, Vector(resolved), existing, captured)
   }
 
   private def _validate_prebuilt_adoption(
     plan: CozyMedia.Plan,
     selected: Vector[CozyMedia.ResolvedResource],
-    existing: Manifest
+    existing: Manifest,
+    captured: Captured
   ): Unit = {
     selected.filter(_.resource.build == "prebuilt").foreach { resolved =>
       val output = _output(resolved).getOrElse(_invalid(s"Media prebuilt resource has no output: ${resolved.resource.id}"))
       if (!Files.isRegularFile(output))
         _invalid(s"Media prebuilt output must be a current regular file: $output")
+      existing.resources.find(_.id == resolved.resource.id).foreach { entry =>
+        if (entry.sha256 == _sha256(output) && entry.receipt.exists(receipt => !_receipt_current(receipt, captured)))
+          _invalid(s"Media prebuilt resource output is stale and must be refreshed: ${resolved.resource.id}")
+      }
     }
   }
 

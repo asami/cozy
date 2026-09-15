@@ -13,7 +13,7 @@ import io.circe.parser.parse
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep.  7, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -290,6 +290,23 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
 
         Then("Cozy refuses to bless the unchanged external output")
         stale.getMessage should include("stale")
+      }
+    }
+
+    "accept a current same-output prebuilt when it is explicitly built" in {
+      _with_temp_dir("current-prebuilt-build") { root =>
+        Given("an accepted prebuilt resource whose input and output remain unchanged")
+        _write(root.resolve("knowledge/article.dox"), "knowledge")
+        _write(root.resolve("prebuilt.txt"), "prebuilt")
+        val descriptor = root.resolve("prebuilt.json")
+        _write(descriptor, _prebuilt_descriptor)
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+
+        When("the current prebuilt resource is explicitly built again")
+        val outcome = scala.util.Try(CozyMedia.build(CozyMedia.CommandConfig(descriptor)))
+
+        Then("Cozy accepts the unchanged external output without exception")
+        outcome.isSuccess shouldBe true
       }
     }
 

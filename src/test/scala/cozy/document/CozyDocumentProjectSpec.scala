@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 10, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -4016,7 +4016,7 @@ resultingCore:
   }
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
-    val root = Files.createTempDirectory(name)
+    val root = Files.createTempDirectory(name).toRealPath()
     try body(root)
     finally _delete(root)
   }
