@@ -27,9 +27,39 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 27, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
+private[video] final case class VideoTiming(
+  effectiveSceneDuration: Double,
+  effectiveTrailing: Double,
+  effectiveFrameCount: Long
+)
+
+private[video] object VideoTiming {
+  def evaluate(
+    targetDuration: Double,
+    leadSilence: Double,
+    audioDuration: Double,
+    requestedTailSilence: Double,
+    fps: Int
+  ): VideoTiming = {
+    val effectivesceneduration = math.max(
+      targetDuration,
+      leadSilence + audioDuration + requestedTailSilence
+    )
+    val effectivetrailing = math.max(
+      requestedTailSilence,
+      math.max(targetDuration - leadSilence - audioDuration, 0.0)
+    )
+    val effectiveframecount = math.max(
+      1L,
+      math.round(effectivesceneduration * fps.toDouble)
+    )
+    VideoTiming(effectivesceneduration, effectivetrailing, effectiveframecount)
+  }
+}
+
 private[cozy] trait CozyVideoModel {
   self: CozyVideoTools with CozyVideoStoryboard =>
   final case class StoryboardReviewVisualStory(
@@ -501,7 +531,8 @@ private[cozy] trait CozyVideoModel {
     silent: Option[Boolean] = None,
     visual: Json = Json.obj(),
     section: Option[String] = None,
-    effects: Json = Json.obj()
+    effects: Json = Json.obj(),
+    tailSilence: Option[Double] = None
   ) {
     def durationSeconds: Double = duration.orElse(targetDuration).getOrElse(8.0)
     def expanded(index: Int): Vector[VideoScene] =
@@ -521,7 +552,8 @@ private[cozy] trait CozyVideoModel {
             silent = subscene.silent.orElse(silent),
             visual = if (subscene.visual.asObject.exists(_.nonEmpty)) subscene.visual else visual,
             section = subscene.section.orElse(section),
-            effects = if (subscene.effects.asObject.exists(_.nonEmpty)) subscene.effects else effects
+            effects = if (subscene.effects.asObject.exists(_.nonEmpty)) subscene.effects else effects,
+            tailSilence = subscene.tailSilence.orElse(tailSilence)
           )
         }
   }
@@ -536,12 +568,31 @@ private[cozy] trait CozyVideoModel {
         duration <- c.downField("duration").as[Option[Double]]
         targetduration <- c.downField("targetDuration").as[Option[Double]]
         leadsilence <- c.downField("leadSilence").as[Option[Double]]
+        tailsilence <- _decode_tail_silence(c)
         subscenes <- c.downField("subscenes").as[Option[Vector[VideoScene]]]
         silent <- c.downField("silent").as[Option[Boolean]]
         visual <- c.downField("visual").as[Option[Json]]
         section <- c.downField("section").as[Option[String]]
         effects <- c.downField("effects").as[Option[Json]]
-      } yield VideoScene(id, speaker, line, narration, caption, duration, targetduration, leadsilence, subscenes.getOrElse(Vector.empty), silent, visual.getOrElse(Json.obj()), section, effects.getOrElse(Json.obj()))
+      } yield VideoScene(id, speaker, line, narration, caption, duration, targetduration, leadsilence, subscenes.getOrElse(Vector.empty), silent, visual.getOrElse(Json.obj()), section, effects.getOrElse(Json.obj()), tailsilence)
+
+    private def _decode_tail_silence(c: HCursor): Decoder.Result[Option[Double]] =
+      c.downField("tailSilence").focus match {
+        case None => Right(None)
+        case Some(value) if value.isNull => Right(None)
+        case Some(value) =>
+          value.asNumber match {
+            case Some(number) => _validate_tail_silence(Some(number.toDouble), c)
+            case None => Left(io.circe.DecodingFailure(s"Invalid scene.tailSilence value: '$value'", c.history))
+          }
+      }
+
+    private def _validate_tail_silence(value: Option[Double], c: HCursor): Decoder.Result[Option[Double]] =
+      value match {
+        case Some(v) if v < 0 || !java.lang.Double.isFinite(v) =>
+          Left(io.circe.DecodingFailure(s"Invalid scene.tailSilence value: '$v'", c.history))
+        case _ => Right(value)
+      }
   }
 
   final case class VideoReplayViewport(width: Int, height: Int)

@@ -387,3 +387,43 @@ it leaves Storyboard narration, timing, transition, confirmation/final, and
 audiovisual review authority intact. It records no semantic, visual, or
 audiovisual acceptance decision and excludes SmartDox/Textus consumer work,
 renderer execution, publication, and deployment.
+
+## 14. Phase 61 legacy authoring compatibility boundary
+
+The legacy dialogue adapter remains separate from both Storyboard adapters.
+Phase 61 admits one legacy source-model field, `VideoScene.tailSilence`, without
+changing Storyboard v1/v2 strict schemas, canonical serialization, or identity.
+The field is an optional finite nonnegative request in seconds. Omission and
+legacy `null` retain no explicit request and mean semantic zero; child omission
+inherits a parent request, while explicit child `0` overrides it. The optional
+field is appended with a default so existing positional source construction
+remains compatible. Supplied negative or non-finite values fail the legacy
+decoder rather than being normalized or clamped.
+
+This source-model admission preserves the existing `duration`,
+`targetDuration`, and eight-second default precedence. It does not interpret
+the author request as a generated audio-manifest value. For the later timing
+owner, `T` is that established target, `L` is lead silence, `A` is actual
+normalized WAV duration, and `E` is authored requested tail silence:
+
+```text
+effectiveSceneDuration = max(T, L + A + E)
+effectiveTrailing = max(E, T - L - A, 0)
+```
+
+Existing generated audio-manifest `tailSilence` remains the effective output
+interval, not requested input. Synthesis, rendering, audio-manifest writing,
+evidence, and currentness behavior therefore remain outside this Slice.
+
+The same contract reserves
+`voiceTextNormalization.removeMiddleDots` as an optional false-default boolean
+for final provider speech only. Its future behavior is after existing whitespace
+normalization and the single-pass pronunciation dictionary, where it removes
+only U+30FB (`・`). It does not mutate narration, line, caption, headings, or
+any other source/display string; malformed nonboolean configuration fails
+before provider I/O. It neither changes dictionary pass count nor introduces
+general punctuation normalization.
+
+Storyboard/pipeline conversion and all actual speech or timing realization are
+Phase 61.1 work. This compatibility boundary leaves Storyboard v1/v2, generated
+audio-manifest interpretation, rendering, evidence, and currentness unchanged.

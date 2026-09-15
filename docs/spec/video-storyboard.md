@@ -538,3 +538,54 @@ work. It then compares the resulting VisualPageSet/catalog/binding and selected
 page identities against a current Visual Page presentation review. It neither
 changes the Storyboard contract, generates a video or a scene image, approves
 semantic/visual/audiovisual content, nor changes the existing video build gate.
+
+## 12. Phase 61 legacy dialogue authoring compatibility
+
+This Section defines only the legacy dialogue `script.json` authoring contract.
+It does not make a legacy script a Storyboard or alter either accepted
+Storyboard contract.
+
+### 12.1 Requested post-utterance silence
+
+Legacy `VideoScene.tailSilence` is an optional finite nonnegative JSON number
+of seconds. It is an authored requested post-utterance interval. Omission and
+legacy `null` mean that there is no explicit request and have the semantic
+default of zero. A nested child that omits `tailSilence` inherits its parent
+request; a child that explicitly supplies `0` overrides the inherited request.
+Malformed, negative, or non-finite supplied values MUST fail decoding and MUST
+NOT be silently coerced.
+
+The established legacy target selection is unchanged: explicit `duration`
+precedes `targetDuration`, which precedes the eight-second default. Appending
+the optional field to `VideoScene` preserves existing positional source calls.
+
+### 12.2 Speech-only middle-dot normalization contract
+
+`voiceTextNormalization.removeMiddleDots` is an optional boolean whose default
+is `false`. When enabled, it acts only on final provider speech after the
+existing whitespace normalization and the single-pass pronunciation dictionary.
+It removes only U+30FB (`・`). It MUST leave narration, line, caption,
+headings, and every other source or display string unchanged. A malformed or
+nonboolean configuration MUST fail before provider I/O. This contract does not
+add recursive dictionary processing or any broader punctuation normalization.
+
+### 12.3 Requested versus generated effective timing
+
+Let `T` be the established selected target duration, `L` the lead silence,
+`A` the actual normalized WAV duration, and `E` the authored requested
+`tailSilence`. The successor timing implementation MUST use exactly:
+
+```text
+effectiveSceneDuration = max(T, L + A + E)
+effectiveTrailing = max(E, T - L - A, 0)
+```
+
+The existing generated audio-manifest `tailSilence` remains the effective
+output interval, not the authored requested input. The equations describe a
+future timing implementation; this Slice does not alter synthesis, rendering,
+audio manifests, evidence, or currentness behavior.
+
+Storyboard v1 and v2 strict schemas, canonical serialization, and identity are
+unchanged. This Slice also does not change their historical generated audio
+manifests or any render, evidence, or currentness behavior. Storyboard and
+pipeline conversion that carries this legacy contract is Phase 61.1 work.

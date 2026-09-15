@@ -10,6 +10,7 @@ import java.net.URI
 import io.circe.Json
 import io.circe.parser
 import org.goldenport.context.FaultException
+import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 import cozy.CozySpecVocabulary
@@ -18,7 +19,7 @@ import cozy.CozySpecVocabulary
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
- * @version Aug. 19, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -109,6 +110,166 @@ final class CozyVideoSpec
           Then("decoding names the invalid field and value")
           result.left.toOption.get.getMessage should include(expected)
         }
+      }
+    }
+
+    "legacy tail-silence authoring" which {
+      "decode omitted, legacy null, and finite nonnegative requested values" in {
+        Given("legacy dialogue script JSON with omitted, null, zero, and positive tail requests")
+        val cases: Vector[(String, String, Option[Double])] = Vector(
+          ("omitted", """{"scenes":[{"id":"omitted","line":"Legacy"}]}""", None),
+          ("legacy null", """{"scenes":[{"id":"null","line":"Legacy","tailSilence":null}]}""", None),
+          ("zero", """{"scenes":[{"id":"zero","line":"Legacy","tailSilence":0.0}]}""", Some(0.0)),
+          ("positive", """{"scenes":[{"id":"positive","line":"Legacy","tailSilence":0.8}]}""", Some(0.8))
+        )
+
+        When("the legacy scripts are decoded and an older positional construction is used")
+        val decoded = cases.map { case (name, script, expectedtail) =>
+          (name, _decode_legacy_script(script).toOption.get, expectedtail)
+        }
+        val sourcecompatible = CozyVideo.VideoScene(
+          None,
+          None,
+          None,
+          None,
+          None,
+          None,
+          None,
+          None,
+          Vector.empty
+        )
+
+        Then("omission and null retain no explicit request while finite values are retained")
+        decoded.foreach { case (name, script, expectedtail) =>
+          withClue(name) {
+            script.scenes.head.tailSilence shouldBe expectedtail
+          }
+        }
+        sourcecompatible.tailSilence shouldBe None
+      }
+
+      "reject negative, non-finite, and wrongly typed requested values" in {
+        Given("legacy dialogue script JSON with invalid tail requests")
+        val negative = """{"scenes":[{"id":"negative","tailSilence":-0.1}]}"""
+        val nonfinite = """{"scenes":[{"id":"nonfinite","tailSilence":1e999}]}"""
+        val wrongtype = """{"scenes":[{"id":"wrong-type","tailSilence":"0.8"}]}"""
+
+        When("the scripts are decoded")
+        val negativeresult = _decode_legacy_script(negative)
+        val nonfiniteresult = _decode_legacy_script(nonfinite)
+        val wrongtyperesult = _decode_legacy_script(wrongtype)
+
+        Then("every supplied invalid request is rejected through decoding")
+        negativeresult.left.toOption.get.getMessage should include("Invalid scene.tailSilence value: '-0.1'")
+        nonfiniteresult.isLeft shouldBe true
+        wrongtyperesult.isLeft shouldBe true
+      }
+
+      "inherit an omitted child request while retaining an explicit child zero" in {
+        Given("a nested legacy dialogue script with a parent request and two child forms")
+        val script =
+          """{
+            |  "scenes": [
+            |    {
+            |      "id": "parent",
+            |      "tailSilence": 0.8,
+            |      "subscenes": [
+            |        {"id": "inherited", "line": "Inherited"},
+            |        {"id": "zero", "line": "Zero", "tailSilence": 0.0}
+            |      ]
+            |    }
+            |  ]
+            |}
+            |""".stripMargin
+
+        When("the legacy scene is expanded")
+        val expanded = _decode_legacy_script(script).toOption.get.expandedScenes
+
+        Then("omission inherits and explicit zero remains an override")
+        expanded.map(scene => scene.id -> scene.tailSilence) shouldBe Vector(
+          Some("parent.inherited") -> Some(0.8),
+          Some("parent.zero") -> Some(0.0)
+        )
+      }
+
+      "preserve duration, target-duration, and default duration precedence" in {
+        Given("legacy dialogue script JSON with each established duration selection")
+        val script =
+          """{
+            |  "scenes": [
+            |    {"id": "duration", "duration": 12.0, "targetDuration": 9.0},
+            |    {"id": "target", "targetDuration": 9.0},
+            |    {"id": "default"}
+            |  ]
+            |}
+            |""".stripMargin
+
+        When("the legacy script is decoded")
+        val scenes = _decode_legacy_script(script).toOption.get.scenes
+
+        Then("duration remains preferred over target duration, with the existing default")
+        scenes.map(_.durationSeconds) shouldBe Vector(12.0, 9.0, 8.0)
+      }
+    }
+
+    "pure timing contract" which {
+      "evaluate effective timing and frame quantization without pipeline access" in {
+        Given("finite nonnegative target, lead, audio, and requested-tail values with positive FPS")
+        val durations = Gen.chooseNum(0.0, 60.0)
+        val fpsvalues = Gen.oneOf(1, 12, 24, 30, 60)
+
+        When("the production timing evaluator is exercised with independently generated inputs")
+        val property = Prop.forAll(durations, durations, durations, durations, fpsvalues) {
+          (targetduration, leadsilence, audioduration, requestedtailsilence, fps) =>
+            val timing = VideoTiming.evaluate(
+              targetduration,
+              leadsilence,
+              audioduration,
+              requestedtailsilence,
+              fps
+            )
+            val expectedduration = math.max(
+              targetduration,
+              leadsilence + audioduration + requestedtailsilence
+            )
+            val expectedtrailing = math.max(
+              requestedtailsilence,
+              math.max(targetduration - leadsilence - audioduration, 0.0)
+            )
+            val expectedframes = math.max(1L, math.round(expectedduration * fps.toDouble))
+            timing.effectiveSceneDuration == expectedduration &&
+            timing.effectiveTrailing == expectedtrailing &&
+            timing.effectiveFrameCount == expectedframes &&
+            timing.effectiveSceneDuration >= targetduration &&
+            timing.effectiveSceneDuration ==
+              leadsilence + audioduration + timing.effectiveTrailing
+        }
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(60), property)
+        val zero = VideoTiming.evaluate(0.0, 0.0, 0.0, 0.0, 24)
+
+        Then("the exact target-floor, no-double-padding, and rounded positive-frame equations hold")
+        check.passed shouldBe true
+        check.succeeded should be >= 60
+        zero.effectiveSceneDuration shouldBe 0.0
+        zero.effectiveTrailing shouldBe 0.0
+        zero.effectiveFrameCount shouldBe 1L
+      }
+
+      "round-trip historical generated audio manifests without reinterpreting their effective tail" in {
+        Given("a historical generated audio-manifest entry with an effective tail and provider metadata")
+        val historical =
+          """[{"sceneId":"intro","speaker":"narrator","file":"01-intro.wav","leadSilence":0.2,"audioDuration":1.37,"targetDuration":2.0,"tailSilence":0.43,"provider":"voicevox","executionMode":"external-http","voiceIdentity":"voicevox-model:ずんだもん","voiceId":"3","modelIdentity":"voicevox-model","sampleRate":24000,"channels":1,"bitsPerSample":16}]"""
+
+        When("the production manifest decoder and CozyVideoNarration serializer process the historical value")
+        val decoded = parser.decode[Vector[CozyVideo.VideoAudioManifestEntry]](historical)
+        val serialized = decoded.map(entries => CozyVideoImplementation._manifest_json(entries))
+        val roundtripped = serialized.flatMap(json => parser.decode[Vector[CozyVideo.VideoAudioManifestEntry]](json.noSpaces))
+
+        Then("the effective tail and every existing generated field remain unchanged")
+        decoded.isRight shouldBe true
+        roundtripped shouldBe decoded
+        roundtripped.toOption.get.head.tailSilence shouldBe 0.43
+        roundtripped.toOption.get.head shouldBe decoded.toOption.get.head
       }
     }
 
@@ -5262,6 +5423,9 @@ final class CozyVideoSpec
 object CozyVideoSpec {
   private def _decode_renderer(configuration: String): Either[io.circe.Error, CozyVideo.VideoRenderer] =
     parser.decode[CozyVideo.VideoRenderer](configuration)(CozyVideo.VideoRenderer.decoder)
+
+  private def _decode_legacy_script(script: String): Either[io.circe.Error, CozyVideo.VideoScript] =
+    parser.decode[CozyVideo.VideoScript](script)(CozyVideo.VideoScript.decoder)
 
   final case class StubProvider(result: CozyVideo.VideoToolCheck)
       extends CozyVideo.VideoToolProvider {
