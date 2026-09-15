@@ -12,7 +12,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Jul. 20, 2026
- * @version Aug. 11, 2026
+ *  version Aug. 11, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoNarrationSpec
@@ -601,6 +602,128 @@ final class CozyVideoNarrationSpec
           Then("the unknown mode is rejected before audio output exists")
           error.getMessage should include_text("Invalid video tool mode: sidecar")
           Files.exists(output) shouldBe false
+        }
+      }
+    }
+
+    "apply speech-only middle-dot normalization" which {
+      "removes original and dictionary-produced middle dots after whitespace normalization without recursing" in {
+        Given("an enabled script whose one-pass pronunciation reading contains a middle dot and matches another dictionary key")
+        _with_script(
+          """{
+            |  "narration": {"provider": "voicevox"},
+            |  "voice": {"fallbackSpeakerId": 42},
+            |  "voiceTextNormalization": {"removeAsciiJapaneseSpaces": true, "removeMiddleDots": true},
+            |  "pronunciations": {
+            |    "P610Marker・Source": "P610Marker・Reading",
+            |    "P610Marker・Reading": "P610Marker・ShouldNotRecurse"
+            |  },
+            |  "scenes": [{
+            |    "id": "intro",
+            |    "duration": 0.2,
+            |    "line": "日本 P610Marker・Source!？・",
+            |    "caption": "表示・キャプション"
+            |  }]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val sourcebytes = Files.readAllBytes(script)
+          val client = RecordingVoicevoxClient()
+
+          When("Cozy synthesizes provider speech through the production narration path")
+          CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+            client
+          )
+          val providertext = client.calls.find(_.kind == "audio_query").flatMap(_.text)
+
+          Then("only final provider speech loses U+30FB after one pronunciation pass while source and display text remain authored")
+          providertext shouldBe Some("日本P610MarkerReading!？")
+          Files.readAllBytes(script).toVector shouldBe sourcebytes.toVector
+        }
+      }
+
+      "preserves middle dots when the option is omitted or false" in {
+        Vector(
+          "an omitted option" -> "",
+          "an explicit false option" -> ", \"voiceTextNormalization\": {\"removeMiddleDots\": false}"
+        ).foreach { case (condition, normalization) =>
+          Given(s"a VOICEVOX script with $condition")
+          _with_script(
+            s"""{
+              |  "narration": {"provider": "voicevox"},
+              |  "voice": {"fallbackSpeakerId": 42}$normalization,
+              |  "scenes": [{"id": "intro", "duration": 0.2, "line": "日本 Alpha・Beta!?、。"}]
+              |}""".stripMargin
+          ) { (script, output) =>
+            val client = RecordingVoicevoxClient()
+
+            When("Cozy synthesizes the existing Japanese and English provider input")
+            CozyVideo.synthesize(
+              CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+              client
+            )
+            val providertext = client.calls.find(_.kind == "audio_query").flatMap(_.text)
+
+            Then("the compatibility path preserves U+30FB and all existing punctuation")
+            providertext shouldBe Some("日本 Alpha・Beta!?、。")
+          }
+        }
+      }
+
+      "preserves the established whitespace and punctuation policy outside U+30FB" in {
+        Given("an enabled script that uses the existing Japanese and ASCII whitespace option")
+        _with_script(
+          """{
+            |  "narration": {"provider": "voicevox"},
+            |  "voice": {"fallbackSpeakerId": 42},
+            |  "voiceTextNormalization": {"removeAsciiJapaneseSpaces": true, "removeMiddleDots": true},
+            |  "scenes": [{"id": "intro", "duration": 0.2, "line": "日本 Alpha・Beta!?、。"}]
+            |}""".stripMargin
+        ) { (script, output) =>
+          val client = RecordingVoicevoxClient()
+
+          When("Cozy synthesizes final provider speech")
+          CozyVideo.synthesize(
+            CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+            client
+          )
+          val providertext = client.calls.find(_.kind == "audio_query").flatMap(_.text)
+
+          Then("the existing space removal still applies and only U+30FB is additionally removed")
+          providertext shouldBe Some("日本AlphaBeta!?、。")
+        }
+      }
+
+      "rejects null and nonboolean middle-dot settings before provider I/O" in {
+        Vector(
+          "a null value" -> "null",
+          "a string value" -> "\"true\"",
+          "a numeric value" -> "1",
+          "an object value" -> "{}"
+        ).foreach { case (condition, invalid) =>
+          Given(s"a VOICEVOX script with $condition for removeMiddleDots")
+          _with_script(
+            s"""{
+              |  "narration": {"provider": "voicevox"},
+              |  "voice": {"fallbackSpeakerId": 42},
+              |  "voiceTextNormalization": {"removeMiddleDots": $invalid},
+              |  "scenes": [{"id": "intro", "duration": 0.2, "line": "Alpha・Beta"}]
+              |}""".stripMargin
+          ) { (script, output) =>
+            val client = RecordingVoicevoxClient()
+
+            When("Cozy computes the speech text for synthesis")
+            val error = intercept[RuntimeException] {
+              CozyVideo.synthesize(
+                CozyVideo.SynthesizeConfig(script, output, Some("http://voicevox.example")),
+                client
+              )
+            }
+
+            Then("the structured invalid-argument diagnostic occurs before the recording provider is called")
+            error.getMessage should include_text("voiceTextNormalization.removeMiddleDots must be a boolean")
+            client.calls shouldBe empty
+          }
         }
       }
     }

@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Sep. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoNarration {
@@ -377,8 +377,20 @@ private[cozy] trait CozyVideoNarration {
       RAISE.invalidArgumentFault(s"Scene has no narration/line/caption text: ${scene.id.getOrElse("(no id)")}")
     )
     val normalized = _apply_voice_text_normalization(raw, script.voiceTextNormalization)
-    CozyVideoPronunciations.default.applyTo(normalized, script.pronunciations)
+    val pronounced = CozyVideoPronunciations.default.applyTo(normalized, script.pronunciations)
+    if (_remove_middle_dots_enabled(script.voiceTextNormalization))
+      pronounced.replace("\u30fb", "")
+    else
+      pronounced
   }
+
+  private[video] def _remove_middle_dots_enabled(options: Json): Boolean =
+    options.hcursor.downField("removeMiddleDots").focus match {
+      case None => false
+      case Some(value) => value.asBoolean.getOrElse(
+        RAISE.invalidArgumentFault("voiceTextNormalization.removeMiddleDots must be a boolean.")
+      )
+    }
 
   private[video] def _apply_voice_text_normalization(text: String, options: Json): String = {
     if (_json_boolean(options, "removeSpaces").getOrElse(false))

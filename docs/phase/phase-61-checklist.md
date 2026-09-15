@@ -7,7 +7,9 @@ Ledger for: [Phase 61](phase-61.md)
 Successor ledger: [Phase 61.1](phase-61.1-checklist.md)
 Repository-full validation: aggregate deferred to Phase 61.1
 
-P610-01 is CLOSED and P610-02 remains OPEN.
+P610-01 and P610-02 are CLOSED. Phase 61 remains IN_PROGRESS pending
+independent Step review and acceptance commit; Phase 61.1 remains successor-only
+and unstarted.
 Completion requires the linked artifacts and executable/observational
 evidence, not planning text.
 
@@ -37,14 +39,21 @@ implementation is claimed.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Cozy video implementation owner
 - Update rule: close from provider-input and source-preservation specification evidence
 
-- [ ] Enabled middle-dot policy removes U+30FB from original speech text and dictionary-generated readings without recursive substitution.
-- [ ] Displayed line/caption/headings and article/glossary spelling are unchanged.
-- [ ] Omitted/false settings preserve current Japanese/English behavior, other punctuation and existing whitespace policies.
-- [ ] Invalid settings produce structured diagnostics before provider I/O.
+- [x] Enabled middle-dot policy removes U+30FB from original speech text and dictionary-generated readings without recursive substitution.
+- [x] Displayed line/caption/headings and article/glossary spelling are unchanged.
+- [x] Omitted/false settings preserve current Japanese/English behavior, other punctuation and existing whitespace policies.
+- [x] Invalid settings produce structured diagnostics before provider I/O.
+
+Evidence: P610-02A executable specifications cover the four accepted
+requirements above. The focused receipt locator is
+`/tmp/skill.cncf.d/cncf-command-execution-8dec3747a7e495c348d9d9b291ee101fd48408136577fb6dd2a70e036fce7ecd-c15c11d13be1e8908d514915d4fbb40e/command-execution-sha256-747a04785fb599a7d5ab7b95563b090057f627a6db8607242a1162fbb51ee980`
+with digest
+`747a04785fb599a7d5ab7b95563b090057f627a6db8607242a1162fbb51ee980`.
+No Phase closure or successor implementation is claimed.
 
 ## Successor handoff
 

@@ -73,7 +73,7 @@ P610-01 promotes the admitted policies before code changes.
 | Step | Observable outcome | Status | Closure basis |
 | --- | --- | --- | --- |
 | P610-01 | Frozen speech/display, nested-scene and timing contracts with executable specifications | CLOSED | Focused review disposition `12b16f32735797b2737049ad0a3a0270c9246a48fc3326d6fbd5cc5bc311e4e8`; Checklist P610-01 |
-| P610-02 | Opt-in speech-only middle-dot policy, including dictionary-generated readings | OPEN | Checklist P610-02 |
+| P610-02 | Opt-in speech-only middle-dot policy, including dictionary-generated readings | CLOSED | P610-02A executable specification and receipt recorded in Checklist P610-02 |
 
 ## Acceptance and exclusions
 
@@ -89,10 +89,12 @@ Planning does not rebuild the current SimpleModeling.org video.
 
 ## Split handoff
 
-P610-01 is CLOSED and P610-02 remains OPEN. This Phase closes
-the contract and speech-policy boundary after P610-01/P610-02 Step closure and before [Phase 61.1](phase-61.1.md)
-implements the authored trailing-silence, pipeline and isolated-acceptance
-work. The final-only aggregate policy defers this Phase's repository-full SBT
+P610-01 and P610-02 are CLOSED. This Phase remains IN_PROGRESS pending
+independent Step review and acceptance commit, after which the closed
+contract and speech-policy boundary hands off to [Phase 61.1](phase-61.1.md)
+for the authored trailing-silence, pipeline and isolated-acceptance work.
+Phase 61.1 remains successor-only and unstarted. The final-only aggregate
+policy defers this Phase's repository-full SBT
 suite to Phase 61.1; focused validation, review, release and commit remain
 required here. A plan is not release or consumer-acceptance evidence.
 
