@@ -19,7 +19,7 @@ import cozy.CozySpecVocabulary
  * @since   Jun. 18, 2026
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
- * @version Sep. 15, 2026
+ * @version Sep. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -241,8 +241,10 @@ final class CozyVideoSpec
             timing.effectiveTrailing == expectedtrailing &&
             timing.effectiveFrameCount == expectedframes &&
             timing.effectiveSceneDuration >= targetduration &&
-            timing.effectiveSceneDuration ==
-              leadsilence + audioduration + timing.effectiveTrailing
+            math.abs(
+              timing.effectiveSceneDuration -
+                (leadsilence + audioduration + timing.effectiveTrailing)
+            ) <= 1e-12
         }
         val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(60), property)
         val zero = VideoTiming.evaluate(0.0, 0.0, 0.0, 0.0, 24)
@@ -2337,6 +2339,53 @@ final class CozyVideoSpec
         }
       }
 
+      "video render keeps requested legacy tail distinct from effective audio timing in character props" in {
+        _with_temp_dir("cozy-video-requested-effective-tail") { dir =>
+          Given("a character-dialogue script with an 0.8-second legacy request and a generated 1.8-second effective tail")
+          _write(
+            dir.resolve("dialogue/script.json"),
+            """{"characters":{"guide":{"side":"left"}},"scenes":[{"id":"tail-scene","speaker":"guide","line":"Keep the caption visible.","caption":"Keep the caption visible.","tailSilence":0.8}]}"""
+          )
+          _write_bytes(dir.resolve("build/audio/lecture/01-tail-scene.wav"), _wav_bytes(0.2))
+          val audiomanifest = dir.resolve("build/audio/lecture/manifest.json")
+          _write(
+            audiomanifest,
+            """[{"sceneId":"tail-scene","speaker":"guide","file":"01-tail-scene.wav","leadSilence":0.0,"audioDuration":0.2,"targetDuration":2.0,"tailSilence":1.8}]"""
+          )
+          _write(
+            dir.resolve("video_project.json"),
+            """{"renderer":{"engine":"remotion","fps":10,"width":100,"height":50},"parts":[{"id":"lecture","type":"dialogue","script":"dialogue/script.json"}]}"""
+          )
+
+          When("the Remotion workspace and part manifest are generated")
+          CozyVideo.render(
+            CozyVideo.RenderConfig(dir.resolve("video_project.json"), "remotion", toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            ProfileRenderRunner()
+          )
+          val workdir = dir.resolve("target/cozy-video/remotion/lecture")
+          val props = parser.parse(_read(workdir.resolve("props.json"))).toOption.get
+          val scene = props.hcursor.downField("scenes").downArray
+          val partmanifest = parser.parse(_read(dir.resolve("build/parts/lecture.manifest.json"))).toOption.get
+          val manifestsha256 = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(audiomanifest)).map("%02x".format(_)).mkString
+
+          Then("the generated effective tail controls one scene duration while the authored request remains separately inspectable")
+          scene.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.8)
+          scene.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(1.8)
+          scene.get[Int]("audioDurationFrames").toOption shouldBe Some(2)
+          scene.get[Int]("durationFrames").toOption shouldBe Some(20)
+          props.hcursor.downField("timing").get[Int]("contentFrames").toOption shouldBe Some(20)
+          props.hcursor.downField("timing").get[Int]("totalFrames").toOption shouldBe Some(20)
+          partmanifest.hcursor.downField("audioManifestSha256").as[String].toOption shouldBe Some(manifestsha256)
+
+          And("the character renderer uses actual audio frames for speech while preserving the full scene visual and caption surface")
+          _read(workdir.resolve("src/DialogueVideo.jsx")) should include("speechActive")
+          _read(workdir.resolve("src/DialogueVideo.jsx")) should include("durationFrames={scene.durationFrames}")
+          _read(workdir.resolve("src/DialogueVideo.jsx")) should include("speechStarted ? (")
+          _read(workdir.resolve("src/Root.tsx")) should include("scene.audioDurationFrames")
+        }
+      }
+
       "video render preserves validated declarative flow and axis diagrams for the character-dialogue renderer" in {
         _with_temp_dir("cozy-video-declarative-diagrams") { dir =>
           Given("a character-dialogue script with a flow scene and an axis scene")
@@ -2593,6 +2642,9 @@ final class CozyVideoSpec
           props.hcursor.downField("recordingPath").as[String].toOption shouldBe Some("recording/recording.webm")
           props.hcursor.downField("characters").downField("presenter-left").get[Int]("bottom").toOption shouldBe Some(132)
           props.hcursor.downField("characters").downField("presenter-left").get[Int]("inset").toOption shouldBe Some(24)
+          props.hcursor.downField("scenes").downArray.get[Int]("audioDurationFrames").toOption should not be empty
+          props.hcursor.downField("scenes").downArray.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.0)
+          props.hcursor.downField("scenes").downArray.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(0.0)
           Files.isRegularFile(workdir.resolve("public/recording/recording.webm")) shouldBe true
           Files.isRegularFile(workdir.resolve("public/characters/character-presenter-left-asset.png")) shouldBe true
           Files.isRegularFile(workdir.resolve("public/characters/character-presenter-left-mouthOpenAsset.png")) shouldBe true
@@ -2605,6 +2657,8 @@ final class CozyVideoSpec
           root should include("character?.maxHeight")
           root should include("character?.flipX")
           root should include("scene?.caption || scene?.line")
+          root should include("audioDurationFrames")
+          root should include("localFrame < (scene?.leadInFrames || 0) + audioDurationFrames")
 
           Given("no reviewed recording is available")
           Files.delete(dir.resolve("build/record/demonstration/reviewed.webm"))
@@ -2806,6 +2860,7 @@ final class CozyVideoSpec
           )) shouldBe true)
           ((manifest.contains("\"framePath\"")) shouldBe true)
           ((manifest.contains("\"audioCombinedPath\"")) shouldBe true)
+          ((manifest.contains("\"audioManifestSha256\"")) shouldBe true)
           ((manifest.contains("\"simpleJava2dWorkDir\"")) shouldBe true)
         }
       }
@@ -2972,6 +3027,11 @@ final class CozyVideoSpec
           ((framefailure.getMessage
             .contains("simple-java2d frame render failed")) shouldBe true)
 
+          Given("a prior successful part output before the encode attempt")
+          Files.createDirectories(dir.resolve("build/parts"))
+          Files.write(dir.resolve("build/parts/intro.mp4"), "previous-successful-output".getBytes(StandardCharsets.UTF_8))
+
+          When("the staged ffmpeg encode fails")
           val ffmpegfailure = intercept[Throwable] {
             CozyVideo.render(
               CozyVideo.RenderConfig(
@@ -2982,8 +3042,9 @@ final class CozyVideoSpec
               RenderingRunner(failTool = Some("ffmpeg"))
             )
           }
-          ((ffmpegfailure.getMessage
-            .contains("simple-java2d ffmpeg encode failed")) shouldBe true)
+          Then("the renderer reports the failure without replacing the previous part output")
+          ffmpegfailure.getMessage should include("simple-java2d ffmpeg encode failed")
+          Files.readString(dir.resolve("build/parts/intro.mp4"), StandardCharsets.UTF_8) shouldBe "previous-successful-output"
 
           val missingtool = intercept[Throwable] {
             CozyVideo.render(
@@ -3905,12 +3966,87 @@ final class CozyVideoSpec
           manifest.hcursor.downField("parts").downArray.downField("scenes").focus.flatMap(_.asArray).map(_.size) shouldBe Some(3)
           manifest.hcursor.downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("kind").toOption)) shouldBe Some(Vector(Some("opening"), Some("summary"), Some("final-page")))
           manifest.hcursor.downField("frames").downArray.get[String]("status").toOption shouldBe Some("validated")
-          manifest.hcursor.downField("parts").downArray.downField("scenes").downN(1).downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("kind").toOption)) shouldBe Some(Vector(Some("transition"), Some("speech")))
+          manifest.hcursor.downField("parts").downArray.downField("scenes").downN(1).downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("kind").toOption)) shouldBe Some(Vector(Some("transition"), Some("speech"), Some("tail")))
+          manifest.hcursor.downField("parts").downArray.downField("scenes").downArray.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(0.1)
+          manifest.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("requestedTailSilenceSeconds").focus shouldBe Some(Json.Null)
           manifest.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").downArray.get[String]("status").toOption shouldBe Some("validated")
           Files.isRegularFile(save.resolve("frames/part-001-scene-001-first-scene-speech.png")) shouldBe true
-          runner.commands.size shouldBe 7
+          Files.isRegularFile(save.resolve("frames/part-001-scene-001-first-scene-tail.png")) shouldBe true
+          runner.commands.size shouldBe 9
           runner.commands.foreach(command => command.args should contain("ffmpeg"))
           runner.commands.foreach(command => command.args should contain("-ss"))
+        }
+      }
+
+      "keeps requested and effective tail timing distinct while binding review evidence to current audio-manifest contents" in {
+        _with_temp_dir("cozy-video-review-evidence-tail-currentness-part-5") { dir =>
+          Given("a rendered part whose legacy requested tail differs from generated effective audio timing")
+          val project = dir.resolve("video_project.json")
+          val save = dir.resolve("review")
+          val audiomanifest = dir.resolve("build/audio/intro/manifest.json")
+          _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1, 2, 3, 4))
+          _write_review_video_manifest(dir.resolve("build/final.mp4"))
+          _write(
+            project,
+            """{
+              |  "output": "build/final.mp4",
+              |  "renderer": {"engine": "remotion", "fps": 10, "width": 100, "height": 50},
+              |  "parts": [{"id": "intro", "type": "dialogue", "script": "script.json"}]
+              |}
+              |""".stripMargin
+          )
+          _write(dir.resolve("script.json"), _script_json)
+          val audiocontents =
+            """[{"sceneId":"scene","speaker":"narrator","file":"01.wav","leadSilence":0.0,"audioDuration":0.2,"targetDuration":2.0,"tailSilence":1.8}]"""
+          _write(audiomanifest, audiocontents)
+          val audiohash = MessageDigest.getInstance("SHA-256").digest(audiocontents.getBytes(StandardCharsets.UTF_8)).map("%02x".format(_)).mkString
+          _write(
+            dir.resolve("target/cozy-video/remotion/intro/props.json"),
+            """{
+              |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
+              |  "timing": {"openingFrames": 0, "contentFrames": 20, "summaryStartFrame": 20, "summaryFrames": 0, "finalPageStartFrame": 20, "finalPageHoldFrames": 0, "totalFrames": 20},
+              |  "scenes": [{"id":"scene","startFrame":0,"durationFrames":20,"leadInFrames":0,"sectionTransitionFrames":0,"audioDurationFrames":2,"requestedTailSilenceSeconds":0.8,"effectiveTailSilenceSeconds":1.8,"effectiveTailSilenceFrames":18}]
+              |}
+              |""".stripMargin
+          )
+          _write(
+            dir.resolve("build/parts/intro.manifest.json"),
+            s"""{"audioManifestSha256":"$audiohash"}"""
+          )
+          val runner = ReviewEvidenceRunner()
+
+          When("Cozy writes review evidence from the effective generated audio-manifest tail")
+          CozyVideo.reviewEvidence(
+            CozyVideo.ReviewEvidenceConfig(project, save, toolMode = Some("host")),
+            CozyVideo.VideoToolRegistry(Vector.empty),
+            runner
+          )
+          val evidence = parser.parse(Files.readString(save.resolve("review-manifest.json"), StandardCharsets.UTF_8)).toOption.get
+
+          Then("the evidence records both tail meanings and extracts the deterministic in-tail frame")
+          evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.8)
+          evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(1.8)
+          evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").focus.flatMap(_.asArray).map(_.map(_.hcursor.get[String]("kind").toOption)) shouldBe Some(Vector(Some("speech"), Some("tail")))
+          evidence.hcursor.downField("parts").downArray.downField("scenes").downArray.downField("frames").downN(1).get[Int]("absoluteFrame").toOption shouldBe Some(2)
+          evidence.hcursor.downField("parts").downArray.downField("partManifest").get[String]("audioManifestSha256").toOption shouldBe Some(audiohash)
+          runner.commands.size shouldBe 2
+
+          And("the generated audio manifest changes after rendering")
+          _write(audiomanifest, audiocontents + "\n")
+          val stalerunner = ReviewEvidenceRunner()
+
+          When("Cozy attempts evidence generation with the stale part-manifest digest")
+          val stale = intercept[RuntimeException] {
+            CozyVideo.reviewEvidence(
+              CozyVideo.ReviewEvidenceConfig(project, dir.resolve("review-stale"), toolMode = Some("host")),
+              CozyVideo.VideoToolRegistry(Vector.empty),
+              stalerunner
+            )
+          }
+
+          Then("the stale artifact is rejected before frame extraction")
+          stale.getMessage should include("Part manifest audioManifestSha256 does not match")
+          stalerunner.commands shouldBe empty
         }
       }
 
@@ -4021,7 +4157,7 @@ final class CozyVideoSpec
           val savemount = s"${save.toAbsolutePath.normalize()}:/review-output:rw"
 
           Then("Docker mounts the exact final file read-only and the exact save directory read-write")
-          runner.commands should have size 7
+          runner.commands should have size 9
           runner.commands.foreach { command =>
             val bindmounts = command.args.sliding(2).collect {
               case Vector("-v", mount) => mount

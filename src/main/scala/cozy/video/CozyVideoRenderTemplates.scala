@@ -27,7 +27,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Sep. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -128,8 +129,10 @@ private[cozy] trait CozyVideoRenderTemplates {
       case (((scene, entry), file), transitionframes) =>
         val authoreddurationframes = math.max(1, math.round(_effective_render_duration(entry) * fps).toInt)
         val authoredleadframes = math.max(0, math.round(entry.leadSilence * fps).toInt)
+        val audiodurationframes = math.max(1, math.round(entry.audioDuration * fps).toInt)
         val durationframes = authoreddurationframes + transitionframes
         val leadinframes = authoredleadframes + transitionframes
+        val requestedtailsilence = scene.tailSilence.getOrElse(0.0)
         val stagedvisual = dialogueassets.visuals.getOrElse(scene.id.getOrElse(""), scene.visual)
         val json =
         Json.obj(
@@ -148,7 +151,11 @@ private[cozy] trait CozyVideoRenderTemplates {
           "durationFrames" -> Json.fromInt(durationframes),
           "leadInFrames" -> Json.fromInt(leadinframes),
           "sectionTransitionFrames" -> Json.fromInt(transitionframes),
-          "audioDuration" -> Json.fromDoubleOrNull(entry.audioDuration)
+          "audioDuration" -> Json.fromDoubleOrNull(entry.audioDuration),
+          "audioDurationFrames" -> Json.fromInt(audiodurationframes),
+          "requestedTailSilenceSeconds" -> Json.fromDoubleOrNull(requestedtailsilence),
+          "effectiveTailSilenceSeconds" -> Json.fromDoubleOrNull(entry.tailSilence),
+          "effectiveTailSilenceFrames" -> Json.fromInt(math.max(0, math.round(entry.tailSilence * fps).toInt))
         )
         startframe += durationframes
         json
@@ -581,7 +588,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |    {contentStart > 0 ? <Sequence from={0} durationInFrames={contentStart}><OpeningSurface /></Sequence> : null}
       |    <Sequence from={contentStart} durationInFrames={contentFrames}>
       |      <DialogueVideo characters={Object.fromEntries(Object.entries(props.characters || {}).map(([id, character]) => [id, Object.fromEntries(Object.entries(character).map(([key, value]) => (key === 'asset' || key === 'mouthClosedAsset' || key === 'mouthOpenAsset' || key.endsWith('Asset')) && typeof value === 'string' ? [key, staticFile(value)] : [key, value]))]))} sections={props.sections || []} scenes={(props.scenes || []).map((scene) => ({...scene, visual: scene.visual?.image ? {...scene.visual, image: staticFile(scene.visual.image)} : scene.visual}))} fps={props.fps} effectProfile={props.effectProfile} />
-      |      {(props.scenes || []).map((scene) => <Sequence key={`audio-${scene.id}`} from={Math.max(0, scene.startFrame + scene.leadInFrames)} durationInFrames={Math.max(1, scene.durationFrames - scene.leadInFrames)}><Audio src={staticFile(scene.audioPath)} /></Sequence>)}
+      |      {(props.scenes || []).map((scene) => <Sequence key={`audio-${scene.id}`} from={Math.max(0, scene.startFrame + scene.leadInFrames)} durationInFrames={Math.max(1, scene.audioDurationFrames || scene.durationFrames - scene.leadInFrames)}><Audio src={staticFile(scene.audioPath)} /></Sequence>)}
       |    </Sequence>
       |    {props.timing?.summaryFrames > 0 ? <Sequence from={props.timing.summaryStartFrame} durationInFrames={props.timing.summaryFrames}><AssetSurface role="summary" /></Sequence> : null}
       |    {props.timing?.creditPageHoldFrames > 0 && props.credits?.items?.length > 0 ? <Sequence from={props.timing.creditPageStartFrame} durationInFrames={props.timing.creditPageHoldFrames}><CreditPage credits={props.credits} /></Sequence> : null}
@@ -612,7 +619,8 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  const scene = (props.scenes || []).find((candidate) => frame >= candidate.startFrame && frame < candidate.startFrame + candidate.durationFrames) || props.scenes?.[0];
       |  const localFrame = Math.max(0, frame - (scene?.startFrame || 0));
       |  const character = scene?.speaker ? props.characters?.[scene.speaker] : null;
-      |  const mouthOpen = !scene?.silent && character?.mouthOpenAsset && character?.mouthClosedAsset && localFrame >= (scene?.leadInFrames || 0) && Math.floor(localFrame / 4) % 2 === 0;
+      |  const audioDurationFrames = Math.max(1, Number(scene?.audioDurationFrames || Math.round(Number(scene?.audioDuration || 0) * Number(props.fps || 1)) || ((scene?.durationFrames || 1) - (scene?.leadInFrames || 0))));
+      |  const mouthOpen = !scene?.silent && character?.mouthOpenAsset && character?.mouthClosedAsset && localFrame >= (scene?.leadInFrames || 0) && localFrame < (scene?.leadInFrames || 0) + audioDurationFrames && Math.floor(localFrame / 4) % 2 === 0;
       |  const source = mouthOpen ? character.mouthOpenAsset : (character?.mouthClosedAsset || character?.asset);
       |  const side = character?.side === 'right' ? 'right' : 'left';
       |  const width = numberOr(character?.width, 252);
@@ -623,7 +631,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |    {props.recordingPath ? <Video src={staticFile(props.recordingPath)} muted loop style={{position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain'}} /> : null}
       |    {source ? <Img src={staticFile(source)} style={{position: 'absolute', bottom, [side]: inset, width, maxHeight, objectFit: 'contain', transform: character?.flipX ? 'scaleX(-1)' : undefined, filter: character?.shadow?.color ? `drop-shadow(${character.shadow.x || 12}px ${character.shadow.y || 18}px ${character.shadow.blur || 0}px ${character.shadow.color})` : undefined}} /> : null}
       |    {scene?.caption || scene?.line ? <div style={{position: 'absolute', left: 72, right: 72, bottom: 18, minHeight: 110, display: 'flex', alignItems: 'center', background: 'rgba(16,18,22,.94)', color: '#fff', borderRadius: 10, padding: '18px 30px 18px 42px', boxSizing: 'border-box', fontSize: 30, fontWeight: 800, lineHeight: 1.34}}>{scene.caption || scene.line}</div> : null}
-      |    {(props.scenes || []).map((candidate) => <Sequence key={`audio-${candidate.id}`} from={Math.max(0, candidate.startFrame + candidate.leadInFrames)} durationInFrames={Math.max(1, candidate.durationFrames - candidate.leadInFrames)}><Audio src={staticFile(candidate.audioPath)} /></Sequence>)}
+      |    {(props.scenes || []).map((candidate) => <Sequence key={`audio-${candidate.id}`} from={Math.max(0, candidate.startFrame + candidate.leadInFrames)} durationInFrames={Math.max(1, candidate.audioDurationFrames || candidate.durationFrames - candidate.leadInFrames)}><Audio src={staticFile(candidate.audioPath)} /></Sequence>)}
       |  </AbsoluteFill>;
       |};
       |const WebDemoVideo = () => {

@@ -12,7 +12,8 @@ import io.circe.parser
 
 /*
  * @since   Jul. 18, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Sep. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoRemotionIntegrationSpec
@@ -115,6 +116,15 @@ final class CozyVideoRemotionIntegrationSpec
           creditholdseconds shouldBe 1.0
           finalprops.hcursor.downField("timing").get[Int]("creditPageHoldFrames").toOption.get shouldBe
             math.round(creditholdseconds * effectivefps).toInt
+          val timing = finalprops.hcursor.downField("timing")
+          val openingframes = timing.get[Int]("openingFrames").toOption.get
+          val contentframes = timing.get[Int]("contentFrames").toOption.get
+          val summarystart = timing.get[Int]("summaryStartFrame").toOption.get
+          val summaryframes = timing.get[Int]("summaryFrames").toOption.get
+          val creditframes = timing.get[Int]("creditPageHoldFrames").toOption.get
+          val finalframes = timing.get[Int]("finalPageHoldFrames").toOption.get
+          val summarystandaloneframes = if (summarystart == openingframes + contentframes) summaryframes else 0
+          timing.get[Int]("totalFrames").toOption shouldBe Some(openingframes + contentframes + summarystandaloneframes + creditframes + finalframes)
           finalprops.hcursor.downField("credits").downField("items").as[Vector[io.circe.Json]].toOption.get should have size 1
         }
       }
@@ -251,7 +261,7 @@ final class CozyVideoRemotionIntegrationSpec
         math.abs(lightweightduration - standardduration) should be <= 0.25
         lightweightsize.toDouble should be <= standardsize.toDouble * 0.91
 
-        And("each retained Remotion props artifact preserves the caption and declarative diagram input")
+        And("each retained Remotion props artifact preserves the caption, declarative diagram, and distinct tail timing fields")
         packages.foreach { case (_, pkg) =>
           val props = _json(pkg.resolve("target/cozy-video/remotion/dialogue/props.json"))
           props.hcursor.downField("scenes").downArray.get[String]("caption").toOption shouldBe
@@ -259,6 +269,8 @@ final class CozyVideoRemotionIntegrationSpec
           props.hcursor.downField("scenes").downArray.downField("visual").get[String]("kind").toOption shouldBe Some("diagram")
           props.hcursor.downField("scenes").downArray.downField("visual").downField("diagram").get[String]("layout").toOption shouldBe Some("flow")
           props.hcursor.downField("scenes").downArray.downField("visual").downField("diagram").downField("nodes").downArray.get[String]("label").toOption shouldBe Some("Source")
+          props.hcursor.downField("scenes").downArray.get[Double]("requestedTailSilenceSeconds").toOption shouldBe Some(0.0)
+          props.hcursor.downField("scenes").downArray.get[Double]("effectiveTailSilenceSeconds").toOption shouldBe Some(0.0)
         }
       }
     }

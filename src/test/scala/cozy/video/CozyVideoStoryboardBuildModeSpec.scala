@@ -12,7 +12,8 @@ import scala.collection.mutable.ArrayBuffer
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Sep. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardBuildModeSpec
@@ -49,6 +50,30 @@ final class CozyVideoStoryboardBuildModeSpec
         legacy should include("Cozy Video Build")
         Files.isRegularFile(legacyroot.resolve("build/final.mp4")) shouldBe true
       }
+    }
+
+    "preserve Storyboard v1 and v2 identity while leaving generated legacy VideoScene tail silence unset" in {
+      Given("typed v1 and v2 Storyboards whose scene timing is converted for the legacy video renderer")
+      val v1 = _storyboard()
+      val v2 = v1.copy(schema = "cozy.video.storyboard.v2", version = 2)
+      val v1identity = CozyVideo.storyboardIdentity(v1)
+      val v2identity = CozyVideo.storyboardIdentity(v2)
+
+      When("the Storyboard scenes are projected into VideoScene values")
+      val v1scene = CozyVideoImplementation._storyboard_video_scene(v1.scenes.head)
+      val v2scene = CozyVideoImplementation._storyboard_video_scene(v2.scenes.head)
+
+      Then("the source Storyboard schemas and identities remain unchanged, and effective tail timing is not invented in their legacy schema")
+      v1.schema shouldBe "cozy.video.storyboard.v1"
+      v1.version shouldBe 1
+      v2.schema shouldBe "cozy.video.storyboard.v2"
+      v2.version shouldBe 2
+      CozyVideo.storyboardIdentity(v1) shouldBe v1identity
+      CozyVideo.storyboardIdentity(v2) shouldBe v2identity
+      v1scene.tailSilence shouldBe None
+      v2scene.tailSilence shouldBe None
+      v1scene.duration shouldBe Some(v1.scenes.head.duration.toDouble)
+      v2scene.duration shouldBe Some(v2.scenes.head.duration.toDouble)
     }
 
     "write a generated handoff and separate confirmation records from an approved Markdown Storyboard" in {

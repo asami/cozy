@@ -27,7 +27,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep. 16, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderWorkspace {
@@ -87,13 +88,14 @@ private[cozy] trait CozyVideoRenderWorkspace {
       val audio = _load_simple_java2d_input(part.id, audiodir, part, script)
       val workdir = _simple_java2d_work_dir(plan.projectRoot, part.id)
       val frame = workdir.resolve("frame.png")
+      val stagedoutput = _simple_java2d_staged_output(workdir)
       _write_simple_java2d_workspace(plan, part, script, audio, workdir)
       _run_simple_java2d_frame(plan.projectRoot, plan.execution, part, workdir, runner)
       if (!Files.isRegularFile(frame))
         RAISE.invalidArgumentFault(s"simple-java2d frame render did not create frame: $frame")
-      _run_simple_java2d_ffmpeg(plan.projectRoot, plan.execution, part, frame, audio.combinedFile, runner)
-      if (!Files.isRegularFile(part.outputPath))
-        RAISE.invalidArgumentFault(s"simple-java2d ffmpeg encode did not create output: ${part.outputPath}")
+      Files.deleteIfExists(stagedoutput)
+      _run_simple_java2d_ffmpeg(plan.projectRoot, plan.execution, part, frame, audio.combinedFile, stagedoutput, runner)
+      _replace_rendered_output(stagedoutput, part.outputPath, "simple-java2d")
       _write_part_manifest(
         plan,
         part,
@@ -164,6 +166,9 @@ private[cozy] trait CozyVideoRenderWorkspace {
 
   private[video] def _simple_java2d_work_dir(projectroot: Path, partid: String): Path =
     projectroot.resolve("target/cozy-video/simple-java2d").resolve(_file_segment_id(partid, "part id")).normalize()
+
+  private[video] def _simple_java2d_staged_output(workdir: Path): Path =
+    workdir.resolve("rendered.mp4")
 
   private[video] def _write_remotion_workspace(
     plan: VideoPlan,
@@ -505,9 +510,10 @@ private[cozy] trait CozyVideoRenderWorkspace {
     part: VideoPartPlan,
     frame: Path,
     audiofile: Path,
+    outputpath: Path,
     runner: VideoProcessRunner
   ): Unit = {
-    Files.createDirectories(part.outputPath.getParent)
+    Files.createDirectories(outputpath.getParent)
     val baseargs = Vector(
       "-y",
       "-loop",
@@ -525,7 +531,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "-shortest",
       "-pix_fmt",
       "yuv420p",
-      part.outputPath.toString
+      outputpath.toString
     )
     val args =
       execution.toolMode match {
@@ -549,6 +555,15 @@ private[cozy] trait CozyVideoRenderWorkspace {
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"simple-java2d ffmpeg encode failed for part ${part.id}: ${result.stderr.trim}")
+  }
+
+  private[video] def _replace_rendered_output(stagedoutput: Path, outputpath: Path, renderer: String): Unit = {
+    if (!Files.isRegularFile(stagedoutput))
+      RAISE.invalidArgumentFault(s"$renderer render did not create staged output: $stagedoutput")
+    Files.createDirectories(outputpath.getParent)
+    Files.move(stagedoutput, outputpath, StandardCopyOption.REPLACE_EXISTING)
+    if (!Files.isRegularFile(outputpath))
+      RAISE.invalidArgumentFault(s"$renderer render did not replace output: $outputpath")
   }
 
   private[video] def _run_remotion(
@@ -605,6 +620,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "renderer" -> Json.fromString(renderer),
       "scriptPath" -> Json.fromString(part.scriptPath.map(_.toString).getOrElse("")),
       "audioManifestPath" -> Json.fromString(audio.manifestPath.toString),
+      "audioManifestSha256" -> Json.fromString(_sha256(audio.manifestPath)),
       "outputPath" -> Json.fromString(part.outputPath.toString),
       "sceneCount" -> Json.fromInt(part.script.map(_.expandedScenes.size).getOrElse(0)),
       "estimatedDuration" -> Json.fromDoubleOrNull(part.estimatedDuration.getOrElse(0.0)),
