@@ -38,19 +38,26 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy
-- Update rule: Mark DONE only after Cozy's implementation and focused
-  executable specifications accept valid multi-CML evidence and reject every
-  admitted invalid boundary.
+- Update rule: Reopen before changing the accepted aggregate/rebind contract,
+  V1 compatibility behavior, or the represented executable-specification
+  boundary.
+- Current implementation evidence: `GenerationProvenance` publishes validated atomic V2
+  aggregate evidence, preserves V1 direct and legacy one-input behavior, and
+  validates V1 or V2 at package admission. The focused
+  `Phase63McmlGenerationProvenanceSpec` represents accepted two-source and
+  one-source behavior plus all frozen invalid-input diagnostics. Fresh
+  representative and accumulator SBT receipts, and the clean focused re-review
+  are accepted.
 
-- [ ] Implement the accepted aggregate/rebind operation in Cozy.
-- [ ] Add focused executable specifications for two distinct CML sources and a
+- [x] Implement the accepted aggregate/rebind operation in Cozy.
+- [x] Add focused executable specifications for two distinct CML sources and a
       deterministic project-level result.
-- [ ] Add focused executable specifications for source omission, duplicate or
+- [x] Add focused executable specifications for source omission, duplicate or
       ambiguous source identity, stale evidence, malformed evidence and output
       path conflicts.
-- [ ] Preserve accepted one-CML behavior.
+- [x] Preserve accepted one-CML behavior.
 
 ## Phase closure evidence
 

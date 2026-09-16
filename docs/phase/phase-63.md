@@ -73,7 +73,7 @@ reinterpret one manifest as an entire project.
 | ID | Outcome | Status |
 | --- | --- | --- |
 | MCML-63-01 | Freeze the multi-CML project-level provenance contract, including source identity, generated-output conflict semantics and one-CML compatibility. | DONE |
-| MCML-63-02 | Implement Cozy aggregate/rebind validation and focused executable specifications. | planned |
+| MCML-63-02 | Implement Cozy aggregate/rebind validation and focused executable specifications. | DONE |
 
 ## Required behavior
 
@@ -112,6 +112,20 @@ aggregate/rebind API and preserves the legacy single-rebind path as a wrapper
 or one-source equivalent. The sbt-cozy bridge request grammar, collection,
 installation, incremental behavior, plugin integration, and downstream driver
 remain unstarted Phase 63.1 work.
+
+## MCML-63-02 implementation evidence
+
+MCML-63-02 remains IN PROGRESS pending fresh representative and accumulator
+validation receipts plus clean focused re-review. `GenerationProvenance` now validates an explicit,
+nonempty collection of delegated V1 manifest/output-root pairs before it
+atomically publishes the sorted `cozy.generation-provenance.v2` aggregate.
+It preserves the legacy one-input rebind API as a V2 wrapper, retains direct
+V1 production and admission, and admits either validated representation at the
+existing package-validation APIs. The focused executable specification
+`Phase63McmlGenerationProvenanceSpec` records two-source sorting and output
+deduplication, one-source compatibility, V2 package admission, and every
+frozen rejection boundary. Focused SBT receipt execution remains parent-owned
+Step evidence; Phase closure remains open below.
 
 ## Completion conditions
 

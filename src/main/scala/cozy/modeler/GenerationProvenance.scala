@@ -15,6 +15,7 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
  */
 private[cozy] object GenerationProvenance {
   val SCHEMA_VERSION = "cozy.generation-provenance.v1"
+  val AGGREGATE_SCHEMA_VERSION = "cozy.generation-provenance.v2"
   val METADATA_PATH = "target/cozy/generation-provenance.json"
 
   final case class Inputs(
@@ -45,12 +46,29 @@ private[cozy] object GenerationProvenance {
     sha256: String
   )
 
+  trait ValidatedManifest {
+    def schemaVersion: String
+    def toJson: JsObject
+    def toJsonString: String
+  }
+
+  type DelegatedInput = GenerationProvenanceAggregate.DelegatedInput
+  val DelegatedInput = GenerationProvenanceAggregate.DelegatedInput
+
+  type AggregateInputs = GenerationProvenanceAggregate.AggregateInputs
+  val AggregateInputs = GenerationProvenanceAggregate.AggregateInputs
+
+  type AggregateSource = GenerationProvenanceAggregate.AggregateSource
+  val AggregateSource = GenerationProvenanceAggregate.AggregateSource
+
   final case class Manifest(
     inputs: Inputs,
     artifacts: Vector[Artifact],
     generatedOutputDigest: String,
     evidenceDigest: String
-  ) {
+  ) extends ValidatedManifest {
+    val schemaVersion = SCHEMA_VERSION
+
     def toJson: JsObject =
       _payload_json(inputs, artifacts, generatedOutputDigest) ++
         Json.obj("evidenceDigest" -> evidenceDigest)
@@ -58,6 +76,9 @@ private[cozy] object GenerationProvenance {
     def toJsonString: String =
       Json.prettyPrint(toJson) + "\n"
   }
+
+  type AggregateManifest = GenerationProvenanceAggregate.AggregateManifest
+  val AggregateManifest = GenerationProvenanceAggregate.AggregateManifest
 
   sealed trait DiagnosticCode {
     def name: String
@@ -83,6 +104,12 @@ private[cozy] object GenerationProvenance {
     }
     case object EvidenceTampered extends DiagnosticCode {
       val name = "GENERATION_PROVENANCE_EVIDENCE_TAMPERED"
+    }
+    case object SourceAmbiguous extends DiagnosticCode {
+      val name = "GENERATION_PROVENANCE_SOURCE_AMBIGUOUS"
+    }
+    case object OutputConflict extends DiagnosticCode {
+      val name = "GENERATION_PROVENANCE_OUTPUT_CONFLICT"
     }
   }
 
@@ -334,7 +361,7 @@ private[cozy] object GenerationProvenance {
     val provenance = provenancepath.toAbsolutePath.normalize()
     val root = outputroot.toAbsolutePath.normalize()
     val source = sourcepath.toAbsolutePath.normalize()
-    if (!Files.isRegularFile(provenance))
+    if (!Files.isRegularFile(provenance) || !Files.isReadable(provenance))
       Left(Vector(_diagnostic(
         DiagnosticCode.ProvenanceMissing,
         provenance.toString,
@@ -344,21 +371,39 @@ private[cozy] object GenerationProvenance {
         "Regenerate the output with the selected Cozy generator."
       )))
     else
-      for {
-        manifest <- _read_manifest(provenance)
-        expected <- _normalize_inputs(expectedinputs)
-        sourcesha <- _source_sha256(source, manifest.inputs.sourceIdentity)
-        artifacts <- _scala_artifacts(root, excludedoutputroots)
-        validated <- _validate_manifest(
-          manifest,
-          expected,
-          sourcesha,
-          artifacts,
+      _read_manifest(provenance).flatMap(
+        _validate_v1_manifest(
+          _,
+          root,
+          source,
+          expectedinputs,
           provenance,
-          root
+          excludedoutputroots
         )
-      } yield validated
+      )
   }
+
+  private def _validate_v1_manifest(
+    manifest: Manifest,
+    outputroot: Path,
+    sourcepath: Path,
+    expectedinputs: Inputs,
+    provenancepath: Path,
+    excludedoutputroots: Vector[Path]
+  ): Either[Vector[Diagnostic], Manifest] =
+    for {
+      expected <- _normalize_inputs(expectedinputs)
+      sourcesha <- _source_sha256(sourcepath, manifest.inputs.sourceIdentity)
+      artifacts <- _scala_artifacts(outputroot, excludedoutputroots)
+      validated <- _validate_manifest(
+        manifest,
+        expected,
+        sourcesha,
+        artifacts,
+        provenancepath,
+        outputroot
+      )
+    } yield validated
 
   def requireValidGeneratedOutput(
     outputRoot: Path,
@@ -379,55 +424,97 @@ private[cozy] object GenerationProvenance {
     projectRoot: Path,
     expectedCncfTargetVersion: Option[String],
     expectedCozyGeneratorVersion: Option[String]
-  ): Manifest = {
+  ): ValidatedManifest = {
     val provenance = provenancePath.toAbsolutePath.normalize()
     val root = projectRoot.toAbsolutePath.normalize()
-    val manifest =
-      if (Files.isRegularFile(provenance))
-        _read_manifest(provenance).fold(_raise, identity)
-      else
-        _raise(Vector(_diagnostic(
-          DiagnosticCode.ProvenanceMissing,
-          provenance.toString,
-          "a readable generation provenance document",
-          "missing",
-          "Generation provenance does not exist.",
-          "Regenerate the output with the selected Cozy generator."
-        )))
-    val expected = manifest.inputs.copy(
-      cncfTargetVersion =
-        expectedCncfTargetVersion.getOrElse(manifest.inputs.cncfTargetVersion),
-      cozyGeneratorVersion =
-        expectedCozyGeneratorVersion.getOrElse(manifest.inputs.cozyGeneratorVersion)
-    )
-    val source = root.resolve(manifest.inputs.sourceIdentity).normalize()
-    validate(provenance, root, source, expected).fold(_raise, identity)
+    GenerationProvenanceAggregate.readIfAggregate(provenance).fold(_raise, identity) match {
+      case Some(v2) =>
+        GenerationProvenanceAggregate.validateForPackaging(
+          v2,
+          root,
+          expectedCncfTargetVersion,
+          expectedCozyGeneratorVersion,
+          provenance
+        )
+      case None =>
+        val v1 =
+          if (Files.isRegularFile(provenance))
+            _read_manifest(provenance).fold(_raise, identity)
+          else
+            _raise(Vector(_diagnostic(
+              DiagnosticCode.ProvenanceMissing,
+              provenance.toString,
+              "a readable generation provenance document",
+              "missing",
+              "Generation provenance does not exist.",
+              "Regenerate the output with the selected Cozy generator."
+            )))
+        val expected = v1.inputs.copy(
+          cncfTargetVersion =
+            expectedCncfTargetVersion.getOrElse(v1.inputs.cncfTargetVersion),
+          cozyGeneratorVersion =
+            expectedCozyGeneratorVersion.getOrElse(v1.inputs.cozyGeneratorVersion)
+        )
+        val source = root.resolve(v1.inputs.sourceIdentity).normalize()
+        _validate_v1_manifest(
+          v1,
+          root,
+          source,
+          expected,
+          provenance,
+          Vector.empty
+        ).fold(_raise, identity)
+    }
   }
 
   def requireValidPackagedEvidence(
     provenancePath: Path,
     expectedCncfTargetVersion: String,
     expectedCozyGeneratorVersion: String
-  ): Manifest = {
+  ): ValidatedManifest = {
     val provenance = provenancePath.toAbsolutePath.normalize()
-    val manifest =
-      if (Files.isRegularFile(provenance))
-        _read_manifest(provenance).fold(_raise, identity)
-      else
-        _raise(Vector(_diagnostic(
-          DiagnosticCode.ProvenanceMissing,
-          provenance.toString,
-          "a packaged generation provenance document",
-          "missing",
-          "Packaged generation provenance does not exist.",
-          "Rebuild the release CAR with the selected Cozy generator."
-        )))
+    GenerationProvenanceAggregate.readIfAggregate(provenance).fold(_raise, identity) match {
+      case Some(v2) =>
+        GenerationProvenanceAggregate.validatePackagedEvidence(
+          provenance,
+          v2,
+          expectedCncfTargetVersion,
+          expectedCozyGeneratorVersion
+        )
+      case None =>
+        val v1 =
+          if (Files.isRegularFile(provenance))
+            _read_manifest(provenance).fold(_raise, identity)
+          else
+            _raise(Vector(_diagnostic(
+              DiagnosticCode.ProvenanceMissing,
+              provenance.toString,
+              "a packaged generation provenance document",
+              "missing",
+              "Packaged generation provenance does not exist.",
+              "Rebuild the release CAR with the selected Cozy generator."
+            )))
+        _require_valid_packaged_v1(
+          provenance,
+          v1,
+          expectedCncfTargetVersion,
+          expectedCozyGeneratorVersion
+        )
+    }
+  }
+
+  private def _require_valid_packaged_v1(
+    provenance: Path,
+    manifest: Manifest,
+    expectedcncftargetversion: String,
+    expectedcozygeneratorversion: String
+  ): Manifest = {
     val normalizedinputs = _normalize_inputs(manifest.inputs).fold(_raise, identity)
     val inputdiagnostics = _input_diagnostics(
       normalizedinputs,
       normalizedinputs.copy(
-        cncfTargetVersion = expectedCncfTargetVersion,
-        cozyGeneratorVersion = expectedCozyGeneratorVersion
+        cncfTargetVersion = expectedcncftargetversion,
+        cozyGeneratorVersion = expectedcozygeneratorversion
       )
     )
     val artifactdiagnostics = {
@@ -521,35 +608,17 @@ private[cozy] object GenerationProvenance {
     delegatedProvenancePath: Path,
     delegatedOutputRoot: Path,
     projectRoot: Path
-  ): Manifest = {
-    val delegatedprovenance = delegatedProvenancePath.toAbsolutePath.normalize()
-    val delegatedroot = delegatedOutputRoot.toAbsolutePath.normalize()
-    val projectroot = projectRoot.toAbsolutePath.normalize()
-    val parsedmanifest = _read_manifest(delegatedprovenance).fold(_raise, identity)
-    val source = projectroot.resolve(parsedmanifest.inputs.sourceIdentity).normalize()
-    val manifest = validate(
-      delegatedprovenance,
-      delegatedroot,
-      source,
-      parsedmanifest.inputs
-    ).fold(_raise, identity)
-    val snapshot = requireSourceSnapshot(source, manifest.inputs.sourceIdentity)
-    if (snapshot.sha256 != manifest.inputs.sourceSha256)
-      _raise(Vector(_diagnostic(
-        DiagnosticCode.SourceTampered,
-        manifest.inputs.sourceIdentity,
-        manifest.inputs.sourceSha256,
-        snapshot.sha256,
-        "The owning project CML source no longer matches delegated generation provenance.",
-        "Restore the source or rerun delegated generation from one stable revision."
-      )))
-    _write(
-      projectroot,
-      snapshot,
-      manifest.inputs,
-      Vector(delegatedroot)
+  ): AggregateManifest =
+    GenerationProvenanceAggregate.aggregateForPackaging(
+      Vector(DelegatedInput(delegatedProvenancePath, delegatedOutputRoot)),
+      projectRoot
     )
-  }
+
+  def aggregateForPackaging(
+    delegatedInputs: Vector[DelegatedInput],
+    projectRoot: Path
+  ): AggregateManifest =
+    GenerationProvenanceAggregate.aggregateForPackaging(delegatedInputs, projectRoot)
 
   private def _normalize_inputs(inputs: Inputs): Either[Vector[Diagnostic], Inputs] = {
     val sourceidentity = stableSourceIdentity(inputs.sourceIdentity)
@@ -680,6 +749,11 @@ private[cozy] object GenerationProvenance {
           "Restore or regenerate the provenance document."
         )))
     }
+
+  private[modeler] def _read_v1_for_aggregate(
+    path: Path
+  ): Either[Vector[Diagnostic], Manifest] =
+    _read_manifest(path)
 
   private def _parse_manifest(
     json: JsValue,
