@@ -1,11 +1,11 @@
 # Phase 63 - Multi-CML Provenance Contract and Cozy Aggregation
 
-status=in-progress
+status=closed
 split_full_test_policy=each-phase
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
 
-Status: in-progress
+Status: closed
 Planned at: 2026-09-16
 Development item: DEV-031
 Primary owner: Cozy
@@ -115,8 +115,10 @@ remain unstarted Phase 63.1 work.
 
 ## MCML-63-02 implementation evidence
 
-MCML-63-02 remains IN PROGRESS pending fresh representative and accumulator
-validation receipts plus clean focused re-review. `GenerationProvenance` now validates an explicit,
+MCML-63-02 is DONE with accepted fresh representative V2 receipt
+`P63-MCML-63-02-VAL-009`, V1 accumulator receipt `P63-MCML-63-02-VAL-010`,
+and clean focused re-review `P63-MCML-63-02-FOCUSED-REREVIEW-001`.
+`GenerationProvenance` now validates an explicit,
 nonempty collection of delegated V1 manifest/output-root pairs before it
 atomically publishes the sorted `cozy.generation-provenance.v2` aggregate.
 It preserves the legacy one-input rebind API as a V2 wrapper, retains direct
@@ -125,7 +127,11 @@ existing package-validation APIs. The focused executable specification
 `Phase63McmlGenerationProvenanceSpec` records two-source sorting and output
 deduplication, one-source compatibility, V2 package admission, and every
 frozen rejection boundary. Focused SBT receipt execution remains parent-owned
-Step evidence; Phase closure remains open below.
+Step evidence. Phase closure is supported by independent full review
+`P63-FULL-REVIEW-001` (disposition
+`323b7c5d29146473dbf71a6c24b8e2c616ef13ef4b31ff3d1d696119b4ddddae`)
+and repository-full SBT receipt `P63-FULL-VALIDATION-001`
+(`593d37205c74c26372213bd48a59abe8563635e584cc8dd204900028f8f9d926`).
 
 ## Completion conditions
 
@@ -138,6 +144,14 @@ Step evidence; Phase closure remains open below.
   `each-phase` policy.
 - The committed handoff names the exact aggregate/rebind contract and receipts
   that Phase 63.1 may consume without reopening the contract.
+
+All completion conditions are satisfied by the accepted MCML-63-01 commit
+`2322c9057470cf339fa9028a37a4fcf9094d54a8`, MCML-63-02 commit
+`ba0912e1335c0b5c788b66b53fa052c6d6392ca6`, their focused receipts and
+independent review, the sealed Phase full-review disposition, and the
+repository-full SBT receipt above. `HYG-P63-001` is retained as nonblocking
+Phase-owned documentation follow-up; it changes neither contract nor test
+result. Phase 63.1 remains planned and unstarted.
 
 ## Non-goals
 

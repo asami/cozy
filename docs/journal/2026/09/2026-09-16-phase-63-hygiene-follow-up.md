@@ -1,0 +1,3 @@
+# Phase 63 Hygiene Follow-Up
+
+HYG-P63-001 | Documentation synchronization | DEV-031 journal Required outcome and Cozy acceptance-driver summary omit the malformed delegated-evidence rejection case that Phase 63 and its checklist explicitly admit. Align those historical planning bullets with the Phase 63 authority by naming malformed evidence explicitly while retaining the journal adoption history and successor ownership. Owner: Cozy Phase-63 documentation authority. Nonblocking because the authoritative Phase 63 purpose, required behavior, checklist, and completion conditions already include malformed evidence; no implementation or validation result is changed.

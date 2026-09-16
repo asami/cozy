@@ -1,6 +1,6 @@
 # Phase 63 Checklist: Multi-CML Provenance Contract and Cozy Aggregation
 
-Phase status: in-progress
+Phase status: closed
 Updated: 2026-09-16
 Ledger for: [Phase 63](phase-63.md)
 Successor: [Phase 63.1](phase-63.1.md)
@@ -61,9 +61,17 @@ Stage Status:
 
 ## Phase closure evidence
 
-- [ ] MCML-63-01 and MCML-63-02 have accepted Step commits, focused validation
-      and independent review evidence.
-- [ ] The Cozy repository-full SBT suite passes on this Phase's frozen release
-      tree under `split_full_test_policy=each-phase`.
-- [ ] The committed Phase 63.1 handoff records the exact accepted contract and
-      aggregate/rebind receipts without claiming bridge or downstream closure.
+- [x] MCML-63-01 and MCML-63-02 have accepted Step commits, focused validation
+      and independent review evidence: `2322c9057470cf339fa9028a37a4fcf9094d54a8`,
+      `ba0912e1335c0b5c788b66b53fa052c6d6392ca6`,
+      `P63-MCML-63-02-VAL-009`, `P63-MCML-63-02-VAL-010`,
+      `P63-MCML-63-02-FOCUSED-REREVIEW-001`, and
+      `P63-FULL-REVIEW-001`.
+- [x] The Cozy repository-full SBT suite passes on this Phase's frozen release
+      tree under `split_full_test_policy=each-phase`: `P63-FULL-VALIDATION-001`
+      receipt `593d37205c74c26372213bd48a59abe8563635e584cc8dd204900028f8f9d926`
+      accepted at tree `5c520eccc63bca2a037ee8b6fb2196b8e97b8859582f6cb93a9cb0793bcf445b`.
+- [x] This release's committed Phase 63 handoff records the exact accepted
+      aggregate/rebind contract and receipts that Phase 63.1 may consume without
+      reopening the contract. Phase 63.1 remains planned-not-started; no bridge
+      or downstream closure is claimed or staged here.
