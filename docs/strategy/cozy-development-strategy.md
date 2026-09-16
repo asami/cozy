@@ -1697,12 +1697,20 @@ Origin:
 | DEV-026 | `docs/journal/2026/09/2026-09-12-phase-58.2-interactive-confirmation-projection-decision.md`; user-approved Phase 58.2 planning on 2026-09-12; operational closure and normal-acceptance resumption decisions on 2026-09-13 | Generate interactive Document and Summary confirmation workspaces equivalent to the approved Article 9 reference behavior, with strict v2 semantic labels, coordinate-free diagrams, retained points, explicit omissions, no renderer-side inference, and preserved v1 contracts. | NEW_PHASE | [Phase 58.2](../phase/phase-58.2.md) COMPLETE; the bounded repair closed one diagnostic-only export-currentness regression without altering Article 9 projection behavior; DP-02 broader redesign remains future and DP-04 remains accepted operational refinement | RESOLVED |
 | DEV-027 | `docs/journal/2026/09/2026-09-13-phase-59-summary-slide-pdf-projection-decision.md`; user direction on 2026-09-13 after Phase 58.2 closure | Project the current bound v2 Summary Description through an explicit source-grounded Visual Page profile and invoke the existing Phase 40 `summary_slides_pdf` route, preserving PDF renderer/receipt/currentness authority and Article 9 local acceptance. | NEW_PHASE | [Phase 59](../phase/phase-59.md) PLANNED | ADOPTED |
 | DEV-028 | `docs/journal/2026/09/2026-09-14-smartdox-article-and-core-confirmation-decision.md`; in-place revision recorded in `2026-09-14-confirmation-views-and-make-dependencies-decision.md`; time-bound split applied on 2026-09-14 | Add structure-centered and document-centered DSL confirmation plus actual SmartDox article HTML through Document Project, with ordinary make-level timestamp dependencies and no hash-based local artifact management; then add goal-driven Codex DSL dependency resolution and generation. | NEW_PHASE | [Phase 60](../phase/phase-60.md) CLOSED, P600-01–P600-05 → [Phase 60.1](../phase/phase-60.1.md) CLOSED, P600-06–P600-08; Phase 60.1 binds the final-only repository-full validation in its release closure | RESOLVED |
-| DEV-029 | `docs/journal/2026/09/2026-09-14-video-middle-dot-and-tail-silence-decision.md`; Article 9 Japanese video feedback and explicit development-planning request on 2026-09-14 | Add opt-in speech-only Japanese middle-dot normalization and scene-authored post-utterance silence based on actual synthesized WAV length, with unchanged display terms, backward-compatible target timing, and aligned pipeline/evidence/currentness. | NEW_PHASE | [Phase 61](../phase/phase-61.md) PLANNED | ADOPTED |
+| DEV-029 | `docs/journal/2026/09/2026-09-14-video-middle-dot-and-tail-silence-decision.md`; Article 9 Japanese video feedback and explicit development-planning request on 2026-09-14; split applied on 2026-09-15 | Add opt-in speech-only Japanese middle-dot normalization and scene-authored post-utterance silence based on actual synthesized WAV length, with unchanged display terms, backward-compatible target timing, and aligned pipeline/evidence/currentness. | NEW_PHASE | [Phase 61](../phase/phase-61.md) CLOSED, P610-01–P610-02 → [Phase 61.1](../phase/phase-61.1.md) PLANNED, P610-03–P610-05; only P610-03–P610-05 remain OPEN and Phase 61.1 owns final-only repository-full validation | ADOPTED |
+| DEV-030 | User direction on 2026-09-16 | Add a first-class CML `WORKFLOW` declaration that lowers to accepted StateMachine / Composite StateMachine semantics while explicitly generating automatic versus semantic progression boundaries and typed Operation references for a downstream runtime. | NEW_PHASE | [Phase 62](../phase/phase-62.md) PLANNED → CNCF [Phase 77](../../../cloud-native-component-framework/docs/phase/phase-77.md) PLANNED → Textus `sm-workflow` Phase 1 | ADOPTED |
+| DEV-031 | `docs/journal/2026/09/2026-09-16-multi-cml-generation-provenance-development-candidate.md`; user direction on 2026-09-16; split applied on 2026-09-16 | Let one Cozy project retain provenance for multiple declared CML inputs without arbitrary source selection: Phase 63 owns the aggregate/rebind contract and Cozy validation; Phase 63.1 consumes that handoff for the sbt-cozy bridge, side-output installation and the `simplemodeling-model` driver receipt. | NEW_PHASE | [Phase 63](../phase/phase-63.md) PLANNED, MCML-63-01–02 → [Phase 63.1](../phase/phase-63.1.md) PLANNED, MCML-63-03–04; each child owns its own full SBT validation | ADOPTED |
 
-Phase 61 is an independently planned video-authoring boundary. It reuses the
-existing video workflow and encoding contracts, preserves Phase 59/60 work and
-priorities, and leaves all implementation Steps OPEN. Article 9 is an isolated
-driver rather than authorization to edit, regenerate or publish that project.
+The Phase 61 sequence is an independently planned video-authoring boundary.
+Phase 61 is CLOSED for P610-01/P610-02, closing the protected contract and
+speech-policy authority before Phase 61.1 consumes that handoff for timing,
+pipeline and acceptance execution. Phase 61.1 is PLANNED, and only P610-03
+through P610-05 remain OPEN. The final-only split keeps the one repository-full
+SBT suite with Phase 61.1. It reuses existing video workflow and encoding
+contracts, preserves Phase 59/60 work and priorities, and leaves the remaining
+implementation Steps within that successor boundary OPEN. Article 9 is an
+isolated driver rather than authorization to edit, regenerate or publish that
+project.
 
 Phase 60 was split before implementation because its calibrated 860-minute
 delivery could not fit the eight-hour ceiling. Phase 60 closed P600-01 through
@@ -1777,6 +1785,17 @@ ABI, and Phase 47.2.2 closes Cozy's Order/Payment/Shipment producer handoff.
 The sequence preserves `UnitOfWorkOp` as the sole execution algebra; CNCF
 Phase 64.2 remains the consumer-owned runtime authority and external
 acceptance owner.
+
+Phase 62 is a separately planned CML language/producer boundary. It introduces
+the first-class `WORKFLOW` declaration and generated progression-boundary ABI
+while preserving Phase 47's StateMachine / Composite StateMachine semantics
+and Phase 47.2.1's logical-Action program. CNCF Phase 77 consumes that frozen
+ABI after its Phase 64 prerequisites; Textus `sm-workflow` remains the owner of
+SQLite-backed runs, `advance`, and public skill behavior. This addition does
+not change the current Document Project or semantic-metadata priorities.
+Entity-local StateMachine persistence remains owned by the entity; a CML
+Workflow definition declares no entity-field shortcut for the separately
+persisted WorkflowInstance owned by its consuming runtime.
 
 The immediate Document Project priority is planned Phase 59. It connects the
 current v2 Summary Description to the accepted Phase 40 summary-slide PDF

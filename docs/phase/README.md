@@ -44,6 +44,18 @@ Current phase state:
   reuses composite semantics as far as possible. Its planned child phases
   retain the linked action/transaction and compilation/testability contracts;
   it is coordinated with CNCF Phases 64 through 64.2.
+- Planned CML language phase: [Phase 62](phase-62.md) adds first-class
+  `WORKFLOW` source syntax, explicit automatic versus semantic progression
+  boundaries, and a generated producer ABI. It reuses the closed Phase 47
+  Composite StateMachine and logical-Action contracts, then hands the generated
+  surface to CNCF Phase 77; it neither implements a runtime nor selects an
+  active Phase.
+- Planned generation-integration sequence: [Phase 63](phase-63.md) owns the
+  multi-source provenance contract and Cozy aggregation validation; its
+  successor [Phase 63.1](phase-63.1.md) consumes that committed authority for
+  the sbt-cozy bridge and `simplemodeling-model` driver receipt. Each child
+  owns its own full SBT validation. Neither weakens provenance nor starts the
+  independent CNCF Phase 74.1.
 - Planned semantic-metadata sequence: `phase-54.md` retains the first,
   site-editing-ready stable identity and versioned publication foundation;
   `phase-54.1.md` adds Structure, `phase-54.2.md` adds Classification,
@@ -103,12 +115,16 @@ Current phase state:
   `final-only` sequence's repository-full SBT validation is bound by Phase
   60.1's distinct final release; neither closed checklist starts Phase 61 or
   changes the independent Phase 59/61 priorities.
-- Planned independent video boundary: [Phase 61](phase-61.md), Video Speech
-  Normalization and Post-Utterance Timing. Speech-only middle-dot removal and
-  authored per-scene trailing silence preserve displayed terms, actual-audio
-  timing and independent infographic/credits holds. The
-  [checklist](phase-61-checklist.md) is entirely OPEN; this does not change
-  Phase 59/60 priority or authorize external-project video/publication work.
+- Closed predecessor and planned final-only video sequence: [Phase 61](phase-61.md)
+  is CLOSED for P610-01/P610-02, freezing the speech/display, timing,
+  compatibility and evidence contract and accepting the opt-in middle-dot
+  policy. Its successor [Phase 61.1](phase-61.1.md) is PLANNED and implements
+  scene-authored trailing silence, pipeline/currentness integration and
+  isolated acceptance through P610-03 to P610-05; only Phase 61.1's P610-03
+  through P610-05 are OPEN, and it owns the sequence's one repository-full SBT
+  suite. This does not
+  change Phase 59/60 priority or authorize external-project video/publication
+  work.
 - Most recently closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite
