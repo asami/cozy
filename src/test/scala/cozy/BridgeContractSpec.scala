@@ -14,7 +14,8 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Apr. 23, 2026
  *  version May. 20, 2026
  *  version Jun. 27, 2026
- * @version Aug. 13, 2026
+ *  version Aug. 13, 2026
+ * @version Sep. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec
@@ -35,6 +36,7 @@ final class BridgeContractSpec
           "contract.json",
           "request-generate.json",
           "request-rebind-generation-provenance.json",
+          "request-aggregate-rebind-generation-provenance.json",
           "request-prepare-development-runtime-evidence.json",
           "request-package-car.json",
           "request-package-sar.json",
@@ -68,6 +70,9 @@ final class BridgeContractSpec
         )
         val rebind = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-rebind-generation-provenance.json")
+        )
+        val aggregateRebind = CozySbtBridge._load_request_for_test(
+          _contract_dir.resolve("request-aggregate-rebind-generation-provenance.json")
         )
         val preparation = CozySbtBridge._load_request_for_test(
           _contract_dir.resolve("request-prepare-development-runtime-evidence.json")
@@ -105,6 +110,9 @@ final class BridgeContractSpec
         supportedactions should contain(
           "rebind-generation-provenance"
         )
+        supportedactions should contain(
+          "aggregate-rebind-generation-provenance"
+        )
         supportedactions.foreach { action =>
           readme should include(s"`$action`")
         }
@@ -117,6 +125,21 @@ final class BridgeContractSpec
           "--project-root",
           "/tmp/sample-project"
         )
+        aggregateRebind.action shouldBe "aggregate-rebind-generation-provenance"
+        aggregateRebind.arguments should contain allElementsOf Vector(
+          "--delegated-inputs-json",
+          "--project-root",
+          "/tmp/sample-project"
+        )
+        val delegatedinputs = Json.parse(
+          aggregateRebind.arguments(
+            aggregateRebind.arguments.indexOf("--delegated-inputs-json") + 1
+          )
+        ).as[Vector[play.api.libs.json.JsObject]]
+        delegatedinputs should have size 2
+        delegatedinputs.foreach { input =>
+          input.keys shouldBe Set("delegatedProvenance", "delegatedOutputRoot")
+        }
         preparation.action shouldBe "prepare-development-runtime-evidence"
         preparation.arguments should contain allElementsOf Vector(
           "--project-dir",

@@ -20,7 +20,8 @@ import java.nio.file.{Files, Path, Paths}
  * @since   May. 20, 2026
  *  version Jun. 27, 2026
  *  version Aug.  8, 2026
- * @version Aug. 20, 2026
+ *  version Aug. 20, 2026
+ * @version Sep. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -42,6 +43,8 @@ private[cozy] object CozySbtBridge {
         _run_generation(request.arguments, request.settings)
       case "rebind-generation-provenance" =>
         _rebind_generation_provenance(request.arguments)
+      case "aggregate-rebind-generation-provenance" =>
+        _aggregate_rebind_generation_provenance(request.arguments)
       case "prepare-development-runtime-evidence" =>
         _prepare_development_runtime_evidence(request.arguments)
       case "write-component-source-archive" =>
@@ -126,6 +129,71 @@ private[cozy] object CozySbtBridge {
       projectRoot = projectroot
     )
   }
+
+  private def _aggregate_rebind_generation_provenance(args: Vector[String]): Unit = {
+    val delegatedinputs = _aggregate_delegated_inputs(
+      _required_value(args.toList, "delegated-inputs-json")
+    )
+    val projectroot = _required_path(args.toList, "project-root")
+    GenerationProvenance.aggregateForPackaging(
+      delegatedInputs = delegatedinputs,
+      projectRoot = projectroot
+    )
+  }
+
+  private def _aggregate_delegated_inputs(value: String): Vector[GenerationProvenance.DelegatedInput] = {
+    val json = try Json.parse(value)
+    catch { case _: Throwable => _invalid_delegated_inputs("invalid JSON") }
+    json match {
+      case JsArray(values) if values.nonEmpty =>
+        values.zipWithIndex.map { case (entry, index) =>
+          _aggregate_delegated_input(entry, index)
+        }.toVector
+      case JsArray(_) =>
+        _invalid_delegated_inputs("the array is empty")
+      case _ =>
+        _invalid_delegated_inputs("the value is not a JSON array")
+    }
+  }
+
+  private def _aggregate_delegated_input(
+    entry: JsValue,
+    index: Int
+  ): GenerationProvenance.DelegatedInput =
+    entry match {
+      case JsObject(fields) =>
+        val values = fields.toMap
+        val expected = Set("delegatedProvenance", "delegatedOutputRoot")
+        if (values.keySet != expected)
+          _invalid_delegated_inputs(
+            s"element $index must contain exactly delegatedProvenance and delegatedOutputRoot"
+          )
+        GenerationProvenance.DelegatedInput(
+          _aggregate_delegated_path(values, "delegatedProvenance", index),
+          _aggregate_delegated_path(values, "delegatedOutputRoot", index)
+        )
+      case _ =>
+        _invalid_delegated_inputs(s"element $index is not an object")
+    }
+
+  private def _aggregate_delegated_path(
+    values: Map[String, JsValue],
+    key: String,
+    index: Int
+  ): Path = {
+    val path = values.get(key).flatMap(_.asOpt[String]).map(_.trim).filter(_.nonEmpty).
+      getOrElse(_invalid_delegated_inputs(s"element $index has no non-empty $key string"))
+    try Paths.get(path).toAbsolutePath.normalize()
+    catch {
+      case _: Throwable =>
+        _invalid_delegated_inputs(s"element $index has an invalid $key path")
+    }
+  }
+
+  private def _invalid_delegated_inputs(detail: String): Nothing =
+    RAISE.invalidArgumentFault(
+      s"Invalid --delegated-inputs-json: $detail. Expected a non-empty JSON array of exact {delegatedProvenance, delegatedOutputRoot} objects."
+    )
 
   private def _prepare_development_runtime_evidence(args: Vector[String]): Unit =
     CozyDevelopmentRuntimeManifest.write(
