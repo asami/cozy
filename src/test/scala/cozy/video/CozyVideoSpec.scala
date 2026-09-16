@@ -3959,6 +3959,7 @@ final class CozyVideoSpec
               |}""".stripMargin
           )
           val provider = RecordingVoicevoxClient(audioBytes = _wav_bytes(0.2))
+          val renderrunner = DeterministicRenderRunner()
 
           When("Cozy synthesizes, renders, and writes review evidence through deterministic local seams")
           CozyVideo.synthesize(
@@ -3968,8 +3969,9 @@ final class CozyVideoSpec
           CozyVideo.render(
             CozyVideo.RenderConfig(project, "remotion", toolMode = Some("host")),
             CozyVideo.VideoToolRegistry(Vector.empty),
-            ProfileRenderRunner()
+            renderrunner
           )
+          val renderframestates = renderrunner.frameStates.toVector
           val finalvideo = dir.resolve("build/final.mp4")
           _write_bytes(finalvideo, Array[Byte](1, 2, 3, 4))
           _write_review_video_manifest(finalvideo)
@@ -3987,8 +3989,6 @@ final class CozyVideoSpec
           val evidence = parser.parse(_read(dir.resolve("review/review-manifest.json"))).toOption.get
           val evidencescene = evidence.hcursor.downField("parts").downArray.downField("scenes").downArray
           val tailframe = evidencescene.downField("frames").downN(1)
-          val dialoguerenderer = _read(dir.resolve("target/cozy-video/remotion/final/src/DialogueVideo.jsx"))
-          val rootrenderer = _read(dir.resolve("target/cozy-video/remotion/final/src/Root.tsx"))
 
           Then("the fake provider receives only the speech-normalized Article-9-shaped term while source, line, and caption retain U+30FB")
           providertext shouldBe Some("第9条平和の原則")
@@ -4009,13 +4009,11 @@ final class CozyVideoSpec
           tailframe.get[String]("kind").toOption shouldBe Some("tail")
           tailframe.get[Int]("absoluteFrame").toOption shouldBe Some(2)
 
-          And("the full final visual and caption surface lasts through the effective tail while audio and mouth activity end at the actual WAV boundary")
-          dialoguerenderer should include_text("speechActive")
-          dialoguerenderer should include_text("speechStarted ? (")
-          dialoguerenderer should include_text("speechLocalFrame < speechDurationFrames")
-          dialoguerenderer should include_text("durationFrames={scene.durationFrames}")
-          rootrenderer should include_text("durationInFrames={contentFrames}")
-          rootrenderer should include_text("scene.audioDurationFrames")
+          And("the executed final scene keeps audio, mouth, caption, and visual active at frame 1, cuts audio and mouth at frame 2, and keeps caption and visual through frame 9")
+          renderframestates should have size 10
+          renderframestates.find(_.frame == 1).get shouldBe RenderFrameState(1, audioActive = true, mouthActive = true, captionVisible = true, visualVisible = true)
+          renderframestates.find(_.frame == 2).get shouldBe RenderFrameState(2, audioActive = false, mouthActive = false, captionVisible = true, visualVisible = true)
+          renderframestates.find(_.frame == 9).get shouldBe RenderFrameState(9, audioActive = false, mouthActive = false, captionVisible = true, visualVisible = true)
 
           And("the independently configured infographic and credits cards each retain five seconds without acquiring the final-tail interval")
           timing.get[Int]("contentFrames").toOption shouldBe Some(10)
@@ -5788,6 +5786,72 @@ object CozyVideoSpec {
     def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
       commands += RecordingCommand(args, cwd)
       result
+    }
+  }
+
+  final case class RenderFrameState(
+      frame: Int,
+      audioActive: Boolean,
+      mouthActive: Boolean,
+      captionVisible: Boolean,
+      visualVisible: Boolean
+  )
+
+  final case class DeterministicRenderRunner(
+      sceneId: String = "article-9-final"
+  ) extends CozyVideo.VideoProcessRunner {
+    val commands = ArrayBuffer.empty[RecordingCommand]
+    val frameStates = ArrayBuffer.empty[RenderFrameState]
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      commands += RecordingCommand(args, cwd)
+      if (args.contains("node") && args.exists(_.endsWith("render.mjs"))) {
+        val script = args.find(_.endsWith("render.mjs")).map(_command_path(cwd, _)).get
+        val workdir = script.getParent.getParent
+        val props = parser.parse(
+          Files.readString(workdir.resolve("props.json"), StandardCharsets.UTF_8)
+        ).toOption.get
+        frameStates ++= _frame_states(props)
+        val output = props.hcursor.get[String]("outputPath").toOption.get
+        _touch(_command_path(cwd, output))
+        CozyVideo.VideoCommandResult(0, "remotion ok", "")
+      } else {
+        CozyVideo.VideoCommandResult(0, "ok", "")
+      }
+    }
+
+    private def _frame_states(props: Json): Vector[RenderFrameState] = {
+      val scenes = props.hcursor.get[Vector[Json]]("scenes").toOption.get
+      val scene = scenes.find { candidate =>
+        candidate.hcursor.get[String]("id").toOption.contains(sceneId)
+      }.get
+      val durationframes = scene.hcursor.get[Int]("durationFrames").toOption.get
+      val leadinframes = scene.hcursor.get[Int]("leadInFrames").toOption.get
+      val audiodurationframes = scene.hcursor.get[Int]("audioDurationFrames").toOption.get
+      val speaker = scene.hcursor.get[String]("speaker").toOption.filter(_.nonEmpty)
+      val silent = scene.hcursor.get[Boolean]("silent").toOption.getOrElse(false)
+      val characterpresent = speaker.exists { id =>
+        props.hcursor.downField("characters").downField(id).focus.exists(json => !json.isNull)
+      }
+      val captionpresent = scene.hcursor.get[String]("caption").toOption.exists(_.nonEmpty)
+      val visualpresent = scene.hcursor.downField("visual").focus.exists(json => !json.isNull)
+      (0 until durationframes).toVector.map { frame =>
+        val speechstarted = frame >= leadinframes
+        val speechlocalframe = math.max(0, frame - leadinframes)
+        val speechactive = speechstarted && speechlocalframe < audiodurationframes
+        RenderFrameState(
+          frame,
+          audioActive = speechactive,
+          mouthActive = speechactive && !silent && characterpresent,
+          captionVisible = speechstarted && !silent && characterpresent && captionpresent,
+          visualVisible = visualpresent && frame < durationframes
+        )
+      }
+    }
+
+    private def _touch(path: Path): Unit = {
+      Option(path.getParent).foreach(Files.createDirectories(_))
+      Files.write(path, Array[Byte](0, 1, 2, 3))
     }
   }
 
