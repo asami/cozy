@@ -70,10 +70,14 @@ coordinates; `shared` and `provided` dependencies retain their runtime
 ownership.
 
 When `target/cozy/generation-provenance.json` exists, package admission must
-validate it against its recorded source and generated Scala artifacts, verify
-its aggregate and evidence digests, and require its CNCF target and Cozy
-generator to equal the accepted project contract. A successful package must
-copy the bytes unchanged to the top-level CAR entry
+validate either the direct one-source
+`cozy.generation-provenance.v1` representation or the project aggregate
+`cozy.generation-provenance.v2` representation against its recorded source or
+sources and generated Scala artifacts. It must verify the recorded aggregate
+and evidence digests and require its CNCF target and Cozy generator to equal
+the accepted project contract. Legacy v1 remains valid for existing one-CML
+projects; accepting v2 must not require them to migrate. A successful package
+must copy the accepted bytes unchanged to the top-level CAR entry
 `generation-provenance.json`. Any validation or contract mismatch must fail
 before the archive is written. Validation and archive writing must consume one
 immutable byte snapshot. Provenance absence must remain permitted for
@@ -81,16 +85,58 @@ non-generated and legacy CAR sources. The generic CAR source path
 `src/main/car/generation-provenance.json` is reserved and must be rejected
 rather than packaged without target validation.
 
-For sbt-cozy generation, each isolated Cozy run first writes and validates its
-own manifest. After sbt-cozy installs the generated Scala files, it must invoke
-Cozy's `rebind-generation-provenance` bridge action. Cozy must validate the
-exact delegated manifest path, recompute project-relative evidence while
-excluding the disposable delegate-work root, and atomically publish
-`target/cozy/generation-provenance.json`. sbt-cozy removes delegate work only
-after successful rebinding and requires the installed manifest before
-incremental reuse. Schema v1 carries one CML source identity, so multiple
-delegated v1 manifests for one CAR must fail explicitly rather than select one
-arbitrarily.
+Direct isolated Cozy generation continues to write and validate its own
+one-source `cozy.generation-provenance.v1` manifest. The project aggregate
+operation is the only operation that may publish
+`cozy.generation-provenance.v2` at
+`target/cozy/generation-provenance.json`. It receives a non-empty, explicit
+list of `(delegated manifest path, delegated output root)` pairs; filesystem
+enumeration, input position, and hash values must never select an input.
+
+Before v2 publication, Cozy must validate every delegated v1 pair using the
+direct-manifest rules, resolve every selected source to one canonical
+project-relative identity, and require one exact target/generator identity for
+the whole project. Each accepted source entry records that canonical identity
+and its digest, the accepted delegated source-output claims, and that
+delegated v1 evidence digest. The v2 `sources` entries are sorted by canonical
+source identity. The top-level v2 output is the deterministically sorted union
+of project-output-relative artifact claims and its deterministic digest. A
+top-level v2 evidence digest covers every preceding v2 field. Every recorded
+digest is integrity evidence only: no digest derives source identity or
+controls source/input selection.
+
+The aggregate operation must reject before publication a missing or unreadable
+delegated manifest or output root, a malformed delegated manifest, a duplicate
+or ambiguous canonical source identity, a stale source or delegated output,
+an inconsistent expected target or generator, and internally contradictory
+delegated evidence. Missing evidence uses
+`GENERATION_PROVENANCE_MISSING`; malformed evidence uses
+`GENERATION_PROVENANCE_MALFORMED`; stale source or output uses
+`GENERATION_PROVENANCE_SOURCE_TAMPERED` or the existing output-tampered
+equivalent; expected-input disagreement uses
+`GENERATION_PROVENANCE_INPUT_MISMATCH`; and contradictory evidence uses
+`GENERATION_PROVENANCE_EVIDENCE_TAMPERED`. The v2 source-identity rejection
+uses the deterministic `GENERATION_PROVENANCE_SOURCE_AMBIGUOUS` diagnostic
+for duplicate as well as ambiguous canonical identity. These failures must not
+fall back to arbitrary manifest selection.
+
+If distinct accepted source evidence claims the same project-output-relative
+path with the same digest, that path appears exactly once in the v2 output
+union. If it claims the same path with differing digests, Cozy must reject it
+before publication with the deterministic
+`GENERATION_PROVENANCE_OUTPUT_CONFLICT` diagnostic; no source wins by order.
+Cozy validates the complete v2 result at a temporary path and publishes it by
+one atomic replacement. A single accepted delegated v1 pair must produce
+valid v2 aggregate evidence without a migration requirement, while direct v1
+generation and legacy v1 package admission continue to work.
+
+Cozy owns this aggregate/rebind API, including a supported legacy single
+rebind wrapper or one-source aggregate equivalent. Phase 63 does not change
+CozySbtBridge request grammar, sbt-cozy manifest collection, generated-side
+output installation, incremental behavior, plugin integration, or downstream
+driver behavior. Those orchestration concerns remain exclusively Phase 63.1;
+when it begins, sbt-cozy may call the settled Cozy API and remove delegate work
+only after successful rebinding and installed-manifest verification.
 
 Runtime activation must not import Cozy or evaluate generation provenance.
 CNCF runtime range, ABI, and archive-integrity admission remain the independent

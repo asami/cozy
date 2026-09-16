@@ -85,16 +85,58 @@ non-generated and legacy sources. `src/main/car/generation-provenance.json`
 is a reserved generic source name and cannot substitute for the validated
 target artifact.
 
-sbt-cozy retains transport/orchestration responsibility while Cozy remains the
-schema and digest authority. Each delegated run produces isolated evidence;
-after generated Scala installation, sbt-cozy invokes Cozy's
-`rebind-generation-provenance` bridge action with the exact delegated manifest,
-delegated output root, and owning project root. Cozy validates that selected
-manifest, excludes the delegate-work root from final artifact enumeration, and
-atomically writes project-relative evidence. Only then may sbt-cozy delete the
-work tree and record incremental state. A missing final manifest forces
-regeneration. Because schema v1 represents one CML source, multiple delegated
-v1 manifests fail without arbitrary source selection.
+Cozy remains the schema, aggregation, validation, and digest-evidence owner.
+Direct isolated generation continues to publish the one-source
+`cozy.generation-provenance.v1` format and package admission continues to
+read it for existing one-CML projects. The project aggregate/rebind API is the
+separate V2 producer: it accepts a non-empty, explicit list of `(delegated
+manifest path, delegated output root)` pairs and publishes
+`cozy.generation-provenance.v2`. A single accepted delegated v1 pair is a
+valid V2 aggregate input and needs no migration; direct v1 generation and
+legacy v1 package admission remain supported.
+
+The V2 representation preserves one exact project target and generator
+identity, followed by a `sources` list sorted by canonical project-relative
+source identity. Every source records that identity and its digest, the
+accepted delegated source-output claims, and the delegated v1 evidence digest.
+The top-level output is the deterministic sorted union of
+project-output-relative artifact path/digest claims, with its deterministic
+output digest. Its evidence digest covers every preceding V2 field. Identity
+comes only from the canonical project-relative source representation; source
+and output digests are integrity evidence and must neither derive identity nor
+control source selection.
+
+The aggregate/rebind API validates every selected delegated v1 input before
+V2 publication. It rejects a missing or unreadable manifest/output root,
+malformed evidence, duplicate or ambiguous canonical source identity, stale
+source/output, inconsistent expected target/generator, and internally
+contradictory evidence before it writes V2. The deterministic typed boundary
+uses `GENERATION_PROVENANCE_MISSING`,
+`GENERATION_PROVENANCE_MALFORMED`,
+`GENERATION_PROVENANCE_SOURCE_TAMPERED` (or the existing output-tampered
+equivalent), `GENERATION_PROVENANCE_INPUT_MISMATCH`, and
+`GENERATION_PROVENANCE_EVIDENCE_TAMPERED` respectively. It adds
+`GENERATION_PROVENANCE_SOURCE_AMBIGUOUS` for duplicate or ambiguous canonical
+source identity. No enumeration order, input position, or digest is a fallback
+selection rule.
+
+Distinct accepted sources claiming the same project-output-relative path and
+digest contribute one V2 artifact claim. The same path with differing digests
+is rejected before publication as
+`GENERATION_PROVENANCE_OUTPUT_CONFLICT`; no source wins by order. Cozy writes
+the fully validated V2 bytes at a temporary path and atomically replaces the
+project target only after the whole aggregate succeeds. Package admission reads
+and validates either v1 or V2 while preserving its one immutable snapshot
+before archive writing.
+
+Phase 63 freezes and implements the Cozy aggregate/rebind API, preserving the
+legacy single-rebind API as a wrapper or one-source aggregate equivalent. It
+does not change CozySbtBridge request grammar, sbt-cozy collection,
+generated-side installation, incremental state, plugin behavior, or a
+downstream driver. Those transport/orchestration responsibilities belong
+exclusively to Phase 63.1, which may invoke the settled Cozy API, delete
+delegate work after successful rebind, and require an installed final manifest
+before incremental reuse.
 
 The packaged provenance remains metadata. CV-06C2 separately owns CNCF runtime
 range, ABI, and archive-integrity admission and must not load Cozy or use
