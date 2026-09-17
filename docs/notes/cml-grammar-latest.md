@@ -272,6 +272,7 @@ Supported top-level sections:
 - `# EXTENSIONPOINT`
 - `# SUBSYSTEM`
 - `# POWERTYPE`
+- `# WORKFLOW`
 
 Future sections may be added, but this contract focuses on accepted and frozen behavior for the current phase.
 
@@ -1465,3 +1466,28 @@ Purpose:
   current parser/modeler pipeline.
 - Sections `13.3` and `13.4` are implemented and treated as normative
   behavior in the current parser/modeler pipeline.
+
+---
+
+## 14. WORKFLOW Literate Source Lowering (Implemented)
+
+status=implemented
+added_at=2026-09-17
+
+`WORKFLOW` is now a first-class top-level CML root. It follows the Literate
+Model boundary already described in Section 2: a direct Workflow definition is
+structural only when it contains a `COMPOSITE-STATEMACHINE` child; prose and
+nonstructural headings remain non-executable narrative.
+
+The structural definition requires one opaque direct `version` metadata value
+and lowers to one existing `CompositeStateMachineDefinition`. Its normalized
+wrapper retains separate root and definition source identities, rather than
+adding a second state/transition model.
+
+`REQUIRED-OPERATION` records a capability identity mapped to an existing
+declared `OPERATION` Action. It deliberately stops before provider selection,
+InvocationBinding, orchestration, continuation, retry, or runtime behavior.
+The accepted external contract is
+[CML WORKFLOW Source Contract](../spec/cml-workflow-source-contract.md); the
+stable lowering rationale is in
+[CML WORKFLOW Source Lowering](../design/cml-workflow-source-lowering.md).

@@ -123,14 +123,19 @@ When grammar is still being discussed or actively implemented:
 - keep discussion history in `docs/journal`
 - move stabilized results here only after they are no longer in active flux
 
-## Phase 47 Composite StateMachine Grammar
+## Composite StateMachine and Workflow Grammar
 
 The accepted Composite StateMachine grammar and normalizing validation surface
 is defined by [CML Composite StateMachine Grammar and
-Validation](cml-composite-statemachine-grammar-validation.md). It adds the
-canonical `COMPOSITE-STATEMACHINE` root only; `WORKFLOW` is not admitted as a
-CML root, keyword, or profile because CSM-05 established no mandatory
-Workflow-only residual semantics.
+Validation](cml-composite-statemachine-grammar-validation.md). Its direct
+`COMPOSITE-STATEMACHINE` root remains a distinct source form with unchanged
+semantics.
+
+`WORKFLOW` is also a first-class CML root. Its Literate Model source contract,
+direct version metadata, capability boundary, and lowering to the existing
+Composite StateMachine semantic model are defined by [CML WORKFLOW Source
+Contract](../spec/cml-workflow-source-contract.md). It is not a synonym for a
+runtime workflow or a second state-machine model.
 
 ## Remaining Active Grammar Work
 

@@ -2,7 +2,7 @@ package cozy.modeler
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep.  7, 2026
+ * @version Sep. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Immutable Cozy-side normalized IR for a Composite StateMachine definition. */
@@ -27,6 +27,34 @@ object CompositeStateMachineDefinition {
 }
 
 final case class CompositeStateMachineSourceIdentity(line: Option[Int])
+
+/** Source correlation retained for a first-class WORKFLOW CML root or definition. */
+final case class WorkflowSourceIdentity(line: Option[Int])
+
+/** Retains both source locations that identify a normalized workflow definition. */
+final case class WorkflowSourceCorrelation(
+  root: WorkflowSourceIdentity,
+  definition: WorkflowSourceIdentity
+)
+
+/**
+ * Immutable CML WORKFLOW source contract lowered to the established Composite
+ * StateMachine semantic model without introducing execution semantics.
+ */
+final case class WorkflowDefinition(
+  identity: String,
+  version: String,
+  source: WorkflowSourceCorrelation,
+  compositeStateMachine: CompositeStateMachineDefinition,
+  requiredOperations: Vector[WorkflowRequiredOperation]
+)
+
+/** Declares one required capability and the existing OPERATION Action that fulfills it. */
+final case class WorkflowRequiredOperation(
+  capability: String,
+  action: CompositeStateMachineLogicalAction,
+  source: WorkflowSourceIdentity
+)
 
 final case class CompositeStateMachineReference(name: String)
 

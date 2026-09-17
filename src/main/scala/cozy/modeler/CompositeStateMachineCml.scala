@@ -10,7 +10,7 @@ import scala.collection.mutable
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep.  7, 2026
+ * @version Sep. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Normalizes and validates the CSM-06 CML surface into the CSM-07 typed IR. */
@@ -22,30 +22,171 @@ private[modeler] object CompositeStateMachineCml {
 
   def validate(model: KaleidoxModel): Unit = {
     definitions(model)
+    workflowDefinitions(model)
     ()
   }
 
   def definitions(model: KaleidoxModel): Vector[CompositeStateMachineDefinition] = {
     val roots = model.divisions.toVector.flatMap(_logical_section)
-    if (roots.exists(_same_section_key(_, "WORKFLOW")))
-      RAISE.syntaxErrorFault("WORKFLOW is not admitted by the Phase 47 CML grammar.")
     val operations = _operation_contracts(model)
     roots.filter(_same_section_key(_, "COMPOSITE-STATEMACHINE")).flatMap(_normalize_definition_root(_, model, operations))
   }
+
+  def workflowDefinitions(model: KaleidoxModel): Vector[WorkflowDefinition] = {
+    val roots = model.divisions.toVector.flatMap(_logical_section)
+    _workflow_definitions(roots, model, _operation_contracts(model))
+  }
+
+  private def _workflow_definitions(
+    roots: Vector[LogicalSection],
+    model: KaleidoxModel,
+    operations: Vector[CompositeStateMachineOperation]
+  ): Vector[WorkflowDefinition] =
+    roots.filter(_same_section_key(_, "WORKFLOW")).flatMap(_normalize_workflow_root(_, model, operations))
+
+  private def _normalize_workflow_root(
+    root: LogicalSection,
+    model: KaleidoxModel,
+    operations: Vector[CompositeStateMachineOperation]
+  ): Vector[WorkflowDefinition] =
+    root.blocks.sections.toVector.flatMap(_normalize_workflow_definition(root, _, model, operations))
+
+  private def _normalize_workflow_definition(
+    root: LogicalSection,
+    definition: LogicalSection,
+    model: KaleidoxModel,
+    operations: Vector[CompositeStateMachineOperation]
+  ): Option[WorkflowDefinition] = {
+    val name = definition.nameForModel
+    val composites = _children(definition, "COMPOSITE-STATEMACHINE")
+    val requiredoperations = _children(definition, "REQUIRED-OPERATION")
+    _validate_workflow_structure(definition, name, composites, requiredoperations)
+    composites.headOption.map { composite =>
+      val version = _workflow_version(definition, name)
+      val statemachine = _normalize_definition(composite, model, operations, name)
+      WorkflowDefinition(
+        identity = name,
+        version = version,
+        source = WorkflowSourceCorrelation(_workflow_source(root), _workflow_source(definition)),
+        compositeStateMachine = statemachine,
+        requiredOperations = _required_operations(requiredoperations.headOption, name, statemachine.actions)
+      )
+    }
+  }
+
+  private val _workflow_misplaced_structural_sections = Set(
+    "CONSTITUENT",
+    "STATE",
+    "DERIVATION",
+    "INITIAL",
+    "ACTION",
+    "CONSTITUENT-ACTION",
+    "DERIVED-ACTION"
+  )
+
+  private val _workflow_execution_vocabulary = Set(
+    "INVOCATION-BINDING",
+    "ORCHESTRATION",
+    "CONTINUATION",
+    "PROVIDER",
+    "SCRIPT",
+    "RETRY",
+    "EXECUTION",
+    "CONTROL",
+    "ACTION-EXECUTION"
+  )
+
+  private def _validate_workflow_structure(
+    definition: LogicalSection,
+    context: String,
+    composites: Vector[LogicalSection],
+    requiredoperations: Vector[LogicalSection]
+  ): Unit = {
+    if (composites.isEmpty && requiredoperations.nonEmpty)
+      RAISE.syntaxErrorFault(
+        s"WORKFLOW '$context' requires a COMPOSITE-STATEMACHINE structural section when REQUIRED-OPERATION is declared."
+      )
+    if (composites.size > 1)
+      RAISE.syntaxErrorFault(s"WORKFLOW '$context' requires exactly one COMPOSITE-STATEMACHINE structural section.")
+    if (requiredoperations.size > 1)
+      RAISE.syntaxErrorFault(s"WORKFLOW '$context' accepts at most one REQUIRED-OPERATION section.")
+    definition.blocks.sections.foreach { section =>
+      if (_workflow_misplaced_structural_sections.exists(_same_section_key(section, _)))
+        RAISE.syntaxErrorFault(s"WORKFLOW '$context' does not admit misplaced structural section '${section.nameForModel}'.")
+      if (_workflow_execution_vocabulary.exists(_same_section_key(section, _)))
+        RAISE.syntaxErrorFault(s"WORKFLOW '$context' does not admit execution-binding vocabulary '${section.nameForModel}'.")
+    }
+    _reject_workflow_execution_vocabulary(definition, s"WORKFLOW '$context'")
+  }
+
+  private def _workflow_version(definition: LogicalSection, context: String): String = {
+    if (_children(definition, "VERSION").nonEmpty)
+      RAISE.syntaxErrorFault(s"WORKFLOW '$context' VERSION metadata must be a direct value.")
+    val values = _direct_field_entries(definition).collect {
+      case (fieldname, value) if _same_key(fieldname, "VERSION") => value
+    }
+    if (values.size != 1)
+      RAISE.syntaxErrorFault(s"WORKFLOW '$context' requires exactly one direct nonempty VERSION metadata value.")
+    _nonempty(values.head, s"WORKFLOW '$context' VERSION metadata")
+  }
+
+  private def _required_operations(
+    section: Option[LogicalSection],
+    context: String,
+    actions: Vector[CompositeStateMachineLogicalAction]
+  ): Vector[WorkflowRequiredOperation] = {
+    section.foreach(_reject_workflow_execution_vocabulary(_, s"WORKFLOW '$context' REQUIRED-OPERATION"))
+    val entries = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
+      val capability = _nonempty(entry.nameForModel, s"WORKFLOW '$context' REQUIRED-OPERATION capability")
+      _reject_workflow_execution_vocabulary(entry, s"WORKFLOW '$context' REQUIRED-OPERATION '$capability'")
+      if (entry.blocks.sections.nonEmpty)
+        RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' does not admit nested structural content.")
+      val fields = _direct_field_entries(entry)
+      val unexpected = fields.filterNot { case (fieldname, _) => _same_key(fieldname, "ACTION") }
+      unexpected.headOption.foreach { case (fieldname, _) =>
+        RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' does not admit '$fieldname'.")
+      }
+      val actionfields = fields.collect { case (fieldname, value) if _same_key(fieldname, "ACTION") => value }
+      if (actionfields.size != 1)
+        RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' requires exactly one direct ACTION value.")
+      val actionname = _nonempty(actionfields.head, s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' ACTION")
+      val action = actions.find(x => _same_key(x.identity, actionname)).getOrElse(
+        RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' references unknown ACTION '$actionname'.")
+      )
+      if (!_same_key(action.kind, "OPERATION"))
+        RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' ACTION '$actionname' must be an OPERATION action.")
+      WorkflowRequiredOperation(capability, action, _workflow_source(entry))
+    }
+    _unique(entries.map(_.capability), s"WORKFLOW '$context' REQUIRED-OPERATION capability")
+    entries.groupBy(x => _normalize_key(x.action.identity)).collectFirst {
+      case (_, duplicates) if duplicates.size > 1 => duplicates.head.action.identity
+    }.foreach { actionname =>
+      RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION ACTION '$actionname' must be mapped at most once.")
+    }
+    entries
+  }
+
+  private def _reject_workflow_execution_vocabulary(section: LogicalSection, context: String): Unit =
+    _direct_field_entries(section).collectFirst {
+      case (fieldname, _) if _workflow_execution_vocabulary.exists(_same_key(fieldname, _)) => fieldname
+    }.foreach { fieldname =>
+      RAISE.syntaxErrorFault(s"$context does not admit execution-binding vocabulary '$fieldname'.")
+    }
 
   private def _normalize_definition_root(
     root: LogicalSection,
     model: KaleidoxModel,
     operations: Vector[CompositeStateMachineOperation]
   ): Vector[CompositeStateMachineDefinition] =
-    root.blocks.sections.toVector.map(_normalize_definition(_, model, operations))
+    root.blocks.sections.toVector.map(_normalize_definition(_, model, operations, ""))
 
   private def _normalize_definition(
     definition: LogicalSection,
     model: KaleidoxModel,
-    operations: Vector[CompositeStateMachineOperation]
+    operations: Vector[CompositeStateMachineOperation],
+    identity: String
   ): CompositeStateMachineDefinition = {
-    val name = definition.nameForModel
+    val name = Option(identity).map(_.trim).filter(_.nonEmpty).getOrElse(definition.nameForModel)
     val allowed = Set("CONSTITUENT", "STATE", "DERIVATION", "INITIAL", "ACTION", "CONSTITUENT-ACTION", "DERIVED-ACTION")
     definition.blocks.sections.foreach { section =>
       if (!allowed.exists(_same_section_key(section, _)))
@@ -258,7 +399,7 @@ private[modeler] object CompositeStateMachineCml {
     "COMPENSATION-HANDLER"
   )
 
-  private val _direct_action_field_pattern = """^\s*(?:-\s*)?([A-Za-z][A-Za-z0-9_-]*)\s*(?:::|=)\s*(.*)$""".r
+  private val _direct_field_pattern = """^\s*(?:-\s*)?([A-Za-z][A-Za-z0-9_-]*)\s*(?:::|=)\s*(.*)$""".r
 
   private def _action_metadata(
     section: LogicalSection,
@@ -268,7 +409,7 @@ private[modeler] object CompositeStateMachineCml {
       if (_children(section, fieldname).nonEmpty)
         RAISE.syntaxErrorFault(s"ACTION '$identityname' metadata field '$fieldname' must be a direct field.")
     }
-    val fields = _direct_action_field_entries(section).flatMap { case (fieldname, value) =>
+    val fields = _direct_field_entries(section).flatMap { case (fieldname, value) =>
       _action_metadata_fields.find(_same_key(_, fieldname)).map(_ -> value)
     }
     val duplicates = fields.groupBy(_._1).collect {
@@ -324,12 +465,12 @@ private[modeler] object CompositeStateMachineCml {
     }
   }
 
-  private def _direct_action_field_entries(section: LogicalSection): Vector[(String, String)] = {
+  private def _direct_field_entries(section: LogicalSection): Vector[(String, String)] = {
     val raw = section.blocks.blocks.toVector.flatMap {
       case _: LogicalSection => Vector.empty
       case block => block.getText.toVector.flatMap { text =>
         text.split("\\r?\\n").toVector.collect {
-          case _direct_action_field_pattern(fieldname, value) => fieldname -> value.trim
+          case _direct_field_pattern(fieldname, value) => fieldname -> value.trim
         }
       }
     }
@@ -577,6 +718,9 @@ private[modeler] object CompositeStateMachineCml {
 
   private def _source(section: LogicalSection): CompositeStateMachineSourceIdentity =
     CompositeStateMachineSourceIdentity(section.location.flatMap(_.line))
+
+  private def _workflow_source(section: LogicalSection): WorkflowSourceIdentity =
+    WorkflowSourceIdentity(section.location.flatMap(_.line))
 
   private def _same_section_key(section: LogicalSection, name: String): Boolean =
     _same_key(section.keyForModel, name) || _same_key(section.nameForModel, name)

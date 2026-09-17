@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep.  7, 2026
+ * @version Sep. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CompositeStateMachineCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -341,18 +341,18 @@ compensation-handler = cancel-payment"""
       }
     }
 
-    "exclude Workflow from the Phase 47 CML language" which {
-      "reject a supplied WORKFLOW root" in {
-        Given("a CML document with a WORKFLOW root")
-        val model = _model("# WORKFLOW\n\n## Unsupported\n")
+    "keep direct Composite StateMachine and WORKFLOW roots as distinct source forms" which {
+      "normalize a direct Composite StateMachine root without a Workflow wrapper" in {
+        Given("a valid direct COMPOSITE-STATEMACHINE CML root")
+        val model = _model(_accepted_source())
 
-        When("the ordinary ModelBuilder is constructed")
-        val error = intercept[RuntimeException] {
-          Modeler.ModelBuilder(model)
-        }
+        When("the direct Composite StateMachine source is normalized")
+        val definitions = CompositeStateMachineCml.definitions(model)
+        val workflows = CompositeStateMachineCml.workflowDefinitions(model)
 
-        Then("the grammar states that Workflow is not admitted")
-        error.getMessage should include("WORKFLOW is not admitted by the Phase 47 CML grammar")
+        Then("the direct definition remains available and no Workflow source form is inferred")
+        definitions.map(_.identity) should contain only "OrderProgress"
+        workflows shouldBe Vector.empty
       }
     }
   }
