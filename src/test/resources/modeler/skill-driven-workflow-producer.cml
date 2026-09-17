@@ -1,0 +1,188 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## ReviewContext
+
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+
+| name   | type   | multiplicity |
+|--------+--------+--------------|
+| change | string | 1            |
+
+## ReviewResult
+
+### EXTENDS
+
+OperationResult
+
+# WORKFLOW
+
+## WorkflowProducer
+
+version = workflow-producer-v1
+
+### COMPOSITE-STATEMACHINE
+
+#### CONSTITUENT
+
+##### review
+
+state-machine = ReviewLifecycle
+subject = review
+subject-type = ReviewContext
+
+#### STATE
+
+##### Pending
+
+##### Approved
+
+#### DERIVATION
+
+##### pending
+
+state = Pending
+when = review.Awaiting
+
+##### approved
+
+state = Approved
+when = review.Approved
+
+#### INITIAL
+
+review.Awaiting
+
+#### ACTION
+
+##### BuildProject
+
+kind = OPERATION
+operation = buildProject
+input = review.subject
+
+##### RunTests
+
+kind = OPERATION
+operation = runTests
+input = review.subject
+
+##### ReviewChange
+
+kind = OPERATION
+operation = reviewChange
+input = review.subject
+
+##### CommitChanges
+
+kind = OPERATION
+operation = commitChanges
+input = review.subject
+
+### REQUIRED-OPERATION
+
+#### review-change-capability
+
+action = ReviewChange
+
+# STATE-MACHINE
+
+## ReviewLifecycle
+
+### STATE
+
+#### Awaiting
+
+##### TRANSITION
+
+to = Approved
+on = reviewed
+
+#### Approved
+
+# SERVICE
+
+## WorkflowService
+
+### OPERATION
+
+#### buildProject
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### runTests
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### reviewChange
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### commitChanges
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
