@@ -14,13 +14,15 @@ import org.goldenport.realm.Realm
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
  *  version Sep.  7, 2026
+ *  version Sep. 17, 2026
  * @version Sep.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
   environment: Environment,
   model: SimpleModel,
-  compositeStateMachines: Vector[CompositeStateMachineDefinition] = Vector.empty
+  compositeStateMachines: Vector[CompositeStateMachineDefinition] = Vector.empty,
+  workflows: Vector[WorkflowDefinition] = Vector.empty
 ) {
   private val _transformer = {
     val config = Config.create(environment)
@@ -37,6 +39,8 @@ class ScalaGenerator(
     val actionproducermetadatajson = CompositeStateMachineActionProducerMetadata.canonicalJson(compositeStateMachines)
     val actionprogram = CompositeStateMachineActionProgram.generate(compositeStateMachines)
     val actionprogramjson = CompositeStateMachineActionProgram.canonicalJson(compositeStateMachines)
+    val statemachineworkflowabi = StateMachineWorkflowAbiGenerator.generate(workflows)
+    val statemachineworkflowabijson = StateMachineWorkflowAbiGenerator.canonicalJson(workflows)
     val metadata = ComponentApiContractMetadata.generate(model) match {
       case Right(document) => document
       case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
@@ -45,8 +49,9 @@ class ScalaGenerator(
     builder.set(CompositeStateMachineProjectionMetadata.metadataPath, projectionmetadata)
     builder.set(CompositeStateMachineActionProducerMetadata.metadataPath, actionproducermetadatajson)
     builder.set(CompositeStateMachineActionProgram.metadataPath, actionprogramjson)
+    builder.set(StateMachineWorkflowAbiGenerator.metadataPath, statemachineworkflowabijson)
     if (!metadata.isEmpty)
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
-    STree(r.realm + compositestatemachines + actionproducermetadata + actionprogram + builder.build())
+    STree(r.realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build())
   }
 }
