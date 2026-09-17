@@ -1,6 +1,15 @@
 # Phase 62 Addendum: Initial Scope and UI Workflow Roadmap
 
-Status: planned / normative scope clarification
+Status: historical scope record; its UI roadmap and deferrals remain contextual planning references
+
+> **Superseded execution-binding direction.** `Action-level InvocationBinding`,
+> `ORCHESTRATION / CONTINUATION` mixed binding, and
+> `WorkflowInvocationContract` below record an earlier Phase 62 direction and
+> are not normative. The consolidated Phase 62 model retains `StateMachine SPI
+> -> Provider` binding; the bound provider determines suspension by returning
+> `ActionExecution.Suspended(Continuation)`, or completes/fails through the
+> corresponding `ActionExecution` case. This document's UI non-goals and
+> forward roadmap remain contextual references only.
 
 ## Phase 62 target
 

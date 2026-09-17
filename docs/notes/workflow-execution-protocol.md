@@ -1,7 +1,18 @@
 # CML Workflow Execution Protocol
 
-- Status: Design baseline
+- Status: Historical design baseline; superseded for Phase 62 by the StateMachine API/SPI model
 - Date: 2026-09-17
+
+## Supersession
+
+This note preserves the earlier protocol-oriented exploration. It is not the
+normative Phase 62 execution ABI. The current model keeps
+`StateMachine SPI -> Provider` binding, and the selected provider determines
+the outcome through `ActionExecution = Completed | Suspended(Continuation) |
+Failed`. A Participant or capability may describe who can provide work, but it
+does not declare an orchestration/continuation execution mode. The historical
+protocol and binding material below must not be used to reintroduce
+`InvocationBinding = ORCHESTRATION | CONTINUATION`.
 
 ## Purpose
 

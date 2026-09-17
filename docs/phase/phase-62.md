@@ -1,91 +1,97 @@
-# Phase 62: First-Class CML WORKFLOW, Continuation, and Producer ABI
+# Phase 62: First-Class CML WORKFLOW on StateMachine API/SPI
 
 Status: planned
 
 ## Goal
 
-`WORKFLOW` を first-class CML 宣言として定義し、既存の StateMachine /
-Composite StateMachine semantics に正規化する。その一つの意味論から、同じ
-State / Action / Operation / Result 契約を実行する Orchestration と
-Continuation を、Action / Participant ごとに選べる generated ABI として確立する。
+`WORKFLOW` を first-class CML 宣言として定義し、既存の StateMachine / Composite StateMachine semantics に正規化する。同時に StateMachine 一般の API/SPI と Action execution contract を generated ABI として確立し、Workflow はその基盤を再利用する。
+
+初期ターゲットは Skill から Workflow を確実に駆動できる producer ABI までとする。Workflow-to-Workflow proxy、REST connector、UI Workflow、Flutter generation は後続段階へ分離する。
+
+## Canonical model
+
+```text
+StateMachine
+  Provided API
+  Required SPI
+  State / Action / Transition
+  ActionExecution
+    Completed(Result)
+    Suspended(Continuation)
+    Failed(Error)
+        ^
+        |
+Workflow
+  first-class declaration
+  purpose / actor / use-case / process metadata
+  normalized to StateMachine / Composite StateMachine semantics
+```
+
+Continuation は Workflow mode や protocol mode ではない。Action provider が外部 Result を必要とするときに `ActionExecution.Suspended` が返す durable suspension value である。
 
 ## Design baseline
 
 - StateMachine / Composite StateMachine semantics を canonical control model とする。
-- `WORKFLOW` は first-class CML declaration とし、既存の
-  StateMachine / Composite StateMachine model へ正規化する。
-- automatic transition と semantic boundary を明示的に区別し、曖昧な自動進行を
-  許可しない。
-- Workflow を Protocol ごとに別定義せず、Protocol の変更で State / Guard /
-  Operation / Result semantics を変更しない。
-- `InvocationBinding = ORCHESTRATION | CONTINUATION` は Workflow/profile 単位の
-  選択ではなく、semantic Action / Participant ごとの閉じた binding とする。
-- `ActionExecution = Completed | Suspended | Failed` を Workflow 専用の二重
-  model ではなく、StateMachine 一般の generated API/SPI として定義する。
-- `Suspended` は typed durable `Continuation` を持つ。Continuation は `runId`、
-  revision、最小限の context、completion/evidence contract、および typed resume
-  result を持つ。
-- `ContextBundle` / `ContextReference` / `ContextSnapshot` は共通 model とし、
-  stale continuation/result を fail closed にする契約を生成する。
-- UI は optional presentation metadata とし、画面遷移・dialog・特定 transport を
-  Workflow semantics に埋め込まない。将来の direct/REST proxy に必要な型情報だけを
-  ABI に残す。
-- raw shell、runtime persistence、specific AI model/provider は CML contract に
-  入れない。
+- `WORKFLOW` は first-class CML declaration とし、既存 StateMachine model へ正規化する。
+- Workflow 専用の API/SPI、Action algebra、Continuation engine を重複定義しない。
+- StateMachine の Provided API / Required SPI を generated ABI の基本 interface model とする。
+- StateMachine の基本進行は `State -> Action -> ActionExecution -> Result -> Transition` とする。
+- `ActionExecution = Completed | Suspended | Failed` を typed closed contract とする。
+- `Suspended` は typed durable `Continuation` を持つ。
+- Required SPI provider は local/direct、external continuation、deterministic test provider 等へ binding 可能であり、provider placement は StateMachine semantics を変更しない。
+- automatic transition と semantic boundary を明示的に区別し、曖昧な自動進行を許可しない。
+- `ContextBundle` / `ContextReference` / `ContextSnapshot`、Completion / Evidence contract は external SPI completion に再利用できる共通 contract とする。
+- stale continuation/result は fail closed とする。
+- UI presentation、transport、specific AI model/provider、raw shell、runtime persistence は CML semantics に入れない。
+- 将来の assemble による `StateMachine SPI -> Provided API` binding と caller-side API projection に必要な stable identity/type metadata は保持する。
 
 ## Scope
 
-1. `WORKFLOW` grammar、identity、version、constituent/reference boundary を定義し、
-   StateMachine / Composite StateMachine に正規化する。
-2. declared Workflow、entity-local StateMachine、runtime WorkflowInstance の identity
-   を分離し、CML が WorkflowInstance persistence を所有しないことを固定する。
-3. automatic transition と typed semantic boundary（Work Order / Decision / Wait を
-   含む）の vocabulary、guard/effect、拒否診断を定義する。
-4. StateMachine 一般の `ActionExecution = Completed | Suspended | Failed` と、
-   direct / test / external provider placement を定義する。
-5. Action / Participant ごとの `InvocationBinding = ORCHESTRATION | CONTINUATION`
-   を定義し、同一 Workflow 内での混在を許可する。
-6. `WorkflowInvocationContract`、typed input/result、および required SPI operation
-   metadata を定義する。
-7. `Continuation`、`ContinuationResult`、`ContextBundle`、`ContextReference`、
-   `ContextSnapshot`、`CompletionContract`、`EvidenceContract`、resume contract を
-   定義する。
-8. generated Workflow/StateMachine ABI に、上記 schema、stable identity、
-   typed API/SPI、optional presentation metadata、将来の direct/REST projection に
-   必要な型情報を出力する。
-9. direct ComponentFactory bootstrap metadata を、runtime policy や inferred name
-   matching なしで出力する。
-10. real CML fixture に Build → AI Review → Approval → Commit の mixed binding を
-    定義し、semantic transition と operation/result semantics が不変であることを
-    検証する。
-11. deterministic generated evidence、ABI version、および CNCF `sm-workflow` consumer
-    handoff fixture/document を固定する。
+1. `WORKFLOW` grammar、identity、version、constituent/reference boundary を定義し、StateMachine / Composite StateMachine に正規化する。
+2. declared Workflow、entity-local StateMachine、runtime WorkflowInstance の identity を分離する。
+3. StateMachine Provided API / Required SPI の typed declaration / generated representation を定義する。
+4. `ActionExecution = Completed | Suspended | Failed` と typed Result/Error/Continuation contract を定義する。
+5. Required SPI operation metadataとして stable identity、typed input/result、generic Context、Completion、Evidence、capability/constraint を定義する。
+6. `Continuation`、`ContinuationResult`、`ContextBundle`、`ContextReference`、`ContextSnapshot`、resume contract を定義する。
+7. automatic transition と semantic external SPI boundary の guard/effect、拒否診断、source correlation を定義する。
+8. generated StateMachine/Workflow ABI に API/SPI schema、ActionExecution、Continuation/Context/Completion/Evidence schema、stable identity を出力する。
+9. direct ComponentFactory bootstrap metadata を runtime policy や inferred name matching なしで出力する。
+10. real CML fixture に internal Build/Test、external Review SPI、internal Commit を定義し、ReviewだけがSuspendedとなる vertical slice を検証する。
+11. deterministic generated evidence、ABI version、CNCF consumer handoff fixture/document を固定する。
 
 ## Acceptance
 
-- 同じ Workflow Definition を Protocol 別に複製しない。
-- direct internal Action は `Completed` で進み、external Review/Approval のみが
-  typed `Suspended(Continuation)` を返せる。
-- 同一 Workflow 内で Build/Commit を ORCHESTRATION、AI Review/Approval を
-  CONTINUATION に bind しても、State / Guard / Operation / Result semantics が
-  不変である。
-- Continuation が `runId`、revision、最小 context、completion/evidence contract、
-  typed result を持ち、`ContextSnapshot` により stale result を fail closed にする。
-- Context payload に canonical Workflow state、全 source、または全 log を無制限に
-  コピーしない。
-- real `WORKFLOW` source が既存 StateMachine / Composite StateMachine semantics と
-  source compatibility を保って正規化され、曖昧な automatic progression を拒否する。
-- generated ABI が CML 再解析なしで CNCF に admission 可能であり、将来の direct/REST
-  proxy が core semantics の再定義を必要としない。
-- UI Workflow、Flutter、Workflow Connection を実装せず、optional presentation
-  metadata の範囲を越えない。
+- Workflow は StateMachine / Composite StateMachine semantics に正規化され、別の Workflow control language を生成しない。
+- internal Action は `Completed(Result)` で進行できる。
+- external Review SPI は `Suspended(Continuation)` を生成し、typed ReviewResult で同じ Action を resume できる。
+- resume 後は StateMachine が Result を評価して transition し、internal closing Action へ進める。
+- provider placement を local/test/external で変更しても State / Guard / Operation / Result semantics を複製しない。
+- Continuation が run/instance identity、revision、最小 Context、Completion/Evidence contract、typed result contract を持つ。
+- `ContextSnapshot` により stale result を fail closed にする。
+- Context payload に canonical Workflow state、全 source、全 log を無制限にコピーしない。
+- generated ABI が CML 再解析なしで CNCF に admission 可能である。
+- Skill host、UI、REST、specific model/provider の概念を generic CML ABI に固定しない。
+
+## Initial reference scenario
+
+```text
+BuildProject  -> Completed
+RunTests      -> Completed
+ReviewChange  -> Suspended(Continuation)
+ReviewResult  -> resume -> transition
+CommitChanges -> Completed
+Terminal
+```
+
+この vertical slice を `sm-workflow` が最初の Skill-driven consumer として利用できることを Phase 62 handoff の中心にする。
 
 ## Non-goals
 
 - durable WorkflowRun datastore、SQLite provider、lease/idempotency implementation
 - AI model selection/dispatch implementation
-- Participant の具体的 remote transport
+- Generic Skill Workflow runtime/support implementation
 - Workflow-to-Workflow connection syntax、generated caller-side proxy、REST connector
+- full assemble API/SPI binding implementation
 - UI-WORKFLOW grammar、screen/form generation、Flutter/Dart generation、offline sync
 - CNCF runtime execution implementation
 
@@ -95,14 +101,19 @@ Phase closure では CNCF に以下を渡す。
 
 - frozen generated StateMachine/Workflow ABI version
 - real first-class CML `WORKFLOW` fixture と deterministic generated evidence
-- Action / Participant invocation-binding metadata
-- `ActionExecution`、`WorkflowInvocationContract`、API/SPI schema
+- StateMachine Provided API / Required SPI schema
+- `ActionExecution = Completed | Suspended | Failed`
 - Continuation / Context / Completion / Evidence schemas と stale-result validation contract
-- optional presentation metadata と future proxy projection に残す typed metadata
+- future assemble/API projection に必要な stable identity/type metadata
 
-Planning references:
+## Planning references
 
-- `docs/notes/workflow-execution-protocol.md`
+Current design:
+
 - `docs/notes/statemachine-api-spi.md`
-- `docs/phase/phase-62-participant-invocation-addendum.md`
+- `docs/notes/workflow-spi.md`
 - `docs/phase/phase-62-statemachine-api-spi-addendum.md`
+- `docs/phase/phase-62-workflow-spi-addendum.md`
+- `docs/phase/phase-62-initial-scope-and-ui-workflow-roadmap-addendum.md` (UI roadmap and deferrals only; its earlier execution-binding clauses are historical)
+
+Historical refinement journals and earlier protocol/binding addenda remain as design history. Where they conflict with this consolidated Phase 62, this document and the StateMachine API/SPI foundation are normative.

@@ -1,6 +1,15 @@
 # Phase 62 Addendum: Participant Invocation Protocol
 
-Status: planned / normative addendum to Phase 62
+Status: historical design record; superseded by the consolidated Phase 62 StateMachine API/SPI model
+
+> **Superseded.** This addendum records the earlier proposal to expose
+> `InvocationBinding = ORCHESTRATION | CONTINUATION` as an Action / Participant
+> ABI attribute. Phase 62 instead retains `StateMachine SPI -> Provider`
+> binding, while the selected provider returns
+> `ActionExecution = Completed | Suspended(Continuation) | Failed`.
+> Participant and capability information remain semantic metadata; neither
+> determines whether an invocation suspends. The historical material below
+> must not be used as the current Phase 62 ABI contract.
 
 ## Goal
 

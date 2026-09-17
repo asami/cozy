@@ -6,11 +6,12 @@ CML owns:
 
 - Workflow / StateMachine semantics
 - typed Operation and Participant
-- InvocationBinding (ORCHESTRATION / CONTINUATION)
-- WorkflowInvocationContract
+- StateMachine Provided API / Required SPI declarations
+- assemble-time `StateMachine SPI -> Provider` binding
+- `ActionExecution = Completed | Suspended(Continuation) | Failed`
 - ContextBundle / ContextSnapshot / ContextReference semantics
 - CompletionContract / EvidenceContract
-- generic capability/constraint metadata required to execute an invocation
+- generic capability/constraint metadata required to execute a Provider
 
 CML does not own:
 
@@ -22,4 +23,4 @@ CML does not own:
 
 Generic Skill Workflow Support is implemented by CNCF above these contracts. `sm-workflow` is a further Software Development specialization.
 
-This boundary keeps generated Workflow ABI reusable by UI/Human, AI, remote services and deterministic runtime operations without importing Skill-specific vocabulary.
+This boundary keeps generated Workflow ABI reusable by UI/Human, AI, remote services and deterministic runtime operations without importing Skill-specific vocabulary. Participant/capability metadata describes who can provide a capability; it does not declare whether execution completes directly or suspends. That outcome is returned by the selected Provider as `ActionExecution`.

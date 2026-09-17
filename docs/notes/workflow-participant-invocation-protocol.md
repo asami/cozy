@@ -1,5 +1,13 @@
 # Workflow Participant Invocation Protocol
 
+> **Status: historical design record.** This note records the earlier proposal
+> to make `InvocationBinding = ORCHESTRATION | CONTINUATION` an Action /
+> Participant attribute. It is superseded for Phase 62. The canonical model
+> preserves semantic Participant/capability metadata and
+> `StateMachine SPI -> Provider` binding; the bound provider returns
+> `ActionExecution = Completed | Suspended(Continuation) | Failed`. The
+> historical content below must not be used as the current ABI contract.
+
 ## Core model
 
 Workflow の StateMachine semantics と Participant の呼び出し方式を分離する。

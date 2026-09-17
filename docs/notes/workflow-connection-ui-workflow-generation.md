@@ -5,10 +5,10 @@
 CML Workflow should eventually model a typed connection from a Business Workflow Action to a Participant Workflow executed in another runtime, including a client UI runtime.
 
 ```text
-Business Workflow Action
-  -> WorkflowInvocationContract
-  -> InvocationBinding: CONTINUATION
-  -> Participant Workflow
+Business Workflow Required SPI
+  -> Provider binding
+  -> Participant Workflow Provider
+  -> ActionExecution.Suspended(Continuation)
   -> typed Result
   -> Business Workflow resume
 ```
@@ -45,6 +45,6 @@ UiWorkflowIr
 
 This is a roadmap, not the initial Workflow implementation target.
 
-The initial target is reliable Skill-driven Workflow execution using the generic Participant Invocation/Continuation contracts. Phase 62 should establish only the generic semantic/ABI foundations needed by that target and avoid implementing UI Workflow grammar or Flutter generation prematurely.
+The initial target is reliable Skill-driven Workflow execution using generic StateMachine Required SPI, Provider binding, and `ActionExecution` / Continuation contracts. Phase 62 should establish only the generic semantic/ABI foundations needed by that target and avoid implementing UI Workflow grammar or Flutter generation prematurely.
 
-The initial ABI should remain extensible enough to bind a semantic Action to a Participant Workflow later without changing the core Operation input/result semantics.
+The initial ABI should remain extensible enough to bind a Required SPI to a Participant Workflow Provider later without changing the core Operation input/result semantics. A future direct provider may instead return `Completed(Result)`; Participant identity does not prescribe either outcome.
