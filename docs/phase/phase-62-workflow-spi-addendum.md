@@ -1,6 +1,6 @@
 # Phase 62 Addendum: Workflow SPI and Suspended Action
 
-Status: planned / normative refinement
+Status: planned / normative refinement; owned by Phase 62.1 after the applied split
 
 ## Requirements
 
@@ -12,7 +12,8 @@ Status: planned / normative refinement
 - Workflow SPI operation specification includes identity, typed input/result and generic Context/Completion/Evidence requirements.
 - Provider placement/binding must not require duplication of Workflow StateMachine semantics.
 - Permit direct, test/mock, and external provider implementations of the same required operation.
-- Keep the initial Phase 62 target focused on reliable Skill-driven Workflow execution; Workflow Connection/UI Workflow/Flutter generation remain future work.
+- Keep the Phase 62 sequence focused on reliable Skill-driven Workflow execution;
+  Workflow Connection/UI Workflow/Flutter generation remain future work.
 
 ## Acceptance shape
 

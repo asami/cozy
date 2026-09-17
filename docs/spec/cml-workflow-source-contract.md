@@ -118,8 +118,8 @@ The normalizer rejects:
   and duplicate Action mappings;
 - nested or undeclared structural content in a required-operation entry; and
 - `INVOCATION-BINDING`, `ORCHESTRATION`, `CONTINUATION`, `PROVIDER`, `SCRIPT`,
-  `RETRY`, `EXECUTION`, `CONTROL`, or `ACTION-EXECUTION` vocabulary authored
-  as Workflow grammar.
+  `RETRY`, `EXECUTION`, `CONTROL`, `ACTION-EXECUTION`, `IMPLEMENTATION`,
+  `BINDING`, or `RUNTIME` vocabulary authored as Workflow grammar.
 
 Narrative prose may discuss those concepts as prose, but it cannot be shaped
 as direct Workflow metadata or structural headings to declare executable

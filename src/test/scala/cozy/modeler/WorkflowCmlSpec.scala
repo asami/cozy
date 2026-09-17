@@ -273,6 +273,22 @@ final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen
         error.getMessage should include("does not admit execution-binding vocabulary 'provider'")
       }
 
+      "reject direct implementation metadata as execution-binding vocabulary" in {
+        Given("a WORKFLOW definition with a direct implementation metadata field")
+        val model = _model(_workflow_source().replace(
+          "version = workflow-v1",
+          "version = workflow-v1\nimplementation = source"
+        ))
+
+        When("the Workflow source structure is classified")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.workflowDefinitions(model)
+        }
+
+        Then("the direct implementation field is diagnosed as execution-binding vocabulary")
+        error.getMessage should include("does not admit execution-binding vocabulary 'implementation'")
+      }
+
       "reject direct provider execution metadata on the REQUIRED-OPERATION section" in {
         Given("a REQUIRED-OPERATION section with a direct provider metadata field")
         val model = _model(_workflow_source().replace(
@@ -287,6 +303,38 @@ final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen
 
         Then("the section-level provider field is diagnosed as execution-binding vocabulary")
         error.getMessage should include("WORKFLOW 'OrderProgress' REQUIRED-OPERATION does not admit execution-binding vocabulary 'provider'")
+      }
+
+      "reject direct binding metadata on the REQUIRED-OPERATION section" in {
+        Given("a REQUIRED-OPERATION section with a direct binding metadata field")
+        val model = _model(_workflow_source().replace(
+          "### REQUIRED-OPERATION\n\n#### capture-payment-capability",
+          "### REQUIRED-OPERATION\n\nbinding = source\n\n#### capture-payment-capability"
+        ))
+
+        When("the required-operation section is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.workflowDefinitions(model)
+        }
+
+        Then("the section-level binding field is diagnosed as execution-binding vocabulary")
+        error.getMessage should include("WORKFLOW 'OrderProgress' REQUIRED-OPERATION does not admit execution-binding vocabulary 'binding'")
+      }
+
+      "reject direct runtime metadata in a REQUIRED-OPERATION entry" in {
+        Given("a REQUIRED-OPERATION entry with a direct runtime metadata field")
+        val model = _model(_workflow_source().replace(
+          "#### capture-payment-capability\n\naction = capture-payment",
+          "#### capture-payment-capability\n\nruntime = source\naction = capture-payment"
+        ))
+
+        When("the required-operation entry is normalized")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.workflowDefinitions(model)
+        }
+
+        Then("the entry-level runtime field is diagnosed as execution-binding vocabulary")
+        error.getMessage should include("WORKFLOW 'OrderProgress' REQUIRED-OPERATION 'capture-payment-capability' does not admit execution-binding vocabulary 'runtime'")
       }
 
       "reject a capability that names an undeclared Action" in {

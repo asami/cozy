@@ -1,119 +1,105 @@
-# Phase 62: First-Class CML WORKFLOW on StateMachine API/SPI
+# Phase 62: CML WORKFLOW Source and StateMachine Lowering
 
-Status: planned
+status=closed
+split_full_test_policy=final-only
+split_full_validation_method=sbt-full-suite
+split_validation_bootstrap=none
+validation_ownership=aggregate-deferred
+aggregate_validation_owner=PHASE-62.3
+aggregate_validation_sequence=["PHASE-62","PHASE-62.1","PHASE-62.2","PHASE-62.3"]
 
-## Goal
+Status: closed
+Planned at: 2026-09-16
+Split applied: 2026-09-17
+Closed: 2026-09-17
+Development item: DEV-030
+Successor: [Phase 62.1](phase-62.1.md)
 
-`WORKFLOW` を first-class CML 宣言として定義し、既存の StateMachine / Composite StateMachine semantics に正規化する。同時に StateMachine 一般の API/SPI と Action execution contract を generated ABI として確立し、Workflow はその基盤を再利用する。
+## Phase Plan Gate
 
-初期ターゲットは Skill から Workflow を確実に駆動できる producer ABI までとする。Workflow-to-Workflow proxy、REST connector、UI Workflow、Flutter generation は後続段階へ分離する。
+Pre-split gate evidence (2026-09-17): `SPLIT_REQUIRED` from the typed Phase
+Entry Gate, with a 1,560-minute expected duration and 2,100-minute conservative
+bound. Its reasons were `[time-bound, reasoning-cost-isolation]`.
 
-## Canonical model
+Phase Plan Gate: PROCEED
 
-```text
-StateMachine
-  Provided API
-  Required SPI
-  State / Action / Transition
-  ActionExecution
-    Completed(Result)
-    Suspended(Continuation)
-    Failed(Error)
-        ^
-        |
-Workflow
-  first-class declaration
-  purpose / actor / use-case / process metadata
-  normalized to StateMachine / Composite StateMachine semantics
-```
+- target: calibrated expected duration centered on 6h; allowed ceiling 8h
+- estimate_calibration: no comparable completed Workflow producer Phase; this
+  6.0-7.0h source/lowering interval is the first partition of six open WFL-62 stages.
+- planning_demand: protected-decision
+- recommended_parent_profile: gpt-5.6-terra / xhigh
+- profile_cost_role: expensive reasoning kernel
+- expensive_reasoning_kernel: fix first-class `WORKFLOW` identity, lowering,
+  automatic progression and external semantic boundaries without a second Workflow control language.
+- frozen_profile_transition_handoff: committed normalized Workflow source and
+  StateMachine correlation authority for Phase 62.1.
+- parent_reasoning_mode_policy: standard
+- estimated_at_recommended_profile: 6.0-7.0h; centered near target and within ceiling.
+- incoming_semantic_handoffs: []
+- merge_attempts_for_every_sub_4h_child: none
+- rebalance_attempts_for_every_sub_5h_child: none
+- adjacent_merge_structural_rejection_evidence: merging with Phase 62.1 restores
+  a 13-15h source-and-public-ABI boundary and removes the committed authority handoff.
+- profile_cost_only_rejection_forbidden: true
+- short_child_basis: none
+- overhead_tradeoff: three additional reviews, ledgers and commits keep source
+  semantics separate from public ABI, generator and consumer-fixture execution.
+- agent_reasoning_mode_policy: default standard; consider pro only at an eligible launch with frozen quality-first evidence.
+- runtime_suitability: re-evaluate in the Phase execution task.
+- source: applied split from Phase 62 on 2026-09-17.
 
-Continuation は Workflow mode や protocol mode ではない。Action provider が外部 Result を必要とするときに `ActionExecution.Suspended` が返す durable suspension value である。
+## Purpose and boundary
 
-## Design baseline
+Define `WORKFLOW` as a first-class CML declaration and normalize it to the existing
+StateMachine / Composite StateMachine semantic model. This phase owns source identity,
+versioning, constituent/reference boundaries, declared versus runtime-instance separation,
+source correlation, and the distinction between automatic transition and an external SPI boundary.
 
-- StateMachine / Composite StateMachine semantics を canonical control model とする。
-- `WORKFLOW` は first-class CML declaration とし、既存 StateMachine model へ正規化する。
-- Workflow 専用の API/SPI、Action algebra、Continuation engine を重複定義しない。
-- StateMachine の Provided API / Required SPI を generated ABI の基本 interface model とする。
-- StateMachine の基本進行は `State -> Action -> ActionExecution -> Result -> Transition` とする。
-- `ActionExecution = Completed | Suspended | Failed` を typed closed contract とする。
-- `Suspended` は typed durable `Continuation` を持つ。
-- Required SPI provider は local/direct、external continuation、deterministic test provider 等へ binding 可能であり、provider placement は StateMachine semantics を変更しない。
-- automatic transition と semantic boundary を明示的に区別し、曖昧な自動進行を許可しない。
-- `ContextBundle` / `ContextReference` / `ContextSnapshot`、Completion / Evidence contract は external SPI completion に再利用できる共通 contract とする。
-- stale continuation/result は fail closed とする。
-- UI presentation、transport、specific AI model/provider、raw shell、runtime persistence は CML semantics に入れない。
-- 将来の assemble による `StateMachine SPI -> Provided API` binding と caller-side API projection に必要な stable identity/type metadata は保持する。
+It preserves existing StateMachine source compatibility and rejects ambiguous progression,
+undeclared required operations, raw execution surfaces and Workflow-only control semantics.
+It does not define a Workflow-specific API, provider protocol mode, runtime store or consumer engine.
 
-## Scope
+## Work stack
 
-1. `WORKFLOW` grammar、identity、version、constituent/reference boundary を定義し、StateMachine / Composite StateMachine に正規化する。
-2. declared Workflow、entity-local StateMachine、runtime WorkflowInstance の identity を分離する。
-3. StateMachine Provided API / Required SPI の typed declaration / generated representation を定義する。
-4. `ActionExecution = Completed | Suspended | Failed` と typed Result/Error/Continuation contract を定義する。
-5. Required SPI operation metadataとして stable identity、typed input/result、generic Context、Completion、Evidence、capability/constraint を定義する。
-6. `Continuation`、`ContinuationResult`、`ContextBundle`、`ContextReference`、`ContextSnapshot`、resume contract を定義する。
-7. automatic transition と semantic external SPI boundary の guard/effect、拒否診断、source correlation を定義する。
-8. generated StateMachine/Workflow ABI に API/SPI schema、ActionExecution、Continuation/Context/Completion/Evidence schema、stable identity を出力する。
-9. direct ComponentFactory bootstrap metadata を runtime policy や inferred name matching なしで出力する。
-10. real CML fixture に internal Build/Test、external Review SPI、internal Commit を定義し、ReviewだけがSuspendedとなる vertical slice を検証する。
-11. deterministic generated evidence、ABI version、CNCF consumer handoff fixture/document を固定する。
+| ID | Outcome | Status |
+| --- | --- | --- |
+| WFL-62-01 | First-class Workflow source contract and StateMachine/Composite StateMachine lowering. | CLOSED |
 
-## Acceptance
+## Acceptance and exclusions
 
-- Workflow は StateMachine / Composite StateMachine semantics に正規化され、別の Workflow control language を生成しない。
-- internal Action は `Completed(Result)` で進行できる。
-- external Review SPI は `Suspended(Continuation)` を生成し、typed ReviewResult で同じ Action を resume できる。
-- resume 後は StateMachine が Result を評価して transition し、internal closing Action へ進める。
-- provider placement を local/test/external で変更しても State / Guard / Operation / Result semantics を複製しない。
-- Continuation が run/instance identity、revision、最小 Context、Completion/Evidence contract、typed result contract を持つ。
-- `ContextSnapshot` により stale result を fail closed にする。
-- Context payload に canonical Workflow state、全 source、全 log を無制限にコピーしない。
-- generated ABI が CML 再解析なしで CNCF に admission 可能である。
-- Skill host、UI、REST、specific model/provider の概念を generic CML ABI に固定しない。
+Acceptance is a committed source/lowering contract with executable specifications that can be
+consumed without rediscovering Workflow semantics. Phase 62.1 owns generic StateMachine
+Provided API / Required SPI and ActionExecution ABI; Phase 62.2 owns deterministic generation;
+Phase 62.3 owns the fixture, aggregate full SBT validation and CNCF handoff.
 
-## Initial reference scenario
+No WorkflowRun datastore, provider dispatch, Workflow-to-Workflow proxy, REST connector, UI
+Workflow, Flutter generation, raw shell, runtime persistence or CNCF `sm-workflow` runtime is implemented here.
 
-```text
-BuildProject  -> Completed
-RunTests      -> Completed
-ReviewChange  -> Suspended(Continuation)
-ReviewResult  -> resume -> transition
-CommitChanges -> Completed
-Terminal
-```
+## Applied split and handoff
 
-この vertical slice を `sm-workflow` が最初の Skill-driven consumer として利用できることを Phase 62 handoff の中心にする。
+The applied sequence is `PHASE-62 -> PHASE-62.1 -> PHASE-62.2 -> PHASE-62.3`.
+All WFL stages were OPEN, so no completed history moved. This Phase retains WFL-62-01 and
+produces the committed source-normalization handoff consumed by [Phase 62.1](phase-62.1.md).
+Repository-full SBT validation is deferred to aggregate final owner Phase 62.3; focused
+validation, review, release evidence and commit remain required here.
 
-## Non-goals
+## Closure evidence
 
-- durable WorkflowRun datastore、SQLite provider、lease/idempotency implementation
-- AI model selection/dispatch implementation
-- Generic Skill Workflow runtime/support implementation
-- Workflow-to-Workflow connection syntax、generated caller-side proxy、REST connector
-- full assemble API/SPI binding implementation
-- UI-WORKFLOW grammar、screen/form generation、Flutter/Dart generation、offline sync
-- CNCF runtime execution implementation
+WFL-62-01 is closed with the committed `WORKFLOW` source/lowering contract,
+focused executable specifications, and a clean focused re-review after the one
+corrected grammar-boundary finding. Focused SBT validation was
+`testOnly cozy.modeler.WorkflowCmlSpec cozy.modeler.CompositeStateMachineCmlSpec`
+with receipt `55b5dfc8cc24539921e3a1b4a311333649ec948d7f471c775769fccccd5dac05`.
+The final focused re-review is
+`PHASE-62-WFL-62-01-FOCUSED-REREVIEW-003` with no current boundary blockers.
 
-## Handoff
+The repository-full SBT suite was deliberately not run in this child Phase:
+the split contract assigns that aggregate validation to Phase 62.3. This
+closure therefore makes no API/SPI, generated ABI, runtime, fixture, CNCF, or
+`sm-workflow` consumer-acceptance claim.
 
-Phase closure では CNCF に以下を渡す。
+## References
 
-- frozen generated StateMachine/Workflow ABI version
-- real first-class CML `WORKFLOW` fixture と deterministic generated evidence
-- StateMachine Provided API / Required SPI schema
-- `ActionExecution = Completed | Suspended | Failed`
-- Continuation / Context / Completion / Evidence schemas と stale-result validation contract
-- future assemble/API projection に必要な stable identity/type metadata
-
-## Planning references
-
-Current design:
-
-- `docs/notes/statemachine-api-spi.md`
-- `docs/notes/workflow-spi.md`
-- `docs/phase/phase-62-statemachine-api-spi-addendum.md`
-- `docs/phase/phase-62-workflow-spi-addendum.md`
-- `docs/phase/phase-62-initial-scope-and-ui-workflow-roadmap-addendum.md` (UI roadmap and deferrals only; its earlier execution-binding clauses are historical)
-
-Historical refinement journals and earlier protocol/binding addenda remain as design history. Where they conflict with this consolidated Phase 62, this document and the StateMachine API/SPI foundation are normative.
+- [Phase 62 Checklist](phase-62-checklist.md)
+- [Phase 62.1 ABI successor](phase-62.1.md)
+- [Current StateMachine API/SPI clarification](phase-62-statemachine-api-spi-clarification.md)

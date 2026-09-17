@@ -1698,7 +1698,7 @@ Origin:
 | DEV-027 | `docs/journal/2026/09/2026-09-13-phase-59-summary-slide-pdf-projection-decision.md`; user direction on 2026-09-13 after Phase 58.2 closure | Project the current bound v2 Summary Description through an explicit source-grounded Visual Page profile and invoke the existing Phase 40 `summary_slides_pdf` route, preserving PDF renderer/receipt/currentness authority and Article 9 local acceptance. | NEW_PHASE | [Phase 59](../phase/phase-59.md) PLANNED | ADOPTED |
 | DEV-028 | `docs/journal/2026/09/2026-09-14-smartdox-article-and-core-confirmation-decision.md`; in-place revision recorded in `2026-09-14-confirmation-views-and-make-dependencies-decision.md`; time-bound split applied on 2026-09-14 | Add structure-centered and document-centered DSL confirmation plus actual SmartDox article HTML through Document Project, with ordinary make-level timestamp dependencies and no hash-based local artifact management; then add goal-driven Codex DSL dependency resolution and generation. | NEW_PHASE | [Phase 60](../phase/phase-60.md) CLOSED, P600-01–P600-05 → [Phase 60.1](../phase/phase-60.1.md) CLOSED, P600-06–P600-08; Phase 60.1 binds the final-only repository-full validation in its release closure | RESOLVED |
 | DEV-029 | `docs/journal/2026/09/2026-09-14-video-middle-dot-and-tail-silence-decision.md`; Article 9 Japanese video feedback and explicit development-planning request on 2026-09-14; split applied on 2026-09-15 | Add opt-in speech-only Japanese middle-dot normalization and scene-authored post-utterance silence based on actual synthesized WAV length, with unchanged display terms, backward-compatible target timing, and aligned pipeline/evidence/currentness. | NEW_PHASE | [Phase 61](../phase/phase-61.md) CLOSED, P610-01–P610-02 → [Phase 61.1](../phase/phase-61.1.md) PLANNED, P610-03–P610-05; only P610-03–P610-05 remain OPEN and Phase 61.1 owns final-only repository-full validation | ADOPTED |
-| DEV-030 | User direction on 2026-09-16 and merge reconciliation on 2026-09-17 | Add a first-class CML `WORKFLOW` declaration that lowers to accepted StateMachine / Composite StateMachine semantics; preserve explicit automatic versus semantic boundaries; and generate StateMachine-general `Completed | Suspended | Failed`, Action/Participant-level Orchestration/Continuation binding, typed durable Continuation, and stale-result protection for the downstream runtime. | NEW_PHASE | [Phase 62](../phase/phase-62.md) PLANNED → CNCF [Phase 77](../../../cloud-native-component-framework/docs/phase/phase-77.md) PLANNED → Textus `sm-workflow` Phase 1 | ADOPTED |
+| DEV-030 | User direction on 2026-09-16; StateMachine API/SPI reconciliation on 2026-09-17; split applied on 2026-09-17 | Add first-class CML `WORKFLOW` lowering to StateMachine / Composite StateMachine semantics, then generic StateMachine Provided API / Required SPI, `Completed | Suspended(Continuation) | Failed`, provider binding and stale-result protection. Historical Action/Participant InvocationBinding is superseded; a Provider determines ActionExecution. | NEW_PHASE | [Phase 62](../phase/phase-62.md) CLOSED → [Phase 62.1](../phase/phase-62.1.md) PLANNED → [Phase 62.2](../phase/phase-62.2.md) PLANNED → [Phase 62.3](../phase/phase-62.3.md) PLANNED → CNCF [Phase 77](../../../cloud-native-component-framework/docs/phase/phase-77.md) PLANNED → Textus `sm-workflow` Phase 1 | ADOPTED |
 | DEV-031 | `docs/journal/2026/09/2026-09-16-multi-cml-generation-provenance-development-candidate.md`; user direction on 2026-09-16; split applied on 2026-09-16 | Let one Cozy project retain provenance for multiple declared CML inputs without arbitrary source selection: Phase 63 owns the aggregate/rebind contract and Cozy validation; Phase 63.1 consumes that handoff for the sbt-cozy bridge, side-output installation and the `simplemodeling-model` driver receipt. | NEW_PHASE | [Phase 63](../phase/phase-63.md) CLOSED, MCML-63-01–02 → [Phase 63.1](../phase/phase-63.1.md) CLOSED, MCML-63-03–04; each child completed its own full SBT validation | RESOLVED |
 | DEV-032 | GitHub Phase 55 Dart planning record; user Phase-number reconciliation on 2026-09-17 | Generate null-safe Dart model and typed API contracts from Cozy IR for a Textus CBD Support client boundary, reusing generated contracts instead of a client-local shadow model. The plan is Phase 65 because local Phase 55 remains the completed site-context media-registration closure. | NEW_PHASE | [Phase 65](../phase/phase-65.md) PLANNED | ADOPTED |
 
@@ -1787,20 +1787,19 @@ The sequence preserves `UnitOfWorkOp` as the sole execution algebra; CNCF
 Phase 64.2 remains the consumer-owned runtime authority and external
 acceptance owner.
 
-Phase 62 is a separately planned CML language/producer boundary. It introduces
-the first-class `WORKFLOW` declaration and generated StateMachine/Workflow ABI
-while preserving Phase 47's StateMachine / Composite StateMachine semantics
-and Phase 47.2.1's logical-Action program. Its explicit automatic versus
-semantic boundary contract is retained, while `ActionExecution = Completed |
-Suspended | Failed`, typed durable Continuation, ContextSnapshot stale-result
-protection, and Action/Participant-level Orchestration/Continuation binding are
-added as generic StateMachine API/SPI. CNCF Phase 77 consumes that frozen ABI;
-Textus `sm-workflow` remains the owner of SQLite-backed runs, `advance`, and
-public skill behavior. This addition does not change the current Document
-Project or semantic-metadata priorities. Entity-local StateMachine persistence
-remains owned by the entity; a CML Workflow definition declares no entity-field
-shortcut for the separately persisted WorkflowInstance owned by its consuming
-runtime. UI Workflow, Flutter, and Workflow Connection remain follow-up work.
+The Phase 62 sequence is a separately planned CML language/producer boundary.
+Phase 62 is CLOSED for first-class `WORKFLOW` source/lowering while preserving
+Phase 47 StateMachine / Composite StateMachine semantics and Phase 47.2.1
+logical-Action. Phase 62.1 remains PLANNED and adds generic StateMachine API/SPI,
+`ActionExecution = Completed | Suspended | Failed`, typed durable Continuation
+and ContextSnapshot stale-result protection. It retains StateMachine Required
+SPI -> Provider binding -> Provider execution -> ActionExecution; no
+Action/Participant InvocationBinding ABI remains. Phase 62.2 generates the
+frozen ABI/bootstrap and Phase 62.3 proves the producer fixture and hands it to
+CNCF Phase 77. Textus `sm-workflow` retains SQLite-backed runs, `advance` and
+public skill behavior. Entity-local StateMachine persistence remains entity
+owned; CML Workflow has no entity-field shortcut for its consumer-owned runtime
+instance. UI Workflow, Flutter and Workflow Connection remain follow-up work.
 
 The immediate Document Project priority is planned Phase 59. It connects the
 current v2 Summary Description to the accepted Phase 40 summary-slide PDF

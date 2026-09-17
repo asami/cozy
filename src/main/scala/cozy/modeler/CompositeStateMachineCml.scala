@@ -93,7 +93,10 @@ private[modeler] object CompositeStateMachineCml {
     "RETRY",
     "EXECUTION",
     "CONTROL",
-    "ACTION-EXECUTION"
+    "ACTION-EXECUTION",
+    "IMPLEMENTATION",
+    "BINDING",
+    "RUNTIME"
   )
 
   private def _validate_workflow_structure(

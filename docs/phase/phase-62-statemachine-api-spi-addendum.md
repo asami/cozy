@@ -4,7 +4,9 @@ Status: planned / normative refinement
 
 ## Goal
 
-Phase 62 Workflow ABIのAPI/SPI/Continuation基盤をWorkflow専用機構として実装せず、StateMachine API/SPIの一般機構として定義・生成し、Workflowから再利用する。
+Phase 62.1 が Workflow ABIのAPI/SPI/Continuation基盤をWorkflow専用機構として
+実装せず、StateMachine API/SPIの一般機構として定義する。Phase 62.2 がその
+凍結契約を生成し、Workflow は再利用する。
 
 ## Requirements
 
@@ -22,4 +24,6 @@ The Skill-driven reference Workflow uses a StateMachine whose internal build/tes
 
 ## Non-goals
 
-Phase 62 does not yet implement the full assemble syntax, Workflow-to-Workflow API proxy, REST connector, UI Workflow generation or Flutter generation. These remain follow-up work built on the StateMachine API/SPI ABI.
+The Phase 62 sequence does not implement full assemble syntax, Workflow-to-Workflow
+API proxy, REST connector, UI Workflow generation or Flutter generation. These remain
+follow-up work built on the StateMachine API/SPI ABI.

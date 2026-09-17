@@ -5,7 +5,11 @@ Date: 2026-09-17
 
 This clarification supersedes older Phase 62 strategy wording that describes Action/Participant-level `ORCHESTRATION | CONTINUATION` binding as part of the generated ABI.
 
-The current Phase 62 authority is `docs/phase/phase-62.md` plus `docs/phase/phase-62-checklist.md`.
+The current authority is the serial producer sequence
+`PHASE-62 -> PHASE-62.1 -> PHASE-62.2 -> PHASE-62.3` and its matching
+documents/checklists. Phase 62 is closed for source/lowering; Phase 62.1 owns the
+StateMachine API/SPI and ActionExecution ABI; Phase 62.2 owns generated ABI and
+bootstrap; Phase 62.3 owns the fixture, producer evidence and CNCF handoff.
 
 ## Current strategy
 
@@ -37,7 +41,10 @@ Participant/capability metadata may describe who or what can satisfy an SPI oper
 
 ## Initial target
 
-Phase 62 remains intentionally narrow: generate the StateMachine/Workflow ABI required for the first Skill-driven vertical slice and hand it to CNCF Phase 77.
+The Phase 62 sequence remains intentionally narrow: generate the
+StateMachine/Workflow ABI required for the first Skill-driven vertical slice
+and hand it to CNCF Phase 77. Only Phase 62.3 closes the complete producer
+sequence; it does not claim consumer runtime acceptance.
 
 ```text
 BuildProject  -> Completed

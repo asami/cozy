@@ -44,14 +44,14 @@ Current phase state:
   reuses composite semantics as far as possible. Its planned child phases
   retain the linked action/transaction and compilation/testability contracts;
   it is coordinated with CNCF Phases 64 through 64.2.
-- Planned CML language and producer phase: [Phase 62](phase-62.md) adds
-  first-class `WORKFLOW` source syntax, explicit automatic versus semantic
-  boundaries, and a generated StateMachine/Workflow ABI. It reuses the closed
-  Phase 47 Composite StateMachine and logical-Action contracts, adds generic
-  `Completed | Suspended | Failed` execution and Action/Participant-level
-  Orchestration/Continuation bindings, then hands the typed continuation and
-  stale-result contract to CNCF `sm-workflow`. UI Workflow, Flutter, and
-  Workflow Connection remain future work.
+- Closed CML source/lowering: [Phase 62](phase-62.md) fixes first-class
+  `WORKFLOW` source/lowering. The planned producer successors [Phase 62.1](phase-62.1.md),
+  [Phase 62.2](phase-62.2.md), and [Phase 62.3](phase-62.3.md) respectively fix the
+  generic StateMachine API/SPI and `Completed | Suspended | Failed` ABI,
+  generate its deterministic ABI/bootstrap, and prove the Skill-driven fixture
+  before handing frozen producer evidence to CNCF `sm-workflow`. Required SPI
+  -> Provider -> ActionExecution replaces historical InvocationBinding wording.
+  UI Workflow, Flutter and Workflow Connection remain future work.
 - Closed generation-integration sequence: [Phase 63](phase-63.md) owns the
   multi-source provenance contract and Cozy aggregation validation; its closed
   successor [Phase 63.1](phase-63.1.md) consumed that authority for the

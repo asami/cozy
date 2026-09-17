@@ -1,10 +1,11 @@
 # Phase 62 Addendum: Skill Layer Boundary
 
-Status: planned / normative clarification to Phase 62
+Status: planned / normative clarification to the Phase 62 sequence
 
 ## Requirements
 
-- Phase 62 generated Workflow ABI remains Skill-neutral.
+- The Phase 62.2 generated Workflow ABI remains Skill-neutral; Phase 62.3
+  proves only the producer fixture and handoff, not a Skill runtime.
 - ABI provides generic Participant, StateMachine Required SPI, Provider binding, ActionExecution, Context, Continuation, Completion, and Evidence contracts sufficient for CNCF to build Skill Workflow projections.
 - Do not generate SkillWorkOrder, ParentAI, WorkerAI, model name, reasoning level, git/sbt/build-specific concepts from generic CML Workflow declarations.
 - Allow generic capability/constraint/risk metadata only where it is meaningful independent of Skill hosts.
