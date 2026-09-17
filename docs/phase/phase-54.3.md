@@ -51,7 +51,7 @@ Phase Plan Gate: PROCEED
 | --- | --- | --- |
 | MMD-543-01 | Publish Workflow identity, purpose, activities, control flow, branch/merge, participants, affected domain elements, and declared related operations/events/state effects. | planned |
 | MMD-543-02 | Publish StateMachine, state, and transition identities with declared triggers, guards, actions, and owning/affected domain elements. | planned |
-| MMD-543-03 | Preserve stable declared links among Workflow activities, StateMachine transitions, operations, events, and rules. | planned |
+| MMD-543-03 | Preserve stable declared links among Workflow activities, StateMachine transitions, operations, events, and rules, including admitted operation/event cause and reaction links. | planned |
 | MMD-543-04 | Freeze dynamic fixtures and the Phase 54.4 cross-view handoff without defining runtime enforcement. | planned |
 
 ## Closure criteria
@@ -60,6 +60,8 @@ Phase Plan Gate: PROCEED
   from one another.
 - Every declared dynamic cross-reference uses the frozen stable identity
   vocabulary; undeclared policy remains explicit absence.
+- Admitted operation/event causal and reaction links remain source-grounded;
+  later Event Storming traversal must not infer a missing edge.
 - Fixtures demonstrate dynamic navigation without source parsing or a claim of
   CNCF lifecycle enforcement.
 - The dynamic handoff is frozen for Phase 54.4; Use Case detail and the final

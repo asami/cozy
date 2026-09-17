@@ -1,27 +1,26 @@
-# Phase 54 Checklist: Site-Editing-Ready Model Metadata Foundation
+# Phase 54 Checklist: CBD Support Semantic Capability Foundation
 
 Status: PLANNED
 phase=[Phase 54](phase-54.md)
 
 Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 
-## MMD-54-01: Inventory and compatibility
+## MMD-54-01: Capability inventory
 
-- [ ] Inventory current CML IR and v1 metadata for all planned model elements.
-- [ ] Record public compatibility constraints and the source/provenance surface.
+- [ ] Inventory the current semantic IR and generated metadata for every planned Textus CBD Support view capability.
+- [ ] Classify each capability as guaranteed, faithfully derivable, partially represented, or missing.
 
 ## MMD-54-02: Stable identity and absence
 
-- [ ] Define stable model-element identity and cross-reference rules.
-- [ ] Define explicit absence semantics; prohibit name-based identity guessing.
+- [ ] Define stable source-attributed model-element identities and cross-reference rules.
+- [ ] Define explicit absence semantics and prohibit name-based identity or policy guessing.
 
 ## MMD-54-03: Versioned publication foundation
 
-- [ ] Freeze the consumer-neutral v2 metadata envelope and extension policy.
-- [ ] Produce the identity/publication handoff for Phases 54.1 through 54.4.
+- [ ] Freeze the consumer-neutral semantic-metadata envelope and extension/compatibility policy.
+- [ ] Preserve the ownership boundary: Cozy supplies semantics; Textus CBD Support renders and reviews them.
 
-## MMD-54-04: Editing-oriented foundation acceptance
+## MMD-54-04: Child handoff
 
-- [ ] Prove that a consumer can address source-attributed model elements without CML parsing.
-- [ ] Retain the no-site-edit/no-publication boundary.
-- [ ] Complete focused validation, review, release closure, and reproducible evidence for this child only.
+- [ ] Freeze the inventory/identity/publication handoff for Phases 54.1 through 54.7.
+- [ ] Complete focused validation, review, release closure, and reproducible evidence for this foundation child only.

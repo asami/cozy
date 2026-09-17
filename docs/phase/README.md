@@ -44,24 +44,28 @@ Current phase state:
   reuses composite semantics as far as possible. Its planned child phases
   retain the linked action/transaction and compilation/testability contracts;
   it is coordinated with CNCF Phases 64 through 64.2.
-- Planned CML language phase: [Phase 62](phase-62.md) adds first-class
-  `WORKFLOW` source syntax, explicit automatic versus semantic progression
-  boundaries, and a generated producer ABI. It reuses the closed Phase 47
-  Composite StateMachine and logical-Action contracts, then hands the generated
-  surface to CNCF Phase 77; it neither implements a runtime nor selects an
-  active Phase.
+- Planned CML language and producer phase: [Phase 62](phase-62.md) adds
+  first-class `WORKFLOW` source syntax, explicit automatic versus semantic
+  boundaries, and a generated StateMachine/Workflow ABI. It reuses the closed
+  Phase 47 Composite StateMachine and logical-Action contracts, adds generic
+  `Completed | Suspended | Failed` execution and Action/Participant-level
+  Orchestration/Continuation bindings, then hands the typed continuation and
+  stale-result contract to CNCF `sm-workflow`. UI Workflow, Flutter, and
+  Workflow Connection remain future work.
 - Planned generation-integration sequence: [Phase 63](phase-63.md) owns the
   multi-source provenance contract and Cozy aggregation validation; its
   successor [Phase 63.1](phase-63.1.md) consumes that committed authority for
   the sbt-cozy bridge and `simplemodeling-model` driver receipt. Each child
   owns its own full SBT validation. Neither weakens provenance nor starts the
   independent CNCF Phase 74.1.
-- Planned semantic-metadata sequence: `phase-54.md` retains the first,
-  site-editing-ready stable identity and versioned publication foundation;
-  `phase-54.1.md` adds Structure, `phase-54.2.md` adds Classification,
-  `phase-54.3.md` adds Workflow and StateMachine, and `phase-54.4.md` closes
-  Use Case navigation and consumer-neutral fixture acceptance. The sequence is
-  a Cozy metadata supplier and does not edit or publish SimpleModeling.org.
+- Planned CBD Support semantic-metadata sequence: `phase-54.md` establishes
+  capability inventory, stable identity, explicit absence, and versioned
+  publication; `phase-54.1.md` adds Structure, `phase-54.2.md` Classification,
+  `phase-54.3.md` Workflow and StateMachine, `phase-54.4.md` Use Case and
+  Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
+  traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
+  semantic supplier for Textus CBD Support and does not implement its UI or
+  publish SimpleModeling.org.
 - Most recently closed Document Project scaffold phase: `phase-48.md` adds the
   strict, authoring-incomplete presentation-semantics sibling for the selected
   public profiles while preserving the closed Phase 46/46.1 contracts.

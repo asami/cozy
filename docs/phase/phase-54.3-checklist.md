@@ -15,7 +15,7 @@ Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 
 ## MMD-543-03: Dynamic cross-reference semantics
 
-- [ ] Preserve stable Workflow, StateMachine, operation, event, and rule links where declared.
+- [ ] Preserve stable Workflow, StateMachine, operation, event, and rule links where declared, including admitted cause/reaction links without inferring missing edges.
 
 ## MMD-543-04: Dynamic handoff
 
