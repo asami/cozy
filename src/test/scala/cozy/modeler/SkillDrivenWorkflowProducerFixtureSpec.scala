@@ -113,6 +113,10 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
 
         Then("BuildProject and RunTests complete locally while ReviewChange remains durably suspended")
         suspended.completedactions shouldBe Vector("BuildProject", "RunTests")
+        suspended.localexecutions shouldBe Vector(
+          "BuildProject" -> ActionExecution.Completed(_build_result),
+          "RunTests" -> ActionExecution.Completed(_run_tests_result)
+        )
         suspended.suspendedcontinuation should not be empty
         suspended.terminated shouldBe false
 
@@ -123,6 +127,11 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
         resumed._2 shouldBe ContinuationResumeValidation.Accepted(result)
         resumed._1 shouldBe FixtureRunState(
           Vector("BuildProject", "RunTests", "ReviewChange", "CommitChanges"),
+          Vector(
+            "BuildProject" -> ActionExecution.Completed(_build_result),
+            "RunTests" -> ActionExecution.Completed(_run_tests_result),
+            "CommitChanges" -> ActionExecution.Completed(_commit_result)
+          ),
           None,
           true
         )
@@ -173,6 +182,11 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
         Then("ReviewChange completes directly and reaches the same terminal action state as resumed execution")
         completed shouldBe FixtureRunState(
           Vector("BuildProject", "RunTests", "ReviewChange", "CommitChanges"),
+          Vector(
+            "BuildProject" -> ActionExecution.Completed(_build_result),
+            "RunTests" -> ActionExecution.Completed(_run_tests_result),
+            "CommitChanges" -> ActionExecution.Completed(_commit_result)
+          ),
           None,
           true
         )
@@ -182,6 +196,7 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
 
   private final case class FixtureRunState(
     completedactions: Vector[String],
+    localexecutions: Vector[(String, ActionExecution.Completed)],
     suspendedcontinuation: Option[Continuation],
     terminated: Boolean
   )
@@ -244,6 +259,21 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
     ContextReference("review-result", "1")
   )
 
+  private val _build_result = StateMachineOperationResult(
+    StateMachineResultTypeReference("BuildResult"),
+    ContextReference("build-result", "1")
+  )
+
+  private val _run_tests_result = StateMachineOperationResult(
+    StateMachineResultTypeReference("RunTestsResult"),
+    ContextReference("run-tests-result", "1")
+  )
+
+  private val _commit_result = StateMachineOperationResult(
+    StateMachineResultTypeReference("CommitResult"),
+    ContextReference("commit-result", "1")
+  )
+
   private val _run_identity = StateMachineRunIdentity("workflow-run-1")
 
   private def _suspending_provider: StateMachineProvider =
@@ -287,6 +317,7 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
     val localactions = actionidentities.take(2)
     val reviewaction = actionidentities(2)
     val commitaction = actionidentities(3)
+    val localexecutions = localactions.map(actionidentity => actionidentity -> _execute_local_action(actionidentity))
     val requiredoperation = api.requiredOperations.find(_.actionIdentity == reviewaction).get
     val request = ProviderExecutionRequest(
       _run_identity,
@@ -297,13 +328,27 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
     providerfor(requiredoperation.identity).execute(request) match {
       case ActionExecution.Completed(result) =>
         result.typeReference shouldBe StateMachineResultTypeReference("ReviewResult")
-        FixtureRunState(localactions ++ Vector(reviewaction, commitaction), None, true)
+        val commitexecution = _execute_local_action(commitaction)
+        FixtureRunState(
+          localactions ++ Vector(reviewaction, commitaction),
+          localexecutions ++ Vector(commitaction -> commitexecution),
+          None,
+          true
+        )
       case ActionExecution.Suspended(continuation) =>
-        FixtureRunState(localactions, Some(continuation), false)
+        FixtureRunState(localactions, localexecutions, Some(continuation), false)
       case ActionExecution.Failed(failure) =>
         fail(s"Fixture Provider failed: ${failure.code}")
     }
   }
+
+  private def _execute_local_action(actionidentity: String): ActionExecution.Completed =
+    actionidentity match {
+      case "BuildProject" => ActionExecution.Completed(_build_result)
+      case "RunTests" => ActionExecution.Completed(_run_tests_result)
+      case "CommitChanges" => ActionExecution.Completed(_commit_result)
+      case unexpected => fail(s"Fixture local action is not declared: $unexpected")
+    }
 
   private def _resume(
     state: FixtureRunState,
@@ -314,9 +359,11 @@ final class SkillDrivenWorkflowProducerFixtureSpec extends AnyWordSpec with Matc
         val validation = ContinuationResumeValidator.validate(continuation, result)
         validation match {
           case ContinuationResumeValidation.Accepted(_) =>
+            val commitexecution = _execute_local_action("CommitChanges")
             (
               FixtureRunState(
                 state.completedactions ++ Vector("ReviewChange", "CommitChanges"),
+                state.localexecutions ++ Vector("CommitChanges" -> commitexecution),
                 None,
                 true
               ),

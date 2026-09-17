@@ -48,9 +48,9 @@ Current phase state:
   [Phase 62.1](phase-62.1.md), and [Phase 62.2](phase-62.2.md) respectively
   fix first-class `WORKFLOW` lowering, the generic StateMachine API/SPI and
   `Completed | Suspended | Failed` ABI, and deterministic ABI/bootstrap
-  generation. [Phase 62.3](phase-62.3.md) remains planned to prove the
-  Skill-driven fixture, hand frozen producer evidence to CNCF `sm-workflow`,
-  and run the serial sequence's one aggregate full SBT validation. Required
+  generation. [Phase 62.3](phase-62.3.md) is closed after proving the
+  Skill-driven fixture, handing frozen producer evidence to CNCF `sm-workflow`,
+  and running the serial sequence's one aggregate full SBT validation. Required
   SPI -> Provider -> ActionExecution replaces historical InvocationBinding
   wording. UI Workflow, Flutter and Workflow Connection remain future work.
 - Closed generation-integration sequence: [Phase 63](phase-63.md) owns the

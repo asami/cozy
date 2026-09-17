@@ -1,6 +1,6 @@
 # Phase 62.3: Skill-Driven Workflow Producer Fixture and CNCF Handoff
 
-status=planned
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -9,8 +9,9 @@ aggregate_validation_owner=PHASE-62.3
 aggregate_validation_sequence=["PHASE-62","PHASE-62.1","PHASE-62.2","PHASE-62.3"]
 depends_on=phase-62.2.md
 
-Status: planned
+Status: closed
 Planned at: 2026-09-17
+Closed at: 2026-09-17
 Development item: DEV-030 (split child)
 Split from Phase 62: 2026-09-17
 Predecessor: [Phase 62.2](phase-62.2.md)
@@ -60,8 +61,8 @@ It owns the serial chain's one repository-full SBT suite on its frozen release t
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| WFL-62-05 | Skill-driven producer fixture with internal completion and external suspension/resume. | OPEN |
-| WFL-62-06 | Frozen producer evidence and CNCF consumer handoff. | OPEN |
+| WFL-62-05 | Skill-driven producer fixture with internal completion and external suspension/resume. | DONE |
+| WFL-62-06 | Frozen producer evidence and CNCF consumer handoff. | DONE |
 
 ## Acceptance and exclusions
 
@@ -74,9 +75,24 @@ proxy/REST, UI Workflow, Flutter, provider/model dispatch or durable runtime sto
 
 ## Aggregate final validation
 
-Phase 62.3 is `aggregate-final-owner` for
-`["PHASE-62","PHASE-62.1","PHASE-62.2","PHASE-62.3"]`. It verifies committed
-predecessors and runs one full SBT suite in addition to its focused validation, review and release.
+Phase 62.3 is the closed `aggregate-final-owner` for
+`["PHASE-62","PHASE-62.1","PHASE-62.2","PHASE-62.3"]`. It verified the committed
+predecessor chain and ran the sequence's one full SBT suite in addition to focused validation,
+the full Phase review, the accepted local-ActionExecution repair/re-review, and the distinct
+release closure. This closure proves Cozy producer evidence only; CNCF runtime acceptance remains external.
+
+## Closure
+
+WFL-62-05 is accepted in Step commit `9071a35a30624f308ed57d39b17b3349f93cceab`.
+It proves explicit local `Completed` outcomes for BuildProject, RunTests and CommitChanges,
+provider-selected ReviewChange `Suspended(Continuation)`, deterministic direct completion through
+the same Required SPI, and fail-closed stale-result rejection. WFL-62-06 is accepted in Step
+commit `f3c85b3de12c78efb6e88e210af71f1bd84ea9a5` and freezes the consumer handoff.
+
+The full Phase review identified one fixture-local execution-evidence omission. Its bounded
+repair is accepted by focused re-review; no Current Phase Blocker remains. The aggregate final
+SBT validation and this release commit complete the Cozy-only closure without implementing CNCF
+runtime, generic Skill dispatch, persistence, REST, UI, Flutter, or publication behavior.
 
 ## References
 
