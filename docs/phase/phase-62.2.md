@@ -1,6 +1,6 @@
 # Phase 62.2: Generated StateMachine/Workflow ABI and Bootstrap
 
-status=planned
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -9,8 +9,9 @@ aggregate_validation_owner=PHASE-62.3
 aggregate_validation_sequence=["PHASE-62","PHASE-62.1","PHASE-62.2","PHASE-62.3"]
 depends_on=phase-62.1.md
 
-Status: planned
+Status: closed
 Planned at: 2026-09-17
+Closed at: 2026-09-17
 Development item: DEV-030 (split child)
 Split from Phase 62: 2026-09-17
 Predecessor: [Phase 62.1](phase-62.1.md)
@@ -54,7 +55,23 @@ the frozen artifact shape for the producer fixture and consumer-facing evidence.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| WFL-62-04 | Deterministic ABI-versioned generated schemas and bootstrap metadata. | OPEN |
+| WFL-62-04 | Deterministic ABI-versioned generated schemas and bootstrap metadata. | DONE |
+
+## Closure
+
+WFL-62-04 is complete in the accepted Step commit
+`a38daafbafaf490a9a2efb2c83c00027283d4696`. Its focused generator ABI
+specification (4 examples) and ABI/Composite-StateMachine accumulator (35
+examples) passed. The independent Phase full review found no Current Boundary
+Blocker; the two pre-existing Scala header/naming observations are retained in
+the Phase Hygiene journal without widening this producer ABI boundary.
+
+This aggregate-deferred closure deliberately records
+`repository_full_suite=deferred-not-run`: the one serial `sbt --batch test`
+validation remains exclusively owned by Phase 62.3. This Phase neither runs
+that suite nor claims it passed. No runtime/provider selection, persistence,
+transport, UI, REST, proxy, consumer implementation, publication, deployment,
+or remote push is included.
 
 ## References
 
