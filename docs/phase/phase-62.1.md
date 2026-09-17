@@ -1,6 +1,6 @@
 # Phase 62.1: StateMachine API/SPI and Durable ActionExecution ABI
 
-status=planned
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -9,8 +9,9 @@ aggregate_validation_owner=PHASE-62.3
 aggregate_validation_sequence=["PHASE-62","PHASE-62.1","PHASE-62.2","PHASE-62.3"]
 depends_on=phase-62.md
 
-Status: planned
+Status: CLOSED
 Planned at: 2026-09-17
+Closed: 2026-09-17
 Development item: DEV-030 (split child)
 Split from Phase 62: 2026-09-17
 Predecessor: [Phase 62](phase-62.md)
@@ -54,8 +55,8 @@ never selects whether execution suspends.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| WFL-62-02 | One reusable StateMachine Provided API / Required SPI contract. | OPEN |
-| WFL-62-03 | Closed ActionExecution and durable Continuation ABI. | OPEN |
+| WFL-62-02 | One reusable StateMachine Provided API / Required SPI contract. | DONE |
+| WFL-62-03 | Closed ActionExecution and durable Continuation ABI. | DONE |
 
 ## Acceptance and exclusions
 
@@ -65,6 +66,34 @@ EvidenceContract, including stale-result rejection. Phase 62.2 consumes the froz
 
 No concrete provider, Skill host, UI, REST, model selection, WorkflowRun datastore or
 Workflow-specific parallel API/SPI model is implemented here.
+
+## Closure and successor handoff
+
+WFL-62-02 and WFL-62-03 are complete. `StateMachineApiSpi` provides the one
+generic API/SPI contract, with the normalized Workflow adapter as its sole
+Workflow-specific projection. A Provider binding is restricted to Required SPI
+identity -> Provider identity; `ActionExecution` is closed as
+`Completed | Suspended(Continuation) | Failed` and does not reintroduce an
+execution-mode attribute.
+
+`ContinuationResumeValidator` is a pure fail-closed boundary. It verifies the
+issued run, continuation, revision, operation and Required SPI identities,
+context snapshot, declared result type, complete metadata snapshot (Context,
+Completion, Evidence and constraints), required context facts/references, and
+completion/evidence references. Executable specifications include fixed
+boundary cases and an active ScalaCheck property that generates each protected
+divergence and proves it is rejected.
+
+Focused serial-SBT validation passed with 32 successful tests in
+`StateMachineApiSpiSpec` plus `WorkflowCmlSpec`, and 28 successful compatibility
+tests across the Composite StateMachine CML, generation and ActionProgram
+suites. The independent focused re-review and final acceptance review were
+clean after the ScalaCheck repair.
+
+`repository_full_suite=deferred-not-run`: this Phase is aggregate-deferred and
+does not claim a repository-full suite. Phase 62.3 remains the named aggregate
+validation owner for the serial Phase 62 sequence. Phase 62.2 and Phase 62.3
+remain planned; this closure neither implements nor accepts their work.
 
 ## References
 

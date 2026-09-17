@@ -74,7 +74,8 @@ final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen
         required.action.operation shouldBe CompositeStateMachineOperation(
           "OrderService",
           "capturePayment",
-          Some("PaymentCommand")
+          Some("PaymentCommand"),
+          Some("PaymentResult")
         )
         required.action.kind shouldBe "OPERATION"
       }

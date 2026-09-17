@@ -90,7 +90,8 @@ final case class CompositeStateMachineDerivation(
 final case class CompositeStateMachineOperation(
   service: String,
   name: String,
-  inputType: Option[String]
+  inputType: Option[String],
+  outputType: Option[String] = None
 )
 
 sealed trait CompositeStateMachineEffectClass {

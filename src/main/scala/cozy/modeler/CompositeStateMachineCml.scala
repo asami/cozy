@@ -664,12 +664,20 @@ private[modeler] object CompositeStateMachineCml {
     _root_sections(model, "SERVICE").flatMap { service =>
       service.blocks.sections.toVector.flatMap { serviceclass =>
         _children(serviceclass, "OPERATION").flatMap(_.blocks.sections.toVector).map { operation =>
-          val input = _field(operation, "INPUT").orElse {
-            _children(operation, "INPUT").headOption.flatMap(_field(_, "TYPE"))
-          }
-          CompositeStateMachineOperation(serviceclass.nameForModel, operation.nameForModel, input)
+          val input = _operation_type(operation, Vector("INPUT"))
+          val output = _operation_type(operation, Vector("OUTPUT", "RESULT"))
+          CompositeStateMachineOperation(serviceclass.nameForModel, operation.nameForModel, input, output)
         }
       }
+    }
+
+  private def _operation_type(operation: LogicalSection, fieldnames: Vector[String]): Option[String] =
+    fieldnames.foldLeft(Option.empty[String]) { (result, fieldname) =>
+      result.orElse(
+        _field(operation, fieldname).orElse(
+          _children(operation, fieldname).headOption.flatMap(_field(_, "TYPE"))
+        )
+      )
     }
 
   private def _root_sections(model: KaleidoxModel, name: String): Vector[LogicalSection] =
