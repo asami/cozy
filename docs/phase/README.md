@@ -52,12 +52,12 @@ Current phase state:
   Orchestration/Continuation bindings, then hands the typed continuation and
   stale-result contract to CNCF `sm-workflow`. UI Workflow, Flutter, and
   Workflow Connection remain future work.
-- Planned generation-integration sequence: [Phase 63](phase-63.md) owns the
-  multi-source provenance contract and Cozy aggregation validation; its
-  successor [Phase 63.1](phase-63.1.md) consumes that committed authority for
-  the sbt-cozy bridge and `simplemodeling-model` driver receipt. Each child
-  owns its own full SBT validation. Neither weakens provenance nor starts the
-  independent CNCF Phase 74.1.
+- Closed generation-integration sequence: [Phase 63](phase-63.md) owns the
+  multi-source provenance contract and Cozy aggregation validation; its closed
+  successor [Phase 63.1](phase-63.1.md) consumed that authority for the
+  sbt-cozy bridge and `simplemodeling-model` driver receipt. Each child
+  completed its own full SBT validation. Neither weakens provenance nor closes
+  the independent CNCF Phase 74.1.
 - Planned CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
   publication; `phase-54.1.md` adds Structure, `phase-54.2.md` Classification,
