@@ -1,91 +1,91 @@
-# Phase 62 Checklist: First-Class CML WORKFLOW, Continuation, and Producer ABI
+# Phase 62 Checklist: First-Class CML WORKFLOW on StateMachine API/SPI
 
 Status: planned
 Phase: [Phase 62](phase-62.md)
 
+This checklist follows the consolidated Phase 62. Historical protocol/binding addenda remain design history; this checklist does not require a Workflow-wide protocol mode or `InvocationBinding` semantic switch.
+
 ## WFL-62-01: Workflow Source Contract and Lowering
 
 Stage Status:
-
 - Current status: OPEN
 - Owner: Cozy CML / SimpleModeler owner
-- Update rule: Mark DONE only after real `WORKFLOW` source fixes identity,
-  versioning, Composite StateMachine normalization, and the closed automatic /
-  semantic boundary vocabulary.
+- Update rule: Mark DONE only after real `WORKFLOW` source fixes identity, versioning, StateMachine/Composite StateMachine normalization, and explicit progression semantics.
 
-- [ ] Define `WORKFLOW` as a first-class CML declaration that normalizes to the
-      existing StateMachine / Composite StateMachine semantic model.
-- [ ] Define Workflow identity, version, constituent/reference boundaries, and
-      declared-definition versus runtime-instance separation.
-- [ ] Preserve existing StateMachine and Composite StateMachine source
-      compatibility; prohibit CML from treating entity persistence as the
-      WorkflowInstance store.
-- [ ] Define automatic-transition guards/effects and typed semantic boundaries
-      without Action-name or consumer-default inference.
-- [ ] Reject ambiguous automatic progression, undeclared semantic boundaries,
-      raw execution surfaces, and unsupported Workflow-only source forms.
+- [ ] Define `WORKFLOW` as a first-class CML declaration that normalizes to the existing StateMachine / Composite StateMachine semantic model.
+- [ ] Define Workflow identity, version, constituent/reference boundaries, and declared-definition versus runtime-instance separation.
+- [ ] Preserve existing StateMachine and Composite StateMachine source compatibility.
+- [ ] Prohibit CML from treating entity persistence as the WorkflowInstance store.
+- [ ] Define automatic-transition guards/effects and external semantic SPI boundaries without Action-name or consumer-default inference.
+- [ ] Reject ambiguous progression, undeclared required operations, raw execution surfaces, and unsupported Workflow-only control semantics.
 
-## WFL-62-02: StateMachine Execution and Invocation Binding
+## WFL-62-02: StateMachine API/SPI Contract
 
 Stage Status:
-
 - Current status: OPEN
 - Owner: Cozy StateMachine / generated ABI owner
-- Update rule: Mark DONE only after the generated StateMachine API/SPI has one
-  typed execution outcome contract and Action / Participant binding leaves
-  State / Guard / Operation / Result semantics unchanged.
+- Update rule: Mark DONE only after StateMachine has one reusable Provided API / Required SPI contract consumed by Workflow without a parallel Workflow-specific interface model.
 
-- [ ] Define `ActionExecution = Completed | Suspended | Failed`, or an
-      equivalent closed typed contract, as a StateMachine-general API/SPI.
-- [ ] Define `InvocationBinding = ORCHESTRATION | CONTINUATION` per semantic
-      Action / Participant; do not make it a Workflow/profile-wide mode.
-- [ ] Permit direct, test/mock, and external provider placement for one
-      required typed operation without duplicating StateMachine semantics.
-- [ ] Project required external typed Actions as SPI operations with stable
-      identity and typed input/result contracts.
-- [ ] Prove one Workflow mixes internal Orchestration and external
-      Continuation bindings without semantic-transition divergence.
+- [ ] Define/project StateMachine Provided API operations with stable identity and typed input/result.
+- [ ] Define/project StateMachine Required SPI operations with stable identity and typed input/result.
+- [ ] Preserve generic Context, Completion, Evidence, capability/constraint metadata required by an SPI operation.
+- [ ] Permit local/direct, deterministic test/mock, and external provider placement without duplicating State/Guard/Operation/Result semantics.
+- [ ] Ensure Workflow API/SPI is a projection/reuse of StateMachine API/SPI rather than an independent model.
+- [ ] Preserve enough identity/type metadata for future assemble `SPI -> API` binding and caller-side API projection.
 
-## WFL-62-03: Durable Continuation and Generated ABI
+## WFL-62-03: ActionExecution and Durable Continuation ABI
 
 Stage Status:
+- Current status: OPEN
+- Owner: Cozy StateMachine / generator owner
+- Update rule: Mark DONE only after generated ABI represents internal completion, external suspension, failure, and typed resume without protocol-mode semantics.
 
+- [ ] Define `ActionExecution = Completed | Suspended | Failed`, or an equivalent closed typed contract, as StateMachine-general ABI.
+- [ ] Define `Completed(Result)` and `Failed(Error)` typed payload semantics.
+- [ ] Define `Suspended(Continuation)` as the durable result of an Action/provider that requires an external result.
+- [ ] Define `Continuation`, `ContinuationResult`, `ContextBundle`, `ContextReference`, `ContextSnapshot`, `CompletionContract`, and `EvidenceContract`.
+- [ ] Require Continuation instance/run identity, expected revision, minimum context/reference set, completion/evidence contracts, and typed resume result.
+- [ ] Generate fail-closed stale-result semantics using `ContextSnapshot`.
+- [ ] Exclude Workflow-wide Orchestration/Continuation mode and semantic `InvocationBinding` switch from the canonical ABI.
+
+## WFL-62-04: Generated ABI and Bootstrap
+
+Stage Status:
 - Current status: OPEN
 - Owner: Cozy generator / generated-contract owner
-- Update rule: Mark DONE only after a versioned generated ABI carries the
-  exact resume and stale-result boundary without a parallel Workflow-only
-  model.
+- Update rule: Mark DONE only after deterministic generated artifacts can be admitted by CNCF without CML reparsing.
 
-- [ ] Define `WorkflowInvocationContract`, `Continuation`, `ContinuationResult`,
-      `ContextBundle`, `ContextReference`, `ContextSnapshot`,
-      `CompletionContract`, and `EvidenceContract`.
-- [ ] Require Continuation `runId`, revision, minimum context, completion and
-      evidence contracts, and a typed resume result.
-- [ ] Generate a fail-closed stale-result contract using `ContextSnapshot`.
-- [ ] Generate typed API/SPI, binding metadata, and optional presentation
-      metadata while excluding dialog/open-screen commands and concrete
-      transport semantics.
-- [ ] Retain stable typed metadata sufficient for future direct/REST proxy
-      projection without implementing either projection.
-- [ ] Emit direct ComponentFactory bootstrap metadata without runtime policy or
-      inferred name matching; keep generation deterministic.
+- [ ] Generate StateMachine/Workflow identity, API/SPI, ActionExecution, Continuation/Context/Completion/Evidence schemas.
+- [ ] Preserve source correlation/provenance for State, Action, Operation and required SPI identity.
+- [ ] Emit direct ComponentFactory bootstrap metadata without runtime policy or inferred name matching.
+- [ ] Keep generation deterministic and ABI-versioned.
+- [ ] Exclude dialog/open-screen commands, concrete transport, REST URL, specific AI model/provider, raw shell and runtime persistence details.
+- [ ] Retain stable typed metadata sufficient for future local/REST API proxy projection without implementing those projections.
 
-## WFL-62-04: Producer Fixture and CNCF Handoff
+## WFL-62-05: Skill-Driven Producer Fixture
 
 Stage Status:
-
 - Current status: OPEN
-- Owner: Cozy Phase 62 coordinating with CNCF `sm-workflow`
-- Update rule: Mark DONE only after a real source fixture, deterministic
-  generated evidence, ABI version, and exact consumer handoff are frozen.
-  CNCF runtime acceptance remains external to this Phase.
+- Owner: Cozy Phase 62 coordinating with CNCF Phase 77 / `sm-workflow`
+- Update rule: Mark DONE only after the real producer fixture demonstrates internal completion plus one external SPI suspension/resume boundary.
 
-- [ ] Add a real CML Workflow fixture with `Build -> AI Review -> Approval ->
-      Commit`, binding Build/Commit to ORCHESTRATION and Review/Approval to
-      CONTINUATION.
-- [ ] Verify `Completed`, `Suspended(Continuation)`, typed resume, stale-result
-      rejection, and deterministic generated Scala/metadata.
-- [ ] Record the ABI version, source fixture, schemas, and consumer binding for
-      CNCF `sm-workflow`.
-- [ ] Complete Cozy-focused validation, review, and release closure without
-      claiming CNCF or Textus runtime completion.
+- [ ] Add a real CML Workflow fixture equivalent to `BuildProject -> RunTests -> ReviewChange -> CommitChanges`.
+- [ ] Model Build/Test/Commit as internal Actions/providers that can produce `Completed`.
+- [ ] Model ReviewChange as a StateMachine Required SPI operation capable of producing `Suspended(Continuation)`.
+- [ ] Verify a typed ReviewResult can resume the suspended Action and permit subsequent transition/closing.
+- [ ] Verify deterministic test provider binding can exercise the same StateMachine semantics without an AI/Skill provider.
+- [ ] Verify stale ReviewResult is rejected by generated snapshot/revision contract.
+
+## WFL-62-06: CNCF Handoff and Closure
+
+Stage Status:
+- Current status: OPEN
+- Owner: Cozy Phase 62 coordinating with CNCF Phase 77
+- Update rule: Mark DONE only after exact producer evidence and consumer handoff are frozen; CNCF runtime acceptance remains external.
+
+- [ ] Record exact CML source fixture and generated artifact digests/revision.
+- [ ] Freeze the StateMachine/Workflow ABI version and compatibility requirements.
+- [ ] Document Provided API / Required SPI schemas and ActionExecution/Continuation contracts for CNCF admission.
+- [ ] Record future-compatibility metadata for assemble/API projection without claiming implementation.
+- [ ] Complete Cozy-focused generation tests, executable specifications, regression validation, independent review, clean re-review where required, and final release closure.
+- [ ] Do not claim CNCF runtime, Generic Skill Workflow Support, `sm-workflow` SQLite/CLI, Workflow-to-Workflow REST, UI Workflow or Flutter completion.
