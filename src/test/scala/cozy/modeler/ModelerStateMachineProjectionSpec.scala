@@ -342,6 +342,82 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
         )
       }
 
+      "rejects a named history transition without a declared history field" in {
+        Given("a parsed history topology whose HISTORY-FIELD declaration is absent")
+        val model = _action_model(_history_normalization_source().replace(
+          "- HISTORY-FIELD :: lifecycleHistory\n",
+          ""
+        ))
+        val builder = Modeler.ModelBuilder(model)
+        val statemachine = _entity_state_machine(model)
+
+        When("the parsed StateMachine is normalized directly")
+        val normalization = new StateMachineNormalizationProjector(builder).normalize(statemachine)
+        val diagnostic = normalization match {
+          case MComponent.StateMachineNormalization.Rejected(Vector(value)) => value
+          case other => fail(s"Expected one missing-history-field diagnostic, got $other")
+        }
+
+        Then("the named history transition is rejected with its stable identity and source path")
+        diagnostic.code shouldBe "missing-history-field"
+        diagnostic.transition shouldBe Some(
+          MComponent.StateMachineTransitionIdentity(MComponent.StateMachineIdentity("lifecycle"), 1)
+        )
+        diagnostic.transition.map(_.declarationOrder) shouldBe Some(1)
+        diagnostic.sourceLocation.declarationPath shouldBe Vector(
+          "StateMachine", "lifecycle", "root", "state", "Suspended", "1", "call", "0"
+        )
+      }
+
+      "rejects a transition whose trigger is absent from declared events" in {
+        Given("an already-parsed StateMachine with one declared event and a different ON trigger")
+        val model = _action_model(_undeclared_event_source())
+        val builder = Modeler.ModelBuilder(model)
+        val statemachine = _entity_state_machine(model)
+
+        When("the parsed StateMachine is normalized directly")
+        val normalization = new StateMachineNormalizationProjector(builder).normalize(statemachine)
+        val diagnostic = normalization match {
+          case MComponent.StateMachineNormalization.Rejected(Vector(value)) => value
+          case other => fail(s"Expected one undeclared-event diagnostic, got $other")
+        }
+
+        Then("the transition is rejected with its stable identity and source path")
+        diagnostic.code shouldBe "undeclared-event"
+        diagnostic.transition shouldBe Some(
+          MComponent.StateMachineTransitionIdentity(MComponent.StateMachineIdentity("lifecycle"), 0)
+        )
+        diagnostic.transition.map(_.declarationOrder) shouldBe Some(0)
+        diagnostic.sourceLocation.declarationPath shouldBe Vector(
+          "StateMachine", "lifecycle", "root", "state", "Draft", "0", "global", "0"
+        )
+      }
+
+      "rejects an entity-owned history field that is not an entity attribute" in {
+        Given("a parsed entity that retains lifecycleHistory but names missingHistory in HISTORY-FIELD")
+        val model = _action_model(_history_normalization_source().replace(
+          "- HISTORY-FIELD :: lifecycleHistory",
+          "- HISTORY-FIELD :: missingHistory"
+        ))
+        val builder = Modeler.ModelBuilder(model)
+        val entityclass = model.getEntityModel.flatMap(_.get("Person")).getOrElse(
+          throw new IllegalArgumentException("Person entity is required for this specification.")
+        )
+        val statemachine = _entity_state_machine(model)
+
+        When("the parsed StateMachine is normalized directly with its owning EntityClass")
+        val normalization = new StateMachineNormalizationProjector(builder).normalize(statemachine, Some(entityclass))
+        val diagnostic = normalization match {
+          case MComponent.StateMachineNormalization.Rejected(Vector(value)) => value
+          case other => fail(s"Expected one invalid-history-field diagnostic, got $other")
+        }
+
+        Then("the machine-level invalid history field is reported without transition identity")
+        diagnostic.code shouldBe "invalid-history-field"
+        diagnostic.transition shouldBe None
+        diagnostic.sourceLocation.declarationPath shouldBe Vector("StateMachine", "lifecycle")
+      }
+
       "maps one nonempty transition ACTION through every real consumer" in {
         Given("a CML StateMachine transition with one ACTION")
         val model = _action_model(_single_action_source())
@@ -777,6 +853,37 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
       |###### approve
       |
       |###### resume
+      |""".stripMargin
+
+  private def _undeclared_event_source(): String =
+    """# Entity
+      |
+      |## Person
+      |
+      |### Attribute
+      |
+      || name | type     | multiplicity |
+      ||------+----------+--------------|
+      || id   | entityid | 1            |
+      |
+      |### StateMachine
+      |
+      |#### lifecycle
+      |
+      |##### State
+      |
+      |###### Draft
+      |
+      |####### Transition
+      |
+      |- TO :: Published
+      |- ON :: publish
+      |
+      |###### Published
+      |
+      |##### Event
+      |
+      |###### approved
       |""".stripMargin
 
   private def _multiple_action_source(): String =

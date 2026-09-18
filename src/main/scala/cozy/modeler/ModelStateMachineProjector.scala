@@ -311,7 +311,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
             events = _state_machine_events(sm),
             historyFieldName = sm.rule.historyFieldName,
             historyComposites = _history_composites(sm.rule),
-            normalization = Some(new StateMachineNormalizationProjector(context).normalize(sm))
+            normalization = Some(new StateMachineNormalizationProjector(context).normalize(sm, Some(klass)))
           )
         }
       }
