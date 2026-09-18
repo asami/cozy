@@ -68,6 +68,21 @@ and deliberately rejects arbitrary selection among multiple delegated
 manifests. The accepted extension must preserve provenance, not disable it or
 reinterpret one manifest as an entire project.
 
+### Cross-repository Phase-number boundary
+
+This completed Cozy Phase 63 is `MCML-63-01`--`MCML-63-02`: project-level
+multi-CML provenance and aggregate/rebind validation. It is independent of
+CNCF's separately numbered Phase 63, which owns only normalization of an
+already-parsed, non-Workflow CML StateMachine contract. The shared number is
+not a shared handoff, predecessor, successor, validation claim, or authority.
+
+Accordingly, the CNCF work may consume only the explicitly admitted
+non-Workflow projector boundary when needed. It must not revise this Phase's
+provenance contract, receipts, or closure state; this Phase does not adopt
+CNCF's StateMachine-normalization contract, Workflow grammar, or its Phase
+63.1/63.2 successors. Each workstream remains independently developable and
+validatable.
+
 ## Work stack
 
 | ID | Outcome | Status |

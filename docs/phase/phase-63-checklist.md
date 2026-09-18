@@ -9,6 +9,10 @@ Repository-full validation: each-phase / Cozy SBT full suite
 
 This is the sole completion ledger for the contract and Cozy aggregate/rebind
 boundary. The bridge and real-driver stages moved exactly once to Phase 63.1.
+The same Phase number in CNCF denotes a separate non-Workflow StateMachine
+normalization workstream. It neither consumes nor reopens this closed
+multi-CML provenance ledger, and this ledger neither admits nor validates that
+external workstream.
 
 ## MCML-63-01: Contract admission
 
