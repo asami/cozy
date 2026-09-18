@@ -107,3 +107,13 @@ CNCF consumes executable Workflow semantics. Higher-level Business Process struc
 ## Design Rule
 
 > Business Process is the Business-layer organizing boundary; Bounded Context is the Domain-model semantic boundary; Workflow is the executable coordination model. Cozy preserves and validates the relations among them without collapsing them into one boundary.
+
+## Business Modeling as Scaffolding
+
+Business Modeling clarifies the context in which the target System operates. Its output is upstream modeling context and scaffolding for constructing the System Model, not a mechanically transformed implementation specification.
+
+Cozy/CML should preserve enough stable identity and relation information for tools to examine alignment between Business Model and System Model. Candidate checks include Business Action to Use Case/Workflow coverage, Participant Capability to Application Capability support, and Problem Domain to Domain Model/Bounded Context coverage.
+
+Alignment does not mean structural identity. Validation must allow different abstraction levels and many-to-many relations while detecting missing, dangling, contradictory, or unsupported traces.
+
+CBD Support is expected to own the primary visualization and interactive review of this alignment, while Cozy supplies normalized model structure, validation primitives, and generated provenance needed by those views.
