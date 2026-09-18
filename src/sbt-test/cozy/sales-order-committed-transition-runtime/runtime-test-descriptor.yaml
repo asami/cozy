@@ -1,0 +1,10 @@
+kind: test-descriptor
+execution:
+  profile: controlled
+  key: sales-order-committed-transition-runtime
+  time:
+    mode: manual
+    start-at: 2026-01-01T00:00:00Z
+  random:
+    mode: seeded
+    seed: sales-order-committed-transition-runtime

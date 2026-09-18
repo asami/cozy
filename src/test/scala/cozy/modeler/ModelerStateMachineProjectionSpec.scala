@@ -112,6 +112,18 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
         transition.sourceLocation.declarationPath shouldBe Vector(
           "StateMachine", "lifecycle", "root", "state", "Draft", "0", "call", "0"
         )
+        val binding = component.stateMachineTransitionRules.head.binding.getOrElse(
+          fail("The generated transition rule must retain its explicit normalized binding.")
+        )
+        binding.entityName shouldBe "Person"
+        binding.machine shouldBe normalized.identity
+        binding.version shouldBe normalized.version
+        binding.transition shouldBe transition.identity
+        binding.source shouldBe transition.source.getOrElse(
+          fail("The normalized transition must have a source state.")
+        )
+        binding.target shouldBe transition.target
+        binding.trigger shouldBe transition.trigger
       }
 
       "records a deterministic diagnostic for a legacy raw guard without changing the legacy carrier" in {
@@ -341,6 +353,38 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
         normalized.transitions.find(_.trigger.eventName == "submit").map(_.historyWrites) shouldBe Some(
           Vector(MComponent.StateMachineHistoryWrite(review, pending))
         )
+        component.stateMachineTransitionRules.find(_.historyCompositeName.contains("Review")).map(
+          _.historyDirectLeafValues
+        ) shouldBe Some(Map("Pending" -> 2, "Approved" -> 3))
+      }
+
+      "carries explicit bindings for every one-level named shallow-history transition" in {
+        Given("an already-parsed StateMachine with root and composite transitions")
+        val model = _action_model(_history_normalization_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the component transition rules are projected")
+        val component = builder.build().elements.collectFirst {
+          case c: MDomainComponent if c.stateMachineDefinitions.nonEmpty => c
+        }.getOrElse(throw new IllegalArgumentException("A component with a lifecycle StateMachine is required for this specification."))
+        val normalized = component.stateMachineDefinitions.head.normalization match {
+          case Some(MComponent.StateMachineNormalization.Accepted(value)) => value
+          case other => fail(s"Expected accepted one-level topology normalization, got $other")
+        }
+        val bindings = component.stateMachineTransitionRules.map(_.binding.getOrElse(
+          fail("Every normalized StateMachine transition must retain its explicit binding.")
+        ))
+
+        Then("each generated rule retains the exact normalized identity, source, target, and trigger")
+        bindings.map(_.entityName) shouldBe Vector("Person", "Person", "Person")
+        bindings.map(_.machine) shouldBe normalized.transitions.map(_.identity.machine)
+        bindings.map(_.version) shouldBe normalized.transitions.map(_ => normalized.version)
+        bindings.map(_.transition) shouldBe normalized.transitions.map(_.identity)
+        bindings.map(_.source) shouldBe normalized.transitions.map(_.source.getOrElse(
+          fail("The fixture's normalized transitions must all have a source state.")
+        ))
+        bindings.map(_.target) shouldBe normalized.transitions.map(_.target)
+        bindings.map(_.trigger) shouldBe normalized.transitions.map(_.trigger)
       }
 
       "rejects a named history transition without a declared history field" in {

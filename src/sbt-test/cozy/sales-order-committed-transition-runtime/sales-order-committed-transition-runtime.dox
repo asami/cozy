@@ -1,0 +1,84 @@
+# COMPONENT
+
+## Sales
+
+### PACKAGE
+
+domain
+
+# ENTITY
+
+## SalesOrder
+
+### ATTRIBUTE
+
+| name        | type         | multiplicity |
+|-------------|--------------|--------------|
+| id          | entityid     | 1            |
+| status      | SalesStatus  | 1            |
+| description | String       | 1            |
+| lifecycleHistory | record   | 1            |
+
+### StateMachine
+
+#### lifecycle
+
+- HISTORY-FIELD :: lifecycleHistory
+
+##### State
+
+###### Draft
+
+####### Transition
+
+- to :: Pending
+- on :: update
+
+###### Review
+
+####### State
+
+######## Pending
+
+######### Transition
+
+- to :: Approved
+- on :: update
+
+######## Approved
+
+######### Transition
+
+- to :: Suspended
+- on :: update
+
+###### Suspended
+
+####### Transition
+
+- to :: Review.HISTORY
+- on :: update
+
+##### Event
+
+###### update
+
+# POWERTYPE
+
+## SalesStatus
+
+### Draft
+
+value = 1
+
+### Pending
+
+value = 2
+
+### Approved
+
+value = 3
+
+### Suspended
+
+value = 4

@@ -221,7 +221,8 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       sourcestatename: Option[String],
       sourcestate: Option[StateClass],
       transition: Transition,
-      iscalltransition: Boolean
+      iscalltransition: Boolean,
+      declarationpath: Vector[String]
     )
 
 
@@ -335,6 +336,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       val historyfieldname = _history_field_name(entityclass, sm)
       val historycomposites = _history_composites(sm.rule)
       val transitions = _all_transitions(sm.rule)
+      val bindingsbylocation = _transition_bindings(entity.name, sm, entityclass)
       val namedhistory = transitions.exists(_.transition.to.isInstanceOf[NamedHistoryTransitionTo])
       if (namedhistory && historyfieldname.isEmpty)
         RAISE.syntaxErrorFault(s"StateMachine '${sm.name}' has named history transitions and requires HISTORY-FIELD.")
@@ -362,6 +364,9 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
           historyCompositeName = historycomposite.map(_.name),
           historyFieldName = historyfieldname,
           historyDirectLeaves = historycomposite.map(_.directLeaves).getOrElse(Vector.empty),
+          historyDirectLeafValues = historycomposite.toVector.flatMap(_.directLeaves.flatMap { name =>
+            statemap.get(name).map(state => name -> state.value)
+          }).toMap,
           historyFallbackLeaf = historycomposite.flatMap(_.fallbackLeaf),
           expectedHistoryRecordWrites = _expected_history_record_writes(
             x.sourcestate,
@@ -369,10 +374,41 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
             x.transition.to,
             historycomposites,
             historyfieldname
-          )
+          ),
+          binding = bindingsbylocation.get(_transition_source_location(sm.name, x.declarationpath))
         )
       }
     }
+
+    private def _transition_bindings(
+      entityname: String,
+      statemachine: StateMachineClass,
+      entityclass: EntityClass
+    ): Map[Vector[String], MComponent.StateMachineTransitionBinding] =
+      new StateMachineNormalizationProjector(context).normalize(statemachine, Some(entityclass)) match {
+        case MComponent.StateMachineNormalization.Accepted(normalized) =>
+          normalized.transitions.flatMap { transition =>
+            transition.source.map { source =>
+              transition.sourceLocation.declarationPath -> MComponent.StateMachineTransitionBinding(
+                entityName = entityname,
+                machine = normalized.identity,
+                version = normalized.version,
+                transition = transition.identity,
+                source = source,
+                target = transition.target,
+                trigger = transition.trigger
+              )
+            }
+          }.toMap
+        case MComponent.StateMachineNormalization.Rejected(_) =>
+          Map.empty
+      }
+
+    private def _transition_source_location(
+      machinename: String,
+      declarationpath: Vector[String]
+    ): Vector[String] =
+      Vector("StateMachine", machinename) ++ declarationpath
 
     private def _history_field_name(
       entityclass: EntityClass,
@@ -488,17 +524,65 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       rule.states.toVector ++ rule.statemachines.toVector.flatMap(_all_states)
 
     private def _all_transitions(
-      rule: StateMachineRule
+      rule: StateMachineRule,
+      declarationprefix: Vector[String] = Vector("root")
     ): Vector[TransitionDefinition] = {
       val machinename = _require_composite_state_name(rule)
+      val noninitialstates = rule.states.toVector.filterNot(_.name.equalsIgnoreCase(PROP_STATE_INIT))
+      val stateindexes = noninitialstates.zipWithIndex.map { case (state, index) => state -> index }.toMap
       val fromstates = rule.states.toVector.flatMap { s =>
-        s.transitions.call.map(t => TransitionDefinition(machinename, Some(s.name), Some(s), t, iscalltransition = true)).toVector ++
-          s.transitions.global.map(t => TransitionDefinition(machinename, Some(s.name), Some(s), t, iscalltransition = false)).toVector
+        val stateprefix = stateindexes.get(s).map { index =>
+          declarationprefix ++ Vector("state", s.name, index.toString)
+        }.getOrElse {
+          declarationprefix ++ Vector("initial", s.name)
+        }
+        s.transitions.call.zipWithIndex.map { case (t, index) =>
+          TransitionDefinition(
+            machinename,
+            Some(s.name),
+            Some(s),
+            t,
+            iscalltransition = true,
+            stateprefix ++ Vector("call", index.toString)
+          )
+        }.toVector ++ s.transitions.global.zipWithIndex.map { case (t, index) =>
+          TransitionDefinition(
+            machinename,
+            Some(s.name),
+            Some(s),
+            t,
+            iscalltransition = false,
+            stateprefix ++ Vector("global", index.toString)
+          )
+        }.toVector
       }
       val fromrule =
-        rule.transitions.call.map(t => TransitionDefinition(machinename, None, None, t, iscalltransition = true)).toVector ++
-          rule.transitions.global.map(t => TransitionDefinition(machinename, None, None, t, iscalltransition = false)).toVector
-      fromstates ++ fromrule ++ rule.statemachines.toVector.flatMap(_all_transitions)
+        rule.transitions.call.zipWithIndex.map { case (t, index) =>
+          TransitionDefinition(
+            machinename,
+            None,
+            None,
+            t,
+            iscalltransition = true,
+            declarationprefix ++ Vector("rule", "call", index.toString)
+          )
+        }.toVector ++ rule.transitions.global.zipWithIndex.map { case (t, index) =>
+          TransitionDefinition(
+            machinename,
+            None,
+            None,
+            t,
+            iscalltransition = false,
+            declarationprefix ++ Vector("rule", "global", index.toString)
+          )
+        }.toVector
+      val nested = rule.statemachines.toVector.zipWithIndex.flatMap { case (nestedrule, index) =>
+        _all_transitions(
+          nestedrule,
+          declarationprefix ++ Vector("composite", _require_composite_state_name(nestedrule), index.toString)
+        )
+      }
+      fromstates ++ fromrule ++ nested
     }
 
     private def _event_name(
