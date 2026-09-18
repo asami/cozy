@@ -1,17 +1,18 @@
 package cozy.modeler
 
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
-import org.goldenport.sm.{Activity, Parcel, StateClass, StateMachine, StateMachineClass, StateMachineLogic, StateMachineRule}
+import org.goldenport.sm.{Activity, EventNameGuard, FinalTransitionTo, NameTransitionTo, Parcel, StateClass, StateMachine, StateMachineClass, StateMachineLogic, StateMachineRule, Transition, Transitions}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.simplemodeling.model.{MPackageRef, SimpleModel}
+import org.simplemodeling.model.{MComponent, MPackageRef, SimpleModel}
 import org.simplemodeling.model.domain.{MDomainComponent, MDomainStateMachine}
 import org.smartdox.Description
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep. 18, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -75,6 +76,272 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
     }
 
     "project transition ACTION metadata" which {
+      "normalizes a non-Workflow StateMachine into the typed declaration model" in {
+        Given("a CML StateMachine transition with an event, target state, and ACTION")
+        val model = _action_model(_single_action_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the ordinary StateMachine projection builds its component definition")
+        val component = builder.build().elements.collectFirst {
+          case c: MDomainComponent if c.stateMachineDefinitions.nonEmpty => c
+        }.getOrElse(throw new IllegalArgumentException("A component with a normalized lifecycle StateMachine is required for this specification."))
+        val normalized = component.stateMachineDefinitions.head.normalization match {
+          case Some(MComponent.StateMachineNormalization.Accepted(value)) => value
+          case Some(MComponent.StateMachineNormalization.Rejected(diagnostics)) =>
+            fail(s"The non-Workflow StateMachine must normalize: $diagnostics")
+          case None =>
+            fail("The non-Workflow StateMachine must have a normalization result.")
+        }
+        val transition = normalized.transitions.head
+
+        Then("semantic identities and ordered actions are retained without a raw expression guard")
+        normalized.identity.qualifiedName shouldBe "lifecycle"
+        normalized.version shouldBe 1
+        normalized.initialState.map(_.path) shouldBe Some(Vector("Draft"))
+        transition.identity.declarationOrder shouldBe 0
+        transition.source.map(_.path) shouldBe Some(Vector("Draft"))
+        transition.trigger.eventName shouldBe "publish"
+        transition.target shouldBe MComponent.StateMachineTransitionTarget.State(
+          MComponent.StateMachineStateIdentity(normalized.identity, Vector("Published"))
+        )
+        transition.guard shouldBe MComponent.StateMachineGuardProgram.Predicate(
+          MComponent.PredicateProgram(expression = MComponent.StateMachinePredicate.Always)
+        )
+        transition.actions.transition.map(_.reference) shouldBe Vector("recordPayment")
+        transition.sourceLocation.declarationPath shouldBe Vector(
+          "StateMachine", "lifecycle", "root", "state", "Draft", "0", "call", "0"
+        )
+      }
+
+      "records a deterministic diagnostic for a legacy raw guard without changing the legacy carrier" in {
+        Given("a non-Workflow StateMachine with an existing raw expression guard")
+        val model = _action_model(_raw_expression_guard_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the component is projected")
+        val component = builder.build().elements.collectFirst {
+          case c: MDomainComponent if c.stateMachineDefinitions.nonEmpty => c
+        }.getOrElse(throw new IllegalArgumentException("A component with a lifecycle StateMachine is required for this specification."))
+
+        Then("the typed normalization rejects the raw guard while the pre-Phase-63.1 generation carrier remains intact")
+        val diagnostic = component.stateMachineDefinitions.head.normalization match {
+          case Some(MComponent.StateMachineNormalization.Rejected(Vector(value))) => value
+          case other => fail(s"Expected one raw-expression diagnostic, got $other")
+        }
+        diagnostic.code shouldBe "legacy-raw-expression-not-admitted"
+        diagnostic.machine shouldBe MComponent.StateMachineIdentity("lifecycle")
+        diagnostic.transition.map(_.declarationOrder) shouldBe Some(0)
+        diagnostic.sourceLocation.declarationPath shouldBe Vector(
+          "StateMachine", "lifecycle", "root", "state", "Draft", "0", "call", "0"
+        )
+        component.stateMachineTransitionRules.head.guard shouldBe Some(
+          MComponent.RuleGuard.Expression("event.amount > 0")
+        )
+      }
+
+      "records a deterministic diagnostic for an invalid target state" in {
+        Given("an already-parsed non-Workflow StateMachine that names no declared target state")
+        val model = _action_model(_single_action_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the StateMachine normalizer receives the parsed declaration")
+        val normalization = new ModelStateMachineProjector(builder).
+          normalizeStateMachine(_invalid_target_state_machine())
+
+        Then("the typed normalization rejects the declaration with stable provenance")
+        val diagnostic = normalization match {
+          case MComponent.StateMachineNormalization.Rejected(Vector(value)) => value
+          case other => fail(s"Expected one invalid-target diagnostic, got $other")
+        }
+        diagnostic.code shouldBe "invalid-target-state"
+        diagnostic.transition.map(_.declarationOrder) shouldBe Some(0)
+        diagnostic.sourceLocation.declarationPath shouldBe Vector(
+          "StateMachine", "lifecycle", "root", "state", "Draft", "0", "global", "0"
+        )
+      }
+
+      "rejects a composite-only StateMachine without an initial state" in {
+        Given("an already-parsed non-Workflow StateMachine whose root has only a composite")
+        val model = _action_model(_single_action_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the StateMachine normalizer receives the parsed declaration")
+        val normalization = new ModelStateMachineProjector(builder).
+          normalizeStateMachine(_composite_only_state_machine())
+
+        Then("the typed normalization emits one machine-level missing-initial-state diagnostic")
+        val diagnostic = normalization match {
+          case MComponent.StateMachineNormalization.Rejected(Vector(value)) => value
+          case other => fail(s"Expected one missing-initial-state diagnostic, got $other")
+        }
+        diagnostic.code shouldBe "missing-initial-state"
+        diagnostic.transition shouldBe None
+        diagnostic.sourceLocation.declarationPath shouldBe Vector("StateMachine", "lifecycle")
+      }
+
+      "honors an explicit INIT transition as the normalized initial state" in {
+        Given("an already-parsed non-Workflow StateMachine with an INIT transition to Published")
+        val model = _action_model(_single_action_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the StateMachine normalizer receives the parsed declaration")
+        val normalization = new ModelStateMachineProjector(builder).
+          normalizeStateMachine(_explicit_initial_state_machine())
+        val normalized = normalization match {
+          case MComponent.StateMachineNormalization.Accepted(value) => value
+          case other => fail(s"Expected an accepted explicit-initial normalization, got $other")
+        }
+
+        Then("the typed model records Published as initial and omits INIT from the state and transition identities")
+        normalized.initialState.map(_.path) shouldBe Some(Vector("Published"))
+        normalized.states.map(_.path) shouldBe Vector(Vector("Draft"), Vector("Published"))
+        normalized.transitions.map(_.trigger.eventName) shouldBe Vector("publish")
+      }
+
+      "records final targets in deterministic terminal transition metadata" in {
+        Given("an already-parsed non-Workflow StateMachine with a transition to FINAL")
+        val model = _action_model(_single_action_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the StateMachine normalizer receives the parsed declaration")
+        val normalization = new ModelStateMachineProjector(builder).
+          normalizeStateMachine(_final_transition_state_machine())
+        val normalized = normalization match {
+          case MComponent.StateMachineNormalization.Accepted(value) => value
+          case other => fail(s"Expected an accepted final-transition normalization, got $other")
+        }
+        val transition = normalized.transitions.head
+
+        Then("the transition target is Final and its identity is listed as terminal metadata")
+        transition.target shouldBe MComponent.StateMachineTransitionTarget.Final
+        normalized.topology.terminalTransitions shouldBe Vector(transition.identity)
+      }
+
+      "rejects nested composites with stable declaration provenance" in {
+        Given("an already-parsed non-Workflow StateMachine containing a nested composite")
+        val model = _action_model(_single_action_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the StateMachine normalizer receives the nested declaration")
+        val normalization = new ModelStateMachineProjector(builder).
+          normalizeStateMachine(_nested_composite_state_machine())
+        val diagnostic = normalization match {
+          case MComponent.StateMachineNormalization.Rejected(Vector(value)) => value
+          case other => fail(s"Expected one nested-composite diagnostic, got $other")
+        }
+
+        Then("the rejection names the unsupported branch and its deterministic declaration path")
+        diagnostic.code shouldBe "unsupported-nested-composite"
+        diagnostic.transition shouldBe None
+        diagnostic.sourceLocation.declarationPath shouldBe Vector(
+          "StateMachine", "lifecycle", "root", "composite", "Review", "0"
+        )
+      }
+
+      "orders transitions deterministically across distinct declaration containers" in {
+        Given("an already-parsed StateMachine with state, rule, and composite transition containers")
+        val model = _action_model(_single_action_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the StateMachine normalizer receives the parsed declaration")
+        val normalization = new ModelStateMachineProjector(builder).
+          normalizeStateMachine(_distinct_container_state_machine())
+        val normalized = normalization match {
+          case MComponent.StateMachineNormalization.Accepted(value) => value
+          case other => fail(s"Expected an accepted distinct-container normalization, got $other")
+        }
+
+        Then("the typed transitions preserve state, rule, then nested-composite declaration order")
+        normalized.transitions.map(_.trigger.eventName) shouldBe Vector("publish", "archive", "approve")
+        normalized.transitions.map(_.sourceLocation.declarationPath) shouldBe Vector(
+          Vector("StateMachine", "lifecycle", "root", "state", "Draft", "0", "global", "0"),
+          Vector("StateMachine", "lifecycle", "root", "rule", "global", "0"),
+          Vector("StateMachine", "lifecycle", "root", "composite", "Review", "0", "state", "Pending", "0", "global", "0")
+        )
+      }
+
+      "normalizes an admitted named guard as a typed binding reference" in {
+        Given("a non-Workflow StateMachine with a named guard")
+        val model = _action_model(_named_guard_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the component is projected")
+        val component = builder.build().elements.collectFirst {
+          case c: MDomainComponent if c.stateMachineDefinitions.nonEmpty => c
+        }.getOrElse(throw new IllegalArgumentException("A component with a lifecycle StateMachine is required for this specification."))
+        val normalization = component.stateMachineDefinitions.head.normalization match {
+          case Some(MComponent.StateMachineNormalization.Accepted(value)) => value
+          case other => fail(s"Expected an accepted named-guard normalization, got $other")
+        }
+        val transition = normalization.transitions.head
+
+        Then("the guard is a nominal binding identity instead of a raw expression string")
+        transition.guard shouldBe MComponent.StateMachineGuardProgram.Named(
+          MComponent.StateMachineGuardIdentity(
+            MComponent.StateMachineTransitionIdentity(MComponent.StateMachineIdentity("lifecycle"), 0),
+            "paymentConfirmed"
+          )
+        )
+        transition.actions.transition.head.identity.phase shouldBe MComponent.StateMachineActionPhase.Transition
+        transition.actions.transition.head.identity.declarationOrder shouldBe 0
+        transition.actions.transition.head.reference shouldBe "recordPayment"
+      }
+
+      "retains parsed declaration order independently of legacy rule order" in {
+        Given("two already-parsed non-Workflow transitions from one source state")
+        val model = _action_model(_two_transition_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the component definition is normalized")
+        val component = builder.build().elements.collectFirst {
+          case c: MDomainComponent if c.stateMachineDefinitions.nonEmpty => c
+        }.getOrElse(throw new IllegalArgumentException("A component with a lifecycle StateMachine is required for this specification."))
+        val normalized = component.stateMachineDefinitions.head.normalization match {
+          case Some(MComponent.StateMachineNormalization.Accepted(value)) => value
+          case other => fail(s"Expected accepted transition normalization, got $other")
+        }
+
+        Then("transition identities follow parsed declaration order")
+        normalized.transitions.map(_.identity.declarationOrder) shouldBe Vector(0, 1)
+        normalized.transitions.map(_.trigger.eventName) shouldBe Vector("publish", "archive")
+      }
+
+      "retains one-level composite and named shallow-history topology" in {
+        Given("an already-parsed non-Workflow StateMachine with Review shallow history")
+        val model = _action_model(_history_normalization_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the component definition is normalized")
+        val component = builder.build().elements.collectFirst {
+          case c: MDomainComponent if c.stateMachineDefinitions.nonEmpty => c
+        }.getOrElse(throw new IllegalArgumentException("A component with a lifecycle StateMachine is required for this specification."))
+        val normalized = component.stateMachineDefinitions.head.normalization match {
+          case Some(MComponent.StateMachineNormalization.Accepted(value)) => value
+          case other => fail(s"Expected accepted one-level topology normalization, got $other")
+        }
+        val review = MComponent.StateMachineStateIdentity(normalized.identity, Vector("Review"))
+        val pending = MComponent.StateMachineStateIdentity(normalized.identity, Vector("Review", "Pending"))
+        val resume = normalized.transitions.find(_.trigger.eventName == "resume").getOrElse(
+          fail("A normalized resume transition is required.")
+        )
+
+        Then("the direct leaves, fallback, and history writes remain typed metadata")
+        normalized.historyFieldName shouldBe Some("lifecycleHistory")
+        normalized.topology.composites shouldBe Vector(
+          MComponent.StateMachineCompositeTopology(
+            review,
+            Vector(
+              pending,
+              MComponent.StateMachineStateIdentity(normalized.identity, Vector("Review", "Approved"))
+            )
+          )
+        )
+        resume.target shouldBe MComponent.StateMachineTransitionTarget.ShallowHistory(review, Some(pending))
+        normalized.transitions.find(_.trigger.eventName == "submit").map(_.historyWrites) shouldBe Some(
+          Vector(MComponent.StateMachineHistoryWrite(review, pending))
+        )
+      }
+
       "maps one nonempty transition ACTION through every real consumer" in {
         Given("a CML StateMachine transition with one ACTION")
         val model = _action_model(_single_action_source())
@@ -264,6 +531,253 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
       _action_line("recordPayment", prefix = "  ", suffix = "  "),
       _action_line("", prefix = "  ", suffix = "  ")
     )
+
+  private def _explicit_initial_state_machine(): StateMachineClass = {
+    val init = StateClass(
+      "INIT",
+      0,
+      Transitions.global(Vector(
+        Transition(EventNameGuard("start"), NameTransitionTo("Published"), Activity.Empty)
+      ))
+    )
+    val draft = StateClass(
+      "Draft",
+      1,
+      Transitions.global(Vector(
+        Transition(EventNameGuard("publish"), NameTransitionTo("Published"), Activity.Empty)
+      ))
+    )
+    val statemachinerule = StateMachineRule(
+      name = Some("lifecycle"),
+      states = List(init, draft, StateClass("Published", 2))
+    )
+    val logic = new StateMachineLogic {
+      val rule: StateMachineRule = statemachinerule
+      def execute(
+        stateMachine: StateMachine,
+        activity: Activity,
+        parcel: Parcel
+      ): Parcel = parcel
+    }
+    StateMachineClass("lifecycle", statemachinerule, logic)
+  }
+
+  private def _final_transition_state_machine(): StateMachineClass = {
+    val statemachinerule = StateMachineRule(
+      name = Some("lifecycle"),
+      states = List(
+        StateClass(
+          "Draft",
+          1,
+          Transitions.global(Vector(
+            Transition(EventNameGuard("complete"), FinalTransitionTo, Activity.Empty)
+          ))
+        )
+      )
+    )
+    val logic = new StateMachineLogic {
+      val rule: StateMachineRule = statemachinerule
+      def execute(
+        stateMachine: StateMachine,
+        activity: Activity,
+        parcel: Parcel
+      ): Parcel = parcel
+    }
+    StateMachineClass("lifecycle", statemachinerule, logic)
+  }
+
+  private def _nested_composite_state_machine(): StateMachineClass = {
+    val detail = StateMachineRule(
+      name = Some("Detail"),
+      states = List(StateClass("Pending", 1))
+    )
+    val review = StateMachineRule(
+      name = Some("Review"),
+      statemachines = List(detail)
+    )
+    val statemachinerule = StateMachineRule(
+      name = Some("lifecycle"),
+      states = List(StateClass("Draft", 1)),
+      statemachines = List(review)
+    )
+    val logic = new StateMachineLogic {
+      val rule: StateMachineRule = statemachinerule
+      def execute(
+        stateMachine: StateMachine,
+        activity: Activity,
+        parcel: Parcel
+      ): Parcel = parcel
+    }
+    StateMachineClass("lifecycle", statemachinerule, logic)
+  }
+
+  private def _distinct_container_state_machine(): StateMachineClass = {
+    val draft = StateClass(
+      "Draft",
+      1,
+      Transitions.global(Vector(
+        Transition(EventNameGuard("publish"), NameTransitionTo("Published"), Activity.Empty)
+      ))
+    )
+    val review = StateMachineRule(
+      name = Some("Review"),
+      states = List(
+        StateClass(
+          "Pending",
+          3,
+          Transitions.global(Vector(
+            Transition(EventNameGuard("approve"), NameTransitionTo("Pending"), Activity.Empty)
+          ))
+        )
+      )
+    )
+    val statemachinerule = StateMachineRule(
+      name = Some("lifecycle"),
+      states = List(draft, StateClass("Published", 2)),
+      statemachines = List(review),
+      transitions = Transitions.global(Vector(
+        Transition(EventNameGuard("archive"), NameTransitionTo("Draft"), Activity.Empty)
+      ))
+    )
+    val logic = new StateMachineLogic {
+      val rule: StateMachineRule = statemachinerule
+      def execute(
+        stateMachine: StateMachine,
+        activity: Activity,
+        parcel: Parcel
+      ): Parcel = parcel
+    }
+    StateMachineClass("lifecycle", statemachinerule, logic)
+  }
+
+  private def _raw_expression_guard_source(): String =
+    _single_action_source().replace(
+      "- ON :: publish",
+      "- ON :: publish\n- guard :: event.amount > 0"
+    )
+
+  private def _invalid_target_state_machine(): StateMachineClass = {
+    val statemachinerule = StateMachineRule(
+      name = Some("lifecycle"),
+      states = List(
+        StateClass(
+          "Draft",
+          1,
+          Transitions.global(
+            Vector(Transition(EventNameGuard("publish"), NameTransitionTo("Undeclared"), Activity.Empty))
+          )
+        ),
+        StateClass("Published", 2)
+      )
+    )
+    val logic = new StateMachineLogic {
+      val rule: StateMachineRule = statemachinerule
+      def execute(
+        stateMachine: StateMachine,
+        activity: Activity,
+        parcel: Parcel
+      ): Parcel = parcel
+    }
+    StateMachineClass("lifecycle", statemachinerule, logic)
+  }
+
+  private def _composite_only_state_machine(): StateMachineClass = {
+    val composite = StateMachineRule(
+      name = Some("Review"),
+      states = List(StateClass("Pending", 1))
+    )
+    val statemachinerule = StateMachineRule(
+      name = Some("lifecycle"),
+      statemachines = List(composite)
+    )
+    val logic = new StateMachineLogic {
+      val rule: StateMachineRule = statemachinerule
+      def execute(
+        stateMachine: StateMachine,
+        activity: Activity,
+        parcel: Parcel
+      ): Parcel = parcel
+    }
+    StateMachineClass("lifecycle", statemachinerule, logic)
+  }
+
+  private def _named_guard_source(): String =
+    _single_action_source().replace(
+      "- ON :: publish",
+      "- ON :: publish\n- guard :: paymentConfirmed"
+    )
+
+  private def _two_transition_source(): String =
+    _single_action_source().replace(
+      s"""- TO :: Published
+         |- ON :: publish
+         |${_action_line("recordPayment", prefix = "  ", suffix = "  ")}""".stripMargin,
+      s"""- TO :: Published
+         |- ON :: publish
+         |${_action_line("recordPayment", prefix = "  ", suffix = "  ")}
+         |
+         |####### Transition
+         |
+         |- TO :: Published
+         |- ON :: archive""".stripMargin
+    )
+
+  private def _history_normalization_source(): String =
+    """# Entity
+      |
+      |## Person
+      |
+      |### Attribute
+      |
+      || name             | type     | multiplicity |
+      ||------------------+----------+--------------|
+      || id               | entityid | 1            |
+      || status           | int      | 1            |
+      || lifecycleHistory | record   | 1            |
+      |
+      |### StateMachine
+      |
+      |#### lifecycle
+      |
+      |- HISTORY-FIELD :: lifecycleHistory
+      |
+      |##### State
+      |
+      |###### Draft
+      |
+      |####### Transition
+      |
+      |- TO :: Pending
+      |- ON :: submit
+      |
+      |###### Review
+      |
+      |####### State
+      |
+      |######## Pending
+      |
+      |######### Transition
+      |
+      |- TO :: Approved
+      |- ON :: approve
+      |
+      |######## Approved
+      |
+      |###### Suspended
+      |
+      |####### Transition
+      |
+      |- TO :: Review.HISTORY
+      |- ON :: resume
+      |
+      |##### Event
+      |
+      |###### submit
+      |
+      |###### approve
+      |
+      |###### resume
+      |""".stripMargin
 
   private def _multiple_action_source(): String =
     _single_action_source().replace(

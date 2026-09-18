@@ -36,7 +36,8 @@ import scala.collection.mutable
 
 /*
  * @since Aug. 14, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep. 18, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelStateMachineProjector(val context: ModelBuildContext) {
@@ -45,6 +46,8 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
   private[modeler] def projectStateMachine(p: StateMachineClass): MStateMachine = _statemachine(p)
   private[modeler] def transitionRules(entities: Vector[MEntity]): Vector[MComponent.StateMachineTransitionRule] = _state_machine_transition_rules(entities)
   private[modeler] def definitions(entities: Vector[MEntity]): Vector[MComponent.StateMachineDefinition] = _state_machine_definitions(entities)
+  private[modeler] def normalizeStateMachine(p: StateMachineClass): MComponent.StateMachineNormalization =
+    new StateMachineNormalizationProjector(context).normalize(p)
 
     private def _distinct_stable(
       p: Vector[String]
@@ -221,6 +224,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       iscalltransition: Boolean
     )
 
+
     private def _validate_state_machine(sm: StateMachineClass): Unit = {
       _validate_composite_state_names(sm.name, sm.rule)
       val states = _all_states(sm.rule).map(_.name).toSet
@@ -306,7 +310,8 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
             states = _distinct_stable(_all_states(sm.rule).map(_.name)),
             events = _state_machine_events(sm),
             historyFieldName = sm.rule.historyFieldName,
-            historyComposites = _history_composites(sm.rule)
+            historyComposites = _history_composites(sm.rule),
+            normalization = Some(new StateMachineNormalizationProjector(context).normalize(sm))
           )
         }
       }
