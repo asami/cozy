@@ -1,6 +1,7 @@
 package cozy.modeler
 
 import org.goldenport.kaleidox.{Config => KaleidoxConfig, Model => KaleidoxModel}
+import org.goldenport.event.EventClazz
 import org.goldenport.sm.{Activity, EventNameGuard, FinalTransitionTo, NameTransitionTo, Parcel, StateClass, StateMachine, StateMachineClass, StateMachineLogic, StateMachineRule, Transition, Transitions}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -371,9 +372,9 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
 
       "rejects a transition whose trigger is absent from declared events" in {
         Given("an already-parsed StateMachine with one declared event and a different ON trigger")
-        val model = _action_model(_undeclared_event_source())
+        val model = _action_model(_history_normalization_source())
         val builder = Modeler.ModelBuilder(model)
-        val statemachine = _entity_state_machine(model)
+        val statemachine = _undeclared_event_state_machine()
 
         When("the parsed StateMachine is normalized directly")
         val normalization = new StateMachineNormalizationProjector(builder).normalize(statemachine)
@@ -757,6 +758,32 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
     StateMachineClass("lifecycle", statemachinerule, logic)
   }
 
+  private def _undeclared_event_state_machine(): StateMachineClass = {
+    val statemachinerule = StateMachineRule(
+      name = Some("lifecycle"),
+      events = List(EventClazz("approved")),
+      states = List(
+        StateClass(
+          "Draft",
+          1,
+          Transitions.global(Vector(
+            Transition(EventNameGuard("publish"), NameTransitionTo("Published"), Activity.Empty)
+          ))
+        ),
+        StateClass("Published", 2)
+      )
+    )
+    val logic = new StateMachineLogic {
+      val rule: StateMachineRule = statemachinerule
+      def execute(
+        stateMachine: StateMachine,
+        activity: Activity,
+        parcel: Parcel
+      ): Parcel = parcel
+    }
+    StateMachineClass("lifecycle", statemachinerule, logic)
+  }
+
   private def _composite_only_state_machine(): StateMachineClass = {
     val composite = StateMachineRule(
       name = Some("Review"),
@@ -853,37 +880,6 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
       |###### approve
       |
       |###### resume
-      |""".stripMargin
-
-  private def _undeclared_event_source(): String =
-    """# Entity
-      |
-      |## Person
-      |
-      |### Attribute
-      |
-      || name | type     | multiplicity |
-      ||------+----------+--------------|
-      || id   | entityid | 1            |
-      |
-      |### StateMachine
-      |
-      |#### lifecycle
-      |
-      |##### State
-      |
-      |###### Draft
-      |
-      |####### Transition
-      |
-      |- TO :: Published
-      |- ON :: publish
-      |
-      |###### Published
-      |
-      |##### Event
-      |
-      |###### approved
       |""".stripMargin
 
   private def _multiple_action_source(): String =
