@@ -1,4 +1,5 @@
 import domain.HistoryComponent
+import org.goldenport.cncf.statemachine.CmlStateMachineTransitionTarget
 import org.goldenport.cncf.statemachine.HistoryRecordWrite
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -46,6 +47,47 @@ final class GeneratedStateMachineHistoryRuntimeSpec
       suspend.fromStateValue shouldBe Some(3)
       suspend.toStateValue shouldBe Some(4)
       suspend.expectedHistoryRecordWrites shouldBe Vector(HistoryRecordWrite("Review", "Approved"))
+    }
+
+    "load the generated normalized transition ABI through its typed provider" in {
+      Given("the compiled generated HistoryComponent")
+      val component = new HistoryComponent()
+
+      When("the lifecycle definition is loaded through its typed normalized API")
+      val definition = component.stateMachineDefinitions
+        .find(_.name == "lifecycle")
+        .getOrElse(fail("generated lifecycle definition is missing"))
+      val normalized = definition.normalized
+        .getOrElse(fail("generated lifecycle definition is missing normalized ABI data"))
+      val resume = normalized.transitions
+        .find(_.trigger.identity.name == "resume")
+        .getOrElse(fail("generated lifecycle resume transition is missing"))
+
+      Then("the normalized machine and initial state retain their typed identities")
+      normalized.identity.name shouldBe "lifecycle"
+      normalized.initialState.machine shouldBe normalized.identity
+      normalized.initialState.path.render shouldBe "Draft"
+
+      And("the generated transitions retain declaration-order identities")
+      normalized.transitions.map { transition =>
+        transition.identity.machine.name -> transition.identity.declarationOrder
+      } shouldBe Vector(
+        "lifecycle" -> 0,
+        "lifecycle" -> 1,
+        "lifecycle" -> 2,
+        "lifecycle" -> 3
+      )
+
+      And("the resume transition encodes Review shallow history and its Pending fallback")
+      resume.target match {
+        case CmlStateMachineTransitionTarget.ShallowHistory(target) =>
+          target.composite.machine shouldBe normalized.identity
+          target.composite.path.render shouldBe "Review"
+          target.fallbackLeaf.machine shouldBe normalized.identity
+          target.fallbackLeaf.path.render shouldBe "Review/Pending"
+        case other =>
+          fail(s"expected a Review shallow-history target but got $other")
+      }
     }
   }
 }

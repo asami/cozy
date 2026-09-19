@@ -126,6 +126,51 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
         binding.trigger shouldBe transition.trigger
       }
 
+      "projects an explicit operation trigger without requiring a same-named Event declaration" in {
+        Given("a non-Workflow StateMachine transition bound to entity.updateSalesOrder and no Event declaration")
+        val model = _action_model(_operation_trigger_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the component definition is projected through the ordinary StateMachine path")
+        val component = builder.build().elements.collectFirst {
+          case c: MDomainComponent if c.stateMachineDefinitions.nonEmpty => c
+        }.getOrElse(fail("A component with an explicit operation-bound StateMachine is required."))
+        val normalized = component.stateMachineDefinitions.head.normalization match {
+          case Some(MComponent.StateMachineNormalization.Accepted(value)) => value
+          case other => fail(s"Expected an accepted explicit-operation normalization, got $other")
+        }
+        val transition = normalized.transitions.head
+        val binding = component.stateMachineTransitionRules.head.binding.getOrElse(
+          fail("The explicit operation transition must retain its generated binding.")
+        )
+
+        Then("the typed operation identity, Operation rule trigger, and normalized trigger schema version are retained")
+        transition.trigger.eventName shouldBe "operation:entity.updateSalesOrder"
+        transition.operation shouldBe Some(MComponent.StateMachineOperationIdentity("entity", "updateSalesOrder"))
+        component.stateMachineTransitionRules.head.trigger shouldBe MComponent.TransitionTrigger.Operation
+        binding.operation shouldBe transition.operation
+        binding.version shouldBe normalized.version
+      }
+
+      "rejects a malformed explicit operation trigger with a safe diagnostic" in {
+        Given("a non-Workflow StateMachine whose operation marker omits its operation segment")
+        val model = _action_model(_malformed_operation_trigger_source())
+        val builder = Modeler.ModelBuilder(model)
+
+        When("the StateMachine normalizer receives the parsed declaration")
+        val normalization = new ModelStateMachineProjector(builder).
+          normalizeStateMachine(_entity_state_machine(model))
+
+        Then("projection rejects the marker without treating it as a legacy Event")
+        val diagnostic = normalization match {
+          case MComponent.StateMachineNormalization.Rejected(Vector(value)) => value
+          case other => fail(s"Expected one invalid-operation-trigger diagnostic, got $other")
+        }
+        diagnostic.code shouldBe "invalid-operation-trigger"
+        diagnostic.message should include("exactly two nonempty service.operation segments")
+        diagnostic.transition.map(_.declarationOrder) shouldBe Some(0)
+      }
+
       "records a deterministic diagnostic for a legacy raw guard without changing the legacy carrier" in {
         Given("a non-Workflow StateMachine with an existing raw expression guard")
         val model = _action_model(_raw_expression_guard_source())
@@ -852,6 +897,18 @@ final class ModelerStateMachineProjectionSpec extends AnyWordSpec with Matchers 
     _single_action_source().replace(
       "- ON :: publish",
       "- ON :: publish\n- guard :: paymentConfirmed"
+    )
+
+  private def _operation_trigger_source(): String =
+    _single_action_source().replace(
+      "- ON :: publish",
+      "- ON :: operation:entity.updateSalesOrder"
+    )
+
+  private def _malformed_operation_trigger_source(): String =
+    _single_action_source().replace(
+      "- ON :: publish",
+      "- ON :: operation:entity"
     )
 
   private def _two_transition_source(): String =

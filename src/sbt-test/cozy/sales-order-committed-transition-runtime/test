@@ -1,10 +1,17 @@
-> runMain cozy.Cozy car-sbt-project sales-order-committed-transition-runtime.dox --package=domain --save=out.d
+> runMain cozy.Cozy init component --save out.d --config sales-order-component.yaml
+$ exec rm -rf factory.d
+> runMain cozy.Cozy car-sbt-project sales-order-committed-transition-runtime.dox --package=domain --save=factory.d
+$ exec rm -f out.d/src/main/cozy/fixture-sales.cml
+$ exec cp sales-order-committed-transition-runtime.dox out.d/src/main/cozy/fixture-sales.cml
 > runMain cozy.Cozy modeler-scala sales-order-committed-transition-runtime.dox --component-namespace=org.example.fixture --component-id=Sales --save=generated.d
 $ exists out.d/build.sbt
-$ exists out.d/src/main/cozy/sample.cml
-$ exec mkdir -p out.d/src/main/scala/domain
+$ exists out.d/src/main/cozy/fixture-sales.cml
+$ exists factory.d/src/main/scala/domain/impl/ComponentFactory.scala
+$ exec rm -rf out.d/src/main/scala
+$ exec mkdir -p out.d/src/main/scala/domain/impl
+$ exec cp factory.d/src/main/scala/domain/impl/ComponentFactory.scala out.d/src/main/scala/domain/impl/
 $ exec cp -R generated.d/target/scala-3.3.8/src_managed/main/scala/domain/. out.d/src/main/scala/domain/
-$ exec rm out.d/src/main/cozy/sample.cml
-$ exec cp project.yaml out.d/project.yaml
 $ exec cp runtime-test-descriptor.yaml out.d/runtime-test-descriptor.yaml
+> runMain cozy.Cozy lint car out.d --format json --no-abi
+$ exec rm -f out.d/src/main/cozy/fixture-sales.cml
 $ exec sh check-sales-order-committed-transition-runtime.sh

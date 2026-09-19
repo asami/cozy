@@ -265,7 +265,11 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       val eventname = _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName).getOrElse {
         RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition requires on.")
       }
-      if (events.nonEmpty && !events.contains(eventname))
+      val operation = StateMachineOperationTrigger.parse(eventname) match {
+        case Right(value) => value
+        case Left(message) => RAISE.syntaxErrorFault(message)
+      }
+      if (events.nonEmpty && operation.isEmpty && !events.contains(eventname))
         RAISE.syntaxErrorFault(s"StateMachine '$machinename' transition references undeclared event $eventname.")
     }
 
@@ -396,7 +400,8 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
                 transition = transition.identity,
                 source = source,
                 target = transition.target,
-                trigger = transition.trigger
+                trigger = transition.trigger,
+                operation = transition.operation
               )
             }
           }.toMap
@@ -608,7 +613,9 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       iscall: Boolean
     ): MComponent.TransitionTrigger = {
       val n = eventname.toLowerCase
-      if (n == "save" || n.startsWith("save_") || n == "create")
+      if (StateMachineOperationTrigger.parse(eventname).toOption.flatten.isDefined)
+        MComponent.TransitionTrigger.Operation
+      else if (n == "save" || n.startsWith("save_") || n == "create")
         MComponent.TransitionTrigger.Save
       else if (n == "update" || n.startsWith("update_"))
         MComponent.TransitionTrigger.Update

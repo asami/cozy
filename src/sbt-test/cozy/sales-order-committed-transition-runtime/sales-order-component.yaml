@@ -1,0 +1,7 @@
+project:
+  namespace: org.example.fixture
+  id: Sales
+  kind: car
+  component:
+    displayName: Sales Operation Binding Fixture
+    version: 0.1.0-SNAPSHOT

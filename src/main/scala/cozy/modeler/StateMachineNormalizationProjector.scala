@@ -9,6 +9,34 @@ import org.goldenport.kaleidox.model.EntityModel.EntityClass
 import org.goldenport.kaleidox.model.CmlExpressionGuard
 import scala.util.control.NonFatal
 
+/**
+ * StateMachine-only explicit operation marker.  This parser is deliberately
+ * local to the non-Workflow StateMachine projection boundary so Workflow CML
+ * never receives this spelling or its semantics.
+ */
+private[modeler] object StateMachineOperationTrigger {
+  private val _prefix = "operation:"
+
+  final case class Identity(service: String, operation: String)
+
+  def parse(value: String): Either[String, Option[Identity]] = {
+    val marker = Option(value).map(_.trim).getOrElse("")
+    if (!marker.startsWith(_prefix))
+      Right(None)
+    else {
+      val segments = marker.drop(_prefix.length).split("\\.", -1).toVector.map(_.trim)
+      segments match {
+        case Vector(service, operation)
+            if service.nonEmpty && operation.nonEmpty &&
+              !service.contains(".") && !operation.contains(".") =>
+          Right(Some(Identity(service, operation)))
+        case _ =>
+          Left("StateMachine operation trigger must use exactly two nonempty service.operation segments.")
+      }
+    }
+  }
+}
+
 /*
  * @since Sep. 18, 2026
  * @author ASAMI, Tomoharu
@@ -93,7 +121,9 @@ private[modeler] final class StateMachineNormalizationProjector(val context: Mod
 
   private def _normalization_diagnostic_code(error: Throwable): String = {
     val message = Option(error.getMessage).getOrElse("")
-    if (message.contains("unadmitted legacy raw expression"))
+    if (message.contains("operation trigger"))
+      "invalid-operation-trigger"
+    else if (message.contains("unadmitted legacy raw expression"))
       "legacy-raw-expression-not-admitted"
     else if (message.contains("not an admitted named local action"))
       "legacy-raw-action-not-admitted"
@@ -115,6 +145,8 @@ private[modeler] final class StateMachineNormalizationProjector(val context: Mod
     _normalization_diagnostic_code(error) match {
       case "legacy-raw-expression-not-admitted" =>
         "A legacy raw expression is not admitted to the typed StateMachine predicate contract."
+      case "invalid-operation-trigger" =>
+        "A StateMachine operation trigger must use exactly two nonempty service.operation segments."
       case "legacy-raw-action-not-admitted" =>
         "A legacy raw action is not admitted to the named local-action contract."
       case "ambiguous-state-name" =>
@@ -386,7 +418,17 @@ private[modeler] final class StateMachineNormalizationProjector(val context: Mod
         transition = Some(identity)
       )
     }
-    if (declaredeventnames.nonEmpty && !declaredeventnames.contains(eventname))
+    val operation = StateMachineOperationTrigger.parse(eventname) match {
+      case Right(value) => value
+      case Left(message) =>
+        _normalization_failure(
+          code = "invalid-operation-trigger",
+          message = message,
+          sourcelocation = sourcelocation,
+          transition = Some(identity)
+        )
+    }
+    if (declaredeventnames.nonEmpty && operation.isEmpty && !declaredeventnames.contains(eventname))
       _normalization_failure(
         code = "undeclared-event",
         message = s"StateMachine '${sm.name}' transition references undeclared event $eventname.",
@@ -455,6 +497,7 @@ private[modeler] final class StateMachineNormalizationProjector(val context: Mod
       source = transition.source,
       target = target,
       trigger = MComponent.StateMachineTriggerIdentity(machine, eventname),
+      operation = operation.map(value => MComponent.StateMachineOperationIdentity(value.service, value.operation)),
       priority = MComponent.StateMachineTransitionPriority.default,
       guard = guard,
       actions = _normalized_actions(identity, plan, sourcelocation),

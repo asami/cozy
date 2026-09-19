@@ -6,6 +6,16 @@
 
 domain
 
+# VALUE
+
+## SalesOrderDescription
+
+### ATTRIBUTE
+
+| name  | type   | multiplicity |
+|-------|--------|--------------|
+| value | string | 1            |
+
 # ENTITY
 
 ## SalesOrder
@@ -16,7 +26,7 @@ domain
 |-------------|--------------|--------------|
 | id          | entityid     | 1            |
 | status      | SalesStatus  | 1            |
-| description | String       | 1            |
+| description | SalesOrderDescription | 1            |
 | lifecycleHistory | record   | 1            |
 
 ### StateMachine
@@ -32,7 +42,7 @@ domain
 ####### Transition
 
 - to :: Pending
-- on :: update
+- on :: operation:entity.updateSalesOrder
 
 ###### Review
 
@@ -43,25 +53,21 @@ domain
 ######### Transition
 
 - to :: Approved
-- on :: update
+- on :: operation:entity.updateSalesOrder
 
 ######## Approved
 
 ######### Transition
 
 - to :: Suspended
-- on :: update
+- on :: operation:entity.updateSalesOrder
 
 ###### Suspended
 
 ####### Transition
 
 - to :: Review.HISTORY
-- on :: update
-
-##### Event
-
-###### update
+- on :: operation:entity.updateSalesOrder
 
 # POWERTYPE
 
