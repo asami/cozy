@@ -16,6 +16,7 @@ import org.goldenport.record.Record
 import org.goldenport.cncf.bootstrap.{BootstrapConfig, CncfBootstrap, CncfHandle}
 import org.goldenport.cncf.component.{Component, ComponentCreate, ComponentOrigin}
 import org.goldenport.cncf.event.{EventRecord, EventStore}
+import org.goldenport.cncf.statemachine.CmlStateMachineTransitionTarget
 import org.goldenport.cncf.subsystem.Subsystem
 import org.simplemodeling.model.datatype.{EntityCollectionId, EntityId}
 import domain.impl.ComponentFactory
@@ -64,15 +65,18 @@ object SalesOrderCommittedTransitionProbe {
   private def _run_graph(): ReplayResult = {
     val handle = _initialize()
     try {
+      _assert_generated_lifecycle_definition(handle)
       _save_draft(handle)
       _submit(handle)
       _approve(handle)
       _suspend(handle)
       _resume(handle)
+      _suspend(handle)
+      _finalize(handle)
       _assert_committed_transitions(handle)
       _assert_rejected_reversal_does_not_emit(handle)
-      _assert_unbound_generated_mutation_does_not_emit(handle)
-      _assert_status(handle, "Approved")
+      _assert_rejected_save_reversal_does_not_emit(handle)
+      _assert_status(handle, "Suspended")
       _assert_history(handle, "Approved")
     } finally {
       handle.close()
@@ -83,7 +87,7 @@ object SalesOrderCommittedTransitionProbe {
 
     val reopened = _initialize()
     try {
-      val status = _assert_status(reopened, "Approved")
+      val status = _assert_status(reopened, "Suspended")
       val history = _assert_history(reopened, "Approved")
       val records = _committed_transition_records(reopened)
       ReplayResult(status, history, records.map(_event_evidence))
@@ -152,6 +156,25 @@ object SalesOrderCommittedTransitionProbe {
   private def _resume(handle: CncfHandle): Unit =
     _update(handle, "Approved", "resumed order", "Approved", "resume")
 
+  private def _finalize(handle: CncfHandle): Unit = {
+    val request = Request.of(
+      component = _component_name,
+      service = "entity",
+      operation = "saveSalesOrder",
+      properties = List(
+        Property("id", _id, None),
+        Property("status", "Suspended", None),
+        Property("description", "terminal order", None),
+        Property("lifecycleHistory", _history("Approved"), None)
+      ) ++ _execution_properties
+    )
+    val action = _take(
+      SalesComponent.EntityService.SaveSalesOrderCommand.create(request),
+      "SaveSalesOrderCommand.create(finalize)"
+    )
+    _take(handle.executeAction(action), "executeAction(saveSalesOrder finalize)")
+  }
+
   private def _update(
     handle: CncfHandle,
     status: String,
@@ -179,28 +202,58 @@ object SalesOrderCommittedTransitionProbe {
 
   private def _assert_committed_transitions(handle: CncfHandle): Unit = {
     val records = _committed_transition_records(handle)
-    val targets = Vector("Review/Pending", "Review/Approved", "Suspended", "Review")
-    if (records.size != targets.size)
-      throw new IllegalStateException(s"expected ${targets.size} committed-transition records but got ${records.size}")
+    val targets = Vector("Review/Pending", "Review/Approved", "Suspended", "Review", "Suspended")
+    if (records.size != targets.size + 1)
+      throw new IllegalStateException(s"expected ${targets.size + 1} committed-transition records but got ${records.size}")
     records.zipWithIndex.foreach { case (record, index) =>
-      val target = targets(index)
       if (record.payload.get("entity.id").map(_.toString) != Some(_id))
         throw new IllegalStateException(s"unexpected committed entity identity: ${record.payload}")
-      if (record.payload.get("transition.target").map(_.toString) != Some(target))
-        throw new IllegalStateException(s"unexpected committed transition target: ${record.payload}")
+      if (index < targets.size) {
+        val target = targets(index)
+        if (record.payload.get("transition.target").map(_.toString) != Some(target))
+          throw new IllegalStateException(s"unexpected committed transition target: ${record.payload}")
+      } else {
+        if (record.payload.get("transition.target.kind").map(_.toString) != Some("final"))
+          throw new IllegalStateException(s"terminal transition lost its final target metadata: ${record.payload}")
+        if (record.payload.get("transition.target").map(_.toString) != Some(""))
+          throw new IllegalStateException(s"terminal transition must not expose a concrete target state: ${record.payload}")
+      }
       if (index == 3) {
         if (record.payload.get("transition.target.kind").map(_.toString) != Some("shallow-history"))
           throw new IllegalStateException(s"history transition lost its target kind: ${record.payload}")
         if (record.payload.get("transition.target.fallback").map(_.toString) != Some("Review/Pending"))
           throw new IllegalStateException(s"history transition lost its declared fallback: ${record.payload}")
       }
-      if (record.payload.get("transition.trigger").map(_.toString) != Some("operation:entity.updateSalesOrder"))
+      val operation = if (index == targets.size) "saveSalesOrder" else "updateSalesOrder"
+      val trigger = s"operation:entity.$operation"
+      val operationid = s"$_component_name.entity.$operation"
+      if (record.payload.get("transition.trigger").map(_.toString) != Some(trigger))
         throw new IllegalStateException(s"unexpected committed transition trigger: ${record.payload}")
-      if (record.payload.get("operation.id").map(_.toString) != Some(s"$_component_name.entity.updateSalesOrder"))
+      if (record.payload.get("operation.id").map(_.toString) != Some(operationid))
         throw new IllegalStateException(s"unexpected committed transition operation identity: ${record.payload}")
       if (record.payload.get("transaction.id").map(_.toString).forall(_.trim.isEmpty))
         throw new IllegalStateException(s"missing committed transition transaction identity: ${record.payload}")
     }
+  }
+
+  private def _assert_generated_lifecycle_definition(handle: CncfHandle): Unit = {
+    val component = ComponentFactory()
+      .createPrimary(ComponentCreate(handle.subsystem, ComponentOrigin.Main))
+      .asInstanceOf[SalesComponent]
+    val definition = component.stateMachineDefinitions
+      .find(_.name == "lifecycle")
+      .getOrElse(throw new IllegalStateException("generated SalesOrder lifecycle definition is missing"))
+    val normalized = definition.normalized
+      .getOrElse(throw new IllegalStateException("generated SalesOrder lifecycle normalization is missing"))
+    if (normalized.initialState.machine != normalized.identity || normalized.initialState.path.render != "Draft")
+      throw new IllegalStateException(s"generated SalesOrder initial identity is not lifecycle/Draft: ${normalized.initialState}")
+    if (definition.historyComposites.map(x => x.name -> x.directLeaves) != Vector("Review" -> Vector("Pending", "Approved")))
+      throw new IllegalStateException(s"generated SalesOrder Review composite is not one-level: ${definition.historyComposites}")
+    val finals = normalized.transitions.collect {
+      case transition if transition.target == CmlStateMachineTransitionTarget.Final => transition
+    }
+    if (finals.size != 1 || normalized.terminalTransitions != finals.map(_.identity))
+      throw new IllegalStateException(s"generated SalesOrder terminal final transition metadata is invalid: ${normalized.terminalTransitions}")
   }
 
   private def _committed_transition_records(handle: CncfHandle): Vector[EventRecord] =
@@ -242,11 +295,11 @@ object SalesOrderCommittedTransitionProbe {
       handle.subsystem.eventStore.query(EventStore.Query(kind = Some("committed-transition"))),
       "query committed-transition after rejected reversal"
     )
-    if (records.size != 4)
+    if (records.size != 6)
       throw new IllegalStateException(s"rejected reversal changed committed-transition count: ${records.size}")
   }
 
-  private def _assert_unbound_generated_mutation_does_not_emit(handle: CncfHandle): Unit = {
+  private def _assert_rejected_save_reversal_does_not_emit(handle: CncfHandle): Unit = {
     val request = Request.of(
       component = _component_name,
       service = "entity",
@@ -254,21 +307,21 @@ object SalesOrderCommittedTransitionProbe {
       properties = List(
         Property("id", _id, None),
         Property("status", "Approved", None),
-        Property("description", "unbound generated mutation must not transition", None),
+        Property("description", "rejected save reversal must not transition", None),
         Property("lifecycleHistory", _history("Approved"), None)
       ) ++ _execution_properties
     )
     val action = _take(
       SalesComponent.EntityService.SaveSalesOrderCommand.create(request),
-      "SaveSalesOrderCommand.create(unbound generated mutation)"
+      "SaveSalesOrderCommand.create(rejected save reversal)"
     )
-    _take(handle.executeAction(action), "executeAction(saveSalesOrder unbound generated mutation)")
+    _expect_failure(handle.executeAction(action), "executeAction(saveSalesOrder rejected save reversal)")
     val records = _take(
       handle.subsystem.eventStore.query(EventStore.Query(kind = Some("committed-transition"))),
-      "query committed-transition after unbound generated mutation"
+      "query committed-transition after rejected save reversal"
     )
-    if (records.size != 4)
-      throw new IllegalStateException(s"unbound generated mutation changed committed-transition count: ${records.size}")
+    if (records.size != 6)
+      throw new IllegalStateException(s"rejected save reversal changed committed-transition count: ${records.size}")
   }
 
   private def _assert_status(handle: CncfHandle, expected: String): String = {

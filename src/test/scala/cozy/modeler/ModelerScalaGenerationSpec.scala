@@ -16,7 +16,8 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jun. 23, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep. 19, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -571,7 +572,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         updatecontent should include ("val schema: org.goldenport.schema.Schema = domain.entity.Person.schema")
       }
 
-      "modeler-scala preserves structural state-machine and powertype persistence semantics" in {
+      "modeler-scala preserves structural state-machine, named-guard, and powertype persistence semantics" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val input = base.resolve("src/test/resources/modeler/statemachine-cml.dox")
@@ -601,13 +602,15 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("states = Vector(\"Draft\", \"Published\")")
         content should include ("events = Vector(\"publish\")")
         content should include ("eventName = \"publish\"")
+        content should not include ("fromState = Some(\"INIT\")")
+        content should not include ("eventName = \"start\"")
         content should include ("machineName = Some(\"lifecycle\")")
         content should include ("stateFieldName = Some(\"status\")")
         content should include ("fromState = Some(\"Draft\")")
         content should include ("fromStateValue = Some(1)")
         content should include ("toState = Some(\"Published\")")
         content should include ("toStateValue = Some(2)")
-        content should include ("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"event.amount > 0\")")
+        content should include ("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"paymentAmountPositive\", stateMachineGuardResolver))")
         content should include ("StateMachineRuleBuilder.updateRule[Any](")
         entitycontent should not include ("lifecycle: PersonLifecycle")
         entitycontent should include ("\"status\" -> _to_data_store_value(status)")
@@ -636,7 +639,7 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"paymentConfirmed\", stateMachineGuardResolver))")
       }
 
-      "modeler-scala emits deterministic declaration order for mixed guards" in {
+      "modeler-scala emits deterministic declaration order for named guards" in {
         Given("a CML source model for Scala component generation")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val input = base.resolve("src/test/resources/modeler/statemachine-cml-guard-composite-order.dox")
@@ -657,8 +660,9 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("eventName = \"approve\"")
         content should include ("eventName = \"reject\"")
         content should include ("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"paymentConfirmed\", stateMachineGuardResolver))")
-        content should include ("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"event.amount > 0 && reviewerApproved\")")
-        content should include ("guard = Some(StateMachineRuleBuilder.guardExpression[Any](\"reviewerRejected || event.reasonPresent\")")
+        content should include ("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"directPublishAllowed\", stateMachineGuardResolver))")
+        content should include ("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"reviewScoreAccepted\", stateMachineGuardResolver))")
+        content should include ("guard = Some(StateMachineRuleBuilder.guardRef[Any](\"rejectionAllowed\", stateMachineGuardResolver))")
         content should include ("declarationOrder = 0")
         content should include ("declarationOrder = 1")
         content should include ("declarationOrder = 2")

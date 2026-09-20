@@ -37,6 +37,13 @@ domain
 
 ##### State
 
+###### INIT
+
+####### Transition
+
+- to :: Draft
+- on :: start
+
 ###### Draft
 
 ####### Transition
@@ -68,6 +75,11 @@ domain
 
 - to :: Review.HISTORY
 - on :: operation:entity.updateSalesOrder
+
+####### Transition
+
+- to :: FINAL
+- on :: operation:entity.saveSalesOrder
 
 # POWERTYPE
 

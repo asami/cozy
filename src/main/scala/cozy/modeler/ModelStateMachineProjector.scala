@@ -37,7 +37,7 @@ import scala.collection.mutable
 /*
  * @since Aug. 14, 2026
  *  version Aug. 14, 2026
- * @version Sep. 18, 2026
+ * @version Sep. 19, 2026
  * @author ASAMI, Tomoharu
  */
 private[modeler] final class ModelStateMachineProjector(val context: ModelBuildContext) {
@@ -284,12 +284,20 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
     }
 
     private def _state_machine_events(sm: StateMachineClass): Vector[String] = {
-      val declared = _declared_event_names(sm.rule)
-      val referenced = _all_transitions(sm.rule).flatMap { x =>
-        _event_name_from_guard(x.transition.guard).orElse(x.transition.getEventName)
+      val runtimeevents = _transition_event_names(_runtime_transitions(sm.rule))
+      val initialevents = _transition_event_names(_all_transitions(sm.rule).filter(_is_initial_transition)).toSet
+      val declared = _declared_event_names(sm.rule).filterNot { event =>
+        initialevents.contains(event) && !runtimeevents.contains(event)
       }
-      _distinct_stable(declared ++ referenced)
+      _distinct_stable(declared ++ runtimeevents)
     }
+
+    private def _transition_event_names(
+      transitions: Vector[TransitionDefinition]
+    ): Vector[String] =
+      transitions.flatMap { transition =>
+        _event_name_from_guard(transition.transition.guard).orElse(transition.transition.getEventName)
+      }
 
     private def _state_machine_transition_rules(
       entities: Vector[MEntity]
@@ -312,7 +320,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
         klass.stateMachines.toVector.map { sm =>
           MComponent.StateMachineDefinition(
             name = sm.name,
-            states = _distinct_stable(_all_states(sm.rule).map(_.name)),
+            states = _distinct_stable(_runtime_states(sm.rule).map(_.name)),
             events = _state_machine_events(sm),
             historyFieldName = sm.rule.historyFieldName,
             historyComposites = _history_composites(sm.rule),
@@ -335,11 +343,13 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
     ): Vector[MComponent.StateMachineTransitionRule] = {
       _validate_state_machine(sm)
       val collectionname = StringUtils.camelToUnderscore(entity.name)
-      val statemap = _state_map(sm.rule)
-      val statefieldname = _state_field_name(entityclass, sm)
+      val statemap = _runtime_state_map(sm.rule)
+      val statefield = _state_field(entityclass, sm)
+      val statefieldname = statefield.map(_._1)
+      val statevalues = _runtime_state_values(sm.rule, statefield.map(_._2))
       val historyfieldname = _history_field_name(entityclass, sm)
       val historycomposites = _history_composites(sm.rule)
-      val transitions = _all_transitions(sm.rule)
+      val transitions = _runtime_transitions(sm.rule)
       val bindingsbylocation = _transition_bindings(entity.name, sm, entityclass)
       val namedhistory = transitions.exists(_.transition.to.isInstanceOf[NamedHistoryTransitionTo])
       if (namedhistory && historyfieldname.isEmpty)
@@ -358,9 +368,9 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
           machineName = Some(sm.name),
           stateFieldName = statefieldname,
           fromState = x.sourcestatename,
-          fromStateValue = x.sourcestate.map(_.value),
+          fromStateValue = x.sourcestatename.flatMap(statevalues.get),
           toState = targetstate.map(_.name),
-          toStateValue = targetstate.map(_.value),
+          toStateValue = targetstate.flatMap(x => statevalues.get(x.name)),
           priority = 0,
           declarationOrder = 0,
           guard = guard,
@@ -369,7 +379,7 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
           historyFieldName = historyfieldname,
           historyDirectLeaves = historycomposite.map(_.directLeaves).getOrElse(Vector.empty),
           historyDirectLeafValues = historycomposite.toVector.flatMap(_.directLeaves.flatMap { name =>
-            statemap.get(name).map(state => name -> state.value)
+            statemap.get(name).flatMap(state => statevalues.get(state.name).map(value => name -> value))
           }).toMap,
           historyFallbackLeaf = historycomposite.flatMap(_.fallbackLeaf),
           expectedHistoryRecordWrites = _expected_history_record_writes(
@@ -475,26 +485,26 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
           }}
       }
 
-    private def _state_field_name(
+    private def _state_field(
       entityclass: EntityClass,
       statemachine: StateMachineClass
-    ): Option[String] = {
-      val statenames = _all_states(statemachine.rule).map(_.name).toSet
+    ): Option[(String, PowertypeClass)] = {
+      val statenames = _runtime_states(statemachine.rule).map(_.name).toSet
       val candidates = entityclass.schemaClass.slots.collect {
         case attribute: SchemaModel.Attribute =>
           attribute.rawTypeName.flatMap { rawtypename =>
             val typename = rawtypename.split("\\.").last
             powertype.classes.get(typename).filter { powertypeclass =>
               powertypeclass.kinds.map(_.name).toSet == statenames
-            }.map(_ => attribute.name)
+            }.map(attribute.name -> _)
           }
       }.flatten.toVector.distinct
       candidates match {
         case Vector() => None
-        case Vector(name) => Some(name)
+        case Vector(value) => Some(value)
         case xs =>
           RAISE.syntaxErrorFault(
-            s"StateMachine '${statemachine.name}' has multiple state attributes: ${xs.mkString(", ")}."
+            s"StateMachine '${statemachine.name}' has multiple state attributes: ${xs.map(_._1).mkString(", ")}."
           )
       }
     }
@@ -513,10 +523,10 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
         case _ => None
       }
 
-    private def _state_map(
+    private def _runtime_state_map(
       rule: StateMachineRule
     ): Map[String, StateClass] =
-      _all_states(rule).foldLeft(Map.empty[String, StateClass]) { (z, x) =>
+      _runtime_states(rule).foldLeft(Map.empty[String, StateClass]) { (z, x) =>
         if (z.contains(x.name))
           z
         else
@@ -527,6 +537,23 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       rule: StateMachineRule
     ): Vector[StateClass] =
       rule.states.toVector ++ rule.statemachines.toVector.flatMap(_all_states)
+
+    private def _runtime_states(
+      rule: StateMachineRule
+    ): Vector[StateClass] =
+      _all_states(rule).filterNot(_.name.equalsIgnoreCase(PROP_STATE_INIT))
+
+    private def _runtime_state_values(
+      rule: StateMachineRule,
+      statefield: Option[PowertypeClass]
+    ): Map[String, Int] =
+      statefield.map { powertypeclass =>
+        powertypeclass.kinds.zipWithIndex.map { case (kind, index) =>
+          kind.name -> kind.value.getOrElse(index + 1)
+        }.toMap
+      }.getOrElse {
+        _runtime_states(rule).map(state => state.name -> state.value).toMap
+      }
 
     private def _all_transitions(
       rule: StateMachineRule,
@@ -589,6 +616,16 @@ private[modeler] final class ModelStateMachineProjector(val context: ModelBuildC
       }
       fromstates ++ fromrule ++ nested
     }
+
+    private def _runtime_transitions(
+      rule: StateMachineRule
+    ): Vector[TransitionDefinition] =
+      _all_transitions(rule).filterNot(_is_initial_transition)
+
+    private def _is_initial_transition(
+      transition: TransitionDefinition
+    ): Boolean =
+      transition.sourcestatename.exists(_.equalsIgnoreCase(PROP_STATE_INIT))
 
     private def _event_name(
       machinename: String,

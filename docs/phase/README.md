@@ -59,6 +59,16 @@ Current phase state:
   sbt-cozy bridge and `simplemodeling-model` driver receipt. Each child
   completed its own full SBT validation. Neither weakens provenance nor closes
   the independent CNCF Phase 74.1.
+- Deferred producer follow-up: [Phase 66](phase-66.md) specifies a future
+  generalized Composite StateMachine semantic artifact with typed rules,
+  actions, provenance, deterministic encoding, and producer diagnostics. It
+  starts only from a concrete post-`sm-workflow` consumer requirement and
+  hands the accepted producer artifact to CNCF Phase 89 for admission,
+  discovery, compatibility diagnostics, and runtime projection.
+  [Phase 66.1](phase-66.1.md) is superseded before implementation. The released
+  Cozy Phase 62.3 fixture remains the producer handoff for CNCF Phase 77 and
+  `sm-workflow` Phase 1. Existing CNCF-driven Cozy StateMachine changes remain
+  a separate later bounded task.
 - Planned CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
   publication; `phase-54.1.md` adds Structure, `phase-54.2.md` Classification,

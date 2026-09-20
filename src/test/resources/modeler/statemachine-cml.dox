@@ -16,17 +16,26 @@
 
 ##### State
 
+###### INIT
+
+####### Transition
+
+- to :: Draft
+- on :: start
+
 ###### Draft
 
 ####### Transition
 - to :: Published
 - on :: publish
-- guard :: event.amount > 0
+- guard :: paymentAmountPositive
 - action :: recordPayment
 
 ###### Published
 
 ##### Event
+
+###### start
 
 ###### publish
 

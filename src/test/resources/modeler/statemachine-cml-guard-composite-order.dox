@@ -26,7 +26,7 @@
 ####### Transition
 - to :: Published
 - on :: publish
-- guard :: event.amount > 0 && reviewerApproved
+- guard :: directPublishAllowed
 - action :: publishDirect
 
 ###### Review
@@ -34,13 +34,13 @@
 ####### Transition
 - to :: Published
 - on :: approve
-- guard :: event.score >= 80
+- guard :: reviewScoreAccepted
 - action :: publishFromReview
 
 ####### Transition
 - to :: Draft
 - on :: reject
-- guard :: reviewerRejected || event.reasonPresent
+- guard :: rejectionAllowed
 - action :: backToDraft
 
 ###### Published
