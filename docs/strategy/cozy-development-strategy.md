@@ -1701,7 +1701,7 @@ Origin:
 | DEV-030 | User direction on 2026-09-16; StateMachine API/SPI reconciliation on 2026-09-17; split applied on 2026-09-17 | Add first-class CML `WORKFLOW` lowering to StateMachine / Composite StateMachine semantics, then generic StateMachine Provided API / Required SPI, `Completed | Suspended(Continuation) | Failed`, provider binding and stale-result protection. Historical Action/Participant InvocationBinding is superseded; a Provider determines ActionExecution. | NEW_PHASE | [Phase 62](../phase/phase-62.md) CLOSED → [Phase 62.1](../phase/phase-62.1.md) CLOSED → [Phase 62.2](../phase/phase-62.2.md) CLOSED (repository-full validation deferred to Phase 62.3) → [Phase 62.3](../phase/phase-62.3.md) CLOSED / aggregate final owner → CNCF [Phase 77](../../../cloud-native-component-framework/docs/phase/phase-77.md) PLANNED → Textus `sm-workflow` Phase 1 | ADOPTED |
 | DEV-031 | `docs/journal/2026/09/2026-09-16-multi-cml-generation-provenance-development-candidate.md`; user direction on 2026-09-16; split applied on 2026-09-16 | Let one Cozy project retain provenance for multiple declared CML inputs without arbitrary source selection: Phase 63 owns the aggregate/rebind contract and Cozy validation; Phase 63.1 consumes that handoff for the sbt-cozy bridge, side-output installation and the `simplemodeling-model` driver receipt. This completed Cozy Phase 63 is independent of CNCF's separately numbered non-Workflow StateMachine-normalization Phase 63; neither is a handoff or authority for the other. | NEW_PHASE | [Phase 63](../phase/phase-63.md) CLOSED, MCML-63-01–02 → [Phase 63.1](../phase/phase-63.1.md) CLOSED, MCML-63-03–04; each child completed its own full SBT validation | RESOLVED |
 | DEV-032 | GitHub Phase 55 Dart planning record; user Phase-number reconciliation on 2026-09-17 | Generate null-safe Dart model and typed API contracts from Cozy IR for a Textus CBD Support client boundary, reusing generated contracts instead of a client-local shadow model. The plan is Phase 65 because local Phase 55 remains the completed site-context media-registration closure. | NEW_PHASE | [Phase 65](../phase/phase-65.md) PLANNED | ADOPTED |
-| DEV-033 | CNCF Phase 64 SWF-07 producer-gap investigation and user reprioritization on 2026-09-20/21 | Produce a future generalized Composite StateMachine semantic artifact with explicit identities/versions, typed constituents/rules/actions, exact provenance, deterministic encoding, and producer diagnostics. Start only from a concrete consumer requirement after the first `sm-workflow` vertical slice; then hand the artifact to CNCF Phase 89 for admission and runtime projection. Do not absorb the existing CNCF-driven Cozy delta or make this a current CNCF prerequisite. | NEW_PHASE | [Phase 66](../phase/phase-66.md) PLANNED with deferred execution priority and evidence-bound entry -> CNCF [Phase 89](../../../cloud-native-component-framework/docs/phase/phase-89.md) PLANNED consumer admission; [Phase 66.1](../phase/phase-66.1.md) SUPERSEDED before implementation | ADOPTED |
+| DEV-033 | CNCF Phase 64 SWF-07 producer-gap investigation and user reprioritization on 2026-09-20/21 | Produce a future generalized Composite StateMachine semantic artifact with explicit identities/versions, typed constituents/rules/actions, exact provenance, deterministic encoding, and producer diagnostics. Start only from a concrete consumer requirement after the first `sm-workflow` vertical slice; then hand the artifact to CNCF Phase 89 for admission and runtime projection. Do not absorb the existing CNCF-driven Cozy delta or make this a current CNCF prerequisite. | NEW_PHASE | [Phase 70](../phase/phase-70.md) PLANNED with deferred execution priority and evidence-bound entry -> CNCF [Phase 89](../../../cloud-native-component-framework/docs/phase/phase-89.md) PLANNED consumer admission; [Phase 70.1](../phase/phase-70.1.md) SUPERSEDED before implementation | ADOPTED |
 
 The Phase 61 sequence is an independently planned video-authoring boundary.
 Phase 61 is CLOSED for P610-01/P610-02, closing the protected contract and
@@ -1805,7 +1805,14 @@ public skill behavior. Entity-local StateMachine persistence remains entity
 owned; CML Workflow has no entity-field shortcut for its consumer-owned runtime
 instance. UI Workflow, Flutter and Workflow Connection remain follow-up work.
 
-Phase 66 is a planned future generalized Composite StateMachine semantic
+Phase 66 begins the planned `sm-workflow` runtime-control sequence with the
+minimal Retry / Timeout source semantics and lossless generated ABI required by
+the first consumer. Phase 67 separately plans scheduling/lifecycle metadata,
+Phase 68 failure/execution-safety metadata, and Phase 69 goal-oriented
+iteration semantics. Cozy owns syntax, model validation, lowering, and
+generated ABI; CNCF owns runtime scheduling, execution, and enforcement.
+
+Phase 70 is a planned future generalized Composite StateMachine semantic
 artifact, with execution deferred until after the first `sm-workflow` vertical
 slice and a concrete consumer requirement. It owns explicit identities and
 versions, typed constituents/rules/actions, exact provenance, deterministic
@@ -1817,9 +1824,9 @@ consumer requirement. The earlier plan incorrectly mixed that reusable
 feature with the shortest route
 to `sm-workflow`, even though closed Phase 62.3 already provides the generated
 Workflow ABI and producer fixture named by CNCF Phase 77 and `sm-workflow`
-Phase 1. Phase 66.1 is therefore superseded. Existing CNCF-driven Cozy commits
+Phase 1. Phase 70.1 is therefore superseded. Existing CNCF-driven Cozy commits
 and working-tree changes remain preserved as separate work and are neither
-accepted nor expanded by Phase 66. CNCF Phase 64 first composes the released
+accepted nor expanded by Phase 70. CNCF Phase 64 first composes the released
 Phase 62.3 fixture with its own accepted Phase 63.2/64 contracts.
 
 The immediate Document Project priority is planned Phase 59. It connects the

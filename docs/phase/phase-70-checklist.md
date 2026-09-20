@@ -1,11 +1,11 @@
-# Phase 66 Checklist: Generalized Composite StateMachine Semantic Artifact
+# Phase 70 Checklist: Generalized Composite StateMachine Semantic Artifact
 
 Status: planned; execution deferred before implementation
-Phase: [Phase 66](phase-66.md)
+Phase: [Phase 70](phase-70.md)
 Development item: DEV-033
 
 This checklist preserves the expected future capability. It is not executable
-until Phase 66's entry condition is satisfied and a new bounded plan is
+until Phase 70's entry condition is satisfied and a new bounded plan is
 accepted.
 
 ## Entry
@@ -20,7 +20,7 @@ accepted.
 - [ ] The Phase has been re-estimated without inheriting the former split or
       twelve-hour estimate.
 
-## CSA-66-01: Artifact contract
+## CSA-70-01: Artifact contract
 
 - [ ] Freeze the typed semantic artifact domain model.
 - [ ] Freeze schema, generator, definition, constituent, rule, and action
@@ -28,7 +28,7 @@ accepted.
 - [ ] Keep the canonical domain model distinct from its sidecar encoding.
 - [ ] Define fail-closed compatibility and version-transition behavior.
 
-## CSA-66-02: IR projection and provenance
+## CSA-70-02: IR projection and provenance
 
 - [ ] Project exact constituents, roles, pinned definitions, subjects, and
       configuration from the Cozy IR.
@@ -39,7 +39,7 @@ accepted.
 - [ ] Preserve source identity, model identity/version, and exact
       source-location provenance for every declaration.
 
-## CSA-66-03: Diagnostics and deterministic encoding
+## CSA-70-03: Diagnostics and deterministic encoding
 
 - [ ] Produce typed reachability, coverage, overlap, ambiguity, and
       incompleteness diagnostics.
@@ -50,7 +50,7 @@ accepted.
 - [ ] Require no consumer CML parsing, name inference, or handwritten
       replacement data.
 
-## CSA-66-04: Acceptance and handoff
+## CSA-70-04: Acceptance and handoff
 
 - [ ] Add positive, rejection, determinism, provenance, and compatibility
       executable specifications.
@@ -67,9 +67,9 @@ accepted.
 
 - [ ] Do not absorb commits `ca3a031`, `4561c02`, or current Cozy
       StateMachine working-tree changes without separate authority.
-- [ ] Do not make Phase 66 a prerequisite for CNCF Phase 64, Phase 77, or
+- [ ] Do not make Phase 70 a prerequisite for CNCF Phase 64, Phase 77, or
       `sm-workflow` Phase 1.
 - [ ] Keep schema admission, compatibility diagnostics, `ComponentFactory`
       discovery, and runtime projection in CNCF Phase 89.
-- [ ] Do not recreate Phase 66.1 unless the future re-estimate independently
+- [ ] Do not recreate Phase 70.1 unless the future re-estimate independently
       requires a split.
