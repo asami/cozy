@@ -16,7 +16,7 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 /*
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
- * @version Sep.  8, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteCommandPart5Fixture {
@@ -459,9 +459,9 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
         }
 
         Then("all PDF currentness and role failures leave the registry unchanged")
-        missing._1.getMessage should include("pdf-review-state")
+        missing._1.getMessage should include("Site-registration PDF review-state preflight")
         missing._2 shouldBe missing._3
-        drift._1.getMessage should include("receipt.v2")
+        drift._1.getMessage should include("Site-registration PDF preflight")
         drift._2 shouldBe drift._3
         incompatible._1.getMessage should include("requires kind document")
         incompatible._2 shouldBe incompatible._3
@@ -507,7 +507,7 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
             val staleconfig = _failure(CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2))))
 
             Then("direct registration rejects the stale context before replacing the registry or descriptor")
-            staleconfig.getMessage should include("receipt.v2")
+            staleconfig.getMessage should include("Site-registration PDF preflight")
             _registry_tree(fixture.registryroot) shouldBe currenttree
             Files.readAllBytes(fixture.descriptor).toVector shouldBe descriptorbytes
             Files.readAllBytes(pdf).toVector shouldBe pdfbytes
@@ -527,7 +527,7 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
             val staleroute = _failure(CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2))))
 
             Then("the changed route is stale until the original descriptor is rebuilt with that same context")
-            staleroute.getMessage should include("receipt.v2")
+            staleroute.getMessage should include("Site-registration PDF preflight")
             _registry_tree(fixture.registryroot) shouldBe routetree
             Files.readAllBytes(pdf).toVector shouldBe pdfbytes
             Files.readAllBytes(receipt).toVector shouldBe routereceiptbytes
