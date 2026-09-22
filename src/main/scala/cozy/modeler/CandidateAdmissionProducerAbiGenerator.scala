@@ -167,6 +167,7 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
     value.alternatives.foreach(x => _require_source(x.source, s"Judgment Action '${action.identity}' ALTERNATIVE"))
     value.criteria.foreach(x => _require_source(x.source, s"Judgment Action '${action.identity}' CRITERIA"))
     _require_source(value.expectedResult.source, s"Judgment Action '${action.identity}' EXPECTED-RESULT")
+    _require_source(value.rationale.source, s"Judgment Action '${action.identity}' RATIONALE")
     _require_source(value.evidence.source, s"Judgment Action '${action.identity}' EVIDENCE")
     _require_source(value.evidenceScope.source, s"Judgment Action '${action.identity}' EVIDENCE-SCOPE")
     _require_source(value.evidenceFreshness.source, s"Judgment Action '${action.identity}' EVIDENCE-FRESHNESS")
@@ -210,7 +211,7 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
        |  final case class WorkflowIdentity(identity: String, version: String, rootSource: SourceIdentity, definitionSource: SourceIdentity)
        |  final case class ModelIdentity(compositeStateMachineIdentity: String, compositeStateMachineName: String, compositeStateMachineSource: SourceIdentity, workflow: Option[WorkflowIdentity])
        |  final case class GeneratorProvenance(schemaVersion: String, generatorIdentity: String)
-       |  final case class JudgmentDescriptor(actionIdentity: String, operation: Operation, inputBinding: Option[String], goal: SourceReference, context: SourceReference, candidate: SourceReference, alternatives: Vector[SourceReference], criteria: Vector[SourceReference], expectedResult: SourceReference, evidence: SourceReference, evidenceScope: SourceReference, evidenceFreshness: SourceReference, evidenceProvenance: SourceReference, actionSource: SourceIdentity, semanticSource: SourceIdentity)
+       |  final case class JudgmentDescriptor(actionIdentity: String, operation: Operation, inputBinding: Option[String], goal: SourceReference, context: SourceReference, candidate: SourceReference, alternatives: Vector[SourceReference], criteria: Vector[SourceReference], expectedResult: SourceReference, rationale: SourceReference, evidence: SourceReference, evidenceScope: SourceReference, evidenceFreshness: SourceReference, evidenceProvenance: SourceReference, actionSource: SourceIdentity, semanticSource: SourceIdentity)
        |  final case class AdmissionDescriptor(actionIdentity: String, candidateJudgmentActionIdentity: String, operation: Operation, inputBinding: Option[String], effectClass: String, transactionRequirement: String, actionSource: SourceIdentity, semanticSource: SourceIdentity, candidateActionSource: SourceIdentity)
        |  final case class JudgmentAdmission(judgmentActionIdentity: String, admissionActionIdentity: String, judgmentSource: SourceIdentity, admissionSource: SourceIdentity, candidateActionSource: SourceIdentity)
        |  final case class WorkflowRequiredSpiCorrelation(capability: String, actionIdentity: String, operation: Operation, capabilitySource: SourceIdentity, actionSource: SourceIdentity)
@@ -293,6 +294,7 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
        |  alternatives = ${_vector(judgment.alternatives.map(x => _reference(_reference_draft(x.value, x.source))))},
        |  criteria = ${_vector(judgment.criteria.map(x => _reference(_reference_draft(x.value, x.source))))},
        |  expectedResult = ${_reference(_reference_draft(judgment.expectedResult.value, judgment.expectedResult.source))},
+       |  rationale = ${_reference(_reference_draft(judgment.rationale.value, judgment.rationale.source))},
        |  evidence = ${_reference(_reference_draft(judgment.evidence.value, judgment.evidence.source))},
        |  evidenceScope = ${_reference(_reference_draft(judgment.evidenceScope.value, judgment.evidenceScope.source))},
        |  evidenceFreshness = ${_reference(_reference_draft(judgment.evidenceFreshness.value, judgment.evidenceFreshness.source))},
@@ -409,6 +411,7 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
       "alternatives" -> _json_array(judgment.alternatives.map(x => _reference_json(_reference_draft(x.value, x.source)))),
       "criteria" -> _json_array(judgment.criteria.map(x => _reference_json(_reference_draft(x.value, x.source)))),
       "expectedResult" -> _reference_json(_reference_draft(judgment.expectedResult.value, judgment.expectedResult.source)),
+      "rationale" -> _reference_json(_reference_draft(judgment.rationale.value, judgment.rationale.source)),
       "evidence" -> _reference_json(_reference_draft(judgment.evidence.value, judgment.evidence.source)),
       "evidenceScope" -> _reference_json(_reference_draft(judgment.evidenceScope.value, judgment.evidenceScope.source)),
       "evidenceFreshness" -> _reference_json(_reference_draft(judgment.evidenceFreshness.value, judgment.evidenceFreshness.source)),

@@ -77,13 +77,15 @@ Current phase state:
 - In-progress CAM producer ABI: [Phase 73](phase-73.md) turns the existing
   Candidate-Admission Model design direction into a bounded CML
   StateMachine/Workflow producer contract for a candidate-producing semantic
-  Action, typed candidate/result/evidence, deterministic admission, provenance,
+  Action, typed candidate/result/rationale/evidence, deterministic admission, provenance,
   diagnostics, and compatibility. It consumes the user-selected CNCF Phase 77
   design authority and provides the missing Cozy producer handoff that enables
   its `sm-workflow` development.
-  CAM-73-01 through CAM-73-04 and CB-73-01 are locally complete. Focused
-  validation `PHASE-73-CB-73-01-VAL-004` passed; independent review and an
-  authorized release commit remain open. It is an additive producer boundary: it does not
+  CAM-73-01 through CAM-73-04 and CB-73-01 are locally complete. A bounded
+  release repair adds the required typed rationale and corrects the CNCF Phase 77
+  OPEN admission/discovery handoff. Focused validation covers the repaired
+  producer boundary; independent review and an authorized release commit remain
+  separate Phase-closure work. It is an additive producer boundary: it does not
   change the closed Phase 62.3 fixture and does not implement the CNCF runtime,
   provider, or application work.
 - Planned local media repair: [Phase 71](phase-71.md) resolves a requested

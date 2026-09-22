@@ -86,13 +86,13 @@ StateMachine identity, name, and source; optional Workflow identity, version,
 root source, definition source, and Required SPI correlation; typed Judgment
 and Admission descriptors; and an ordered `JudgmentAdmission` relation. A
 Judgment preserves its resolved operation/input, goal, context, candidate,
-alternatives, criteria, expected result, evidence, evidence scope, evidence
+alternatives, criteria, expected result, typed rationale, evidence, evidence scope, evidence
 freshness, and evidence provenance. An Admission preserves its candidate
 Judgment, resolved operation/input, and `LOCAL` / `REQUIRED` boundary.
 
 All values retain normalized-IR source objects: definition and Action source,
 and sources for GOAL, CONTEXT, CANDIDATE, ALTERNATIVE, CRITERIA,
-EXPECTED-RESULT, EVIDENCE, EVIDENCE-SCOPE, EVIDENCE-FRESHNESS,
+EXPECTED-RESULT, RATIONALE, EVIDENCE, EVIDENCE-SCOPE, EVIDENCE-FRESHNESS,
 EVIDENCE-PROVENANCE, and CANDIDATE-ACTION. The canonical JSON sidecar mirrors
 the complete typed data in deterministic input order. Generated Scala adds
 only separate ComponentFactory discovery metadata and bootstrap.

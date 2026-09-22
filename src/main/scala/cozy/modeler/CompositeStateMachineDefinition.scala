@@ -178,6 +178,11 @@ final case class CompositeStateMachineJudgmentExpectedResultReference(
   source: CompositeStateMachineSourceIdentity
 )
 
+final case class CompositeStateMachineJudgmentRationaleReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
 final case class CompositeStateMachineJudgmentEvidenceReference(
   value: String,
   source: CompositeStateMachineSourceIdentity
@@ -211,6 +216,7 @@ final case class CompositeStateMachineJudgmentAction(
   alternatives: Vector[CompositeStateMachineJudgmentAlternativeReference],
   criteria: Vector[CompositeStateMachineJudgmentCriterionReference],
   expectedResult: CompositeStateMachineJudgmentExpectedResultReference,
+  rationale: CompositeStateMachineJudgmentRationaleReference,
   evidence: CompositeStateMachineJudgmentEvidenceReference,
   evidenceScope: CompositeStateMachineJudgmentEvidenceScopeReference,
   evidenceFreshness: CompositeStateMachineJudgmentEvidenceFreshnessReference,

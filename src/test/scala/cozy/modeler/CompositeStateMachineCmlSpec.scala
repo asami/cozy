@@ -365,6 +365,7 @@ compensation-handler = cancel-payment"""
         judgmentsemantic.alternatives.map(_.value) should contain only ("approve", "reject")
         judgmentsemantic.criteria.map(_.value) should contain only ("amount-valid", "fraud-clear")
         judgmentsemantic.expectedResult.value shouldBe "decision"
+        judgmentsemantic.rationale.value shouldBe "decision-rationale"
         judgmentsemantic.evidence.value shouldBe "payment-evidence"
         judgmentsemantic.evidenceScope.value shouldBe "order"
         judgmentsemantic.evidenceFreshness.value shouldBe "current"
@@ -385,8 +386,9 @@ compensation-handler = cancel-payment"""
       }
 
       "reject missing, duplicate, ambiguous, and execution-placement Judgment fields" in {
-        Given("CAM sources with a missing GOAL, duplicate ALTERNATIVE, duplicate EXPECTED-RESULT, provider vocabulary, and a next-state directive")
+        Given("CAM sources with a missing GOAL or RATIONALE, duplicate ALTERNATIVE or EXPECTED-RESULT, provider vocabulary, and a next-state directive")
         val missinggoal = _model(_candidate_admission_source().replace("goal = payment-review\n", ""))
+        val missingrationale = _model(_candidate_admission_source().replace("rationale = decision-rationale\n", ""))
         val duplicatealternative = _model(_candidate_admission_source().replace("alternative = reject", "alternative = approve"))
         val ambiguousresult = _model(_candidate_admission_source().replace(
           "expected-result = decision",
@@ -405,6 +407,9 @@ compensation-handler = cancel-payment"""
         val missinggoalerror = intercept[RuntimeException] {
           CompositeStateMachineCml.definitions(missinggoal)
         }
+        val missingrationaleerror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(missingrationale)
+        }
         val duplicatealternativeerror = intercept[RuntimeException] {
           CompositeStateMachineCml.definitions(duplicatealternative)
         }
@@ -420,6 +425,7 @@ compensation-handler = cancel-payment"""
 
         Then("absence, repeated ambiguity, duplicate alternatives, execution placement, and state directives are fail-closed")
         missinggoalerror.getMessage should include("requires exactly one direct GOAL value")
+        missingrationaleerror.getMessage should include("requires exactly one direct RATIONALE value")
         duplicatealternativeerror.getMessage should include("ALTERNATIVE 'approve' must be unique")
         ambiguousresulterror.getMessage should include("requires exactly one direct EXPECTED-RESULT value")
         providerplacementerror.getMessage should include("does not admit execution-placement vocabulary 'PROVIDER'")
@@ -638,6 +644,7 @@ compensation-handler = cancel-payment"""
         |criteria = amount-valid
         |criteria = fraud-clear
         |expected-result = decision
+        |rationale = decision-rationale
         |evidence = payment-evidence
         |evidence-scope = order
         |evidence-freshness = current

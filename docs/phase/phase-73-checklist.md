@@ -62,20 +62,20 @@ The preceding failed attempt remains retained as immutable repair evidence.
 
 - [x] Freeze the exact CML source, generated ABI/schema identities,
       compatibility decision, diagnostics, and fixture evidence.
-- [x] Freeze the exact local handoff for the CNCF Phase 77 successor line.
-      Closed CWF-77-01/02 retain their Phase 62.3-only admission baseline; a
-      versioned CAM-admission successor first admits this ABI and exposes its
-      ComponentFactory discovery, CWF-77-04 through CWF-77-06 then consume the
-      admitted form for runtime execution and Continuation/resume, and
-      CWF-77-07/09 consume it for Skill projection and consumer handoff. The
-      handoff must be sufficient for that work to proceed without CML reparsing,
-      name inference, or a handwritten Cozy replacement.
+- [x] Freeze the exact local handoff for the CNCF Phase 77 consumer line. At
+      frozen authority `766df74a3bcd6e8286c5ef88fa2bf1bf9fbae036`, CWF-77-01
+      is OPEN and first admits this ABI with provenance/compatibility diagnostics;
+      CWF-77-02 is OPEN and discovers its admitted ComponentFactory metadata.
+      The remaining OPEN Phase 77 stages consume only that admitted form in their
+      separately owned runtime and projection scopes. The handoff is sufficient
+      for that work to proceed without CML reparsing, name inference, or a
+      handwritten Cozy replacement.
 - [x] Do not claim CNCF runtime admission, progression, commitment,
       persistence, provider dispatch, or `sm-workflow` completion.
 
 ## Focused validation evidence
 
-`PHASE-73-CB-73-01-VAL-004` passed on 2026-09-22 with
+Historical `PHASE-73-CB-73-01-VAL-004` passed on 2026-09-22 with
 `testOnly cozy.modeler.CompositeStateMachineCmlSpec
 cozy.modeler.WorkflowCmlSpec cozy.modeler.StateMachineWorkflowAbiGenerationSpec`.
 The verified command-execution receipt is
@@ -86,8 +86,11 @@ The receipt records `sbt_exit=0`, `wrapper_exit=0`, and `lock=released`.
 
 CB-73-01 was resolved before this validation: a source with no CAM Action
 emits no CAM ABI, bootstrap, or sidecar files, retaining the exact Phase 62.3
-generation tree. `PHASE-73-CAM-73-02-VAL-003` remains retained as earlier
-successful evidence before that compatibility blocker was found.
+generation tree. The subsequent required-rationale repair makes this earlier
+receipt historical rather than current release evidence. The repaired producer
+boundary has fresh focused validation; `PHASE-73-CAM-73-02-VAL-003` remains
+retained as earlier successful evidence before that compatibility blocker was
+found.
 
 The local producer handoff is frozen. Independent review and an explicitly
 authorized release commit remain Phase-level closure work; neither is a CNCF

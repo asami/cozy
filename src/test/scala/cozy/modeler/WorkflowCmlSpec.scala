@@ -658,6 +658,7 @@ final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen
         |criteria = amount-valid
         |criteria = fraud-clear
         |expected-result = decision
+        |rationale = decision-rationale
         |evidence = payment-evidence
         |evidence-scope = order
         |evidence-freshness = current

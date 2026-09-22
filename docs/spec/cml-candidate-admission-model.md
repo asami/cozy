@@ -37,6 +37,7 @@ ALTERNATIVE = <alternative-reference>
 ALTERNATIVE = <alternative-reference>
 CRITERIA = <criterion-reference>
 EXPECTED-RESULT = <expected-result-reference>
+RATIONALE = <rationale-reference>
 EVIDENCE = <evidence-reference>
 EVIDENCE-SCOPE = <evidence-scope-reference>
 EVIDENCE-FRESHNESS = <evidence-freshness-reference>
@@ -67,8 +68,8 @@ operation, input binding, source, and metadata fields. Its trailing defaulted
 
 For `JUDGMENT`, it contains a closed `CompositeStateMachineJudgmentAction`
 with typed source-attributed reference wrappers for goal, context, candidate
-identity, alternatives, criteria, expected result, evidence, evidence scope,
-evidence freshness, and evidence provenance. A Judgment semantic result has
+identity, alternatives, criteria, expected result, typed rationale, evidence,
+evidence scope, evidence freshness, and evidence provenance. A Judgment semantic result has
 no next-state or transition field.
 
 For `ADMISSION`, it contains a closed
@@ -115,7 +116,8 @@ The output preserves model identity (Composite StateMachine plus optional
 Workflow identity/version), fixed schema and generator provenance, all Action
 and CAM reference source locations, Judgment/Admission descriptors, their
 deterministic relationship, and Workflow Required SPI correlation. The
-Admission descriptor records its `LOCAL` / `REQUIRED` boundary. It does not
+Judgment descriptor preserves expected result, rationale, and evidence as
+separate source-attributed references. The Admission descriptor records its `LOCAL` / `REQUIRED` boundary. It does not
 contain a transition selection or next-state command.
 
 Existing Phase 62.3 generated ABI/schema, JSON path, and ComponentFactory

@@ -6,8 +6,9 @@ entry_condition=user_selected_upstream_phase_77_design_authority
 depends_on=phase-62.3.md
 
 Status: in progress; CAM-73-01 through CAM-73-04 and compatibility blocker
-CB-73-01 are locally complete and focused-validated; independent review and
-an authorized release commit remain open
+CB-73-01 are locally complete and focused-validated, including the required
+typed-rationale and CWF-77 OPEN-handoff repair; independent review and an
+authorized release commit remain open
 Planned at: 2026-09-22
 Development item: DEV-035
 Primary owner: Cozy
@@ -74,16 +75,16 @@ human, transport, or provider identity as CAM semantics.
 
 | ID | Observable outcome | Status |
 | --- | --- | --- |
-| CAM-73-01 | Freeze the provider-neutral CML/IR vocabulary for a candidate-producing semantic Action, typed Candidate/Result/Evidence, and the deterministic admission boundary. Focused validation `PHASE-73-CAM-73-01-VAL-002` passed; the producer fails closed until CAM-73-02 lowering is implemented. | completed |
-| CAM-73-02 | Lower the vocabulary into a versioned, source-attributed generated ABI with explicit compatibility handling for the closed Phase 62.3 producer contract. | completed; CB-73-01 retained the exact no-CAM Phase 62.3 generation tree; focused validation `PHASE-73-CB-73-01-VAL-004` |
-| CAM-73-03 | Add isolated positive, rejection, determinism, provenance, and compatibility executable specifications and a representative fixture; preserve the released Phase 62.3 fixture as the baseline unless a separately accepted compatibility change says otherwise. | completed; focused validation `PHASE-73-CB-73-01-VAL-004` |
-| CAM-73-04 | Freeze producer evidence and an exact CNCF consumer handoff. Closed CWF-77-01/02 remain the Phase 62.3 admission baseline and do not consume this new ABI; a versioned CAM-admission successor first admits it, then CWF-77-04–06 consume it for runtime execution and CWF-77-07/09 consume its admitted form for Skill projection and consumer handoff. This work proceeds without name inference or a handwritten Cozy replacement. | completed locally; external delivery, review, and release remain separate |
+| CAM-73-01 | Freeze the provider-neutral CML/IR vocabulary for a candidate-producing semantic Action, typed Candidate/Result/Rationale/Evidence, and the deterministic admission boundary. Focused validation `PHASE-73-CAM-73-01-VAL-002` passed; the producer fails closed until CAM-73-02 lowering is implemented. | completed |
+| CAM-73-02 | Lower the vocabulary into a versioned, source-attributed generated ABI with explicit compatibility handling for the closed Phase 62.3 producer contract. | completed; CB-73-01 retained the exact no-CAM Phase 62.3 generation tree; the current focused validation covers the required typed-rationale repair |
+| CAM-73-03 | Add isolated positive, rejection, determinism, provenance, and compatibility executable specifications and a representative fixture; preserve the released Phase 62.3 fixture as the baseline unless a separately accepted compatibility change says otherwise. | completed; the current focused validation covers positive, missing-rationale, generated-Scala, generated-JSON, and no-CAM compatibility paths |
+| CAM-73-04 | Freeze producer evidence and an exact CNCF consumer handoff. At the frozen Phase 77 authority, CWF-77-01 first admits this versioned ABI and validates provenance/compatibility fail-closed; CWF-77-02 discovers its admitted ComponentFactory metadata. The other open Phase 77 stages consume only the admitted form within their runtime and projection scopes. This work proceeds without name inference or a handwritten Cozy replacement. | completed locally; external delivery, review, and release remain separate |
 
 ## Acceptance
 
 - A CML declaration can explicitly classify a semantic candidate-producing
   Action without relying on its display name or a provider identity.
-- The generated ABI exposes typed candidate/result alternatives, evidence and
+- The generated ABI exposes typed candidate/result alternatives, rationale, evidence and
   provenance, plus the declared deterministic admission boundary. It does not
   expose a semantic result as a state-transition command.
 - Invalid or incomplete alternative/evidence/admission declarations fail with
