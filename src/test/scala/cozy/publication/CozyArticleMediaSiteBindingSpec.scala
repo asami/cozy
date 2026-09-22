@@ -6,6 +6,8 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import cozy.media.CozyMedia
+import cozy.media.CozyMediaPdfReviewState
+import cozy.media.CozyMediaReceipt
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,7 +15,8 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReferen
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -487,6 +490,30 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
         }
       }
 
+      "retain accepted PDF receipt and review-state evidence after article-only drift" in {
+        _with_part5_pdf_fixture("pdf-retained-article-content") { fixture =>
+          Given("accepted prebuilt article and summary PDF outputs with their exact review state")
+          val initial = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
+
+          When("only the article knowledge evidence changes while the accepted PDF bytes remain retained")
+          _write(fixture.root.resolve("knowledge/part-5.dox"), "Part 5 revised article authority")
+          val mediaplan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(fixture.descriptor))
+          val articlepdf = mediaplan.resources.find(_.resource.id == "part-5-article-pdf-ja").getOrElse(
+            throw new IllegalStateException("Missing Part 5 article PDF")
+          )
+          val retained = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
+
+          Then("site registration uses the retained receipt and byte-exact PDF review-state fallbacks")
+          CozyMediaReceipt.current(mediaplan, articlepdf) shouldBe false
+          CozyMediaReceipt.siteRegistrationCurrent(mediaplan, articlepdf) shouldBe true
+          CozyMediaPdfReviewState.current(mediaplan) shouldBe false
+          CozyMediaPdfReviewState.siteRegistrationCurrent(mediaplan) shouldBe true
+          retained.candidates.filter(_.role == CozyArticleMediaSiteBinding.Role.ArticlePdf).map(_.resourceId) shouldBe
+            initial.candidates.filter(_.role == CozyArticleMediaSiteBinding.Role.ArticlePdf).map(_.resourceId)
+          CozyArticleMediaSiteBinding.revalidate(retained) shouldBe retained
+        }
+      }
+
       "refuse missing, stale, and role-incompatible PDF evidence before admission" in {
         Given("PDF evidence cases with missing review state, stale output, or an incompatible resource role")
         val missingstate = _with_part5_pdf_fixture("pdf-missing-state") { fixture =>
@@ -497,6 +524,16 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
         val staleoutput = _with_part5_pdf_fixture("pdf-stale-output") { fixture =>
           _write(fixture.root.resolve("target/article-en.pdf"), "%PDF-1.7\nstale")
           When("the site binding planner evaluates the stale PDF output evidence")
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val nonarticleevidence = _with_part5_pdf_fixture("pdf-nonarticle-evidence") { fixture =>
+          _write(fixture.root.resolve("input/summary-ja.png"), "changed non-article source")
+          When("the site binding planner evaluates retained PDFs after non-article evidence changes")
+          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+        }
+        val alteredstate = _with_part5_pdf_fixture("pdf-altered-state") { fixture =>
+          _write(fixture.root.resolve("target/cozy-media/pdf-review-state.json"), "{}")
+          When("the site binding planner evaluates altered PDF review-state evidence")
           _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
         }
         val incompatible = _with_part5_fixture(
@@ -511,8 +548,12 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
         }
 
         Then("each invalid Phase 40 boundary fails closed")
-        missingstate.getMessage should include("pdf-review-state")
-        staleoutput.getMessage should include("receipt.v2")
+        missingstate.getMessage should include("Site-registration PDF review-state preflight")
+        staleoutput.getMessage should include("Site-registration PDF preflight")
+        nonarticleevidence.getMessage should include("part-5-article-pdf-en")
+        nonarticleevidence.getMessage should include("restore")
+        alteredstate.getMessage should include("Site-registration PDF review-state preflight")
+        alteredstate.getMessage should include("rebuild")
         incompatible.getMessage should include("requires kind document")
       }
     }

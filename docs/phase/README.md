@@ -74,6 +74,12 @@ Current phase state:
   Cozy Phase 62.3 fixture remains the producer handoff for CNCF Phase 77 and
   `sm-workflow` Phase 1. Existing CNCF-driven Cozy StateMachine changes remain
   a separate later bounded task.
+- Planned local media repair: [Phase 71](phase-71.md) resolves a requested
+  product's declared DSL chain back to Core, updates affected DSLs forward,
+  and rebuilds Storyboard video with make-level dependencies instead of
+  approval-hash gates. Human approval is outside the current generation
+  workflow; existing hash code may remain but cannot block ordinary generation
+  or reuse.
 - Planned CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
   publication; `phase-54.1.md` adds Structure, `phase-54.2.md` Classification,

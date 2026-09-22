@@ -13,7 +13,7 @@ import io.circe.parser.parse
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep. 15, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -293,6 +293,154 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       }
     }
 
+    "adopt an unchanged site-video prebuilt when only the article content changes" in {
+      _with_temp_dir("site-video-prebuilt-adoption") { root =>
+        Given("an accepted domain-modeling video with its direct production evidence")
+        _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese article")
+        _write(root.resolve("conf/cozy/config.yaml"), _site_profile)
+        val output = root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4")
+        _write(output, "accepted-video")
+        val sourceproduction = root.resolve("registration-v2/video/ja/source-production.json")
+        _write(sourceproduction, _site_video_production(_sha256(output)))
+        val production = root.resolve("registration-v2/video/ja/production.json")
+        _write(production, Files.readString(sourceproduction, StandardCharsets.UTF_8))
+        val descriptor = root.resolve("registration-v2/media.json")
+        _write(descriptor, _site_video_prebuilt_descriptor)
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+        val outputsha = _sha256(output)
+        val sourceproductionsha = _sha256(sourceproduction)
+        val productionsha = _sha256(production)
+
+        When("only the bilingual article source changes")
+        _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese and English article")
+        val result = CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+
+        Then("Cozy refreshes the receipt without requiring video regeneration or manual approval transfer")
+        result should include("article-video-ja: adopted prebuilt")
+        _sha256(output) shouldBe outputsha
+        _sha256(sourceproduction) shouldBe sourceproductionsha
+        _sha256(production) shouldBe productionsha
+        CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-video-ja: current")
+      }
+    }
+
+    "adopt the complete site-bound article-media package when only article source and route content change" in {
+      _with_temp_dir("site-article-media-prebuilt-adoption") { root =>
+        Given("an accepted infographic, summary-slides PDF, and video with their unchanged production authorities")
+        val site = root.resolve("site").toAbsolutePath.normalize()
+        val siteconfig = site.resolve("site.conf")
+        val packageRoot = site.resolve("registration-v2")
+        _write(root.resolve("conf/cozy/config.yaml"), _smartdox_profile("site"))
+        _write(siteconfig, "site.base-url = https://example.test")
+        _write(packageRoot.resolve("knowledge/index.dox"), "Japanese article")
+        val video = packageRoot.resolve("target/media/development-process/domain-modeling/ja/final.mp4")
+        val summary = packageRoot.resolve("summary/summary-ja.pdf")
+        val infographic = packageRoot.resolve("infographic/summary-ja.png")
+        _write(video, "accepted-video")
+        _write(summary, "%PDF-1.7\naccepted-summary")
+        _write(packageRoot.resolve("summary/summary-authority.pdf"), "%PDF-1.7\naccepted-summary")
+        _write_png(infographic)
+        _write(packageRoot.resolve("policy.txt"), "accepted-policy")
+        val sourceproduction = packageRoot.resolve("video/ja/source-production.json")
+        _write(sourceproduction, _site_video_production(_sha256(video)))
+        _write(packageRoot.resolve("video/ja/production.json"), Files.readString(sourceproduction, StandardCharsets.UTF_8))
+        val descriptor = packageRoot.resolve("media.json")
+        _write(descriptor, _site_article_media_prebuilt_descriptor)
+        val config = CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site), siteConfig = Some(siteconfig))
+        CozyMedia.build(config)
+        val accepted = Vector(video, summary, infographic).map(_sha256)
+
+        When("only the selected article source and its site document route content change")
+        _write(packageRoot.resolve("knowledge/index.dox"), "Japanese article revised")
+        val result = CozyMedia.build(config)
+
+        Then("each unchanged article-media output is adopted and becomes current")
+        result should include("article-video-ja: adopted prebuilt")
+        result should include("summary-slides-ja: adopted prebuilt")
+        result should include("infographic-ja: adopted prebuilt")
+        Vector(video, summary, infographic).map(_sha256) shouldBe accepted
+        val plan = CozyMedia.plan(config)
+        plan should include("article-video-ja: current")
+        plan should include("summary-slides-ja: current")
+        plan should include("infographic-ja: current")
+      }
+    }
+
+    "keep site-bound article-media stale adoption fail-closed when other evidence or required authority changes" in {
+      val failures = Vector[(String, Path => Unit)](
+        "other-evidence" -> { root => _write(root.resolve("registration-v2/policy.txt"), "changed-policy") },
+        "summary-authority" -> { root => _write(root.resolve("registration-v2/summary/summary-authority.pdf"), "%PDF-1.7\nchanged-authority") },
+        "video-production" -> { root => Files.delete(root.resolve("registration-v2/video/ja/production.json")) }
+      ).map { case (name, change) =>
+        _with_temp_dir("site-article-media-$name") { root =>
+          Given("an accepted complete article-media package with a later article-only change")
+          _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese article")
+          _write(root.resolve("conf/cozy/config.yaml"), _site_profile)
+          val video = root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4")
+          _write(video, "accepted-video")
+          _write(root.resolve("registration-v2/summary/summary-ja.pdf"), "%PDF-1.7\naccepted-summary")
+          _write(root.resolve("registration-v2/summary/summary-authority.pdf"), "%PDF-1.7\naccepted-summary")
+          _write_png(root.resolve("registration-v2/infographic/summary-ja.png"))
+          _write(root.resolve("registration-v2/policy.txt"), "accepted-policy")
+          val sourceproduction = root.resolve("registration-v2/video/ja/source-production.json")
+          _write(sourceproduction, _site_video_production(_sha256(video)))
+          _write(root.resolve("registration-v2/video/ja/production.json"), Files.readString(sourceproduction, StandardCharsets.UTF_8))
+          val descriptor = root.resolve("registration-v2/media.json")
+          _write(descriptor, _site_article_media_prebuilt_descriptor)
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+          _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese article revised")
+          change(root)
+
+          When("the unchanged package is explicitly adopted")
+          intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor)))
+        }
+      }
+
+      Then("changed non-article evidence and missing or mismatched required authorities are rejected")
+      failures should have size 3
+      failures.foreach(_.getMessage should not be empty)
+    }
+
+    "keep stale site-video prebuilt adoption fail-closed without valid direct production evidence" in {
+      val failures = Vector(
+        "missing" -> { (root: Path) => Files.delete(root.resolve("registration-v2/video/ja/production.json")) },
+        "corrupt" -> { (root: Path) => _write(root.resolve("registration-v2/video/ja/production.json"), "{") },
+        "sha-mismatch" -> { (root: Path) => _write(root.resolve("registration-v2/video/ja/production.json"), _site_video_production("0" * 64)) },
+        "producer-unknown" -> { (root: Path) =>
+          val production = _site_video_production(
+            _sha256(root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4")),
+            sourceauthority = ""
+          )
+          _write(root.resolve("registration-v2/video/ja/source-production.json"), production)
+          _write(root.resolve("registration-v2/video/ja/production.json"), production)
+        }
+      ).map { case (name, change) =>
+        _with_temp_dir("site-video-prebuilt-$name") { root =>
+          Given("an accepted site video whose common article input later changes")
+          _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese article")
+          _write(root.resolve("conf/cozy/config.yaml"), _site_profile)
+          val output = root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4")
+          _write(output, "accepted-video")
+          val sourceproduction = root.resolve("registration-v2/video/ja/source-production.json")
+          _write(sourceproduction, _site_video_production(_sha256(output)))
+          _write(root.resolve("registration-v2/video/ja/production.json"), Files.readString(sourceproduction, StandardCharsets.UTF_8))
+          val descriptor = root.resolve("registration-v2/media.json")
+          _write(descriptor, _site_video_prebuilt_descriptor)
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+          _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese and English article")
+          change(root)
+
+          When("the unchanged video is explicitly rebuilt")
+          intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor)))
+        }
+      }
+
+      Then("missing, corrupt, output-mismatched, and producer-unknown evidence remain explicit failures")
+      failures should have size 4
+      failures.foreach(_.getMessage should not be empty)
+      failures.exists(_.getMessage.contains("Media site-video production")) shouldBe true
+    }
+
     "accept a current same-output prebuilt when it is explicitly built" in {
       _with_temp_dir("current-prebuilt-build") { root =>
         Given("an accepted prebuilt resource whose input and output remain unchanged")
@@ -367,6 +515,77 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       |}
       |""".stripMargin
 
+  private def _site_video_prebuilt_descriptor: String =
+    """{
+      |  "schema": "cozy.media.v1",
+      |  "knowledge": {"id": "development-process/domain-modeling", "source": "knowledge/index.dox"},
+      |  "articleMedia": {"articleIdentity": "development-process/domain-modeling", "publicationProfile": "site"},
+      |  "receipt": {"inputs": [
+      |    {"id": "video-production", "role": "video-production-metadata", "path": "video/ja/source-production.json", "normalization": "bytes"},
+      |    {"id": "adapter-video-production", "role": "adapter-video-production-metadata", "path": "video/ja/production.json", "normalization": "bytes"}
+      |  ]},
+      |  "resources": [{
+      |    "id": "article-video-ja", "kind": "video", "language": "ja", "role": "article-introduction",
+      |    "source": "target/media/development-process/domain-modeling/ja/final.mp4", "build": "prebuilt",
+      |    "articleMedia": {"role": "video", "production": "video/ja/production.json"}
+      |  }]
+      |}
+       |""".stripMargin
+
+  private def _site_article_media_prebuilt_descriptor: String =
+    """{
+      |  "schema": "cozy.media.v1",
+      |  "knowledge": {"id": "development-process/domain-modeling", "source": "knowledge/index.dox"},
+      |  "articleMedia": {"articleIdentity": "development-process/domain-modeling", "publicationProfile": "site"},
+      |  "receipt": {"inputs": [
+      |    {"id": "video-production", "role": "video-production-metadata", "path": "video/ja/source-production.json", "normalization": "bytes"},
+      |    {"id": "adapter-video-production", "role": "adapter-video-production-metadata", "path": "video/ja/production.json", "normalization": "bytes"},
+      |    {"id": "site-document-route", "role": "site-document-route", "path": "knowledge/index.dox", "normalization": "bytes"},
+      |    {"id": "summary-authority", "role": "final-summary-slides-pdf", "path": "summary/summary-authority.pdf", "normalization": "bytes"},
+      |    {"id": "publication-policy", "role": "publication-policy", "path": "policy.txt", "normalization": "bytes"}
+      |  ]},
+      |  "resources": [{
+      |    "id": "article-video-ja", "kind": "video", "language": "ja", "role": "article-introduction",
+      |    "source": "target/media/development-process/domain-modeling/ja/final.mp4", "build": "prebuilt",
+      |    "articleMedia": {"role": "video", "production": "video/ja/production.json"}
+      |  }, {
+      |    "id": "summary-slides-ja", "kind": "document", "language": "ja",
+      |    "source": "summary/summary-ja.pdf", "build": "prebuilt",
+      |    "articleMedia": {"role": "summary_slides_pdf", "publicPath": "/articles/domain-modeling/summary-ja.pdf", "mediaType": "application/pdf"}
+      |  }, {
+      |    "id": "infographic-ja", "kind": "infographic", "language": "ja",
+      |    "source": "infographic/summary-ja.png", "build": "prebuilt",
+      |    "articleMedia": {"role": "infographic", "publicPath": "/articles/domain-modeling/infographic-ja.png"}
+      |  }]
+      |}
+       |""".stripMargin
+
+  private def _site_profile: String =
+    """project:
+      |  id: simplemodeling-org
+      |  kind: smartdox-site
+      |media:
+      |  publication-profiles:
+      |    site:
+      |      root: publication
+      |      site-kind: smartdox
+      |""".stripMargin
+
+  private def _site_video_production(sha256: String, sourceauthority: String = "accepted-authority"): String =
+    s"""{
+       |  "category": "development-process",
+       |  "article": "domain-modeling",
+       |  "language": "ja",
+       |  "render": {
+       |    "status": "completed",
+       |    "sha256": "$sha256",
+       |    "sourceAuthority": "$sourceauthority",
+       |    "videoManifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       |    "qa": {"status": "technical-and-visual-qa-passed"}
+       |  }
+       |}
+       |""".stripMargin
+
   private def _article_pdf_descriptor: String =
     """{
       |  "schema": "cozy.media.v1",
@@ -409,6 +628,11 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, value.getBytes(StandardCharsets.UTF_8))
+  }
+
+  private def _write_png(path: Path): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    Files.write(path, Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00))
   }
 
   private def _delete(path: Path): Unit = {

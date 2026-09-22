@@ -16,7 +16,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
- * @version Sep.  8, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteBinding {
@@ -306,8 +306,10 @@ private[cozy] object CozyArticleMediaSiteBinding {
       _invalid(s"Article-media site binding PDF output must be defined: $resourceid")
     )
     val evidence = _file_snapshot(output, s"${role.serializedName} output for $resourceid")
-    CozyMediaReceipt.requireCurrent(mediaplan, resolved)
-    CozyMediaPdfReviewState.requireCurrent(mediaplan, Vector(resolved))
+    if (!evidence.bytes.take(5).sameElements("%PDF-".getBytes(StandardCharsets.US_ASCII).toVector))
+      _invalid(s"Article-media site binding PDF output must have a %PDF- header: $resourceid")
+    CozyMediaReceipt.requireSiteRegistrationCurrent(mediaplan, resolved)
+    CozyMediaPdfReviewState.requireSiteRegistrationCurrent(mediaplan, Vector(resolved))
     val pdf = PdfDocumentReference(publicpath, "application/pdf", articlemedia.label)
     val variant = role match {
       case Role.ArticlePdf => CozyArticleMediaPublication.Variant(locale = locale, articlePdf = Some(pdf))

@@ -9,7 +9,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 30, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPdfReviewState {
@@ -64,6 +65,33 @@ private[cozy] object CozyMediaPdfReviewState {
       _invalid("Selected public PDF resources lack current cozy.media.pdf-review-state.v1 evidence: " + selected.map(_.resource.id).sorted.mkString(", "))
   }
 
+  /**
+   * Currentness for register-site only.  An accepted retained PDF state is
+   * valid only when its bytes exactly equal the state reconstructed from the
+   * accepted manifest and site-registration receipt currentness.
+   */
+  private[cozy] def siteRegistrationCurrent(plan: CozyMedia.Plan): Boolean =
+    if (current(plan)) true
+    else try {
+      _site_registration_state(plan).exists { state =>
+        val path = _state_path(plan)
+        _direct_regular_file(path) &&
+          Files.readAllBytes(path).sameElements((_json(state).spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+      }
+    } catch {
+      case NonFatal(_) => false
+    }
+
+  private[cozy] def requireSiteRegistrationCurrent(plan: CozyMedia.Plan, resources: Vector[CozyMedia.ResolvedResource]): Unit = {
+    val selected = resources.filter(_qualifying)
+    if (selected.nonEmpty && !siteRegistrationCurrent(plan))
+      _invalid(
+        "Site-registration PDF review-state preflight failed for resource " + selected.map(_.resource.id).sorted.mkString(", ") +
+          ": retained-state conditions are unsatisfied (requires an exact unaltered review state reconstructed from accepted manifest entries, " +
+          "site-registration receipt currentness, and current generated-summary structural evidence); rebuild the reviewed PDF or restore retained inputs"
+      )
+  }
+
   private def _state(
     plan: CozyMedia.Plan,
     candidate: CozyMediaReceipt.Manifest,
@@ -85,6 +113,32 @@ private[cozy] object CozyMediaPdfReviewState {
     }.sortBy(value => (value.role, value.id))
     if (entries.isEmpty) None else Some(State(candidate.knowledge, entries))
   }
+
+  private def _site_registration_state(plan: CozyMedia.Plan): Option[State] = {
+    val candidate = CozyMediaReceipt.manifest(_manifest_path(plan)).getOrElse(return None)
+    if (candidate.knowledge != plan.descriptor.knowledge.id)
+      _invalid("Media PDF review-state candidate knowledge does not match descriptor")
+    val resources = plan.resources.map(value => value.resource.id -> value).toMap
+    val qualifying = candidate.resources.flatMap { entry =>
+      resources.get(entry.id).filter(_qualifying).map(resolved => resolved -> entry)
+    }
+    if (qualifying.isEmpty) None
+    else if (!qualifying.forall { case (resolved, _) => _site_registration_resource_current(plan, resolved) }) None
+    else Some(State(candidate.knowledge, qualifying.map { case (resolved, entry) =>
+      _resource(plan, resolved, entry)
+    }.sortBy(value => (value.role, value.id))))
+  }
+
+  private def _site_registration_resource_current(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Boolean =
+    try {
+      if (!CozyMediaReceipt.siteRegistrationCurrent(plan, resolved)) false
+      else {
+        _require_summary_current(plan, resolved)
+        true
+      }
+    } catch {
+      case NonFatal(_) => false
+    }
 
   private def _candidate_current(
     plan: CozyMedia.Plan,

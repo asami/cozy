@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Sep. 15, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReceipt {
@@ -120,6 +120,12 @@ private[cozy] object CozyMediaReceipt {
   private val _reserved_prefix = "cozy:"
   private val _site_config_evidence_id = _reserved_prefix + "site-config"
   private val _site_document_route_evidence_id = _reserved_prefix + "site-document-route"
+  private val _article_media_content_evidence_ids = Set(
+    _automatic_id("knowledge"),
+    _site_document_route_evidence_id
+  )
+  private val _pdf_header = "%PDF-".getBytes(StandardCharsets.US_ASCII)
+  private val _png_header = Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
 
   def validateConfig(config: Config): Unit = {
     val ids = config.inputs.map { input =>
@@ -250,6 +256,31 @@ private[cozy] object CozyMediaReceipt {
       _invalid(s"Media resource lacks current cozy.media.receipt.v2 evidence: ${resolved.resource.id}")
   }
 
+  /**
+   * Currentness for the register-site PDF preflight only.  Normal receipt
+   * currentness remains authoritative; the retained-output path exists solely
+   * for accepted article PDFs whose non-content evidence is still exact.
+   */
+  private[cozy] def siteRegistrationCurrent(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Boolean =
+    if (current(plan, resolved)) true
+    else try {
+      val output = _output(resolved).getOrElse(return false)
+      val entry = manifest(_manifest_path(plan)).flatMap(_.resources.find(_.id == resolved.resource.id))
+      val captured = capture(plan)
+      entry.exists(value => _site_registration_retained_pdf_current(plan, resolved, value, captured, output))
+    } catch {
+      case NonFatal(_) => false
+    }
+
+  private[cozy] def requireSiteRegistrationCurrent(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit =
+    if (!siteRegistrationCurrent(plan, resolved))
+      _invalid(
+        s"Site-registration PDF preflight failed for resource ${resolved.resource.id}: retained-output conditions are unsatisfied " +
+          "(requires top-level articleMedia, a document article_pdf or summary_slides_pdf resource built by copy or prebuilt, " +
+          "a direct regular PDF output exactly matching an artifact-free accepted manifest entry, unchanged producer, and exact non-article evidence); " +
+          "regenerate the PDF or restore the changed non-article input"
+      )
+
   def requireCurrent(plan: CozyMedia.Plan, resources: Vector[CozyMedia.ResolvedResource]): Unit = {
     val stale = resources.filterNot(resolved => current(plan, resolved)).map(_.resource.id).sorted
     if (stale.nonEmpty)
@@ -354,6 +385,31 @@ private[cozy] object CozyMediaReceipt {
       case NonFatal(_) => false
     }
 
+  private def _site_registration_retained_pdf_current(
+    plan: CozyMedia.Plan,
+    resolved: CozyMedia.ResolvedResource,
+    entry: ManifestEntry,
+    captured: Captured,
+    output: Path
+  ): Boolean = {
+    val resource = resolved.resource
+    plan.descriptor.articleMedia.nonEmpty &&
+      resource.kind == "document" &&
+      resource.articleMedia.exists(media => Set("article_pdf", "summary_slides_pdf").contains(media.role)) &&
+      Set("copy", "prebuilt").contains(resource.build) &&
+      _direct_regular_file(output) &&
+      _has_header(output, _pdf_header) &&
+      entry.id == resource.id &&
+      entry.path == _relative_from_path(plan.descriptorRoot, output, "Media receipt output") &&
+      entry.sha256 == _sha256(output) &&
+      entry.artifacts.isEmpty &&
+      entry.receipt.exists { accepted =>
+        _receipt_is_self_consistent(accepted) &&
+          accepted.producer == captured.producer &&
+          _article_content_only_evidence_is_unchanged(accepted, captured)
+      }
+  }
+
   /**
    * Makes prepared review states visible before the receipt, which is the sole
    * acceptance visibility record.  This is rollback-safe for in-process errors;
@@ -431,10 +487,194 @@ private[cozy] object CozyMediaReceipt {
       if (!Files.isRegularFile(output))
         _invalid(s"Media prebuilt output must be a current regular file: $output")
       existing.resources.find(_.id == resolved.resource.id).foreach { entry =>
-        if (entry.sha256 == _sha256(output) && entry.receipt.exists(receipt => !_receipt_current(receipt, captured)))
+        if (entry.sha256 == _sha256(output) && entry.receipt.exists { receipt =>
+          !_receipt_current(receipt, captured) &&
+            !_site_article_media_prebuilt_adoption_is_verified(plan, resolved, receipt, captured, output)
+        })
           _invalid(s"Media prebuilt resource output is stale and must be refreshed: ${resolved.resource.id}")
       }
     }
+  }
+
+  private def _site_article_media_prebuilt_adoption_is_verified(
+    plan: CozyMedia.Plan,
+    resolved: CozyMedia.ResolvedResource,
+    accepted: ResourceReceipt,
+    captured: Captured,
+    output: Path
+  ): Boolean = {
+    val resource = resolved.resource
+    if (plan.descriptor.articleMedia.isEmpty || resource.build != "prebuilt") false
+    else resource.articleMedia match {
+      case Some(media) if media.role == "video" =>
+        _site_video_prebuilt_adoption_is_verified(plan, resolved, accepted, captured, output) &&
+          _article_content_only_evidence_is_unchanged(accepted, captured)
+      case Some(media) if media.role == "summary_slides_pdf" =>
+        _site_summary_slides_pdf_prebuilt_adoption_is_verified(resource, accepted, captured, output) &&
+          _article_content_only_evidence_is_unchanged(accepted, captured)
+      case Some(media) if media.role == "infographic" =>
+        _site_infographic_prebuilt_adoption_is_verified(resource, output) &&
+          _article_content_only_evidence_is_unchanged(accepted, captured)
+      case _ => false
+    }
+  }
+
+  private def _article_content_only_evidence_is_unchanged(
+    accepted: ResourceReceipt,
+    captured: Captured
+  ): Boolean = {
+    accepted.inputs.filterNot(_article_content_evidence_is_changeable) ==
+      captured.inputs.filterNot(_article_content_evidence_is_changeable)
+  }
+
+  private def _article_content_evidence_is_changeable(value: Evidence): Boolean =
+    _article_media_content_evidence_ids.contains(value.id) || value.role == "site-document-route"
+
+  private def _site_summary_slides_pdf_prebuilt_adoption_is_verified(
+    resource: CozyMedia.Resource,
+    accepted: ResourceReceipt,
+    captured: Captured,
+    output: Path
+  ): Boolean =
+    resource.kind == "document" &&
+      _direct_regular_file(output) &&
+      _has_header(output, _pdf_header) &&
+      _unchanged_output_authority(accepted, captured, "final-summary-slides-pdf", output)
+
+  private def _site_infographic_prebuilt_adoption_is_verified(
+    resource: CozyMedia.Resource,
+    output: Path
+  ): Boolean =
+    resource.kind == "infographic" &&
+      _direct_regular_file(output) &&
+      _has_header(output, _png_header)
+
+  private def _unchanged_output_authority(
+    accepted: ResourceReceipt,
+    captured: Captured,
+    role: String,
+    output: Path
+  ): Boolean = {
+    val previous = accepted.inputs.filter(_.role == role)
+    val current = captured.inputs.filter(_.role == role)
+    previous match {
+      case Vector(value) => current == Vector(value) && value.sha256 == _sha256(output)
+      case _ => false
+    }
+  }
+
+  private def _has_header(path: Path, header: Array[Byte]): Boolean = {
+    val bytes = Files.readAllBytes(path)
+    bytes.length >= header.length && bytes.take(header.length).sameElements(header)
+  }
+
+  private def _site_video_prebuilt_adoption_is_verified(
+    plan: CozyMedia.Plan,
+    resolved: CozyMedia.ResolvedResource,
+    accepted: ResourceReceipt,
+    captured: Captured,
+    output: Path
+  ): Boolean = {
+    val resource = resolved.resource
+    val articlemedia = resource.articleMedia.filter(_.role == "video")
+    if (resource.kind != "video" || articlemedia.isEmpty) false
+    else {
+      val article = plan.descriptor.articleMedia.getOrElse(
+        _invalid(s"Media site-video prebuilt requires top-level articleMedia: ${resource.id}")
+      )
+      val locale = resource.language.getOrElse(
+        _invalid(s"Media site-video prebuilt requires language: ${resource.id}")
+      )
+      if (!_direct_regular_file(output) || !output.getFileName.toString.endsWith(".mp4"))
+        _invalid(s"Media site-video prebuilt output must be a direct MP4 file: ${resource.id}")
+      val production = _site_video_production_file(
+        plan.descriptorRoot,
+        articlemedia.flatMap(_.production).getOrElse(
+          _invalid(s"Media site-video prebuilt requires production evidence: ${resource.id}")
+        ),
+        resource.id
+      )
+      val root = parse(Files.readString(production, StandardCharsets.UTF_8)).fold(
+        _ => _invalid(s"Media site-video production must contain valid JSON: ${resource.id}"),
+        _.asObject.getOrElse(_invalid(s"Media site-video production must be a JSON object: ${resource.id}"))
+      )
+      val category = _site_video_production_string(root, "category", resource.id)
+      val articleid = _site_video_production_string(root, "article", resource.id)
+      if (s"$category/$articleid" != article.articleIdentity)
+        _invalid(s"Media site-video production identity differs: ${resource.id}")
+      if (_site_video_production_string(root, "language", resource.id) != locale)
+        _invalid(s"Media site-video production language differs: ${resource.id}")
+      val render = root("render").flatMap(_.asObject).getOrElse(
+        _invalid(s"Media site-video production render must be an object: ${resource.id}")
+      )
+      if (_site_video_production_string(render, "status", resource.id) != "completed")
+        _invalid(s"Media site-video production render status must be completed: ${resource.id}")
+      _site_video_production_string(render, "sourceAuthority", resource.id)
+      _site_video_production_sha256(render, "videoManifestSha256", resource.id)
+      val qa = render("qa").flatMap(_.asObject).getOrElse(
+        _invalid(s"Media site-video production render QA must be an object: ${resource.id}")
+      )
+      if (_site_video_production_string(qa, "status", resource.id) != "technical-and-visual-qa-passed")
+        _invalid(s"Media site-video production render QA status is invalid: ${resource.id}")
+      if (_site_video_production_string(render, "sha256", resource.id) != _sha256(output))
+        _invalid(s"Media site-video production render sha256 differs from output: ${resource.id}")
+      _site_video_production_evidence(accepted, captured, resource.id, _sha256(production))
+      true
+    }
+  }
+
+  private def _site_video_production_evidence(
+    accepted: ResourceReceipt,
+    captured: Captured,
+    resourceid: String,
+    productionsha: String
+  ): Unit = {
+    val roles = Vector("video-production-metadata", "adapter-video-production-metadata")
+    roles.foreach { role =>
+      val previous = _site_video_production_evidence(accepted.inputs, role, resourceid)
+      val current = _site_video_production_evidence(captured.inputs, role, resourceid)
+      if (previous != current)
+        _invalid(s"Media site-video production evidence changed: $resourceid/$role")
+      if (current.sha256 != productionsha)
+        _invalid(s"Media site-video production evidence differs from adapter production: $resourceid/$role")
+    }
+  }
+
+  private def _site_video_production_evidence(
+    inputs: Vector[Evidence],
+    role: String,
+    resourceid: String
+  ): Evidence =
+    inputs.filter(_.role == role) match {
+      case Vector(value) => value
+      case _ => _invalid(s"Media site-video production evidence must contain exactly one $role input: $resourceid")
+    }
+
+  private def _site_video_production_file(root: Path, value: String, resourceid: String): Path = {
+    val production = _relative_path(root, value, s"Media site-video production for $resourceid")
+    if (!production.startsWith(root) || !_direct_regular_file(production))
+      _invalid(s"Media site-video production must be a direct regular file: $resourceid")
+    production
+  }
+
+  private def _site_video_production_string(
+    value: io.circe.JsonObject,
+    key: String,
+    resourceid: String
+  ): String =
+    value(key).flatMap(_.asString).filter(x => x.nonEmpty && x == x.trim).getOrElse(
+      _invalid(s"Media site-video production $key must be a non-empty exact string: $resourceid")
+    )
+
+  private def _site_video_production_sha256(
+    value: io.circe.JsonObject,
+    key: String,
+    resourceid: String
+  ): String = {
+    val result = _site_video_production_string(value, key, resourceid)
+    if (!result.matches("[0-9a-f]{64}"))
+      _invalid(s"Media site-video production $key must be exact lowercase SHA-256: $resourceid")
+    result
   }
 
   private def _manifest(path: Path): Manifest = {
@@ -523,6 +763,14 @@ private[cozy] object CozyMediaReceipt {
     receipt.inputSetSha256 == captured.inputSetSha256 &&
       receipt.inputs == captured.inputs &&
       receipt.producer == captured.producer
+
+  private def _receipt_is_self_consistent(receipt: ResourceReceipt): Boolean = {
+    val digestjson = _canonical(Json.obj(
+      "producer" -> _producer_json(receipt.producer),
+      "inputs" -> Json.fromValues(receipt.inputs.map(_evidence_json))
+    ))
+    receipt.inputSetSha256 == _sha256_bytes(digestjson.noSpaces.getBytes(StandardCharsets.UTF_8))
+  }
 
   private def _producer(config: Config): Producer = {
     val configured = config.producer.map { value =>
