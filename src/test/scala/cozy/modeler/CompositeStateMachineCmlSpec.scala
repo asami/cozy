@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep. 17, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CompositeStateMachineCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -341,6 +341,115 @@ compensation-handler = cancel-payment"""
       }
     }
 
+    "normalize provider-neutral candidate-admission Actions" which {
+      "retain a typed Judgment candidate contract and its one deterministic local Admission correlation" in {
+        Given("one direct-field Judgment Action and one local Admission Action that names it")
+        val model = _model_with_location(_candidate_admission_source())
+
+        When("the Composite StateMachine Actions are normalized")
+        val actions = CompositeStateMachineCml.definitions(model).head.actions
+        val judgment = actions.find(_.identity == "judge-payment").getOrElse(fail("Missing Judgment Action"))
+        val admission = actions.find(_.identity == "admit-payment").getOrElse(fail("Missing Admission Action"))
+        val judgmentsemantic = judgment.candidateAdmission.collect {
+          case value: CompositeStateMachineJudgmentAction => value
+        }.getOrElse(fail("Missing normalized Judgment semantics"))
+        val admissionsemantic = admission.candidateAdmission.collect {
+          case value: CompositeStateMachineAdmissionAction => value
+        }.getOrElse(fail("Missing normalized Admission semantics"))
+
+        Then("the closed source IR preserves semantic references and their Action source correlation without a transition directive")
+        judgment.kind shouldBe "JUDGMENT"
+        judgmentsemantic.goal.value shouldBe "payment-review"
+        judgmentsemantic.context.value shouldBe "order-context"
+        judgmentsemantic.candidate.value shouldBe "payment-candidate"
+        judgmentsemantic.alternatives.map(_.value) should contain only ("approve", "reject")
+        judgmentsemantic.criteria.map(_.value) should contain only ("amount-valid", "fraud-clear")
+        judgmentsemantic.expectedResult.value shouldBe "decision"
+        judgmentsemantic.evidence.value shouldBe "payment-evidence"
+        judgmentsemantic.evidenceScope.value shouldBe "order"
+        judgmentsemantic.evidenceFreshness.value shouldBe "current"
+        judgmentsemantic.evidenceProvenance.value shouldBe "payment-ledger"
+        judgment.source.line should not be empty
+        judgmentsemantic.source shouldBe judgment.source
+        judgmentsemantic.goal.source shouldBe judgment.source
+        admission.kind shouldBe "ADMISSION"
+        admissionsemantic.candidateAction.value shouldBe judgment.identity
+        admission.source.line should not be empty
+        admissionsemantic.source shouldBe admission.source
+        admission.metadata shouldBe Some(CompositeStateMachineActionMetadata(
+          CompositeStateMachineEffectClass.Local,
+          CompositeStateMachineTransactionRequirement.Required,
+          CompositeStateMachineIdempotency.NotRequired,
+          None
+        ))
+      }
+
+      "reject missing, duplicate, ambiguous, and execution-placement Judgment fields" in {
+        Given("CAM sources with a missing GOAL, duplicate ALTERNATIVE, duplicate EXPECTED-RESULT, provider vocabulary, and a next-state directive")
+        val missinggoal = _model(_candidate_admission_source().replace("goal = payment-review\n", ""))
+        val duplicatealternative = _model(_candidate_admission_source().replace("alternative = reject", "alternative = approve"))
+        val ambiguousresult = _model(_candidate_admission_source().replace(
+          "expected-result = decision",
+          "expected-result = decision\nexpected-result = alternative-decision"
+        ))
+        val providerplacement = _model(_candidate_admission_source().replace(
+          "goal = payment-review",
+          "goal = payment-review\nprovider = local"
+        ))
+        val nextstate = _model(_candidate_admission_source().replace(
+          "expected-result = decision",
+          "expected-result = decision\nnext-state = Complete"
+        ))
+
+        When("the Action grammar validates their direct semantic fields")
+        val missinggoalerror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(missinggoal)
+        }
+        val duplicatealternativeerror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(duplicatealternative)
+        }
+        val ambiguousresulterror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(ambiguousresult)
+        }
+        val providerplacementerror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(providerplacement)
+        }
+        val nextstateerror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(nextstate)
+        }
+
+        Then("absence, repeated ambiguity, duplicate alternatives, execution placement, and state directives are fail-closed")
+        missinggoalerror.getMessage should include("requires exactly one direct GOAL value")
+        duplicatealternativeerror.getMessage should include("ALTERNATIVE 'approve' must be unique")
+        ambiguousresulterror.getMessage should include("requires exactly one direct EXPECTED-RESULT value")
+        providerplacementerror.getMessage should include("does not admit execution-placement vocabulary 'PROVIDER'")
+        nextstateerror.getMessage should include("does not admit direct field 'next-state'")
+      }
+
+      "reject an Admission Action that is nonlocal or does not identify a Judgment Action" in {
+        Given("one Admission Action with a legacy candidate target, one with external effect metadata, and one Judgment without Admission")
+        val invalidtarget = _model(_candidate_admission_source().replace("candidate-action = judge-payment", "candidate-action = capture-payment"))
+        val nonlocal = _model(_candidate_admission_source().replace("effect = LOCAL", "effect = EXTERNAL"))
+        val missingadmission = _model(_candidate_admission_source_without_admission())
+
+        When("the deterministic candidate-admission relationship is validated")
+        val invalidtargeterror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(invalidtarget)
+        }
+        val nonlocalerror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(nonlocal)
+        }
+        val missingadmissionerror = intercept[RuntimeException] {
+          CompositeStateMachineCml.definitions(missingadmission)
+        }
+
+        Then("Admission remains a local boundary over exactly one Judgment candidate")
+        invalidtargeterror.getMessage should include("must resolve to one JUDGMENT Action")
+        nonlocalerror.getMessage should include("requires metadata EFFECT=LOCAL and TRANSACTION=REQUIRED")
+        missingadmissionerror.getMessage should include("KIND=JUDGMENT requires exactly one ADMISSION Action")
+      }
+    }
+
     "keep direct Composite StateMachine and WORKFLOW roots as distinct source forms" which {
       "normalize a direct Composite StateMachine root without a Workflow wrapper" in {
         Given("a valid direct COMPOSITE-STATEMACHINE CML root")
@@ -359,6 +468,13 @@ compensation-handler = cancel-payment"""
 
   private def _model(source: String): KaleidoxModel = {
     val model = KaleidoxModel.parseWitoutLocation(KaleidoxConfig.default, source)
+    if (model.errors.nonEmpty)
+      throw new IllegalArgumentException(s"CML fixture must parse without errors: ${model.errors.mkString(" | ")}")
+    model
+  }
+
+  private def _model_with_location(source: String): KaleidoxModel = {
+    val model = KaleidoxModel.parse(KaleidoxConfig.default, source)
     if (model.errors.nonEmpty)
       throw new IllegalArgumentException(s"CML fixture must parse without errors: ${model.errors.mkString(" | ")}")
     model
@@ -501,4 +617,62 @@ compensation-handler = cancel-payment"""
       |
       |PaymentResult
       |""".stripMargin
+
+  private def _candidate_admission_source(): String =
+    _accepted_source().replace(
+      """#### capture-payment
+        |
+        |kind = OPERATION
+        |operation = capturePayment
+        |input = payment.subject""".stripMargin,
+      """#### judge-payment
+        |
+        |kind = JUDGMENT
+        |operation = capturePayment
+        |input = payment.subject
+        |goal = payment-review
+        |context = order-context
+        |candidate = payment-candidate
+        |alternative = approve
+        |alternative = reject
+        |criteria = amount-valid
+        |criteria = fraud-clear
+        |expected-result = decision
+        |evidence = payment-evidence
+        |evidence-scope = order
+        |evidence-freshness = current
+        |evidence-provenance = payment-ledger
+        |
+        |#### admit-payment
+        |
+        |kind = ADMISSION
+        |operation = capturePayment
+        |input = payment.subject
+        |candidate-action = judge-payment
+        |effect = LOCAL
+        |transaction = REQUIRED
+        |idempotency = NOT_REQUIRED
+        |
+        |#### capture-payment
+        |
+        |kind = OPERATION
+        |operation = capturePayment
+        |input = payment.subject""".stripMargin
+    )
+
+  private def _candidate_admission_source_without_admission(): String =
+    _candidate_admission_source().replace(
+      """#### admit-payment
+        |
+        |kind = ADMISSION
+        |operation = capturePayment
+        |input = payment.subject
+        |candidate-action = judge-payment
+        |effect = LOCAL
+        |transaction = REQUIRED
+        |idempotency = NOT_REQUIRED
+        |
+        |""".stripMargin,
+      ""
+    )
 }

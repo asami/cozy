@@ -2,7 +2,7 @@ package cozy.modeler
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep. 17, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Immutable Cozy-side normalized IR for a Composite StateMachine definition. */
@@ -143,13 +143,95 @@ final case class CompositeStateMachineActionMetadata(
   compensationHandlerRef: Option[String]
 )
 
+/** Closed provider-neutral CAM source semantics carried by one logical Action. */
+sealed trait CompositeStateMachineCandidateAdmissionAction {
+  def source: CompositeStateMachineSourceIdentity
+}
+
+final case class CompositeStateMachineJudgmentGoalReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentContextReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineCandidateIdentity(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentAlternativeReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentCriterionReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentExpectedResultReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentEvidenceReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentEvidenceScopeReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentEvidenceFreshnessReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentEvidenceProvenanceReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+final case class CompositeStateMachineJudgmentActionReference(
+  value: String,
+  source: CompositeStateMachineSourceIdentity
+)
+
+/** A semantic candidate/result/evidence contract; it intentionally has no transition directive. */
+final case class CompositeStateMachineJudgmentAction(
+  goal: CompositeStateMachineJudgmentGoalReference,
+  context: CompositeStateMachineJudgmentContextReference,
+  candidate: CompositeStateMachineCandidateIdentity,
+  alternatives: Vector[CompositeStateMachineJudgmentAlternativeReference],
+  criteria: Vector[CompositeStateMachineJudgmentCriterionReference],
+  expectedResult: CompositeStateMachineJudgmentExpectedResultReference,
+  evidence: CompositeStateMachineJudgmentEvidenceReference,
+  evidenceScope: CompositeStateMachineJudgmentEvidenceScopeReference,
+  evidenceFreshness: CompositeStateMachineJudgmentEvidenceFreshnessReference,
+  evidenceProvenance: CompositeStateMachineJudgmentEvidenceProvenanceReference,
+  source: CompositeStateMachineSourceIdentity
+) extends CompositeStateMachineCandidateAdmissionAction
+
+/** The deterministic local boundary that admits exactly one Judgment Action candidate. */
+final case class CompositeStateMachineAdmissionAction(
+  candidateAction: CompositeStateMachineJudgmentActionReference,
+  source: CompositeStateMachineSourceIdentity
+) extends CompositeStateMachineCandidateAdmissionAction
+
 final case class CompositeStateMachineLogicalAction(
   identity: String,
   kind: String,
   operation: CompositeStateMachineOperation,
   inputBinding: Option[String],
   source: CompositeStateMachineSourceIdentity,
-  metadata: Option[CompositeStateMachineActionMetadata] = None
+  metadata: Option[CompositeStateMachineActionMetadata] = None,
+  candidateAdmission: Option[CompositeStateMachineCandidateAdmissionAction] = None
 )
 
 final case class CompositeStateMachineConstituentAction(

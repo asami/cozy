@@ -10,7 +10,7 @@ import scala.collection.mutable
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep. 17, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Normalizes and validates the CSM-06 CML surface into the CSM-07 typed IR. */
@@ -156,8 +156,10 @@ private[modeler] object CompositeStateMachineCml {
       val action = actions.find(x => _same_key(x.identity, actionname)).getOrElse(
         RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' references unknown ACTION '$actionname'.")
       )
-      if (!_same_key(action.kind, "OPERATION"))
-        RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' ACTION '$actionname' must be an OPERATION action.")
+      if (!_same_key(action.kind, "OPERATION") && !_same_key(action.kind, "JUDGMENT"))
+        RAISE.syntaxErrorFault(
+          s"WORKFLOW '$context' REQUIRED-OPERATION '$capability' ACTION '$actionname' must be an OPERATION or JUDGMENT action; ADMISSION is deterministic local StateMachine semantics."
+        )
       WorkflowRequiredOperation(capability, action, _workflow_source(entry))
     }
     _unique(entries.map(_.capability), s"WORKFLOW '$context' REQUIRED-OPERATION capability")
@@ -366,32 +368,213 @@ private[modeler] object CompositeStateMachineCml {
   ): Vector[CompositeStateMachineLogicalAction] = {
     val entries = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
       val identity = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
-      val kind = _required_field(entry, "KIND", s"ACTION '$identity'")
-      if (!_same_key(kind, "OPERATION"))
-        RAISE.syntaxErrorFault(s"ACTION '$identity' KIND must be OPERATION; raw expression, script, provider, transaction, retry, and compensation syntax is not admitted.")
-      val operationname = _required_field(entry, "OPERATION", s"ACTION '$identity'")
+      val actioncontext = s"ACTION '$identity'"
+      val fields = _direct_field_entries(entry)
+      val kind = _action_kind(_required_direct_action_field(fields, "KIND", actioncontext), identity)
+      val candidateadmission = _is_candidate_admission_kind(kind)
+      if (candidateadmission)
+        _validate_candidate_admission_action_shape(entry, fields, identity, kind)
+      val operationname = if (candidateadmission)
+        _required_direct_action_field(fields, "OPERATION", actioncontext)
+      else
+        _required_field(entry, "OPERATION", actioncontext)
       val candidates = operations.filter(x => _same_key(x.name, operationname) || _same_key(s"${x.service}.${x.name}", operationname))
       if (candidates.size != 1)
         RAISE.syntaxErrorFault(s"ACTION '$identity' OPERATION '$operationname' must resolve to one normalized CML Operation.")
       val operation = candidates.head
-      val input = _field(entry, "INPUT")
+      val input = if (candidateadmission)
+        _optional_direct_action_field(fields, "INPUT", actioncontext)
+      else
+        _field(entry, "INPUT")
       (input, operation.inputType) match {
         case (None, None) =>
         case (None, Some(_)) => RAISE.syntaxErrorFault(s"ACTION '$identity' requires INPUT because OPERATION '$operationname' declares an input.")
         case (Some(_), None) => RAISE.syntaxErrorFault(s"ACTION '$identity' INPUT is invalid because OPERATION '$operationname' declares no input.")
         case (Some(binding), Some(inputtype)) => _validate_input_binding(identity, binding, inputtype, constituents)
       }
+      val source = _source(entry)
       CompositeStateMachineLogicalAction(
         identity = identity,
-        kind = "OPERATION",
+        kind = kind,
         operation = operation,
         inputBinding = input,
-        source = _source(entry),
-        metadata = _action_metadata(entry, identity)
+        source = source,
+        metadata = _action_metadata(entry, identity),
+        candidateAdmission = _candidate_admission_action(fields, identity, kind, source)
       )
     }
     _unique(entries.map(_.identity), s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
+    _validate_candidate_admission_relationships(entries)
     entries
+  }
+
+  private val _candidate_admission_execution_vocabulary = Set(
+    "PROVIDER",
+    "PARTICIPANT",
+    "AI",
+    "CODEX",
+    "HUMAN",
+    "INVOCATION-BINDING",
+    "ORCHESTRATION",
+    "CONTINUATION",
+    "TRANSPORT",
+    "RUNTIME",
+    "SCRIPT",
+    "RETRY",
+    "EXECUTION",
+    "IMPLEMENTATION",
+    "BINDING"
+  )
+
+  private val _candidate_admission_base_fields = Set("KIND", "OPERATION", "INPUT")
+
+  private val _judgment_action_fields = Set(
+    "GOAL",
+    "CONTEXT",
+    "CANDIDATE",
+    "ALTERNATIVE",
+    "CRITERIA",
+    "EXPECTED-RESULT",
+    "EVIDENCE",
+    "EVIDENCE-SCOPE",
+    "EVIDENCE-FRESHNESS",
+    "EVIDENCE-PROVENANCE"
+  )
+
+  private val _admission_action_fields = Set("CANDIDATE-ACTION")
+
+  private def _action_kind(value: String, identityname: String): String =
+    if (_same_key(value, "OPERATION"))
+      "OPERATION"
+    else if (_same_key(value, "JUDGMENT"))
+      "JUDGMENT"
+    else if (_same_key(value, "ADMISSION"))
+      "ADMISSION"
+    else
+      RAISE.syntaxErrorFault(
+        s"ACTION '$identityname' KIND must be OPERATION, JUDGMENT, or ADMISSION; raw expression, script, provider, transaction, retry, and compensation syntax is not admitted."
+      )
+
+  private def _is_candidate_admission_kind(kind: String): Boolean =
+    _same_key(kind, "JUDGMENT") || _same_key(kind, "ADMISSION")
+
+  private def _validate_candidate_admission_action_shape(
+    entry: LogicalSection,
+    fields: Vector[(String, String)],
+    identityname: String,
+    kind: String
+  ): Unit = {
+    entry.blocks.sections.headOption.foreach { section =>
+      RAISE.syntaxErrorFault(
+        s"ACTION '$identityname' KIND=$kind requires direct fields and does not admit nested structural content '${section.nameForModel}'."
+      )
+    }
+    _candidate_admission_execution_vocabulary.find { vocabulary =>
+      fields.exists { case (fieldname, _) => _same_key(fieldname, vocabulary) }
+    }.foreach { vocabulary =>
+      RAISE.syntaxErrorFault(s"ACTION '$identityname' KIND=$kind does not admit execution-placement vocabulary '$vocabulary'.")
+    }
+    val semanticfields = if (_same_key(kind, "JUDGMENT")) _judgment_action_fields else _admission_action_fields
+    val allowed = _candidate_admission_base_fields ++ _action_metadata_fields ++ semanticfields
+    fields.collectFirst {
+      case (fieldname, _) if !allowed.exists(_same_key(fieldname, _)) => fieldname
+    }.foreach { fieldname =>
+      RAISE.syntaxErrorFault(s"ACTION '$identityname' KIND=$kind does not admit direct field '$fieldname'.")
+    }
+  }
+
+  private def _required_direct_action_field(
+    fields: Vector[(String, String)],
+    fieldname: String,
+    context: String
+  ): String = {
+    val values = fields.collect { case (name, value) if _same_key(name, fieldname) => value }
+    if (values.size != 1)
+      RAISE.syntaxErrorFault(s"$context requires exactly one direct $fieldname value.")
+    _nonempty(values.head, s"$context $fieldname")
+  }
+
+  private def _optional_direct_action_field(
+    fields: Vector[(String, String)],
+    fieldname: String,
+    context: String
+  ): Option[String] = {
+    val values = fields.collect { case (name, value) if _same_key(name, fieldname) => value }
+    if (values.size > 1)
+      RAISE.syntaxErrorFault(s"$context direct $fieldname value must be unique.")
+    values.headOption.map(_nonempty(_, s"$context $fieldname"))
+  }
+
+  private def _repeated_direct_action_field(
+    fields: Vector[(String, String)],
+    fieldname: String,
+    context: String
+  ): Vector[String] = {
+    val values = fields.collect { case (name, value) if _same_key(name, fieldname) => _nonempty(value, s"$context $fieldname") }
+    if (values.isEmpty)
+      RAISE.syntaxErrorFault(s"$context requires at least one direct $fieldname value.")
+    _unique(values, s"$context $fieldname")
+    values
+  }
+
+  private def _candidate_admission_action(
+    fields: Vector[(String, String)],
+    identityname: String,
+    kind: String,
+    source: CompositeStateMachineSourceIdentity
+  ): Option[CompositeStateMachineCandidateAdmissionAction] =
+    if (_same_key(kind, "JUDGMENT")) {
+      val context = s"ACTION '$identityname' KIND=JUDGMENT"
+      Some(CompositeStateMachineJudgmentAction(
+        goal = CompositeStateMachineJudgmentGoalReference(_required_direct_action_field(fields, "GOAL", context), source),
+        context = CompositeStateMachineJudgmentContextReference(_required_direct_action_field(fields, "CONTEXT", context), source),
+        candidate = CompositeStateMachineCandidateIdentity(_required_direct_action_field(fields, "CANDIDATE", context), source),
+        alternatives = _repeated_direct_action_field(fields, "ALTERNATIVE", context).map(CompositeStateMachineJudgmentAlternativeReference(_, source)),
+        criteria = _repeated_direct_action_field(fields, "CRITERIA", context).map(CompositeStateMachineJudgmentCriterionReference(_, source)),
+        expectedResult = CompositeStateMachineJudgmentExpectedResultReference(_required_direct_action_field(fields, "EXPECTED-RESULT", context), source),
+        evidence = CompositeStateMachineJudgmentEvidenceReference(_required_direct_action_field(fields, "EVIDENCE", context), source),
+        evidenceScope = CompositeStateMachineJudgmentEvidenceScopeReference(_required_direct_action_field(fields, "EVIDENCE-SCOPE", context), source),
+        evidenceFreshness = CompositeStateMachineJudgmentEvidenceFreshnessReference(_required_direct_action_field(fields, "EVIDENCE-FRESHNESS", context), source),
+        evidenceProvenance = CompositeStateMachineJudgmentEvidenceProvenanceReference(_required_direct_action_field(fields, "EVIDENCE-PROVENANCE", context), source),
+        source = source
+      ))
+    } else if (_same_key(kind, "ADMISSION")) {
+      val context = s"ACTION '$identityname' KIND=ADMISSION"
+      Some(CompositeStateMachineAdmissionAction(
+        candidateAction = CompositeStateMachineJudgmentActionReference(_required_direct_action_field(fields, "CANDIDATE-ACTION", context), source),
+        source = source
+      ))
+    } else {
+      None
+    }
+
+  private def _validate_candidate_admission_relationships(actions: Vector[CompositeStateMachineLogicalAction]): Unit = {
+    val judgments = actions.flatMap { action =>
+      action.candidateAdmission.collect { case judgment: CompositeStateMachineJudgmentAction => action -> judgment }
+    }
+    val admissions = actions.flatMap { action =>
+      action.candidateAdmission.collect { case admission: CompositeStateMachineAdmissionAction => action -> admission }
+    }
+    admissions.foreach { case (action, admission) =>
+      actions.find(x => _same_key(x.identity, admission.candidateAction.value)).flatMap { target =>
+        target.candidateAdmission.collect { case judgment: CompositeStateMachineJudgmentAction => judgment }
+      }.getOrElse(
+        RAISE.syntaxErrorFault(
+          s"ACTION '${action.identity}' KIND=ADMISSION CANDIDATE-ACTION '${admission.candidateAction.value}' must resolve to one JUDGMENT Action."
+        )
+      )
+      val metadata = action.metadata.getOrElse(
+        RAISE.syntaxErrorFault(s"ACTION '${action.identity}' KIND=ADMISSION requires metadata EFFECT=LOCAL and TRANSACTION=REQUIRED.")
+      )
+      if (metadata.effectClass != CompositeStateMachineEffectClass.Local ||
+        metadata.transactionRequirement != CompositeStateMachineTransactionRequirement.Required)
+        RAISE.syntaxErrorFault(s"ACTION '${action.identity}' KIND=ADMISSION requires metadata EFFECT=LOCAL and TRANSACTION=REQUIRED.")
+    }
+    judgments.foreach { case (action, _) =>
+      val links = admissions.count { case (_, admission) => _same_key(admission.candidateAction.value, action.identity) }
+      if (links != 1)
+        RAISE.syntaxErrorFault(s"ACTION '${action.identity}' KIND=JUDGMENT requires exactly one ADMISSION Action.")
+    }
   }
 
   private val _action_metadata_fields = Vector(

@@ -13,9 +13,7 @@ import org.goldenport.realm.Realm
 /*
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
- *  version Sep.  7, 2026
- *  version Sep. 17, 2026
- * @version Sep.  8, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
@@ -41,6 +39,15 @@ class ScalaGenerator(
     val actionprogramjson = CompositeStateMachineActionProgram.canonicalJson(compositeStateMachines)
     val statemachineworkflowabi = StateMachineWorkflowAbiGenerator.generate(workflows)
     val statemachineworkflowabijson = StateMachineWorkflowAbiGenerator.canonicalJson(workflows)
+    val hascandidateadmission = CandidateAdmissionProducerAbiGenerator.hasCandidateAdmission(compositeStateMachines, workflows)
+    val candidateadmissionproducerabi = if (hascandidateadmission)
+      Some(CandidateAdmissionProducerAbiGenerator.generate(compositeStateMachines, workflows))
+    else
+      None
+    val candidateadmissionproducerabijson = if (hascandidateadmission)
+      Some(CandidateAdmissionProducerAbiGenerator.canonicalJson(compositeStateMachines, workflows))
+    else
+      None
     val metadata = ComponentApiContractMetadata.generate(model) match {
       case Right(document) => document
       case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
@@ -50,8 +57,12 @@ class ScalaGenerator(
     builder.set(CompositeStateMachineActionProducerMetadata.metadataPath, actionproducermetadatajson)
     builder.set(CompositeStateMachineActionProgram.metadataPath, actionprogramjson)
     builder.set(StateMachineWorkflowAbiGenerator.metadataPath, statemachineworkflowabijson)
+    candidateadmissionproducerabijson.foreach { value =>
+      builder.set(CandidateAdmissionProducerAbiGenerator.metadataPath, value)
+    }
     if (!metadata.isEmpty)
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
-    STree(r.realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build())
+    val realm = r.realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build()
+    STree(candidateadmissionproducerabi.fold(realm)(realm + _))
   }
 }

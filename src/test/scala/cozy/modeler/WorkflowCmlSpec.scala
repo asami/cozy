@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 17, 2026
- * @version Sep. 17, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -93,6 +93,42 @@ final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen
         rootline should not be empty
         definitionline should not be empty
         rootline should not be definitionline
+      }
+    }
+
+    "project only executable SPI candidates" which {
+      "allow a Judgment Action to satisfy a Required SPI capability" in {
+        Given("a WORKFLOW whose capability names a Judgment Action with its deterministic local Admission Action")
+        val model = _model(_candidate_admission_workflow_source())
+
+        When("the Workflow Required SPI projection is normalized")
+        val required = CompositeStateMachineCml.workflowDefinitions(model).head.requiredOperations.head
+
+        Then("the generic SPI points to the Judgment operation seam without projecting the Admission boundary")
+        required.action.identity shouldBe "judge-payment"
+        required.action.kind shouldBe "JUDGMENT"
+        required.action.operation shouldBe CompositeStateMachineOperation(
+          "OrderService",
+          "capturePayment",
+          Some("PaymentCommand"),
+          Some("PaymentResult")
+        )
+      }
+
+      "reject an Admission Action as a Required SPI capability target" in {
+        Given("a WORKFLOW capability that names the deterministic local Admission Action")
+        val model = _model(_candidate_admission_workflow_source().replace(
+          "#### capture-payment-capability\n\naction = judge-payment",
+          "#### capture-payment-capability\n\naction = admit-payment"
+        ))
+
+        When("the Workflow attempts to project the capability")
+        val error = intercept[RuntimeException] {
+          CompositeStateMachineCml.workflowDefinitions(model)
+        }
+
+        Then("the local Admission boundary remains outside the generic Required SPI surface")
+        error.getMessage should include("must be an OPERATION or JUDGMENT action; ADMISSION is deterministic local StateMachine semantics")
       }
     }
 
@@ -601,4 +637,40 @@ final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen
       |
       |PaymentResult
       |""".stripMargin
+
+  private def _candidate_admission_workflow_source(): String =
+    _workflow_source().replace(
+      """##### capture-payment
+        |
+        |kind = OPERATION
+        |operation = capturePayment
+        |input = payment.subject""".stripMargin,
+      """##### judge-payment
+        |
+        |kind = JUDGMENT
+        |operation = capturePayment
+        |input = payment.subject
+        |goal = payment-review
+        |context = order-context
+        |candidate = payment-candidate
+        |alternative = approve
+        |alternative = reject
+        |criteria = amount-valid
+        |criteria = fraud-clear
+        |expected-result = decision
+        |evidence = payment-evidence
+        |evidence-scope = order
+        |evidence-freshness = current
+        |evidence-provenance = payment-ledger
+        |
+        |##### admit-payment
+        |
+        |kind = ADMISSION
+        |operation = capturePayment
+        |input = payment.subject
+        |candidate-action = judge-payment
+        |effect = LOCAL
+        |transaction = REQUIRED
+        |idempotency = NOT_REQUIRED""".stripMargin
+    ).replace("action = capture-payment", "action = judge-payment")
 }

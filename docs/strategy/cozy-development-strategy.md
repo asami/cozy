@@ -1703,6 +1703,7 @@ Origin:
 | DEV-032 | GitHub Phase 55 Dart planning record; user Phase-number reconciliation on 2026-09-17 | Generate null-safe Dart model and typed API contracts from Cozy IR for a Textus CBD Support client boundary, reusing generated contracts instead of a client-local shadow model. The plan is Phase 65 because local Phase 55 remains the completed site-context media-registration closure. | NEW_PHASE | [Phase 65](../phase/phase-65.md) PLANNED | ADOPTED |
 | DEV-033 | CNCF Phase 64 SWF-07 producer-gap investigation and user reprioritization on 2026-09-20/21 | Produce a future generalized Composite StateMachine semantic artifact with explicit identities/versions, typed constituents/rules/actions, exact provenance, deterministic encoding, and producer diagnostics. Start only from a concrete consumer requirement after the first `sm-workflow` vertical slice; then hand the artifact to CNCF Phase 89 for admission and runtime projection. Do not absorb the existing CNCF-driven Cozy delta or make this a current CNCF prerequisite. | NEW_PHASE | [Phase 70](../phase/phase-70.md) PLANNED with deferred execution priority and evidence-bound entry -> CNCF [Phase 89](../../../cloud-native-component-framework/docs/phase/phase-89.md) PLANNED consumer admission; [Phase 70.1](../phase/phase-70.1.md) SUPERSEDED before implementation | ADOPTED |
 | DEV-034 | [2026-09-21 Phase 71 decision](../journal/2026/09/2026-09-21-phase-71-core-rooted-media-regeneration-decision.md) after observing Storyboard approval-hash gates block normal video regeneration; request-to-Core and make-level dependency decision on 2026-09-14 | On a requested video product, traverse its declared DSL chain back to Core, update affected DSLs forward, and regenerate the video from the current Storyboard using make-level modification-time dependencies. Human approval is not a current build prerequisite. Retain hash implementation if useful for future work but do not use approval hashes for build error checks or require skills to populate them. | NEW_PHASE | [Phase 71](../phase/phase-71.md) PLANNED; current video-generation blocker | ADOPTED |
+| DEV-035 | [CNCF Phase 77 design authority](https://github.com/asami/goldenport-cncf/blob/766df74a3bcd6e8286c5ef88fa2bf1bf9fbae036/docs/phase/phase-77.md), [Candidate-Admission producer ABI](../design/cml-candidate-admission-producer-abi.md), and a demonstrated absence of `JudgmentAction` / `Judgment` producer semantics in the current Cozy Scala source and executable specifications | Supply the minimum versioned, provider-neutral CML StateMachine/Workflow Candidate-Admission Model producer contract that enables CNCF Phase 77 development: explicit candidate-producing Action classification, typed candidate/result/evidence and rationale requirements, deterministic admission boundary, provenance, diagnostics, and Phase 62.3 compatibility. CNCF retains runtime admission/progression/commitment, provider dispatch, transport, and `sm-workflow` implementation. | NEW_PHASE | [Phase 73](../phase/phase-73.md) IN PROGRESS; CAM-73-01 semantics, CAM-73-02 lowering/diagnostics, CAM-73-03 fixture evidence, local producer handoff, and CB-73-01 no-CAM generation-tree compatibility repair are complete. Focused validation `PHASE-73-CB-73-01-VAL-004` passed; independent review and release remain open. | ADOPTED |
 
 The Phase 61 sequence is an independently planned video-authoring boundary.
 Phase 61 is CLOSED for P610-01/P610-02, closing the protected contract and
@@ -1829,6 +1830,19 @@ Phase 1. Phase 70.1 is therefore superseded. Existing CNCF-driven Cozy commits
 and working-tree changes remain preserved as separate work and are neither
 accepted nor expanded by Phase 70. CNCF Phase 64 first composes the released
 Phase 62.3 fixture with its own accepted Phase 63.2/64 contracts.
+
+Phase 73 is an in-progress Candidate-Admission Model producer ABI boundary. It
+inherits the user-selected CNCF Phase 77 design authority that defines
+`JudgmentAction`, `JudgmentResult`, Provider-selected `ActionExecution`, and
+StateMachine-owned admission/progression. It records that immutable upstream
+reference and implements the selected versioned Cozy producer extension; it
+does not request a duplicate ABI definition. CAM-73-01 through CAM-73-04 are
+ locally complete, CB-73-01 retained the exact no-CAM Phase 62.3 generation
+ tree, and focused validation `PHASE-73-CB-73-01-VAL-004` passed;
+independent review and the release commit remain open. It does not reinterpret the closed Phase 62.3 generic
+Action/Continuation ABI as CAM, change its fixture without a compatibility
+decision, or displace the current Phase 71 media-generation priority. CNCF
+runtime admission and `sm-workflow` acceptance remain independently owned.
 
 The immediate Document Project priority is planned Phase 59. It connects the
 current v2 Summary Description to the accepted Phase 40 summary-slide PDF

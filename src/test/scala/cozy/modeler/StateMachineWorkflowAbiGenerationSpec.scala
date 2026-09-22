@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 17, 2026
- * @version Sep. 17, 2026
+ * @version Sep. 22, 2026
  * @author  ASAMI, Tomoharu
  */
 final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -120,6 +120,9 @@ final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Match
         Files.readString(normaljson) should include("\"requiredSpi\":[{\"capability\":\"capture-payment-capability\"")
         Files.readString(normaljson) should include("\"inputType\":\"PaymentCommand\"")
         Files.readString(normaljson) should include("\"resultType\":\"PaymentResult\"")
+        Files.exists(normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/statemachine/candidateadmission/CandidateAdmissionProducerAbi.scala")) shouldBe false
+        Files.exists(normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/statemachine/candidateadmission/CandidateAdmissionProducerComponentFactoryBootstrap.scala")) shouldBe false
+        Files.exists(normalout.resolve(CandidateAdmissionProducerAbiGenerator.metadataPath)) shouldBe false
 
         And("the generated producer boundary contains no execution-mode, runtime, transport, or proxy implementation vocabulary")
         val generated = Files.readString(normalabi) + Files.readString(normalbootstrap) + workflowcontent + Files.readString(normaljson)
@@ -134,6 +137,158 @@ final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Match
         And("both public routes remain byte-identical across repeated output")
         normalfirst shouldBe normalsecond
         valuefirst shouldBe valuesecond
+      }
+
+      "emit additive candidate-admission producer artifacts without changing the legacy Workflow ABI" in {
+        Given("a representative WORKFLOW fixture containing one Judgment Action and its deterministic local Admission Action")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val input = base.resolve("src/test/resources/modeler/candidate-admission-workflow.cml")
+        val normalout = base.resolve("target/test-generated/statemachine-workflow-candidate-admission-normal")
+        val valueout = base.resolve("target/test-generated/statemachine-workflow-candidate-admission-value")
+        delete_recursively(normalout)
+        delete_recursively(valueout)
+
+        When("each public Scala generation route lowers the same source twice")
+        _run("modeler-scala", input, normalout)
+        val normalfirst = tree_snapshot(normalout)
+        _run("modeler-scala", input, normalout)
+        val normalsecond = tree_snapshot(normalout)
+        _run("modeler-scala-value", input, valueout)
+        val valuefirst = tree_snapshot(valueout)
+        _run("modeler-scala-value", input, valueout)
+        val valuesecond = tree_snapshot(valueout)
+
+        Then("both routes emit byte-identical, source-attributed Candidate-Admission artifacts")
+        val candidateadmissionroot = "target/scala-3.3.8/src_managed/main/scala/domain/statemachine/candidateadmission"
+        val normalabi = normalout.resolve(candidateadmissionroot).resolve("CandidateAdmissionProducerAbi.scala")
+        val valueabi = valueout.resolve(candidateadmissionroot).resolve("CandidateAdmissionProducerAbi.scala")
+        val normalbootstrap = normalout.resolve(candidateadmissionroot).resolve("CandidateAdmissionProducerComponentFactoryBootstrap.scala")
+        val valuebootstrap = valueout.resolve(candidateadmissionroot).resolve("CandidateAdmissionProducerComponentFactoryBootstrap.scala")
+        val normalproducer = normalout.resolve(candidateadmissionroot).resolve("OrderProgressCandidateAdmissionProducer1.scala")
+        val valueproducer = valueout.resolve(candidateadmissionroot).resolve("OrderProgressCandidateAdmissionProducer1.scala")
+        val normaljson = normalout.resolve(CandidateAdmissionProducerAbiGenerator.metadataPath)
+        val valuejson = valueout.resolve(CandidateAdmissionProducerAbiGenerator.metadataPath)
+        Files.exists(normalabi) shouldBe true
+        Files.exists(valueabi) shouldBe true
+        Files.exists(normalbootstrap) shouldBe true
+        Files.exists(valuebootstrap) shouldBe true
+        Files.exists(normalproducer) shouldBe true
+        Files.exists(valueproducer) shouldBe true
+        Files.exists(normaljson) shouldBe true
+        Files.exists(valuejson) shouldBe true
+        Files.readString(normalabi) shouldBe Files.readString(valueabi)
+        Files.readString(normalbootstrap) shouldBe Files.readString(valuebootstrap)
+        Files.readString(normalproducer) shouldBe Files.readString(valueproducer)
+        Files.readAllBytes(normaljson).toVector shouldBe Files.readAllBytes(valuejson).toVector
+        Files.readString(normalabi) should include("val VERSION: String = \"cozy.cml.candidate-admission-producer-abi.v1\"")
+        Files.readString(normalabi) should include("val GENERATOR: String = \"cozy.modeler.CandidateAdmissionProducerAbiGenerator\"")
+        Files.readString(normalabi) should include("final case class ModelIdentity(compositeStateMachineIdentity: String, compositeStateMachineName: String, compositeStateMachineSource: SourceIdentity, workflow: Option[WorkflowIdentity])")
+        Files.readString(normalabi) should include("final case class JudgmentDescriptor(actionIdentity: String, operation: Operation, inputBinding: Option[String], goal: SourceReference")
+        Files.readString(normalabi) should include("final case class AdmissionDescriptor(actionIdentity: String, candidateJudgmentActionIdentity: String")
+        Files.readString(normalabi) should include("final case class JudgmentAdmission(judgmentActionIdentity: String, admissionActionIdentity: String")
+        Files.readString(normalabi) should include("final case class WorkflowRequiredSpiCorrelation(capability: String, actionIdentity: String")
+
+        And("the generated descriptor records model, generator, source, Judgment, Admission, relation, and Required SPI data")
+        val producercontent = Files.readString(normalproducer)
+        producercontent should include("schemaVersion = \"cozy.cml.candidate-admission-producer-abi.v1\"")
+        producercontent should include("compositeStateMachineIdentity = \"OrderProgress\"")
+        producercontent should include("identity = \"OrderProgress\"")
+        producercontent should include("version = \"workflow-v1\"")
+        producercontent should include("SourceIdentity(Some(")
+        producercontent should include("GeneratorProvenance(\"cozy.cml.candidate-admission-producer-abi.v1\", \"cozy.modeler.CandidateAdmissionProducerAbiGenerator\")")
+        producercontent should include("actionIdentity = \"judge-payment\"")
+        producercontent should include("SourceReference(\"payment-review\"")
+        producercontent should include("SourceReference(\"order-context\"")
+        producercontent should include("SourceReference(\"payment-candidate\"")
+        producercontent should include("SourceReference(\"approve\"")
+        producercontent should include("SourceReference(\"fraud-clear\"")
+        producercontent should include("SourceReference(\"decision\"")
+        producercontent should include("SourceReference(\"payment-evidence\"")
+        producercontent should include("SourceReference(\"order\"")
+        producercontent should include("SourceReference(\"current\"")
+        producercontent should include("SourceReference(\"payment-ledger\"")
+        producercontent should include("actionIdentity = \"admit-payment\"")
+        producercontent should include("candidateJudgmentActionIdentity = \"judge-payment\"")
+        producercontent should include("effectClass = \"LOCAL\"")
+        producercontent should include("transactionRequirement = \"REQUIRED\"")
+        producercontent should include("judgmentActionIdentity = \"judge-payment\"")
+        producercontent should include("admissionActionIdentity = \"admit-payment\"")
+        producercontent should include("capability = \"capture-payment-capability\"")
+        producercontent should include("actionIdentity = \"judge-payment\"")
+        Files.readString(normaljson) should include("\"schemaVersion\":\"cozy.cml.candidate-admission-producer-abi.v1\"")
+        Files.readString(normaljson) should include("\"compositeStateMachineIdentity\":\"OrderProgress\"")
+        Files.readString(normaljson) should include("\"source\":{\"line\":")
+        Files.readString(normaljson) should include("\"judgmentAdmissions\":[{\"judgmentActionIdentity\":\"judge-payment\",\"admissionActionIdentity\":\"admit-payment\"")
+        Files.readString(normaljson) should include("\"requiredSpi\":[{\"capability\":\"capture-payment-capability\",\"actionIdentity\":\"judge-payment\"")
+
+        And("the additional producer boundary exposes neither execution placement nor StateMachine progression commands")
+        val generated = Files.readString(normalabi) + Files.readString(normalbootstrap) + producercontent + Files.readString(normaljson)
+        generated should not include "InvocationBinding"
+        generated should not include "ORCHESTRATION"
+        generated should not include "CONTINUATION"
+        generated should not include "ActionExecution"
+        generated should not include "next-state"
+        generated should not include "transition"
+        generated should not include "runtime"
+        generated should not include "transport"
+
+        And("the unchanged legacy Workflow v1 output remains present and both candidate-admission outputs are deterministic")
+        val legacyworkflowabi = normalout.resolve("target/scala-3.3.8/src_managed/main/scala/domain/statemachine/workflow/StateMachineWorkflowAbi.scala")
+        val legacyworkflowjson = normalout.resolve(StateMachineWorkflowAbiGenerator.metadataPath)
+        Files.exists(legacyworkflowabi) shouldBe true
+        Files.exists(legacyworkflowjson) shouldBe true
+        Files.readString(legacyworkflowabi) should include("val VERSION: String = \"cozy.cml.statemachine-workflow-abi.v1\"")
+        Files.readString(legacyworkflowjson) should include("\"schemaVersion\":\"cozy.cml.statemachine-workflow-abi.v1\"")
+        normalfirst shouldBe normalsecond
+        valuefirst shouldBe valuesecond
+      }
+
+      "fail closed when a parser-normalized Judgment has no Admission" in {
+        Given("the representative fixture normalized into a Workflow whose Admission Action is removed")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val source = Files.readString(base.resolve("src/test/resources/modeler/candidate-admission-workflow.cml"))
+        val workflow = CompositeStateMachineCml.workflowDefinitions(_model_with_location(source)).head
+        val withoutadmission = workflow.copy(
+          compositeStateMachine = workflow.compositeStateMachine.copy(
+            actions = workflow.compositeStateMachine.actions.filterNot(_.identity == "admit-payment")
+          )
+        )
+
+        When("both Candidate-Admission lowering routes receive the incomplete normalized graph")
+        val generationerror = intercept[RuntimeException] {
+          CandidateAdmissionProducerAbiGenerator.generate(Vector.empty, Vector(withoutadmission))
+        }
+        val jsonerror = intercept[RuntimeException] {
+          CandidateAdmissionProducerAbiGenerator.canonicalJson(Vector.empty, Vector(withoutadmission))
+        }
+
+        Then("both routes report the attributable malformed normalized graph diagnostic")
+        generationerror.getMessage should include("CAM-73-02 malformed normalized Candidate-Admission graph")
+        jsonerror.getMessage should include("CAM-73-02 malformed normalized Candidate-Admission graph")
+      }
+
+      "fail closed when a parser-normalized Composite StateMachine has no definition provenance" in {
+        Given("the representative fixture normalized with locations and a missing Composite StateMachine definition source")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val source = Files.readString(base.resolve("src/test/resources/modeler/candidate-admission-workflow.cml"))
+        val workflow = CompositeStateMachineCml.workflowDefinitions(_model_with_location(source)).head
+        val withoutdefinitionprovenance = workflow.copy(
+          compositeStateMachine = workflow.compositeStateMachine.copy(
+            source = CompositeStateMachineSourceIdentity(None)
+          )
+        )
+
+        When("both Candidate-Admission lowering routes receive the provenance-incomplete normalized graph")
+        val generationerror = intercept[RuntimeException] {
+          CandidateAdmissionProducerAbiGenerator.generate(Vector.empty, Vector(withoutdefinitionprovenance))
+        }
+        val jsonerror = intercept[RuntimeException] {
+          CandidateAdmissionProducerAbiGenerator.canonicalJson(Vector.empty, Vector(withoutdefinitionprovenance))
+        }
+
+        Then("both routes report the attributable malformed normalized graph diagnostic")
+        generationerror.getMessage should include("CAM-73-02 malformed normalized Candidate-Admission graph")
+        jsonerror.getMessage should include("CAM-73-02 malformed normalized Candidate-Admission graph")
       }
 
       "retain located Workflow and Operation provenance without inventing contract values" in {
@@ -323,4 +478,5 @@ final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Match
       |
       |PaymentResult
       |""".stripMargin
+
 }

@@ -1,0 +1,132 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## PaymentCommand
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+| name | type   | multiplicity |
+|------+--------+--------------|
+| id   | string | 1            |
+
+## PaymentResult
+
+### EXTENDS
+
+OperationResult
+
+# WORKFLOW
+
+## OrderProgress
+
+version = workflow-v1
+
+### COMPOSITE-STATEMACHINE
+
+#### CONSTITUENT
+
+##### payment
+
+state-machine = PaymentLifecycle
+subject = payment
+subject-type = PaymentCommand
+
+#### STATE
+
+##### Pending
+
+##### Complete
+
+#### DERIVATION
+
+##### pending
+
+state = Pending
+when = payment.Awaiting
+
+##### complete
+
+state = Complete
+when = payment.Paid
+
+#### ACTION
+
+##### judge-payment
+
+kind = JUDGMENT
+operation = capturePayment
+input = payment.subject
+goal = payment-review
+context = order-context
+candidate = payment-candidate
+alternative = approve
+alternative = reject
+criteria = amount-valid
+criteria = fraud-clear
+expected-result = decision
+evidence = payment-evidence
+evidence-scope = order
+evidence-freshness = current
+evidence-provenance = payment-ledger
+
+##### admit-payment
+
+kind = ADMISSION
+operation = capturePayment
+input = payment.subject
+candidate-action = judge-payment
+effect = LOCAL
+transaction = REQUIRED
+idempotency = NOT_REQUIRED
+
+### REQUIRED-OPERATION
+
+#### capture-payment-capability
+
+action = judge-payment
+
+# STATE-MACHINE
+
+## PaymentLifecycle
+
+### State
+
+#### Awaiting
+
+##### Transition
+
+to = Paid
+on = captured
+
+#### Paid
+
+# SERVICE
+
+## OrderService
+
+### OPERATION
+
+#### capturePayment
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+PaymentCommand
+
+##### OUTPUT
+
+###### TYPE
+
+PaymentResult
