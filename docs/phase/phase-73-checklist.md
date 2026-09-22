@@ -41,7 +41,8 @@ The preceding failed attempt remains retained as immutable repair evidence.
       contract without CML reparsing, display-name inference, or handwritten
       replacement data.
 - [x] Reject absent, incomplete, ambiguous, contradictory, or unpinned CAM
-      declarations with typed producer diagnostics.
+      declarations with typed producer diagnostics, including CB-73-02's
+      CML-key normalization and null normalized-IR defensive validation.
 - [x] Preserve Phase 62.3 behavior through an explicit compatibility/versioning
       decision, not an undocumented interpretation of its generic Action ABI.
 
@@ -49,7 +50,8 @@ The preceding failed attempt remains retained as immutable repair evidence.
 
 - [x] Add focused executable specifications for positive construction,
       deterministic admission shape, provenance, determinism, rejection, and
-      compatibility behavior.
+      compatibility behavior, including CB-73-02 lowerer rejection coverage
+      for CML-key normalization and null references/collections/elements.
 - [x] Add one representative CAM fixture only after the contract is frozen;
       keep the released Phase 62.3 fixture as the baseline unless an accepted
       versioned change explicitly includes it.
@@ -87,10 +89,26 @@ The receipt records `sbt_exit=0`, `wrapper_exit=0`, and `lock=released`.
 CB-73-01 was resolved before this validation: a source with no CAM Action
 emits no CAM ABI, bootstrap, or sidecar files, retaining the exact Phase 62.3
 generation tree. The subsequent required-rationale repair makes this earlier
-receipt historical rather than current release evidence. The repaired producer
-boundary has fresh focused validation; `PHASE-73-CAM-73-02-VAL-003` remains
-retained as earlier successful evidence before that compatibility blocker was
-found.
+receipt historical rather than current release evidence. CB-73-02 was then
+repaired with both public lowering routes covered by focused validation
+`PHASE-73-CB-73-02-VAL-001` (receipt
+`bb9559a86f2bb2050b052e0cbfc6b3267bc63c517072271c9be72a6efd30f4f6`) and
+full-suite validation `PHASE-73-CB-73-02-FINAL-VAL-001` (receipt
+`af8a447e98b1c15ffaf033043c97789bed0200c142bacb18bbc172d822ceb276`). Both
+record `sbt_exit=0`, `wrapper_exit=0`, and `lock=released`.
+
+The independent re-review then found a CML-key-normalization and null-IR
+follow-up. Its final full-suite validation
+`PHASE-73-CB-73-02-FOLLOWUP-FINAL-VAL-002` passed with receipt
+`d76f99e6c6b4e3c3e3d08a6bd660133990554be5c0fd3e16ee7587bd9d29ded0`,
+validated implementation-tree identity
+`8dfe9345c3377d2e2122ae359511028ba51e95d0f1ba9114be11a1857d2f7252`,
+and `sbt_exit=0`, `wrapper_exit=0`, `lock=released`.
+
+Fresh independent CB-73-02 re-review returned `CLEAN`: it confirmed exact CML
+normalized-key duplicate rejection, null-safe malformed normalized-IR handling,
+both Scala and JSON lowering paths, unchanged valid CAM output, Phase 62.3
+no-CAM compatibility, and the provider-neutral CNCF Phase 77 handoff boundary.
 
 The local producer handoff is frozen. Independent review and an explicitly
 authorized release commit remain Phase-level closure work; neither is a CNCF

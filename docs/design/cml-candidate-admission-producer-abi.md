@@ -99,8 +99,11 @@ only separate ComponentFactory discovery metadata and bootstrap.
 
 An impossible malformed normalized graph fails closed with a `CAM-73-02`
 diagnostic before output: missing or ambiguous Judgment/Admission pairing,
-missing Admission `LOCAL` / `REQUIRED` metadata, or absent source provenance.
-Parser validation remains intact.
+blank or null required Judgment references, null or empty collections, CML
+normalized-duplicate alternatives or criteria, missing Admission `LOCAL` /
+`REQUIRED` metadata, or absent source provenance. Parser validation remains
+intact, and lowering repeats these semantic checks so a corrupted normalized IR
+cannot publish an invalid ABI.
 
 The exact CML spelling, Scala hierarchy, and new schema version are producer
 decisions made in Phase 73 after inventorying the released Phase 62.3 source,

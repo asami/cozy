@@ -269,6 +269,70 @@ final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Match
         jsonerror.getMessage should include("CAM-73-02 malformed normalized Candidate-Admission graph")
       }
 
+      "fail closed when normalized Judgment values are blank, null, absent, or ambiguous" in {
+        Given("the representative fixture normalized into Workflows with corrupted required Judgment values, references, or cardinalities")
+        val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
+        val source = Files.readString(base.resolve("src/test/resources/modeler/candidate-admission-workflow.cml"))
+        val workflow = CompositeStateMachineCml.workflowDefinitions(_model_with_location(source)).head
+        val action = workflow.compositeStateMachine.actions.find(_.identity == "judge-payment").getOrElse(fail("Missing Judgment Action"))
+        val judgment = action.candidateAdmission.collect { case value: CompositeStateMachineJudgmentAction => value }
+          .getOrElse(fail("Missing normalized Judgment semantics"))
+
+        def _workflow_with_judgment_(candidate: CompositeStateMachineJudgmentAction): WorkflowDefinition =
+          workflow.copy(
+            compositeStateMachine = workflow.compositeStateMachine.copy(
+              actions = workflow.compositeStateMachine.actions.map { value =>
+                if (value.identity == action.identity)
+                  value.copy(candidateAdmission = Some(candidate))
+                else
+                  value
+              }
+            )
+          )
+
+        val nullalternative = null.asInstanceOf[CompositeStateMachineJudgmentAlternativeReference]
+
+        val malformed = Vector(
+          "blank RATIONALE" -> _workflow_with_judgment_(judgment.copy(rationale = judgment.rationale.copy(value = " "))),
+          "blank GOAL" -> _workflow_with_judgment_(judgment.copy(goal = judgment.goal.copy(value = ""))),
+          "blank EVIDENCE" -> _workflow_with_judgment_(judgment.copy(evidence = judgment.evidence.copy(value = "\t"))),
+          "null GOAL reference" -> _workflow_with_judgment_(judgment.copy(goal = null)),
+          "null ALTERNATIVE collection" -> _workflow_with_judgment_(judgment.copy(alternatives = null)),
+          "null ALTERNATIVE element" -> _workflow_with_judgment_(judgment.copy(alternatives = Vector(nullalternative))),
+          "absent ALTERNATIVE" -> _workflow_with_judgment_(judgment.copy(alternatives = Vector.empty)),
+          "CML-normalized ambiguous ALTERNATIVE" -> _workflow_with_judgment_(judgment.copy(alternatives = judgment.alternatives :+ judgment.alternatives.head.copy(value = s"${judgment.alternatives.head.value}!"))),
+          "absent CRITERIA" -> _workflow_with_judgment_(judgment.copy(criteria = Vector.empty)),
+          "CML-normalized ambiguous CRITERIA" -> _workflow_with_judgment_(judgment.copy(criteria = judgment.criteria :+ judgment.criteria.head.copy(value = "fraud clear")))
+        )
+
+        When("both Candidate-Admission lowering routes receive each malformed normalized graph")
+        val failures = malformed.map { case (description, value) =>
+          val generationerror = intercept[RuntimeException] {
+            CandidateAdmissionProducerAbiGenerator.generate(Vector.empty, Vector(value))
+          }
+          val jsonerror = intercept[RuntimeException] {
+            CandidateAdmissionProducerAbiGenerator.canonicalJson(Vector.empty, Vector(value))
+          }
+          description -> (generationerror, jsonerror)
+        }
+
+        Then("both routes reject every incomplete or ambiguous semantic contract before emitting artifacts")
+        failures.foreach { case (_, (generationerror, jsonerror)) =>
+          generationerror.getMessage should include("CAM-73-02 malformed normalized Candidate-Admission graph")
+          jsonerror.getMessage should include("CAM-73-02 malformed normalized Candidate-Admission graph")
+        }
+        failures.find(_._1 == "blank RATIONALE").get._2._1.getMessage should include("RATIONALE requires a nonempty value")
+        failures.find(_._1 == "blank GOAL").get._2._2.getMessage should include("GOAL requires a nonempty value")
+        failures.find(_._1 == "blank EVIDENCE").get._2._1.getMessage should include("EVIDENCE requires a nonempty value")
+        failures.find(_._1 == "null GOAL reference").get._2._1.getMessage should include("GOAL requires a nonnull reference")
+        failures.find(_._1 == "null ALTERNATIVE collection").get._2._2.getMessage should include("ALTERNATIVE requires a nonnull collection")
+        failures.find(_._1 == "null ALTERNATIVE element").get._2._1.getMessage should include("ALTERNATIVE requires a nonnull reference")
+        failures.find(_._1 == "absent ALTERNATIVE").get._2._1.getMessage should include("ALTERNATIVE requires at least one value")
+        failures.find(_._1 == "CML-normalized ambiguous ALTERNATIVE").get._2._2.getMessage should include("ALTERNATIVE values must be unique")
+        failures.find(_._1 == "absent CRITERIA").get._2._1.getMessage should include("CRITERIA requires at least one value")
+        failures.find(_._1 == "CML-normalized ambiguous CRITERIA").get._2._2.getMessage should include("CRITERIA values must be unique")
+      }
+
       "fail closed when a parser-normalized Composite StateMachine has no definition provenance" in {
         Given("the representative fixture normalized with locations and a missing Composite StateMachine definition source")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()

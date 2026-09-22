@@ -1,12 +1,15 @@
 # Phase 73 Candidate-Admission Producer Handoff
 
-Status: **local producer evidence frozen and focused-validated — independent
-review, release commit, and external delivery remain pending**
+Status: **CB-73-02's CML-key-normalization and null-IR follow-up repair has
+fresh full-suite validation — independent re-review, release commit, and
+external delivery remain pending**
 
-This document is the local producer handoff for Cozy Phase 73. It records the
-focused validation evidence for CAM-73-02/03 but is not an external delivery or
-a CNCF runtime acceptance receipt. CNCF admission, progression, commitment,
-provider dispatch, Continuation/resume, and `sm-workflow` remain consumer work.
+This document is the local producer handoff for Cozy Phase 73. It retains
+historical focused and full-suite validation evidence for CAM-73-02/03, the
+first CB-73-02 repair evidence, and current follow-up evidence below. This
+document is not an external delivery or a CNCF runtime acceptance receipt.
+CNCF admission, progression, commitment, provider dispatch, Continuation/resume,
+and `sm-workflow` remain consumer work.
 
 ## Authority and scope
 
@@ -171,3 +174,115 @@ historical validation as current release evidence while retaining it as
 immutable evidence. Fresh focused validation now covers the repaired producer
 boundary; independent review decides Phase closure. The handoff does not
 acknowledge external delivery or claim any consumer completion.
+
+## Pre-CB-73-02 full-suite validation evidence
+
+The required-rationale producer repair was committed as
+`7038ff888cfd127c94cf28ecb9dc79e5d1487567` before this evidence record. Its
+full Cozy suite was then executed through the serialized SBT receipt route:
+
+| Evidence | Immutable identity |
+| --- | --- |
+| Invocation | `PHASE-73-FINAL-VAL-001` |
+| Logical command | `sbt --batch test` |
+| Command-execution receipt | `/private/tmp/skill.cncf.d/cncf-command-execution-8a10bb41c595ea1de69594841e33c02bba472df2a79e2ec72e92d3e35a0d8482-408e5c4f163c65e5bc254430ca679b31/command-execution-sha256-cb9202592ccd407efa79d7dee928a1d1ef3b2fa3c0f57c6b4278e0a2e689c64e` |
+| Receipt SHA-256 | `cb9202592ccd407efa79d7dee928a1d1ef3b2fa3c0f57c6b4278e0a2e689c64e` |
+| Validated implementation-tree SHA-256 | `de50d4f3032770744de900d3cb5e50f7fdf728c309775a5abb092ed4a2ad4821` |
+| Terminal result | `sbt_exit=0`, `wrapper_exit=0`, `lock=released` |
+
+The normal and value lowering routes in that validation produced identical CAM
+artifacts. The fresh, post-rationale source and representative normal-route
+identities are:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `src/test/resources/modeler/candidate-admission-workflow.cml` | `ee8bfa83e5fd4a992d0c5cd9d203394f2b5db29a7323b2817d1b8fd2ff540999` |
+| `src/main/scala/cozy/modeler/CandidateAdmissionProducerAbiGenerator.scala` | `38b1074d999791b5db99700e94d2eb8137b1ed8fd4759b7700533f525136e51a` |
+| `CandidateAdmissionProducerAbi.scala` | `8c68d12c93318d70d023964c637abdc04d7e77ba226d8244cb3c924cfca0c2a4` |
+| `CandidateAdmissionProducerComponentFactoryBootstrap.scala` | `34acb3690f8d1be04d6d3356164cad75c99505cb0bab6b0c24c16b6f50858ffb` |
+| `OrderProgressCandidateAdmissionProducer1.scala` | `3df2265718b25c7fd408d633985a1cc3c462658b7a9af47d5bf3a26a7df5bce2` |
+| `target/cozy/candidate-admission-producer-abi.json` | `21c1e135b92361daa0cc7fe762acd437e9d5f52bf09a4feb7ea34d496a46e2f1` |
+
+## Independent re-review disposition
+
+The fresh read-only CB-73-02 re-review returned **CLEAN**. It confirmed that
+the producer uses the same normalized-key semantics as CML, fails closed before
+dereferencing null required wrappers, collections, or elements, covers both
+Scala and JSON lowering, leaves valid CAM output and the Phase 62.3 no-CAM tree
+unchanged, and preserves the provider-neutral CNCF Phase 77 / `sm-workflow`
+handoff boundary. This is local producer acceptance evidence only; it neither
+delivers the ABI to CNCF nor claims any consumer runtime completion.
+
+The subsequent independent re-review retained this evidence but found that the
+first repair used trim-plus-case comparison rather than CML normalized-key
+comparison, and could dereference null normalized-IR wrappers, collections, or
+elements before emitting the `CAM-73-02` diagnostic. The follow-up repair must
+close both cases and replaces this evidence with the fresh validation below
+before a release review can be accepted.
+
+## CB-73-02 follow-up validation
+
+The follow-up makes the generator use CML normalized-key comparison, matching
+the parser's lowercase-and-alphanumeric key semantics. It also checks null
+singular references, null collections, and null collection elements before any
+dereference. Both public lowering routes return the same attributable
+`CAM-73-02` diagnostic for those malformed normalized graphs.
+
+| Evidence | Immutable identity |
+| --- | --- |
+| Full invocation | `PHASE-73-CB-73-02-FOLLOWUP-FINAL-VAL-002` |
+| Full logical command | `sbt --batch test` |
+| Full command-execution receipt | `/tmp/skill.cncf.d/cncf-command-execution-6ae8d85b1cde5a776567b885b801fd5a4dc4a21f6db40f83be008150931d0fcf-5f23826fbb32c873141333d6622ba48b/command-execution-sha256-d76f99e6c6b4e3c3e3d08a6bd660133990554be5c0fd3e16ee7587bd9d29ded0` |
+| Full receipt SHA-256 | `d76f99e6c6b4e3c3e3d08a6bd660133990554be5c0fd3e16ee7587bd9d29ded0` |
+| Validated implementation-tree SHA-256 | `8dfe9345c3377d2e2122ae359511028ba51e95d0f1ba9114be11a1857d2f7252` |
+| Terminal result | `sbt_exit=0`, `wrapper_exit=0`, `lock=released` |
+
+The normal and value lowering routes remain byte-identical. The final repaired
+generator SHA-256 is `8ece325436fd364d8de0947e9fdd475fb0ba59167a6a6933baf2b822c94cb5db`.
+The valid CAM output remains unchanged because this repair rejects only invalid
+normalized input:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `CandidateAdmissionProducerAbi.scala` | `8c68d12c93318d70d023964c637abdc04d7e77ba226d8244cb3c924cfca0c2a4` |
+| `CandidateAdmissionProducerComponentFactoryBootstrap.scala` | `34acb3690f8d1be04d6d3356164cad75c99505cb0bab6b0c24c16b6f50858ffb` |
+| `OrderProgressCandidateAdmissionProducer1.scala` | `3df2265718b25c7fd408d633985a1cc3c462658b7a9af47d5bf3a26a7df5bce2` |
+| `target/cozy/candidate-admission-producer-abi.json` | `21c1e135b92361daa0cc7fe762acd437e9d5f52bf09a4feb7ea34d496a46e2f1` |
+
+This pre-CB-73-02 evidence replaces neither the retained historical receipt nor
+the open Phase closure conditions. The following repair evidence supersedes it
+as the current implementation validation; independent review, the explicitly
+authorized Phase release, and external CNCF delivery remain required.
+
+## CB-73-02 first-repair validation
+
+The first CB-73-02 repair closes part of the normalization-boundary gap found
+by independent review:
+both Scala and JSON lowering now reject blank required Judgment references,
+empty alternatives or criteria, and case/whitespace-normalized duplicate
+alternatives or criteria before an artifact can be emitted. The existing
+source-provenance and Admission checks remain in force.
+
+| Evidence | Immutable identity |
+| --- | --- |
+| Focused invocation | `PHASE-73-CB-73-02-VAL-001` |
+| Focused logical command | `sbt --batch testOnly cozy.modeler.CompositeStateMachineCmlSpec cozy.modeler.WorkflowCmlSpec cozy.modeler.StateMachineWorkflowAbiGenerationSpec` |
+| Focused receipt SHA-256 | `bb9559a86f2bb2050b052e0cbfc6b3267bc63c517072271c9be72a6efd30f4f6` |
+| Full invocation | `PHASE-73-CB-73-02-FINAL-VAL-001` |
+| Full logical command | `sbt --batch test` |
+| Full command-execution receipt | `/private/tmp/skill.cncf.d/cncf-command-execution-3ce2b1ba4f7420dc2b645a17cc9c96c698d9dee774b11490fe7f5acdef1e6a53-ff226591a7ee71e32dbc3b32e3c8e75f/command-execution-sha256-af8a447e98b1c15ffaf033043c97789bed0200c142bacb18bbc172d822ceb276` |
+| Full receipt SHA-256 | `af8a447e98b1c15ffaf033043c97789bed0200c142bacb18bbc172d822ceb276` |
+| Validated implementation-tree SHA-256 | `9d15ff4a5e2a486b2c73d5b5c6410b72bdd32f6600616bdfad3cdb6e317ddf67` |
+| Terminal result | both receipts: `sbt_exit=0`, `wrapper_exit=0`, `lock=released` |
+
+The normal and value lowering routes remain byte-identical. The repaired
+generator SHA-256 is `4787fc1c0c6d5a31147d7d08d3f794ed4d6bd6c1c96aeb42aac2e1f4c3b4ab44`.
+Their admitted output remains unchanged because the repair rejects invalid
+inputs rather than changing valid CAM semantics:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `CandidateAdmissionProducerAbi.scala` | `8c68d12c93318d70d023964c637abdc04d7e77ba226d8244cb3c924cfca0c2a4` |
+| `CandidateAdmissionProducerComponentFactoryBootstrap.scala` | `34acb3690f8d1be04d6d3356164cad75c99505cb0bab6b0c24c16b6f50858ffb` |
+| `OrderProgressCandidateAdmissionProducer1.scala` | `3df2265718b25c7fd408d633985a1cc3c462658b7a9af47d5bf3a26a7df5bce2` |
+| `target/cozy/candidate-admission-producer-abi.json` | `21c1e135b92361daa0cc7fe762acd437e9d5f52bf09a4feb7ea34d496a46e2f1` |

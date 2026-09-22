@@ -161,17 +161,28 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
   ): Unit = {
     _require_source(action.source, s"Judgment Action '${action.identity}'")
     _require_source(value.source, s"Judgment Action '${action.identity}' semantic data")
-    _require_source(value.goal.source, s"Judgment Action '${action.identity}' GOAL")
-    _require_source(value.context.source, s"Judgment Action '${action.identity}' CONTEXT")
-    _require_source(value.candidate.source, s"Judgment Action '${action.identity}' CANDIDATE")
-    value.alternatives.foreach(x => _require_source(x.source, s"Judgment Action '${action.identity}' ALTERNATIVE"))
-    value.criteria.foreach(x => _require_source(x.source, s"Judgment Action '${action.identity}' CRITERIA"))
-    _require_source(value.expectedResult.source, s"Judgment Action '${action.identity}' EXPECTED-RESULT")
-    _require_source(value.rationale.source, s"Judgment Action '${action.identity}' RATIONALE")
-    _require_source(value.evidence.source, s"Judgment Action '${action.identity}' EVIDENCE")
-    _require_source(value.evidenceScope.source, s"Judgment Action '${action.identity}' EVIDENCE-SCOPE")
-    _require_source(value.evidenceFreshness.source, s"Judgment Action '${action.identity}' EVIDENCE-FRESHNESS")
-    _require_source(value.evidenceProvenance.source, s"Judgment Action '${action.identity}' EVIDENCE-PROVENANCE")
+    val goal = _require_nonnull(value.goal, s"Judgment Action '${action.identity}' GOAL")
+    val context = _require_nonnull(value.context, s"Judgment Action '${action.identity}' CONTEXT")
+    val candidate = _require_nonnull(value.candidate, s"Judgment Action '${action.identity}' CANDIDATE")
+    val alternatives = _require_nonnull_collection(value.alternatives, s"Judgment Action '${action.identity}' ALTERNATIVE")
+    val criteria = _require_nonnull_collection(value.criteria, s"Judgment Action '${action.identity}' CRITERIA")
+    val expectedresult = _require_nonnull(value.expectedResult, s"Judgment Action '${action.identity}' EXPECTED-RESULT")
+    val rationale = _require_nonnull(value.rationale, s"Judgment Action '${action.identity}' RATIONALE")
+    val evidence = _require_nonnull(value.evidence, s"Judgment Action '${action.identity}' EVIDENCE")
+    val evidencescope = _require_nonnull(value.evidenceScope, s"Judgment Action '${action.identity}' EVIDENCE-SCOPE")
+    val evidencefreshness = _require_nonnull(value.evidenceFreshness, s"Judgment Action '${action.identity}' EVIDENCE-FRESHNESS")
+    val evidenceprovenance = _require_nonnull(value.evidenceProvenance, s"Judgment Action '${action.identity}' EVIDENCE-PROVENANCE")
+    _require_reference_value(goal.value, goal.source, s"Judgment Action '${action.identity}' GOAL")
+    _require_reference_value(context.value, context.source, s"Judgment Action '${action.identity}' CONTEXT")
+    _require_reference_value(candidate.value, candidate.source, s"Judgment Action '${action.identity}' CANDIDATE")
+    _require_alternatives(alternatives, s"Judgment Action '${action.identity}' ALTERNATIVE")
+    _require_criteria(criteria, s"Judgment Action '${action.identity}' CRITERIA")
+    _require_reference_value(expectedresult.value, expectedresult.source, s"Judgment Action '${action.identity}' EXPECTED-RESULT")
+    _require_reference_value(rationale.value, rationale.source, s"Judgment Action '${action.identity}' RATIONALE")
+    _require_reference_value(evidence.value, evidence.source, s"Judgment Action '${action.identity}' EVIDENCE")
+    _require_reference_value(evidencescope.value, evidencescope.source, s"Judgment Action '${action.identity}' EVIDENCE-SCOPE")
+    _require_reference_value(evidencefreshness.value, evidencefreshness.source, s"Judgment Action '${action.identity}' EVIDENCE-FRESHNESS")
+    _require_reference_value(evidenceprovenance.value, evidenceprovenance.source, s"Judgment Action '${action.identity}' EVIDENCE-PROVENANCE")
   }
 
   private def _require_admission_source(
@@ -186,6 +197,59 @@ private[modeler] object CandidateAdmissionProducerAbiGenerator {
   private def _require_source(value: CompositeStateMachineSourceIdentity, context: String): Unit =
     if (value == null || value.line.isEmpty)
       _malformed(s"$context is missing source provenance.")
+
+  private def _require_reference_value(
+    value: String,
+    source: CompositeStateMachineSourceIdentity,
+    context: String
+  ): Unit = {
+    if (value == null || value.trim.isEmpty)
+      _malformed(s"$context requires a nonempty value.")
+    _require_source(source, context)
+  }
+
+  private def _require_alternatives(
+    values: Vector[CompositeStateMachineJudgmentAlternativeReference],
+    context: String
+  ): Unit = {
+    if (values.isEmpty)
+      _malformed(s"$context requires at least one value.")
+    values.foreach { reference =>
+      val alternative = _require_nonnull(reference, context)
+      _require_reference_value(alternative.value, alternative.source, context)
+    }
+    if (values.map(reference => _normalize_key(reference.value)).distinct.size != values.size)
+      _malformed(s"$context values must be unique.")
+  }
+
+  private def _require_criteria(
+    values: Vector[CompositeStateMachineJudgmentCriterionReference],
+    context: String
+  ): Unit = {
+    if (values.isEmpty)
+      _malformed(s"$context requires at least one value.")
+    values.foreach { reference =>
+      val criterion = _require_nonnull(reference, context)
+      _require_reference_value(criterion.value, criterion.source, context)
+    }
+    if (values.map(reference => _normalize_key(reference.value)).distinct.size != values.size)
+      _malformed(s"$context values must be unique.")
+  }
+
+  private def _require_nonnull[A](value: A, context: String): A =
+    if (value == null)
+      _malformed(s"$context requires a nonnull reference.")
+    else
+      value
+
+  private def _require_nonnull_collection[A](value: Vector[A], context: String): Vector[A] =
+    if (value == null)
+      _malformed(s"$context requires a nonnull collection.")
+    else
+      value
+
+  private def _normalize_key(value: String): String =
+    value.toLowerCase(Locale.ROOT).filter(_.isLetterOrDigit)
 
   private def _require_admission_metadata(value: CompositeStateMachineLogicalAction): Unit =
     value.metadata match {

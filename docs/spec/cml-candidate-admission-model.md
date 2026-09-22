@@ -124,7 +124,10 @@ Existing Phase 62.3 generated ABI/schema, JSON path, and ComponentFactory
 types and generated output tree remain byte-for-byte compatible when the input
 contains no CAM Actions. Both public Scala routes emit identical new artifacts
 when CAM is present. A malformed normalized CAM graph fails closed with a
-`CAM-73-02` diagnostic before generation can return partial output.
+`CAM-73-02` diagnostic before generation can return partial output. This
+includes blank or null required Judgment references, null or empty collections,
+and CML-normalized duplicate `ALTERNATIVE` / `CRITERIA` values even when an
+upstream parser previously accepted the source.
 
 ## Exclusions
 
