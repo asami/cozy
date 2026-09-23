@@ -2,8 +2,9 @@
 
 Status: **CB-73-02's CML-key-normalization and null-IR follow-up repair has
 fresh full-suite validation; the canonical sidecar is now source-tracked and
-byte-verified — the external CNCF admission receiver has not yet been created
-or accepted the artifact**
+byte-verified. Cozy Phase 73 closed on 2026-09-23 with external CNCF admission
+receiver creation and acceptance explicitly deferred as `DP-73-01`; neither
+the receiver nor consumer acceptance is claimed.**
 
 This document is the local producer handoff for Cozy Phase 73. It retains
 historical focused and full-suite validation evidence for CAM-73-02/03, the

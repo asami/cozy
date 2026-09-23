@@ -1,6 +1,6 @@
 # Phase 73 Checklist: CML Candidate-Admission Model Producer ABI
 
-Phase status: in-progress
+Phase status: closed
 Ledger for: [Phase 73](phase-73.md)
 Compatibility baseline: [Phase 62.3](phase-62.3.md)
 
@@ -60,8 +60,9 @@ The preceding failed attempt remains retained as immutable repair evidence.
 - [x] Retain the representative canonical JSON sidecar as a source-tracked
       handoff fixture and verify that both public lowering routes reproduce its
       bytes exactly.
-- [ ] Record the Phase's accepted final validation, independent review, and
-      explicitly authorized release evidence.
+- [x] Record the local producer validation, independent re-review, and
+      explicit owner-authorized release commit. This administrative Phase
+      closure does not claim external consumer acceptance.
 
 ## CAM-73-04: Consumer handoff
 
@@ -70,10 +71,12 @@ The preceding failed attempt remains retained as immutable repair evidence.
 - [x] Freeze the exact local handoff artifact: the source-tracked
       `candidate-admission-producer-abi.json` fixture, its schema and SHA-256,
       typed diagnostics, and Phase 62.3 additive compatibility decision.
-- [ ] Record acceptance by the canonical CNCF admission receiver. Current CNCF
-      Phase 77 is closed for Cozy 62.1–62.3, while `sm-workflow` requires a
-      compatible CNCF Phase 90 release; the recipient record and its fail-closed
-      provenance/compatibility acceptance are not yet present.
+- [x] **(Future Development Candidate) `DP-73-01`** — defer acceptance by the
+      canonical CNCF admission receiver to CNCF Phase 90. Current CNCF Phase
+      77 is closed for Cozy 62.1–62.3, while `sm-workflow` requires a
+      compatible CNCF Phase 90 release; the recipient record and its
+      fail-closed provenance/compatibility acceptance are not yet present and
+      are not claimed by Cozy.
 - [x] Do not claim CNCF runtime admission, progression, commitment,
       persistence, provider dispatch, or `sm-workflow` completion.
 
@@ -112,9 +115,9 @@ normalized-key duplicate rejection, null-safe malformed normalized-IR handling,
 both Scala and JSON lowering paths, unchanged valid CAM output, Phase 62.3
 no-CAM compatibility, and the provider-neutral CNCF Phase 77 handoff boundary.
 
-The local producer handoff is frozen. Independent review and an explicitly
-authorized release commit remain Phase-level closure work; neither is a CNCF
-runtime or `sm-workflow` completion claim.
+The local producer handoff is frozen. The owner-directed Phase closure records
+the producer validation and release commit while deferring receiver acceptance
+as `DP-73-01`; neither is a CNCF runtime or `sm-workflow` completion claim.
 
 `PHASE-73-HANDOFF-FIXTURE-VAL-001` subsequently ran
 `testOnly cozy.modeler.StateMachineWorkflowAbiGenerationSpec` on the tree that
