@@ -168,6 +168,7 @@ final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Match
         val valueproducer = valueout.resolve(candidateadmissionroot).resolve("OrderProgressCandidateAdmissionProducer1.scala")
         val normaljson = normalout.resolve(CandidateAdmissionProducerAbiGenerator.metadataPath)
         val valuejson = valueout.resolve(CandidateAdmissionProducerAbiGenerator.metadataPath)
+        val handoffjson = base.resolve("src/test/resources/modeler/candidate-admission-producer-abi.json")
         Files.exists(normalabi) shouldBe true
         Files.exists(valueabi) shouldBe true
         Files.exists(normalbootstrap) shouldBe true
@@ -176,10 +177,14 @@ final class StateMachineWorkflowAbiGenerationSpec extends AnyWordSpec with Match
         Files.exists(valueproducer) shouldBe true
         Files.exists(normaljson) shouldBe true
         Files.exists(valuejson) shouldBe true
+        Files.exists(handoffjson) shouldBe true
         Files.readString(normalabi) shouldBe Files.readString(valueabi)
         Files.readString(normalbootstrap) shouldBe Files.readString(valuebootstrap)
         Files.readString(normalproducer) shouldBe Files.readString(valueproducer)
         Files.readAllBytes(normaljson).toVector shouldBe Files.readAllBytes(valuejson).toVector
+
+        And("the tracked consumer handoff fixture remains byte-identical to the canonical sidecar")
+        Files.readAllBytes(normaljson).toVector shouldBe Files.readAllBytes(handoffjson).toVector
         Files.readString(normalabi) should include("val VERSION: String = \"cozy.cml.candidate-admission-producer-abi.v1\"")
         Files.readString(normalabi) should include("val GENERATOR: String = \"cozy.modeler.CandidateAdmissionProducerAbiGenerator\"")
         Files.readString(normalabi) should include("final case class ModelIdentity(compositeStateMachineIdentity: String, compositeStateMachineName: String, compositeStateMachineSource: SourceIdentity, workflow: Option[WorkflowIdentity])")

@@ -129,6 +129,13 @@ includes blank or null required Judgment references, null or empty collections,
 and CML-normalized duplicate `ALTERNATIVE` / `CRITERIA` values even when an
 upstream parser previously accepted the source.
 
+`src/test/resources/modeler/candidate-admission-producer-abi.json` is the
+source-tracked consumer handoff fixture for the representative CAM input. Its
+bytes are part of the executable producer contract: each public lowering route
+must emit an identical canonical sidecar before that fixture may be offered to
+a consumer. The fixture is not an alternate runtime model, a consumer-owned
+copy, or authorization to bypass the CNCF admission boundary.
+
 ## Exclusions
 
 This CML surface does not introduce `InvocationBinding`, orchestration or

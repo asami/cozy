@@ -11,6 +11,14 @@ runtime design at commit
 That design defines the consumer seam which Cozy Phase 73 must produce. It is
 not a request to recreate the same contract in a separate Phase 73 intake.
 
+That commit is the inherited semantic source, not evidence of current external
+acceptance. CNCF Phase 77 is now closed for the released Cozy 62.1–62.3
+surface. The CAM producer can therefore be delivered only to a canonical
+successor admission receiver; `sm-workflow` identifies that receiver as a
+compatible CNCF Phase 90 release. Until CNCF records that receiver and accepts
+the artifact, this design deliberately makes no CNCF runtime or `sm-workflow`
+completion claim.
+
 Phase 73 makes one explicit additive compatibility choice. The closed Phase
 62.3 producer fixture and all of its generated Workflow outputs remain
 unchanged: `cozy.cml.statemachine-workflow-abi.v1`,
@@ -25,6 +33,14 @@ The new independent product has schema identity
 not alter Phase 62.3 ComponentFactory types. Its files are emitted only when
 the normalized source declares at least one Candidate-Admission Action; a
 Phase 62.3-only source therefore retains its exact generated output tree.
+
+The representative canonical sidecar is additionally retained as the
+source-tracked handoff fixture
+`src/test/resources/modeler/candidate-admission-producer-abi.json`. A public
+lowering route must reproduce those bytes before that fixture can be offered to
+the external admission receiver. This fixture preserves producer facts only;
+it is neither a local replacement for the Phase 90 runtime nor a direct
+`sm-workflow` input.
 
 ## Semantic boundary
 

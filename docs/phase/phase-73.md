@@ -7,9 +7,12 @@ depends_on=phase-62.3.md
 
 Status: in progress; CB-73-02's CML-key-normalization and null normalized-IR
 follow-up repair passed fresh full-suite validation and independent re-review.
-CAM-73-01 through CAM-73-04 and compatibility blocker CB-73-01 are locally
-complete. The authorized local main commit and separately owned external CNCF
-delivery remain distinct from CNCF runtime or `sm-workflow` completion.
+CAM-73-01 through CAM-73-03 and compatibility blocker CB-73-01 are locally
+complete. The generated ABI now has a source-tracked, byte-verified handoff
+fixture. CNCF Phase 77 has since closed for Cozy 62.1–62.3, so its historical
+open-stage mapping is not a current receiver. A canonical CNCF Phase 90
+admission receiver and its acceptance remain required before this Phase can
+claim an exact CNCF/`sm-workflow` handoff.
 Planned at: 2026-09-22
 Development item: DEV-035
 Primary owner: Cozy
@@ -79,7 +82,7 @@ human, transport, or provider identity as CAM semantics.
 | CAM-73-01 | Freeze the provider-neutral CML/IR vocabulary for a candidate-producing semantic Action, typed Candidate/Result/Rationale/Evidence, and the deterministic admission boundary. Focused validation `PHASE-73-CAM-73-01-VAL-002` passed; the producer fails closed until CAM-73-02 lowering is implemented. | completed |
 | CAM-73-02 | Lower the vocabulary into a versioned, source-attributed generated ABI with explicit compatibility handling for the closed Phase 62.3 producer contract. | completed locally: CB-73-02 rejects CML-key-normalized duplicate and null normalized-IR Judgment semantics before artifacts are emitted |
 | CAM-73-03 | Add isolated positive, rejection, determinism, provenance, and compatibility executable specifications and a representative fixture; preserve the released Phase 62.3 fixture as the baseline unless a separately accepted compatibility change says otherwise. | completed locally: Scala-plus-JSON lowerer rejection coverage passed fresh full-suite validation |
-| CAM-73-04 | Freeze producer evidence and an exact CNCF consumer handoff. At the frozen Phase 77 authority, CWF-77-01 first admits this versioned ABI and validates provenance/compatibility fail-closed; CWF-77-02 discovers its admitted ComponentFactory metadata. The other open Phase 77 stages consume only the admitted form within their runtime and projection scopes. This work proceeds without name inference or a handwritten Cozy replacement. | handoff and fresh producer evidence are complete locally; independent re-review and release remain pending |
+| CAM-73-04 | Freeze producer evidence and an exact CNCF consumer handoff. The versioned ABI is source-tracked and byte-verified locally. The historical Phase 77 open-stage mapping is superseded because current Phase 77 is closed for Cozy 62.1–62.3. A canonical CNCF Phase 90 admission receiver must accept the ABI before `sm-workflow` can consume its compatible CNCF release. | local producer handoff artifact complete; external recipient creation and acceptance remain open |
 
 ## Acceptance
 
@@ -96,9 +99,10 @@ human, transport, or provider identity as CAM semantics.
   compatible through an explicit versioning decision; no compatibility is
   assumed merely because an Action has a similar name.
 - The completion handoff records the exact source, generated ABI/schema
-  identity, compatibility decision, fixture evidence, and remaining
-  consumer-owned runtime responsibilities. It is sufficient for CNCF Phase 77
-  to resume its separately owned admitted development.
+  identity, compatibility decision, fixture evidence, current canonical CNCF
+  recipient, and remaining consumer-owned runtime responsibilities. It is not
+  complete until that receiver accepts the ABI without CML reparsing or a
+  handwritten Cozy replacement.
 
 ## Non-goals
 

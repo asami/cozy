@@ -57,6 +57,9 @@ The preceding failed attempt remains retained as immutable repair evidence.
       versioned change explicitly includes it.
 - [x] Record focused validation evidence without claiming consumer runtime
       acceptance.
+- [x] Retain the representative canonical JSON sidecar as a source-tracked
+      handoff fixture and verify that both public lowering routes reproduce its
+      bytes exactly.
 - [ ] Record the Phase's accepted final validation, independent review, and
       explicitly authorized release evidence.
 
@@ -64,14 +67,13 @@ The preceding failed attempt remains retained as immutable repair evidence.
 
 - [x] Freeze the exact CML source, generated ABI/schema identities,
       compatibility decision, diagnostics, and fixture evidence.
-- [x] Freeze the exact local handoff for the CNCF Phase 77 consumer line. At
-      frozen authority `766df74a3bcd6e8286c5ef88fa2bf1bf9fbae036`, CWF-77-01
-      is OPEN and first admits this ABI with provenance/compatibility diagnostics;
-      CWF-77-02 is OPEN and discovers its admitted ComponentFactory metadata.
-      The remaining OPEN Phase 77 stages consume only that admitted form in their
-      separately owned runtime and projection scopes. The handoff is sufficient
-      for that work to proceed without CML reparsing, name inference, or a
-      handwritten Cozy replacement.
+- [x] Freeze the exact local handoff artifact: the source-tracked
+      `candidate-admission-producer-abi.json` fixture, its schema and SHA-256,
+      typed diagnostics, and Phase 62.3 additive compatibility decision.
+- [ ] Record acceptance by the canonical CNCF admission receiver. Current CNCF
+      Phase 77 is closed for Cozy 62.1–62.3, while `sm-workflow` requires a
+      compatible CNCF Phase 90 release; the recipient record and its fail-closed
+      provenance/compatibility acceptance are not yet present.
 - [x] Do not claim CNCF runtime admission, progression, commitment,
       persistence, provider dispatch, or `sm-workflow` completion.
 
@@ -113,3 +115,13 @@ no-CAM compatibility, and the provider-neutral CNCF Phase 77 handoff boundary.
 The local producer handoff is frozen. Independent review and an explicitly
 authorized release commit remain Phase-level closure work; neither is a CNCF
 runtime or `sm-workflow` completion claim.
+
+`PHASE-73-HANDOFF-FIXTURE-VAL-001` subsequently ran
+`testOnly cozy.modeler.StateMachineWorkflowAbiGenerationSpec` on the tree that
+adds the tracked fixture. Receipt
+`5948655920a73ab9c8079b88673fa8f6c55ac889089bc338158f49f2a02a5a25`
+records `sbt_exit=0`, `wrapper_exit=0`, and `lock=released`, with validated
+tree identity `8e1c9665b36e72eb31af7ba1866d8393ccf0ab48daf44f376d8b1fd9a3047816`.
+It proves byte identity between both public lowering routes and
+`src/test/resources/modeler/candidate-admission-producer-abi.json`; it is
+producer evidence, not external consumer acceptance.
