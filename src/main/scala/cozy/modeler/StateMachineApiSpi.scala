@@ -61,10 +61,26 @@ final case class StateMachineApiSpi(
 )
 
 object StateMachineApiSpi {
+  /** Projects explicitly declared WORKFLOW CML Provided operations without caller duplication. */
+  def fromWorkflow(
+    workflow: WorkflowDefinition,
+    requiredOperationMetadata: WorkflowRequiredOperation => StateMachineRequiredOperationMetadata
+  ): StateMachineApiSpi =
+    fromWorkflow(
+      workflow,
+      workflow.providedOperations.map { provided =>
+        StateMachineProvidedOperation(
+          StateMachineOperationIdentity(provided.operation.service, provided.operation.name),
+          provided.operation.inputType.map(StateMachineInputTypeReference),
+          provided.operation.outputType.map(StateMachineResultTypeReference)
+        )
+      },
+      requiredOperationMetadata
+    )
+
   /**
-   * Projects only the existing Workflow Required SPI mappings. Provided API
-   * descriptors remain explicit caller input and no Workflow-specific API
-   * model is introduced.
+   * Compatibility route for a caller-supplied Provided API declaration. New
+   * WORKFLOW CML producers use the overload above as the source of truth.
    */
   def fromWorkflow(
     workflow: WorkflowDefinition,

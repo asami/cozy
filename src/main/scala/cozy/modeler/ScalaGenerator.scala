@@ -35,10 +35,14 @@ class ScalaGenerator(
     val projectionmetadata = CompositeStateMachineProjectionMetadata.canonicalJson(compositeStateMachines)
     val actionproducermetadata = CompositeStateMachineActionProducerMetadata.generate(compositeStateMachines)
     val actionproducermetadatajson = CompositeStateMachineActionProducerMetadata.canonicalJson(compositeStateMachines)
-    val actionprogram = CompositeStateMachineActionProgram.generate(compositeStateMachines)
-    val actionprogramjson = CompositeStateMachineActionProgram.canonicalJson(compositeStateMachines)
+    val actionprogramdefinitions = compositeStateMachines ++ workflows.map(_.compositeStateMachine)
+    val actionprogram = CompositeStateMachineActionProgram.generate(actionprogramdefinitions)
+    val actionprogramjson = CompositeStateMachineActionProgram.canonicalJson(actionprogramdefinitions)
     val statemachineworkflowabi = StateMachineWorkflowAbiGenerator.generate(workflows)
     val statemachineworkflowabijson = StateMachineWorkflowAbiGenerator.canonicalJson(workflows)
+    val hasprovidedapi = StateMachineProvidedApiAbiGenerator.hasProvidedOperations(workflows)
+    val providedapiabi = if (hasprovidedapi) Some(StateMachineProvidedApiAbiGenerator.generate(workflows)) else None
+    val providedapiabijson = if (hasprovidedapi) Some(StateMachineProvidedApiAbiGenerator.canonicalJson(workflows)) else None
     val hascandidateadmission = CandidateAdmissionProducerAbiGenerator.hasCandidateAdmission(compositeStateMachines, workflows)
     val candidateadmissionproducerabi = if (hascandidateadmission)
       Some(CandidateAdmissionProducerAbiGenerator.generate(compositeStateMachines, workflows))
@@ -57,12 +61,14 @@ class ScalaGenerator(
     builder.set(CompositeStateMachineActionProducerMetadata.metadataPath, actionproducermetadatajson)
     builder.set(CompositeStateMachineActionProgram.metadataPath, actionprogramjson)
     builder.set(StateMachineWorkflowAbiGenerator.metadataPath, statemachineworkflowabijson)
+    providedapiabijson.foreach(value => builder.set(StateMachineProvidedApiAbiGenerator.metadataPath, value))
     candidateadmissionproducerabijson.foreach { value =>
       builder.set(CandidateAdmissionProducerAbiGenerator.metadataPath, value)
     }
     if (!metadata.isEmpty)
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
     val realm = r.realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build()
-    STree(candidateadmissionproducerabi.fold(realm)(realm + _))
+    val withcandidateadmission = candidateadmissionproducerabi.fold(realm)(realm + _)
+    STree(providedapiabi.fold(withcandidateadmission)(withcandidateadmission + _))
   }
 }

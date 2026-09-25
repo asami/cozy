@@ -60,7 +60,8 @@ private[modeler] object CompositeStateMachineCml {
     val name = definition.nameForModel
     val composites = _children(definition, "COMPOSITE-STATEMACHINE")
     val requiredoperations = _children(definition, "REQUIRED-OPERATION")
-    _validate_workflow_structure(definition, name, composites, requiredoperations)
+    val providedoperations = _children(definition, "OPERATION")
+    _validate_workflow_structure(definition, name, composites, requiredoperations, providedoperations)
     composites.headOption.map { composite =>
       val version = _workflow_version(definition, name)
       val statemachine = _normalize_definition(composite, model, operations, name)
@@ -69,7 +70,8 @@ private[modeler] object CompositeStateMachineCml {
         version = version,
         source = WorkflowSourceCorrelation(_workflow_source(root), _workflow_source(definition)),
         compositeStateMachine = statemachine,
-        requiredOperations = _required_operations(requiredoperations.headOption, name, statemachine.actions)
+        requiredOperations = _required_operations(requiredoperations.headOption, name, statemachine.actions),
+        providedOperations = _provided_operations(providedoperations.headOption, name, operations)
       )
     }
   }
@@ -81,7 +83,8 @@ private[modeler] object CompositeStateMachineCml {
     "INITIAL",
     "ACTION",
     "CONSTITUENT-ACTION",
-    "DERIVED-ACTION"
+    "DERIVED-ACTION",
+    "PROVIDED-OPERATION"
   )
 
   private val _workflow_execution_vocabulary = Set(
@@ -103,16 +106,19 @@ private[modeler] object CompositeStateMachineCml {
     definition: LogicalSection,
     context: String,
     composites: Vector[LogicalSection],
-    requiredoperations: Vector[LogicalSection]
+    requiredoperations: Vector[LogicalSection],
+    providedoperations: Vector[LogicalSection]
   ): Unit = {
-    if (composites.isEmpty && requiredoperations.nonEmpty)
+    if (composites.isEmpty && (requiredoperations.nonEmpty || providedoperations.nonEmpty))
       RAISE.syntaxErrorFault(
-        s"WORKFLOW '$context' requires a COMPOSITE-STATEMACHINE structural section when REQUIRED-OPERATION is declared."
+        s"WORKFLOW '$context' requires a COMPOSITE-STATEMACHINE structural section when API/SPI operations are declared."
       )
     if (composites.size > 1)
       RAISE.syntaxErrorFault(s"WORKFLOW '$context' requires exactly one COMPOSITE-STATEMACHINE structural section.")
     if (requiredoperations.size > 1)
       RAISE.syntaxErrorFault(s"WORKFLOW '$context' accepts at most one REQUIRED-OPERATION section.")
+    if (providedoperations.size > 1)
+      RAISE.syntaxErrorFault(s"WORKFLOW '$context' accepts at most one OPERATION section.")
     definition.blocks.sections.foreach { section =>
       if (_workflow_misplaced_structural_sections.exists(_same_section_key(section, _)))
         RAISE.syntaxErrorFault(s"WORKFLOW '$context' does not admit misplaced structural section '${section.nameForModel}'.")
@@ -168,6 +174,38 @@ private[modeler] object CompositeStateMachineCml {
     }.foreach { actionname =>
       RAISE.syntaxErrorFault(s"WORKFLOW '$context' REQUIRED-OPERATION ACTION '$actionname' must be mapped at most once.")
     }
+    entries
+  }
+
+  private def _provided_operations(
+    section: Option[LogicalSection],
+    context: String,
+    operations: Vector[CompositeStateMachineOperation]
+  ): Vector[WorkflowProvidedOperation] = {
+    section.foreach(_reject_workflow_execution_vocabulary(_, s"WORKFLOW '$context' OPERATION"))
+    val entries = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
+      val identity = _nonempty(entry.nameForModel, s"WORKFLOW '$context' OPERATION identity")
+      val entrycontext = s"WORKFLOW '$context' OPERATION '$identity'"
+      _reject_workflow_execution_vocabulary(entry, entrycontext)
+      if (entry.blocks.sections.nonEmpty)
+        RAISE.syntaxErrorFault(s"$entrycontext does not admit nested structural content.")
+      val fields = _direct_field_entries(entry)
+      fields.find { case (name, _) => !_same_key(name, "OPERATION") }.foreach { case (name, _) =>
+        RAISE.syntaxErrorFault(s"$entrycontext does not admit '$name'.")
+      }
+      val operationfields = fields.collect { case (name, value) if _same_key(name, "OPERATION") => value }
+      if (operationfields.size != 1)
+        RAISE.syntaxErrorFault(s"$entrycontext requires exactly one direct OPERATION value.")
+      val reference = _nonempty(operationfields.head, s"$entrycontext OPERATION")
+      val candidates = operations.filter(op => _same_key(s"${op.service}.${op.name}", reference))
+      if (candidates.size != 1)
+        RAISE.syntaxErrorFault(s"$entrycontext OPERATION '$reference' must resolve to one qualified normalized CML Operation.")
+      val operation = candidates.head
+      if (!_same_key(identity, operation.name))
+        RAISE.syntaxErrorFault(s"$entrycontext identity must match OPERATION '${operation.name}'.")
+      WorkflowProvidedOperation(operation, _workflow_source(entry))
+    }
+    _unique(entries.map(x => s"${x.operation.service}.${x.operation.name}"), s"WORKFLOW '$context' OPERATION")
     entries
   }
 

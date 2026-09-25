@@ -1,0 +1,294 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## ReviewContext
+
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+
+| name   | type   | multiplicity |
+|--------+--------+--------------|
+| change | string | 1            |
+
+## ReviewResult
+
+### EXTENDS
+
+OperationResult
+
+# WORKFLOW
+
+## WorkflowProducerPlaced
+
+version = workflow-producer-placed-v1
+
+### COMPOSITE-STATEMACHINE
+
+#### CONSTITUENT
+
+##### review
+
+state-machine = ReviewLifecycle
+subject = review
+subject-type = ReviewContext
+
+#### STATE
+
+##### Pending
+
+##### Approved
+
+#### DERIVATION
+
+##### pending
+
+state = Pending
+when = review.Awaiting
+
+##### approved
+
+state = Approved
+when = review.Approved
+
+#### INITIAL
+
+review.Awaiting
+
+#### ACTION
+
+##### BuildProject
+
+kind = OPERATION
+operation = buildProject
+input = review.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = NOT_REQUIRED
+
+##### RunTests
+
+kind = OPERATION
+operation = runTests
+input = review.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = NOT_REQUIRED
+
+##### ReviewChange
+
+kind = OPERATION
+operation = reviewChange
+input = review.subject
+effect = EXTERNAL
+transaction = OUTSIDE_UNIT_OF_WORK
+idempotency = REQUIRED
+idempotency-key = review-change
+
+##### CommitChanges
+
+kind = OPERATION
+operation = commitChanges
+input = review.subject
+effect = EXTERNAL
+transaction = OUTSIDE_UNIT_OF_WORK
+idempotency = REQUIRED
+idempotency-key = commit-changes
+
+#### CONSTITUENT-ACTION
+
+##### build-project-before-review
+
+role = review
+from = Awaiting
+to = Approved
+on = reviewed
+placement = exit
+action = BuildProject
+
+##### run-tests-before-review
+
+role = review
+from = Awaiting
+to = Approved
+on = reviewed
+placement = exit
+action = RunTests
+
+##### review-change-boundary
+
+role = review
+from = Awaiting
+to = Approved
+on = reviewed
+placement = transition
+action = ReviewChange
+
+##### commit-changes-after-review
+
+role = review
+from = Awaiting
+to = Approved
+on = reviewed
+placement = entry
+action = CommitChanges
+
+### REQUIRED-OPERATION
+
+#### review-change-capability
+
+action = ReviewChange
+
+### OPERATION
+
+#### beginReview
+
+operation = WorkflowService.beginReview
+
+#### submitReview
+
+operation = WorkflowService.submitReview
+
+# STATE-MACHINE
+
+## ReviewLifecycle
+
+### STATE
+
+#### Awaiting
+
+##### TRANSITION
+
+to = Approved
+on = reviewed
+
+#### Approved
+
+# SERVICE
+
+## WorkflowService
+
+### OPERATION
+
+#### buildProject
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### runTests
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### reviewChange
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### commitChanges
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### beginReview
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewContext
+
+##### OUTPUT
+
+###### TYPE
+
+ReviewResult
+
+#### submitReview
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+ReviewResult
+
+##### OUTPUT
+
+###### TYPE
+
+WorkflowInteraction
+
+# VALUE
+
+## WorkflowInteraction
+
+### EXTENDS
+
+OperationResult

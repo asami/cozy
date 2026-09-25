@@ -46,7 +46,14 @@ final case class WorkflowDefinition(
   version: String,
   source: WorkflowSourceCorrelation,
   compositeStateMachine: CompositeStateMachineDefinition,
-  requiredOperations: Vector[WorkflowRequiredOperation]
+  requiredOperations: Vector[WorkflowRequiredOperation],
+  providedOperations: Vector[WorkflowProvidedOperation] = Vector.empty
+)
+
+/** Explicit inbound operation declared by WORKFLOW CML, never inferred from an Action. */
+final case class WorkflowProvidedOperation(
+  operation: CompositeStateMachineOperation,
+  source: WorkflowSourceIdentity
 )
 
 /** Declares one required capability and the existing OPERATION Action that fulfills it. */
