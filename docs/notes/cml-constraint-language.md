@@ -87,3 +87,23 @@ Scala is an important first projection target, not the semantic owner. Typical m
 
 ## Principle
 CCL should make constraints feel like expressions over the CML model already defined, not like entry into a second type universe. OCL provides the expression-language precedent; CML provides the authoritative semantic type system.
+
+
+## Absence and Failure Semantics
+CCL excludes `null` from its value model.
+
+Absence is represented exclusively by CML multiplicity. For example, `Customer ?` means zero or one Customer; it is not `Customer | null`. Navigation preserves that meaning, so navigating a `T ?` value can produce another optional multiplicity without introducing a null value.
+
+CCL also does not use an OCL-style `invalid` value. Evaluation failure is represented by the existing Consequence mechanism at the execution boundary.
+
+This establishes a strict separation:
+
+```
+absence            -> CML Multiplicity
+successful value   -> CML Type + Multiplicity
+evaluation failure -> Consequence
+```
+
+An optional Boolean is therefore `Boolean ?`, not a three-valued Boolean containing null. A CML Constraint requires a final expression of `Boolean 1`; when an optional value affects the condition, the model must explicitly state how existence is interpreted, for example through `exists`.
+
+Constraint non-satisfaction and evaluation failure are distinct. A successfully evaluated `false` means the Constraint is not satisfied; a failed Consequence means the Constraint could not be evaluated.
