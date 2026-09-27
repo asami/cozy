@@ -58,3 +58,21 @@ Type, multiplicity, and source-location information should be retained so later 
 
 ## Next Work
 Refine the exact OCL subset, pre-state/result semantics, absence and evaluation-failure semantics, detailed multiplicity transfer rules, DataType/operator resolution, Scala projection policies, and later CAR lint reasoning.
+
+
+## Null and Failure Decision
+CCL will not have a `null` value. Value absence is already modeled by CML multiplicity, especially `?`, and should not be duplicated by a special value.
+
+Likewise, CCL will not reproduce OCL's `invalid` value semantics. Evaluation failure is handled internally through the existing Consequence abstraction.
+
+The resulting model is:
+
+```
+absence            = multiplicity
+value               = CML type + multiplicity
+evaluation failure  = Consequence
+```
+
+This also avoids three-valued Boolean semantics. `Boolean ?` means zero or one Boolean value, not true/false/null. Since a Constraint requires `Boolean 1`, optionality must be resolved explicitly in the expression, for example by an existence condition.
+
+A false Constraint result and an evaluation failure remain semantically different.
