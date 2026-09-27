@@ -9,7 +9,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -85,6 +86,25 @@ final class CarMetadataCompatibilitySpec
       )
     }
 
+    "use the executing Cozy version when the project declares no override" in {
+      Given("a CAR project with an exact CNCF compile target and no Cozy override")
+      val metadata = _metadata(
+        None,
+        Vector(_cncf_coordinate),
+        Some("0.5.17"),
+        Some("0.5.19"),
+        Vector.empty,
+        Vector("0.5.17")
+      )
+
+      When("the project compatibility contract is evaluated")
+      val decision = CarMetadataCompatibility.evaluateProject(metadata)
+
+      Then("the effective generator is the executing Cozy version")
+      decision.isAccepted shouldBe true
+      decision.contract.map(_.cozyVersion) shouldBe Some(_cozy_version)
+    }
+
     "reject contradictory project and resolved-artifact evidence" which {
       "returns stable typed diagnostics for every owned semantic" in {
         Given("one valid contract and variants that remove or contradict each owned value")
@@ -98,11 +118,6 @@ final class CarMetadataCompatibilitySpec
         )
         val resolved = Vector(_artifact("0.5.17"))
         val variants = Vector(
-          "missing-cozy" -> (
-            valid.copy(values = valid.values - "build.cozyVersion"),
-            resolved,
-            DiagnosticCode.CozyVersionMissing
-          ),
           "missing-compile" -> (
             valid.copy(lists = valid.lists.updated("build.dependencies.compile", Vector.empty)),
             resolved,

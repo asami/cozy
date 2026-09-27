@@ -13,14 +13,16 @@ build; they do not redefine it.
 - project organization and artifact name;
 - component name, class name, display name, and version;
 - Scala version;
-- the exact Cozy generator version used by the generated build;
+- an optional exact Cozy generator override for the generated build;
 - exact compile and test dependencies used for development;
 - CAR descriptor metadata;
 - CNCF runtime compatibility requirements.
 
-`build.cozyVersion` is the exact build-time generator coordinate. Generated
-SBT wiring reads that value from `project.yaml`; it does not substitute the
-Cozy version running the package command or an operation default.
+`build.cozyVersion` is an optional exact build-time generator override.
+Without it, the launcher selects the newest proven Cozy version for the
+project's exact CNCF compile dependency. Generated SBT wiring does not pin
+the scaffold-time Cozy version. The selected executing generator version is
+recorded in generation evidence and used for package admission.
 
 The exact CNCF dependency under `build.dependencies.compile` records the
 version used to compile and test the CAR. The
@@ -45,7 +47,7 @@ resolved before `project.yaml` can be projected into the loaded build.
 
 For a CAR, package admission reads the unmerged `project.yaml` contract.
 Operation defaults may still configure unrelated packaging behavior, but they
-cannot replace `build.cozyVersion`, the CNCF compile dependency, or
+cannot replace an explicit `build.cozyVersion`, the CNCF compile dependency, or
 `packaging.car.runtime.cncf`.
 
 The concrete `package-car` command therefore requires `--project-dir` and an
@@ -100,8 +102,9 @@ snapshot into the repository. Validation completes before repository writes.
 For a declared CAR, the project component version also owns publication
 lifecycle. The explicit publication version must equal it; a command-line
 value cannot turn a SNAPSHOT project into release output or publish a different
-release identity. CAR/SAR generation likewise requires the project-owned exact
-Cozy and CNCF compile coordinates before delegation.
+release identity. CAR/SAR generation requires the project-owned exact CNCF
+compile coordinate; the exact Cozy coordinate is selected at delegation from
+an explicit override or the proven runtime catalog.
 
 ## Scaffold Boundary
 

@@ -10,7 +10,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Jul.  7, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarLint {
@@ -139,10 +140,8 @@ private[cozy] object CozyCarLint {
     diagnosticcode: CarMetadataCompatibility.DiagnosticCode,
     identitydeferred: Boolean
   ): Level = {
-    val downgrade = identitydeferred && (
-      diagnosticcode == CarMetadataCompatibility.DiagnosticCode.CozyVersionMissing ||
-        diagnosticcode == CarMetadataCompatibility.DiagnosticCode.ReleaseGenerationPairRejected
-    )
+    val downgrade = identitydeferred &&
+      diagnosticcode == CarMetadataCompatibility.DiagnosticCode.ReleaseGenerationPairRejected
     if (downgrade) Level.Warn else Level.Fail
   }
 

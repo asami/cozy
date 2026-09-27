@@ -73,7 +73,7 @@ resolvers += "SimpleModeling.org" at "https://www.simplemodeling.org/repository/
 // resolvers += "Asami Maven Repository" at "http://www.asamioffice.com/maven"
 
 // override arcadia
-libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.31"
+libraryDependencies += "org.goldenport" %% "goldenport-scala-lib" % "2.3.32-SNAPSHOT"
 
 // override kaleidox
 libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
@@ -170,6 +170,8 @@ Compile / mainClass := Some("cozy.Cozy")
 
 lazy val exportClasspath = taskKey[Unit]("Export full classpath to a file")
 
+lazy val cozyExportRuntimeClasspath = taskKey[File]("Write the development runtime classpath before invoking cozy")
+
 lazy val validateCozyPublishMetadata = taskKey[Unit]("Validate Cozy release publish metadata against public runtime catalogs.")
 
 lazy val validateCozyPublishPrerequisites = taskKey[Unit]("Validate external runtime metadata before publishing the Cozy runtime catalog.")
@@ -181,6 +183,15 @@ exportClasspath := {
   val out = (Compile / target).value / "classpath.txt"
   IO.write(out, cp.mkString(":"))
   println(s"Classpath written to: $out")
+}
+
+cozyExportRuntimeClasspath := {
+  val file = target.value / "cozy.d" / "runtime-classpath.txt"
+  IO.createDirectory(file.getParentFile)
+  val classpath = (Runtime / fullClasspath).value.map(_.data.getAbsolutePath).mkString(java.io.File.pathSeparator)
+  IO.write(file, classpath + "\n")
+  IO.write(file.getParentFile / "runtime-version.txt", version.value + "\n")
+  file
 }
 
 Compile / packageBin := (Compile / packageBin).dependsOn(exportClasspath).value

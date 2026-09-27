@@ -14,10 +14,10 @@ not a request to recreate the same contract in a separate Phase 73 intake.
 That commit is the inherited semantic source, not evidence of current external
 acceptance. CNCF Phase 77 is now closed for the released Cozy 62.1–62.3
 surface. The CAM producer can therefore be delivered only to a canonical
-successor admission receiver; `sm-workflow` identifies that receiver as a
-compatible CNCF Phase 90 release. Until CNCF records that receiver and accepts
-the artifact, this design deliberately makes no CNCF runtime or `sm-workflow`
-completion claim.
+successor admission receiver: CWF-77-04C in CNCF Phase 77.1, accepted in
+commit `3006494cdd279c44c37831387184554f7a202f23`. That receipt establishes
+the bounded producer-to-receiver handoff only; this design deliberately makes
+no CNCF runtime or `sm-workflow` completion claim.
 
 Phase 73 makes one explicit additive compatibility choice. The closed Phase
 62.3 producer fixture and all of its generated Workflow outputs remain
@@ -39,7 +39,7 @@ source-tracked handoff fixture
 `src/test/resources/modeler/candidate-admission-producer-abi.json`. A public
 lowering route must reproduce those bytes before that fixture can be offered to
 the external admission receiver. This fixture preserves producer facts only;
-it is neither a local replacement for the Phase 90 runtime nor a direct
+it is neither a local replacement for the accepted CWF-77-04C receiver runtime nor a direct
 `sm-workflow` input.
 
 ## Semantic boundary

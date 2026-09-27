@@ -5,7 +5,8 @@ import org.goldenport.RAISE
 
 /*
  * @since   Jul. 27, 2026
- * @version Jul. 29, 2026
+ *  version Jul. 29, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CarMetadataCompatibility {
@@ -15,9 +16,6 @@ private[cozy] object CarMetadataCompatibility {
   object DiagnosticCode {
     case object CarClassificationRequired extends DiagnosticCode {
       val name = "CAR_METADATA_CAR_CLASSIFICATION_REQUIRED"
-    }
-    case object CozyVersionMissing extends DiagnosticCode {
-      val name = "CAR_METADATA_COZY_VERSION_MISSING"
     }
     case object CncfCompileTargetMissing extends DiagnosticCode {
       val name = "CAR_METADATA_CNCF_COMPILE_TARGET_MISSING"
@@ -197,16 +195,9 @@ private[cozy] object CarMetadataCompatibility {
       Decision(None, Vector.empty)
     else {
       val diagnostics = Vector.newBuilder[Diagnostic]
-      val cozyversion = metadata.value("build.cozyVersion")
-      if (cozyversion.isEmpty)
-        diagnostics += _diagnostic(
-          DiagnosticCode.CozyVersionMissing,
-          "project.yaml build.cozyVersion",
-          "one exact Cozy generator version",
-          "missing",
-          "CAR generation metadata does not declare its exact Cozy generator.",
-          "Set project.yaml build.cozyVersion to the exact generator version used by the build."
-        )
+      val cozyversion = metadata.value("build.cozyVersion").orElse(
+        Some(acceptancecontext.map(_.executingCozyVersion).getOrElse(org.simplemodeling.cozy.BuildInfo.version))
+      )
 
       val dependencies = metadata.list("build.dependencies.compile").flatMap(_parse_dependency)
       val cncfdependencies = dependencies.filter(_is_cncf_dependency)

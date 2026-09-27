@@ -13,7 +13,8 @@ import play.api.libs.json.Json
 /*
  * @since   Jul.  7, 2026
  *  version Jul. 28, 2026
- * @version Aug. 25, 2026
+ *  version Aug. 25, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -138,7 +139,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         }
 
         "E-CID07E-2 GeoResolver legacy release" must _cid07e {
-          "downgrades only the missing Cozy generator metadata after deferred identity classification" in {
+          "keeps a release-pair warning after deferred identity classification" in {
             _with_temp_dir("cozy-car-lint-cid07e-georesolver") { dir =>
               Given("an exact GeoResolver legacy release with complete metadata except its historical Cozy generator field")
               _write_released_legacy_project(dir, "textus-georesolver", "GeoResolver", "0.2.1", None)
@@ -147,10 +148,10 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
               When("integrated CAR lint evaluates the released legacy project")
               val findings = CozyCarLint.lint(dir, None, noabi = true)
 
-              Then("the deferred identity and missing Cozy version diagnostics are warnings")
+              Then("the deferred identity and unproven executing generator pair are warnings")
               findings.find(_.code == "CAR_COMPONENT_IDENTITY_MIGRATION_DEFERRED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
-              findings.find(_.code == "CAR_METADATA_COZY_VERSION_MISSING").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
-              findings.exists(x => x.code == "CAR_METADATA_COZY_VERSION_MISSING" && x.level == CozyCarLint.Level.Fail) shouldBe false
+              findings.find(_.code == "CAR_METADATA_RELEASE_GENERATION_PAIR_REJECTED").map(_.level) shouldBe Some(CozyCarLint.Level.Warn)
+              findings.exists(_.code == "CAR_METADATA_COZY_VERSION_MISSING") shouldBe false
               findings.exists(_.code.startsWith("car.cml.source.")) shouldBe false
               findings.exists(_.level == CozyCarLint.Level.Fail) shouldBe false
             }
@@ -158,7 +159,7 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
         }
 
         "E-CID07E-3 canonical UserAccount snapshot" must _cid07e {
-          "keeps missing Cozy generator metadata as a failure outside deferred legacy identity" in {
+          "accepts the executing Cozy generator when no override is declared" in {
             _with_temp_dir("cozy-car-lint-cid07e-user-account") { dir =>
               Given("a canonical UserAccount SNAPSHOT with complete runtime metadata but no Cozy generator field")
               _write_canonical_snapshot_project(dir)
@@ -167,9 +168,10 @@ class CozyCarLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
               When("integrated CAR lint evaluates the canonical development project")
               val findings = CozyCarLint.lint(dir, None, noabi = true)
 
-              Then("canonical identity remains accepted while missing Cozy metadata remains a failure")
+              Then("canonical identity and the effective Cozy generator are accepted")
               findings.find(_.code == "CAR_COMPONENT_IDENTITY_CANONICAL").map(_.level) shouldBe Some(CozyCarLint.Level.Ok)
-              findings.find(_.code == "CAR_METADATA_COZY_VERSION_MISSING").map(_.level) shouldBe Some(CozyCarLint.Level.Fail)
+              findings.exists(_.code == "CAR_METADATA_COZY_VERSION_MISSING") shouldBe false
+              findings.find(_.code == "car.metadata.compatibility.accepted").map(_.level) shouldBe Some(CozyCarLint.Level.Ok)
             }
           }
         }

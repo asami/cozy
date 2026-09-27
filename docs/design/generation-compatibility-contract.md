@@ -34,6 +34,15 @@ schema, owner/location, coordinate fields, immutable-only evidence pairs, pair
 uniqueness, and status semantics before admission; malformed evidence cannot
 produce `Supported`.
 
+For sbt-cozy runtime selection, the CNCF compile version is authoritative when
+no Cozy override is declared. The launcher runtime catalog projects only
+proven compatible pairs from Cozy generation evidence and selects the highest
+numeric Cozy version for that CNCF version. This selector is distinct from the
+global latest Cozy runtime and from the single published default pair. Explicit
+project or build Cozy versions and an explicit development checkout override
+that default; contradictory explicit versions fail. The exact selected version
+is still required at the generation and package admission boundaries.
+
 Evidence owner and location are returned with every admission decision. Cozy is
 the generation owner, and Cozy is not a CAR runtime dependency. CV-02 owns
 pure admission of missing or unsupported coordinates, unproven or incompatible
@@ -43,7 +52,7 @@ including rejecting absent or contradictory invocation sources. CV-04 owns
 runtime descriptor target/schema/digest validation only.
 
 CV-06A makes the unmerged CAR `project.yaml` the package-gate authority for
-`build.cozyVersion`, the unique CNCF compile coordinate, and the independent
+an optional `build.cozyVersion`, the unique CNCF compile coordinate, and the independent
 runtime range. `CarMetadataCompatibility` returns typed diagnostics for missing
 or contradictory project values, while `CozyArchivePackager` requires exactly
 one resolved CNCF JAR descriptor whose runtime/module/root-version identity
@@ -65,11 +74,12 @@ value generation uses the selected CNCF target as its output version. Mutable
 generation pairs are admitted only for mutable output; immutable generated
 output requires a proven immutable pair and valid provenance.
 
-For CAR/SAR sbt builds, unmerged `project.yaml` must own both exact generation
-coordinates: `build.cozyVersion` and exactly one CNCF compile dependency.
-sbt-cozy does not substitute its own plugin version or an ambient generator.
-When the exact Cozy generator cannot be launched, the failure names its
-coordinate and gives the publish/select recovery action. Exact CAR dependency
+For CAR/SAR sbt builds, unmerged `project.yaml` must own exactly one CNCF
+compile dependency. An optional exact Cozy override may be in the project or
+owning build; otherwise the launcher resolves the newest proven generator for
+that CNCF target. sbt-cozy does not substitute its own plugin version or an
+ambient generator. When the selected generator cannot be launched, the failure
+names its CNCF or Cozy coordinate and gives the publish/select recovery action. Exact CAR dependency
 archives are resolved independently of source-project builds.
 
 CV-06C1 carries validated generation provenance into the CAR as the top-level

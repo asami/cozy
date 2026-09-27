@@ -23,7 +23,6 @@ The generated `project.yaml` must declare:
 ```yaml
 build:
   scalaVersion: "3.3.8"
-  cozyVersion: "<exact-generator-version>"
   dependencies:
     compile:
       - "org.goldenport::goldenport-cncf:<development-version>"
@@ -46,8 +45,9 @@ packaging:
           - "<tested-version>"
 ```
 
-`build.cozyVersion` is the exact Cozy generator coordinate used by the
-generated build. The CNCF build dependency is the exact generated-code compile
+`build.cozyVersion` may be added as an exact Cozy generator override; the
+generated build does not write it by default. The CNCF build dependency selects
+the newest proven compatible Cozy runtime when no override exists and is the exact generated-code compile
 coordinate. `minimum`, `excluded`, and `tested` independently describe runtime
 compatibility and validation.
 
@@ -59,7 +59,7 @@ be copied into the component ABI dependency surface.
 ## Build Projection
 
 The generated build must read organization, name, component version, Scala
-version, exact Cozy generator version, dependencies, component name, and
+version, optional exact Cozy generator override, dependencies, component name, and
 descriptor metadata from `project.yaml`.
 
 The generated build must not:
@@ -76,7 +76,7 @@ These properties are executable in `ModelerScaffoldSpec`.
 ## Package Admission
 
 For `packaging.kind: car`, packaging must use the unmerged `project.yaml` as
-the authority for `build.cozyVersion`, the unique CNCF compile dependency, and
+the authority for an optional `build.cozyVersion`, the unique CNCF compile dependency, and
 `packaging.car.runtime.cncf`. Merged operation defaults must not replace those
 values.
 
@@ -128,10 +128,12 @@ identity remains package evidence and is not required again by Review or
 publication.
 
 The publication version must equal `project.component.version`. CAR/SAR
-generation must read `build.cozyVersion` and exactly one CNCF compile dependency
-from the same unmerged project metadata before launching the delegated
-generator. Missing authorities fail; the plugin version and ambient settings
-are not substitutes.
+generation must read exactly one CNCF compile dependency from the unmerged
+project metadata before launching the delegated generator. An optional
+`build.cozyVersion` is an exact override; without it, the launcher selects
+the newest proven Cozy runtime for that CNCF version. Missing CNCF authority
+or a missing proven runtime mapping fails; the plugin version and ambient
+settings are not substitutes.
 
 These properties are executable in `CozyCarLintSpec`,
 `CozyCarReviewProviderSpec`, and `CozyCarPublisherSpec`.

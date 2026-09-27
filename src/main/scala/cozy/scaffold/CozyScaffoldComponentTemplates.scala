@@ -7,13 +7,13 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyScaffoldComponentTemplates {
   private val _default_sbt_cozy_version = org.simplemodeling.cozy.BuildInfo.sbtCozyVersion
   private val _default_scala_version = org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion
-  private val _default_cozy_version = org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion
   private val _default_textus_user_account_version =
     org.simplemodeling.cozy.BuildInfo.scaffoldTextusUserAccountVersion
 
@@ -42,7 +42,6 @@ private[cozy] object CozyScaffoldComponentTemplates {
       |    libraryDependencies ++= ProjectYamlBuild.dependencies(cozyProjectMetadata.value),
       |
       |    cozyGeneratorBackend := "cozy",
-      |    cozyDelegateProjectDir := None,
       |    cozyCarName := ProjectYamlBuild.carBaseName(projectIdentityEvidence.value, moduleName.value, version.value),
       |    cozyManifestMetadata ++= ProjectYamlBuild.manifestMetadata(projectIdentityEvidence.value, cozyProjectMetadata.value)
       |  )
@@ -146,7 +145,6 @@ private[cozy] object CozyScaffoldComponentTemplates {
       |${projectmetadata}
       |build:
       |  scalaVersion: ${_yaml_string(_default_scala_version)}
-      |  cozyVersion: ${_yaml_string(_default_cozy_version)}
       |  dependencies:
       |    compile:
       |      - ${_yaml_string(s"org.goldenport::goldenport-cncf:${versions.cncfVersion}")}

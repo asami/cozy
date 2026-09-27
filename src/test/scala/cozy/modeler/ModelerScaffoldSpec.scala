@@ -14,7 +14,8 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Jun. 23, 2026
  *  version Jun. 27, 2026
  *  version Jul. 31, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -152,9 +153,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
           s"""scalaVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion}"""
         )
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
-        projectyamlcontent should include (
-          s"""cozyVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion}"""
-        )
+        projectyamlcontent should not include ("cozyVersion:")
         projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("abi:")
@@ -597,9 +596,7 @@ class ModelerScaffoldSpec extends AnyWordSpec with Matchers with GivenWhenThen w
           s"""scalaVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldScalaVersion}"""
         )
         projectyamlcontent should include ("org.goldenport::goldenport-cncf:")
-        projectyamlcontent should include (
-          s"""cozyVersion: "${org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion}"""
-        )
+        projectyamlcontent should not include ("cozyVersion:")
         projectyamlcontent should include ("org.scalatest::scalatest:3.2.19")
         projectyamlcontent should include ("manifest_metadata:")
         projectyamlcontent should include ("""minimum: """)

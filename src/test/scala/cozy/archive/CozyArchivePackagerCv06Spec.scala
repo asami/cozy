@@ -24,7 +24,8 @@ import play.api.libs.json.Json
 
 /*
  * @since   Jul. 28, 2026
- * @version Aug. 21, 2026
+ *  version Aug. 21, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArchivePackagerCv06Spec
@@ -58,8 +59,7 @@ final class CozyArchivePackagerCv06Spec
         val mainjar = _write(dir.resolve("artifacts/sample.jar"), "sample")
         val generationprovenance = _write_generation_provenance(
           dir,
-          "0.5.17",
-          cozyversion = org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion
+          "0.5.17"
         )
         val cncfjar = _write_runtime_jar(
           dir.resolve("artifacts/goldenport-cncf_3.jar"),
@@ -73,11 +73,11 @@ final class CozyArchivePackagerCv06Spec
         When("Cozy packages against the resolved CNCF artifact")
         _build_car(dir, mainjar, cncfjar, archive)
 
-        Then("only project-owned generator, compile, and runtime metadata govern admission")
-        projectyaml should include("""cozyVersion: """ + _quoted(org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion))
+        Then("the executing generator and project-owned compile and runtime metadata govern admission")
+        projectyaml should not include ("cozyVersion:")
         projectyaml should include("org.goldenport::goldenport-cncf:0.5.17")
         buildsbt should not include ("cozyDelegateCommand :=")
-        buildsbt should include ("cozyDelegateProjectDir := None")
+        buildsbt should not include ("cozyDelegateProjectDir := None")
         _zip_entries(archive) should contain allOf (
           "component/main.jar",
           "component-descriptor.json",
@@ -183,7 +183,7 @@ final class CozyArchivePackagerCv06Spec
         val projectyaml =
           _project_yaml(dir).
             replace("0.5.17", "0.5.1").
-            replace(org.simplemodeling.cozy.BuildInfo.scaffoldCozyVersion, mutablegeneratorversion).
+            replace("build:\n", s"build:\n  cozyVersion: $mutablegeneratorversion\n").
             replace("0.0.1-SNAPSHOT", "0.0.1")
         _write(dir.resolve("project.yaml"), projectyaml)
         _write(

@@ -23,11 +23,24 @@ actual/coordinate context. The admission API distinguishes missing CNCF,
 missing Cozy, both missing, unsupported coordinates, unsupported pairs, known
 unproven pairs, and explicitly incompatible pairs.
 
-For a CAR project, the unmerged `project.yaml` must supply one non-empty
-`build.cozyVersion`, exactly one CNCF compile dependency, and a runtime
+For a CAR project, the unmerged `project.yaml` must supply exactly one CNCF
+compile dependency and a runtime
 compatibility declaration with `minimum` and a non-empty `tested` set. The
 compile target must be within the optional maximum, absent from `excluded`, and
 present in `tested`.
+
+`build.cozyVersion` is an optional exact generator override. The owning SBT
+build may also set an exact Cozy version; conflicting explicit sources fail.
+An explicit project-local development checkout is an alternative override and
+must identify its exact version before execution. When no override exists,
+the launcher selects the highest version among active, proven Cozy runtimes
+listed for the exact CNCF compile target in the runtime catalog. Compare
+numeric version segments, not publication time or lexical strings. An absent
+mapping fails closed; an unproven or merely published Cozy runtime is not a
+candidate. Mutable/SNAPSHOT generation requires an explicit version or
+checkout when no proven default exists. The resolved exact generator version
+must be bound to generation and package evidence; a changed resolution cannot
+reuse stale generated output.
 
 Package admission must resolve exactly one CNCF descriptor from the actual
 input JARs. Its runtime must be `cncf`; its module organization, artifact, and
@@ -56,13 +69,15 @@ and test results supplies development evidence. Release admission remains
 immutable and requires an exact evidence-proven pair; version similarity and
 fallback inference never supply proof.
 
-For CAR/SAR generation, sbt-cozy must reject a project missing
-`build.cozyVersion`, missing its CNCF compile dependency, or declaring more
+For CAR/SAR generation, sbt-cozy must reject a project missing its CNCF
+compile dependency or declaring more
 than one CNCF compile dependency declaration. Equivalent aliases or duplicate
 declarations of the same version remain multiple inputs and must be rejected,
-not collapsed. The exact project pair must be passed to the delegate and
-incremental state. An unavailable delegate must identify the exact Cozy
-coordinate and the recovery action. Resolving an exact CAR dependency archive
+not collapsed. An explicit Cozy coordinate must be passed to the delegate and
+incremental state. Without one, the exact CNCF coordinate must reach the
+launcher for catalog selection and generated output must not be reused before
+the resolved Cozy coordinate is known. An unavailable delegate must identify
+the exact requested CNCF or Cozy coordinate and the recovery action. Resolving an exact CAR dependency archive
 must not require loading, generating, or publishing that dependency's source
 project. A flat SBT test runtime may extract the CAR's implementation JARs and
 resolve only its `component-dependencies.yaml` `dependencies.local`

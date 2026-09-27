@@ -11,9 +11,10 @@ full-suite validation and independent re-review. CAM-73-01 through CAM-73-03
 and compatibility blocker CB-73-01 are locally complete. The generated ABI
 has a source-tracked, byte-verified handoff fixture. CNCF Phase 77 has since
 closed for Cozy 62.1–62.3, so its historical open-stage mapping is not a
-current receiver. The canonical CNCF Phase 90 admission receiver and its
-acceptance are explicitly deferred as Future Development Candidate `DP-73-01`;
-they are not claimed complete by this Cozy Phase closure.
+current receiver. CWF-77-04C in CNCF Phase 77.1 received and accepted that
+producer ABI in commit `3006494cdd279c44c37831387184554f7a202f23`. Any later
+compatible-release consumption remains Future Development Candidate `DP-73-01`;
+it is not claimed complete by this Cozy Phase closure.
 Planned at: 2026-09-22
 Development item: DEV-035
 Primary owner: Cozy
@@ -83,7 +84,7 @@ human, transport, or provider identity as CAM semantics.
 | CAM-73-01 | Freeze the provider-neutral CML/IR vocabulary for a candidate-producing semantic Action, typed Candidate/Result/Rationale/Evidence, and the deterministic admission boundary. Focused validation `PHASE-73-CAM-73-01-VAL-002` passed; the producer fails closed until CAM-73-02 lowering is implemented. | completed |
 | CAM-73-02 | Lower the vocabulary into a versioned, source-attributed generated ABI with explicit compatibility handling for the closed Phase 62.3 producer contract. | completed locally: CB-73-02 rejects CML-key-normalized duplicate and null normalized-IR Judgment semantics before artifacts are emitted |
 | CAM-73-03 | Add isolated positive, rejection, determinism, provenance, and compatibility executable specifications and a representative fixture; preserve the released Phase 62.3 fixture as the baseline unless a separately accepted compatibility change says otherwise. | completed locally: Scala-plus-JSON lowerer rejection coverage passed fresh full-suite validation |
-| CAM-73-04 | Freeze producer evidence and a precise CNCF consumer handoff boundary. The versioned ABI is source-tracked and byte-verified locally. The historical Phase 77 open-stage mapping is superseded because current Phase 77 is closed for Cozy 62.1–62.3. A canonical CNCF Phase 90 admission receiver must accept the ABI before `sm-workflow` can consume its compatible CNCF release. | local producer handoff artifact complete; external recipient creation and acceptance are deferred as `DP-73-01` |
+| CAM-73-04 | Freeze producer evidence and a precise CNCF consumer handoff boundary. The versioned ABI is source-tracked and byte-verified locally. The historical Phase 77 open-stage mapping is superseded because current Phase 77 is closed for Cozy 62.1–62.3. CWF-77-04C in CNCF Phase 77.1 accepted the ABI in commit `3006494cdd279c44c37831387184554f7a202f23`; any later compatible-release consumer remains separate. | producer handoff artifact and CNCF receiver acceptance complete; later compatible-release consumption remains `DP-73-01` |
 
 ## Acceptance
 
@@ -107,11 +108,12 @@ human, transport, or provider identity as CAM semantics.
 
 ## Deferred Development Candidate
 
-- `DP-73-01` **(Future Development Candidate)** — CNCF Phase 90 must create
-  the canonical admission receiver, verify schema/provenance/compatibility
-  against this producer ABI, and record its acceptance before `sm-workflow`
-  consumes a compatible CNCF release. This is a CNCF/`sm-workflow` consumer
-  responsibility and is deliberately outside closed Cozy Phase 73.
+- `DP-73-01` **(Future Development Candidate)** — a later compatible release
+  consumer, including any `sm-workflow` integration, must consume the accepted
+  CWF-77-04C receiver contract. The producer ABI has already been received and
+  accepted by CNCF Phase 77.1 in commit
+  `3006494cdd279c44c37831387184554f7a202f23`. That later consumer scope is
+  deliberately outside closed Cozy Phase 73.
 
 ## Non-goals
 
@@ -125,9 +127,9 @@ human, transport, or provider identity as CAM semantics.
   70, or CNCF Phase 89's consumer admission/runtime projection.
 - Scheduling/lifecycle, failure-model, UI, REST, Flutter, publication, or
   unrelated media work.
-- CNCF Phase 77 implementation or closure. The remaining receiver acceptance
-  is deferred to `DP-73-01` in CNCF Phase 90; Phase 73 neither performs nor
-  claims that consumer work.
+- CNCF Phase 77 implementation or closure. CWF-77-04C receiver acceptance is
+  recorded separately; `DP-73-01` remains only for a later compatible-release
+  consumer. Phase 73 neither performs nor claims that consumer work.
 
 ## References
 
