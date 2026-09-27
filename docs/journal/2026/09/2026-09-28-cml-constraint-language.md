@@ -76,3 +76,15 @@ evaluation failure  = Consequence
 This also avoids three-valued Boolean semantics. `Boolean ?` means zero or one Boolean value, not true/false/null. Since a Constraint requires `Boolean 1`, optionality must be resolved explicitly in the expression, for example by an existence condition.
 
 A false Constraint result and an evaluation failure remain semantically different.
+
+
+## ConstraintContext and Constraint Placement
+ConstraintContext was promoted from a runtime concern to a CML/CCL semantic concept.
+
+A context subject supplies implicit `self`, allowing concise expressions such as `amount > 0` inside an Order constraint. Static resolution normalizes this to a fully qualified subject-member reference. Explicit `self` remains available when names are shadowed or clarity requires it.
+
+ConstraintContextSchema is derived from the owning model placement rather than normally written by the model author. The same schema supports static name/type resolution and later runtime value binding.
+
+Constraint itself remains deliberately small. Invariant, precondition, postcondition, guard, workflow condition, admission condition, and similar meanings should primarily be represented by where the Constraint is attached (for example Operation.preconditions or Transition.guard), avoiding a proliferating Constraint subtype hierarchy.
+
+Phase 1 constraints are placement-bound. Generic/parameterized reusable Constraint definitions can be introduced later if a concrete need emerges.
