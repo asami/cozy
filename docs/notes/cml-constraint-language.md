@@ -107,3 +107,32 @@ evaluation failure -> Consequence
 An optional Boolean is therefore `Boolean ?`, not a three-valued Boolean containing null. A CML Constraint requires a final expression of `Boolean 1`; when an optional value affects the condition, the model must explicitly state how existence is interpreted, for example through `exists`.
 
 Constraint non-satisfaction and evaluation failure are distinct. A successfully evaluated `false` means the Constraint is not satisfied; a failed Consequence means the Constraint could not be evaluated.
+
+
+## ConstraintContext and Implicit self
+CCL expressions are resolved within a ConstraintContext derived from the CML model placement. The context is both the static name-resolution contract and the schema for later runtime binding.
+
+An unqualified name may resolve to a member of the context subject. Thus an Order invariant may write `amount > 0`; semantic resolution normalizes it to the equivalent of `self.amount > 0`. Explicit `self` remains available for disambiguation.
+
+Recommended resolution precedence is: lexical bindings (iterator/let), explicit context bindings (parameters/variables), subject members through implicit self, then model symbols. Ambiguity is a semantic error rather than an arbitrary choice.
+
+Source-level abbreviation disappears after resolution: generators, evaluators, and lint consume a fully resolved semantic AST.
+
+## Constraint Semantic Model
+Constraint should remain small and placement-bound in Phase 1:
+
+```
+Constraint
+  name        : String ?
+  expression  : CclExpression   // must resolve to Boolean 1
+  description : String ?
+  source      : SourceLocation
+```
+
+Invariant, precondition, postcondition, guard, workflow/admission conditions, and similar concepts are primarily meanings of the owning CML placement rather than a growing Constraint subtype hierarchy.
+
+Examples: Entity.invariants, Operation.preconditions, Operation.postconditions, Transition.guard, Workflow condition, and Admission condition all reference Constraint. The placement determines the ConstraintContextSchema.
+
+Typical derived schemas are: Entity invariant -> subject=Entity; Operation precondition -> subject=owner plus parameters; Operation postcondition -> the same plus result and pre-state; StateMachine guard -> state-machine owner plus event parameters; Workflow condition -> workflow subject plus workflow variables; Admission condition -> candidate plus admission bindings.
+
+ConstraintContext is normally an internal semantic model, not literary syntax users must define manually. Reusable parameterized Constraint definitions may be added later; Phase 1 constraints are placement-bound.
