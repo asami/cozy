@@ -1,6 +1,7 @@
 # Phase 58.2: Interactive Document and Summary Confirmation Projection
 
-Status: COMPLETE
+Status: CLOSED
+Closure commit: `2a9ad1a961d33286bb53f345aced68543191e8ca`
 
 Prior operational closure: 2026-09-13 operational handoff with explicit deferrals;
 retained as historical provenance and not normal release acceptance
@@ -159,9 +160,10 @@ earlier validation and review evidence.
   remain executable and passing.
 - Repeated rendering of identical admitted bytes yields identical HTML bytes
   and output identity.
-- Generated HTML is self-contained, safely escaped, keyboard-operable,
-  responsive at representative desktop and mobile widths, and requires no
-  external Web resource.
+- Generated HTML is self-contained, safely escaped, keyboard-operable, and
+  requires no external Web resource. The accepted visual gate is desktop
+  sample parity with narrow fallback characterization; mobile or full
+  responsive parity is not claimed.
 - Focused validation, independent full Phase review, full Cozy validation, and
   a distinct Phase release commit close the Phase.
 
@@ -176,20 +178,19 @@ earlier validation and review evidence.
   registration, deployment, upload, push, or external-service mutation.
 - Automatic semantic inference or automatic acceptance of AI-authored content.
 
-## Execution readiness
+## Historical execution readiness
 
-Historical start conditions follow. Phase 58.2 is active again for the resumed
-normal-acceptance boundary; DP-01 and DP-03 are adopted into this existing
-Phase rather than new successor phases. DP-02's broader long/dense redesign
-remains future work, and its current narrow fallback characterization is a
-scheduled gate rather than successful evidence.
+The following were start conditions for the resumed normal-acceptance boundary,
+which closed in commit `2a9ad1a`. DP-01 and DP-03 were accepted in this Phase;
+DP-02's broader long/dense redesign remains future work. The narrow fallback
+was characterized as part of the accepted desktop evidence.
 
 - Record exact identities for the three Article 9 reference files before the
   first implementation Step.
 - Do not mix the currently unrelated Phase 48 worktree changes into Phase 58.2;
   start only from a settled tree or a separately isolated worktree.
-- The checklist is authoritative for progress; this planned document does not
-  claim any implementation or validation completion.
+- The checklist is authoritative for the completed implementation and
+  validation evidence.
 
 ## References
 

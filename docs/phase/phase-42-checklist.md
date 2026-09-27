@@ -9,7 +9,7 @@ Phase Status: COMPLETE
 
 Stage Status:
 
-- Current status: COMPLETE; release closure pending
+- Current status: COMPLETE
 - Owner: Cozy Phase 42
 - Update rule: Update this block from the checklist state below.
 
@@ -30,7 +30,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: COMPLETE; release closure pending
+- Current status: COMPLETE
 - Owner: Cozy Phase 42
 - Update rule: Update this block from the checklist state below.
 
@@ -63,7 +63,7 @@ Phase 42.1 is recorded. It does not claim state/dashboard/driver acceptance,
 publication, deployment, upload, push, migration, or downstream consumer
 acceptance.
 
-## Closure Ledger in Progress (2026-08-31)
+## Closure Ledger (2026-08-31)
 
 - DP42-01 acceptance commit:
   `6fa01ac3687d66a8a24b0f20ec6c1d8b3b597729`.

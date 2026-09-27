@@ -1,6 +1,7 @@
 # Phase 47.2 - UnitOfWork Planning and Deterministic Test Foundation
 
-Status: completed; release validation and distinct release-commit evidence pending
+Status: CLOSED
+Closure commit: `94319cda75046c3a2a008be5a6a59abe32e5cc6f`
 Planned at: 2026-09-05
 Revised at: 2026-09-08
 Depends on: Phase 47.1
@@ -101,12 +102,14 @@ generated ABI, Action compilation, or fixture acceptance is duplicated here.
 - The final Step accumulator test passed 9 specifications in 2 suites with no
   failures, and the independent full Phase review `P472-PHASE-FULL-REVIEW-001`
   sealed no Current Phase Blocker, Hygiene, or Development Candidate.
-- The frozen consumer contract is sufficient for Phase 47.2.1 to bind CML
-  logical actions directly to `ExecProgram`; Phase 47.2.1 and Phase 47.2.2
-  remain planned and unstarted.
-- The matching checklist records the completed child boundary. Final full
-  validation and the distinct release commit are the remaining mechanical
-  closure gate; neither is claimed by this document alone.
+- The frozen consumer contract was sufficient for Phase 47.2.1 to bind CML
+  logical actions directly to `ExecProgram`. Phase 47.2.1 and the Cozy
+  producer portion of Phase 47.2.2 closed separately afterward; CNCF consumer
+  acceptance remains outside this child.
+- The Phase release closure receipt records `CLOSED`: full Cozy validation
+  passed 1,762 tests with 0 failures, full CNCF validation passed 3,553 tests
+  with 0 failures, the independent Phase review passed, and the distinct
+  release commit `94319cd` closed this child.
 
 ## Non-goals
 

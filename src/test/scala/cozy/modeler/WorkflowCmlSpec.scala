@@ -7,7 +7,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 17, 2026
- * @version Sep. 22, 2026
+ * @version Sep. 27, 2026
  * @author  ASAMI, Tomoharu
  */
 final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -143,7 +143,7 @@ final class WorkflowCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen
         }
 
         Then("the structural capability section receives an explicit diagnostic")
-        error.getMessage should include("requires a COMPOSITE-STATEMACHINE structural section when REQUIRED-OPERATION is declared")
+        error.getMessage should include("requires a COMPOSITE-STATEMACHINE structural section when API/SPI operations are declared")
       }
 
       "reject multiple REQUIRED-OPERATION sections" in {

@@ -1,6 +1,10 @@
 # Phase 49.1: Document Project Presentation Semantics Workflow Surfaces
 
-Status: IN PROGRESS
+Status: CLOSED
+
+Closure commit: `e580a9a` (successful Phase 49.1 force release).
+Canceled work is recorded in the
+[closure note](../journal/2026/09/2026-09-27-phase-49.1-closure-note.md).
 
 Plan date: 2026-09-09
 Split from: [Phase 49](phase-49.md)
@@ -59,8 +63,9 @@ Phase Plan Gate: PROCEED
   adds a permissive alias or scaffold-only path.
 - `inspect`, `plan`, and Dashboard expose the frozen states and deterministic
   block/action guidance without placeholder success or mutation.
-- Focused executable specifications, review, full Cozy validation, and release
-  closure prove this read-only surface only.
+- Focused executable specifications and the recorded release disposition close
+  this read-only surface. Work canceled by the force-release decision is listed
+  in the closure note.
 - Public confirmation routing, stale propagation, Article-9-shaped acceptance,
   publication, deployment, upload, push, and external mutation remain outside
   this child.
@@ -84,8 +89,8 @@ Phase Plan Gate: PROCEED
 - `CozyExplanation` and `CozyVisualPage` are the sole fixed Catalog providers;
   Document Project consumes their fixed identities and never selects, discovers,
   loads, or falls back among Catalogs.
-- Phase-wide full validation, independent Phase review, and release closure
-  remain pending.
+- Phase 49.1 is closed by force-release commit `e580a9a`. The closure note
+  records the work stopped at that boundary.
 
 ## References
 

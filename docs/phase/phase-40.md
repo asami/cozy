@@ -11,8 +11,8 @@ Dependencies:
 - the accepted SmartDox Phase 9 article-media PDF contract and usable
   development or release coordinate.
 
-Phase 40 has passed its fresh final validation and awaits its distinct local
-release commit. This plan does not alter the closed Phase 38, Phase 39, or
+Phase 40 passed its final validation and closed in distinct local release
+commit `e0d1a99`. This plan does not alter the closed Phase 38, Phase 39, or
 Phase 39.1 boundaries.
 
 ## Split Provenance
@@ -234,8 +234,8 @@ SmartDox registration. The direct descriptor-driven implementation is complete:
 closure re-review `P40-03A-RE-REVIEW-003` passed with all P40-03A blockers closed.
 The P40-03 Step acceptance commit
 `fa7233d4cbf24dcb33b3abe69f01b975796c84b3` completed the implementation, so
-P40-03 is complete. Phase 40 remains in progress pending its final full
-validation, independent Phase review, and release closure.
+P40-03 was complete at that Step boundary. Final full validation, independent
+Phase review, and release closure followed; Phase 40 is now closed.
 
 ### PDF40-04: Package Verification and Currentness
 
@@ -316,7 +316,8 @@ currentness guarantees.
 
 ### P40-FINAL-CPB-001: Publication Currentness Integration
 
-Status: CLOSED — final full validation passed on 2026-08-30; local release commit pending.
+Status: CLOSED — final full validation passed on 2026-08-30; the later local
+release commit `e0d1a99` closed Phase 40.
 
 The one permitted final serialized Cozy suite
 `82822-20260829T214854Z` compiled successfully but failed 20 of 1,568 tests

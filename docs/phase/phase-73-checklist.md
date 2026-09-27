@@ -71,12 +71,13 @@ The preceding failed attempt remains retained as immutable repair evidence.
 - [x] Freeze the exact local handoff artifact: the source-tracked
       `candidate-admission-producer-abi.json` fixture, its schema and SHA-256,
       typed diagnostics, and Phase 62.3 additive compatibility decision.
-- [x] **(Future Development Candidate) `DP-73-01`** — defer acceptance by the
-      canonical CNCF admission receiver to CNCF Phase 90. Current CNCF Phase
-      77 is closed for Cozy 62.1–62.3, while `sm-workflow` requires a
-      compatible CNCF Phase 90 release; the recipient record and its
-      fail-closed provenance/compatibility acceptance are not yet present and
-      are not claimed by Cozy.
+- [x] Record the later receiver acceptance separately from Cozy's local
+      closure: CNCF Phase 77.1 CWF-77-04C accepted the named Phase 73 fixture,
+      schema, provenance, and compatibility in commit
+      `3006494cdd279c44c37831387184554f7a202f23`. **(Future Development
+      Candidate) `DP-73-01`** remains for later compatible-release consumption,
+      including `sm-workflow`; it does not reopen receiver creation or claim
+      consumer runtime completion.
 - [x] Do not claim CNCF runtime admission, progression, commitment,
       persistence, provider dispatch, or `sm-workflow` completion.
 
@@ -116,8 +117,10 @@ both Scala and JSON lowering paths, unchanged valid CAM output, Phase 62.3
 no-CAM compatibility, and the provider-neutral CNCF Phase 77 handoff boundary.
 
 The local producer handoff is frozen. The owner-directed Phase closure records
-the producer validation and release commit while deferring receiver acceptance
-as `DP-73-01`; neither is a CNCF runtime or `sm-workflow` completion claim.
+the producer validation and release commit. CNCF Phase 77.1 subsequently
+accepted the named ABI in CWF-77-04C; `DP-73-01` defers only later
+compatible-release consumption. Neither record claims CNCF runtime or
+`sm-workflow` completion.
 
 `PHASE-73-HANDOFF-FIXTURE-VAL-001` subsequently ran
 `testOnly cozy.modeler.StateMachineWorkflowAbiGenerationSpec` on the tree that

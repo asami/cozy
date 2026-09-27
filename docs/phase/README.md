@@ -2,13 +2,13 @@
 
 Purpose: engineering work management.
 
-Current phase state:
+Phase status index (individual Phase/checklist files are authoritative):
 
-- Most recent closed phase: `phase-46.md`: Content Core Story Flow and
+- Historical closed phase: `phase-46.md`: Content Core Story Flow and
   per-unit Explanation Structure are frozen as one typed logical-presentation
   authority. The accepted handoff preserves the closed Phase 36/37/41/45.*
   history.
-- Most recently closed local phase: `phase-46.1.md`: it consumed the Phase 46
+- Historical closed local phase: `phase-46.1.md`: it consumed the Phase 46
   handoff for Cozy-local slides, video, integrated confirmation HTML, receipts,
   semantic coverage, review, validation, and release closure. Under
   `P461-DEC-ROOT-001`, Article 8 driver promotion, acceptance, and confirmation
@@ -23,7 +23,7 @@ Current phase state:
 - No Phase 35 successor work is started. Its superseded planning records remain
   only as unexecuted history. SmartDox Phase 8 `LITERAL8-03` remains separate
   for generated-site and Textus BoK consumer acceptance.
-- Most recent closed phase: `phase-33.md`: Declared Cozy Runtime Selection for
+- Historical closed phase: `phase-33.md`: Declared Cozy Runtime Selection for
   CAR Publication. It established CAR-owned `project.yaml build.cozyVersion`
   as the publication runtime authority, without a temporary `.cozy` override.
 - Historical closed phase: `phase-29.md`: Project-Owned Site BoK Metadata
@@ -74,20 +74,20 @@ Current phase state:
   Cozy Phase 62.3 fixture remains the producer handoff for CNCF Phase 77 and
   `sm-workflow` Phase 1. Existing CNCF-driven Cozy StateMachine changes remain
   a separate later bounded task.
-- In-progress CAM producer ABI: [Phase 73](phase-73.md) turns the existing
+- Closed CAM producer ABI: [Phase 73](phase-73.md) turned the existing
   Candidate-Admission Model design direction into a bounded CML
   StateMachine/Workflow producer contract for a candidate-producing semantic
   Action, typed candidate/result/rationale/evidence, deterministic admission, provenance,
   diagnostics, and compatibility. It consumes the user-selected CNCF Phase 77
   design authority and provides the missing Cozy producer handoff that enables
   its `sm-workflow` development.
-  CAM-73-01 through CAM-73-04 and CB-73-01 are locally complete. A bounded
-  release repair adds the required typed rationale and corrects the CNCF Phase 77
-  OPEN admission/discovery handoff. Focused validation covers the repaired
-  producer boundary; independent review and an authorized release commit remain
-  separate Phase-closure work. It is an additive producer boundary: it does not
-  change the closed Phase 62.3 fixture and does not implement the CNCF runtime,
-  provider, or application work.
+  CAM-73-01 through CAM-73-04 and the CB-73-01/02 repairs are complete; Cozy
+  closed this producer boundary on 2026-09-23. CNCF Phase 77.1 CWF-77-04C
+  subsequently accepted the named ABI fixture, schema, provenance, and
+  compatibility in commit `3006494cdd279c44c37831387184554f7a202f23`.
+  Later compatible-release consumption remains `DP-73-01`. This additive
+  producer boundary does not change the closed Phase 62.3 fixture or claim
+  CNCF runtime, provider, or application completion.
 - Planned local media repair: [Phase 71](phase-71.md) resolves a requested
   product's declared DSL chain back to Core, updates affected DSLs forward,
   and rebuilds Storyboard video with make-level dependencies instead of
@@ -102,7 +102,7 @@ Current phase state:
   traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
   semantic supplier for Textus CBD Support and does not implement its UI or
   publish SimpleModeling.org.
-- Most recently closed Document Project scaffold phase: `phase-48.md` adds the
+- Closed Document Project scaffold phase: `phase-48.md` adds the
   strict, authoring-incomplete presentation-semantics sibling for the selected
   public profiles while preserving the closed Phase 46/46.1 contracts.
   `phase-49.md` is the retained Work Product/state/public-operation-grammar
@@ -117,12 +117,12 @@ Current phase state:
   target binding, and `phase-57.3.md` for the native publication-preparation
   skill boundary. This is a greenfield sequence and does not preserve the
   legacy article-media workflow.
-- Most recently closed recursive Content Core phase: `phase-58.md` proves one recursive,
+- Closed recursive Content Core phase: `phase-58.md` proves one recursive,
   locale-independent `content/core.yaml` and projects the real Article 9 logic
   into a visual tree HTML and one-page-per-Step slide HTML. It does not reopen
   completed Phase 46/46.1 history or migrate every Document Project; its
   nonblocking `HYG-P58-001` remains separately tracked.
-- Most recently closed Document/Summary authoring phase: `phase-58.1.md` defines
+- Closed Document/Summary authoring phase: `phase-58.1.md` defines
   media-independent Document Description and Summary Description DSLs over
   Phase 58, using `content/<locale>/document.yaml` and `summary.yaml` for the
   real Article 9 vertical slice. It separates prose and concise semantic
@@ -165,13 +165,13 @@ Current phase state:
   suite. This does not
   change Phase 59/60 priority or authorize external-project video/publication
   work.
-- Most recently closed local phase: `phase-55.md` preserves one effective
+- Historical closed local phase: `phase-55.md` preserves one effective
   site-root/site-config authority through build, receipt validation,
   `register-site`, and `register-site-wip`. It is an independent prerequisite
   for the Phase 57 SimpleModeling.org target binding; its closure makes no
   publication, deployment, upload, push, adapter-deletion, or external-consumer
   claim.
-- Most recent closed phase: `phase-30.md`: Unified Storyboard and
+- Historical closed phase: `phase-30.md`: Unified Storyboard and
   Three-Gate Video Review Workflow. Under the explicit 2026-08-26
   one-Phase authorization, its internal Steps are P30-00 through P30-03. The
   intended workflow is
@@ -183,14 +183,14 @@ Current phase state:
   Phase 36 is complete under its accepted closure status; Phase 37 is complete
   under its separate release closure. Its logical explanation composition and
   projection contract does not claim external consumer acceptance.
-- Most recent closed phase: `phase-36.md`: Common Visual Page and Cross-Media
+- Historical closed phase: `phase-36.md`: Common Visual Page and Cross-Media
   Presentation Contract. VIS36-01 through VIS36-06 are DONE. Its closed
   Cross-media Review route is accepted in `245ec94dccc8abcf81cb810cd0630d91ebb15e05`;
   its representative article-summary fixture, separate image inspection, full
   review, duplicate-JSON repair, and focused closure re-review are recorded in
   the Phase 36 checklist. No push, publish, or downstream-consumer acceptance
   is claimed; Phase 37 is complete under its own release closure.
-- Most recent closed phase: `phase-37.md`: Logical Explanation Composition and
+- Historical closed phase: `phase-37.md`: Logical Explanation Composition and
   Media Projection. It separates Subject Pattern from Narrative /
   Argument-oriented Explanation Pattern, validates and copies authored logical
   composition, and projects it independently through Phase 36 Visual Pages.
@@ -202,7 +202,7 @@ Current phase state:
   aligns scaffold and diagnostics, and accepts the reorganized
   `bok-knowledgehub` driver without publication, push, or downstream consumer
   acceptance.
-- Most recent closed phase: `phase-39.md`: PDF Command Contract and Semantics.
+- Historical closed phase: `phase-39.md`: PDF Command Contract and Semantics.
   It makes `cozy pdf --help` discoverable and clarifies LaTeX format versus
   media profile semantics. Markdown image admission and PDF receipts remain
   deferred to `DEV-012`.
@@ -213,7 +213,7 @@ Current phase state:
   Generation and Currentness. It generates and verifies localized article and
   summary-slide PDFs, keeps PPTX internal, and freezes the current
   media-package handoff.
-- Most recent closed phase: `phase-40.1.md`: Article and Summary Slide PDF
+- Historical closed phase: `phase-40.1.md`: Article and Summary Slide PDF
   Registration and Driver Acceptance. It closes the normal and WIP PDF
   registration contract. Operational acceptance on a SimpleModeling.org
   article is deferred as `P401-DC-001` to the post-Phase-42 Article 8
@@ -242,7 +242,7 @@ Current phase state:
   failed/aborted; SBT and wrapper exits were 0. The local Phase release commit
   binds this accepted closure; no commit SHA is recorded before that commit
   exists. No external consumer acceptance or external operation is claimed.
-- Most recent closed local phase: `phase-44.md`: SimpleModeler Concurrent
+- Historical closed local phase: `phase-44.md`: SimpleModeler Concurrent
   Generation Isolation. It removes cross-request declared-type registry
   replacement from SimpleModeler, proves different-model generation isolation
   in one JVM, and restores the failed `ModelerScalaGenerationSpec` validation
@@ -251,7 +251,7 @@ Current phase state:
   succeeded, 126 suites, and 0 failures. The local Phase closure also resolves
   the 2026-09-02 Hygiene Resolution Batch; no external operation or consumer
   acceptance is claimed.
-- Most recently closed local phase: `phase-45.2.md`: Document Project Alignment
+- Historical closed local phase: `phase-45.2.md`: Document Project Alignment
   and Article 8 Local Acceptance. It completed localized-artifact alignment and
   shared-infographic currentness as a private Cozy contract, and accepted the
   Article 8 driver only through normal read-only `index.dox` source projection.
@@ -432,13 +432,14 @@ closure. Article 8 driver promotion, acceptance, and confirmation are
 separately created work under `P461-DEC-ROOT-001` and are excluded from this
 Phase; no successor Phase is created here.
 
-Phase 47 is planned separately from closed Phase 33. Its work-ledger authority
+Phase 47 was executed separately from closed Phase 33. Its work-ledger authority
 is `phase-47.md`, with child ledgers `phase-47.1.md`, `phase-47.2.md`,
 `phase-47.2.1.md`, and `phase-47.2.2.md`. On 2026-09-08, the former 19–24 hour
 Phase 47.2 plan was approved as the ordered `47.2 -> 47.2.1 -> 47.2.2`
 sequence: consumer UnitOfWork planning/test foundation, Cozy logical-action
 compiler/generated ABI, then Cozy's Order/Payment/Shipment composition
-handoff. Phase 47.2.2 closes that Cozy producer boundary only; CNCF Phase 64.2
+handoff. Phase 47.2 closed with full validation and release commit `94319cd`;
+Phase 47.2.2 closes the Cozy producer boundary only; CNCF Phase 64.2
 retains consumer execution acceptance. Its non-normative planning inputs are
 `docs/notes/cml-composite-statemachine-workflow-proposal.md` and
 `docs/journal/2026/09/2026-09-05-composite-statemachine-workflow-modeling-direction.md`.

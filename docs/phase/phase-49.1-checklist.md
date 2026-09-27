@@ -1,7 +1,10 @@
 # Phase 49.1 Checklist: Document Project Presentation Semantics Workflow Surfaces
 
-Status: IN PROGRESS
+Status: CLOSED
 phase=[Phase 49.1](phase-49.1.md)
+
+Closure commit: `e580a9a` (successful Phase 49.1 force release).
+Closure basis: [closure note](../journal/2026/09/2026-09-27-phase-49.1-closure-note.md).
 
 Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 
@@ -35,9 +38,11 @@ Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
   read-only workflow surface.
 - [x] Existing Document Project behavior remains compatible outside the newly
   participating semantic authority.
-- [ ] Required full Cozy validation and independent Phase review pass.
-- [ ] Release closure records only the read-only workflow-surface handoff for
-  Phase 49.2.
+- [x] Required full Cozy validation and independent Phase review were stopped
+  by the accepted force-release decision; the closure note records what was
+  not performed rather than claiming a pass.
+- [x] Release closure records only the read-only workflow-surface handoff for
+  Phase 49.2 through successful force-release commit `e580a9a`.
 
 ## Step evidence
 

@@ -4,7 +4,8 @@ This checklist is the authoritative progress ledger for retained Phase 47.2.
 It records only the first unit of the approved 2026-09-08 split; Phase 47.2.1
 and Phase 47.2.2 own the later compiler and cross-repository acceptance work.
 
-Status: completed; final full validation and release commit pending
+Status: CLOSED
+Closure commit: `94319cda75046c3a2a008be5a6a59abe32e5cc6f`
 Depends on: Phase 47.1
 Successor: Phase 47.2.1
 
@@ -55,6 +56,7 @@ Stage Status:
 
 - [x] All three stage blocks are DONE with source/evidence references.
 - [x] Phase 47.2.1 receives the frozen consumer contract handoff.
-- [ ] Final full validation and the distinct Phase 47.2 release commit record
-      the mechanical closure; Phase 47.2.1 and Phase 47.2.2 remain planned and
-      unstarted.
+- [x] Final full validation and the distinct Phase 47.2 release commit record
+      mechanical closure: the retained closure receipt reports 1,762/0 Cozy
+      and 3,553/0 CNCF tests, full Phase review PASS, and release commit
+      `94319cd`. Later child and CNCF consumer work have separate boundaries.

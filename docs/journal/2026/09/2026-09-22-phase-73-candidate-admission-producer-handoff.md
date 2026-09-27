@@ -1,6 +1,11 @@
 # Phase 73 Candidate-Admission Producer Handoff
 
-Status: **CB-73-02's CML-key-normalization and null-IR follow-up repair has
+Historical snapshot: the status and recipient statements below record the
+2026-09-23 local closure boundary. They are superseded for current receiver
+status by the dated reconciliation immediately after the introduction; the
+original handoff evidence remains unchanged.
+
+Status as of 2026-09-23: **CB-73-02's CML-key-normalization and null-IR follow-up repair has
 fresh full-suite validation; the canonical sidecar is now source-tracked and
 byte-verified. Cozy Phase 73 closed on 2026-09-23 with external CNCF admission
 receiver creation and acceptance explicitly deferred as `DP-73-01`; neither
@@ -12,6 +17,16 @@ first CB-73-02 repair evidence, and current follow-up evidence below. This
 document is not an external delivery or a CNCF runtime acceptance receipt.
 CNCF admission, progression, commitment, provider dispatch, Continuation/resume,
 and `sm-workflow` remain consumer work.
+
+## Receiver reconciliation (2026-09-27)
+
+CNCF Phase 77.1 CWF-77-04C subsequently received the named, versioned Phase 73
+producer ABI fixture and accepted its schema, provenance, and compatibility in
+commit `3006494cdd279c44c37831387184554f7a202f23`. The older Phase 90
+receiver-pending statements below describe the 2026-09-23 snapshot, not the
+current recipient. `DP-73-01` now denotes only later compatible-release
+consumption, including any `sm-workflow` integration. Neither receiver
+acceptance nor this journal claims that consumer runtime work is complete.
 
 ## Authority and scope
 

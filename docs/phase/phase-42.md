@@ -36,7 +36,7 @@ accepted review evidence.
 
 Stage Status:
 
-- Current status: COMPLETE; release closure pending
+- Current status: COMPLETE
 - Owner: Cozy Document Project design and specification
 - Update rule: complete only when schemas, authority boundaries, command
   grammar, diagnostics, persistence, and compatibility are frozen.
@@ -63,7 +63,7 @@ Stage Status:
 
 Stage Status:
 
-- Current status: COMPLETE; release closure pending
+- Current status: COMPLETE
 - Owner: Cozy Document Project normalization
 - Update rule: complete only when the reusable DAG, profile activation,
   bindings, Work Products, criteria, and gates have Executable Specification.
@@ -143,7 +143,7 @@ release supplies the frozen handoff above and makes no claim about
 evidence-derived state, dashboard output, external driver acceptance, or
 Article 8 rollout.
 
-## Closure Evidence in Progress (2026-08-31)
+## Closure Evidence (2026-08-31)
 
 - DP42-01 is accepted in local commit
   `6fa01ac3687d66a8a24b0f20ec6c1d8b3b597729`.

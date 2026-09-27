@@ -102,9 +102,11 @@ human, transport, or provider identity as CAM semantics.
   assumed merely because an Action has a similar name.
 - The local completion handoff records the exact source, generated ABI/schema
   identity, compatibility decision, fixture evidence, current canonical CNCF
-  recipient, and remaining consumer-owned runtime responsibilities. Receiver
-  acceptance without CML reparsing or a handwritten Cozy replacement is
-  explicitly deferred to `DP-73-01`; this Phase does not claim it occurred.
+  recipient, and remaining consumer-owned runtime responsibilities. Cozy's
+  local Phase closure did not claim external receipt; CNCF Phase 77.1 later
+  accepted the named producer ABI in CWF-77-04C without CML reparsing or a
+  handwritten Cozy replacement. `DP-73-01` remains only for later
+  compatible-release consumption, not for creating that receiver.
 
 ## Deferred Development Candidate
 
