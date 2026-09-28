@@ -34,7 +34,7 @@ import scala.util.control.NonFatal
  *  version Jun. 30, 2026
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
- * @version Sep. 12, 2026
+ * @version Sep. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -75,15 +75,17 @@ class Cozy(
   def createInterpreter(): Kaleidox =
     _create_interpreter(
       modeler.PredefinedResultCatalog.empty,
-      modeler.ComponentStyleCatalog.EMPTY
+      modeler.ComponentStyleCatalog.EMPTY,
+      modeler.ModelGenerationTarget.Cncf
     )
 
   private def _create_interpreter(
     predefinedresultcatalog: modeler.PredefinedResultCatalog,
-    componentstylecatalog: modeler.ComponentStyleCatalog
+    componentstylecatalog: modeler.ComponentStyleCatalog,
+    generationtarget: modeler.ModelGenerationTarget = modeler.ModelGenerationTarget.Cncf
   ): Kaleidox = {
     val kconfig = org.goldenport.kaleidox.Config.create(environment).
-      setModeler(new modeler.Modeler(predefinedresultcatalog, componentstylecatalog)).
+      setModeler(new modeler.Modeler(predefinedresultcatalog, componentstylecatalog, generationtarget)).
       setPrompt("cozy> ")
     new Kaleidox(kconfig, environment)
   }
@@ -310,11 +312,24 @@ class Cozy(
     _leading_command(args) match {
       case Some((command @ ("modeler-scala" | "modeler-scala-value"), rest)) =>
         val normalized = _normalize_first_positional_path(rest)
-        val validateddescriptor =
-          cozy.compatibility.CncfRuntimeDescriptorContract.requireValidInvocation(
-            command +: normalized,
-            "modeler"
-          )
+        val generationtarget = modeler.ModelGenerationTarget.requireInvocation(command, normalized)
+        if (generationtarget == modeler.ModelGenerationTarget.Library) {
+          val source = normalized.find(!_.startsWith("-")).
+            map(Paths.get(_)).
+            getOrElse(RAISE.invalidArgumentFault(
+              "LIBRARY_GENERATION_SOURCE_REQUIRED: library generation requires a CML source path."
+            ))
+          modeler.ModelGenerationTarget.requireLibrarySource(source)
+        }
+        val validateddescriptor = generationtarget match {
+          case modeler.ModelGenerationTarget.Cncf =>
+            cozy.compatibility.CncfRuntimeDescriptorContract.requireValidInvocation(
+              command +: normalized,
+              "modeler"
+            )
+          case modeler.ModelGenerationTarget.Library =>
+            None
+        }
         val catalog = validateddescriptor.
           map(modeler.PredefinedResultCatalog.fromValidatedDescriptor).
           getOrElse(modeler.PredefinedResultCatalog.empty)
@@ -338,21 +353,23 @@ class Cozy(
                   capturedsource
                 )
                 val repl = (Vector(command) ++ _convert_args(capturedargs)).mkString(" ")
-                _create_interpreter(catalog, componentstylecatalog).execute(_operation_call(Array(repl)))
+                _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
                 _write_model_metadata(normalized, Some(capturedsource), componentstylecatalog)
               }
             case None =>
               val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
-              _create_interpreter(catalog, componentstylecatalog).execute(_operation_call(Array(repl)))
+              _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
               _write_model_metadata(normalized, None, componentstylecatalog)
           }
         }
-        _write_component_api_descriptor(normalized)
-        _write_generation_provenance(
-          normalized,
-          validateddescriptor,
-          sourcesnapshot
-        )
+        if (generationtarget == modeler.ModelGenerationTarget.Cncf) {
+          _write_component_api_descriptor(normalized)
+          _write_generation_provenance(
+            normalized,
+            validateddescriptor,
+            sourcesnapshot
+          )
+        }
         true
       case _ =>
         false

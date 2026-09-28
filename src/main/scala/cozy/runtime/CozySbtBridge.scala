@@ -21,7 +21,7 @@ import java.nio.file.{Files, Path, Paths}
  *  version Jun. 27, 2026
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
- * @version Sep. 17, 2026
+ * @version Sep. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -88,6 +88,7 @@ private[cozy] object CozySbtBridge {
         command match {
           case "modeler-scala" =>
             val cozy = Cozy.build(Array.empty)
+            _require_cncf_target(settings)
             val modelerargs = rest ++ _modeler_args(settings)
             val descriptorinvocation = command :: modelerargs
             CncfRuntimeDescriptorContract.requireValidInvocation(
@@ -102,6 +103,10 @@ private[cozy] object CozySbtBridge {
             )
             GenerationProvenance.requireValidInvocation(invocation, "sbt-bridge")
             cozy.executeDirect(invocation.toArray)
+          case "modeler-scala-value" =>
+            val cozy = Cozy.build(Array.empty)
+            val modelerargs = rest ++ _library_modeler_args(settings)
+            cozy.executeDirect((command :: modelerargs).toArray)
           case "car-sbt-project" =>
             val cozy = Cozy.build(Array.empty)
             val config = _generation_config(settings)
@@ -275,17 +280,35 @@ private[cozy] object CozySbtBridge {
     val defaultfiles = CozyProjectYamlConfig.operationDefaultFiles(projectdir)
     val globalconfigdir = Option(System.getProperty("user.home")).
       map(path => Paths.get(path).toAbsolutePath.normalize().resolve(".cozy"))
-    _generation_config(generationsettings, defaultfiles, globalconfigdir)
+    _generation_config(
+      generationsettings,
+      defaultfiles,
+      globalconfigdir,
+      CozyProjectYamlConfig.loadProjectMetadata(projectdir)
+    )
   }
 
   private def _generation_config(
     generationsettings: Map[String, String],
     defaultfiles: Vector[Path],
     globalconfigdir: Option[Path]
+  ): CozyProjectYamlConfig.Config =
+    _generation_config(
+      generationsettings,
+      defaultfiles,
+      globalconfigdir,
+      CozyProjectYamlConfig.Config.empty
+    )
+
+  private def _generation_config(
+    generationsettings: Map[String, String],
+    defaultfiles: Vector[Path],
+    globalconfigdir: Option[Path],
+    projectmetadata: CozyProjectYamlConfig.Config
   ): CozyProjectYamlConfig.Config = {
     val projectconfig = defaultfiles.
       filterNot(file => globalconfigdir.contains(file.getParent)).
-      foldLeft(CozyProjectYamlConfig.Config.empty) { (config, file) =>
+      foldLeft(projectmetadata) { (config, file) =>
         config.merge(CozyProjectYamlConfig.load(file))
       }
     val bridgeconfig = CozyProjectYamlConfig.Config(generationsettings, Map.empty)
@@ -300,6 +323,7 @@ private[cozy] object CozySbtBridge {
     Vector(
       "generation.versions.cncf",
       "generation.versions.cozy",
+      "generation.target",
       "runtime.cncf.descriptor",
       "runtime.cncf.descriptor.sha256"
     ).foreach { key =>
@@ -343,6 +367,80 @@ private[cozy] object CozySbtBridge {
 
   private def _modeler_args(settings: Map[String, String]): List[String] =
     _component_api_args(settings) ++ _version_args(_generation_config(settings))
+
+  private def _library_modeler_args(settings: Map[String, String]): List[String] = {
+    val config = _generation_config(settings)
+    _require_library_target(config)
+    val cozyversion = config.value("generation.versions.cozy").
+      map(_.trim).
+      filter(_.nonEmpty).
+      getOrElse(RAISE.invalidArgumentFault(
+        "LIBRARY_GENERATION_COZY_VERSION_REQUIRED: sbt-bridge requires generation.versions.cozy for library generation."
+      ))
+    if (cozyversion != org.simplemodeling.cozy.BuildInfo.version)
+      RAISE.invalidArgumentFault(
+        s"LIBRARY_GENERATION_COZY_VERSION_MISMATCH: requested=$cozyversion running=${org.simplemodeling.cozy.BuildInfo.version}."
+      )
+    _require_component_identity(settings)
+    _component_api_args(settings) ++ List(
+      "--generation-target", "library",
+      "--cozy-generator-version", cozyversion
+    )
+  }
+
+  private def _require_cncf_target(settings: Map[String, String]): Unit = {
+    if (settings.get("generation.target").exists(_.trim.isEmpty))
+      RAISE.invalidArgumentFault(
+        "LIBRARY_GENERATION_INVALID_TARGET: generation.target requires cncf or library."
+      )
+    val config = _generation_config(settings)
+    config.value("generation.target").map(_.trim).filter(_.nonEmpty) match {
+      case None | Some("cncf") =>
+      case Some("library") => RAISE.invalidArgumentFault(
+        "LIBRARY_GENERATION_INVALID_COMMAND: generation.target=library requires modeler-scala-value."
+      )
+      case Some(value) => RAISE.invalidArgumentFault(
+        s"LIBRARY_GENERATION_INVALID_TARGET: unsupported generation.target '$value'. Expected cncf or library."
+      )
+    }
+  }
+
+  private def _require_library_target(config: CozyProjectYamlConfig.Config): Unit = {
+    val archiveproject = Vector("project.kind", "packaging.kind").flatMap(config.value).
+      map(_.trim.toLowerCase(java.util.Locale.ROOT)).
+      exists(value => value == "car" || value == "sar")
+    if (archiveproject)
+      RAISE.invalidArgumentFault(
+        "LIBRARY_GENERATION_ARCHIVE_TARGET_REJECTED: CAR/SAR project configuration cannot use generation.target=library."
+      )
+    config.value("generation.target").map(_.trim).filter(_.nonEmpty) match {
+      case Some("library") =>
+      case None => RAISE.invalidArgumentFault(
+        "LIBRARY_GENERATION_TARGET_REQUIRED: sbt-bridge library dispatch requires generation.target=library."
+      )
+      case Some(value) => RAISE.invalidArgumentFault(
+        s"LIBRARY_GENERATION_INVALID_TARGET: library dispatch received generation.target '$value'."
+      )
+    }
+    Vector(
+      "generation.versions.cncf",
+      "runtime.cncf.descriptor",
+      "runtime.cncf.descriptor.sha256"
+    ).find(config.values.contains).foreach { key =>
+      RAISE.invalidArgumentFault(
+        s"LIBRARY_GENERATION_RUNTIME_CONTRADICTION: $key is not permitted when generation.target=library."
+      )
+    }
+  }
+
+  private def _require_component_identity(settings: Map[String, String]): Unit =
+    (settings.get("component.namespace").map(_.trim).filter(_.nonEmpty),
+      settings.get("component.id").map(_.trim).filter(_.nonEmpty)) match {
+      case (Some(_), Some(_)) =>
+      case _ => RAISE.invalidArgumentFault(
+        "LIBRARY_GENERATION_COMPONENT_IDENTITY_REQUIRED: library generation requires canonical component.namespace and component.id settings."
+      )
+    }
 
   private def _generation_source_identity_args(
     args: List[String],
@@ -407,6 +505,9 @@ private[cozy] object CozySbtBridge {
 
   private[cozy] def _modeler_args_for_settings_for_test(settings: Map[String, String]): List[String] =
     _modeler_args(settings)
+
+  private[cozy] def _library_modeler_args_for_settings_for_test(settings: Map[String, String]): List[String] =
+    _library_modeler_args(settings)
 
   private[cozy] def _generation_source_identity_args_for_test(
     args: List[String],
