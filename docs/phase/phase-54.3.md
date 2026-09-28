@@ -18,7 +18,8 @@ runtime semantics or parsing CML source.
 ## Provenance and structural gate
 
 This is the fourth sequential child of the 2026-09-09 approved Phase 54 split.
-It consumes the frozen v2 identity/publication handoff and the completed static
+It consumes the frozen cozy.cml.semantic-metadata.v1 foundation/handoff and
+the completed static
 and Classification vocabularies. It produces the dynamic cross-reference
 handoff consumed by the Use Case and final consumer-fixture child.
 
@@ -29,7 +30,8 @@ Phase Plan Gate: PROCEED
 - recommended_parent_profile: gpt-5.6-terra / high
 - profile_cost_role: lower-cost execution
 - expensive_reasoning_kernel: none
-- frozen_profile_transition_handoff: Phase 54 v2 identity/publication contract;
+- frozen_profile_transition_handoff: Phase 54 cozy.cml.semantic-metadata.v1
+  foundation/handoff;
   Phase 54.1 Structure and Phase 54.2 Classification vocabularies
 - parent_reasoning_mode_policy: standard
 - estimated_at_recommended_profile: 6–8 h; within preferred band
@@ -76,6 +78,7 @@ Phase Plan Gate: PROCEED
 ## References
 
 - [Phase 54.2](phase-54.2.md)
+- [CML Semantic Foundation Handoff](../design/cml-semantic-foundation-handoff.md)
 - [Phase 54.3 checklist](phase-54.3-checklist.md)
 - [Phase 54.4](phase-54.4.md)
 - [Component Dashboard model metadata note](../notes/component-dashboard-model-metadata.md)

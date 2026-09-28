@@ -9,7 +9,8 @@ Successor: [Phase 54.2](phase-54.2.md)
 
 ## Purpose
 
-Extend the frozen v2 identity/publication foundation with faithful static
+Extend the frozen Phase 54 cozy.cml.semantic-metadata.v1 foundation and
+handoff with faithful static
 Structure metadata. Preserve Entity, Value, Aggregate, composition,
 aggregation, and association as distinct constructs, including declared
 relation semantics, without requiring a SimpleModeling.org editing-oriented
@@ -29,8 +30,9 @@ Phase Plan Gate: PROCEED
 - recommended_parent_profile: gpt-5.6-terra / high
 - profile_cost_role: lower-cost execution
 - expensive_reasoning_kernel: none
-- frozen_profile_transition_handoff: Phase 54 `cozy.cml.model-metadata.v2`
-  identity, provenance, absence, compatibility, and publication contract
+- frozen_profile_transition_handoff: Phase 54 cozy.cml.semantic-metadata.v1
+  foundation/handoff: identity, provenance, absence, compatibility, and
+  publication contract
 - parent_reasoning_mode_policy: standard
 - estimated_at_recommended_profile: 6–8 h; within preferred band
 - merge_attempts_for_every_sub_4h_child: none
@@ -51,7 +53,7 @@ Phase Plan Gate: PROCEED
 | MMD-541-01 | Publish distinct Entity, Value, Aggregate, composition, aggregation, and association identities and kinds. | planned |
 | MMD-541-02 | Preserve declared endpoint roles, cardinality, navigability, ownership, independent existence, create/delete, reassignment/reparenting, lifecycle propagation, and aggregate-boundary semantics. | planned |
 | MMD-541-03 | Prove composition and aggregation are not flattened into generic association, and preserve explicit absence where CML does not declare a policy. | planned |
-| MMD-541-04 | Freeze Structure fixtures and the later-child handoff on the v2 identity/publication surface. | planned |
+| MMD-541-04 | Freeze Structure fixtures and the later-child handoff on the cozy.cml.semantic-metadata.v1 identity/publication surface. | planned |
 
 ## Closure criteria
 
@@ -67,7 +69,7 @@ Phase Plan Gate: PROCEED
 
 ## Non-goals
 
-- Changing the v2 identity, provenance, or publication-contract decision.
+- Changing the Phase 54 cozy.cml.semantic-metadata.v1 identity, provenance, or publication-contract decision.
 - Classification, Workflow, StateMachine, or Use Case metadata.
 - SimpleModeling.org integration, site mutation, publication, deployment,
   upload, or push.
@@ -75,6 +77,7 @@ Phase Plan Gate: PROCEED
 ## References
 
 - [Phase 54](phase-54.md)
+- [CML Semantic Foundation Handoff](../design/cml-semantic-foundation-handoff.md)
 - [Phase 54.1 checklist](phase-54.1-checklist.md)
 - [Phase 54.2](phase-54.2.md)
 - [Component Dashboard model metadata note](../notes/component-dashboard-model-metadata.md)

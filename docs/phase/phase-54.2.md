@@ -17,7 +17,8 @@ independent powertype dimensions must remain independently addressable.
 ## Provenance and structural gate
 
 This is the third sequential child of the 2026-09-09 approved Phase 54 split.
-It consumes Phase 54's frozen v2 identity/publication handoff and the Phase
+It consumes Phase 54's frozen cozy.cml.semantic-metadata.v1
+foundation/handoff and the Phase
 54.1 static-model vocabulary. It produces the Classification vocabulary and
 fixtures consumed by the later dynamic and cross-view acceptance children.
 
@@ -28,8 +29,8 @@ Phase Plan Gate: PROCEED
 - recommended_parent_profile: gpt-5.6-terra / high
 - profile_cost_role: lower-cost execution
 - expensive_reasoning_kernel: none
-- frozen_profile_transition_handoff: Phase 54 v2 identity/publication contract
-  and Phase 54.1 Structure vocabulary
+- frozen_profile_transition_handoff: Phase 54 cozy.cml.semantic-metadata.v1
+  foundation/handoff and Phase 54.1 Structure vocabulary
 - parent_reasoning_mode_policy: standard
 - estimated_at_recommended_profile: 4–6 h; within preferred band
 - merge_attempts_for_every_sub_4h_child: none
@@ -72,6 +73,7 @@ Phase Plan Gate: PROCEED
 ## References
 
 - [Phase 54](phase-54.md)
+- [CML Semantic Foundation Handoff](../design/cml-semantic-foundation-handoff.md)
 - [Phase 54.1](phase-54.1.md)
 - [Phase 54.2 checklist](phase-54.2-checklist.md)
 - [Phase 54.3](phase-54.3.md)

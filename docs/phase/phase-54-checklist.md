@@ -67,5 +67,28 @@ review, repository-wide validation, and release closure remain pending.
 
 ## MMD-54-04: Child handoff
 
-- [ ] Freeze the inventory/identity/publication handoff for Phases 54.1 through 54.7.
+Stage Status:
+- Current status: DONE
+- Owner: `/root` (parent workflow)
+- Current step: MMD-54-04A
+- Update rule: The parent updates this stage against the first existing
+  MMD-54-04 checklist item. Step acceptance proves the foundation handoff
+  only; the separately retained Phase release closure remains open.
+
+- [x] Freeze the inventory/identity/publication handoff for Phases 54.1 through 54.7.
+
+Evidence: [CML Semantic Foundation Handoff](../design/cml-semantic-foundation-handoff.md),
+2026-09-28 six-document static validation and independent MMD-54-04 Step
+review PASS. The eight-row handoff includes Phase 64; child projections remain
+PLANNED. No producer, external consumer acceptance, or Phase closure is claimed.
+
+## Phase 54 release closure (retained MMD-54-04 obligation)
+
+Stage Status:
+- Current status: OPEN
+- Owner: `/root` (parent workflow)
+- Update rule: Keep this retained MMD-54-04 release obligation open until the
+  full Phase review, full suite, distinct release commit, and reproducible
+  evidence are complete. It is not Step acceptance and is not checked here.
+
 - [ ] Complete focused validation, review, release closure, and reproducible evidence for this foundation child only.
