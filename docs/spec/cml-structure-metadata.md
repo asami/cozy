@@ -84,3 +84,23 @@ logical coordinates and details never echo hostile payloads or unknown keys.
 
 The executable contract is
 [`CmlStructureMetadataSpec`](../../src/test/scala/cozy/modeler/CmlStructureMetadataSpec.scala).
+
+## Executable acceptance map for relation semantics
+
+Slice `MMD-541-02A` records the following authored acceptance scenarios over
+the unchanged `cozy.cml.structure.v1` contract. They are executable
+specification scope, not validation or closure evidence.
+
+| Scenario | Acceptance focus |
+| --- | --- |
+| STR-11 | Preserve `Present(false)`, present empty lifecycle, and all four absence reasons/details through nested carriers. |
+| STR-14 | Preserve directed source/target endpoint identity, role, cardinality, navigability, relation kind, and external boundary independently. |
+| STR-15 | Preserve literal ownership, create/delete policies, roles, and aggregate memberships without trimming, case folding, or ontology defaults. |
+| STR-16 | Preserve all 32 independent assignments of endpoint and relation Boolean carriers across Composition, Aggregation, and Association. |
+| STR-17 | Preserve finite and explicitly unbounded cardinalities, reject invalid ordering, and reject out-of-range or fractional JSON numbers. |
+| STR-18 | Preserve lifecycle vector emptiness, order, duplicates, Unicode/case, and member-level failure categories. |
+| STR-19 | Preserve every present outer aggregate-boundary variant and its nested aggregate/membership presence without catalog mutation. |
+| STR-20 | Property-test mixed endpoint, policy, reference, cardinality, lifecycle, and nested-presence payloads through canonical JSON and strict consumption. |
+
+The authored scenarios do not claim passed validation, Step acceptance, or
+Phase closure; those dispositions remain with the parent workflow.

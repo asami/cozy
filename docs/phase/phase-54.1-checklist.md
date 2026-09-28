@@ -30,13 +30,25 @@ remain open.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: ACCEPTED
 - Owner: Cozy Phase 54.1 development
 - Update rule: update from accepted checklist evidence for this stage.
 - Closure basis: checklist items in this section.
 
-- [ ] Preserve declared endpoint roles, cardinality, navigability, ownership, independent existence, lifecycle, reassignment, and aggregate-boundary semantics.
-- [ ] Preserve explicit absence when CML omits a semantic policy.
+- [x] Preserve declared endpoint roles, cardinality, navigability, ownership, independent existence, lifecycle, reassignment, and aggregate-boundary semantics.
+- [x] Preserve explicit absence when CML omits a semantic policy.
+
+Acceptance evidence (2026-09-28): Slice `MMD-541-02A`; serial SBT invocation
+`P54.1-MMD-541-02A-MANUAL-VAL-006` passed 51/51 specifications (Structure
+29/29 and foundation/semantic-metadata 22/22; exit 0, lock released).
+The user-authorized fixed-command execution workaround retained the shared
+SBT wrapper, native permission checks, and observed pre/post tree identity;
+no skill was modified and no generic command receipt is claimed.
+Independent Step review `P54.1-MMD-541-02-STEP-REVIEW-001` passed with no
+Current Boundary Blockers or Development Candidates. Its sole Hygiene item,
+`HYG-54102-001` (stale validation-pending wording), is resolved by this
+acceptance bookkeeping; the original review evidence is retained.
+Only this Step is accepted. Steps 03 and 04 and full Phase closure remain open.
 
 ## MMD-541-03: Faithfulness acceptance
 

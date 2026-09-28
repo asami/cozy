@@ -4,7 +4,7 @@ import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, JsValue, Json}
+import play.api.libs.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json}
 
 import CmlSemanticFoundation._
 import CmlStructureMetadata._
@@ -584,6 +584,323 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
         detail.contains("secret") shouldBe false
       }
     }
+
+    "STR-14 preserve directed endpoint payloads for every relation kind" in {
+      Given("three relation projections with contrasting local static and external endpoint payloads")
+      val graph = _graph(extensions = Json.obj("org.example.peer" -> Json.obj("marker" -> JsString("keep"))))
+      val sourceids = Vector(ModelElementId("model.example", "entity:item"), ModelElementId("model.example", "value:same"), ModelElementId("model.example", "aggregate:same"))
+      val targetids = Vector(ModelElementId("Partner.Example", "External:名/Case"), ModelElementId("partner.example", "external:α/CASE"), ModelElementId("PARTNER.example", "External:Case"))
+      val relations = graph.relations.zipWithIndex.map { case (relationvalue, relationindex) =>
+        val sourceendpoint = _endpoint(Present(ModelReference(sourceids(relationindex), Local))).copy(
+          role = Present("Source:名/Case"), cardinality = Present(Cardinality(relationindex + 1, Some(relationindex + 2))), navigable = Present(true)
+        )
+        val targetendpoint = _endpoint(Present(ModelReference(targetids(relationindex), External))).copy(
+          role = Present("target:α/CASE"), cardinality = Present(Cardinality(0, None)), navigable = Present(false)
+        )
+        relationvalue.copy(sourceEndpoint = sourceendpoint, targetEndpoint = targetendpoint)
+      }
+      When("the typed producer renders and the canonical JSON consumer reconstructs each relation")
+      val published = _graph_result(CmlStructureMetadata.build(graph.catalog, graph.elements, relations, Json.obj("org.example.peer" -> Json.obj("marker" -> JsString("keep")))))
+      val wire = (0 until 3).map(index => _wire_relation(CmlStructureMetadata.toJson(published), index))
+      val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(published))))
+      Then("sourceEndpoint and targetEndpoint fields retain their independent literals and boundaries")
+      wire.map(value => value.value("kind")) shouldBe Vector(JsString("composition"), JsString("aggregation"), JsString("association"))
+      wire.map(value => value.value("sourceEndpoint").asInstanceOf[JsObject].value("target")) shouldBe Vector(
+        _wire_reference_presence(Present(ModelReference(ModelElementId("model.example", "entity:item"), Local))),
+        _wire_reference_presence(Present(ModelReference(ModelElementId("model.example", "value:same"), Local))),
+        _wire_reference_presence(Present(ModelReference(ModelElementId("model.example", "aggregate:same"), Local)))
+      )
+      wire.map(value => value.value("targetEndpoint").asInstanceOf[JsObject].value("target")) shouldBe Vector(
+        _wire_reference_presence(Present(ModelReference(ModelElementId("Partner.Example", "External:名/Case"), External))),
+        _wire_reference_presence(Present(ModelReference(ModelElementId("partner.example", "external:α/CASE"), External))),
+        _wire_reference_presence(Present(ModelReference(ModelElementId("PARTNER.example", "External:Case"), External)))
+      )
+      wire.map(value => value.value("sourceEndpoint").asInstanceOf[JsObject].value("role")) shouldBe Vector.fill(3)(_wire_present_text("Source:名/Case"))
+      wire.map(value => value.value("targetEndpoint").asInstanceOf[JsObject].value("role")) shouldBe Vector.fill(3)(_wire_present_text("target:α/CASE"))
+      wire.map(value => value.value("sourceEndpoint").asInstanceOf[JsObject].value("cardinality")) shouldBe Vector(
+        _wire_present_cardinality(Cardinality(1, Some(2))), _wire_present_cardinality(Cardinality(2, Some(3))), _wire_present_cardinality(Cardinality(3, Some(4)))
+      )
+      wire.map(value => value.value("targetEndpoint").asInstanceOf[JsObject].value("cardinality")) shouldBe Vector.fill(3)(_wire_present_cardinality(Cardinality(0, None)))
+      wire.map(value => value.value("sourceEndpoint").asInstanceOf[JsObject].value("navigable")) shouldBe Vector.fill(3)(_wire_present_boolean(true))
+      wire.map(value => value.value("targetEndpoint").asInstanceOf[JsObject].value("navigable")) shouldBe Vector.fill(3)(_wire_present_boolean(false))
+      consumed.elements shouldBe published.elements
+      consumed.relations shouldBe published.relations
+      consumed.catalog.elements shouldBe published.catalog.elements
+      consumed.catalog.elements.map(_.source) shouldBe published.catalog.elements.map(_.source)
+      consumed.envelope.extensions.value("org.example.peer") shouldBe Json.obj("marker" -> JsString("keep"))
+    }
+
+    "STR-15 preserve literal policies roles and memberships without normalization" in {
+      Given("all three relation kinds with distinct Unicode, case-sensitive, spaced, and unusual admitted literals")
+      val base = _graph()
+      val aggregateidentity = ModelElementId("model.example", "aggregate:same")
+      val elementboundary = Present(AggregateBoundary(Present(ModelReference(aggregateidentity, Local)), Present("Element Member 名/Case")))
+      val elements = base.elements.map(value => value.copy(aggregateBoundary = elementboundary))
+      val relations = base.relations.zipWithIndex.map { case (relationvalue, relationindex) =>
+        val sourceendpoint = relationvalue.sourceEndpoint.copy(role = Present("Source Role α/Case " + relationindex))
+        val targetendpoint = relationvalue.targetEndpoint.copy(role = Present("Target Role 名/CASE " + relationindex))
+        val boundary = Present(AggregateBoundary(Present(ModelReference(aggregateidentity, Local)), Present("Relation Member α/Case " + relationindex)))
+        val semantics = RelationSemantics(
+          Present("Owner 名/Case " + relationindex), Present(relationindex % 2 == 0), Present("Create Policy α " + relationindex),
+          Present("DELETE policy/Case " + relationindex), Present(true), Present(false), Present(Vector("Lifecycle 名 " + relationindex, "Case/Token")), boundary
+        )
+        relationvalue.copy(sourceEndpoint = sourceendpoint, targetEndpoint = targetendpoint, semantics = semantics)
+      }
+      When("the producer renders concrete wire values and the consumer reads canonical JSON")
+      val published = _graph_result(CmlStructureMetadata.build(base.catalog, elements, relations, Json.obj()))
+      val wire = (0 until 3).map(index => _wire_relation(CmlStructureMetadata.toJson(published), index))
+      val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(published))))
+      Then("each literal remains exact at its independently named wire field and typed carrier")
+      wire.map(value => value.value("sourceEndpoint").asInstanceOf[JsObject].value("role")) shouldBe Vector(
+        _wire_present_text("Source Role α/Case 0"), _wire_present_text("Source Role α/Case 1"), _wire_present_text("Source Role α/Case 2")
+      )
+      wire.map(value => value.value("targetEndpoint").asInstanceOf[JsObject].value("role")) shouldBe Vector(
+        _wire_present_text("Target Role 名/CASE 0"), _wire_present_text("Target Role 名/CASE 1"), _wire_present_text("Target Role 名/CASE 2")
+      )
+      wire.map(value => value.value("semantics").asInstanceOf[JsObject].value("ownership")) shouldBe Vector(
+        _wire_present_text("Owner 名/Case 0"), _wire_present_text("Owner 名/Case 1"), _wire_present_text("Owner 名/Case 2")
+      )
+      wire.map(value => value.value("semantics").asInstanceOf[JsObject].value("createPolicy")) shouldBe Vector(
+        _wire_present_text("Create Policy α 0"), _wire_present_text("Create Policy α 1"), _wire_present_text("Create Policy α 2")
+      )
+      wire.map(value => value.value("semantics").asInstanceOf[JsObject].value("deletePolicy")) shouldBe Vector(
+        _wire_present_text("DELETE policy/Case 0"), _wire_present_text("DELETE policy/Case 1"), _wire_present_text("DELETE policy/Case 2")
+      )
+      wire.map(value => value.value("semantics").asInstanceOf[JsObject].value("lifecyclePropagation")) shouldBe Vector(
+        _wire_present_strings(Vector("Lifecycle 名 0", "Case/Token")), _wire_present_strings(Vector("Lifecycle 名 1", "Case/Token")), _wire_present_strings(Vector("Lifecycle 名 2", "Case/Token"))
+      )
+      wire.map(value => value.value("semantics").asInstanceOf[JsObject].value("aggregateBoundary")) shouldBe Vector(
+        _wire_present_boundary(AggregateBoundary(Present(ModelReference(aggregateidentity, Local)), Present("Relation Member α/Case 0"))),
+        _wire_present_boundary(AggregateBoundary(Present(ModelReference(aggregateidentity, Local)), Present("Relation Member α/Case 1"))),
+        _wire_present_boundary(AggregateBoundary(Present(ModelReference(aggregateidentity, Local)), Present("Relation Member α/Case 2")))
+      )
+      val elementwire = (0 until 3).map(index => _wire_element(CmlStructureMetadata.toJson(published), index))
+      elementwire.map(value => value.value("aggregateBoundary")) shouldBe Vector.fill(3)(_wire_present_boundary(AggregateBoundary(Present(ModelReference(aggregateidentity, Local)), Present("Element Member 名/Case"))))
+      consumed.elements shouldBe published.elements
+      consumed.relations shouldBe published.relations
+      Given("the same admitted literal graph and independently invalid text carriers")
+      val invalidvalues = Vector[String](null, "", " leading", "trailing ", "bad\u0000text".replace("\\u0000", "\u0000"))
+      val root = CmlStructureMetadata.toJson(published)
+      val wireinputs = invalidvalues.flatMap(value => _invalid_literal_wires(root, value))
+      When("each null, empty, padded, or control-bearing literal crosses typed and actual-wire admission")
+      val typedinvalid = invalidvalues.flatMap(value => _invalid_literal_results(published, value)).map(value => _first(value).kind)
+      val wireinvalid = wireinputs.map(value => _first(CmlStructureMetadata.read(value)).kind)
+      Then("typed strings fail as InvalidRelationSemantics and wire null versus text failures stay distinct")
+      typedinvalid shouldBe Vector.fill(invalidvalues.size * 7)(InvalidRelationSemantics)
+      wireinvalid shouldBe invalidvalues.flatMap(value => Vector.fill(7)(if (value == null) InvalidShape else InvalidRelationSemantics))
+    }
+
+    "STR-16 retain all independent Boolean carriers across every relation kind" in {
+      Given("all 32 assignments of TWO endpoint navigation plus THREE independent semantic Boolean carriers")
+      val base = _graph()
+      val assignments = for {
+        relationindex <- 0 until 3
+        bits <- 0 until 32
+      } yield (relationindex, bits)
+      When("each Boolean assignment is published, rendered as concrete JSON, and consumed")
+      val observed = assignments.map { case (relationindex, bits) =>
+        val sourcevalue = (bits & 1) != 0
+        val targetvalue = (bits & 2) != 0
+        val independentvalue = (bits & 4) != 0
+        val reassignmentvalue = (bits & 8) != 0
+        val reparentingvalue = (bits & 16) != 0
+        val original = base.relations(relationindex)
+        val relationvalue = original.copy(
+          sourceEndpoint = original.sourceEndpoint.copy(navigable = Present(sourcevalue)),
+          targetEndpoint = original.targetEndpoint.copy(navigable = Present(targetvalue)),
+          semantics = original.semantics.copy(independentExistence = Present(independentvalue), reassignment = Present(reassignmentvalue), reparenting = Present(reparentingvalue))
+        )
+        val published = _rebuild(base, relations = base.relations.updated(relationindex, relationvalue))
+        val wire = _wire_relation(CmlStructureMetadata.toJson(published), relationindex)
+        val sourcewire = wire.value("sourceEndpoint").asInstanceOf[JsObject]
+        val targetwire = wire.value("targetEndpoint").asInstanceOf[JsObject]
+        val semanticswire = wire.value("semantics").asInstanceOf[JsObject]
+        val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(published)))).relations(relationindex)
+        (sourcewire.value("navigable"), targetwire.value("navigable"), semanticswire.value("independentExistence"), semanticswire.value("reassignment"), semanticswire.value("reparenting"), consumed, sourcevalue, targetvalue, independentvalue, reassignmentvalue, reparentingvalue)
+      }
+      Then("true and false remain Present independently without opposite-end copying or absence conversion")
+      observed.foreach { case (sourcewire, targetwire, independentwire, reassignmentwire, reparentingwire, consumed, sourceexpected, targetexpected, independentexpected, reassignmentexpected, reparentingexpected) =>
+        sourcewire shouldBe _wire_present_boolean(sourceexpected)
+        targetwire shouldBe _wire_present_boolean(targetexpected)
+        independentwire shouldBe _wire_present_boolean(independentexpected)
+        reassignmentwire shouldBe _wire_present_boolean(reassignmentexpected)
+        reparentingwire shouldBe _wire_present_boolean(reparentingexpected)
+        consumed.sourceEndpoint.navigable shouldBe Present(sourceexpected)
+        consumed.targetEndpoint.navigable shouldBe Present(targetexpected)
+        consumed.semantics.independentExistence shouldBe Present(independentexpected)
+        consumed.semantics.reassignment shouldBe Present(reassignmentexpected)
+        consumed.semantics.reparenting shouldBe Present(reparentingexpected)
+      }
+      observed.size shouldBe 96
+    }
+
+    "STR-17 preserve cardinality bounds and reject overflow at both endpoints" in {
+      Given("six valid finite or explicitly unbounded cardinalities")
+      val base = _graph()
+      val validcardinalities = Vector(Cardinality(0, Some(0)), Cardinality(1, Some(1)), Cardinality(2, Some(7)), Cardinality(0, None), Cardinality(Int.MaxValue, Some(Int.MaxValue)), Cardinality(Int.MaxValue, None))
+      val endpointnames = Vector("sourceEndpoint", "targetEndpoint")
+      When("each endpoint cardinality is published with the opposite endpoint unchanged")
+      val validobservations = for {
+        relationindex <- 0 until 3
+        endpointname <- endpointnames
+        cardinality <- validcardinalities
+      } yield {
+        val relationvalue = _replace_endpoint_cardinality(base.relations(relationindex), endpointname, Present(cardinality))
+        val published = _rebuild(base, relations = base.relations.updated(relationindex, relationvalue))
+        val wireendpoint = _wire_relation_endpoint(CmlStructureMetadata.toJson(published), relationindex, endpointname)
+        val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(published)))).relations(relationindex)
+        val actualendpoint = _relation_endpoint(consumed, endpointname)
+        val oppositename = if (endpointname == "sourceEndpoint") "targetEndpoint" else "sourceEndpoint"
+        (wireendpoint.value("cardinality"), actualendpoint.cardinality, cardinality, _relation_endpoint(consumed, oppositename), _relation_endpoint(base.relations(relationindex), oppositename))
+      }
+      Then("finite upper values and explicit null unbounded values round-trip as the selected typed cardinality")
+      validobservations.foreach { case (wirecardinality, typedcardinality, expectedcardinality, opposite, expectedopposite) =>
+        wirecardinality shouldBe _wire_present_cardinality(expectedcardinality)
+        typedcardinality shouldBe Present(expectedcardinality)
+        opposite shouldBe expectedopposite
+      }
+      Given("the same admitted graph with one invalid ordering or reversed-bound cardinality changed at a time")
+      val invalidcardinalities = Vector(Cardinality(-1, Some(0)), Cardinality(1, Some(0)), Cardinality(0, Some(-1)))
+      val typedinputs = for {
+        relationindex <- 0 until 3
+        endpointname <- endpointnames
+        cardinality <- invalidcardinalities
+      } yield (relationindex, endpointname, cardinality)
+      val root = CmlStructureMetadata.toJson(base)
+      val numericinvalids = Vector("2147483648", "-2147483649", "0.5").map(value => JsNumber(scala.math.BigDecimal(value)))
+      val semanticwireinputs = typedinputs
+      val overflowwireinputs = for {
+        relationindex <- 0 until 3
+        endpointname <- endpointnames
+        fieldname <- Vector("lower", "upper")
+        numericvalue <- numericinvalids
+      } yield (relationindex, endpointname, fieldname, numericvalue)
+      When("invalid typed bounds and out-of-range or fractional actual-wire numbers are consumed")
+      val typedinvalid = typedinputs.map { case (relationindex, endpointname, cardinality) =>
+        val relations = base.relations.updated(relationindex, _replace_endpoint_cardinality(base.relations(relationindex), endpointname, Present(cardinality)))
+        _first(CmlStructureMetadata.build(base.catalog, base.elements, relations, Json.obj())).kind
+      }
+      val semanticwire = semanticwireinputs.map { case (relationindex, endpointname, cardinality) =>
+        val value = _wire_presence_value(root, Vector("relations", "[" + relationindex + "]", endpointname, "cardinality"), _wire_cardinality_object(cardinality))
+        _first(CmlStructureMetadata.read(value)).kind
+      }
+      val overflowwire = overflowwireinputs.map { case (relationindex, endpointname, fieldname, numericvalue) =>
+        val value = _wire_cardinality_field(root, relationindex, endpointname, fieldname, numericvalue)
+        _first(CmlStructureMetadata.read(value)).kind
+      }
+      Then("semantic ordering failures and shape failures remain typed without overflow")
+      typedinvalid shouldBe Vector.fill(18)(InvalidRelationSemantics)
+      semanticwire shouldBe Vector.fill(18)(InvalidRelationSemantics)
+      overflowwire shouldBe Vector.fill(36)(InvalidShape)
+    }
+
+    "STR-18 preserve lifecycle order duplicates and explicit empty vectors" in {
+      Given("four admitted lifecycle vectors including empty, ordered duplicates, and case-sensitive Unicode values")
+      val base = _graph()
+      val lifecyclevalues = Vector(Vector.empty[String], Vector("Create:α"), Vector("Delete", "Create", "Delete"), Vector("Case", "case", "名"))
+      When("each lifecycle vector is rendered on each relation kind and consumed")
+      val observations = for {
+        relationindex <- 0 until 3
+        lifecyclevalue <- lifecyclevalues
+      } yield {
+        val semantics = base.relations(relationindex).semantics.copy(lifecyclePropagation = Present(lifecyclevalue))
+        val relationvalue = base.relations(relationindex).copy(semantics = semantics)
+        val published = _rebuild(base, relations = base.relations.updated(relationindex, relationvalue))
+        val wire = _wire_relation(CmlStructureMetadata.toJson(published), relationindex).value("semantics").asInstanceOf[JsObject].value("lifecyclePropagation")
+        val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(published)))).relations(relationindex).semantics.lifecyclePropagation
+        (wire, consumed, lifecyclevalue)
+      }
+      Then("empty remains Present and every emitted array preserves order and duplicates")
+      observations.foreach { case (wire, consumed, expected) => wire shouldBe _wire_present_strings(expected); consumed shouldBe Present(expected) }
+      Given("the same admitted graph with one lifecycle member changed at a time")
+      val invalidvalues = Vector[String](null, "", " leading", "trailing ", "bad\u0000member".replace("\\u0000", "\u0000"))
+      val typedinputs = for {
+        relationindex <- 0 until 3
+        invalidvalue <- invalidvalues
+      } yield (relationindex, invalidvalue)
+      val wireinputs = invalidvalues.flatMap(value => (0 until 3).map(index => _wire_lifecycle_value(CmlStructureMetadata.toJson(base), index, if (value == null) JsArray(Vector(JsNull)) else JsArray(Vector(JsString(value))))))
+      When("each null, empty, padded, or control-bearing member crosses typed and actual-wire admission")
+      val typedinvalid = typedinputs.map { case (relationindex, invalidvalue) =>
+        val semantics = base.relations(relationindex).semantics.copy(lifecyclePropagation = Present(Vector(invalidvalue)))
+        val relations = base.relations.updated(relationindex, base.relations(relationindex).copy(semantics = semantics))
+        _first(CmlStructureMetadata.build(base.catalog, base.elements, relations, Json.obj())).kind
+      }
+      val wireinvalid = wireinputs.map(value => _first(CmlStructureMetadata.read(value)).kind)
+      Then("typed invalid members use relation semantics diagnostics while null wire members remain shape failures")
+      typedinvalid shouldBe Vector.fill(15)(InvalidRelationSemantics)
+      wireinvalid shouldBe invalidvalues.flatMap(value => Vector.fill(3)(if (value == null) InvalidShape else InvalidRelationSemantics))
+    }
+
+    "STR-19 preserve every present outer aggregate-boundary variant" in {
+      Given("four closed absence reasons, local and external aggregate references, and nested membership branches")
+      val base = _graph()
+      val variants = _aggregate_boundary_variants()
+      When("each of fourteen boundary variants is applied to every element and relation projection")
+      val observations = for {
+        projectionindex <- 0 until 3
+        boundaryvalue <- variants
+      } yield {
+        val elementvalues = base.elements.updated(projectionindex, base.elements(projectionindex).copy(aggregateBoundary = boundaryvalue))
+        val elementpublished = _graph_result(CmlStructureMetadata.build(base.catalog, elementvalues, base.relations, Json.obj()))
+        val elementwire = _wire_element(CmlStructureMetadata.toJson(elementpublished), projectionindex).value("aggregateBoundary").asInstanceOf[JsObject]
+        val elementconsumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(elementpublished)))).elements(projectionindex).aggregateBoundary
+        val relationsemantics = base.relations(projectionindex).semantics.copy(aggregateBoundary = boundaryvalue)
+        val relationvalues = base.relations.updated(projectionindex, base.relations(projectionindex).copy(semantics = relationsemantics))
+        val relationpublished = _graph_result(CmlStructureMetadata.build(base.catalog, base.elements, relationvalues, Json.obj()))
+        val relationwire = _wire_relation(CmlStructureMetadata.toJson(relationpublished), projectionindex).value("semantics").asInstanceOf[JsObject].value("aggregateBoundary").asInstanceOf[JsObject]
+        val relationconsumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(relationpublished)))).relations(projectionindex).semantics.aggregateBoundary
+        (elementwire, elementconsumed, relationwire, relationconsumed, boundaryvalue, elementpublished.catalog.elements, relationpublished.catalog.elements)
+      }
+      Then("outer and nested presence, details, and external boundaries remain exact without catalog mutation")
+      observations.foreach { case (elementwire, elementconsumed, relationwire, relationconsumed, expected, elementcatalog, relationcatalog) =>
+        elementwire shouldBe _wire_present_boundary(expected.asInstanceOf[Present[AggregateBoundary]].value)
+        relationwire shouldBe _wire_present_boundary(expected.asInstanceOf[Present[AggregateBoundary]].value)
+        elementconsumed shouldBe expected
+        relationconsumed shouldBe expected
+        elementcatalog shouldBe base.catalog.elements
+        relationcatalog shouldBe base.catalog.elements
+        expected match {
+          case Present(boundaryvalue) => boundaryvalue.aggregate match {
+            case Present(ModelReference(identity, External)) =>
+              elementcatalog.find(_.identity == Present(identity)) shouldBe None
+            case _ => ()
+          }
+          case _ => ()
+        }
+      }
+      variants.size shouldBe 14
+      (observations.size * 2) shouldBe 84
+    }
+
+    "STR-20 preserve mixed relation payloads under active property generation" in {
+      Given("compositional generators for independent endpoints, semantic policies, cardinalities, lifecycle, references, and nested boundaries")
+      val base = _graph(extensions = Json.obj("org.example.peer" -> Json.obj("marker" -> JsString("retain"))))
+      val payloads = Gen.listOfN(3, _relation_payload_generator())
+      val property = Prop.forAll(payloads) { generated =>
+        val relations = base.relations.zip(generated.toVector).map { case (relationvalue, (sourceendpoint, targetendpoint, semantics)) =>
+          relationvalue.copy(sourceEndpoint = sourceendpoint, targetEndpoint = targetendpoint, semantics = semantics)
+        }
+        CmlStructureMetadata.build(base.catalog, base.elements, relations, base.envelope.extensions - namespace) match {
+          case Left(_) => false
+          case Right(published) =>
+            val canonical = CmlStructureMetadata.canonicalJson(published)
+            CmlStructureMetadata.read(Json.parse(canonical)) match {
+              case Left(_) => false
+              case Right(consumed) =>
+                consumed.elements == published.elements &&
+                  consumed.relations == published.relations &&
+                  consumed.catalog.elements == published.catalog.elements &&
+                  consumed.catalog.terms == published.catalog.terms &&
+                  consumed.envelope.extensions == published.envelope.extensions &&
+                  CmlStructureMetadata.canonicalJson(consumed) == canonical
+            }
+        }
+      }
+      When("ScalaCheck evaluates the property with at least one hundred successful samples")
+      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
+      Then("every admitted mixed graph survives typed publication, canonical JSON, strict consumption, and re-rendering")
+      result.passed shouldBe true
+    }
   }
 
   private def _graph(
@@ -716,6 +1033,156 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
       objectvalue + (head -> _replace_path(objectvalue.value(head), tail, replacement))
   }
   private def _json_text(value: String): JsValue = if (value == null) JsNull else JsString(value)
+  private def _wire_relation(root: JsObject, relationindex: Int): JsObject = _structure(root).value("relations").asInstanceOf[JsArray].value(relationindex).asInstanceOf[JsObject]
+  private def _wire_element(root: JsObject, elementindex: Int): JsObject = _structure(root).value("elements").asInstanceOf[JsArray].value(elementindex).asInstanceOf[JsObject]
+  private def _wire_relation_endpoint(root: JsObject, relationindex: Int, endpointname: String): JsObject = _wire_relation(root, relationindex).value(endpointname).asInstanceOf[JsObject]
+  private def _wire_present_text(value: String): JsObject = Json.obj("status" -> JsString("present"), "value" -> _json_text(value))
+  private def _wire_present_boolean(value: Boolean): JsObject = Json.obj("status" -> JsString("present"), "value" -> JsBoolean(value))
+  private def _wire_cardinality_object(value: Cardinality): JsObject = {
+    val upper: JsValue = value.upper.map[JsValue](number => JsNumber(number)).getOrElse(JsNull)
+    Json.obj("lower" -> JsNumber(value.lower), "upper" -> upper)
+  }
+  private def _wire_present_cardinality(value: Cardinality): JsObject = Json.obj("status" -> JsString("present"), "value" -> _wire_cardinality_object(value))
+  private def _wire_present_strings(value: Vector[String]): JsObject = Json.obj("status" -> JsString("present"), "value" -> JsArray(value.map(JsString)))
+  private def _wire_text_presence(value: Presence[String]): JsObject = value match {
+    case Present(text) => _wire_present_text(text)
+    case Absent(reason, detail) => Json.obj("status" -> JsString("absent"), "reason" -> _absence_text(reason), "detail" -> _json_text(detail))
+    case _ => JsObject.empty
+  }
+  private def _wire_reference_presence(value: Presence[ModelReference]): JsObject = value match {
+    case Present(reference) => Json.obj(
+      "status" -> JsString("present"),
+      "value" -> Json.obj("identity" -> Json.obj("modelId" -> _json_text(reference.identity.modelId), "elementId" -> _json_text(reference.identity.elementId)), "boundary" -> JsString(reference.boundary match { case Local => "local"; case External => "external" }))
+    )
+    case Absent(reason, detail) => Json.obj("status" -> JsString("absent"), "reason" -> _absence_text(reason), "detail" -> _json_text(detail))
+    case _ => JsObject.empty
+  }
+  private def _wire_present_boundary(value: AggregateBoundary): JsObject = Json.obj(
+    "status" -> JsString("present"),
+    "value" -> Json.obj("aggregate" -> _wire_reference_presence(value.aggregate), "membership" -> _wire_text_presence(value.membership))
+  )
+  private def _wire_presence_value(root: JsObject, route: Vector[String], value: JsValue): JsObject = _with_structure(root, _replace_path(_structure(root), route, Json.obj("status" -> JsString("present"), "value" -> value)).asInstanceOf[JsObject])
+  private def _wire_presence_text(root: JsObject, route: Vector[String], value: String): JsObject = _wire_presence_value(root, route, _json_text(value))
+  private def _wire_lifecycle_value(root: JsObject, relationindex: Int, value: JsValue): JsObject = _wire_presence_value(root, Vector("relations", "[" + relationindex + "]", "semantics", "lifecyclePropagation"), value)
+  private def _wire_cardinality_field(root: JsObject, relationindex: Int, endpointname: String, fieldname: String, value: JsValue): JsObject = _with_structure(root, _replace_path(_structure(root), Vector("relations", "[" + relationindex + "]", endpointname, "cardinality", "value", fieldname), value).asInstanceOf[JsObject])
+  private def _relation_endpoint(value: RelationProjection, endpointname: String): Endpoint = endpointname match {
+    case "sourceEndpoint" => value.sourceEndpoint
+    case _ => value.targetEndpoint
+  }
+  private def _replace_endpoint_cardinality(value: RelationProjection, endpointname: String, cardinality: Presence[Cardinality]): RelationProjection = endpointname match {
+    case "sourceEndpoint" => value.copy(sourceEndpoint = value.sourceEndpoint.copy(cardinality = cardinality))
+    case _ => value.copy(targetEndpoint = value.targetEndpoint.copy(cardinality = cardinality))
+  }
+  private def _invalid_literal_results(value: Graph, invalidvalue: String): Vector[Either[Vector[StructureDiagnostic], Graph]] = {
+    val relationvalue = value.relations.head
+    val elementboundary = value.elements.head.aggregateBoundary.asInstanceOf[Present[AggregateBoundary]].value
+    val relationboundary = relationvalue.semantics.aggregateBoundary.asInstanceOf[Present[AggregateBoundary]].value
+    Vector(
+      CmlStructureMetadata.build(value.catalog, value.elements, value.relations.updated(0, relationvalue.copy(sourceEndpoint = relationvalue.sourceEndpoint.copy(role = Present(invalidvalue)))), value.envelope.extensions - namespace),
+      CmlStructureMetadata.build(value.catalog, value.elements, value.relations.updated(0, relationvalue.copy(targetEndpoint = relationvalue.targetEndpoint.copy(role = Present(invalidvalue)))), value.envelope.extensions - namespace),
+      CmlStructureMetadata.build(value.catalog, value.elements, value.relations.updated(0, relationvalue.copy(semantics = relationvalue.semantics.copy(ownership = Present(invalidvalue)))), value.envelope.extensions - namespace),
+      CmlStructureMetadata.build(value.catalog, value.elements, value.relations.updated(0, relationvalue.copy(semantics = relationvalue.semantics.copy(createPolicy = Present(invalidvalue)))), value.envelope.extensions - namespace),
+      CmlStructureMetadata.build(value.catalog, value.elements, value.relations.updated(0, relationvalue.copy(semantics = relationvalue.semantics.copy(deletePolicy = Present(invalidvalue)))), value.envelope.extensions - namespace),
+      CmlStructureMetadata.build(value.catalog, value.elements.updated(0, value.elements.head.copy(aggregateBoundary = Present(elementboundary.copy(membership = Present(invalidvalue))))), value.relations, value.envelope.extensions - namespace),
+      CmlStructureMetadata.build(value.catalog, value.elements, value.relations.updated(0, relationvalue.copy(semantics = relationvalue.semantics.copy(aggregateBoundary = Present(relationboundary.copy(membership = Present(invalidvalue)))))), value.envelope.extensions - namespace)
+    )
+  }
+  private def _invalid_literal_wires(root: JsObject, invalidvalue: String): Vector[JsObject] = Vector(
+    _wire_presence_text(root, Vector("relations", "[0]", "sourceEndpoint", "role"), invalidvalue),
+    _wire_presence_text(root, Vector("relations", "[0]", "targetEndpoint", "role"), invalidvalue),
+    _wire_presence_text(root, Vector("relations", "[0]", "semantics", "ownership"), invalidvalue),
+    _wire_presence_text(root, Vector("relations", "[0]", "semantics", "createPolicy"), invalidvalue),
+    _wire_presence_text(root, Vector("relations", "[0]", "semantics", "deletePolicy"), invalidvalue),
+    _wire_presence_text(root, Vector("elements", "[0]", "aggregateBoundary", "value", "membership"), invalidvalue),
+    _wire_presence_text(root, Vector("relations", "[0]", "semantics", "aggregateBoundary", "value", "membership"), invalidvalue)
+  )
+  private def _absence_name(value: AbsenceReason): String = value match {
+    case NotDeclared => "not-declared"
+    case NotRepresented => "not-represented"
+    case Unsupported => "unsupported"
+    case NotApplicable => "not-applicable"
+  }
+  private def _absence_samples(): Vector[Absent] = Vector(
+    Absent(NotDeclared, "not declared"), Absent(NotRepresented, "not represented"), Absent(Unsupported, "unsupported"), Absent(NotApplicable, "not applicable")
+  )
+  private def _aggregate_boundary_variants(): Vector[Presence[AggregateBoundary]] = {
+    val localaggregate: Presence[ModelReference] = Present(ModelReference(ModelElementId("model.example", "aggregate:same"), Local))
+    val externalaggregate: Presence[ModelReference] = Present(ModelReference(ModelElementId("Partner.Example", "Aggregate:名/Case"), External))
+    val reasons = Vector[AbsenceReason](NotDeclared, NotRepresented, Unsupported, NotApplicable)
+    val labels = Vector("not-declared", "not-represented", "unsupported", "not-applicable")
+    Vector(
+      Present(AggregateBoundary(localaggregate, Present("Member 名/Case"))),
+      Present(AggregateBoundary(externalaggregate, Present("External Member α/CASE")))
+    ) ++ reasons.zip(labels).map { case (reason, label) => Present(AggregateBoundary(Absent(reason, "aggregate " + label), Present("Member " + label))) } ++
+      reasons.zip(labels).map { case (reason, label) => Present(AggregateBoundary(localaggregate, Absent(reason, "membership " + label))) } ++
+      reasons.zip(labels).map { case (reason, label) => Present(AggregateBoundary(Absent(reason, "aggregate " + label), Absent(reason, "membership " + label))) }
+  }
+  private def _presence_text_generator(): Gen[Presence[String]] = {
+    val present = Gen.oneOf("Role α/Case", "Policy 名/CASE", "Lifecycle value", "Token with spaces")
+    val absent = Gen.oneOf(_absence_samples())
+    Gen.frequency((3, present.map(value => Present(value): Presence[String])), (2, absent.map(value => value: Presence[String])))
+  }
+  private def _presence_boolean_generator(): Gen[Presence[Boolean]] = {
+    val present = Gen.oneOf(true, false).map(value => Present(value): Presence[Boolean])
+    val absent = Gen.oneOf(_absence_samples()).map(value => value: Presence[Boolean])
+    Gen.frequency((3, present), (2, absent))
+  }
+  private def _presence_cardinality_generator(): Gen[Presence[Cardinality]] = {
+    val finite = Gen.oneOf(Cardinality(0, Some(0)), Cardinality(1, Some(2)), Cardinality(2, Some(7)), Cardinality(Int.MaxValue, Some(Int.MaxValue)))
+    val unbounded = Gen.const(Cardinality(0, None))
+    val absent = Gen.oneOf(_absence_samples()).map(value => value: Presence[Cardinality])
+    Gen.frequency((3, finite.map(value => Present(value): Presence[Cardinality])), (2, unbounded.map(value => Present(value): Presence[Cardinality])), (2, absent))
+  }
+  private def _presence_reference_generator(): Gen[Presence[ModelReference]] = {
+    val present = Gen.oneOf(
+      ModelReference(ModelElementId("model.example", "entity:item"), Local),
+      ModelReference(ModelElementId("model.example", "value:same"), Local),
+      ModelReference(ModelElementId("model.example", "aggregate:same"), Local),
+      ModelReference(ModelElementId("Partner.Example", "External:名/Case"), External)
+    ).map(value => Present(value): Presence[ModelReference])
+    val absent = Gen.oneOf(_absence_samples()).map(value => value: Presence[ModelReference])
+    Gen.frequency((3, present), (2, absent))
+  }
+  private def _aggregate_reference_generator(): Gen[Presence[ModelReference]] = {
+    val present = Gen.oneOf(
+      ModelReference(ModelElementId("model.example", "aggregate:same"), Local),
+      ModelReference(ModelElementId("Partner.Example", "Aggregate:名/Case"), External)
+    ).map(value => Present(value): Presence[ModelReference])
+    val absent = Gen.oneOf(_absence_samples()).map(value => value: Presence[ModelReference])
+    Gen.frequency((3, present), (2, absent))
+  }
+  private def _lifecycle_generator(): Gen[Presence[Vector[String]]] = {
+    val present = Gen.oneOf(Vector.empty[String], Vector("Create:α"), Vector("Delete", "Create", "Delete"), Vector("Case", "case", "名")).map(value => Present(value): Presence[Vector[String]])
+    val absent = Gen.oneOf(_absence_samples()).map(value => value: Presence[Vector[String]])
+    Gen.frequency((3, present), (2, absent))
+  }
+  private def _aggregate_boundary_generator(): Gen[AggregateBoundary] = for {
+    aggregate <- _aggregate_reference_generator()
+    membership <- _presence_text_generator()
+  } yield AggregateBoundary(aggregate, membership)
+  private def _presence_boundary_generator(): Gen[Presence[AggregateBoundary]] = {
+    val present = _aggregate_boundary_generator().map(value => Present(value): Presence[AggregateBoundary])
+    val absent = Gen.oneOf(_absence_samples()).map(value => value: Presence[AggregateBoundary])
+    Gen.frequency((3, present), (2, absent))
+  }
+  private def _endpoint_generator(): Gen[Endpoint] = for {
+    target <- _presence_reference_generator()
+    role <- _presence_text_generator()
+    cardinality <- _presence_cardinality_generator()
+    navigable <- _presence_boolean_generator()
+  } yield Endpoint(target, role, cardinality, navigable)
+  private def _relation_payload_generator(): Gen[(Endpoint, Endpoint, RelationSemantics)] = for {
+    source <- _endpoint_generator()
+    target <- _endpoint_generator()
+    ownership <- _presence_text_generator()
+    independent <- _presence_boolean_generator()
+    create <- _presence_text_generator()
+    delete <- _presence_text_generator()
+    reassignment <- _presence_boolean_generator()
+    reparenting <- _presence_boolean_generator()
+    lifecycle <- _lifecycle_generator()
+    boundary <- _presence_boundary_generator()
+  } yield (source, target, RelationSemantics(ownership, independent, create, delete, reassignment, reparenting, lifecycle, boundary))
   private def _strict_wire_variants(root: JsObject): Vector[(String, JsObject, StructureDiagnosticKind)] = {
     val structure = _structure(root)
     val relation = structure.value("relations").asInstanceOf[JsArray].value.head.asInstanceOf[JsObject]
