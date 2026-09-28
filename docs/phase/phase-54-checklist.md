@@ -24,8 +24,23 @@ No executable behavior or external consumer acceptance is claimed.
 
 ## MMD-54-02: Stable identity and absence
 
-- [ ] Define stable source-attributed model-element identities and cross-reference rules.
-- [ ] Define explicit absence semantics and prohibit name-based identity or policy guessing.
+Stage Status:
+- Current status: DONE
+- Owner: Cozy / parent workflow
+- Current step: MMD-54-02A
+- Update rule: Preserve the parent reconciliation, focused validation,
+  protected-focused Step review, and acceptance; these two items remain the
+  closure basis. This does not close the Phase or accept later Steps.
+
+- [x] Define stable source-attributed model-element identities and cross-reference rules.
+- [x] Define explicit absence semantics and prohibit name-based identity or policy guessing.
+
+Evidence: [CML Semantic Foundation specification](../spec/cml-semantic-foundation.md),
+[design](../design/cml-semantic-foundation.md), and CmlSemanticFoundationSpec;
+2026-09-28 representative validation (12 tests, including two 100-case
+properties), legacy metadata/Workflow accumulator (93 tests), and independent
+protected-focused MMD-54-02 Step review PASS. Versioned publication remains
+MMD-54-03; full Phase validation and release closure remain pending.
 
 ## MMD-54-03: Versioned publication foundation
 
