@@ -101,7 +101,7 @@ no implementation, validation, or acceptance evidence has been moved.
 | --- | --- | --- |
 | MMD-54-01 | Inventory semantic IR and generated metadata for every planned CBD Support/model capability; classify each capability without guessing. | done |
 | MMD-54-02 | Freeze stable model-element IDs, source provenance, explicit absence, cross-reference vocabulary, and the common semantic-reference shape used by later Capability IR. | done |
-| MMD-54-03 | Define the versioned, consumer-neutral semantic-metadata envelope and compatibility policy that later child projections and Phase 64 references extend/consume. | planned |
+| MMD-54-03 | Define the versioned, consumer-neutral semantic-metadata envelope and compatibility policy that later child projections and Phase 64 references extend/consume. | done |
 | MMD-54-04 | Produce the foundation handoff for Structure, Classification, dynamic, Use Case, Terminology, Event Storming, final fixtures, and Phase 64 Capability grounding. | planned |
 
 ## Current slice ledger
@@ -110,6 +110,7 @@ no implementation, validation, or acceptance evidence has been moved.
 | --- | --- | --- | --- |
 | MMD-54-01A | accepted | `/root` (parent workflow) | The parent records acceptance after owned-path reconciliation, focused static checks, and independent Step review PASS. The existing MMD-54-01 checklist items are the closure basis; this does not accept later Steps or close the Phase. |
 | MMD-54-02A | accepted | `/root` (parent workflow) | The parent records acceptance after owned-path reconciliation, representative and legacy accumulator validation, protected-focused Step review PASS, and the acceptance commit. The two existing MMD-54-02 checklist items remain the closure basis; publication and Phase closure remain pending. |
+| MMD-54-03A | accepted | `/root` (parent workflow) | The parent records acceptance after current-tree representative and legacy accumulator validation, protected-focused review, bounded repair and independent focused re-review PASS, and the exact acceptance commit. The two existing MMD-54-03 checklist items remain the closure basis; this does not close the Phase or accept MMD-54-04. |
 
 The closure basis for MMD-54-01A is the existing MMD-54-01 checklist items:
 inventory the current semantic IR and generated metadata for every planned view

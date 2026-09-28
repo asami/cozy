@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "cozy.cml.semantic-metadata.v1",
+  "elements": [
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "model.example",
+          "elementId": "entity:item"
+        }
+      },
+      "kind": "entity",
+      "name": "Item",
+      "source": {
+        "authorityId": "model.example",
+        "path": "src/main/cozy/example.cml",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "line": 12
+      },
+      "references": {
+        "status": "present",
+        "value": []
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "model.example",
+          "elementId": "entity:other"
+        }
+      },
+      "kind": "entity",
+      "name": "Item",
+      "source": {
+        "authorityId": "model.example",
+        "path": "src/main/cozy/example.cml",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "line": 28
+      },
+      "references": {
+        "status": "present",
+        "value": [
+          {
+            "target": {
+              "kind": "term",
+              "identity": {
+                "vocabularyId": "bok.example",
+                "termId": "term:item"
+              }
+            },
+            "boundary": "local",
+            "relation": {
+              "status": "present",
+              "value": {
+                "vocabularyId": "bok.example",
+                "relationId": "relation:example"
+              }
+            },
+            "profile": {
+              "status": "present",
+              "value": {
+                "vocabularyId": "bok.example",
+                "profileId": "profile:example"
+              }
+            },
+            "context": {
+              "status": "present",
+              "value": "注文の文脈"
+            },
+            "preferredLabel": {
+              "status": "present",
+              "value": {
+                "text": "項目",
+                "language": "ja"
+              }
+            },
+            "source": {
+              "authorityId": "model.example",
+              "path": "src/main/cozy/example.cml",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "line": 30
+            },
+            "origin": {
+              "kind": "derived",
+              "ruleId": "admitted-example",
+              "sources": [
+                {
+                  "authorityId": "bok.example",
+                  "path": "glossary/example.dox",
+                  "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "line": null
+                }
+              ]
+            }
+          },
+          {
+            "target": {
+              "kind": "model-element",
+              "identity": {
+                "modelId": "partner.example",
+                "elementId": "entity:invoice"
+              }
+            },
+            "boundary": "external",
+            "relation": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No relation classification is admitted."
+            },
+            "profile": {
+              "status": "absent",
+              "reason": "not-represented",
+              "detail": "No profile is represented."
+            },
+            "context": {
+              "status": "absent",
+              "reason": "unsupported",
+              "detail": "No external context is supported."
+            },
+            "preferredLabel": {
+              "status": "absent",
+              "reason": "not-applicable",
+              "detail": "No label applies to this external target."
+            },
+            "source": {
+              "authorityId": "model.example",
+              "path": "src/main/cozy/example.cml",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "line": 31
+            },
+            "origin": {
+              "kind": "declared"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "terms": [
+    {
+      "identity": {
+        "vocabularyId": "bok.example",
+        "termId": "term:item"
+      },
+      "source": {
+        "authorityId": "bok.example",
+        "path": "glossary/example.dox",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "line": null
+      }
+    }
+  ],
+  "extensions": {
+    "org.example.projection": {
+      "unfamiliar": {
+        "nested": [null, true, {"retained": "opaque"}]
+      },
+      "scalar": "not a core projection claim"
+    }
+  }
+}

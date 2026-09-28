@@ -44,8 +44,26 @@ MMD-54-03; full Phase validation and release closure remain pending.
 
 ## MMD-54-03: Versioned publication foundation
 
-- [ ] Freeze the consumer-neutral semantic-metadata envelope and extension/compatibility policy.
-- [ ] Preserve the ownership boundary: Cozy supplies semantics; Textus CBD Support renders and reviews them.
+Stage Status:
+- Current status: DONE
+- Owner: Cozy / parent workflow
+- Current step: MMD-54-03A
+- Update rule: Preserve current-tree validation, protected-focused review,
+  bounded repair, independent focused re-review PASS, and the exact acceptance
+  commit; these two items remain the closure basis. This does not close the
+  Phase or accept MMD-54-04.
+
+- [x] Freeze the consumer-neutral semantic-metadata envelope and extension/compatibility policy.
+- [x] Preserve the ownership boundary: Cozy supplies semantics; Textus CBD Support renders and reviews them.
+
+Evidence: [CML Semantic Metadata specification](../spec/cml-semantic-metadata.md),
+[design](../design/cml-semantic-metadata.md), the versioned JSON fixture, and
+CmlSemanticMetadataSpec; 2026-09-28 representative validation (10 tests,
+including two 100-case properties), foundation/legacy Workflow accumulator
+(105 tests), protected-focused Step review and independent focused re-review
+PASS after one bounded null-extension-key repair cycle. No CML producer, CLI,
+runtime integration, or external consumer acceptance is claimed. Full Phase
+review, repository-wide validation, and release closure remain pending.
 
 ## MMD-54-04: Child handoff
 
