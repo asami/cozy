@@ -1,14 +1,26 @@
 # Phase 54 Checklist: CBD Support Semantic Capability Foundation
 
-Status: PLANNED
+Status: IN_PROGRESS
 phase=[Phase 54](phase-54.md)
 
 Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 
 ## MMD-54-01: Capability inventory
 
-- [ ] Inventory the current semantic IR and generated metadata for every planned Textus CBD Support view capability.
-- [ ] Classify each capability as guaranteed, faithfully derivable, partially represented, or missing.
+Stage Status:
+- Current status: DONE
+- Owner: Cozy / parent workflow
+- Current step: MMD-54-01A
+- Update rule: Preserve the existing parent reconciliation, focused checks,
+  independent review, acceptance, and existing checklist as
+  the closure basis.
+
+- [x] Inventory the current semantic IR and generated metadata for every planned Textus CBD Support view capability.
+- [x] Classify each capability as guaranteed, faithfully derivable, partially represented, or missing.
+
+Evidence: [CML Semantic Capability Inventory](../notes/cml-semantic-capability-inventory.md),
+2026-09-28 static validation and independent MMD-54-01 Step review PASS.
+No executable behavior or external consumer acceptance is claimed.
 
 ## MMD-54-02: Stable identity and absence
 

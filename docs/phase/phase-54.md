@@ -1,6 +1,6 @@
 # Phase 54: CBD Support Semantic Capability Foundation
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 Plan date: 2026-09-07
 Reconciled: 2026-09-18
@@ -99,10 +99,24 @@ no implementation, validation, or acceptance evidence has been moved.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| MMD-54-01 | Inventory semantic IR and generated metadata for every planned CBD Support/model capability; classify each capability without guessing. | planned |
+| MMD-54-01 | Inventory semantic IR and generated metadata for every planned CBD Support/model capability; classify each capability without guessing. | done |
 | MMD-54-02 | Freeze stable model-element IDs, source provenance, explicit absence, cross-reference vocabulary, and the common semantic-reference shape used by later Capability IR. | planned |
 | MMD-54-03 | Define the versioned, consumer-neutral semantic-metadata envelope and compatibility policy that later child projections and Phase 64 references extend/consume. | planned |
 | MMD-54-04 | Produce the foundation handoff for Structure, Classification, dynamic, Use Case, Terminology, Event Storming, final fixtures, and Phase 64 Capability grounding. | planned |
+
+## Current slice ledger
+
+| Slice | Status | Owner | Update rule |
+| --- | --- | --- | --- |
+| MMD-54-01A | accepted | `/root` (parent workflow) | The parent records acceptance after owned-path reconciliation, focused static checks, and independent Step review PASS. The existing MMD-54-01 checklist items are the closure basis; this does not accept later Steps or close the Phase. |
+
+The closure basis for MMD-54-01A is the existing MMD-54-01 checklist items:
+inventory the current semantic IR and generated metadata for every planned view
+capability, and classify each capability as guaranteed, faithfully derivable,
+partially represented, or missing. The
+[`CML Semantic Capability Inventory`](../notes/cml-semantic-capability-inventory.md)
+is the accepted non-normative inventory evidence for MMD-54-01; it does not
+close the Phase or any successor work.
 
 ## Closure criteria
 
