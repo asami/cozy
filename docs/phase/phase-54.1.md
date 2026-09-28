@@ -52,7 +52,7 @@ Phase Plan Gate: PROCEED
 | --- | --- | --- |
 | MMD-541-01 | Publish distinct Entity, Value, Aggregate, composition, aggregation, and association identities and kinds. Slice `MMD-541-01A` passed focused validation and independent protected focused Step review; see checklist evidence. | ACCEPTED |
 | MMD-541-02 | Preserve declared endpoint roles, cardinality, navigability, ownership, independent existence, create/delete, reassignment/reparenting, lifecycle propagation, and aggregate-boundary semantics. Slice `MMD-541-02A` passed 51/51 focused specifications and independent Step review; see checklist evidence. | ACCEPTED |
-| MMD-541-03 | Prove composition and aggregation are not flattened into generic association, and preserve explicit absence where CML does not declare a policy. | PLANNED |
+| MMD-541-03 | Prove composition and aggregation are not flattened into generic association, and preserve explicit absence where CML does not declare a policy. Slice `MMD-541-03A` passed 55/55 focused specifications and independent Step review; see checklist evidence. | ACCEPTED |
 | MMD-541-04 | Freeze Structure fixtures and the later-child handoff on the cozy.cml.semantic-metadata.v1 identity/publication surface. | PLANNED |
 
 ## Closure criteria

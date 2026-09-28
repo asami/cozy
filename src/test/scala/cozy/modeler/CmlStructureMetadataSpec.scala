@@ -901,6 +901,176 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
       Then("every admitted mixed graph survives typed publication, canonical JSON, strict consumption, and re-rendering")
       result.passed shouldBe true
     }
+
+    "STR-21 retain distinct relation kinds with identical payloads" in {
+      Given("three relation projections with the same endpoints and semantics but their original core records and kinds")
+      val base = _graph()
+      val relations = base.relations.map { relationvalue =>
+        relationvalue.copy(
+          sourceEndpoint = base.relations.head.sourceEndpoint,
+          targetEndpoint = base.relations.head.targetEndpoint,
+          semantics = base.relations.head.semantics
+        )
+      }
+      When("the typed graph is built, rendered as concrete and canonical JSON, parsed, and strictly read")
+      val published = _graph_result(CmlStructureMetadata.build(base.catalog, base.elements, relations, Json.obj()))
+      val concrete = CmlStructureMetadata.toJson(published)
+      val canonical = CmlStructureMetadata.canonicalJson(published)
+      val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(canonical)))
+      Then("ordered wire tags, typed kinds, full core records, and qualified relation identities remain distinct")
+      (0 until 3).map(index => _wire_relation(concrete, index).value("kind")) shouldBe Vector(JsString("composition"), JsString("aggregation"), JsString("association"))
+      consumed.relations.map(_.kind) shouldBe Vector(Composition, Aggregation, Association)
+      consumed.relations.map(_.element) shouldBe relations.map(_.element)
+      consumed.relations.map(_.element.identity) shouldBe relations.map(_.element.identity)
+      consumed.catalog.elements shouldBe base.catalog.elements
+      consumed.relations.map(_.sourceEndpoint) shouldBe Vector.fill(3)(base.relations.head.sourceEndpoint)
+      consumed.relations.map(_.targetEndpoint) shouldBe Vector.fill(3)(base.relations.head.targetEndpoint)
+      consumed.relations.map(_.semantics) shouldBe Vector.fill(3)(base.relations.head.semantics)
+    }
+
+    "STR-22 reject every ordered wrong relation-kind binding" in {
+      Given("the accepted three-kind graph and every ordered unequal replacement of its relation projection kinds")
+      val base = _graph()
+      val originalrelations = base.relations
+      val kinds: Vector[RelationKind] = Vector(Composition, Aggregation, Association)
+      val mutations = for {
+        relationindex <- 0 until 3
+        replacement <- kinds
+        if replacement != originalrelations(relationindex).kind
+      } yield (relationindex, replacement)
+      When("each typed mutation and each explicit wire kind substitution crosses the strict binding boundary")
+      val typedobservations = mutations.map { case (relationindex, replacement) =>
+        val changed = originalrelations.updated(relationindex, originalrelations(relationindex).copy(kind = replacement))
+        val diagnostic = _first(CmlStructureMetadata.build(base.catalog, base.elements, changed, Json.obj()))
+        (relationindex, replacement, diagnostic.kind, diagnostic.path)
+      }
+      val wireobservations = mutations.map { case (relationindex, replacement) =>
+        val changed = _replace_relation_kind(CmlStructureMetadata.toJson(base), relationindex, replacement)
+        val diagnostic = _first(CmlStructureMetadata.read(changed))
+        (relationindex, replacement, diagnostic.kind, diagnostic.path)
+      }
+      Then("all six mutations fail as InvalidCoreBinding while the original graph and embedded records remain unchanged")
+      mutations.size shouldBe 6
+      val expected = mutations.map { case (relationindex, replacement) => (relationindex, replacement, InvalidCoreBinding, "relations[" + relationindex + "].element.kind") }
+      typedobservations shouldBe expected
+      wireobservations shouldBe expected
+      base.relations shouldBe originalrelations
+      originalrelations.map(_.element) shouldBe base.relations.map(_.element)
+      originalrelations.map(_.kind) shouldBe Vector(Composition, Aggregation, Association)
+    }
+
+    "STR-23 preserve every explicit absence reason at every relation carrier" in {
+      Given("four absence reasons, three distinct relation kinds, and all sixteen endpoint and semantics carrier coordinates")
+      val base = _graph()
+      val reasons: Vector[AbsenceReason] = Vector(NotDeclared, NotRepresented, Unsupported, NotApplicable)
+      val carriers = _relation_absence_carriers()
+      val matrix = for {
+        reason <- reasons
+        relationindex <- 0 until 3
+        carrier <- carriers
+      } yield (reason, relationindex, carrier)
+      When("each matrix coordinate is assigned a coordinate-specific absent carrier and round-tripped through canonical JSON")
+      val observations = matrix.map { case (reason, relationindex, carrier) =>
+        val coordinate = carrier._1
+        val detail = "STR-23-" + relationindex + "-" + coordinate + "-" + _absence_name(reason)
+        val absence = Absent(reason, detail)
+        val relationvalue = carrier._2(base.relations(relationindex), absence)
+        val relations = base.relations.updated(relationindex, relationvalue)
+        val published = _graph_result(CmlStructureMetadata.build(base.catalog, base.elements, relations, Json.obj()))
+        val concrete = CmlStructureMetadata.toJson(published)
+        val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(published))))
+        (carrier._1, relationindex, reason, detail, carrier._3(consumed.relations(relationindex)), _value_at_path(_structure(concrete), carrier._4.updated(1, "[" + relationindex + "]")), absence, relations, consumed)
+      }
+      val simultaneousobservations = (for {
+        reason <- reasons
+        relationindex <- 0 until 3
+      } yield (reason, relationindex)).flatMap { case (reason, relationindex) =>
+        val detail = "STR-23-all-" + _absence_name(reason) + "-"
+        val relationvalue = _all_absent_relation(base.relations(relationindex), reason, detail)
+        val relations = base.relations.updated(relationindex, relationvalue)
+        val published = _graph_result(CmlStructureMetadata.build(base.catalog, base.elements, relations, Json.obj()))
+        val concrete = CmlStructureMetadata.toJson(published)
+        val consumed = _graph_result(CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(published))))
+        carriers.map { carrier =>
+          val coordinate = carrier._1
+          val expected = Absent(reason, detail + coordinate)
+          (coordinate, relationindex, reason, detail + coordinate, carrier._3(consumed.relations(relationindex)), _value_at_path(_structure(concrete), carrier._4.updated(1, "[" + relationindex + "]")), expected, relations, consumed)
+        }
+      }
+      Then("every typed carrier and concrete wire object preserves its reason and detail without kind-derived defaults, including simultaneous full-carrier absence")
+      observations.foreach { case (coordinate, relationindex, reason, detail, actual, wire, expected, relations, consumed) =>
+        actual shouldBe expected
+        wire shouldBe Json.obj("status" -> JsString("absent"), "reason" -> _absence_text(reason), "detail" -> JsString(detail))
+        consumed.relations shouldBe relations
+        consumed.relations.map(_.kind) shouldBe Vector(Composition, Aggregation, Association)
+        consumed.catalog.elements shouldBe base.catalog.elements
+        coordinate.nonEmpty shouldBe true
+      }
+      observations.size shouldBe 192
+      simultaneousobservations.foreach { case (coordinate, relationindex, reason, detail, actual, wire, expected, relations, consumed) =>
+        actual shouldBe expected
+        wire shouldBe Json.obj("status" -> JsString("absent"), "reason" -> _absence_text(reason), "detail" -> JsString(detail))
+        consumed.relations shouldBe relations
+        consumed.relations.map(_.kind) shouldBe Vector(Composition, Aggregation, Association)
+        consumed.catalog.elements shouldBe base.catalog.elements
+        coordinate.nonEmpty shouldBe true
+      }
+      simultaneousobservations.size shouldBe 192
+    }
+
+    "STR-24 preserve identity and order under generated permutations" in {
+      Given("an admitted three-relation fixture with 720 core-record and six relation-projection permutations")
+      val base = _graph()
+      val coreorders = base.catalog.elements.permutations.map(_.toVector).toVector
+      val relationorders = base.relations.permutations.map(_.toVector).toVector
+      val carriers = _relation_absence_carriers()
+      val reasons: Vector[AbsenceReason] = Vector(NotDeclared, NotRepresented, Unsupported, NotApplicable)
+      val suffixes = Vector("名/Case", "α/CASE", "Ünicode/case", "日本語/Case")
+      base.relations.size shouldBe 3
+      coreorders.size shouldBe 720
+      relationorders.size shouldBe 6
+      val samples = for {
+        coreorder <- Gen.oneOf(coreorders)
+        relationorder <- Gen.oneOf(relationorders)
+        relationindex <- Gen.choose(0, 2)
+        reason <- Gen.oneOf(reasons)
+        suffix <- Gen.oneOf(suffixes)
+        carrier <- Gen.oneOf(carriers)
+      } yield (coreorder, relationorder, relationindex, reason, suffix, carrier)
+      When("ScalaCheck evaluates at least one hundred successful permutation and absence samples")
+      val property = Prop.forAll(samples) { case (coreorder, relationorder, relationindex, reason, suffix, carrier) =>
+        val catalog = _catalog_from(coreorder)
+        val elements = base.elements.map(value => _rebind(catalog, value))
+        val detail = "STR-24-" + suffix
+        val changed = relationorder.updated(relationindex, _all_absent_relation(relationorder(relationindex), reason, detail))
+        val relations = changed.map(value => _rebind(catalog, value))
+        CmlStructureMetadata.build(catalog, elements, relations, Json.obj()) match {
+          case Left(_) => false
+          case Right(published) =>
+            val canonical = CmlStructureMetadata.canonicalJson(published)
+            CmlStructureMetadata.read(Json.parse(canonical)) match {
+              case Left(_) => false
+              case Right(consumed) =>
+                val identitykinds = relations.map(value => (value.element.identity, value.kind))
+                val selectedrelation = consumed.relations(relationindex)
+                val allabsent = carriers.forall { currentcarrier =>
+                  currentcarrier._3(selectedrelation) == Absent(reason, detail + currentcarrier._1)
+                }
+                consumed.elements == elements &&
+                  consumed.relations == relations &&
+                  consumed.catalog.elements == catalog.elements &&
+                  consumed.relations.map(value => (value.element.identity, value.kind)) == identitykinds &&
+                  consumed.relations.map(_.kind).distinct.size == 3 &&
+                  allabsent &&
+                  carrier._3(selectedrelation) == Absent(reason, detail + carrier._1) &&
+                  CmlStructureMetadata.canonicalJson(consumed) == canonical
+            }
+        }
+      }
+      Then("all samples preserve ordered projections, exact catalog records, distinct kinds, identity-kind mapping, and stable canonical rendering")
+      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
+      result.passed shouldBe true
+    }
   }
 
   private def _graph(
@@ -990,6 +1160,28 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
   private def _source(authority: String, path: String = "src/main/cml/example.cml", line: Option[Int] = Some(1)): SourceAttribution = SourceAttribution(authority, path, "a" * 64, line)
   private def _endpoint(target: Presence[ModelReference]): Endpoint = Endpoint(target, Absent(NotDeclared, "No role is declared."), Present(Cardinality(0, None)), Present(false))
   private def _semantics: RelationSemantics = RelationSemantics(Absent(NotDeclared, "No ownership is declared."), Present(false), Absent(NotDeclared, "No create policy is declared."), Absent(NotDeclared, "No delete policy is declared."), Absent(NotDeclared, "No reassignment policy is declared."), Absent(NotDeclared, "No reparenting policy is declared."), Present(Vector.empty), Absent(NotDeclared, "No aggregate boundary is declared."))
+  private def _relation_absence_carriers(): Vector[(String, (RelationProjection, Absent) => RelationProjection, RelationProjection => Any, Vector[String])] = Vector(
+    ("source.target", (value, absence) => value.copy(sourceEndpoint = value.sourceEndpoint.copy(target = absence)), value => value.sourceEndpoint.target, Vector("relations", "[0]", "sourceEndpoint", "target")),
+    ("source.role", (value, absence) => value.copy(sourceEndpoint = value.sourceEndpoint.copy(role = absence)), value => value.sourceEndpoint.role, Vector("relations", "[0]", "sourceEndpoint", "role")),
+    ("source.cardinality", (value, absence) => value.copy(sourceEndpoint = value.sourceEndpoint.copy(cardinality = absence)), value => value.sourceEndpoint.cardinality, Vector("relations", "[0]", "sourceEndpoint", "cardinality")),
+    ("source.navigable", (value, absence) => value.copy(sourceEndpoint = value.sourceEndpoint.copy(navigable = absence)), value => value.sourceEndpoint.navigable, Vector("relations", "[0]", "sourceEndpoint", "navigable")),
+    ("target.target", (value, absence) => value.copy(targetEndpoint = value.targetEndpoint.copy(target = absence)), value => value.targetEndpoint.target, Vector("relations", "[0]", "targetEndpoint", "target")),
+    ("target.role", (value, absence) => value.copy(targetEndpoint = value.targetEndpoint.copy(role = absence)), value => value.targetEndpoint.role, Vector("relations", "[0]", "targetEndpoint", "role")),
+    ("target.cardinality", (value, absence) => value.copy(targetEndpoint = value.targetEndpoint.copy(cardinality = absence)), value => value.targetEndpoint.cardinality, Vector("relations", "[0]", "targetEndpoint", "cardinality")),
+    ("target.navigable", (value, absence) => value.copy(targetEndpoint = value.targetEndpoint.copy(navigable = absence)), value => value.targetEndpoint.navigable, Vector("relations", "[0]", "targetEndpoint", "navigable")),
+    ("semantics.ownership", (value, absence) => value.copy(semantics = value.semantics.copy(ownership = absence)), value => value.semantics.ownership, Vector("relations", "[0]", "semantics", "ownership")),
+    ("semantics.independentExistence", (value, absence) => value.copy(semantics = value.semantics.copy(independentExistence = absence)), value => value.semantics.independentExistence, Vector("relations", "[0]", "semantics", "independentExistence")),
+    ("semantics.createPolicy", (value, absence) => value.copy(semantics = value.semantics.copy(createPolicy = absence)), value => value.semantics.createPolicy, Vector("relations", "[0]", "semantics", "createPolicy")),
+    ("semantics.deletePolicy", (value, absence) => value.copy(semantics = value.semantics.copy(deletePolicy = absence)), value => value.semantics.deletePolicy, Vector("relations", "[0]", "semantics", "deletePolicy")),
+    ("semantics.reassignment", (value, absence) => value.copy(semantics = value.semantics.copy(reassignment = absence)), value => value.semantics.reassignment, Vector("relations", "[0]", "semantics", "reassignment")),
+    ("semantics.reparenting", (value, absence) => value.copy(semantics = value.semantics.copy(reparenting = absence)), value => value.semantics.reparenting, Vector("relations", "[0]", "semantics", "reparenting")),
+    ("semantics.lifecyclePropagation", (value, absence) => value.copy(semantics = value.semantics.copy(lifecyclePropagation = absence)), value => value.semantics.lifecyclePropagation, Vector("relations", "[0]", "semantics", "lifecyclePropagation")),
+    ("semantics.aggregateBoundary", (value, absence) => value.copy(semantics = value.semantics.copy(aggregateBoundary = absence)), value => value.semantics.aggregateBoundary, Vector("relations", "[0]", "semantics", "aggregateBoundary"))
+  )
+  private def _all_absent_relation(value: RelationProjection, reason: AbsenceReason, detail: String): RelationProjection =
+    _relation_absence_carriers().foldLeft(value) { case (relationvalue, carrier) =>
+      carrier._2(relationvalue, Absent(reason, detail + carrier._1))
+    }
   private def _rebuild(value: Graph, elements: Vector[ElementProjection] = null, relations: Vector[RelationProjection] = null): Graph = {
     val selectedelements = if (elements == null) value.elements else elements
     val selectedrelations = if (relations == null) value.relations else relations
@@ -1018,6 +1210,17 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
   private def _replace_relation_target_identity(root: JsObject, identity: ModelElementId): JsObject = _replace_relation_endpoint(root, "targetEndpoint", endpoint => { val target = endpoint.value("target").asInstanceOf[JsObject]; val present = target.value("value").asInstanceOf[JsObject]; val reference = present.value("identity").asInstanceOf[JsObject]; val changed = reference + ("modelId" -> _json_text(identity.modelId)) + ("elementId" -> _json_text(identity.elementId)); endpoint + ("target" -> (target + ("value" -> (present + ("identity" -> changed))))) })
   private def _replace_relation_target_value(root: JsObject, value: JsValue): JsObject = _replace_relation_endpoint(root, "targetEndpoint", endpoint => { val target = endpoint.value("target").asInstanceOf[JsObject]; endpoint + ("target" -> (target + ("value" -> value))) })
   private def _replace_relation_target_reference_field(root: JsObject, name: String, value: JsValue): JsObject = _replace_relation_endpoint(root, "targetEndpoint", endpoint => { val target = endpoint.value("target").asInstanceOf[JsObject]; val present = target.value("value").asInstanceOf[JsObject]; endpoint + ("target" -> (target + ("value" -> (present + (name -> value))))) })
+  private def _relation_kind_name(value: RelationKind): String = value match {
+    case Composition => "composition"
+    case Aggregation => "aggregation"
+    case Association => "association"
+  }
+  private def _replace_relation_kind(root: JsObject, relationindex: Int, kind: RelationKind): JsObject = _with_structure(root, _replace_path(_structure(root), Vector("relations", "[" + relationindex + "]", "kind"), JsString(_relation_kind_name(kind))).asInstanceOf[JsObject])
+  private def _value_at_path(value: JsValue, path: Vector[String]): JsValue = path match {
+    case Vector() => value
+    case head +: tail if head.startsWith("[") => _value_at_path(value.asInstanceOf[JsArray].value(head.drop(1).dropRight(1).toInt), tail)
+    case head +: tail => _value_at_path(value.asInstanceOf[JsObject].value(head), tail)
+  }
   private def _relation_vectors(value: Graph, change: RelationProjection => RelationProjection): (Vector[ElementProjection], Vector[RelationProjection]) = (value.elements, value.relations.updated(0, change(value.relations.head)))
   private def _element_vectors(value: Graph, change: ElementProjection => ElementProjection): (Vector[ElementProjection], Vector[RelationProjection]) = (value.elements.updated(0, change(value.elements.head)), value.relations)
   private def _absence_text(value: AbsenceReason): JsValue = value match { case NotDeclared => JsString("not-declared"); case NotRepresented => JsString("not-represented"); case Unsupported => JsString("unsupported"); case NotApplicable => JsString("not-applicable"); case _ => JsNull }

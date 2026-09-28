@@ -87,9 +87,10 @@ The executable contract is
 
 ## Executable acceptance map for relation semantics
 
-Slice `MMD-541-02A` records the following authored acceptance scenarios over
-the unchanged `cozy.cml.structure.v1` contract. They are executable
-specification scope, not validation or closure evidence.
+The following authored acceptance scenarios consume the unchanged
+`cozy.cml.structure.v1` contract. Slice `MMD-541-02A` owns STR-11 and
+STR-14..20; Slice `MMD-541-03A` owns STR-21..24. These mappings describe
+executable specification scope, not validation or closure evidence.
 
 | Scenario | Acceptance focus |
 | --- | --- |
@@ -101,6 +102,10 @@ specification scope, not validation or closure evidence.
 | STR-18 | Preserve lifecycle vector emptiness, order, duplicates, Unicode/case, and member-level failure categories. |
 | STR-19 | Preserve every present outer aggregate-boundary variant and its nested aggregate/membership presence without catalog mutation. |
 | STR-20 | Property-test mixed endpoint, policy, reference, cardinality, lifecycle, and nested-presence payloads through canonical JSON and strict consumption. |
+| STR-21 | Preserve ordered composition, aggregation, and association wire and typed kinds when all three relations share identical endpoints and declared semantics. |
+| STR-22 | Reject all six ordered unequal relation-kind substitutions as `InvalidCoreBinding` while retaining the admitted embedded core record. |
+| STR-23 | Preserve all four absence reasons and coordinate-specific details across all sixteen endpoint and relation-semantics carriers for each relation kind without inferred policy. |
+| STR-24 | Property-test independent core-record and relation-projection permutations, Unicode/case-sensitive absence details, identity-to-kind binding, and stable canonical re-rendering. |
 
 The authored scenarios do not claim passed validation, Step acceptance, or
 Phase closure; those dispositions remain with the parent workflow.

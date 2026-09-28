@@ -48,18 +48,34 @@ Independent Step review `P54.1-MMD-541-02-STEP-REVIEW-001` passed with no
 Current Boundary Blockers or Development Candidates. Its sole Hygiene item,
 `HYG-54102-001` (stale validation-pending wording), is resolved by this
 acceptance bookkeeping; the original review evidence is retained.
-Only this Step is accepted. Steps 03 and 04 and full Phase closure remain open.
+At this Step's acceptance, Steps 03 and 04 and full Phase closure remained open;
+later Step dispositions are recorded below.
 
 ## MMD-541-03: Faithfulness acceptance
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: ACCEPTED
 - Owner: Cozy Phase 54.1 development
 - Update rule: update from accepted checklist evidence for this stage.
 - Closure basis: checklist items in this section.
 
-- [ ] Prove composition and aggregation are not flattened into association.
+- [x] Prove composition and aggregation are not flattened into association.
+
+Acceptance evidence (2026-09-28): Slice `MMD-541-03A`; serial SBT invocation
+`P54.1-MMD-541-03A-MANUAL-VAL-001` passed 55/55 specifications (Structure
+33/33 and foundation/semantic-metadata 22/22; exit 0, lock released, identical
+pre/post tree). STR-21..24 cover distinct relation kinds with identical
+payloads, all six wrong-kind substitutions, all four absence reasons across
+sixteen carriers individually and simultaneously, and active permutation
+properties over 720 core-record and six relation-projection orderings.
+Independent Step review `P54.1-MMD-541-03-STEP-REVIEW-001` passed after
+focused confirmation of the documentation-only attribution correction
+`CB-54103-001`; the original finding is retained. No Current Step Blockers,
+Hygiene, or Development Candidates remain. The user-authorized execution and
+documentation-routing workaround changed no skill and claims no generic
+command receipt. Existing validation was reused without another SBT run.
+Step 04 and full Phase closure remain open.
 
 ## MMD-541-04: Structure handoff
 
