@@ -1,6 +1,6 @@
 # Phase 54 Checklist: CBD Support Semantic Capability Foundation
 
-Status: IN_PROGRESS
+Status: CLOSED
 phase=[Phase 54](phase-54.md)
 
 Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
@@ -85,10 +85,20 @@ PLANNED. No producer, external consumer acceptance, or Phase closure is claimed.
 ## Phase 54 release closure (retained MMD-54-04 obligation)
 
 Stage Status:
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: `/root` (parent workflow)
-- Update rule: Keep this retained MMD-54-04 release obligation open until the
-  full Phase review, full suite, distinct release commit, and reproducible
-  evidence are complete. It is not Step acceptance and is not checked here.
+- Update rule: Preserve the accepted full Phase review, final full-suite
+  receipt, and distinct validated release commit as the closure basis.
+  This release closure is separate from the four Step acceptance records.
 
-- [ ] Complete focused validation, review, release closure, and reproducible evidence for this foundation child only.
+- [x] Complete focused validation, review, release closure, and reproducible evidence for this foundation child only.
+
+Release evidence (2026-09-28): all four Step acceptance commits
+`2d4e469`, `dc42281`, `c864501`, and `3eb43a9`; single independent full Phase
+review PASS with typed disposition `d769d9a5` and no Current Phase Blocker;
+final Cozy `sbt --batch test` receipt `P54-FINAL-TEST-001`.
+This closure is authoritative only after the distinct successful release
+commit with `Phase-Closure-Binding: PHASE-54`. Earlier pending-release wording
+is retained as historical Step acceptance evidence. Both nonblocking ledgers
+are empty; no empty journal is created. Phases 54.1 through 54.7 and Phase 64
+remain PLANNED and are not accepted by this release.

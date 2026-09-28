@@ -94,9 +94,10 @@ Phase status index (individual Phase/checklist files are authoritative):
   approval-hash gates. Human approval is outside the current generation
   workflow; existing hash code may remain but cannot block ordinary generation
   or reuse.
-- Planned CBD Support semantic-metadata sequence: `phase-54.md` establishes
+- CBD Support semantic-metadata foundation CLOSED: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
-  publication; `phase-54.1.md` adds Structure, `phase-54.2.md` Classification,
+  publication. Following children remain PLANNED: `phase-54.1.md` adds
+  Structure, `phase-54.2.md` Classification,
   `phase-54.3.md` Workflow and StateMachine, `phase-54.4.md` Use Case and
   Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
   traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy

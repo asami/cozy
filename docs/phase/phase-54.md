@@ -1,6 +1,8 @@
 # Phase 54: CBD Support Semantic Capability Foundation
 
-Status: IN_PROGRESS
+Status: CLOSED
+
+Closed: 2026-09-28
 
 Plan date: 2026-09-07
 Reconciled: 2026-09-18
@@ -136,6 +138,27 @@ close the Phase or any successor work.
 - The matching checklist, focused validation, review, and release closure for
   this foundation child are complete; all detailed semantic projections remain
   separately planned.
+
+## Release closure evidence
+
+The four accepted Steps are committed as MMD-54-01 `2d4e469`,
+MMD-54-02 `dc42281`, MMD-54-03 `c864501`, and MMD-54-04 `3eb43a9`.
+The single independent full Phase review over the Phase-base through all four
+commits is PASS, with no Current Phase Blocker, Hygiene, or Development
+Candidate. Its typed review disposition is `d769d9a5`.
+
+Final repository validation is `sbt --batch test`, recorded as
+`P54-FINAL-TEST-001`. These final closure bytes become authoritative only in
+the distinct validated release commit carrying
+`Phase-Closure-Binding: PHASE-54`; the Step commits alone do not close the Phase.
+The retained release obligation in the checklist is the closure basis.
+Historical pending-release wording in individual Step records describes their
+acceptance snapshots, not the final Phase status.
+
+The [foundation handoff](../design/cml-semantic-foundation-handoff.md) remains
+the input to separately PLANNED Phases 54.1 through 54.7 and Phase 64.
+No detailed projection, CML producer/CLI emission, runtime integration, or
+external CBD Support acceptance is included in this closure.
 
 ## Non-goals
 
