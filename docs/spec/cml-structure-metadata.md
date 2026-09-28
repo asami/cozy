@@ -107,5 +107,22 @@ executable specification scope, not validation or closure evidence.
 | STR-23 | Preserve all four absence reasons and coordinate-specific details across all sixteen endpoint and relation-semantics carriers for each relation kind without inferred policy. |
 | STR-24 | Property-test independent core-record and relation-projection permutations, Unicode/case-sensitive absence details, identity-to-kind binding, and stable canonical re-rendering. |
 
+## Fixture and JSON-only consumer evidence
+
+Slice `MMD-541-04A` supplies the [declared Structure v1 fixture](../../src/test/resources/cozy/modeler/structure-metadata-v1-declared.json),
+the [explicit-absence fixture](../../src/test/resources/cozy/modeler/structure-metadata-v1-absence.json),
+and their derivative [supplier handoff](../design/cml-structure-metadata-handoff.md).
+The fixtures are synthetic full envelopes consumed as actual `JsValue` values;
+they do not alter the v1 contract or claim source parsing, currentness, or
+external acceptance.
+
+| Scenario | Acceptance focus |
+| --- | --- |
+| STR-25 | Declared fixture records, six kinds and qualified IDs, provenance, endpoint/policy literals, explicit false/empty values, external boundary, Term-domain separation, and opaque peer. |
+| STR-26 | Explicit cyclic absence for all sixteen carriers on all three relations, anonymous identity preservation, exact element boundaries, unchanged Terms/core facts, and opaque peer. |
+| STR-27 | Independent typed fixture publication equals each complete resource and canonical parse/read/re-render is stable. |
+| STR-28 | Five actual-resource mutations fail closed with fixed typed diagnostic kinds and logical coordinates. |
+| STR-29 | Non-discarded JSON-only permutations of six core records and three static/relation projections preserve authored order, identity, absence, Terms, opaque peer, and canonical stability. |
+
 The authored scenarios do not claim passed validation, Step acceptance, or
 Phase closure; those dispositions remain with the parent workflow.

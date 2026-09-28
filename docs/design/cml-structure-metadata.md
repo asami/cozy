@@ -54,3 +54,13 @@ does not connect parsers, legacy projectors, runtime, CLI, source exporters,
 site/UI, publication, deployment, or later Phase 54.2–54.4 consumers. Those
 consumers receive a supplier handoff only after their separately authorized
 work.
+
+## Supplier fixture handoff
+
+The concrete supplier package is recorded in the [Structure metadata supplier
+handoff](cml-structure-metadata-handoff.md). Its declared and explicit-absence
+JSON resources and STR-25..29 executable scenarios freeze the Structure
+identity, declared-policy, and Presence matrix for later children. This records
+fixture and vocabulary supply only; later consumers, runtime behavior, CLI,
+source integration, publication, and external acceptance remain separately
+authorized. No Structure design or v1 contract is changed by the handoff.

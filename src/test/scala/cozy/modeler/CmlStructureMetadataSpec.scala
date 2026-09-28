@@ -1071,6 +1071,158 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
       val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
       result.passed shouldBe true
     }
+
+    "checked-in Structure fixtures" should {
+      "STR-25 consume the declared fixture against independent typed expectations" in {
+        Given("the checked-in declared Structure v1 resource and independently authored typed fixture values")
+        val root = _fixture_json("cozy/modeler/structure-metadata-v1-declared.json")
+        val expected = _fixture_expectation(false)
+        When("the actual UTF-8 JSON resource is read by the strict Structure consumer")
+        val result = CmlStructureMetadata.read(root)
+        Then("all six kinds, qualified identities, provenance, declared carriers, and opaque peers match")
+        result match {
+          case Right(graph) =>
+            graph.catalog.elements shouldBe expected._1.elements
+            graph.catalog.terms shouldBe expected._1.terms
+            graph.elements shouldBe expected._2
+            graph.relations shouldBe expected._3
+            graph.envelope.extensions.value("org.example.structure-handoff") shouldBe expected._4.value("org.example.structure-handoff")
+            graph.elements.map(_.kind) shouldBe Vector(Entity, Value, Aggregate)
+            graph.relations.map(_.kind) shouldBe Vector(Composition, Aggregation, Association)
+            graph.catalog.element(ModelElementId("structure.example", "entity:order")) shouldBe Right(expected._1.elements.head)
+            graph.catalog.element(ModelElementId("partner.example", "entity:partner")).isLeft shouldBe true
+            graph.catalog.term(TermId("structure.example", "entity:order")) shouldBe Right(expected._1.terms.head)
+            graph.relations.head.semantics.independentExistence shouldBe Present(false)
+            graph.relations(1).semantics.lifecyclePropagation shouldBe Present(Vector.empty)
+          case Left(diagnostics) => diagnostics shouldBe Vector.empty
+        }
+      }
+
+      "STR-26 consume explicit cyclic absence without inventing identity or policy" in {
+        Given("the checked-in absence Structure v1 resource and independently authored typed absence values")
+        val root = _fixture_json("cozy/modeler/structure-metadata-v1-absence.json")
+        val expected = _fixture_expectation(true)
+        When("the actual UTF-8 JSON resource is read by the strict Structure consumer")
+        val result = CmlStructureMetadata.read(root)
+        Then("all sixteen carriers per relation, element boundaries, Terms, and opaque peers retain exact absence")
+        result match {
+          case Right(graph) =>
+            graph.catalog.elements shouldBe expected._1.elements
+            graph.catalog.terms shouldBe expected._1.terms
+            graph.elements shouldBe expected._2
+            graph.relations shouldBe expected._3
+            graph.envelope.extensions.value("org.example.structure-handoff") shouldBe expected._4.value("org.example.structure-handoff")
+            graph.catalog.elements.head.identity shouldBe Absent(NotRepresented, "No stable identity is represented.")
+            graph.catalog.element(ModelElementId("structure.example", "entity:order")).isLeft shouldBe true
+            graph.catalog.term(TermId("structure.example", "entity:order")) shouldBe Right(expected._1.terms.head)
+            graph.relations.flatMap(value => _fixture_absence_carriers(value)) should have size 48
+          case Left(diagnostics) => diagnostics shouldBe Vector.empty
+        }
+      }
+
+      "STR-27 publish both independent typed fixtures and prove actual JSON round-trip stability" in {
+        val fixtures = Vector(
+          ("cozy/modeler/structure-metadata-v1-declared.json", false),
+          ("cozy/modeler/structure-metadata-v1-absence.json", true)
+        )
+        fixtures.foreach { case (name, absence) =>
+          Given("independent typed fixture inputs for " + name)
+          val expected = _fixture_expectation(absence)
+          val fixture = _fixture_json(name)
+          When("the typed inputs are published and the actual fixture is parsed, read, and rendered")
+          val published = CmlStructureMetadata.build(expected._1, expected._2, expected._3, expected._4)
+          Then("the structural JSON and canonical read-render cycle are exact and stable")
+          published match {
+            case Right(graph) =>
+              CmlStructureMetadata.toJson(graph) shouldBe fixture
+              val canonical = CmlStructureMetadata.canonicalJson(graph)
+              CmlStructureMetadata.read(Json.parse(canonical)) match {
+                case Right(consumed) => CmlStructureMetadata.canonicalJson(consumed) shouldBe canonical
+                case Left(diagnostics) => diagnostics shouldBe Vector.empty
+              }
+              graph.catalog.elements shouldBe expected._1.elements
+              graph.catalog.terms shouldBe expected._1.terms
+            case Left(diagnostics) => diagnostics shouldBe Vector.empty
+          }
+        }
+      }
+
+      "STR-28 fail closed on five actual-resource mutations for each fixture" in {
+        Vector(
+          "cozy/modeler/structure-metadata-v1-declared.json",
+          "cozy/modeler/structure-metadata-v1-absence.json"
+        ).foreach { name =>
+          Given("an actual checked-in Structure resource " + name)
+          val root = _fixture_json(name).asInstanceOf[JsObject]
+          val original = root
+          When("unsupported version, unknown key, core contradiction, wrong kind, and namespace absence are read")
+          val mutations = _fixture_mutations(root)
+          val diagnostics = mutations.map { case (value, kind, path) => (_first(CmlStructureMetadata.read(value)), kind, path) }
+          Then("each fixed mutation has its literal diagnostic kind and logical path while the source value is unchanged")
+          diagnostics.foreach { case (diagnostic, kind, path) =>
+            diagnostic.kind shouldBe kind
+            diagnostic.path shouldBe path
+            root shouldBe original
+          }
+        }
+      }
+
+      "STR-29 preserve typed identity and authored order under non-discarded JSON permutations" in {
+        Given("actual declared or absence resources and independent six/six/three permutation domains")
+        val fixtures = Vector(
+          ("cozy/modeler/structure-metadata-v1-declared.json", false),
+          ("cozy/modeler/structure-metadata-v1-absence.json", true)
+        )
+        val coreorders = (0 until 6).toVector.permutations.toVector
+        val elementorders = (0 until 3).toVector.permutations.toVector
+        val relationorders = (0 until 3).toVector.permutations.toVector
+        coreorders should have size 720
+        elementorders should have size 6
+        relationorders should have size 6
+        val samples = for {
+          fixture <- Gen.oneOf(fixtures)
+          coreorder <- Gen.oneOf(coreorders)
+          elementorder <- Gen.oneOf(elementorders)
+          relationorder <- Gen.oneOf(relationorders)
+        } yield (fixture._1, fixture._2, coreorder, elementorder, relationorder)
+        val property = Prop.forAll(samples) { case (name, absence, coreorder, elementorder, relationorder) =>
+          val root = _fixture_json(name).asInstanceOf[JsObject]
+          val mutated = _fixture_permuted(root, coreorder, elementorder, relationorder)
+          val expected = _fixture_expectation(absence)
+          val expectedcatalog = _catalog_from(coreorder.map(index => expected._1.elements(index)), expected._1.terms)
+          val expectedelements = elementorder.map(index => expected._2(index))
+          val expectedrelations = relationorder.map(index => expected._3(index))
+          CmlStructureMetadata.read(mutated) match {
+            case Right(graph) =>
+              val identities = expectedcatalog.elements.flatMap(_.identity match {
+                case Present(identity) => Vector(identity)
+                case _ => Vector.empty
+              })
+              val resolved = identities.forall(identity => graph.catalog.element(identity) == expectedcatalog.element(identity))
+              val anonymous = expectedcatalog.elements.exists(_.identity match {
+                case Absent(NotRepresented, "No stable identity is represented.") => true
+                case _ => false
+              })
+              graph.catalog.elements == expectedcatalog.elements &&
+                graph.catalog.terms == expectedcatalog.terms &&
+                graph.elements == expectedelements &&
+                graph.relations == expectedrelations &&
+                resolved &&
+                (!absence || anonymous) &&
+                graph.envelope.extensions.value("org.example.structure-handoff") == expected._4.value("org.example.structure-handoff") &&
+                (CmlStructureMetadata.read(Json.parse(CmlStructureMetadata.canonicalJson(graph))) match {
+                  case Right(rerendered) => CmlStructureMetadata.canonicalJson(rerendered) == CmlStructureMetadata.canonicalJson(graph)
+                  case Left(_) => false
+                })
+            case Left(_) => false
+          }
+        }
+        When("ScalaCheck evaluates at least one hundred successful non-discarded actual JSON permutations")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
+        Then("all successful samples retain identities, absence, policies, Terms, opaque peers, and canonical stability")
+        result.passed shouldBe true
+      }
+    }
   }
 
   private def _graph(
@@ -1093,6 +1245,163 @@ final class CmlStructureMetadataSpec extends AnyWordSpec with Matchers with Give
     val external = _endpoint(Present(ModelReference(ModelElementId("partner.example", "entity:external"), External)))
     val relations = Vector(RelationProjection(records(3), Composition, endpoint, external, _semantics), RelationProjection(records(4), Aggregation, endpoint, endpoint, _semantics), RelationProjection(records(5), Association, endpoint, endpoint, _semantics))
     _graph_result(CmlStructureMetadata.build(catalog, elements, relations, extensions))
+  }
+
+  private def _fixture_json(name: String): JsValue = {
+    val source = scala.io.Source.fromResource(name)(scala.io.Codec.UTF8)
+    try Json.parse(source.mkString) finally source.close()
+  }
+
+  private def _fixture_expectation(absence: Boolean): (Catalog, Vector[ElementProjection], Vector[RelationProjection], JsObject) = {
+    val kinds = Vector("entity", "value", "aggregate", "composition", "aggregation", "association")
+    val ids = Vector("entity:order", "value:amount", "aggregate:order", "composition:line", "aggregation:tag", "association:partner")
+    val records = kinds.zip(ids).zipWithIndex.map { case ((kind, identity), index) =>
+      val recordidentity: Presence[ModelElementId] = if (absence && index == 0)
+        Absent(NotRepresented, "No stable identity is represented.")
+      else
+        Present(ModelElementId("structure.example", identity))
+      ElementRecord(
+        recordidentity,
+        kind,
+        "共有",
+        SourceAttribution("structure.example", "src/main/cml/structure-handoff.cml", "a" * 64, Some(index + 1)),
+        Absent(NotDeclared, "No semantic references are declared.")
+      )
+    }
+    val term = TermRecord(
+      TermId("structure.example", "entity:order"),
+      SourceAttribution("structure.example", "glossary/structure.dox", "1" * 64, None)
+    )
+    val catalog = _catalog_from(records, Vector(term))
+    val aggregateid = ModelElementId("structure.example", "aggregate:order")
+    val entityid = ModelElementId("structure.example", "entity:order")
+    val valueid = ModelElementId("structure.example", "value:amount")
+    val localaggregate = Present(ModelReference(aggregateid, Local))
+    val staticboundaries: Vector[Presence[AggregateBoundary]] = if (absence)
+      Vector(
+        Absent(NotDeclared, "No entity boundary is declared."),
+        Absent(NotRepresented, "No value boundary is represented."),
+        Absent(Unsupported, "Aggregate boundary unsupported.")
+      )
+    else
+      Vector(
+        Present(AggregateBoundary(localaggregate, Present("member:主"))),
+        Absent(NotApplicable, "Value membership is not applicable."),
+        Present(AggregateBoundary(localaggregate, Present("root:宣言")))
+      )
+    val elements = Vector(
+      ElementProjection(catalog.elements(0), Entity, staticboundaries(0)),
+      ElementProjection(catalog.elements(1), Value, staticboundaries(1)),
+      ElementProjection(catalog.elements(2), Aggregate, staticboundaries(2))
+    )
+    val relationkinds = Vector(Composition, Aggregation, Association)
+    val relationrecords = Vector(catalog.elements(3), catalog.elements(4), catalog.elements(5))
+    val declaredrelations = Vector(
+      RelationProjection(
+        relationrecords(0),
+        Composition,
+        Endpoint(Present(ModelReference(aggregateid, Local)), Present("Owner"), Present(Cardinality(1, Some(1))), Present(true)),
+        Endpoint(Present(ModelReference(entityid, Local)), Present("部品"), Present(Cardinality(0, None)), Present(false)),
+        RelationSemantics(
+          Present("owner:宣言"), Present(false), Present("CreateDeclared"), Present("DeleteDeclared"),
+          Present(false), Present(true), Present(Vector("create", "delete", "create")),
+          Present(AggregateBoundary(localaggregate, Present("member:主")))
+        )
+      ),
+      RelationProjection(
+        relationrecords(1),
+        Aggregation,
+        Endpoint(Present(ModelReference(entityid, Local)), Present("member"), Present(Cardinality(0, None)), Present(false)),
+        Endpoint(Present(ModelReference(valueid, Local)), Present("Amount"), Present(Cardinality(1, Some(1))), Present(true)),
+        RelationSemantics(
+          Present("shared:宣言"), Present(true), Present("CreateShared"), Present("KeepShared"),
+          Present(true), Present(false), Present(Vector.empty),
+          Present(AggregateBoundary(Absent(NotRepresented, "No aggregate is represented."), Present("member:値")))
+        )
+      ),
+      RelationProjection(
+        relationrecords(2),
+        Association,
+        Endpoint(Present(ModelReference(valueid, Local)), Present("Amount"), Present(Cardinality(1, Some(1))), Present(true)),
+        Endpoint(Present(ModelReference(ModelElementId("partner.example", "entity:partner"), External)), Present("Partner"), Present(Cardinality(0, Some(1))), Present(false)),
+        RelationSemantics(
+          Absent(NotDeclared, "No ownership is declared."), Present(true),
+          Absent(Unsupported, "Create policy unsupported."), Absent(NotApplicable, "Delete policy not applicable."),
+          Present(false), Absent(NotRepresented, "Reparenting not represented."), Present(Vector("参照", "Link")),
+          Absent(NotDeclared, "No aggregate boundary is declared.")
+        )
+      )
+    )
+    val relations = if (!absence) declaredrelations else {
+      val carriers = Vector(
+        "source.target", "source.role", "source.cardinality", "source.navigable",
+        "target.target", "target.role", "target.cardinality", "target.navigable",
+        "semantics.ownership", "semantics.independentExistence", "semantics.createPolicy", "semantics.deletePolicy",
+        "semantics.reassignment", "semantics.reparenting", "semantics.lifecyclePropagation", "semantics.aggregateBoundary"
+      )
+      declaredrelations.zipWithIndex.map { case (relation, relationindex) =>
+        val absent = (carrierindex: Int) => _fixture_absence(relationkinds(relationindex), carriers(carrierindex), relationindex + carrierindex)
+        relation.copy(
+          sourceEndpoint = Endpoint(absent(0), absent(1), absent(2), absent(3)),
+          targetEndpoint = Endpoint(absent(4), absent(5), absent(6), absent(7)),
+          semantics = RelationSemantics(absent(8), absent(9), absent(10), absent(11), absent(12), absent(13), absent(14), absent(15))
+        )
+      }
+    }
+    val extensions = Json.obj(
+      "org.example.structure-handoff" -> Json.obj(
+        "opaque" -> Json.arr(JsNull, JsBoolean(true), Json.obj("retained" -> JsString("opaque")))
+      )
+    )
+    (catalog, elements, relations, extensions)
+  }
+
+  private def _fixture_absence(kind: RelationKind, carrier: String, index: Int): Absent = {
+    val reasons: Vector[AbsenceReason] = Vector(NotDeclared, NotRepresented, Unsupported, NotApplicable)
+    val kindname = kind match {
+      case Composition => "composition"
+      case Aggregation => "aggregation"
+      case Association => "association"
+    }
+    Absent(reasons(index % reasons.size), "Absent[" + kindname + "." + carrier + "]: 条件Aa")
+  }
+
+  private def _fixture_absence_carriers(value: RelationProjection): Vector[Presence[_]] = Vector(
+    value.sourceEndpoint.target, value.sourceEndpoint.role, value.sourceEndpoint.cardinality, value.sourceEndpoint.navigable,
+    value.targetEndpoint.target, value.targetEndpoint.role, value.targetEndpoint.cardinality, value.targetEndpoint.navigable,
+    value.semantics.ownership, value.semantics.independentExistence, value.semantics.createPolicy, value.semantics.deletePolicy,
+    value.semantics.reassignment, value.semantics.reparenting, value.semantics.lifecyclePropagation, value.semantics.aggregateBoundary
+  )
+
+  private def _fixture_mutations(root: JsObject): Vector[(JsValue, StructureDiagnosticKind, String)] = {
+    val structure = _structure(root)
+    Vector(
+      (_with_structure(root, structure + ("schemaVersion" -> JsString("cozy.cml.structure.v2"))), UnsupportedSchemaVersion, "extensions.cozy.cml.structure.schemaVersion"),
+      (_with_structure(root, structure + ("unknown" -> JsNull)), InvalidShape, "extensions.cozy.cml.structure"),
+      (_replace_embedded_name(root, "contradiction"), InvalidCoreBinding, "extensions.cozy.cml.structure.elements[0].element"),
+      (_replace_relation_kind(root, 0, Association), InvalidCoreBinding, "relations[0].element.kind"),
+      (_without_structure(root), InvalidShape, "extensions.cozy.cml.structure")
+    )
+  }
+
+  private def _fixture_permuted(root: JsObject, coreorder: Vector[Int], elementorder: Vector[Int], relationorder: Vector[Int]): JsObject = {
+    val structure = _structure(root)
+    val core = root.value("elements").asInstanceOf[JsArray].value
+    val elements = structure.value("elements").asInstanceOf[JsArray].value
+    val relations = structure.value("relations").asInstanceOf[JsArray].value
+    val changedstructure = structure +
+      ("elements" -> JsArray(elementorder.map(index => elements(index)))) +
+      ("relations" -> JsArray(relationorder.map(index => relations(index))))
+    val changed = root +
+      ("elements" -> JsArray(coreorder.map(index => core(index)))) +
+      ("extensions" -> (root.value("extensions").asInstanceOf[JsObject] + (namespace -> changedstructure)))
+    _fixture_reverse_keys(changed).asInstanceOf[JsObject]
+  }
+
+  private def _fixture_reverse_keys(value: JsValue): JsValue = value match {
+    case objectvalue: JsObject => JsObject(objectvalue.fields.toVector.reverse.map { case (key, field) => key -> _fixture_reverse_keys(field) })
+    case JsArray(values) => JsArray(values.map(_fixture_reverse_keys))
+    case scalar => scalar
   }
 
   private def _graph_for_empty_catalog(): Graph =

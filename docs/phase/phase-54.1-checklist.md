@@ -81,10 +81,28 @@ Step 04 and full Phase closure remain open.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN_PROGRESS
 - Owner: Cozy Phase 54.1 development
 - Update rule: update from accepted checklist evidence for this stage.
 - Closure basis: checklist items in this section.
 
-- [ ] Freeze Structure fixtures and the child handoff.
+- [x] Freeze Structure fixtures and the child handoff.
 - [ ] Complete focused validation, review, release closure, and reproducible evidence for this child only.
+
+Fixture delivery acceptance evidence (2026-09-28): Slice `MMD-541-04A`;
+serial SBT invocation `P54.1-MMD-541-04A-MANUAL-VAL-003` passed 60/60
+specifications (Structure 38/38 and foundation/semantic-metadata 22/22;
+exit 0, lock released, identical pre/post tree). STR-25..29 consume the
+checked-in declared and explicit-absence Structure v1 resources against
+independently authored typed facts, compare full JSON publication, reject
+five mutations per resource, and preserve qualified identity, cyclic absence,
+opaque peers, authored order, and canonical stability under active properties.
+Independent ordinary Step review `P54.1-MMD-541-04-STEP-REVIEW-001`
+passed with no Current Boundary Blockers, Hygiene, or Development Candidates.
+The derivative supplier handoff is frozen for Phases 54.2, 54.3, and 54.4;
+no successor implementation or external acceptance is claimed.
+The user-authorized fixed-command execution workaround modified no skill and
+claims no generic command receipt; earlier failed attempts are retained.
+This accepts the fixture/handoff delivery only. The second original checkbox
+and this stage's release closure remain pending until the one full Phase
+review, final full suite, and distinct local Phase release are complete.

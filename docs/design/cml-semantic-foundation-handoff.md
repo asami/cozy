@@ -128,6 +128,12 @@ are evidence interfaces for consumers. Together they show:
 The fixture is synthetic and JSON-only. It is not real CML generation, a
 downstream acceptance fixture, or proof of source currentness.
 
+The Structure child’s derivative [supplier handoff](cml-structure-metadata-handoff.md)
+and its declared/absence JSON fixtures extend this evidence interface without
+changing the upstream foundation identity, Presence, provenance, Term-domain,
+or publication semantics. Structure consumes the admitted foundation facts;
+later child status is governed by each child’s own checklist.
+
 ## Parent-frozen downstream handoff matrix
 
 Each child consumes only the foundation facts admitted at its boundary. The
@@ -164,5 +170,7 @@ Future work may use this handoff with the following bounded recipe:
 
 This handoff does not implement a producer, consumer, CML parser, generated
 artifact, filesystem output, CLI behavior, runtime session, CBD Support view,
-external acceptance, or Phase 64 capability projection. All child Phases
-54.1–54.7 and Phase 64 remain planned/unstarted under their own authority.
+external acceptance, or Phase 64 capability projection. The final sentence
+above is a historical Phase 54 boundary statement; current child status is
+governed by the applicable phase and child checklists, including the
+in-progress Structure handoff in Phase 54.1.
