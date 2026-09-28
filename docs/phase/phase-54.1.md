@@ -1,6 +1,6 @@
 # Phase 54.1: Faithful Structure Metadata
 
-Status: IN_PROGRESS
+Status: CLOSED
 
 Plan date: 2026-09-09
 Split from: [Phase 54](phase-54.md)
@@ -53,15 +53,42 @@ Phase Plan Gate: PROCEED
 | MMD-541-01 | Publish distinct Entity, Value, Aggregate, composition, aggregation, and association identities and kinds. Slice `MMD-541-01A` passed focused validation and independent protected focused Step review; see checklist evidence. | ACCEPTED |
 | MMD-541-02 | Preserve declared endpoint roles, cardinality, navigability, ownership, independent existence, create/delete, reassignment/reparenting, lifecycle propagation, and aggregate-boundary semantics. Slice `MMD-541-02A` passed 51/51 focused specifications and independent Step review; see checklist evidence. | ACCEPTED |
 | MMD-541-03 | Prove composition and aggregation are not flattened into generic association, and preserve explicit absence where CML does not declare a policy. Slice `MMD-541-03A` passed 55/55 focused specifications and independent Step review; see checklist evidence. | ACCEPTED |
-| MMD-541-04 | Freeze Structure fixtures and the later-child handoff on the cozy.cml.semantic-metadata.v1 identity/publication surface. Slice `MMD-541-04A` fixture delivery passed 60/60 focused specifications and independent ordinary Step review; the Phase-wide release portion remains pending. | IN_PROGRESS |
+| MMD-541-04 | Freeze Structure fixtures and the later-child handoff on the cozy.cml.semantic-metadata.v1 identity/publication surface. Slice `MMD-541-04A` passed 60/60 focused specifications and independent Step review; full Phase review and final full suite passed, completing the separate release closure. | ACCEPTED |
 
 Step 04 fixture/handoff delivery is accepted under slice `MMD-541-04A`:
 the declared and explicit-absence Structure JSON fixtures, STR-25..29
 JSON-only executable consumer scenarios, and the derivative later-child
 supplier handoff passed focused validation and independent Step review.
-The stage remains in progress because its original release-closure checkbox
-still requires the one full Phase review, final full suite, and separate
-local Phase release. No Phase closure is claimed here.
+The original release-closure obligation is completed separately from the four
+ordinary Step delivery commits; see the release evidence below.
+
+## Release closure evidence
+
+Closed on 2026-09-28 against the unchanged Phase base
+`39c050c21b055cf72f1a7b3520700e8cb15fc5b7`. Accepted ordinary Step commits:
+`443e2a8b`, `12a0e6d7`, `5cbd2d88`, and `a3491dd1`.
+The one independent full Phase review, `P54.1-PHASE-FULL-REVIEW-EPOCH-1-001`
+(GPT-5.6 Terra / xhigh), passed with no remaining blockers or new findings.
+Final serialized SBT `P54.1-PHASE-RELEASE-MANUAL-FULL-TEST-001`
+(`sbt --batch test`) passed 2,092/2,092 tests across 160 suites; exit 0 and
+shared lock released. Eight existing non-Structure cases were canceled:
+three opt-in Docker Remotion integrations and five Phase 51 later-owner
+registration placeholders. No Structure/foundation/metadata case was canceled.
+
+This closure is recorded by a distinct local release commit with trailer
+`Phase-Closure-Binding: PHASE-54.1`, not by the last Step commit. The canonical
+checklist is fully satisfied. Historical `HYG-54102-001` is resolved and retained
+in the [Hygiene record](../journal/2026/09/2026-09-28-phase-54.1-hygiene-follow-up.md);
+there are no Development Candidates. The user-authorized fixed-command route
+retained native permissions and shared SBT serialization, with actual logs and
+tree evidence; no generic command receipt or skill repair is claimed.
+
+Unrelated working-tree changes, including planned Phase 74, are preserved.
+The shared Phase index remains untouched because it contains concurrent
+planning; its synchronization is deferred to that planning's owner. This Phase
+and its checklist are the authoritative closure state; the strategy projection
+is updated. No successor, external consumer acceptance, push, publish, or
+deployment is included.
 
 ## Closure criteria
 

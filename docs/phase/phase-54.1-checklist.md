@@ -1,6 +1,6 @@
 # Phase 54.1 Checklist: Faithful Structure Metadata
 
-Status: IN_PROGRESS
+Status: CLOSED
 phase=[Phase 54.1](phase-54.1.md)
 
 Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
@@ -81,13 +81,13 @@ Step 04 and full Phase closure remain open.
 
 Stage Status:
 
-- Current status: IN_PROGRESS
+- Current status: CLOSED
 - Owner: Cozy Phase 54.1 development
 - Update rule: update from accepted checklist evidence for this stage.
 - Closure basis: checklist items in this section.
 
 - [x] Freeze Structure fixtures and the child handoff.
-- [ ] Complete focused validation, review, release closure, and reproducible evidence for this child only.
+- [x] Complete focused validation, review, release closure, and reproducible evidence for this child only.
 
 Fixture delivery acceptance evidence (2026-09-28): Slice `MMD-541-04A`;
 serial SBT invocation `P54.1-MMD-541-04A-MANUAL-VAL-003` passed 60/60
@@ -103,6 +103,26 @@ The derivative supplier handoff is frozen for Phases 54.2, 54.3, and 54.4;
 no successor implementation or external acceptance is claimed.
 The user-authorized fixed-command execution workaround modified no skill and
 claims no generic command receipt; earlier failed attempts are retained.
-This accepts the fixture/handoff delivery only. The second original checkbox
-and this stage's release closure remain pending until the one full Phase
-review, final full suite, and distinct local Phase release are complete.
+This ordinary Step acceptance covers fixture/handoff delivery. The second
+original checkbox is completed by the distinct Phase release below.
+
+## Final Phase release evidence
+
+The four ordinary deliveries are committed as `443e2a8b`, `12a0e6d7`,
+`5cbd2d88`, and `a3491dd1`; the original Phase base remains `39c050c2`.
+Independent full Phase review `P54.1-PHASE-FULL-REVIEW-EPOCH-1-001`
+(GPT-5.6 Terra / xhigh; exactly one review in epoch 1) passed with no blockers
+or new findings. Serialized `P54.1-PHASE-RELEASE-MANUAL-FULL-TEST-001`
+(`sbt --batch test`) passed 2,092 tests across 160 suites, with zero failures,
+exit 0, and shared lock released. Eight pre-existing opt-in/deferred cases were
+canceled; none belongs to the Structure/foundation/semantic-metadata boundary.
+The final documentation-only bookkeeping reuses this actual full-suite result
+with unchanged tested input identity; no second suite or review is performed.
+
+The separate local release commit bears `Phase-Closure-Binding: PHASE-54.1`.
+The final closure ledger records the committed Phase, checklist, strategy, and
+resolved historical [HYG-54102-001](../journal/2026/09/2026-09-28-phase-54.1-hygiene-follow-up.md),
+no unpersisted records, and preserved unrelated/concurrent-planning paths.
+Shared-index synchronization is deferred because its concurrent Phase 74
+planning is preserved. Skills and upstream repositories are unchanged;
+successors remain unstarted and no external acceptance or publication is claimed.
