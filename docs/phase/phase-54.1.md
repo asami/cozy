@@ -1,6 +1,6 @@
 # Phase 54.1: Faithful Structure Metadata
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 Plan date: 2026-09-09
 Split from: [Phase 54](phase-54.md)
@@ -50,10 +50,10 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| MMD-541-01 | Publish distinct Entity, Value, Aggregate, composition, aggregation, and association identities and kinds. | planned |
-| MMD-541-02 | Preserve declared endpoint roles, cardinality, navigability, ownership, independent existence, create/delete, reassignment/reparenting, lifecycle propagation, and aggregate-boundary semantics. | planned |
-| MMD-541-03 | Prove composition and aggregation are not flattened into generic association, and preserve explicit absence where CML does not declare a policy. | planned |
-| MMD-541-04 | Freeze Structure fixtures and the later-child handoff on the cozy.cml.semantic-metadata.v1 identity/publication surface. | planned |
+| MMD-541-01 | Publish distinct Entity, Value, Aggregate, composition, aggregation, and association identities and kinds. Slice `MMD-541-01A` passed focused validation and independent protected focused Step review; see checklist evidence. | ACCEPTED |
+| MMD-541-02 | Preserve declared endpoint roles, cardinality, navigability, ownership, independent existence, create/delete, reassignment/reparenting, lifecycle propagation, and aggregate-boundary semantics. | PLANNED |
+| MMD-541-03 | Prove composition and aggregation are not flattened into generic association, and preserve explicit absence where CML does not declare a policy. | PLANNED |
+| MMD-541-04 | Freeze Structure fixtures and the later-child handoff on the cozy.cml.semantic-metadata.v1 identity/publication surface. | PLANNED |
 
 ## Closure criteria
 
