@@ -1,7 +1,7 @@
 # Core起点・makeレベルの成果物更新
 
 Date: 2026-09-21
-Status: planning detail; [Phase 71](../phase/phase-71.md) owns implementation and acceptance
+Status: planning detail; [Phase 71](../phase/phase-71.md) owns the real graph/video bootstrap; the applied 71–71.4 sequence owns complete implementation and acceptance
 Tracking: DEV-034
 
 ## 欲しい動作
@@ -73,8 +73,15 @@ makeレベル方針](document-project-confirmation-views-and-make-dependencies-p
 
 ## ハッシュと承認の境界
 
-ハッシュ値は今の成果物更新やエラーチェックに使わない。既存の計算コードや
-保存形式は、将来の検討のため残してよい。`storyboardReview.approvedIdentity`、
+2026-09-28改訂：公開・配布成果物の整合性確認という明確な目的を持つdigestを
+除き、hashロジックをすべて削除する。既存の計算・保存・読込・比較や専用の
+設定・モデルも対象とし、互換性・診断・将来用として残す旧方針は撤回する。
+ファイル更新管理は当面、宣言済み依存関係とファイルの更新日時に基づく。
+より厳密な管理が必要になった場合は、対象・依存・生成操作・生成状態を
+明示した正確なメタデータ管理を設計して導入する。hashで代用しない。
+詳細は[更新管理契約](../spec/file-update-management.md)を参照する。
+
+`storyboardReview.approvedIdentity`、
 視覚レビューの承認値、`confirmationReview.approvedIdentity`の欠落・不一致で
 確認用動画や最終動画の生成を止めない。スキルも値を取得・転記しない。
 
@@ -85,7 +92,7 @@ makeレベル方針](document-project-confirmation-views-and-make-dependencies-p
 
 ## 完了判定
 
-Phase 71は、Cozy単体の動画ビルドや架空の依存グラフだけで閉じない。
+Phase 71の初回通し動作は、Cozy単体の動画ビルドや架空の依存グラフだけで閉じない。
 実際の`ai-development-harness`の宣言を用いた隔離コピーで、同じ
 「動画を生成して」という入口から次を通しで確認する。
 
@@ -98,3 +105,16 @@ Phase 60.1はCore起点の一般的なオーサリング経路を閉じたが、
 通し検証は記事とHTMLの3成果物だった。動画まで動くことはPhase 71で
 初めて検証する。外部のスキルやSimpleModeling.orgの宣言修正が必要なら、
 実装時にその権限を別途確保する。未接続のままPhaseを完了扱いしない。
+
+## 2026-09-29 分割後の所有境界
+
+元のPhase番号を保持した順序は71 → 71.1 → 71.2 → 71.3 → 71.4。
+71は正本パス・producer/依存・hash用途台帳と実動画までの初回通し動作、
+[71.1](../phase/phase-71.1.md)は文書/media等の非整合性hash撤去、
+[71.2](../phase/phase-71.2.md)は残る動画hashと表示継続・発音、
+[71.3](../phase/phase-71.3.md)はsite/PDF更新・公開物整合性境界、
+[71.4](../phase/phase-71.4.md)は黒い末尾の修正と全体の再検証を所有する。
+上記Core起点の動作は71で実行証明し、71.4で受理済みの全変更を含むtreeで
+統合確認する。全リポジトリのfull SBT testは既定のfinal-onlyで71.4に集約し、
+各Phaseのfocused validation・独立レビュー・release closureは省略しない。
+このノート改訂は計画の所有境界だけを変更し、実装開始や既存の完了を主張しない。

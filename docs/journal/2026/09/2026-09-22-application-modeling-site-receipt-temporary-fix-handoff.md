@@ -79,3 +79,17 @@ SimpleModeling.org の `application-modeling.dox/index.dox` などに存在す�
 内部の実行可否判定には使わない。公開物そのものの目的ある digest と
 整合性検査は別境界として維持する。動画だけ・記事だけを差し替えた双方で
 ローカル site build が完走することを Phase 71 の受入条件とする。
+
+## 2026-09-29 permanent-fix owner after split
+
+The original temporary-fix account is retained unchanged as history. Its final
+paragraph's permission to retain internal hash generation was superseded by
+the 2026-09-28 removal decision; the current permanent fix deletes non-integrity
+application computation/models/codecs/fields rather than merely disabling checks.
+[Phase 71.3](../../../phase/phase-71.3.md) now exclusively owns
+P710-03-SITE/P710-04-SITE, including the unchanged English PDF and package-wide
+PDF review-state case, both article-only/video-only complete local site entries
+and actual retained publication-integrity mismatch rejection.
+[Phase 71.4](../../../phase/phase-71.4.md) verifies the combined-tree result.
+No new temporary SHA exception, receipt editing, runtime/site execution, upload
+or external project mutation is performed or authorized by this planning split.

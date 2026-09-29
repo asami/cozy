@@ -1,5 +1,10 @@
 # Phase 71: Core起点の成果物更新と動画承認ハッシュの扱い
 
+> 2026-09-28追記：既存hashロジックの保持を許容した判断は
+> [新しい削除方針](2026-09-28-phase-71-hash-removal-decision.md)で撤回した。
+> 以下は当時の判断の記録である。
+
+
 Date: 2026-09-21
 Development item: DEV-034 / [Phase 71](../../../phase/phase-71.md)
 Status: planning decision; implementation and acceptance remain open
@@ -54,3 +59,15 @@ Core起点の一般的なオーサリング経路を閉じた。ただしPhase 6
 
 この記録は方針と未解決の実装境界を残すもので、Cozy本体、スキル、
 SimpleModeling.orgのソース、動画、Git履歴は変更しない。
+
+## 2026-09-29 split ownership correction
+
+The account above remains pre-split history. The applied serial sequence is
+[71](../../../phase/phase-71.md) → [71.1](../../../phase/phase-71.1.md) →
+[71.2](../../../phase/phase-71.2.md) → [71.3](../../../phase/phase-71.3.md) →
+[71.4](../../../phase/phase-71.4.md), all planned/not started.
+71 retains the real Core/DSL/Storyboard/video bootstrap and original decisions;
+71.1 removes document/media hashes, 71.2 handles remaining video identities/
+continuity/speech, 71.3 completes local site/PDF currentness and integrity, and
+71.4 closes media-end/integration acceptance and the one aggregate full SBT suite.
+Existing historical phases stay closed; this split starts no implementation.

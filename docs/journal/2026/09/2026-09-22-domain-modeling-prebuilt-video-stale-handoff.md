@@ -80,3 +80,20 @@ Phase 71のP710-03に、このprebuilt登録アダプターの修正を独立し
 SimpleModeling.orgの登録定義は本修正で変更しない。Phase 71全体の
 Core→Storyboard→動画の完了条件は別に残す。このhandoff自体は
 Cozyの仕様やPhaseの完了状態を変更しない。
+
+## 2026-09-29 current owner and supersession
+
+The observations, hashes and original handoff above remain historical evidence,
+not current hash-based admission requirements. After the 2026-09-28 decision,
+non-integrity application hashes are removed, not retained as compatibility or
+diagnostics. Explicit valid prebuilt adoption does not invent a producer graph;
+automatic regeneration requires the real declared producer/inputs. Unknown
+provenance alone is not a replacement hash/approval gate for explicit adoption.
+
+[Phase 71.1](../../../phase/phase-71.1.md) owns the shared document/media
+receipt/currentness removal slice P710-03-DM and its behavior proof P710-04-DM.
+[Phase 71.3](../../../phase/phase-71.3.md) owns the site-registration adaptation
+and complete local site-entry acceptance P710-03-SITE/P710-04-SITE.
+Named publication-artifact integrity still belongs to its separate boundary.
+[Phase 71.4](../../../phase/phase-71.4.md) owns combined-tree revalidation.
+The dated split does not claim the original incident or product work completed.

@@ -88,12 +88,27 @@ Phase status index (individual Phase/checklist files are authoritative):
   Later compatible-release consumption remains `DP-73-01`. This additive
   producer boundary does not change the closed Phase 62.3 fixture or claim
   CNCF runtime, provider, or application completion.
-- Planned local media repair: [Phase 71](phase-71.md) resolves a requested
-  product's declared DSL chain back to Core, updates affected DSLs forward,
-  and rebuilds Storyboard video with make-level dependencies instead of
-  approval-hash gates. Human approval is outside the current generation
-  workflow; existing hash code may remain but cannot block ordinary generation
-  or reuse.
+- Planned local media repair, split applied 2026-09-29; serial order:
+
+  - [Phase 71](phase-71.md): real Core-rooted video bootstrap, operation/
+    producer contract and digest-purpose inventory; 7h expected, Sol high.
+  - [Phase 71.1](phase-71.1.md): document/media and inventoried adjacent
+    application hash removal, timestamps and explicit adoption; 7h, Terra high.
+  - [Phase 71.2](phase-71.2.md): remaining video hashes, dialogue continuity
+    and pronunciation propagation/actual synthesis; 6h, Sol high.
+  - [Phase 71.3](phase-71.3.md): complete local site/PDF currentness and
+    purpose-bound publication-integrity adapters; 6h, Terra high.
+  - [Phase 71.4](phase-71.4.md): non-black video ending, combined-tree real
+    media/site acceptance and the one aggregate full SBT suite; 6h, Sol high.
+
+  All remain PLANNED/not started. Default final-only defers only repository-full
+  validation to 71.4; focused validation, review, Step acceptance and release
+  closure remain mandatory for every member. Human approval is not a generation
+  prerequisite. All application hashes except named publication/distribution
+  integrity digests are deleted across the sequence; file updates use declared
+  inputs and modification times, not speculative metadata or hash gates.
+  The unchanged former numeric successor is [Phase 72](phase-72.md), CML
+  Failure Model; it is not started or renumbered by this split.
 - CBD Support semantic-metadata foundation CLOSED: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
   publication. Following children remain PLANNED: `phase-54.1.md` adds
