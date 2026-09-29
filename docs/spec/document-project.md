@@ -1314,8 +1314,18 @@ cozy document-project export <project> --target <publication-target> --save <bun
 site configuration, nor target binding; it cannot alter the selected source or
 admit another Work Product. `--save` is mandatory and identifies a new bundle
 directory. An absent, existing, unsafe, or symbolic-link destination is
-rejected before publication. The completed bundle is installed with one atomic
-directory move, so a failed request leaves no partial destination bundle.
+rejected before publication. Every ancestor directory component of the
+destination must be direct and non-symlinked. The completed bundle is installed
+with one atomic directory move, so a failed request leaves no partial destination
+bundle.
+
+Export has a local single-operator execution precondition: throughout the
+operation, the developer MUST NOT change the destination or its parent
+directories through another action, and no other process may modify them.
+Under that precondition, an existing destination is rejected and the completed
+bundle is installed atomically. Protection against external concurrent
+filesystem changes is outside the failure model; export does not promise an
+atomic no-replace reservation against another writer.
 
 Export admits only selected `article-review-html` when a retained,
 strictly-parsed accepted `cozy.document-operation-attempt.v2` for
@@ -1338,15 +1348,34 @@ exactly one Work Product mapping: `article-review-html`, role
 receipt identity is `cozy.document-project-export-receipt.v1`; it binds the
 exact manifest identity/SHA-256 and the exported byte path/SHA-256 identity.
 
-The receipt records opaque SHA-256 authority fingerprints for source authority,
-selection, and the retained accepted native production receipt. It exposes no
+The manifest top-level keys occur in the exact order `identity`, `target`, and
+`workProducts`; its sole mapping has exactly `identity`, `role`, `mediaType`,
+`path`, and `sha256`. The receipt top-level keys occur in the exact order
+`identity`, `manifest`, `exportedBytes`, and `authority`. Its `manifest` mapping
+has exactly `identity` and `sha256`, its sole `exportedBytes` mapping has
+exactly `path` and `sha256`, and its `authority` mapping has exactly
+`sourceAuthoritySha256`, `selectionSha256`, and
+`retainedProductionReceiptSha256`. Every hash is lowercase hexadecimal SHA-256
+with 64 characters. The opaque target remains the one slug admitted by the
+export grammar.
+
+The receipt records three opaque SHA-256 authority fingerprints for source
+authority, selection, and the retained accepted native production receipt. Its
+manifest and exported-byte hashes bind public bundle bytes. It exposes no
 Document Project path, attempt body, receipt body, input, provider, state, or
 source content. A package-visible consumer verifier reads only the bundle and
-strictly rejects missing, malformed, symlinked, extra, or tampered bundle
-content while verifying manifest-to-receipt-to-output identities. Project-aware
-currentness separately detects stale source authority, selection, retained
-production evidence, manifest authority, and exported bytes from these opaque
-fingerprints.
+strictly rejects missing, malformed, symlinked, unsupported, extra, or tampered
+bundle content while verifying manifest-to-receipt-to-output identities. Every
+encountered bundle node must be a direct regular file or directory; the exact
+directory set is root, `work-products`, and
+`work-products/article-review-html`. A
+consumer may relocate a genuine bundle and verify it after its private Document
+Project has been removed. Project-aware currentness separately compares source
+authority, selection, and retained production evidence from those three opaque
+fingerprints, and compares manifest authority and exported bytes as public
+bundle identities; their private meanings remain unavailable to the consumer.
+This defines the handoff from [Phase 57.1](../phase/phase-57.1.md) to
+[Phase 57.2](../phase/phase-57.2.md) and starts no Phase 57.2 behavior.
 
 Target/site binding, compatibility forms without `--save`, publication,
 deployment, upload, private-state exposure, and Phase 57.2/57.3 work are out

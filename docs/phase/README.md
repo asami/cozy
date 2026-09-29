@@ -88,10 +88,20 @@ Phase status index (individual Phase/checklist files are authoritative):
   Later compatible-release consumption remains `DP-73-01`. This additive
   producer boundary does not change the closed Phase 62.3 fixture or claim
   CNCF runtime, provider, or application completion.
-- Planned local media repair, split applied 2026-09-29; serial order:
+- Closed provisional local phase: [Phase 74](phase-74.md) defines the minimum
+  Abstract/Logical UI runtime List/Detail contract and fixture-led acceptance
+  while preserving Phase 43/50 semantic authority. It records Cozy local
+  provisional evidence only: CNCF Phase 96 may consume the contract before a
+  separate future Android mock integration acceptance; no protocol, client, or
+  Android-completion claim is made here. Step 74.1 is accepted, and the one full
+  Phase review plus cycle-1 focused closure review have no remaining blocker;
+  final repository validation passed 2,053 tests in 161 suites (0 failed,
+  8 canceled), and the distinct local release closes its provisional acceptance.
+- Local media repair sequence, split applied 2026-09-29; serial order:
 
-  - [Phase 71](phase-71.md): real Core-rooted video bootstrap, operation/
-    producer contract and digest-purpose inventory; 7h expected, Sol high.
+  - [Phase 71](phase-71.md): CLOSED for real Core-rooted video bootstrap,
+    operation/producer contract and digest-purpose inventory; 7h expected,
+    Sol high.
   - [Phase 71.1](phase-71.1.md): document/media and inventoried adjacent
     application hash removal, timestamps and explicit adoption; 7h, Terra high.
   - [Phase 71.2](phase-71.2.md): remaining video hashes, dialogue continuity
@@ -101,18 +111,22 @@ Phase status index (individual Phase/checklist files are authoritative):
   - [Phase 71.4](phase-71.4.md): non-black video ending, combined-tree real
     media/site acceptance and the one aggregate full SBT suite; 6h, Sol high.
 
-  All remain PLANNED/not started. Default final-only defers only repository-full
-  validation to 71.4; focused validation, review, Step acceptance and release
-  closure remain mandatory for every member. Human approval is not a generation
-  prerequisite. All application hashes except named publication/distribution
-  integrity digests are deleted across the sequence; file updates use declared
-  inputs and modification times, not speculative metadata or hash gates.
+  Phases 71.1–71.4 remain PLANNED/not started. Default final-only defers only
+  repository-full validation to 71.4; focused validation, review, Step
+  acceptance and release closure remain mandatory for every member. Human
+  approval is not a generation prerequisite. All application hashes except
+  named publication/distribution integrity digests are deleted across the
+  sequence; file updates use declared inputs and modification times, not
+  speculative metadata or hash gates.
   The unchanged former numeric successor is [Phase 72](phase-72.md), CML
   Failure Model; it is not started or renumbered by this split.
-- CBD Support semantic-metadata foundation CLOSED: `phase-54.md` establishes
+- Planned site-production contract after the Phase 74 collision was resolved:
+  [Phase 75](phase-75.md) retains the local planned scope under a distinct
+  number; GitHub's closed UI Phase 74 remains unchanged.
+- CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
-  publication. Following children remain PLANNED: `phase-54.1.md` adds
-  Structure, `phase-54.2.md` Classification,
+  publication. `phase-54.1.md` is CLOSED for Structure; following children
+  remain PLANNED: `phase-54.2.md` Classification,
   `phase-54.3.md` Workflow and StateMachine, `phase-54.4.md` Use Case and
   Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
   traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
@@ -128,10 +142,11 @@ Phase status index (individual Phase/checklist files are authoritative):
   `phase-56.md` sequence has completed typed native provider execution,
   `phase-56.1.md` atomic evidence closure, and `phase-56.2.md` closed
   executable state plus structural-by-default verification. Phase 57 is closed
-  for selection-only public-export admission; `phase-57.1.md` remains planned for
-  manifest/receipt/currentness, `phase-57.2.md` for the SimpleModeling.org
-  target binding, and `phase-57.3.md` for the native publication-preparation
-  skill boundary. This is a greenfield sequence and does not preserve the
+  for selection-only public-export admission; `phase-57.1.md` is closed for
+  the versioned manifest/receipt, five currentness authorities, and project-free
+  bundle verification under its single-operator export conditions.
+  `phase-57.2.md` remains planned for the SimpleModeling.org target binding and
+  `phase-57.3.md` for the native publication-preparation skill boundary. This is a greenfield sequence and does not preserve the
   legacy article-media workflow.
 - Closed recursive Content Core phase: `phase-58.md` proves one recursive,
   locale-independent `content/core.yaml` and projects the real Article 9 logic

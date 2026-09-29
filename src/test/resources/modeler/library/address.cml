@@ -1,0 +1,401 @@
+Address
+=======
+
+This document defines the Address value-object family as a literate model.
+It preserves executable structure, machine-consumable metadata, and human
+explanation in one source.
+
+The canonical model is `Address`.
+It is the maintained internal model for postal-address semantics in this
+project.
+
+The model is organized around a root value object, `Address`, and reusable
+value objects referenced from its attributes.
+Types required for Japanese operation remain part of the maintained core even
+when the corresponding attributes are optional in individual `Address`
+instances.
+
+Important help-oriented text is kept in reserved descriptive sections under
+`# VALUE`. Longer rationale, examples, and integration guidance are written as
+narrative before and after structural definitions.
+
+External standards such as `schema.org PostalAddress` and `vCard ADR` are
+treated as important projection and interchange targets, not as the primary
+definition of the model.
+
+The design follows these principles:
+
+- alignment with widely adopted standards
+- international neutrality across different address systems
+- separation of structure from formatting and validation
+- support for multilingual and country-specific interpretation
+
+Address is the root value object for a portable postal-address model.
+It composes smaller reusable value objects while keeping country-specific
+formatting and delivery validation outside the core structural definition.
+
+The model is designed to preserve address semantics first and rendering rules
+second.
+
+`addressCountry` drives country-specific interpretation.
+Formatting, projection-specific recovery, and country-dependent delivery rule
+checks are downstream concerns rather than core model guarantees.
+
+# COMPONENT
+
+## SimpleModelingModel
+
+### PACKAGE
+
+org.simplemodeling.model
+
+# VALUE
+
+## Address
+
+### SUMMARY
+
+Structured postal destination value.
+
+### ATTRIBUTE
+
+- name: addressCountry
+  type: CountryCode
+  multiplicity: "1"
+- name: postalCode
+  type: PostalCode
+  multiplicity: "?"
+- name: addressRegion
+  type: Region
+  multiplicity: "?"
+- name: addressLocality
+  type: Locality
+  multiplicity: "?"
+- name: addressSubLocality
+  type: SubLocality
+  multiplicity: "?"
+- name: streetAddress
+  type: StreetAddress
+  multiplicity: "1"
+- name: extendedAddress
+  type: ExtendedAddress
+  multiplicity: "?"
+
+### DESCRIPTION
+
+Address is a structured postal destination value.
+It represents address semantics as composable typed fields, not a single
+formatted string.
+
+## CountryCode
+
+### SUMMARY
+
+Two-letter country code.
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+  min: 2
+  max: 2
+  pattern: "^(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z){2}$"
+
+### DESCRIPTION
+
+Two-letter country identifier.
+
+## PostalCode
+
+### SUMMARY
+
+Postal or ZIP code value.
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+  min: 1
+
+### DESCRIPTION
+
+Postal or ZIP code. Format is country-dependent.
+
+## Region
+
+### SUMMARY
+
+Top-level administrative division.
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+  min: 1
+
+### DESCRIPTION
+
+Top-level administrative division (state, prefecture, or province).
+
+## Locality
+
+### SUMMARY
+
+City or equivalent locality.
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+  min: 1
+
+### DESCRIPTION
+
+City or equivalent locality.
+
+## SubLocality
+
+### SUMMARY
+
+Subdivision within a locality.
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+  min: 1
+
+### DESCRIPTION
+
+Subdivision within locality (ward, district, or neighborhood).
+
+## StreetAddress
+
+### SUMMARY
+
+Primary street-level address value.
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+  min: 1
+
+### DESCRIPTION
+
+Primary street-level address expression.
+
+## ExtendedAddress
+
+### SUMMARY
+
+Additional address-detail value.
+
+### ATTRIBUTE
+
+- name: value
+  type: String
+  multiplicity: "1"
+  min: 1
+
+### DESCRIPTION
+
+Additional address details (building, floor, apartment, and similar details).
+
+
+# Example
+
+## Address
+
+addressCountry: JP
+postalCode: "160-0022"
+addressRegion: Tokyo
+addressLocality: Shinjuku-ku
+addressSubLocality: Shinjuku
+streetAddress: "1-2-3"
+extendedAddress: "Building A 101"
+
+
+# Background
+
+## International Standards
+
+This model uses external standards as interoperability anchors, but it does
+not reduce the Address family to any single external representation.
+
+The canonical model is `Address`.
+External standards are treated as important projection and interchange
+targets.
+
+The main anchors are:
+
+- ISO 3166-1 (country codes)
+- schema.org PostalAddress (web structured data)
+- vCard ADR (RFC 6350)
+
+
+## schema.org
+
+`schema.org PostalAddress` is the primary web-facing projection target.
+
+It is important for search-facing JSON-LD and general web interoperability,
+but it does not define the full internal model.
+Fields such as `addressSubLocality` and `extendedAddress` may require
+projection policy beyond direct standard slots.
+
+
+## vCard
+
+vCard ADR positional form:
+
+ADR: POBOX;EXT;STREET;LOCALITY;REGION;POSTALCODE;COUNTRY
+
+`vCard ADR` is the primary contact/interchange projection target.
+
+It provides a strong positional mapping for the core address fields and a
+useful slot for `extendedAddress` via `EXT`.
+It does not provide a stable dedicated slot for `addressSubLocality`, so
+complete reversibility still depends on integration policy.
+
+
+## ISO
+
+Country identity is anchored by ISO 3166-1 alpha-2.
+
+This standard is treated as part of the core validation contract for
+`CountryCode`, not merely as descriptive background.
+
+
+# Internationalization
+
+Address structure differs by country.
+Country-specific interpretation is delegated using `addressCountry`.
+
+The generic internationalization context should not know `Address` directly.
+Address-specific handling is expected to obtain an Address-specific class
+context from the generic i18n context and resolve country-specific
+interpretation through that class context.
+
+## Japan
+
+- addressRegion -> prefecture
+- addressLocality -> city
+- addressSubLocality -> ward
+- streetAddress -> block/number
+
+## UnitedStates
+
+- addressRegion -> state
+- addressLocality -> city
+- streetAddress -> street + number
+
+
+# Mapping
+
+`Address` is the canonical internal model.
+`schema.org PostalAddress` and `vCard ADR` are treated as projection targets,
+not as the primary model definition.
+
+Directly corresponding fields are mapped one-to-one where possible.
+Fields without a stable standard slot are mapped by integration policy, and
+some projections may be only partially reversible.
+
+## schema.org
+
+- addressCountry -> addressCountry
+- postalCode -> postalCode
+- addressRegion -> addressRegion
+- addressLocality -> addressLocality
+- streetAddress -> streetAddress
+
+`addressSubLocality` does not have a stable standard slot in
+`schema.org PostalAddress`.
+It is therefore preserved in the canonical model and projected by integration
+policy, typically by supplemental application metadata or by controlled
+absorption into `streetAddress`.
+
+`extendedAddress` also does not have a stable dedicated standard slot in
+`schema.org PostalAddress`.
+It is therefore projected by integration policy, typically by supplemental
+metadata or by controlled absorption into `streetAddress`.
+
+Round-trip implications:
+
+- `Address -> schema.org` may lose the independent distinction of
+  `addressSubLocality`
+- `Address -> schema.org` may lose the independent distinction of
+  `extendedAddress`
+- `schema.org -> Address` cannot usually reconstruct `addressSubLocality`
+  unless an integration-specific extension is used
+- `schema.org -> Address` cannot usually reconstruct `extendedAddress`
+  unless an integration-specific extension is used
+
+## vCard
+
+- extendedAddress -> EXT
+- streetAddress -> STREET
+- addressLocality -> LOCALITY
+- addressRegion -> REGION
+- postalCode -> POSTALCODE
+- addressCountry -> COUNTRY
+
+`addressSubLocality` does not have a stable dedicated slot in standard
+`vCard ADR`.
+It is therefore preserved in the canonical model and projected by integration
+policy, typically by controlled absorption into `STREET`.
+
+Round-trip implications:
+
+- `Address -> vCard` can project `extendedAddress` directly to `EXT`
+- `Address -> vCard` usually projects `addressSubLocality` by policy rather
+  than by one fixed standard slot
+- `vCard -> Address` can usually reconstruct `extendedAddress` from `EXT`
+- `vCard -> Address` cannot usually reconstruct `addressSubLocality`
+  independently unless an integration-specific rule is applied
+
+
+# Validation
+
+Validation is split between the core Address model and downstream policy.
+
+The core model is responsible for:
+
+- structural shape
+- multiplicity
+- shared reusable constraints
+- stable cross-country semantics for the maintained fields
+
+The downstream integration layer is responsible for:
+
+- country-specific postal-code rules
+- country-specific formatting rules
+- country-specific completeness rules
+- application-specific projection and recovery rules during interchange
+
+Those downstream rules are expected to be resolved through an
+Address-specific class internationalization context derived from a generic
+i18n context, rather than by making the generic i18n context itself aware of
+`Address`.
+
+Current core validation contract:
+
+- `addressCountry` is required
+- `streetAddress` is required
+- `CountryCode` is constrained to ISO 3166-1 alpha-2 style uppercase
+  two-letter codes
+- other maintained fields may be optional even when they are part of the
+  maintained core model
+
+This means `SubLocality` and `ExtendedAddress` remain part of the maintained
+Address family even though `Address` may omit them in individual instances.
+
+The model intentionally does not claim that a postal address is valid for
+delivery in a specific country.
+That judgment belongs to downstream validation policy driven by
+`addressCountry`.

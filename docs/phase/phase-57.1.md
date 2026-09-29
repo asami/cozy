@@ -1,6 +1,6 @@
 # Phase 57.1: Document Project Export Manifest and Currentness
 
-Status: PLANNED
+Status: COMPLETE
 
 Plan date: 2026-09-10
 Split from: [Phase 57](phase-57.md)
@@ -14,6 +14,15 @@ Make the admitted public export portable and verifiable. Bind its selected Work
 Products, roles, media types, paths, and exact bytes in a versioned manifest
 and receipt; derive its currentness from every authority without exposing
 Document Project private state to consumers.
+
+## Export operating conditions
+
+Export is a local single-operator developer action. During export, the developer
+MUST NOT change the destination or any parent directory through another action,
+and no other process may modify those paths. Under this precondition, export
+rejects an existing destination and installs the completed bundle with one atomic
+directory move. External concurrent filesystem changes are outside this Phase
+failure model and are not a Phase-completion defect.
 
 ## Provenance and structural gate
 
@@ -49,9 +58,9 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| P571-01 | Emit a versioned target/Work Product/hash/role/media/path manifest and receipt binding the manifest and exported bytes. | planned |
-| P571-02 | Derive export current/stale state from source authority, selection, production receipt, and exported-byte changes. | planned |
-| P571-03 | Let a consumer validate the bundle without reading or reconstructing private Document Project state. | planned |
+| P571-01 | Emit a versioned target/Work Product/hash/role/media/path manifest and receipt binding the manifest and exported bytes. | complete |
+| P571-02 | Derive export current/stale state from source authority, selection, production receipt, and exported-byte changes. | complete |
+| P571-03 | Let a consumer validate the bundle without reading or reconstructing private Document Project state. | complete |
 
 ## Frozen handoff to Phase 57.2
 

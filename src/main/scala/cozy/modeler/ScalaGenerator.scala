@@ -13,14 +13,15 @@ import org.goldenport.realm.Realm
 /*
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
- * @version Sep. 22, 2026
+ * @version Sep. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
   environment: Environment,
   model: SimpleModel,
   compositeStateMachines: Vector[CompositeStateMachineDefinition] = Vector.empty,
-  workflows: Vector[WorkflowDefinition] = Vector.empty
+  workflows: Vector[WorkflowDefinition] = Vector.empty,
+  generationTarget: ModelGenerationTarget = ModelGenerationTarget.Cncf
 ) {
   private val _transformer = {
     val config = Config.create(environment)
@@ -30,7 +31,16 @@ class ScalaGenerator(
   }
 
   def generate(p: MPackage): STree = {
-    val r = _transformer.transform(model)
+    generationTarget match {
+      case ModelGenerationTarget.Library =>
+        ModelGenerationTarget.requireLibraryGeneratorInput(model, compositeStateMachines, workflows)
+        STree(_transformer.transform(model).realm)
+      case ModelGenerationTarget.Cncf =>
+        _generate_cncf(_transformer.transform(model).realm)
+    }
+  }
+
+  private def _generate_cncf(realm: Realm): STree = {
     val compositestatemachines = CompositeStateMachineScalaGenerator.generate(compositeStateMachines)
     val projectionmetadata = CompositeStateMachineProjectionMetadata.canonicalJson(compositeStateMachines)
     val actionproducermetadata = CompositeStateMachineActionProducerMetadata.generate(compositeStateMachines)
@@ -67,8 +77,8 @@ class ScalaGenerator(
     }
     if (!metadata.isEmpty)
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
-    val realm = r.realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build()
-    val withcandidateadmission = candidateadmissionproducerabi.fold(realm)(realm + _)
+    val generatedrealm = realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build()
+    val withcandidateadmission = candidateadmissionproducerabi.fold(generatedrealm)(generatedrealm + _)
     STree(providedapiabi.fold(withcandidateadmission)(withcandidateadmission + _))
   }
 }

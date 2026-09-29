@@ -1,0 +1,111 @@
+User Profile Values
+===================
+
+This document defines reusable common profile value objects for enterprise and
+EC-oriented systems. The purpose is to provide shared profile vocabulary that
+can be reused by user-management components without forcing application-specific
+role data into the common profile layer.
+
+The canonical reusable values in this document are:
+
+- `IdentityPresentation`
+- `PersonalProfile`
+- `OrganizationSupport`
+
+These values are intended to be combined by higher-level models such as
+`UserProfile` in `textus-user-account`.
+
+# COMPONENT
+
+## SimpleModelingModel
+
+### PACKAGE
+
+org.simplemodeling.model
+
+# VALUE
+
+## IdentityPresentation
+
+### SUMMARY
+
+Common user-facing identity presentation attributes.
+
+### ATTRIBUTE
+
+- name: familyName
+  type: name
+  multiplicity: "?"
+- name: givenName
+  type: name
+  multiplicity: "?"
+- name: familyNameKana
+  type: name
+  multiplicity: "?"
+- name: givenNameKana
+  type: name
+  multiplicity: "?"
+- name: displayName
+  type: name
+  multiplicity: "?"
+- name: nickname
+  type: name
+  multiplicity: "?"
+- name: avatarUrl
+  type: url
+  multiplicity: "?"
+
+### DESCRIPTION
+
+IdentityPresentation holds ordinary display-oriented person-name attributes,
+including Japanese phonetic reading and avatar metadata.
+
+## PersonalProfile
+
+### SUMMARY
+
+Common personal profile attributes.
+
+### ATTRIBUTE
+
+- name: birthday
+  type: localdate
+  multiplicity: "?"
+- name: locale
+  type: locale
+  multiplicity: "?"
+- name: timeZone
+  type: timezone
+  multiplicity: "?"
+- name: address
+  type: Address
+  multiplicity: "?"
+
+### DESCRIPTION
+
+PersonalProfile holds broadly shared personal profile information used across
+enterprise and EC-oriented systems.
+
+## OrganizationSupport
+
+### SUMMARY
+
+Common organization-related profile support attributes.
+
+### ATTRIBUTE
+
+- name: organization
+  type: name
+  multiplicity: "?"
+- name: department
+  type: name
+  multiplicity: "?"
+- name: jobTitle
+  type: name
+  multiplicity: "?"
+
+### DESCRIPTION
+
+OrganizationSupport holds optional enterprise-facing affiliation attributes.
+Application-specific organizational semantics may still be modeled in
+application-defined role metadata when necessary.

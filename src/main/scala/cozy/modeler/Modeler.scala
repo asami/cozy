@@ -52,13 +52,14 @@ import scala.collection.mutable
  *  version Mar. 31, 2026
  *  version May. 24, 2026
  *  version Jul. 31, 2026
- *  version Sep. 17, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Sep. 28, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
   predefinedResultCatalog: PredefinedResultCatalog = PredefinedResultCatalog.empty,
-  componentStyleCatalog: ComponentStyleCatalog = ComponentStyleCatalog.EMPTY
+  componentStyleCatalog: ComponentStyleCatalog = ComponentStyleCatalog.EMPTY,
+  generationTarget: ModelGenerationTarget = ModelGenerationTarget.Cncf
 ) extends org.goldenport.kaleidox.extension.modeler.Modeler {
   import Modeler._
 
@@ -441,7 +442,7 @@ class Modeler(
     val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val workflows = _workflow_definitions(smodel.model)
     val model = _make_model(smodel.model)
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows)
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)
@@ -453,8 +454,14 @@ class Modeler(
     val env = c.executionContext.environment
     val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val workflows = _workflow_definitions(smodel.model)
-    val model = _make_model_value(smodel.model)
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows)
+    val builder = smodel.model match {
+      case m: KaleidoxModel => ModelBuilder(m, predefinedResultCatalog, componentStyleCatalog)
+      case _ => RAISE.noReachDefect
+    }
+    if (generationTarget == ModelGenerationTarget.Library)
+      ModelGenerationTarget.requireLibraryModel(builder, compositestatemachines, workflows)
+    val model = builder.buildValue()
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)

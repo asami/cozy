@@ -862,10 +862,19 @@ Phase 57.1 makes `document-project export` a portable-bundle admission surface,
 not a publication pipeline. Its grammar requires both an opaque target and a
 new `--save` bundle directory. The target resolves neither a path, site,
 configuration, nor binding and cannot influence source selection. The new
-destination is admitted as a direct non-symlink directory before one atomic
-directory installation. The bundle has exactly `manifest.yaml`, `receipt.yaml`,
-and the selected HTML bytes at
+destination and every ancestor directory component are admitted as direct
+non-symlink directories before one atomic directory installation. The bundle has
+exactly `manifest.yaml`, `receipt.yaml`, and the selected HTML bytes at
 `work-products/article-review-html/article-review.html`.
+
+The export failure model assumes a local developer operating alone, with no
+external changes to the destination or its parent directories during export.
+The existing destination admission check and Java `Files.move` with
+`ATOMIC_MOVE` implement refusal of an existing destination and atomic placement
+of the completed staging bundle under that precondition. An unsupported atomic
+move fails without a copy fallback. External concurrent filesystem mutation
+is outside this contract; the adapter introduces no native dependency,
+reservation protocol, or concurrency guarantee.
 
 Admission delegates production proof exclusively to the retained strict v2
 attempt parser, including exact embedded native receipt validation, then
@@ -883,6 +892,27 @@ manifest-to-receipt-to-output chain without a Document Project. Project-aware
 currentness uses the opaque fingerprints to report source, selection, retained
 production evidence, manifest authority, or output-byte invalidation without
 exposing private project state to the consumer surface.
+
+The exact manifest top-level sequence is `identity`, `target`, `workProducts`,
+followed by one `article-review-html` mapping with exactly `identity`, `role`,
+`mediaType`, `path`, and lowercase 64-hex `sha256`; its values remain
+`article-review`, `text/html`, and
+`work-products/article-review-html/article-review.html`. The exact receipt
+top-level sequence is `identity`, `manifest`, `exportedBytes`, `authority`; it
+contains one bound manifest identity/hash, one exported path/hash, and the
+three opaque source, selection, and retained-production fingerprints. The
+opaque target is the admitted slug. The direct bundle contains only
+`manifest.yaml`, `receipt.yaml`, `work-products`,
+`work-products/article-review-html`, and the one exported HTML file; its exact
+directory set is root, `work-products`, and
+`work-products/article-review-html`. Each encountered node must be a regular
+file or directory: symlinks and every other node type are rejected. This permits
+a generic consumer to relocate and verify the bundle after deletion of the
+private project. Project-aware currentness compares only the three opaque
+project fingerprints as private authority and compares manifest/output hashes
+as public bundle identities. This defines the handoff from
+[Phase 57.1](../phase/phase-57.1.md) to
+[Phase 57.2](../phase/phase-57.2.md) without initiating successor behavior.
 
 There is no target/site binding, no legacy no-save form, publication,
 deployment, upload, external delivery, private-state exposure, or Phase 57.2/
