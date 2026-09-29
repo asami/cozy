@@ -1319,6 +1319,14 @@ destination must be direct and non-symlinked. The completed bundle is installed
 with one atomic directory move, so a failed request leaves no partial destination
 bundle.
 
+Export has a local single-operator execution precondition: throughout the
+operation, the developer MUST NOT change the destination or its parent
+directories through another action, and no other process may modify them.
+Under that precondition, an existing destination is rejected and the completed
+bundle is installed atomically. Protection against external concurrent
+filesystem changes is outside the failure model; export does not promise an
+atomic no-replace reservation against another writer.
+
 Export admits only selected `article-review-html` when a retained,
 strictly-parsed accepted `cozy.document-operation-attempt.v2` for
 `article.render-review` has the current declared direct input and output

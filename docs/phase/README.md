@@ -121,10 +121,11 @@ Phase status index (individual Phase/checklist files are authoritative):
   `phase-56.md` sequence has completed typed native provider execution,
   `phase-56.1.md` atomic evidence closure, and `phase-56.2.md` closed
   executable state plus structural-by-default verification. Phase 57 is closed
-  for selection-only public-export admission; `phase-57.1.md` remains planned for
-  manifest/receipt/currentness, `phase-57.2.md` for the SimpleModeling.org
-  target binding, and `phase-57.3.md` for the native publication-preparation
-  skill boundary. This is a greenfield sequence and does not preserve the
+  for selection-only public-export admission; `phase-57.1.md` is closed for
+  the versioned manifest/receipt, five currentness authorities, and project-free
+  bundle verification under its single-operator export conditions.
+  `phase-57.2.md` remains planned for the SimpleModeling.org target binding and
+  `phase-57.3.md` for the native publication-preparation skill boundary. This is a greenfield sequence and does not preserve the
   legacy article-media workflow.
 - Closed recursive Content Core phase: `phase-58.md` proves one recursive,
   locale-independent `content/core.yaml` and projects the real Article 9 logic

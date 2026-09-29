@@ -441,6 +441,110 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
       }
     }
 
+    "reject duplicate nested manifest mapping keys" in {
+      val cases = Vector[(String, String, String => String)](
+        ("identity", "repeated identical value", _.replace("  - identity: article-review-html", "  - identity: article-review-html\n    identity: article-review-html")),
+        ("identity", "conflicting earlier value with original valid last value", _.replace("  - identity: article-review-html", "  - identity: another-product\n    identity: article-review-html")),
+        ("role", "repeated identical value", _.replace("    role: article-review", "    role: article-review\n    role: article-review")),
+        ("role", "conflicting earlier value with original valid last value", _.replace("    role: article-review", "    role: another-role\n    role: article-review")),
+        ("mediaType", "repeated identical value", _.replace("    mediaType: text/html", "    mediaType: text/html\n    mediaType: text/html")),
+        ("mediaType", "conflicting earlier value with original valid last value", _.replace("    mediaType: text/html", "    mediaType: text/plain\n    mediaType: text/html")),
+        ("path", "repeated identical value", _.replace("    path: work-products/article-review-html/article-review.html", "    path: work-products/article-review-html/article-review.html\n    path: work-products/article-review-html/article-review.html")),
+        ("path", "conflicting earlier value with original valid last value", _.replace("    path: work-products/article-review-html/article-review.html", "    path: work-products/article-review-html/other.html\n    path: work-products/article-review-html/article-review.html")),
+        ("sha256", "repeated identical value", _.replaceFirst("(    sha256: )([0-9a-f]{64})", "$1$2\n$1$2")),
+        ("sha256", "conflicting earlier value with original valid last value", _.replaceFirst("(    sha256: )([0-9a-f]{64})", "$1" + ("f" * 64) + "\n$1$2"))
+      )
+      cases.zipWithIndex.foreach { case ((key, form, mutate), index) =>
+        _with_temp_dir(s"cozy-document-project-export-duplicate-manifest-$index") { root =>
+          Given(s"a genuine accepted export with a $form duplicate manifest $key mapping key")
+          val project = _accepted_project(root, s"export-duplicate-manifest-$index")
+          val descriptor = CozyDocumentProject._load_project(project)
+          val bundle = _export(project, root.resolve("bundle"))
+          val verified = CozyDocumentProjectExport.verifyBundle(bundle)
+          val baseline = _bundle_bytes(bundle)
+          val manifestpath = bundle.resolve("manifest.yaml")
+          val receiptpath = bundle.resolve("receipt.yaml")
+          val manifestbefore = Files.readString(manifestpath, StandardCharsets.UTF_8)
+          val receiptbefore = Files.readString(receiptpath, StandardCharsets.UTF_8)
+
+          When("the public manifest gains the duplicate while its receipt binds the mutated manifest bytes")
+          val manifestafter = mutate(manifestbefore)
+          manifestafter should not be manifestbefore
+          Files.writeString(manifestpath, manifestafter, StandardCharsets.UTF_8)
+          val receiptafter = receiptbefore.replaceFirst("(  sha256: )[0-9a-f]{64}", "$1" + _sha256(manifestpath))
+          receiptafter should not be receiptbefore
+          Files.writeString(receiptpath, receiptafter, StandardCharsets.UTF_8)
+          val mutated = _bundle_bytes(bundle)
+          val failure = _bundle_failure(bundle)
+          val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+          Then("the consumer rejects the duplicate before hash comparison, preserves bytes, invalidates currentness, and restores the genuine bundle")
+          _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+          failure should include("export manifest contains duplicate mapping keys")
+          mutated.manifest should not be baseline.manifest
+          mutated.receipt should not be baseline.receipt
+          mutated.output shouldBe baseline.output
+          _bundle_bytes(bundle) shouldBe mutated
+          currentness shouldBe CozyDocumentProjectExport.Currentness("invalid", "invalid", "invalid", "invalid", "invalid")
+          Files.write(manifestpath, baseline.manifest.toArray)
+          Files.write(receiptpath, baseline.receipt.toArray)
+          CozyDocumentProjectExport.verifyBundle(bundle) shouldBe verified
+          _bundle_bytes(bundle) shouldBe baseline
+        }
+      }
+    }
+
+    "reject duplicate nested receipt mapping keys" in {
+      val cases = Vector[(String, String, String => String)](
+        ("manifest.identity", "repeated identical value", _.replace("  identity: cozy.document-project-export-manifest.v1", "  identity: cozy.document-project-export-manifest.v1\n  identity: cozy.document-project-export-manifest.v1")),
+        ("manifest.identity", "conflicting earlier value with original valid last value", _.replace("  identity: cozy.document-project-export-manifest.v1", "  identity: forged-manifest\n  identity: cozy.document-project-export-manifest.v1")),
+        ("manifest.sha256", "repeated identical value", _.replaceFirst("(  sha256: )([0-9a-f]{64})", "$1$2\n$1$2")),
+        ("manifest.sha256", "conflicting earlier value with original valid last value", _.replaceFirst("(  sha256: )([0-9a-f]{64})", "$1" + ("f" * 64) + "\n$1$2")),
+        ("exportedBytes.path", "repeated identical value", _.replace("  - path: work-products/article-review-html/article-review.html", "  - path: work-products/article-review-html/article-review.html\n    path: work-products/article-review-html/article-review.html")),
+        ("exportedBytes.path", "conflicting earlier value with original valid last value", _.replace("  - path: work-products/article-review-html/article-review.html", "  - path: wrong.html\n    path: work-products/article-review-html/article-review.html")),
+        ("exportedBytes.sha256", "repeated identical value", _.replaceFirst("(exportedBytes:\\n  - path: .*\\n    sha256: )([0-9a-f]{64})", "$1$2\n    sha256: $2")),
+        ("exportedBytes.sha256", "conflicting earlier value with original valid last value", _.replaceFirst("(exportedBytes:\\n  - path: .*\\n    sha256: )([0-9a-f]{64})", "$1" + ("f" * 64) + "\n    sha256: $2")),
+        ("authority.sourceAuthoritySha256", "repeated identical value", _.replaceFirst("(sourceAuthoritySha256: )([0-9a-f]{64})", "$1$2\n  $1$2")),
+        ("authority.sourceAuthoritySha256", "conflicting earlier value with original valid last value", _.replaceFirst("(sourceAuthoritySha256: )([0-9a-f]{64})", "$1" + ("f" * 64) + "\n  $1$2")),
+        ("authority.selectionSha256", "repeated identical value", _.replaceFirst("(selectionSha256: )([0-9a-f]{64})", "$1$2\n  $1$2")),
+        ("authority.selectionSha256", "conflicting earlier value with original valid last value", _.replaceFirst("(selectionSha256: )([0-9a-f]{64})", "$1" + ("f" * 64) + "\n  $1$2")),
+        ("authority.retainedProductionReceiptSha256", "repeated identical value", _.replaceFirst("(retainedProductionReceiptSha256: )([0-9a-f]{64})", "$1$2\n  $1$2")),
+        ("authority.retainedProductionReceiptSha256", "conflicting earlier value with original valid last value", _.replaceFirst("(retainedProductionReceiptSha256: )([0-9a-f]{64})", "$1" + ("f" * 64) + "\n  $1$2"))
+      )
+      cases.zipWithIndex.foreach { case ((key, form, mutate), index) =>
+        _with_temp_dir(s"cozy-document-project-export-duplicate-receipt-$index") { root =>
+          Given(s"a genuine accepted export with a $form duplicate receipt $key mapping key")
+          val project = _accepted_project(root, s"export-duplicate-receipt-$index")
+          val descriptor = CozyDocumentProject._load_project(project)
+          val bundle = _export(project, root.resolve("bundle"))
+          val verified = CozyDocumentProjectExport.verifyBundle(bundle)
+          val baseline = _bundle_bytes(bundle)
+          val receiptpath = bundle.resolve("receipt.yaml")
+          val receiptbefore = Files.readString(receiptpath, StandardCharsets.UTF_8)
+
+          When("the public receipt gains the duplicate while manifest and output bytes stay genuine")
+          val receiptafter = mutate(receiptbefore)
+          receiptafter should not be receiptbefore
+          Files.writeString(receiptpath, receiptafter, StandardCharsets.UTF_8)
+          val mutated = _bundle_bytes(bundle)
+          val failure = _bundle_failure(bundle)
+          val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+          Then("the consumer rejects the duplicate before receipt validation, preserves bytes, invalidates currentness, and restores the genuine bundle")
+          _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+          failure should include("export receipt contains duplicate mapping keys")
+          mutated.manifest shouldBe baseline.manifest
+          mutated.receipt should not be baseline.receipt
+          mutated.output shouldBe baseline.output
+          _bundle_bytes(bundle) shouldBe mutated
+          currentness shouldBe CozyDocumentProjectExport.Currentness("invalid", "invalid", "invalid", "invalid", "invalid")
+          Files.write(receiptpath, baseline.receipt.toArray)
+          CozyDocumentProjectExport.verifyBundle(bundle) shouldBe verified
+          _bundle_bytes(bundle) shouldBe baseline
+        }
+      }
+    }
+
     "reject every malformed manifest mapping before receipt-hash comparison" in {
       val cases = Vector[(String, String, String => String)](
         ("unsupported Work Product identity", "export manifest Work Product mapping is invalid", _.replace("identity: article-review-html", "identity: another-product")),

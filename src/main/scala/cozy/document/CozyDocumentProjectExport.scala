@@ -8,6 +8,9 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
+import org.goldenport.util.CirceUtils
+import org.yaml.snakeyaml.{LoaderOptions, Yaml}
+import org.yaml.snakeyaml.constructor.{DuplicateKeyException, SafeConstructor}
 
 /*
  * @since   Sep. 11, 2026
@@ -126,7 +129,7 @@ private[cozy] object CozyDocumentProjectExport {
 
   private def _manifest_value(path: Path): Manifest = {
     _require_top_order(path, Vector("identity", "target", "workProducts"), "export manifest")
-    val fields = _object(_load_json(path, "export manifest"), "export manifest")
+    val fields = _object(_load_bundle_json(path, "export manifest"), "export manifest")
     if (fields.keySet != Set("identity", "target", "workProducts") || _string(fields, "identity", "export manifest") != _manifest_identity) _invalid("export manifest identity or fields are invalid")
     val target = _slug(_string(fields, "target", "export manifest"), "export manifest target")
     val products = _field(fields, "workProducts", "export manifest").asArray.getOrElse(_invalid("export manifest workProducts must be an array"))
@@ -138,7 +141,7 @@ private[cozy] object CozyDocumentProjectExport {
 
   private def _receipt_value(path: Path): Receipt = {
     _require_top_order(path, Vector("identity", "manifest", "exportedBytes", "authority"), "export receipt")
-    val fields = _object(_load_json(path, "export receipt"), "export receipt")
+    val fields = _object(_load_bundle_json(path, "export receipt"), "export receipt")
     if (fields.keySet != Set("identity", "manifest", "exportedBytes", "authority") || _string(fields, "identity", "export receipt") != _receipt_identity) _invalid("export receipt identity or fields are invalid")
     val manifest = _object(_field(fields, "manifest", "export receipt"), "export receipt manifest identity")
     if (manifest.keySet != Set("identity", "sha256") || _string(manifest, "identity", "export receipt manifest identity") != _manifest_identity) _invalid("export receipt manifest identity is invalid")
@@ -204,6 +207,16 @@ private[cozy] object CozyDocumentProjectExport {
   }
 
   private def _load_json(path: Path, label: String): Json = try { Files.readString(path, StandardCharsets.UTF_8); StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take } catch { case NonFatal(_) => _invalid(s"$label is missing, unreadable, or malformed") }
+  private def _load_bundle_json(path: Path, label: String): Json = try {
+    val options = new LoaderOptions
+    options.setAllowDuplicateKeys(false)
+    val yaml = new Yaml(new SafeConstructor(options))
+    val raw = yaml.load[java.lang.Object](Files.readString(path, StandardCharsets.UTF_8))
+    CirceUtils.convertToJson(raw)
+  } catch {
+    case _: DuplicateKeyException => _invalid(s"$label contains duplicate mapping keys")
+    case NonFatal(_) => _invalid(s"$label is missing, unreadable, or malformed")
+  }
   private def _require_top_order(path: Path, expected: Vector[String], label: String): Unit = { val keys = try Files.readAllLines(path, StandardCharsets.UTF_8).asScala.collect { case line if line.nonEmpty && !line.startsWith(" ") && !line.startsWith("\t") && line.contains(":") => line.takeWhile(_ != ':').trim }.toVector catch { case NonFatal(_) => _invalid(s"$label cannot be read") }; if (keys != expected) _invalid(s"$label top-level keys are invalid") }
   private def _object(value: Json, label: String): Map[String, Json] = value.asObject.map(_.toMap).getOrElse(_invalid(s"$label must be an object"))
   private def _field(fields: Map[String, Json], name: String, label: String): Json = fields.getOrElse(name, _invalid(s"$label is missing $name"))

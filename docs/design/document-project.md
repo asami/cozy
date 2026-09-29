@@ -867,6 +867,15 @@ non-symlink directories before one atomic directory installation. The bundle has
 exactly `manifest.yaml`, `receipt.yaml`, and the selected HTML bytes at
 `work-products/article-review-html/article-review.html`.
 
+The export failure model assumes a local developer operating alone, with no
+external changes to the destination or its parent directories during export.
+The existing destination admission check and Java `Files.move` with
+`ATOMIC_MOVE` implement refusal of an existing destination and atomic placement
+of the completed staging bundle under that precondition. An unsupported atomic
+move fails without a copy fallback. External concurrent filesystem mutation
+is outside this contract; the adapter introduces no native dependency,
+reservation protocol, or concurrency guarantee.
+
 Admission delegates production proof exclusively to the retained strict v2
 attempt parser, including exact embedded native receipt validation, then
 requires current declared input and output identities. Generated-review and
