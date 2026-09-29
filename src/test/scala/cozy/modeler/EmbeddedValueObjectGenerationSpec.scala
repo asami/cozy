@@ -11,14 +11,15 @@ import org.scalatest.wordspec.AnyWordSpec
  *  version Apr. 20, 2026
  *  version May. 24, 2026
  *  version Jun. 23, 2026
- * @version Jul. 15, 2026
+ *  version Jul. 15, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 class EmbeddedValueObjectGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
   "Embedded value object generation" should {
     "generate collection attributes from the 09.a sample" in {
       Given("the 09.a aggregate single record sample CML")
-      val input = Paths.get("/Users/asami/src/dev2026/cncf-samples/samples/09.a-aggregate-single-record-lab/src/main/cozy/order-single-record-aggregate.cml")
+      val input = Paths.get(getClass.getResource("/cozy/modeler/order-single-record-aggregate.cml").toURI)
       val out = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         .resolve("target/test-generated/modeler-scala-embedded-value-object")
       delete_recursively(out)

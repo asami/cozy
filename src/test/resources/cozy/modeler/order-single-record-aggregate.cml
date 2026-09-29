@@ -1,0 +1,31 @@
+# COMPONENT
+
+## AggregateSingleRecord
+
+### PACKAGE
+
+org.sample.aggregatesinglerecord
+
+# VALUE
+
+## OrderLine
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| name | name | 1 |
+| quantity | int | 1 |
+
+# ENTITY
+
+## Order
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------|------|--------------|
+| id | entityid | 1 |
+| name | name | 1 |
+| status | string | 1 |
+| lines | OrderLine | * |
