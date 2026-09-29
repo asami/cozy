@@ -39,6 +39,21 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
       }
     }
 
+    "report all five currentness facets for a fresh accepted export" in {
+      _with_temp_dir("cozy-document-project-export-current") { root =>
+        Given("a genuine accepted Article review project and its freshly exported bundle")
+        val project = _accepted_project(root, "export-currentness")
+        val descriptor = CozyDocumentProject._load_project(project)
+        val bundle = _export(project, root.resolve("currentness-bundle"))
+
+        When("project-aware currentness evaluates the fresh bundle")
+        val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+        Then("source, selection, retained production, manifest, and exported bytes are current")
+        currentness shouldBe CozyDocumentProjectExport.Currentness("current", "current", "current", "current", "current")
+      }
+    }
+
     "require --save and a new direct destination without compatibility output" in {
       _with_temp_dir("cozy-document-project-export-destination") { root =>
         Given("an accepted project, an existing directory, and a symbolic-link destination")
@@ -144,6 +159,138 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
       }
     }
 
+    "invalidate source and retained production currentness when each declared source changes" in {
+      Vector("content/core-en.yaml", "index.dox", "presentation/visual-pages.yaml", "infographic/infographic.svg").foreach { sourcepath =>
+        _with_temp_dir(s"cozy-document-project-export-source-change-${sourcepath.replace('/', '-')}") { root =>
+          Given(s"a fresh accepted export whose declared source is $sourcepath")
+          val project = _accepted_project(root, "export-source-change")
+          val descriptor = CozyDocumentProject._load_project(project)
+          val bundle = _export(project, root.resolve("source-change-bundle"))
+
+          When("the declared source bytes receive an appended newline")
+          val path = project.resolve(sourcepath)
+          Files.writeString(path, Files.readString(path, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
+          val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+          Then("source and retained production are stale while selection and bundle bytes remain current")
+          currentness shouldBe CozyDocumentProjectExport.Currentness("stale", "current", "stale", "current", "current")
+        }
+      }
+    }
+
+    "invalidate source and retained production currentness when each declared source is removed" in {
+      Vector("content/core-en.yaml", "index.dox", "presentation/visual-pages.yaml", "infographic/infographic.svg").foreach { sourcepath =>
+        _with_temp_dir(s"cozy-document-project-export-source-removal-${sourcepath.replace('/', '-')}") { root =>
+          Given(s"a fresh accepted export whose declared source is $sourcepath")
+          val project = _accepted_project(root, "export-source-removal")
+          val descriptor = CozyDocumentProject._load_project(project)
+          val bundle = _export(project, root.resolve("source-removal-bundle"))
+
+          When("the declared source file is removed after descriptor admission")
+          Files.delete(project.resolve(sourcepath))
+          val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+          Then("source and retained production are stale without losing the other valid facets")
+          currentness shouldBe CozyDocumentProjectExport.Currentness("stale", "current", "stale", "current", "current")
+        }
+      }
+    }
+
+    "preserve all five currentness facets when selected identities are reordered" in {
+      _with_temp_dir("cozy-document-project-export-selection-order") { root =>
+        Given("an accepted project authored with article review and infographic PNG selected")
+        val project = _accepted_project_with_selection(
+          root,
+          "export-selection-order",
+          "activeOptionalWorkProducts:\n  - article-review-html\n  - infographic-png"
+        )
+        val bundle = _export(project, root.resolve("selection-order-bundle"))
+        val descriptorfile = project.resolve("document-project.yaml")
+        val before = Files.readString(descriptorfile, StandardCharsets.UTF_8)
+        val after = before.replace(
+          "activeOptionalWorkProducts:\n  - article-review-html\n  - infographic-png",
+          "activeOptionalWorkProducts:\n  - infographic-png\n  - article-review-html"
+        )
+
+        When("the same two authored optional identities are reversed and reloaded")
+        Files.writeString(descriptorfile, after, StandardCharsets.UTF_8)
+        val descriptor = CozyDocumentProject._load_project(project)
+        val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+        Then("reordering leaves every currentness facet current without rendering infographic PNG")
+        after should not be before
+        currentness shouldBe CozyDocumentProjectExport.Currentness("current", "current", "current", "current", "current")
+      }
+    }
+
+    "invalidate selection alone when infographic PNG is added after Article export" in {
+      _with_temp_dir("cozy-document-project-export-selection-membership") { root =>
+        Given("an Article-only accepted export")
+        val project = _accepted_project(root, "export-selection-membership")
+        val bundle = _export(project, root.resolve("selection-membership-bundle"))
+        val descriptorfile = project.resolve("document-project.yaml")
+        val before = Files.readString(descriptorfile, StandardCharsets.UTF_8)
+        val after = before.replace(
+          "activeOptionalWorkProducts:\n  - article-review-html",
+          "activeOptionalWorkProducts:\n  - article-review-html\n  - infographic-png"
+        )
+
+        When("the existing optional infographic PNG identity is added to the descriptor")
+        Files.writeString(descriptorfile, after, StandardCharsets.UTF_8)
+        val descriptor = CozyDocumentProject._load_project(project)
+        val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+        Then("only selection is stale while source, production, manifest, and output remain current")
+        after should not be before
+        currentness shouldBe CozyDocumentProjectExport.Currentness("current", "stale", "current", "current", "current")
+      }
+    }
+
+    "invalidate selection and retained production when the registered profile changes" in {
+      _with_temp_dir("cozy-document-project-export-selection-profile") { root =>
+        Given("a standard-profile accepted Article export")
+        val project = _accepted_project(root, "export-selection-profile")
+        val bundle = _export(project, root.resolve("selection-profile-bundle"))
+        val descriptorfile = project.resolve("document-project.yaml")
+        val before = Files.readString(descriptorfile, StandardCharsets.UTF_8)
+        val after = before.replace("profile: standard", "profile: bok")
+
+        When("the descriptor is changed to the registered bok profile and reloaded")
+        Files.writeString(descriptorfile, after, StandardCharsets.UTF_8)
+        val descriptor = CozyDocumentProject._load_project(project)
+        val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+        Then("selection and retained production are stale while source and bundle bytes remain current")
+        after should not be before
+        currentness shouldBe CozyDocumentProjectExport.Currentness("current", "stale", "stale", "current", "current")
+      }
+    }
+
+    "invalidate retained production alone when only the embedded receipt value changes" in {
+      _with_temp_dir("cozy-document-project-export-receipt-value") { root =>
+        Given("a genuine accepted Article export with its retained native attempt")
+        val project = _accepted_project(root, "export-receipt-value")
+        val bundle = _export(project, root.resolve("receipt-value-bundle"))
+        val attemptname = _relative_files(project.resolve("evidence/attempts")).head
+        val attemptpath = project.resolve("evidence/attempts").resolve(attemptname)
+        val before = Files.readString(attemptpath, StandardCharsets.UTF_8)
+        val after = before.replace("operation=article.render-review;", "operation=forged;")
+        val descriptor = CozyDocumentProject._load_project(project)
+
+        When("only the canonical embedded native receipt operation value is changed")
+        Files.writeString(attemptpath, after, StandardCharsets.UTF_8)
+        val currentness = CozyDocumentProjectExport.currentness(project, descriptor, bundle)
+
+        Then("retained production is stale while source, selection, manifest, and output remain current")
+        after should not be before
+        after.replace("operation=forged;", "operation=article.render-review;") shouldBe before
+        after should include("value: \"operation=forged;")
+        after should include("operation: article.render-review")
+        after should include("identity: cozy.document-project.native-receipt.v1")
+        currentness shouldBe CozyDocumentProjectExport.Currentness("current", "current", "stale", "current", "current")
+      }
+    }
+
     "retain retained production currentness when accepted-attempt diagnostics change" in {
       _with_temp_dir("cozy-document-project-export-diagnostics") { root =>
         Given("an accepted Article review project and its exported bundle")
@@ -220,6 +367,8 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
         val symbolicfailure = _bundle_failure(symbolicbundle)
         val manifeststate = CozyDocumentProjectExport.currentness(manifestproject, CozyDocumentProject._load_project(manifestproject), manifestbundle)
         val outputstate = CozyDocumentProjectExport.currentness(outputproject, CozyDocumentProject._load_project(outputproject), outputbundle)
+        val receiptstate = CozyDocumentProjectExport.currentness(receiptproject, CozyDocumentProject._load_project(receiptproject), receiptbundle)
+        val missingstate = CozyDocumentProjectExport.currentness(missingproject, CozyDocumentProject._load_project(missingproject), missingbundle)
 
         Then("the verifier rejects malformed, missing, symbolic, and tampered content while currentness marks changed identities stale")
         _diagnostic_tokens(manifestfailure) shouldBe Vector("DP-OP-001")
@@ -227,8 +376,10 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
         _diagnostic_tokens(receiptfailure) shouldBe Vector("DP-OP-001")
         _diagnostic_tokens(missingfailure) shouldBe Vector("DP-OP-001")
         _diagnostic_tokens(symbolicfailure) shouldBe Vector("DP-OP-001")
-        manifeststate.manifestauthority shouldBe "stale"
-        outputstate.exportedbytes shouldBe "stale"
+        manifeststate shouldBe CozyDocumentProjectExport.Currentness("current", "current", "current", "stale", "current")
+        outputstate shouldBe CozyDocumentProjectExport.Currentness("current", "current", "current", "current", "stale")
+        receiptstate shouldBe CozyDocumentProjectExport.Currentness("invalid", "invalid", "invalid", "invalid", "invalid")
+        missingstate shouldBe CozyDocumentProjectExport.Currentness("invalid", "invalid", "invalid", "invalid", "invalid")
       }
     }
 
@@ -268,6 +419,16 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
     val project = parent.resolve(s"$slug.dox")
     val descriptor = project.resolve("document-project.yaml")
     Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - article-review-html"), StandardCharsets.UTF_8)
+    _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+    project
+  }
+
+  private def _accepted_project_with_selection(root: Path, slug: String, selection: String): Path = {
+    val parent = Files.createDirectory(root.resolve(s"$slug-parent"))
+    _execute(List("document-project", "scaffold", slug, "--profile", "standard", "--language", "en", "--workspace", "directory", "--save", parent.toString))
+    val project = parent.resolve(s"$slug.dox")
+    val descriptor = project.resolve("document-project.yaml")
+    Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("activeOptionalWorkProducts: []", selection), StandardCharsets.UTF_8)
     _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
     project
   }
