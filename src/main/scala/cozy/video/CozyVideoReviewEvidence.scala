@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Sep. 16, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
@@ -476,7 +476,7 @@ private[cozy] trait CozyVideoReviewEvidence {
 
   private[video] def _review_validated_video_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
     if (plan.project.parts.exists(_.storyboard.isDefined))
-      _review_validated_storyboard_final_manifest(plan, finalvideo, finalhash)
+      _review_validated_storyboard_final_manifest(plan, finalvideo)
     else
       _review_validated_legacy_video_manifest(plan, finalvideo, finalhash)
   }
@@ -502,8 +502,8 @@ private[cozy] trait CozyVideoReviewEvidence {
     manifest
   }
 
-  private def _review_validated_storyboard_final_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
-    _validated_storyboard_final_manifest(plan, finalvideo, finalhash)
+  private def _review_validated_storyboard_final_manifest(plan: VideoPlan, finalvideo: Path): Path = {
+    _validated_storyboard_final_manifest(plan, finalvideo)
   }
 
   private[video] def _review_require_effective_encoding(

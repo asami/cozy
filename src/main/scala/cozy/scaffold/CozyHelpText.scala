@@ -3,7 +3,8 @@ package cozy.scaffold
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
- * @version Sep. 11, 2026
+ *  version Sep. 11, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -27,6 +28,7 @@ private[cozy] object CozyHelpText {
       |  document-project content-core feedback <project> <candidate-id> <feedback>
       |  document-project content-core accept <project> <candidate-id> <acceptance>
       |  document-project logic-tree render --core <core.yaml> --format <format.yaml> --kind overview|slides --save <output.html>
+      |  document-project sources validate --core <core.yaml> --document <document.yaml> --summary <summary.yaml>
       |  document-project verify <project> [--mode structural]
       |  document-project verify <project> --mode visual --work-product <native-output-work-product>
       |  document-project run <project> --operation <logical-operation> [--dry-run]
@@ -55,6 +57,7 @@ private[cozy] object CozyHelpText {
       |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.
       |      Candidate, failed dialogue, feedback, and acceptance evidence are append-only below evidence/content-core/; no schema/version, provider, remote, or compatibility path is added.
       |      Logic Tree render reads only the direct Core and Format authorities and atomically writes the explicitly selected HTML output. It creates no Document Project state, evidence, receipt, provider run, publication, or external mutation.
+      |      Sources validate performs read-only Core, Document, and Summary semantic admission. It calculates or prints no hashes, renders nothing, and writes no evidence, receipt, or output.
       |
       |  pdf <input> (use `cozy pdf --help` for PDF options and formats).
       |
@@ -167,6 +170,9 @@ private[cozy] object CozyHelpText {
       |  video synthesize <script-file> --save <audio-dir> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>] [--voicevox-url=<url>]
       |      Generate provider-selected scene WAV files, a combined WAV, and manifest.json.
       |      CLI execution settings override script tools and Cozy video defaults. VOICEVOX remains an external HTTP service.
+      |  video synthesize <project-file> --part=<id> --save <declared-audio-dir> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>] [--voicevox-url=<url>]
+      |      Synthesize one native Storyboard part only; --part is an exact declared id and --save must equal its declared project audio directory.
+      |      CLI execution settings override project tools in part mode. VOICEVOX remains an external HTTP service.
       |
       |  video render <project-file> --renderer=remotion|simple-java2d [--part=<id>] [--tool-mode=<docker|host>] [--docker-image=<image>] [--check-tools]
       |      Render project parts with Cozy-generated Remotion compositions or a simple Python/Pillow plus ffmpeg renderer.

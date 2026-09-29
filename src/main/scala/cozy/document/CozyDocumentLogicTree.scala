@@ -15,7 +15,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 12, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentLogicTree {
@@ -76,17 +77,23 @@ private[cozy] object CozyDocumentLogicTree {
     lazy val labelsById: Map[String, String] = format.nodeBindings.map(value => value.id -> value.label).toMap
   }
 
-  final case class ValidatedCore(
-    core: Core,
-    coreIdentity: String,
-    depthFirstSteps: Vector[Step]
-  ) {
+  sealed trait CoreStructure {
+    def core: Core
+    def depthFirstSteps: Vector[Step]
     lazy val stepsById: Map[String, Step] = depthFirstSteps.map(value => value.id -> value).toMap
     lazy val claimsById: Map[String, Claim] = depthFirstSteps.flatMap(_.claims).map(value => value.id -> value).toMap
     lazy val nodesById: Map[String, Node] = depthFirstSteps.flatMap(_.structure.nodes).map(value => value.id -> value).toMap
     lazy val relationsById: Map[String, Relation] = depthFirstSteps.flatMap(_.structure.relations).map(value => value.id -> value).toMap
     lazy val flowsById: Map[String, Flow] = depthFirstSteps.map(_.flow).map(value => value.id -> value).toMap
   }
+
+  final case class ValidatedCore(
+    core: Core,
+    coreIdentity: String,
+    depthFirstSteps: Vector[Step]
+  ) extends CoreStructure
+
+  final case class SourceCore(core: Core, depthFirstSteps: Vector[Step]) extends CoreStructure
 
   final case class LogicTreeFault(code: String, path: String, reason: String)
     extends IllegalArgumentException(s"$code path=$path reason=$reason")
@@ -111,6 +118,12 @@ private[cozy] object CozyDocumentLogicTree {
     _validate_core(corebytes, _load_document(corepath, corebytes, "core"))
   }
 
+  private[cozy] def loadSourceCore(corePath: Path): SourceCore = {
+    val corepath = _admit_core(corePath)
+    val corebytes = _read_bytes(corepath, "core")
+    _source_core(corebytes, _load_document(corepath, corebytes, "core"))
+  }
+
   private[cozy] def validate(coreBytes: Array[Byte], coreValue: Json, formatValue: Json): Validated = {
     _decode_utf8(coreBytes, "$.core")
     _validate(coreBytes, coreValue, formatValue.noSpaces.getBytes(StandardCharsets.UTF_8), formatValue)
@@ -132,10 +145,15 @@ private[cozy] object CozyDocumentLogicTree {
   }
 
   private def _validate_core(corebytes: Array[Byte], corevalue: Json): ValidatedCore = {
+    val source = _source_core(corebytes, corevalue)
+    ValidatedCore(source.core, "sha256:" + _sha256(corebytes), source.depthFirstSteps)
+  }
+
+  private def _source_core(corebytes: Array[Byte], corevalue: Json): SourceCore = {
     _decode_utf8(corebytes, "$.core")
     val core = _core(corevalue)
     _validate_tree(core.root)
-    ValidatedCore(core, "sha256:" + _sha256(corebytes), _depth_first(core.root))
+    SourceCore(core, _depth_first(core.root))
   }
 
   private def _core(value: Json): Core = {

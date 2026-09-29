@@ -14,7 +14,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardReviewSpec
@@ -162,7 +163,7 @@ final class CozyVideoStoryboardReviewSpec
       }
     }
 
-    "reject malformed stale or unapproved visual evidence at the build gate before tool work" in {
+    "reject malformed stale or unapproved visual evidence through explicit review currentness checks" in {
       _with_temp_dir("build-gate") { root =>
         Given("a visual-story project with a generated evidence package")
         val storyboard = _storyboard("assets/title.svg", Vector("assets/title.svg"))
@@ -178,9 +179,9 @@ final class CozyVideoStoryboardReviewSpec
         _write_project(root, Some(_review_json(source, CozyVideo.storyboardIdentity(storyboard), Some(evidencedirectory -> Vector("assets/title.svg")), Some(generated.evidenceIdentity))))
         Files.writeString(generated.evidencePath, "{}", StandardCharsets.UTF_8)
 
-        When("a dry-run build reaches its approval gate")
+        When("the explicit review validator receives malformed saved visual evidence")
         val failure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideoImplementation._validate_storyboard_review_current(CozyVideoImplementation._plan(project, None, None))
         }
 
         Then("malformed visual evidence is rejected before any tool or process work")
@@ -188,20 +189,20 @@ final class CozyVideoStoryboardReviewSpec
 
         Files.writeString(generated.evidencePath, originalevidence, StandardCharsets.UTF_8)
         Files.writeString(input, "changed", StandardCharsets.UTF_8)
-        When("the selected visual input changes after evidence generation")
+        When("the selected visual input changes after evidence generation and review currentness is requested")
         val stale = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideoImplementation._validate_storyboard_review_current(CozyVideoImplementation._plan(project, None, None))
         }
         Then("the stale package is rejected before build work")
         stale.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_STALE")
 
         Files.writeString(input, "title", StandardCharsets.UTF_8)
         _write_project(root, Some(_review_json(source, CozyVideo.storyboardIdentity(storyboard), Some(evidencedirectory -> Vector("assets/title.svg")), Some("sha256:" + "0" * 64))))
-        When("the visual evidence is present but not human-approved")
+        When("the visual evidence is present but not human-approved and review currentness is requested")
         val unapproved = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideoImplementation._validate_storyboard_review_current(CozyVideoImplementation._plan(project, None, None))
         }
-        Then("the unapproved evidence identity is rejected before build work")
+        Then("the unapproved evidence identity is rejected by explicit review work")
         unapproved.getMessage should include("STORYBOARD_REVIEW_APPROVED_EVIDENCE_MISMATCH")
       }
     }
@@ -278,7 +279,7 @@ final class CozyVideoStoryboardReviewSpec
       }
     }
 
-    "reject stale v2 visual-page proof inputs and handoff records before confirmation planning" in {
+    "reject stale v2 visual-page proof inputs and handoff records through explicit review currentness" in {
       _with_temp_dir("v2-build-gate") { root =>
         Given("an approved v2 visual-page evidence package with direct current inputs")
         val storyboard = _v2_storyboard()
@@ -296,40 +297,40 @@ final class CozyVideoStoryboardReviewSpec
         val pages = Files.readString(pagefile, StandardCharsets.UTF_8)
         val assetidentity = _sha256(asset)
 
-        When("the binding, catalog, page asset, effective renderer, part selection, and handoff are changed in turn")
+        When("the binding, catalog, page asset, effective renderer, part selection, and handoff are changed in turn and review currentness is requested")
         Files.writeString(material.binding, binding.replace("nodes-slot", "nodes-revised-slot"), StandardCharsets.UTF_8)
         val bindingfailure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideo.storyboardReviewCurrent(project)
         }
         Files.writeString(material.binding, binding, StandardCharsets.UTF_8)
         Files.writeString(root.resolve("catalog.json"), catalog.replace("\"core\"", "\"changed\""), StandardCharsets.UTF_8)
         val catalogfailure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideo.storyboardReviewCurrent(project)
         }
         Files.writeString(root.resolve("catalog.json"), catalog, StandardCharsets.UTF_8)
         Files.writeString(asset, "<svg>changed</svg>", StandardCharsets.UTF_8)
         Files.writeString(pagefile, pages.replace(assetidentity, _sha256(asset)), StandardCharsets.UTF_8)
         val assetfailure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideo.storyboardReviewCurrent(project)
         }
         Files.writeString(asset, assetbytes, StandardCharsets.UTF_8)
         Files.writeString(pagefile, pages, StandardCharsets.UTF_8)
         _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity, renderer = Some(Json.obj("engine" -> Json.fromString("remotion"), "fps" -> Json.fromInt(60))))
         val rendererfailure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideo.storyboardReviewCurrent(project)
         }
         _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity, renderer = None)
         val norendererfailure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideo.storyboardReviewCurrent(project)
         }
         _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity, storyboardpart = None)
         val nopartfailure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideo.storyboardReviewCurrent(project)
         }
         _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity)
         Files.writeString(generated.handoffPath, "{}", StandardCharsets.UTF_8)
         val handofffailure = intercept[Exception] {
-          CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+          CozyVideo.storyboardReviewCurrent(project)
         }
 
         Then("each current-input or self-identity mismatch fails closed before cache reuse or renderer work")
@@ -343,9 +344,9 @@ final class CozyVideoStoryboardReviewSpec
       }
     }
 
-    "reject duplicate v2 evidence and handoff keys before confirmation dry-run build work" in {
+    "reject duplicate v2 evidence and handoff keys through explicit review currentness" in {
       _with_temp_dir("v2-duplicate-json") { root =>
-        Given("an approved v2 visual-page evidence package and a runner that records any renderer action")
+        Given("an approved v2 visual-page evidence package without build runner involvement")
         val storyboard = _v2_storyboard()
         val source = _write_storyboard(root, storyboard)
         val material = _write_visual_page_material(root)
@@ -355,26 +356,14 @@ final class CozyVideoStoryboardReviewSpec
         _write_v2_project(root, source, storyboard, material.binding, generated.evidenceIdentity)
         val originalevidence = Files.readString(generated.evidencePath, StandardCharsets.UTF_8)
         val originalhandoff = Files.readString(generated.handoffPath, StandardCharsets.UTF_8)
-        var rendererinvoked = false
-        val runner = new CozyVideo.VideoProcessRunner {
-          def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
-            rendererinvoked = true
-            CozyVideo.VideoCommandResult(0, "", "")
-          }
-        }
-
-        When("the saved evidence and then the saved handoff repeat their schema field before a confirmation dry-run")
+        When("the saved evidence and then the saved handoff repeat their schema field before review currentness")
         Files.writeString(
           generated.evidencePath,
           originalevidence.replace("{\"schema\":", "{\"schema\":\"tampered\",\"schema\":"),
           StandardCharsets.UTF_8
         )
         val evidencefailure = intercept[Exception] {
-          CozyVideo.build(
-            CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")),
-            CozyVideo.VideoToolRegistry(Vector.empty),
-            runner
-          )
+          CozyVideo.storyboardReviewCurrent(project)
         }
         Files.writeString(generated.evidencePath, originalevidence, StandardCharsets.UTF_8)
         Files.writeString(
@@ -383,17 +372,34 @@ final class CozyVideoStoryboardReviewSpec
           StandardCharsets.UTF_8
         )
         val handofffailure = intercept[Exception] {
-          CozyVideo.build(
-            CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")),
-            CozyVideo.VideoToolRegistry(Vector.empty),
-            runner
-          )
+          CozyVideo.storyboardReviewCurrent(project)
         }
 
-        Then("both duplicate proof values fail closed before renderer or approval work")
+        Then("both duplicate proof values fail closed through the independent review boundary")
         evidencefailure.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_DUPLICATE_FIELD")
         handofffailure.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_DUPLICATE_FIELD")
-        rendererinvoked shouldBe false
+      }
+    }
+
+    "keep ordinary dry-run build independent from optional saved visual-review state" in {
+      _with_temp_dir("ordinary-build-independent") { root =>
+        Given("an ordinary project with malformed optional visual-review evidence")
+        val storyboard = _storyboard("assets/title.svg", Vector("assets/title.svg"))
+        val source = _write_storyboard(root, storyboard)
+        val input = root.resolve("assets/title.svg")
+        Files.createDirectories(input.getParent)
+        Files.writeString(input, "title", StandardCharsets.UTF_8)
+        val evidence = root.resolve("target/cozy-video/ordinary/review-evidence.json")
+        Files.createDirectories(evidence.getParent)
+        Files.writeString(evidence, "{}", StandardCharsets.UTF_8)
+        val project = _write_project(root, Some(_review_json(source, CozyVideo.storyboardIdentity(storyboard), Some("target/cozy-video/ordinary" -> Vector("assets/title.svg")), Some("sha256:" + "0" * 64))))
+
+        When("the ordinary build is dry-run without explicitly requesting review currentness")
+        val output = CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
+
+        Then("planning succeeds and does not create a build output despite stale optional review state")
+        output should include("Dry-Run")
+        Files.exists(root.resolve("build/final.mp4")) shouldBe false
       }
     }
 

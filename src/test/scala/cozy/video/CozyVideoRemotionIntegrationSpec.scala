@@ -2,7 +2,8 @@ package cozy.video
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, LinkOption, Path, Paths}
+import java.nio.file.attribute.FileTime
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,7 +14,7 @@ import io.circe.parser
 /*
  * @since   Jul. 18, 2026
  *  version Aug. 26, 2026
- * @version Sep. 16, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoRemotionIntegrationSpec
@@ -127,6 +128,43 @@ final class CozyVideoRemotionIntegrationSpec
           timing.get[Int]("totalFrames").toOption shouldBe Some(openingframes + contentframes + summarystandaloneframes + creditframes + finalframes)
           finalprops.hcursor.downField("credits").downField("items").as[Vector[io.circe.Json]].toOption.get should have size 1
         }
+      }
+    }
+
+    "keep the project-root cache unchanged while rendering within the generated workspace" in {
+      val image = _integration_image()
+      _with_temp_dir("project root cache isolation") { dir =>
+        Given("an explanation scaffold in a target path with spaces, valid silence audio, and a retained root Webpack cache pack")
+        val pkg = dir.resolve("cache-isolation.video")
+        CozyVideoScaffold.scaffold(
+          CozyVideoScaffold.Config.create(
+            List("cache-isolation", s"--save=$pkg", "--profile=explanation")
+          )
+        )
+        _write_audio_manifest(pkg, "explanation")
+        val rootcache = pkg.resolve(".cache/webpack")
+        _write(rootcache.resolve("retained.pack"), "retained-webpack-pack\n")
+        val before = _cache_inventory(rootcache)
+
+        When(s"the real Docker Remotion renderer in $image renders the explanation part")
+        CozyVideo.render(
+          CozyVideo.RenderConfig(
+            pkg.resolve("video.yaml"),
+            "remotion",
+            checkTools = true,
+            toolMode = Some("docker"),
+            dockerImage = Some(image)
+          ),
+          CozyVideo.VideoToolRegistry.default,
+          CozyVideo.VideoProcessRunner.default
+        )
+
+        Then("the part is non-empty, the project-root cache inventory is unchanged, and the generated workspace owns Webpack cache files")
+        val output = pkg.resolve("build/parts/explanation.mp4")
+        output should be_regular_file
+        Files.size(output) should be > 0L
+        _cache_inventory(rootcache) shouldBe before
+        _cache_inventory(pkg.resolve("target/cozy-video/remotion/explanation/node_modules/.cache/webpack")) should not be empty
       }
     }
 
@@ -343,6 +381,27 @@ final class CozyVideoRemotionIntegrationSpec
 
   private def _read(path: Path): String =
     Files.readString(path, StandardCharsets.UTF_8)
+
+  private def _cache_inventory(root: Path): Vector[(String, Vector[Byte], FileTime)] =
+    if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS))
+      Vector.empty
+    else {
+      val stream = Files.walk(root)
+      try {
+        stream.iterator().asScala
+          .filter(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+          .map { path =>
+            val relative = root.relativize(path).toString
+            val bytes = Files.readAllBytes(path).toVector
+            val filetime = Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS)
+            (relative, bytes, filetime)
+          }
+          .toVector
+          .sortBy(_._1)
+      } finally {
+        stream.close()
+      }
+    }
 
   private def _write_encoding_policy_fixture(pkg: Path, policy: Option[String]): Unit = {
     val renderer = policy.map(x => ",\"policy\":\"" + x + "\"").getOrElse("")

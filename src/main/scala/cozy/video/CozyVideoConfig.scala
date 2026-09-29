@@ -27,7 +27,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoConfig {
@@ -103,7 +104,8 @@ private[cozy] trait CozyVideoConfig {
     voicevoxUrl: Option[String] = None,
     checkTools: Boolean = false,
     toolMode: Option[String] = None,
-    dockerImage: Option[String] = None
+    dockerImage: Option[String] = None,
+    part: Option[String] = None
   ) {
     def projectRoot: Path =
       Option(scriptFile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
@@ -116,7 +118,8 @@ private[cozy] trait CozyVideoConfig {
         _p_voicevox_url,
         _p_check_tools,
         _p_tool_mode,
-        _p_docker_image
+        _p_docker_image,
+        _p_part
       )(_normalize_property_args(args))
       val scriptfile = parsed.argument("script-file").map(CozyCliArgs.toPath).getOrElse(
         RAISE.invalidArgumentFault("Missing script file for video synthesize")
@@ -127,7 +130,8 @@ private[cozy] trait CozyVideoConfig {
         parsed.property("voicevox-url"),
         parsed.flag("check-tools"),
         parsed.property("tool-mode"),
-        parsed.property("docker-image")
+        parsed.property("docker-image"),
+        parsed.property("part")
       )
     }
   }

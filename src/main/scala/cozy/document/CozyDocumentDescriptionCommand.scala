@@ -6,16 +6,23 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 12, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescriptionCommand {
   private final case class Request(core: String, document: String, summary: Option[String], kind: String, save: String)
+  private final case class SourceRequest(core: String, document: String, summary: String)
 
   private val _required_options = Set("core", "document", "kind", "save")
   private val _options = _required_options + "summary"
 
   def execute(args: List[String]): Boolean = args match {
+    case "document-project" :: "sources" :: "validate" :: rest =>
+      val request = _source_request(rest)
+      val validated = CozyDocumentDescriptionV2.loadSourceSummary(_source_input_path(request.core, "core"), _source_input_path(request.document, "document"), _source_input_path(request.summary, "summary"))
+      println(s"Cozy Document Sources Validated\ncore: ${validated.coreid}\ndocument: ${validated.documentid}\nsummary: ${validated.id}\nlocale: ${validated.locale}\nsteps: ${validated.document.core.depthFirstSteps.size}\nsections: ${validated.document.targets.sectionIds.size}\nsummary units: ${validated.summary.units.size}")
+      true
     case "document-project" :: "description" :: "render" :: rest =>
       val request = _request(rest)
       request.kind match {
@@ -40,6 +47,25 @@ private[cozy] object CozyDocumentDescriptionCommand {
     case _ => false
   }
 
+  private def _source_request(args: List[String]): SourceRequest = {
+    @annotation.tailrec
+    def _parse_(remaining: List[String], values: Map[String, String]): Map[String, String] = remaining match {
+      case Nil => values
+      case option :: value :: tail if option.startsWith("--") =>
+        val name = option.drop(2)
+        if (!Set("core", "document", "summary").contains(name)) _source_fail("DESCRIPTION_V2_CLI", "$.command", s"unknown option: $option")
+        if (values.contains(name)) _source_fail("DESCRIPTION_V2_CLI", "$.command", s"duplicate option: $option")
+        if (value.startsWith("--")) _source_fail("DESCRIPTION_V2_CLI", "$.command", s"option $option requires one value")
+        _parse_(tail, values + (name -> value))
+      case option :: Nil if option.startsWith("--") => _source_fail("DESCRIPTION_V2_CLI", "$.command", s"option $option requires one value")
+      case value :: _ => _source_fail("DESCRIPTION_V2_CLI", "$.command", s"unexpected command argument: $value")
+    }
+    val values = _parse_(args, Map.empty)
+    val required = Set("core", "document", "summary")
+    if (values.keySet != required) _source_fail("DESCRIPTION_V2_CLI", "$.command", "requires exactly --core <core.yaml> --document <document.yaml> --summary <summary.yaml>")
+    SourceRequest(values("core"), values("document"), values("summary"))
+  }
+
   private def _request(args: List[String]): Request = {
     @annotation.tailrec
     def _parse_(remaining: List[String], values: Map[String, String]): Map[String, String] = remaining match {
@@ -60,6 +86,9 @@ private[cozy] object CozyDocumentDescriptionCommand {
 
   private def _input_path(value: String, label: String): Path =
     try Paths.get(value) catch { case NonFatal(_) => _fail("DESCRIPTION_PATH", s"$$.$label", "input path is invalid") }
+
+  private def _source_input_path(value: String, label: String): Path =
+    try Paths.get(value) catch { case NonFatal(_) => _source_fail("DESCRIPTION_V2_PATH", s"$$.$label", "input path is invalid") }
 
   private def _destination(value: String): Path = {
     val path = try Paths.get(value).toAbsolutePath.normalize() catch { case NonFatal(_) => _fail("DESCRIPTION_PATH", "$.save", "output path is invalid") }
@@ -93,4 +122,7 @@ private[cozy] object CozyDocumentDescriptionCommand {
 
   private def _fail(code: String, path: String, reason: String): Nothing =
     throw CozyDocumentDescription.DescriptionFault(code, path, reason)
+
+  private def _source_fail(code: String, path: String, reason: String): Nothing =
+    throw CozyDocumentDescriptionV2.DescriptionV2Fault(code, path, reason)
 }

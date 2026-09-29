@@ -11,7 +11,8 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoScaffoldSpec
@@ -19,7 +20,7 @@ final class CozyVideoScaffoldSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Video Scaffold" should {
-    "create a deterministic license-safe explanation package with one approved Storyboard source" in {
+    "create a deterministic license-safe explanation package with one declared Storyboard source" in {
       _with_temp_dir("explanation") { dir =>
         Given("an explanation scaffold request without external media")
         val save = dir.resolve("domain-overview.video")
@@ -34,7 +35,7 @@ final class CozyVideoScaffoldSpec
         When("Cozy creates the video source package")
         val result = CozyVideoScaffold.scaffold(config)
 
-        Then("the source package contains an approved canonical Storyboard and generated placeholders")
+        Then("the source package contains a canonical Storyboard and generated placeholders without fabricated approval metadata")
         save.resolve(".gitignore") should be_regular_file
         _read(save.resolve(".gitignore")) shouldBe "build/\ntarget/\n"
         save.resolve("index.dox") should be_regular_file
@@ -62,8 +63,8 @@ final class CozyVideoScaffoldSpec
         _read(save.resolve("video.yaml")) should include_text("renderer:\n  engine: remotion\n  policy: lightweight")
         _read(save.resolve("video.yaml")) should include_text("narration:\n  provider: voicevox")
         _read(save.resolve("video.yaml")) should include_text("voice:\n  fallbackSpeakerId: 0")
-        _read(save.resolve("video.yaml")) should include_text("storyboardReview:\n  source: storyboard.md")
-        _read(save.resolve("video.yaml")) should include_text(s"approvedIdentity: ${CozyVideo.storyboardIdentity(storyboard.storyboard.get)}")
+        _read(save.resolve("video.yaml")) should not include "storyboardReview:"
+        _read(save.resolve("video.yaml")) should not include "approvedIdentity:"
         _read(save.resolve("video.yaml")) should include_text("storyboard: storyboard.md\n    storyboardSection: explanation")
         _read(save.resolve("assets/README.md")) should include_text("does not copy or reference media")
         result should include_text("profile: explanation")
@@ -139,6 +140,40 @@ final class CozyVideoScaffoldSpec
       }
     }
 
+    "parse a scaffolded project without Storyboard approval and dry-run both native modes without writes" in {
+      _with_temp_dir("approval-free-native-dry-run") { dir =>
+        Given("a newly scaffolded explanation project with its complete typed Storyboard source")
+        val save = dir.resolve("approval-free.video")
+        val scaffold = CozyVideoScaffold.Config.create(List("approval-free", "--save=" + save, "--profile=explanation"))
+        CozyVideoScaffold.scaffold(scaffold)
+        val project = save.resolve("video.yaml")
+        val before = _snapshot(save)
+        val runner = new NoRunner
+
+        When("confirmation and final native builds are planned in dry-run mode")
+        val confirmation = CozyVideo.build(
+          CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, toolMode = Some("host"), mode = Some("confirmation")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        val finalmode = CozyVideo.build(
+          CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, toolMode = Some("host"), mode = Some("final")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          runner
+        )
+        val parsed = CozyVideoImplementation._plan(project, Some("host"), None)
+
+        Then("the parsed project has no approval record and both plans retain source bytes without runner work")
+        parsed.project.storyboardReview shouldBe None
+        parsed.project.parts.head.storyboard.isDefined shouldBe true
+        parsed.parts.head.script.get.scenes.map(_.id) shouldBe Vector(Some("explanation"))
+        confirmation should include_text("mode: confirmation")
+        finalmode should include_text("mode: final")
+        runner.calls shouldBe 0
+        _snapshot(save) shouldBe before
+      }
+    }
+
     "honor independent visual-effect profile settings through the CLI" in {
       _with_temp_dir("cli") { dir =>
         Given("a CLI scaffold request that disables each optional visual effect")
@@ -180,6 +215,7 @@ final class CozyVideoScaffoldSpec
     "reject unknown profiles and existing destinations explicitly" in {
       _with_temp_dir("diagnostics") { dir =>
         Given("an unknown composition profile")
+        When("the scaffold configuration parses the unknown profile")
         val profileerror = intercept[RuntimeException] {
           CozyVideoScaffold.Config.create(List(
             "diagnostic",
@@ -192,6 +228,7 @@ final class CozyVideoScaffoldSpec
         profileerror.getMessage should include_text("explanation-demo-explanation")
 
         Given("an unknown section-start visual-effect profile")
+        When("the scaffold configuration parses the unknown visual effect")
         val effecterror = intercept[RuntimeException] {
           CozyVideoScaffold.Config.create(List(
             "diagnostic",
@@ -204,6 +241,7 @@ final class CozyVideoScaffoldSpec
         effecterror.getMessage should include_text("line-sweep, none")
 
         Given("a slug that could escape the package naming contract")
+        When("the scaffold configuration parses the invalid slug")
         val slugerror = intercept[RuntimeException] {
           CozyVideoScaffold.Config.create(List("../diagnostic"))
         }
@@ -249,6 +287,17 @@ final class CozyVideoScaffoldSpec
     val out = new ByteArrayOutputStream()
     Console.withOut(out)(body)
     out.toString(StandardCharsets.UTF_8.name())
+  }
+
+  private final class NoRunner extends CozyVideo.VideoProcessRunner {
+    private var _calls = 0
+
+    def calls: Int = _calls
+
+    def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
+      _calls += 1
+      throw new IllegalStateException(s"Dry-run must not invoke $args from $cwd")
+    }
   }
 
   private def _delete(path: Path): Unit =

@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Sep. 16, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -350,7 +350,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const renderArgs = ['render', entry, 'CozyVideo', output, '--overwrite', `--public-dir=${publicDir}`, `--crf=${props.crf}`];
       |if (props.x264Preset) renderArgs.push(`--x264-preset=${props.x264Preset}`);
       |execFileSync('remotion', renderArgs, {
-      |  cwd: projectRoot,
+      |  cwd: workDir,
       |  stdio: 'inherit',
       |  env: {
       |    ...process.env,

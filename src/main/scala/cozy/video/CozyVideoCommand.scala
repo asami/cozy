@@ -27,7 +27,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 27, 2026
+ *  version Aug. 27, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoCommand {
@@ -112,8 +113,6 @@ private[cozy] trait CozyVideoCommand {
     if (plan.project.parts.exists(_.storyboard.isDefined))
       _build_storyboard_mode(config, plan, tools, runner)
     else {
-      if (plan.project.storyboardReview.isDefined)
-        _validate_storyboard_review_current(plan)
       val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
       val checks =
         if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))
@@ -143,30 +142,23 @@ private[cozy] trait CozyVideoCommand {
     voicevox: VoicevoxClient,
     runner: VideoProcessRunner
   ): String = {
-    val script = _load_required_script(config.scriptFile)
-    val selection = _resolve_narration_selection(script)
-    val execution = VideoExecutionConfig.create(
-      config.projectRoot,
-      script.tools,
-      config.toolMode,
-      config.dockerImage,
-      config.voicevoxUrl
-    )
+    val input = _synthesis_input(config)
+    val selection = _resolve_narration_selection(input.script)
     val provider = selection.provider match {
       case "voicevox" =>
-        new VoicevoxNarrationProvider(execution.voicevoxUrl, voicevox)
+        new VoicevoxNarrationProvider(input.execution.voicevoxUrl, voicevox)
       case "macos-say" =>
-        if (execution.toolMode != VideoToolMode.Host)
+        if (input.execution.toolMode != VideoToolMode.Host)
           RAISE.invalidArgumentFault(
             "Narration provider macos-say requires host tool mode. Use --tool-mode=host."
           )
-        new MacosSayNarrationProvider(config.projectRoot, runner)
+        new MacosSayNarrationProvider(input.projectroot, runner)
       case "piper" =>
-        if (execution.toolMode != VideoToolMode.Docker)
+        if (input.execution.toolMode != VideoToolMode.Docker)
           RAISE.invalidArgumentFault(
             "Narration provider piper requires Docker tool mode. Use --tool-mode=docker."
           )
-        new PiperNarrationProvider(config.projectRoot, execution, runner)
+        new PiperNarrationProvider(input.projectroot, input.execution, runner)
       case unsupported =>
         RAISE.invalidArgumentFault(
           s"Unsupported narration provider: $unsupported. Supported providers: voicevox, macos-say, piper."
@@ -174,16 +166,113 @@ private[cozy] trait CozyVideoCommand {
     }
     val checks =
       if (config.checkTools) {
-        val project = VideoProject(None, script.title, None, None, script.tools, Vector.empty)
-        val context = VideoToolContext(config.scriptFile, config.projectRoot, project, execution, Set(provider.id))
+        val context = VideoToolContext(input.projectfile, input.projectroot, input.project, input.execution, Set(provider.id))
         tools.checks(context)
       } else {
         Vector.empty
       }
     _validate_synthesis_tools(provider.id, checks)
-    val result = _synthesize_script(config.scriptFile, script, config.saveDir, provider, selection.diagnostics, execution, checks)
+    val result = _synthesize_script(input.scriptfile, input.script, input.savedir, provider, selection.diagnostics, input.execution, checks)
     _render_synthesis_result(result)
   }
+
+  private final case class SynthesisInput(
+    scriptfile: Path,
+    script: VideoScript,
+    savedir: Path,
+    projectfile: Path,
+    projectroot: Path,
+    project: VideoProject,
+    execution: VideoExecutionConfig
+  )
+
+  private def _synthesis_input(config: SynthesizeConfig): SynthesisInput =
+    config.part match {
+      case Some(part) => _project_synthesis_input(config, part)
+      case None =>
+        val script = _load_required_script(config.scriptFile)
+        val project = VideoProject(None, script.title, None, None, script.tools, Vector.empty)
+        val execution = VideoExecutionConfig.create(
+          config.projectRoot,
+          script.tools,
+          config.toolMode,
+          config.dockerImage,
+          config.voicevoxUrl
+        )
+        SynthesisInput(config.scriptFile, script, config.saveDir, config.scriptFile, config.projectRoot, project, execution)
+    }
+
+  private def _project_synthesis_input(config: SynthesizeConfig, requestedpart: String): SynthesisInput = {
+    val partid = Option(requestedpart).getOrElse("")
+    if (partid.trim.isEmpty || partid != partid.trim)
+      RAISE.invalidArgumentFault("--part must be a nonblank exact declared video part id")
+    val plan = _plan(config.scriptFile, config.toolMode, config.dockerImage)
+    val matches = plan.project.parts.zipWithIndex.filter { case (part, _) => part.id.contains(partid) }
+    if (matches.isEmpty)
+      RAISE.invalidArgumentFault(s"Unknown declared video part id for synthesize: $partid")
+    if (matches.size != 1)
+      RAISE.invalidArgumentFault(s"Duplicate declared video part id for synthesize: $partid")
+    val declared = matches.head._1
+    val selected = plan.parts(matches.head._2)
+    if (selected.partType != "storyboard" || declared.storyboard.isEmpty || declared.script.isDefined)
+      RAISE.invalidArgumentFault(s"Video synthesize --part requires a native storyboard part: $partid")
+    val source = selected.scriptPath.getOrElse(
+      RAISE.invalidArgumentFault(s"Native storyboard part has no declared source: $partid")
+    )
+    val script = selected.script.getOrElse(
+      RAISE.invalidArgumentFault(s"Native storyboard part source is missing or invalid: $partid")
+    )
+    val savedir = selected.audioDir.getOrElse(
+      RAISE.invalidArgumentFault(s"Native storyboard part has no selected audio directory: $partid")
+    )
+    _validate_project_synthesis_output(plan.projectRoot, config.saveDir, savedir, script, source)
+    val execution = VideoExecutionConfig.create(
+      plan.projectRoot,
+      plan.project.tools,
+      config.toolMode,
+      config.dockerImage,
+      config.voicevoxUrl
+    )
+    SynthesisInput(source, script, savedir, plan.projectFile, plan.projectRoot, plan.project, execution)
+  }
+
+  private def _validate_project_synthesis_output(
+    projectroot: Path,
+    requested: Path,
+    selected: Path,
+    script: VideoScript,
+    source: Path
+  ): Unit = {
+    val root = projectroot.toRealPath()
+    val requestedpath = requested.toAbsolutePath.normalize()
+    val selectedpath = selected.toAbsolutePath.normalize()
+    if (requestedpath != selectedpath)
+      RAISE.invalidArgumentFault(s"--save must exactly equal the selected part audio directory: $selectedpath")
+    if (!selectedpath.startsWith(root) || selectedpath == root)
+      RAISE.invalidArgumentFault(s"Selected part audio directory must be a strict descendant of the project root: $selectedpath")
+    var current = root
+    root.relativize(selectedpath).iterator().asScala.foreach { segment =>
+      current = current.resolve(segment)
+      if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(current))
+        RAISE.invalidArgumentFault(s"Selected part audio directory must not use a symbolic-link path: $current")
+    }
+    if (Files.exists(selectedpath, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(selectedpath, LinkOption.NOFOLLOW_LINKS))
+      RAISE.invalidArgumentFault(s"Selected part audio directory must be a directory when it already exists: $selectedpath")
+    _project_synthesis_output_names(script, source).foreach { name =>
+      val output = selectedpath.resolve(name).normalize()
+      if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) &&
+        (Files.isSymbolicLink(output) || !Files.isRegularFile(output, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"Generated audio output must not replace a symbolic-link or nonregular target: $output")
+    }
+  }
+
+  private def _project_synthesis_output_names(script: VideoScript, source: Path): Vector[String] =
+    script.expandedScenes.zipWithIndex.flatMap {
+      case (scene, index) =>
+        val sceneid = scene.id.getOrElse(f"scene-${index + 1}%02d")
+        val stem = f"${index + 1}%02d-${_scene_file_id(sceneid)}"
+        Vector(s"$stem.wav", s"$stem-lead.wav", s"$stem-silence.wav")
+    } ++ Vector(s"${_basename(source)}.wav", "manifest.json")
 
   def render(config: RenderConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String = {
     if (!_supported_renderers.contains(config.renderer))
@@ -247,10 +336,11 @@ private[cozy] trait CozyVideoCommand {
     _render_review_evidence_result(_write_review_evidence(config, plan, runner))
   }
 
-  def verifyCredits(projectfile: Path): Vector[String] = {
-    val plan = _plan(projectfile, None, None)
+  def verifyCredits(projectFile: Path): Vector[String] = {
+    val plan = _plan(projectFile, None, None)
+    val nativestoryboard = plan.project.parts.exists(_.storyboard.isDefined)
     val manifestpath =
-      if (plan.project.parts.exists(_.storyboard.isDefined))
+      if (nativestoryboard)
         plan.projectRoot.resolve("target").resolve("cozy-video").resolve("final").resolve("manifest.json")
       else
         plan.manifestPath
@@ -264,7 +354,9 @@ private[cozy] trait CozyVideoCommand {
         val markdownfile = directory.resolve("credits.md")
         val rendererpropsfile = directory.resolve("renderer-props.json")
         val missing = Vector(jsonfile, markdownfile, rendererpropsfile).filterNot(Files.isRegularFile(_)).map(x => s"missing credit projection: $x") ++
-          (if (Files.isRegularFile(manifestpath)) Vector.empty else Vector(s"missing project manifest with credit digest: $manifestpath"))
+          (if (Files.isRegularFile(manifestpath)) Vector.empty
+           else if (nativestoryboard) Vector(s"missing project manifest: $manifestpath")
+           else Vector(s"missing project manifest with credit digest: $manifestpath"))
         val digestfindings =
           if (!Files.isRegularFile(jsonfile))
             Vector.empty
@@ -284,12 +376,26 @@ private[cozy] trait CozyVideoCommand {
             Vector.empty
           else {
             val manifest = parser.parse(Files.readString(manifestpath, StandardCharsets.UTF_8)).toOption
-            val digest = manifest.flatMap(_.hcursor.get[String]("creditDigest").toOption)
             val profile = manifest.flatMap(_.hcursor.get[String]("creditProfile").toOption)
-            Vector(
-              if (digest.contains(plan.credits.digest)) None else Some(s"project manifest credit digest mismatch: expected ${plan.credits.digest}, found ${digest.getOrElse("missing")}"),
-              if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
-            ).flatten
+            if (nativestoryboard) {
+              val valid = manifest.exists { value =>
+                value.hcursor.get[String]("schema").toOption.contains("cozy.video.final.v2") &&
+                  value.hcursor.get[String]("status").toOption.contains("validated") &&
+                  value.hcursor.get[String]("mode").toOption.contains("final")
+              }
+              if (!valid)
+                Vector("native project credit manifest must be a validated final v2 record")
+              else
+                Vector(
+                  if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
+                ).flatten
+            } else {
+              val digest = manifest.flatMap(_.hcursor.get[String]("creditDigest").toOption)
+              Vector(
+                if (digest.contains(plan.credits.digest)) None else Some(s"project manifest credit digest mismatch: expected ${plan.credits.digest}, found ${digest.getOrElse("missing")}"),
+                if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
+              ).flatten
+            }
           }
         missing ++ digestfindings ++ projectionfindings ++ manifestfindings
       }

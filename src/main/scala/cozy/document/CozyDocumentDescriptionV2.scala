@@ -14,7 +14,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 14, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescriptionV2 {
@@ -102,6 +103,23 @@ private[cozy] object CozyDocumentDescriptionV2 {
     description: SummaryDescription,
     summaryIdentity: String
   )
+  final case class SourceDocument(
+    core: CozyDocumentLogicTree.SourceCore,
+    id: String,
+    coreid: String,
+    locale: String,
+    document: Document,
+    labels: Labels,
+    targets: DocumentTargets
+  )
+  final case class SourceSummary(
+    document: SourceDocument,
+    id: String,
+    coreid: String,
+    documentid: String,
+    locale: String,
+    summary: Summary
+  )
 
   final case class DescriptionV2Fault(code: String, path: String, reason: String)
     extends IllegalArgumentException(s"$code path=$path reason=$reason")
@@ -121,7 +139,8 @@ private[cozy] object CozyDocumentDescriptionV2 {
       flows ++ rhs.flows
     )
   }
-  private final case class ParsedDocument(description: DocumentDescription, targets: DocumentTargets)
+  private final case class DocumentContent(id: String, coreid: String, locale: String, document: Document, labels: Labels, targets: DocumentTargets)
+  private final case class SummaryContent(id: String, coreid: String, documentid: String, locale: String, summary: Summary)
   private final case class ParsedSection(section: Section, coverage: Coverage, targets: DocumentTargets)
   private final case class ParsedBlock(block: Block, coverage: Coverage, targets: DocumentTargets)
   private final case class ParsedListItem(item: ListItem, coverage: Coverage, targets: DocumentTargets)
@@ -162,7 +181,39 @@ private[cozy] object CozyDocumentDescriptionV2 {
     ValidatedSummary(document, description, _identity(summarybytes))
   }
 
+  def loadSourceDocument(corePath: Path, documentPath: Path): SourceDocument = {
+    val corepath = _admit_core_path(corePath)
+    val core = CozyDocumentLogicTree.loadSourceCore(corepath)
+    val documentpath = _admit_localized(documentPath, "document", "document.yaml")
+    _validate_source_document_path(corepath, documentpath)
+    val content = _document_content(_load_document(documentpath, _read_bytes(documentpath, "document"), "document"), core, _source_binding_id)
+    if (content.coreid != core.core.id)
+      _fail("DESCRIPTION_V2_DOCUMENT_CORE", "$.core.id", "must exactly equal the directly admitted Core id")
+    _validate_locale(documentpath, content.locale, "$.locale")
+    SourceDocument(core, content.id, content.coreid, content.locale, content.document, content.labels, content.targets)
+  }
+
+  def loadSourceSummary(corePath: Path, documentPath: Path, summaryPath: Path): SourceSummary = {
+    val document = loadSourceDocument(corePath, documentPath)
+    val summarypath = _admit_localized(summaryPath, "summary", "summary.yaml")
+    _validate_source_summary_path(document, documentPath, summarypath)
+    val content = _summary_content(_load_document(summarypath, _read_bytes(summarypath, "summary"), "summary"), document.core, document.targets, _source_binding_id, _source_binding_id)
+    if (content.coreid != document.coreid)
+      _fail("DESCRIPTION_V2_SUMMARY_CORE", "$.core.id", "must exactly equal the directly admitted Core id")
+    if (content.documentid != document.id)
+      _fail("DESCRIPTION_V2_SUMMARY_DOCUMENT", "$.document.id", "must exactly equal the directly admitted Document id")
+    _validate_locale(summarypath, content.locale, "$.locale")
+    SourceSummary(document, content.id, content.coreid, content.documentid, content.locale, content.summary)
+  }
+
   private def _document_description(value: Json, core: CozyDocumentLogicTree.ValidatedCore): ParsedDocument = {
+    val content = _document_content(value, core, _core_binding_id)
+    ParsedDocument(DocumentDescription(_document_schema, content.id, _core_binding(_field(_object(value, "$"), "core", "$"), "$.core"), content.locale, content.document, content.labels), content.targets)
+  }
+
+  private final case class ParsedDocument(description: DocumentDescription, targets: DocumentTargets)
+
+  private def _document_content(value: Json, core: CozyDocumentLogicTree.CoreStructure, binding: (Json, String) => String): DocumentContent = {
     val fields = _object(value, "$")
     _exact_fields(fields, Set("schema", "id", "core", "locale", "document", "labels"), "$")
     if (_string(fields, "schema", "$") != _document_schema)
@@ -174,20 +225,29 @@ private[cozy] object CozyDocumentDescriptionV2 {
     val coverage = sections.map(_.coverage).foldLeft(Coverage())(_ ++ _)
     _validate_document_coverage(coverage, core)
     val labels = _labels(_field(fields, "labels", "$"), "$.labels", core)
-    ParsedDocument(
-      DocumentDescription(
-        _document_schema,
-        _id(_string(fields, "id", "$"), "$.id"),
-        _core_binding(_field(fields, "core", "$"), "$.core"),
-        _locale(_string(fields, "locale", "$"), "$.locale"),
-        Document(_text(_string(content, "title", "$.document"), "$.document.title"), sections.map(_.section)),
-        labels
-      ),
+    DocumentContent(
+      _id(_string(fields, "id", "$"), "$.id"),
+      binding(_field(fields, "core", "$"), "$.core"),
+      _locale(_string(fields, "locale", "$"), "$.locale"),
+      Document(_text(_string(content, "title", "$.document"), "$.document.title"), sections.map(_.section)),
+      labels,
       sections.map(_.targets).foldLeft(DocumentTargets(Set.empty, Set.empty, Set.empty))(_ ++ _)
     )
   }
 
   private def _summary_description(value: Json, document: ValidatedDocument): SummaryDescription = {
+    val content = _summary_content(value, document.core, document.documentTargets, _core_binding_id, _document_binding_id)
+    val fields = _object(value, "$")
+    SummaryDescription(_summary_schema, content.id, _core_binding(_field(fields, "core", "$"), "$.core"), _document_binding(_field(fields, "document", "$"), "$.document"), content.locale, content.summary)
+  }
+
+  private def _summary_content(
+    value: Json,
+    core: CozyDocumentLogicTree.CoreStructure,
+    targets: DocumentTargets,
+    corebinding: (Json, String) => String,
+    documentbinding: (Json, String) => String
+  ): SummaryContent = {
     val fields = _object(value, "$")
     _exact_fields(fields, Set("schema", "id", "core", "document", "locale", "summary"), "$")
     if (_string(fields, "schema", "$") != _summary_schema)
@@ -195,23 +255,22 @@ private[cozy] object CozyDocumentDescriptionV2 {
     val content = _object(_field(fields, "summary", "$"), "$.summary")
     _exact_fields(content, Set("title", "units"), "$.summary")
     val units = _array(_field(content, "units", "$.summary"), "$.summary.units").zipWithIndex.map { case (item, index) =>
-      _summary_unit(item, s"$$.summary.units[$index]", document)
+      _summary_unit(item, s"$$.summary.units[$index]", core, targets)
     }
     _unique(units.map(_.id), "$.summary.units", "Summary unit id")
     val overviews = units.zipWithIndex.filter(_._1.overview.nonEmpty)
     if (overviews.size > 1 || overviews.headOption.exists(_._2 != 0))
       _fail("DESCRIPTION_V2_OVERVIEW_POSITION", "$.summary.units", "at most one explicit overview is allowed, as the first unit")
-    SummaryDescription(
-      _summary_schema,
+    SummaryContent(
       _id(_string(fields, "id", "$"), "$.id"),
-      _core_binding(_field(fields, "core", "$"), "$.core"),
-      _document_binding(_field(fields, "document", "$"), "$.document"),
+      corebinding(_field(fields, "core", "$"), "$.core"),
+      documentbinding(_field(fields, "document", "$"), "$.document"),
       _locale(_string(fields, "locale", "$"), "$.locale"),
       Summary(_text(_string(content, "title", "$.summary"), "$.summary.title"), units)
     )
   }
 
-  private def _labels(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): Labels = {
+  private def _labels(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure): Labels = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("steps", "nodes"), path)
     val steps = _array(_field(fields, "steps", path), s"$path.steps").zipWithIndex.map { case (item, index) =>
@@ -225,7 +284,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     Labels(steps, nodes)
   }
 
-  private def _step_label(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): StepLabel = {
+  private def _step_label(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure): StepLabel = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("stepRef", "text"), path)
     val ref = _id(_string(fields, "stepRef", path), s"$path.stepRef")
@@ -233,7 +292,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     StepLabel(ref, _text(_string(fields, "text", path), s"$path.text"))
   }
 
-  private def _node_label(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): NodeLabel = {
+  private def _node_label(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure): NodeLabel = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("nodeRef", "text"), path)
     val ref = _id(_string(fields, "nodeRef", path), s"$path.nodeRef")
@@ -244,7 +303,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private def _sections(
     values: Vector[Json],
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.CoreStructure,
     ids: mutable.Set[String]
   ): Vector[ParsedSection] =
     values.zipWithIndex.map { case (value, index) => _section(value, s"$path[$index]", core, ids) }
@@ -252,7 +311,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private def _section(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.CoreStructure,
     ids: mutable.Set[String]
   ): ParsedSection = {
     val fields = _object(value, path)
@@ -274,7 +333,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private def _block(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.CoreStructure,
     ids: mutable.Set[String]
   ): ParsedBlock = {
     val fields = _object(value, path)
@@ -315,7 +374,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private def _list_item(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.CoreStructure,
     ids: mutable.Set[String]
   ): ParsedListItem = {
     val fields = _object(value, path)
@@ -326,7 +385,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     ParsedListItem(ListItem(id, _text(_string(fields, "text", path), s"$path.text"), refs), _coverage(refs), DocumentTargets(Set.empty, Set.empty, Set(id)))
   }
 
-  private def _summary_unit(value: Json, path: String, document: ValidatedDocument): SummaryUnit = {
+  private def _summary_unit(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure, targets: DocumentTargets): SummaryUnit = {
     val fields = _object(value, path)
     val required = Set("id", "heading", "message", "emphasis", "coreRefs", "navigationLabel", "retainedPoints", "omissions")
     val permitted = required ++ Set("diagram", "overview")
@@ -335,16 +394,16 @@ private[cozy] object CozyDocumentDescriptionV2 {
     val emphasis = _string(fields, "emphasis", path)
     if (!Set("primary", "supporting", "conclusion").contains(emphasis))
       _fail("DESCRIPTION_V2_EMPHASIS", s"$path.emphasis", "must be primary, supporting, or conclusion")
-    val refs = _references(_field(fields, "coreRefs", path), s"$path.coreRefs", document.core, required = true)
+    val refs = _references(_field(fields, "coreRefs", path), s"$path.coreRefs", core, required = true)
     val points = _array(_field(fields, "retainedPoints", path), s"$path.retainedPoints").zipWithIndex.map { case (item, index) =>
-      _retained_point(item, s"$path.retainedPoints[$index]", document.core)
+      _retained_point(item, s"$path.retainedPoints[$index]", core)
     }
     if (points.isEmpty) _fail("DESCRIPTION_V2_RETAINED_POINTS", s"$path.retainedPoints", "must contain at least one retained point")
     _unique(points.map(_.id), s"$path.retainedPoints", "retained point id")
-    val diagram = fields("diagram").map(value => _diagram(value, s"$path.diagram", document.core, refs))
-    val overview = fields("overview").map(value => _overview(value, s"$path.overview", document.core, refs, points, diagram))
+    val diagram = fields("diagram").map(value => _diagram(value, s"$path.diagram", core, refs))
+    val overview = fields("overview").map(value => _overview(value, s"$path.overview", core, refs, points, diagram))
     val omissions = _array(_field(fields, "omissions", path), s"$path.omissions").zipWithIndex.map { case (item, index) =>
-      _omission(item, s"$path.omissions[$index]", document.documentTargets)
+      _omission(item, s"$path.omissions[$index]", targets)
     }
     if (omissions.isEmpty) _fail("DESCRIPTION_V2_OMISSIONS", s"$path.omissions", "must contain at least one omission")
     _unique(omissions.map(_.id), s"$path.omissions", "omission id")
@@ -362,7 +421,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     )
   }
 
-  private def _overview(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore, refs: References, points: Vector[RetainedPoint], diagram: Option[Diagram]): Overview = {
+  private def _overview(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure, refs: References, points: Vector[RetainedPoint], diagram: Option[Diagram]): Overview = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("stepRef"), path)
     val stepref = _id(_string(fields, "stepRef", path), s"$path.stepRef")
@@ -390,7 +449,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     Overview(stepref)
   }
 
-  private def _retained_point(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): RetainedPoint = {
+  private def _retained_point(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure): RetainedPoint = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("id", "text", "coreRefs"), path)
     RetainedPoint(
@@ -400,7 +459,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     )
   }
 
-  private def _diagram(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore, refs: References): Diagram = {
+  private def _diagram(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure, refs: References): Diagram = {
     val fields = _object(value, path)
     val required = Set("items", "edges")
     if (!required.subsetOf(fields.keys.toSet) || !fields.keys.toSet.subsetOf(required + "focusItem"))
@@ -422,7 +481,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     Diagram(items, edges, focusitem)
   }
 
-  private def _diagram_item(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): DiagramItem = {
+  private def _diagram_item(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure): DiagramItem = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("id", "kind", "ref"), path)
     val kind = _string(fields, "kind", path)
@@ -436,7 +495,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     DiagramItem(_id(_string(fields, "id", path), s"$path.id"), kind, ref)
   }
 
-  private def _diagram_edge(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): DiagramEdge = {
+  private def _diagram_edge(value: Json, path: String, core: CozyDocumentLogicTree.CoreStructure): DiagramEdge = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("id", "kind", "ref", "direction"), path)
     val kind = _string(fields, "kind", path)
@@ -457,7 +516,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
     edge: DiagramEdge,
     selected: Set[(String, String)],
     refs: References,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.CoreStructure,
     path: String
   ): Unit = edge.kind match {
     case "relation" =>
@@ -507,6 +566,18 @@ private[cozy] object CozyDocumentDescriptionV2 {
     CoreBinding(_id(_string(fields, "id", path), s"$path.id"), _identity_value(_string(fields, "identity", path), s"$path.identity"))
   }
 
+  private def _core_binding_id(value: Json, path: String): String = _core_binding(value, path).id
+
+  private def _document_binding_id(value: Json, path: String): String = _document_binding(value, path).id
+
+  private def _source_binding_id(value: Json, path: String): String = {
+    val fields = _object(value, path)
+    val permitted = Set("id", "identity")
+    if (!fields.keys.toSet.subsetOf(permitted) || !fields.contains("id"))
+      _fail("DESCRIPTION_V2_FIELDS", path, "must contain id and optionally a historical identity")
+    _id(_string(fields, "id", path), s"$path.id")
+  }
+
   private def _document_binding(value: Json, path: String): DocumentBinding = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("id", "identity"), path)
@@ -516,7 +587,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private def _references(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.CoreStructure,
     required: Boolean
   ): References = {
     val fields = _object(value, path)
@@ -548,7 +619,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
   private def _coverage(refs: References): Coverage =
     Coverage(refs.steps.toSet, refs.claims.toSet, refs.nodes.toSet, refs.relations.toSet, refs.flows.toSet)
 
-  private def _validate_document_coverage(coverage: Coverage, core: CozyDocumentLogicTree.ValidatedCore): Unit =
+  private def _validate_document_coverage(coverage: Coverage, core: CozyDocumentLogicTree.CoreStructure): Unit =
     if (coverage.steps != core.stepsById.keySet || coverage.claims != core.claimsById.keySet || coverage.nodes != core.nodesById.keySet ||
       coverage.relations != core.relationsById.keySet || coverage.flows != core.flowsById.keySet)
       _fail("DESCRIPTION_V2_COVERAGE", "$.document", "must explicitly cover every Core Step, claim, node, Relation, and Flow")
@@ -559,7 +630,7 @@ private[cozy] object CozyDocumentDescriptionV2 {
       _fail("DESCRIPTION_V2_LABEL_COVERAGE", path, s"must provide one and only one record for every Core $label")
   }
 
-  private def _transitions(core: CozyDocumentLogicTree.ValidatedCore): Map[String, TransitionSource] =
+  private def _transitions(core: CozyDocumentLogicTree.CoreStructure): Map[String, TransitionSource] =
     core.depthFirstSteps.flatMap(step => step.flow.transitions.map(transition => transition.id -> TransitionSource(step.flow.id, transition))).toMap
 
   private def _admit_localized(value: Path, label: String, basename: String): Path = {
@@ -567,6 +638,27 @@ private[cozy] object CozyDocumentDescriptionV2 {
     if (path.getFileName.toString != basename)
       _fail("DESCRIPTION_V2_PATH", s"$$.$label", s"must be a direct regular file named exactly $basename")
     path
+  }
+
+  private def _admit_core_path(value: Path): Path = {
+    val path = _admit_file(value, "core")
+    if (path.getFileName.toString != "core.yaml")
+      _fail("DESCRIPTION_V2_PATH", "$.core", "must be a direct regular file named exactly core.yaml")
+    path
+  }
+
+  private def _validate_source_document_path(corepath: Path, documentpath: Path): Unit = {
+    val contentparent = corepath.getParent
+    if (documentpath.getParent.getParent != contentparent)
+      _fail("DESCRIPTION_V2_PATH", "$.document", "must be directly below the admitted Core content parent")
+  }
+
+  private def _validate_source_summary_path(document: SourceDocument, documentvalue: Path, summarypath: Path): Unit = {
+    val documentpath = _admit_localized(documentvalue, "document", "document.yaml")
+    if (summarypath.getParent != documentpath.getParent)
+      _fail("DESCRIPTION_V2_PATH", "$.summary", "must share the admitted Document direct locale parent")
+    if (summarypath.getParent.getFileName.toString != document.locale)
+      _fail("DESCRIPTION_V2_LOCALE", "$.summary", "must use the admitted Document locale directory")
   }
 
   private def _admit_file(value: Path, label: String): Path = {

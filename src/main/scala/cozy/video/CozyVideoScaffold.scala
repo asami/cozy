@@ -9,7 +9,8 @@ import cozy.runtime.CozyCliArgs
 /*
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoScaffold {
@@ -106,7 +107,7 @@ private[cozy] object CozyVideoScaffold {
     val files = Vector(
       ".gitignore" -> _gitignore,
       "index.dox" -> _index_dox(config),
-      "video.yaml" -> _video_yaml(config, storyboard),
+      "video.yaml" -> _video_yaml(config),
       "storyboard.md" -> CozyVideo.canonicalStoryboardMarkdown(storyboard),
       "assets/README.md" -> _assets_readme,
       "assets/opening.svg" -> _placeholder_svg("OPENING"),
@@ -168,7 +169,7 @@ private[cozy] object CozyVideoScaffold {
        |Replace the generated narration and project-owned placeholder assets before publication.
        |""".stripMargin
 
-  private def _video_yaml(config: Config, storyboard: CozyVideo.Storyboard): String = {
+  private def _video_yaml(config: Config): String = {
     val parts = config.profile.parts.map { part =>
       Vector(
         s"  - id: ${part.id}",
@@ -202,9 +203,6 @@ private[cozy] object CozyVideoScaffold {
        |  provider: voicevox
        |voice:
        |  fallbackSpeakerId: 0
-       |storyboardReview:
-       |  source: storyboard.md
-       |  approvedIdentity: ${CozyVideo.storyboardIdentity(storyboard)}
        |parts:
        |$parts
        |""".stripMargin
