@@ -11,7 +11,7 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 11, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectExport {
@@ -97,7 +97,10 @@ private[cozy] object CozyDocumentProjectExport {
   private def _admit_destination(value: String): Path = {
     val destination = try Paths.get(value).toAbsolutePath.normalize() catch { case NonFatal(_) => CozyDocumentProject._failure("DP-PATH-001", "export bundle destination is invalid") }
     if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(destination)) CozyDocumentProject._failure("DP-PATH-001", "export bundle destination must be a new direct directory")
-    _direct_directory_chain(Option(destination.getParent).getOrElse(CozyDocumentProject._failure("DP-PATH-001", "export bundle destination has no parent")), "export bundle parent")
+    val parent = Option(destination.getParent).getOrElse(CozyDocumentProject._failure("DP-PATH-001", "export bundle destination has no parent"))
+    try _direct_directory_chain(parent, "export bundle parent") catch {
+      case NonFatal(_) => CozyDocumentProject._failure("DP-PATH-001", "export bundle parent must be a direct non-symlink directory")
+    }
     destination
   }
 
@@ -191,7 +194,12 @@ private[cozy] object CozyDocumentProjectExport {
 
   private def _direct_directory_chain(path: Path, label: String): Unit = {
     val value = path.toAbsolutePath.normalize()
-    if (Files.isSymbolicLink(value) || !Files.isDirectory(value, LinkOption.NOFOLLOW_LINKS)) _invalid(s"$label must be a direct non-symlink directory")
+    var component = Option(value.getRoot).getOrElse(_invalid(s"$label must be a direct non-symlink directory"))
+    if (Files.isSymbolicLink(component) || !Files.isDirectory(component, LinkOption.NOFOLLOW_LINKS)) _invalid(s"$label must be a direct non-symlink directory")
+    value.iterator().asScala.foreach { part =>
+      component = component.resolve(part)
+      if (Files.isSymbolicLink(component) || !Files.isDirectory(component, LinkOption.NOFOLLOW_LINKS)) _invalid(s"$label must be a direct non-symlink directory")
+    }
   }
 
   private def _load_json(path: Path, label: String): Json = try { Files.readString(path, StandardCharsets.UTF_8); StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take } catch { case NonFatal(_) => _invalid(s"$label is missing, unreadable, or malformed") }

@@ -1314,8 +1314,10 @@ cozy document-project export <project> --target <publication-target> --save <bun
 site configuration, nor target binding; it cannot alter the selected source or
 admit another Work Product. `--save` is mandatory and identifies a new bundle
 directory. An absent, existing, unsafe, or symbolic-link destination is
-rejected before publication. The completed bundle is installed with one atomic
-directory move, so a failed request leaves no partial destination bundle.
+rejected before publication. Every ancestor directory component of the
+destination must be direct and non-symlinked. The completed bundle is installed
+with one atomic directory move, so a failed request leaves no partial destination
+bundle.
 
 Export admits only selected `article-review-html` when a retained,
 strictly-parsed accepted `cozy.document-operation-attempt.v2` for

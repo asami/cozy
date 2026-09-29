@@ -862,9 +862,9 @@ Phase 57.1 makes `document-project export` a portable-bundle admission surface,
 not a publication pipeline. Its grammar requires both an opaque target and a
 new `--save` bundle directory. The target resolves neither a path, site,
 configuration, nor binding and cannot influence source selection. The new
-destination is admitted as a direct non-symlink directory before one atomic
-directory installation. The bundle has exactly `manifest.yaml`, `receipt.yaml`,
-and the selected HTML bytes at
+destination and every ancestor directory component are admitted as direct
+non-symlink directories before one atomic directory installation. The bundle has
+exactly `manifest.yaml`, `receipt.yaml`, and the selected HTML bytes at
 `work-products/article-review-html/article-review.html`.
 
 Admission delegates production proof exclusively to the retained strict v2

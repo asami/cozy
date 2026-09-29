@@ -2,7 +2,7 @@ package cozy.document
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 15, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -59,6 +59,28 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
         _diagnostic_tokens(symbolicfailure) shouldBe Vector("DP-PATH-001")
         _bundle_files(existing) shouldBe Set.empty
         _bundle_files(external) shouldBe Set.empty
+      }
+    }
+
+    "reject a symbolic ancestor of an export destination before staging output" in {
+      _with_temp_dir("cozy-document-project-export-destination-ancestor") { root =>
+        Given("an accepted project and a real nested parent reached through a symbolic ancestor")
+        val project = _accepted_project(root, "export-destination-ancestor")
+        val actual = Files.createDirectory(root.resolve("actual"))
+        val nested = Files.createDirectory(actual.resolve("nested"))
+        val alias = root.resolve("alias")
+        Files.createSymbolicLink(alias, actual)
+        val destination = alias.resolve("nested/new-bundle")
+        val realdestination = nested.resolve("new-bundle")
+
+        When("export saves beneath the symbolic ancestor")
+        val failure = _failure(List("document-project", "export", project.toString, "--target", "preview", "--save", destination.toString))
+
+        Then("destination admission fails before creating a real, aliased, or staging bundle")
+        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
+        Files.exists(realdestination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Files.exists(destination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        _relative_files(nested) shouldBe Vector.empty
       }
     }
 
@@ -209,6 +231,35 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
         outputstate.exportedbytes shouldBe "stale"
       }
     }
+
+    "reject a symbolic ancestor of a consumer bundle while accepting its direct path" in {
+      _with_temp_dir("cozy-document-project-export-consumer-ancestor") { root =>
+        Given("an otherwise valid bundle under a real nested parent with a symbolic ancestor alias")
+        val project = _accepted_project(root, "export-consumer-ancestor")
+        val actual = Files.createDirectory(root.resolve("actual"))
+        val nested = Files.createDirectory(actual.resolve("nested"))
+        val bundle = _export(project, nested.resolve("bundle"))
+        val alias = root.resolve("alias")
+        Files.createSymbolicLink(alias, actual)
+        val aliasedbundle = alias.resolve("nested/bundle")
+        val sourcebytes = Files.readAllBytes(project.resolve("index.dox"))
+        val manifestbytes = Files.readAllBytes(bundle.resolve("manifest.yaml"))
+        val receiptbytes = Files.readAllBytes(bundle.resolve("receipt.yaml"))
+        val outputbytes = Files.readAllBytes(bundle.resolve("work-products/article-review-html/article-review.html"))
+
+        When("a consumer verifies the direct path and then its symbolic-ancestor alias")
+        val verified = CozyDocumentProjectExport.verifyBundle(bundle)
+        val failure = _bundle_failure(aliasedbundle)
+
+        Then("the direct bundle succeeds, the alias fails once, and source and bundle bytes are unchanged")
+        verified.target shouldBe "preview"
+        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
+        Files.readAllBytes(project.resolve("index.dox")) shouldBe sourcebytes
+        Files.readAllBytes(bundle.resolve("manifest.yaml")) shouldBe manifestbytes
+        Files.readAllBytes(bundle.resolve("receipt.yaml")) shouldBe receiptbytes
+        Files.readAllBytes(bundle.resolve("work-products/article-review-html/article-review.html")) shouldBe outputbytes
+      }
+    }
   }
 
   private def _accepted_project(root: Path, slug: String): Path = {
@@ -230,6 +281,6 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
   private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
   private def _relative_files(root: Path): Vector[String] = { val stream = Files.list(root); try stream.iterator().asScala.map(_.getFileName.toString).toVector.sorted finally stream.close() }
   private def _bundle_files(root: Path): Set[String] = { if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) Set.empty else { val stream = Files.walk(root); try stream.iterator().asScala.filter(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)).map(root.relativize(_).toString.replace('\\', '/')).toSet finally stream.close() } }
-  private def _with_temp_dir(name: String)(body: Path => Unit): Unit = { val root = Files.createTempDirectory(name).toRealPath(); try body(root) finally _delete(root) }
+  private def _with_temp_dir(name: String)(body: Path => Unit): Unit = { val work = Files.createDirectories(Paths.get("target/document-project-export-spec/work").toAbsolutePath.normalize()); val root = Files.createTempDirectory(work, s"$name-").toRealPath(); try body(root) finally _delete(root) }
   private def _delete(path: Path): Unit = if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) { val stream = Files.walk(path); try stream.iterator().asScala.toVector.sortBy(_.toString.length).reverse.foreach { item => try Files.deleteIfExists(item) catch { case NonFatal(_) => () } } finally stream.close() }
 }
