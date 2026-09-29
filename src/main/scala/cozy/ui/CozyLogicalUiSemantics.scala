@@ -7,73 +7,28 @@ import cozy.ui.CozyLogicalUi._
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 1, 2026
+ * @version Sep. 29, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiSemantics {
-  sealed trait Purpose {
-    def id: String
-  }
+  type Purpose = CozyLogicalUiVocabulary.Purpose
+  val BrowsePurpose = CozyLogicalUiVocabulary.BrowsePurpose
+  val InspectPurpose = CozyLogicalUiVocabulary.InspectPurpose
+  val EditPurpose = CozyLogicalUiVocabulary.EditPurpose
+  val ConfirmPurpose = CozyLogicalUiVocabulary.ConfirmPurpose
 
-  case object BrowsePurpose extends Purpose {
-    val id = "browse"
-  }
+  type Display = CozyLogicalUiVocabulary.Display
+  val CollectionDisplay = CozyLogicalUiVocabulary.CollectionDisplay
+  val DetailDisplay = CozyLogicalUiVocabulary.DetailDisplay
+  val FormDisplay = CozyLogicalUiVocabulary.FormDisplay
+  val StatusDisplay = CozyLogicalUiVocabulary.StatusDisplay
 
-  case object InspectPurpose extends Purpose {
-    val id = "inspect"
-  }
-
-  case object EditPurpose extends Purpose {
-    val id = "edit"
-  }
-
-  case object ConfirmPurpose extends Purpose {
-    val id = "confirm"
-  }
-
-  sealed trait Display {
-    def id: String
-  }
-
-  case object CollectionDisplay extends Display {
-    val id = "collection"
-  }
-
-  case object DetailDisplay extends Display {
-    val id = "detail"
-  }
-
-  case object FormDisplay extends Display {
-    val id = "form"
-  }
-
-  case object StatusDisplay extends Display {
-    val id = "status"
-  }
-
-  sealed trait InteractionPattern {
-    def id: String
-  }
-
-  case object NavigatePattern extends InteractionPattern {
-    val id = "navigate"
-  }
-
-  case object SelectPattern extends InteractionPattern {
-    val id = "select"
-  }
-
-  case object InputPattern extends InteractionPattern {
-    val id = "input"
-  }
-
-  case object CommandPattern extends InteractionPattern {
-    val id = "command"
-  }
-
-  case object ObservePattern extends InteractionPattern {
-    val id = "observe"
-  }
+  type InteractionPattern = CozyLogicalUiVocabulary.InteractionPattern
+  val NavigatePattern = CozyLogicalUiVocabulary.NavigatePattern
+  val SelectPattern = CozyLogicalUiVocabulary.SelectPattern
+  val InputPattern = CozyLogicalUiVocabulary.InputPattern
+  val CommandPattern = CozyLogicalUiVocabulary.CommandPattern
+  val ObservePattern = CozyLogicalUiVocabulary.ObservePattern
 
   sealed trait ValidationAuthority {
     def id: String

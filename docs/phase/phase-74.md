@@ -1,6 +1,6 @@
 # Phase 74: Abstract UI Runtime Contract
 
-status=planned
+status=active
 planned_at=2026-09-29
 strategy=textus-knowledge-workbench/docs/strategy/knowledge-application-integration.md
 driver=KnowledgeHubProject/nict-editing-studio-app
@@ -14,16 +14,17 @@ Phase 74 does not create a second UI metamodel. It selects and, only where neces
 
 ## Initial scope
 
-Driven by the Android-first Editing Studio mock implementation, establish the minimum runtime-facing semantics for:
+Driven by the planned Android-first Editing Studio List/Detail scenario, establish the minimum runtime-facing semantics for:
 
 - Resource List;
+- ListItem;
 - Resource Detail;
 - Section;
 - Field;
 - displayable Value;
 - Action;
 - navigation/selection relationships;
-- presentation roles such as title, subtitle, description, status and image where justified by the driver;
+- presentation roles for the proven minimum: title, subtitle, description and status;
 - target-neutral adaptive intent required by the first List/Detail proof; and
 - schema/version/provenance information required by runtime consumers.
 
@@ -45,18 +46,38 @@ Domain meaning remains available through semantic View Models. The Abstract UI r
 
 ## Development method
 
-Do not attempt to complete a universal UI vocabulary in this Phase. Derive the minimum contract from the executable Editing Studio List/Detail mock UI and generalize only semantics that remain valid for other applications and targets.
+Do not attempt to complete a universal UI vocabulary in this Phase. The active
+scenario-led hypothesis method starts with planned fake List/Detail resources:
+each ListItem has an opaque resource identity, compact selection proposes
+navigation, expanded selection updates a logical detail region, and a field
+configuration changes visible Detail fields without changing selection logic.
+Generalize only semantics that remain valid for other applications and targets.
+
+This starts Cozy local provisional acceptance through executable fixtures. It
+does not claim an actual Android mock proof: Android integration is a separate
+future acceptance stage. Phase closure never claims that integration without
+its own evidence. CNCF Phase 96 may consume the provisional Cozy contract
+without waiting for the Android stage.
 
 ## Acceptance criteria
 
-Phase 74 completes when:
+### Local provisional acceptance
 
-1. one versioned minimum Abstract/Logical UI runtime contract covers the Editing Studio List/Detail scenario;
-2. List, Detail, Field, displayable Value and Action semantics are target-neutral and contain no Flutter Widget types;
+Phase 74 local provisional acceptance is met when:
+
+1. one versioned minimum Abstract/Logical UI runtime contract covers the planned Editing Studio List/ListItem/Detail scenario;
+2. List, ListItem, Detail, Section, Field, displayable Value and Action semantics are target-neutral and contain no Flutter Widget types;
 3. the contract clearly separates semantic View properties from presentation roles;
 4. CNCF Phase 96 can construct Display Model instances without inventing a parallel UI vocabulary;
 5. compile-time Flutter projection and runtime Display Model paths are documented as sharing one Logical UI semantic authority; and
-6. focused executable/model fixtures demonstrate the minimum contract.
+6. focused executable/model fixtures prove the minimum List/ListItem/Detail/Section/Field/DisplayValue/Action contract and its selection/navigation behavior.
+
+### Follow-up integration acceptance
+
+Actual Android mock validation is a separate follow-up integration acceptance. It
+records any Android integration gaps and refinements; its completion is not a
+prerequisite for Phase 74 local provisional acceptance and this Phase makes no
+executed Android claim.
 
 ## Non-goals
 
@@ -64,6 +85,7 @@ Phase 74 completes when:
 - Flutter Widget tree modeling.
 - CNCF wire protocol implementation.
 - Flutter client/runtime implementation.
+- Actual Android mock integration validation.
 - Editing Studio-specific domain semantics in Cozy.
 - Visual design or application-specific styling.
 

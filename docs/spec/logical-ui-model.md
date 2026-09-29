@@ -305,3 +305,16 @@ symlink-plus-`..` traversal, before temporary output creation or replacement.
 It writes only the HTML through a same-parent temporary file and an atomic move.
 Rejected validation or staging leaves an existing target unchanged; receipts
 are not persisted to a second file.
+
+## 9. Provisional runtime instances
+
+`cozy.logical-ui-runtime.v1` is a separate, versioned provisional runtime
+contract for List/Detail Display Model instances. It reuses the exact public
+`Purpose`, `Display`, and `InteractionPattern` singleton vocabulary extracted
+from the package-local semantic projection; it does not change candidate,
+acceptance, codec, projection, or review authority. Its target-neutral roles,
+typed display values, exact contract/provenance admission, and pure adaptive
+selection are specified in
+[`logical-ui-runtime-contract.md`](logical-ui-runtime-contract.md). CNCF Phase
+96 may consume that local provisional contract before a separate Android mock
+integration acceptance is completed.
