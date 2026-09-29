@@ -1767,6 +1767,16 @@ CNCF-hosted publication including explicit parent-connected exposure, and
 expose separately authorized operations that extract mobile/Desktop artifacts
 and distribute them through official platform channels.
 
+Phase 74 has accepted its minimum Abstract/Logical UI runtime List/Detail
+contract and Cozy executable fixtures while preserving the Phase 43/50
+semantic authority. The one full Phase review and bounded cycle-1 focused
+closure review leave no Current Phase Blocker. Repository-full validation
+passed 2,053 tests in 161 suites with 0 failed and 8 canceled; a distinct local
+Phase release closes this provisional acceptance at `0.3.3-SNAPSHOT`. Existing
+test prerequisites are resolved in a separate Hygiene acceptance. CNCF Phase 96 may consume this
+provisional contract in parallel with Android mock development; actual Android
+integration acceptance remains separately owned follow-up work.
+
 Phase 45, Phase 45.1, and Phase 45.2 are closed locally after the approved
 Document Project v2 authoring/Content Core acceptance loop, deterministic
 review projections, expanded dashboard/action surface, localized-artifact

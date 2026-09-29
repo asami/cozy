@@ -88,12 +88,15 @@ Phase status index (individual Phase/checklist files are authoritative):
   Later compatible-release consumption remains `DP-73-01`. This additive
   producer boundary does not change the closed Phase 62.3 fixture or claim
   CNCF runtime, provider, or application completion.
-- Active provisional local phase: [Phase 74](phase-74.md) defines the minimum
+- Closed provisional local phase: [Phase 74](phase-74.md) defines the minimum
   Abstract/Logical UI runtime List/Detail contract and fixture-led acceptance
   while preserving Phase 43/50 semantic authority. It records Cozy local
   provisional evidence only: CNCF Phase 96 may consume the contract before a
   separate future Android mock integration acceptance; no protocol, client, or
-  Android-completion claim is made here.
+  Android-completion claim is made here. Step 74.1 is accepted, and the one full
+  Phase review plus cycle-1 focused closure review have no remaining blocker;
+  final repository validation passed 2,053 tests in 161 suites (0 failed,
+  8 canceled), and the distinct local release closes its provisional acceptance.
 - Planned local media repair: [Phase 71](phase-71.md) resolves a requested
   product's declared DSL chain back to Core, updates affected DSLs forward,
   and rebuilds Storyboard video with make-level dependencies instead of

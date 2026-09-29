@@ -300,16 +300,20 @@ final class CozyLogicalUiRuntimeSpec extends AnyWordSpec with Matchers with Give
 
   "Cozy Logical UI runtime selection" should {
     "reject invalid targets and selections without mutating the supplied model" in {
-      Given("a valid List, self and absent DetailTargets, empty and unknown item IDs, a null intent, and an admitted Detail")
+      Given("a valid List, self, absent, and malformed non-null DetailTargets, empty and unknown item IDs, a null intent, and an admitted Detail")
       val base = CozyLogicalUiRuntimeFixtures.listModel
       val list = base.screen.asInstanceOf[ResourceList]
       val selftarget = base.copy(screen = list.copy(detailTarget = DetailTarget(list.id)))
       val absenttarget = base.copy(screen = list.copy(detailTarget = null))
+      val malformedtargets = Vector("", " ", " resource-detail", "resource-detail ").map { screenid =>
+        base.copy(screen = list.copy(detailTarget = DetailTarget(screenid)))
+      }
       val detail = CozyLogicalUiRuntimeFixtures.detailFor("resource-a")
 
       When("validation and selection are requested with each invalid boundary input")
       val selferror = _left(CozyLogicalUiRuntimeValidation.validate(selftarget))
       val absenterror = _left(CozyLogicalUiRuntimeValidation.validate(absenttarget))
+      val malformederrors = malformedtargets.map(model => _left(CozyLogicalUiRuntimeValidation.validate(model)))
       val emptyerror = _left(select(base, "", CompactIntent))
       val unknownerror = _left(select(base, "resource-missing", CompactIntent))
       val intenterror = _left(select(base, "resource-a", null.asInstanceOf[AdaptiveIntent]))
@@ -318,6 +322,9 @@ final class CozyLogicalUiRuntimeSpec extends AnyWordSpec with Matchers with Give
       Then("the errors identify the detail-target, selection, intent, and Detail-screen boundaries and the input List stays structurally equal")
       selferror.code shouldBe "LUI74_DETAIL_TARGET_INVALID"
       absenterror.code shouldBe "LUI74_DETAIL_TARGET_INVALID"
+      malformederrors shouldBe Vector.fill(4)(
+        RuntimeError("LUI74_DETAIL_TARGET_INVALID", "model.screen.detailTarget.screenId", "missing, invalid, or self DetailTarget")
+      )
       emptyerror.code shouldBe "LUI74_SELECTION_INVALID"
       unknownerror.code shouldBe "LUI74_SELECTION_INVALID"
       intenterror.code shouldBe "LUI74_ADAPTIVE_INTENT_INVALID"

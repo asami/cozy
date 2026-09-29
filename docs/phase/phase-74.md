@@ -1,6 +1,7 @@
 # Phase 74: Abstract UI Runtime Contract
 
-status=active
+status=closed
+closed_at=2026-09-29
 planned_at=2026-09-29
 strategy=textus-knowledge-workbench/docs/strategy/knowledge-application-integration.md
 driver=KnowledgeHubProject/nict-editing-studio-app
@@ -88,6 +89,35 @@ executed Android claim.
 - Actual Android mock integration validation.
 - Editing Studio-specific domain semantics in Cozy.
 - Visual design or application-specific styling.
+
+## Local acceptance and release evidence
+
+Step 74.1 / Slice 74.1A was accepted in local commit
+`d3ddb86f4251ea07714ff2ca586c441258201b06` after protected focused conformance
+review and 52 passing runtime/legacy Logical UI tests in 6 suites. The
+external-package Cozy fixture proves compact navigation, expanded detail
+selection, and configured visible fields from the planned Editing Studio
+List/Detail scenario.
+
+The one comprehensive Phase review covered the Phase base
+`fe71d0a9e7446af2e8d3a500fe4b50a0af1c0837` through that Step commit. Its sole
+CPB-P74-001 required executable proof for malformed non-null DetailTarget IDs.
+Repair cycle 1 added four exact diagnostic cases to the existing scenario;
+8 focused tests passed and one independent focused closure review returned
+PASS, with no remaining blocker or accepted Hygiene/Development Candidate.
+
+Repository-full validation `cozy-P74-HYG-PREREQ-FULL-VAL01-A1` passed 2,053 tests
+in 161 suites with 0 failures and 0 aborted suites (8 canceled). SBT and wrapper
+exited 0 and released the shared lock. Receipt `1f321e268e8f2e792ec2e3c9a9fc1ccb9c25f25f83009386045dbb23fad2d3fc`
+is retained through verified non-input closure-document drift. Existing test
+prerequisites were restored in separately accepted Hygiene commit
+`ab4941c4cdfa4069a4c7b8ffe3512dc82330b1e0`.
+
+Phase 74 is closed for local provisional acceptance. The distinct local release
+commit carries `Phase-Closure-Binding: PHASE-74`; its resulting hash belongs to
+the closure receipt. The release keeps development version `0.3.3-SNAPSHOT`.
+Actual Android mock integration and CNCF wire protocol implementation remain
+separately owned follow-up work.
 
 ## References
 
