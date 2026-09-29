@@ -176,6 +176,7 @@ private[cozy] object CozyDocumentProjectExport {
     try {
       val entries = stream.iterator().asScala.toVector
       if (entries.exists(path => Files.isSymbolicLink(path))) _invalid("export bundle must not contain symbolic links")
+      if (entries.exists(path => !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))) _invalid("export bundle must contain only direct regular files and directories")
       val files = entries.filter(path => Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)).map(path => root.relativize(path).toString.replace('\\', '/')).toSet
       val directories = entries.filter(path => Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)).map(path => root.relativize(path).toString.replace('\\', '/')).toSet
       if (files != Set("manifest.yaml", "receipt.yaml", _article_review_public_path) || directories != Set("", "work-products", "work-products/article-review-html")) _invalid("export bundle has an invalid file shape")
