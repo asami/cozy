@@ -4,7 +4,7 @@ Date: 2026-09-29
 
 Slice: P710-02G / P710-02H
 
-Status: six actual private-video cases verified; P710-02 Step commit pending
+Status: six actual private-video cases verified; P710-02 accepted in `ecb36aff9a00a946fdeb9d30f0e64145d8a792c5`
 
 The frozen P710-02G implementation adds a reusable six-case observer for the
 task-private `P71-REAL-GRAPH-001` Japanese video route. The observer records
@@ -32,9 +32,11 @@ result and independently retain the native receipts/logs. Synthetic fixtures
 in `CozyPhase71PrivateVideoDriverSpec` exercise verifier behavior only; they do
 not prove a generated video, provider readiness, or Step/Phase completion.
 
-The current factual chronology is limited to the focused checks and native
-prerequisite state: the actual focused records are 8/8 and 369/369, the current
-source record is 9/8/8, and the tools check passed. The immutable
+## Earlier P710-02G checkpoint (historical)
+
+At this earlier checkpoint, the factual chronology was limited to the focused
+checks and native prerequisite state: the actual focused records were 8/8 and
+369/369, the source record was 9/8/8, and the tools check passed. The immutable
 `baseline-before` snapshot remains the first baseline. The prior native
 synthesis attempt actually failed because VOICEVOX required an explicit
 speaker/style identity; it did not generate an accepted video. The private
@@ -43,9 +45,9 @@ fallback speaker ID 2, speed 0.98, pitch 0.03, and intonation 1.08. This is
 configuration and failed-synthesis chronology only; no actual generated MP4 is
 claimed.
 
-No actual baseline product or native synthesis/final-build success is claimed
-by this journal. The five remaining actual cases, independent acceptance, and
-the exact Step/Phase closure evidence remain pending under P710-02. Focused
+No actual baseline product or native synthesis/final-build success was claimed
+at this checkpoint. The five remaining actual cases, independent acceptance, and
+the exact Step/Phase closure evidence were pending under P710-02. Focused
 8/8 and 369/369 validation passed and is retained. Full repository SBT remains
 deferred-not-run solely to PHASE-71.4.
 
@@ -121,7 +123,7 @@ bound to candidate tree SHA-256
 `7b8e9a16359606c56ff8a6e77cbda5b56e58f99dfd06ad5a57ad3144b3df9828`.
 The independent protected-focused Step review found one documentation
 portability blocker in this journal (`CPB-P710-02H-001`). The focused
-independent closure review accepted the correction recorded above; the exact
-Step commit, mandatory Phase full review, and distinct
-Phase release commit remain pending. Repository-full validation is deferred
-to PHASE-71.4. P710-02 is not yet accepted or closed.
+independent closure review accepted the correction recorded above. The exact
+37-path P710-02 Step commit is `ecb36aff9a00a946fdeb9d30f0e64145d8a792c5`.
+Mandatory Phase full review and the distinct Phase release commit remain
+pending. Repository-full validation is deferred to PHASE-71.4.
