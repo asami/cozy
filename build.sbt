@@ -84,7 +84,7 @@ libraryDependencies += "org.goldenport" %% "goldenport-record" % "2.2.5"
 // override kaleidox
 libraryDependencies += "org.smartdox" %% "smartdox" % "2.4.19-SNAPSHOT"
 
-libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.19"
+libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.20-SNAPSHOT"
 
 val simplemodelerVersion =
   sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.26-SNAPSHOT"))
