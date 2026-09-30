@@ -1,6 +1,6 @@
 package cozy.publication
 
-import java.nio.file.Path
+import java.nio.file.{Files, LinkOption, Path}
 import cozy.document.CozyDocumentProject
 import cozy.document.CozyDocumentProjectExport
 import cozy.media.CozyMedia
@@ -42,6 +42,49 @@ private[cozy] object CozyDocumentProjectPublicationTarget {
     siteContext: Option[CozyMedia.SiteContext]
   )
 
+  final case class CurrentRegistrationConfig(project: Path, registration: RegistrationConfig)
+
+  final case class CurrentRegistrationPlan(
+    config: CurrentRegistrationConfig,
+    registration: RegistrationPlan,
+    currentness: CozyDocumentProjectExport.Currentness
+  )
+
+  def planCurrentRegistration(config: CurrentRegistrationConfig): CurrentRegistrationPlan = {
+    if (config == null || config.project == null || config.registration == null)
+      _invalid("current publication registration requires project and registration configuration")
+    val project = _project_path(config.project)
+    val descriptor = CozyDocumentProject._load_project(project)
+    val registration = planRegistration(config.registration)
+    val currentness = CozyDocumentProjectExport.currentness(project, descriptor, registration.export.bundleRoot)
+    val facets = Vector(
+      "sourceauthority" -> currentness.sourceauthority,
+      "selection" -> currentness.selection,
+      "retainedproductionevidence" -> currentness.retainedproductionevidence,
+      "manifestauthority" -> currentness.manifestauthority,
+      "exportedbytes" -> currentness.exportedbytes
+    ).filter(_._2 != "current")
+    if (facets.nonEmpty)
+      _invalid("current publication registration requires current export facets: " + facets.map {
+        case (name, state) => s"$name=$state"
+      }.mkString(", "))
+    CurrentRegistrationPlan(config.copy(project = project), registration, currentness)
+  }
+
+  def revalidateRegistration(value: RegistrationPlan): RegistrationPlan = {
+    if (value == null) _invalid("publication registration snapshot is required")
+    val recomputed = planRegistration(value.config)
+    if (recomputed != value) _invalid("publication registration snapshot has changed")
+    recomputed
+  }
+
+  def revalidateCurrentRegistration(value: CurrentRegistrationPlan): CurrentRegistrationPlan = {
+    if (value == null) _invalid("current publication registration snapshot is required")
+    val recomputed = planCurrentRegistration(value.config)
+    if (recomputed != value) _invalid("current publication registration snapshot has changed")
+    recomputed
+  }
+
   def planRegistration(config: RegistrationConfig): RegistrationPlan = {
     if (config == null || config.media == null)
       _invalid("publication registration requires export and media configuration")
@@ -80,6 +123,21 @@ private[cozy] object CozyDocumentProjectPublicationTarget {
       evidence,
       normalizedroot.resolve(_article_review_path).normalize()
     )
+  }
+
+  private def _project_path(project: Path): Path = {
+    val normalized = try project.toAbsolutePath.normalize() catch {
+      case _: RuntimeException => _invalid("current publication project path is invalid")
+    }
+    if (!Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(normalized) ||
+      !Option(normalized.getFileName).exists(_.toString.endsWith(".dox")))
+      _invalid("current publication project must be a direct canonical .dox directory")
+    val canonical = try normalized.toRealPath() catch {
+      case _: RuntimeException => _invalid("current publication project path is invalid")
+    }
+    if (canonical != normalized)
+      _invalid("current publication project must be a direct canonical .dox directory")
+    normalized
   }
 
   private def _invalid(message: String): Nothing = CozyDocumentProject._failure("DP-OP-001", message)
