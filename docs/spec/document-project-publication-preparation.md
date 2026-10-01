@@ -6,9 +6,13 @@ Phase 57.3 P573-01 specifies this native client boundary. P573-02 delivered the
 API, media command and bounded executable proof described below and was accepted
 locally with 41 passing tests, an independent PASS review, and Step commit
 `8d06d7c`. P573-03 adds the seven native sequence/failure scenario families and
-canonical skill guidance described below; those additions are authored pending
-validation and review. Neither Step establishes Phase closure or proves that
-the actually invoked installed Cozy exposes the preparation command. Clients
+canonical skill guidance described below; they were accepted locally with
+50 passing focused tests across four suites, independent PASS review and Step
+commits Cozy `68af4c0` and development-workstation `049683f`. The single
+Phase full review passed; final closure is recorded by the
+[Phase checklist](../phase/phase-57.3-checklist.md) and distinct release commit.
+Source acceptance does not prove that the actually invoked installed Cozy
+exposes the preparation command. Clients
 check that capability through native help or command resolution; if absent,
 they report `BLOCKED: missing preparation-client capability` without a fallback.
 
@@ -189,7 +193,7 @@ producer. Prebuilt PNG bytes are admitted media evidence, never native receipt
 substitutes. These five scenarios and six CLI property cases retain the accepted
 P573-02 local proof recorded above.
 
-P573-03 authors seven additional bounded families, pending parent validation
+P573-03 accepted seven additional bounded families through parent validation
 and independent review:
 
 - A real run/structural verify/export/dispatcher preparation sequence, consuming

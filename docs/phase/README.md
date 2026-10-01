@@ -147,7 +147,9 @@ Phase status index (individual Phase/checklist files are authoritative):
   bundle verification under its single-operator export conditions.
   `phase-57.2.md` is closed for the typed SimpleModeling.org target, original
   site-aware registration, stale/partial rejection and snapshot revalidation.
-  `phase-57.3.md` remains planned for the native publication-preparation skill boundary. This is a greenfield sequence and does not preserve the
+  `phase-57.3.md` is closed for native task-private publication preparation,
+  its client-only skill and executable failure proof. This greenfield sequence
+  does not preserve the
   legacy article-media workflow.
 - Closed recursive Content Core phase: `phase-58.md` proves one recursive,
   locale-independent `content/core.yaml` and projects the real Article 9 logic

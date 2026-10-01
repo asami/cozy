@@ -1,6 +1,6 @@
 # Phase 57.3: Native Publication-Preparation Skill Boundary
 
-Status: PLANNED
+Status: CLOSED
 
 Plan date: 2026-09-10
 Split from: [Phase 57](phase-57.md)
@@ -52,9 +52,9 @@ execution entry.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| P573-01 | Define the publication-preparation skill as an orchestrator of completed native run, verification, export, and target contracts only. | planned |
-| P573-02 | Exercise task-private preparation from the exact verified public export bundle and target binding. | planned |
-| P573-03 | Report missing provider, blocked Work Product, or invalid currentness without hand edits or retrospective evidence adoption. | planned |
+| P573-01 | Define the publication-preparation skill as an orchestrator of completed native run, verification, export, and target contracts only. | complete |
+| P573-02 | Exercise task-private preparation from the exact verified public export bundle and target binding. | complete |
+| P573-03 | Report missing provider, blocked Work Product, or invalid currentness without hand edits or retrospective evidence adoption. | complete |
 
 ## Scope-admission precondition
 
@@ -83,6 +83,24 @@ or production-site mutation.
   authority.
 - Editing the external skill root before its explicit entry admission.
 - Publication, deployment, upload, push, or production-site mutation.
+
+## Accepted local execution
+
+P573-01 accepted the admitted canonical skill boundary (`f3814b8`,
+`ef30925`); P573-02 accepted native task-private preparation (`8d06d7c`);
+P573-03 accepted the native sequence and failure proof (`68af4c0`, `049683f`).
+The final child proof passed 50 focused tests across four suites, including
+12 preparation scenarios and six CLI property cases. The single epoch-1 full
+Phase review passed without a Current Phase Blocker on 2026-10-01. Execution
+used the user-selected `gpt-6.1-sol / high` parent profile.
+
+The [checklist](phase-57.3-checklist.md) is the completion ledger. The
+[Hygiene follow-up](../journal/2026/10/2026-10-01-phase-57.3-hygiene-follow-up.md)
+retains two nonblocking maintenance records verbatim; no Development Candidate
+was admitted. Final local release acceptance requires the Cozy full test suite,
+the canonical skill acceptance driver, and a distinct closure commit. Source
+acceptance does not establish capability in an actually invoked installed Cozy;
+the skill checks native command availability at invocation.
 
 ## References
 
