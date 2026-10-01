@@ -15,7 +15,11 @@ Stage Status:
 - Update rule: Update this block from the P573-01 checklist entries only; they
   are the sole closure basis.
 
-- [ ] Admit the external skill source root at the Phase 57.3 entry boundary.
+- [ ] Record Step acceptance of the external skill source root admission at
+      the Phase 57.3 entry boundary. Entry admission is recorded for canonical
+      `/Users/asami/src/development-workstation/common/codex/skills/smorg-publication-prep`,
+      consumed through the installed `.agents` symlink; this checkbox remains
+      pending P573-01 acceptance.
 - [ ] Specify the publication-preparation skill as a client of native run,
       verify, export, and target contracts only.
 - [ ] Remove `cozy-article-media` adapter assumptions from the skill contract.

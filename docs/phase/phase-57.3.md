@@ -18,11 +18,12 @@ reintroducing the legacy article-media workflow.
 ## Provenance and structural gate
 
 This final child consumes Phase 57.2's typed target binding. It replaces the
-legacy orchestration assumption, but this planning split does not authorize any
-edit outside Cozy. A later Phase 57.3 goal entry must explicitly admit the
-publication-preparation skill source root before it can update that skill.
+legacy orchestration assumption. Phase 57.3 entry has explicitly admitted the
+canonical publication-preparation skill source root
+`/Users/asami/src/development-workstation/common/codex/skills/smorg-publication-prep`,
+consumed through the installed `.agents` symlink, with persisted update authority.
 
-Phase Plan Gate: PROCEED, subject to explicit update-root admission at Phase
+Phase Plan Gate: PROCEED; explicit update-root admission recorded at Phase
 execution entry.
 
 - target: approximate-six-hour packing target; preferred 4–8 h band
@@ -57,10 +58,11 @@ execution entry.
 
 ## Scope-admission precondition
 
-The current approved boundary is Cozy planning only. Before Phase 57.3
-implementation starts, a distinct Phase entry must admit the exact external
-skill source root `/Users/asami/.codex/skills/smorg-publication-prep` and
-record its update authority. This Phase document neither grants that authority
+The Phase 57.3 entry has admitted the exact external canonical skill source root
+`/Users/asami/src/development-workstation/common/codex/skills/smorg-publication-prep`
+and recorded its update authority; the installed `.agents` symlink consumes that
+source. This records the completed entry-admission fact, not Step acceptance.
+This Phase document neither grants that authority
 nor authorizes a SimpleModeling.org repository edit, deployment, upload, push,
 or production-site mutation.
 
