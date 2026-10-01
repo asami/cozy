@@ -2,14 +2,15 @@
 
 ## Status and authority
 
-Phase 57.3 P573-01 specifies this native client boundary. P573-02 now authors the
-API, media command and bounded executable proof described below; behavior remains
-pending validation and review until actual evidence is recorded. The full
-provider, Work Product and currentness failure matrix, and installed skill
-capability completion, belong to P573-03. This specification does not claim that
-the installed Cozy already exposes the preparation command. Until it does,
-clients report missing preparation-client capability and stop without a legacy
-adapter fallback.
+Phase 57.3 P573-01 specifies this native client boundary. P573-02 delivered the
+API, media command and bounded executable proof described below and was accepted
+locally with 41 passing tests, an independent PASS review, and Step commit
+`8d06d7c`. P573-03 adds the seven native sequence/failure scenario families and
+canonical skill guidance described below; those additions are authored pending
+validation and review. Neither Step establishes Phase closure or proves that
+the actually invoked installed Cozy exposes the preparation command. Clients
+check that capability through native help or command resolution; if absent,
+they report `BLOCKED: missing preparation-client capability` without a fallback.
 
 The unchanged [Phase 57.2 target specification](document-project-publication-target.md)
 owns portable admission, original media/site binding, live currentness, and
@@ -60,12 +61,28 @@ escape unchanged before any successful command output; the invoking skill
 reports `BLOCKED` for a failed native command.
 
 The producer-native operation resolution and actual run result govern progress.
-Missing providers/capabilities, blocked required Work Products, failed native
-execution, or invalid evidence stop before export or preparation. Structural
-verification does not create accepted production evidence; neither does a
-`--dry-run`. The current public export admits only native `article-review-html`;
-clients must not invent other required public Work Products or adopt retrospective
-evidence. The export bundle remains the unchanged generic v1 bundle.
+Required and selected Work Products apply to the producer-governed closure of
+the requested operation and export. The current public export admits only
+native `article-review-html`: an accepted/current Article review run followed by
+structural verification and native export can proceed while unrelated standard
+`article-pdf` remains Required, blocked, and bound to an unavailable provider.
+Clients must not turn all standard profile products or PDF into additional
+public-export prerequisites. Missing provider/capability, blocked participating
+Work Product, failed native execution, or invalid evidence within the selected
+closure stops progress with the exact producer reason and identity.
+
+Actual native `accepted`, `resolved`, and `blocked` results remain distinct.
+`article.render-pdf` reports its `smartdox-rendering` binding and missing native
+typed provider capability without an accepted attempt. Unknown `render` and
+profile-disabled `video.render-review` throw `DP-OP-001`; a missing `index.dox`
+throws the original initial-source admission `DP-PATH-001` before execution.
+Clients do not manufacture failed ProviderResults or receipts for these throws.
+Structural verification legitimately writes derived
+`target/document-project/state.yaml`, but creates no accepted production evidence.
+Article review `--dry-run` reports resolved output identity, pending receipt,
+and no evidence; it writes no accepted attempt, native Article output, or export.
+Neither result authorizes preparation. The export bundle remains the unchanged
+generic v1 bundle, without retrospective evidence adoption.
 
 The caller supplies attributable authorization for the selected native
 run/verify/export and exact task-private preparation effects. The canonical
@@ -169,5 +186,30 @@ revalidation that propagates the fresh producer diagnostic and cleans only
 owned temporary output. Fixtures scaffold a real Document Project, select
 Article review, execute its native run, and export through the unchanged
 producer. Prebuilt PNG bytes are admitted media evidence, never native receipt
-substitutes. These authored scenarios remain pending parent validation/review;
-they do not claim the P573-03 full failure matrix or installed skill acceptance.
+substitutes. These five scenarios and six CLI property cases retain the accepted
+P573-02 local proof recorded above.
+
+P573-03 authors seven additional bounded families, pending parent validation
+and independent review:
+
+- A real run/structural verify/export/dispatcher preparation sequence, consuming
+  typed current Article review evidence while unrelated required PDF is blocked.
+- Native unavailable PDF provider output and typed Required/blocked Work Product
+  state, followed by no-write export and preparation rejection.
+- Structural verification with legitimate derived state, then resolved dry-run
+  and rejected export/preparation preserving the complete post-verification tree.
+- Unknown and profile-disabled operation throws, plus missing authored Article
+  `DP-PATH-001` admission, with no synthesized failed result or evidence.
+- Independently stale authored source, selection, genuine receipt identity,
+  and deleted genuine accepted attempt; portable admission still succeeds while
+  API and real CLI reproduce the fresh producer failure byte-for-byte.
+- Malformed manifest, changed HTML, missing manifest/receipt/HTML, and private
+  entry rejection through the fresh producer, API, and real CLI.
+- Actual dispatcher rejection of missing task root, duplicate save, unknown
+  profile, unsupported dry-run, and unpaired site options, matching Config.create.
+
+Negative cases compare the complete intentionally changed baseline, absent
+requested destination, absence of owned preparation temporary children, and
+absence of PREPARED output; stale/bundle and CLI matrices preserve existing
+sibling destination sentinels. This authored proof does not claim installed
+binary capability, structural skill acceptance, or Phase closure.

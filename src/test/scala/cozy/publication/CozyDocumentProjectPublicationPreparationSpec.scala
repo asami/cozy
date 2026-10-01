@@ -4,8 +4,9 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import cozy.document.{CozyDocumentProject, CozyDocumentProjectExport}
-import cozy.media.{CozyMedia, CozyMediaDispatcher}
+import java.security.MessageDigest
+import cozy.document.{CozyDocumentProject, CozyDocumentProjectEvidence, CozyDocumentProjectExport, CozyDocumentWorkflow}
+import cozy.media.{CozyExplanation, CozyMedia, CozyMediaDispatcher, CozyVisualPage}
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -20,6 +21,283 @@ import scala.collection.JavaConverters._
  */
 final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "CozyDocumentProjectPublicationPreparation" should {
+    "consume the real native command sequence" which {
+      "prepare the accepted Article review export while unrelated required PDF remains blocked" in {
+        Given("a real selected standard project with complete authored presentation semantics, original media authorities and no accepted run or export")
+        _with_fixture("native-sequence", accepted = false, structural = true) { fixture =>
+          val destination = fixture.taskroot.resolve("prepared")
+
+          When("native Article review runs, structural verification records its snapshot, and public export completes")
+          val run = _execute_output(List("document-project", "run", fixture.project.toString, "--operation", "article.render-review"))
+          val verification = _execute_output(List("document-project", "verify", fixture.project.toString, "--mode", "structural"))
+          val exported = _execute_output(_export_args(fixture))
+          val snapshot = CozyDocumentProjectEvidence.snapshot(fixture.project, CozyDocumentProject._load_project(fixture.project))
+          val review = snapshot.products.find(_.value.workProduct.id == "article-review-html").get
+          val pdf = snapshot.products.find(_.value.workProduct.id == "article-pdf").get
+          val pdfoperation = snapshot.nativeOperations.find(_.operation.id == "article.render-pdf").get
+          val evidence = CozyDocumentProjectExport.verifyBundle(fixture.bundle)
+          val before = _authorities(fixture)
+
+          Then("native acceptance and export identify the current selected Article review without requiring PDF completion")
+          run should include("outcome: accepted")
+          run should include("evidence: accepted")
+          run should include("currentness: current")
+          run should include("identity: article-review-html")
+          verification should include("mode: structural")
+          verification should include("state: target/document-project/state.yaml")
+          exported should include("work-product: article-review-html")
+          snapshot.attempts.map(_.outcome) shouldBe Vector("accepted")
+          review.value.selection shouldBe CozyDocumentWorkflow.WorkProductSelection.ActiveOptional
+          review.currentness shouldBe "current"
+          pdf.value.binding.disposition shouldBe CozyDocumentWorkflow.WorkProductDisposition.Required
+          pdf.value.selection shouldBe CozyDocumentWorkflow.WorkProductSelection.Required
+          pdf.readiness shouldBe "blocked"
+          pdfoperation.providerAvailability shouldBe CozyDocumentWorkflow.NativeProviderAvailability.Unavailable
+          pdfoperation.immediateExecutability shouldBe CozyDocumentWorkflow.NativeImmediateExecutability.Blocked
+
+          When("the actual media dispatcher prepares the current export into the absent task child")
+          val dispatched = _dispatch(_preparation_args(fixture, destination))
+
+          Then("PREPARED names verified installed export and registry paths and preserves every original authority")
+          dispatched._1 shouldBe true
+          dispatched._2 should include("status: PREPARED")
+          dispatched._2 should include(s"root: $destination")
+          dispatched._2 should include(s"export: ${destination.resolve("export")}")
+          dispatched._2 should include(s"  - ${destination.resolve("article-media.json")}")
+          CozyDocumentProjectExport.verifyBundle(destination.resolve("export")) shouldBe evidence
+          CozyDocumentProjectPublicationTarget.admit(destination.resolve("export")).evidence shouldBe evidence
+          _require_registry(destination, CozyDocumentProjectPublicationTarget.planCurrentRegistration(
+            _config(fixture, destination, paired = true).registration).registration.siteBinding)
+          _authorities(fixture) shouldBe before
+          _children(fixture.taskroot) shouldBe Vector(destination)
+        }
+      }
+
+      "retain the missing PDF provider and required Work Product causes without preparation writes" in {
+        Given("a selected standard project with no accepted attempt, native review output or export")
+        _with_fixture("unavailable", accepted = false) { fixture =>
+          val destination = fixture.taskroot.resolve("prepared")
+          val config = _config(fixture, destination, paired = true)
+          val before = _tree(fixture.root)
+
+          When("the native PDF operation and read-only evidence producer expose unavailable capability")
+          val blocked = _execute_output(List("document-project", "run", fixture.project.toString, "--operation", "article.render-pdf"))
+          val snapshot = CozyDocumentProjectEvidence.snapshot(fixture.project, CozyDocumentProject._load_project(fixture.project))
+          val pdf = snapshot.products.find(_.value.workProduct.id == "article-pdf").get
+          val operation = snapshot.nativeOperations.find(_.operation.id == "article.render-pdf").get
+          val exportfailure = _capture_failure { _execute(_export_args(fixture)) }
+          val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
+          val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
+          val cli = _dispatch_failure(_preparation_args(fixture, destination))
+
+          Then("the native blocked reason survives and missing accepted evidence and bundle reject export and preparation")
+          blocked should include("operation: article.render-pdf")
+          blocked should include("provider-binding: smartdox-rendering")
+          blocked should include("outcome: blocked")
+          blocked should include("missing-capability: native typed provider execution is unavailable")
+          blocked should include("evidence: none")
+          pdf.value.binding.disposition shouldBe CozyDocumentWorkflow.WorkProductDisposition.Required
+          pdf.value.selection shouldBe CozyDocumentWorkflow.WorkProductSelection.Required
+          pdf.readiness shouldBe "blocked"
+          pdf.reason should not be empty
+          operation.operation.providerBinding shouldBe "smartdox-rendering"
+          operation.providerAvailability shouldBe CozyDocumentWorkflow.NativeProviderAvailability.Unavailable
+          operation.immediateExecutability shouldBe CozyDocumentWorkflow.NativeImmediateExecutability.Blocked
+          snapshot.attempts shouldBe empty
+          exportfailure._1.getMessage should include("DP-OP-001")
+          exportfailure._1.getMessage should include("export requires current accepted article.render-review native evidence")
+          api.getMessage shouldBe producer.getMessage
+          cli._1.getMessage shouldBe producer.getMessage
+          exportfailure._2 should not include "status: PREPARED"
+          cli._2 should not include "status: PREPARED"
+          _require_unexecuted(fixture)
+          _require_no_write(fixture, destination, before)
+        }
+      }
+
+      "preserve structural state while dry-run leaves production evidence unresolved" in {
+        Given("a selected real project with complete authored presentation semantics and no accepted attempt, native review output or public export")
+        _with_fixture("dry-run", accepted = false, structural = true) { fixture =>
+          val destination = fixture.taskroot.resolve("prepared")
+          val config = _config(fixture, destination, paired = true)
+
+          When("native structural verification writes its legitimate derived state")
+          val verification = _execute_output(List("document-project", "verify", fixture.project.toString, "--mode", "structural"))
+
+          Then("the structural snapshot exists without accepted native production evidence")
+          verification should include("mode: structural")
+          val state = fixture.project.resolve("target/document-project/state.yaml")
+          Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS) shouldBe true
+          _require_unexecuted(fixture)
+
+          Given("the complete baseline after structural verification and its original derived state bytes")
+          val before = _tree(fixture.root)
+          val statebytes = Files.readAllBytes(state).toVector
+
+          When("native dry-run resolves Article review and export and preparation are requested without accepted evidence")
+          val dryrun = _execute_output(List("document-project", "run", fixture.project.toString, "--operation", "article.render-review", "--dry-run"))
+          val exportfailure = _capture_failure { _execute(_export_args(fixture)) }
+          val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
+          val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
+          val cli = _dispatch_failure(_preparation_args(fixture, destination))
+
+          Then("resolution remains pending without writes or PREPARED and the producer rejection is exact")
+          dryrun should include("operation: article.render-review")
+          dryrun should include("provider-binding: cozy-review-projection")
+          dryrun should include("outcome: resolved")
+          dryrun should include("identity: article-review-html")
+          dryrun should include("receipt: pending")
+          dryrun should include("evidence: none")
+          exportfailure._1.getMessage should include("export requires current accepted article.render-review native evidence")
+          producer.getMessage should include("DP-OP-001")
+          api.getMessage shouldBe producer.getMessage
+          cli._1.getMessage shouldBe producer.getMessage
+          cli._2 should not include "status: PREPARED"
+          Files.readAllBytes(state).toVector shouldBe statebytes
+          _require_unexecuted(fixture)
+          _require_no_write(fixture, destination, before)
+        }
+      }
+
+      "retain native admission throws for unknown disabled and missing-source operations" in {
+        val cases = Vector(
+          ("unknown", "render", "DP-OP-001", "undeclared logical operation: render"),
+          ("disabled", "video.render-review", "DP-OP-001", "logical operation video.render-review is disabled for profile standard"),
+          ("missing-source", "article.render-review", "DP-PATH-001", "initial authored source must be a direct regular non-symlink file")
+        )
+        cases.foreach { case (name, operation, code, diagnostic) =>
+          Given(s"an independent unexecuted selected project for $name native admission")
+          _with_fixture(name, accepted = false) { fixture =>
+            if (name == "missing-source") Files.delete(fixture.project.resolve("index.dox"))
+            val destination = fixture.taskroot.resolve("prepared")
+            val before = _tree(fixture.root)
+
+            When("the actual native run admits the requested logical operation and original authored source")
+            val failure = _capture_failure {
+              _execute(List("document-project", "run", fixture.project.toString, "--operation", operation))
+            }
+
+            Then("the unchanged admission diagnostic throws before any accepted attempt or client success")
+            failure._1.getMessage should include(code)
+            failure._1.getMessage should include(diagnostic)
+            failure._2 should not include "outcome: accepted"
+            failure._2 should not include "status: PREPARED"
+            _require_unexecuted(fixture)
+            _require_no_write(fixture, destination, before)
+          }
+        }
+      }
+    }
+
+    "propagate live and portable producer failures" which {
+      "preserve each stale facet through API and real dispatch while portable admission succeeds" in {
+        val cases: Vector[(String, String, Fixture => Unit)] = Vector(
+          ("source", "sourceauthority=stale", fixture => _write(fixture.project.resolve("index.dox"), "Changed source\n")),
+          ("selection", "selection=stale", fixture => {
+            val path = fixture.project.resolve("document-project.yaml")
+            _write(path, Files.readString(path, StandardCharsets.UTF_8).replace(
+              "activeOptionalWorkProducts:\n  - article-review-html", "activeOptionalWorkProducts: []"))
+          }),
+          ("receipt", "retainedproductionevidence=stale", fixture => {
+            val path = _children(fixture.project.resolve("evidence/attempts")).head
+            _write(path, Files.readString(path, StandardCharsets.UTF_8).replace(
+              "cozy.document-project.native-receipt.v1", "changed-receipt"))
+          }),
+          ("missing-attempt", "retainedproductionevidence=stale", fixture => {
+            Files.delete(_children(fixture.project.resolve("evidence/attempts")).head)
+            ()
+          })
+        )
+        cases.foreach { case (name, diagnostic, mutate) =>
+          Given(s"genuine accepted and exported authorities followed by an independent $name mutation and sibling sentinel")
+          _with_fixture(s"stale-$name") { fixture =>
+            val destination = fixture.taskroot.resolve("prepared")
+            val config = _config(fixture, destination, paired = true)
+            val original = CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration)
+            _write(fixture.taskroot.resolve("existing/sentinel"), "keep existing destination bytes\n")
+            mutate(fixture)
+            val before = _tree(fixture.root)
+
+            When("portable admission and the fresh original producer precede preparation API and actual dispatch")
+            val portable = CozyDocumentProjectPublicationTarget.admit(fixture.bundle)
+            val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
+            val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
+            val cli = _dispatch_failure(_preparation_args(fixture, destination))
+
+            Then("both client failures equal the exact live stale producer diagnostic and preserve the mutated baseline")
+            portable shouldBe original.registration.export
+            producer.getMessage should include("DP-OP-001")
+            producer.getMessage should include(diagnostic)
+            api.getMessage shouldBe producer.getMessage
+            cli._1.getMessage shouldBe producer.getMessage
+            cli._2 should not include "status: PREPARED"
+            _require_no_write(fixture, destination, before)
+          }
+        }
+      }
+
+      "reject partial private tampered and unreceipted exports with exact producer diagnostics" in {
+        val cases: Vector[(String, Fixture => Unit)] = Vector(
+          ("malformed-manifest", fixture => _write(fixture.bundle.resolve("manifest.yaml"), "damaged manifest\n")),
+          ("changed-html", fixture => _write(fixture.bundle.resolve("work-products/article-review-html/article-review.html"), "damaged output\n")),
+          ("missing-manifest", fixture => { Files.delete(fixture.bundle.resolve("manifest.yaml")); () }),
+          ("missing-receipt", fixture => { Files.delete(fixture.bundle.resolve("receipt.yaml")); () }),
+          ("missing-html", fixture => { Files.delete(fixture.bundle.resolve("work-products/article-review-html/article-review.html")); () }),
+          ("private-entry", fixture => _write(fixture.bundle.resolve("work-products/private.yaml"), "private: preserved\n"))
+        )
+        cases.foreach { case (name, mutate) =>
+          Given(s"a genuine current native export with $name damage and an existing sibling destination sentinel")
+          _with_fixture(s"bundle-$name") { fixture =>
+            val destination = fixture.taskroot.resolve("prepared")
+            val config = _config(fixture, destination, paired = true)
+            CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration)
+            _write(fixture.taskroot.resolve("existing/sentinel"), "keep existing destination bytes\n")
+            mutate(fixture)
+            val before = _tree(fixture.root)
+
+            When("the unchanged original producer and both actual preparation entry points consume the damaged bundle")
+            val producer = intercept[RuntimeException] { CozyDocumentProjectPublicationTarget.planCurrentRegistration(config.registration) }
+            val api = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparation.prepare(config) }
+            val cli = _dispatch_failure(_preparation_args(fixture, destination))
+
+            Then("exact portable rejection prevents all copied private or partial output and preserves sentinel bytes")
+            producer.getMessage should include("DP-OP-001")
+            api.getMessage shouldBe producer.getMessage
+            cli._1.getMessage shouldBe producer.getMessage
+            cli._2 should not include "status: PREPARED"
+            _require_no_write(fixture, destination, before)
+          }
+        }
+      }
+
+      "reject missing duplicate unsupported and unpaired options through the actual dispatcher" in {
+        Given("a genuine current native fixture, absent preparation destination and an existing sibling sentinel")
+        _with_fixture("cli-rejection") { fixture =>
+          val destination = fixture.taskroot.resolve("prepared")
+          _write(fixture.taskroot.resolve("existing/sentinel"), "keep existing destination bytes\n")
+          val args = _preparation_args(fixture, destination).drop(2)
+          val cases = Vector(
+            args.patch(args.indexOf("--task-root"), Nil, 2),
+            args ++ List("--save", destination.toString),
+            args ++ List("--profile", "standard"),
+            args :+ "--dry-run",
+            args.patch(args.indexOf("--site-config"), Nil, 2)
+          )
+          val before = _tree(fixture.root)
+          cases.foreach { arguments =>
+            When("the real dispatcher receives the same rejected arguments as unchanged native Config.create")
+            val parser = intercept[RuntimeException] { CozyDocumentProjectPublicationPreparationCommand.Config.create(arguments) }
+            val cli = _dispatch_failure(List("media", "prepare-publication") ++ arguments)
+
+            Then("the exact native parser failure escapes without PREPARED or any granted write effect")
+            cli._1.getMessage shouldBe parser.getMessage
+            cli._2 should not include "status: PREPARED"
+            _require_no_write(fixture, destination, before)
+          }
+        }
+      }
+    }
+
     "install verified native export and registry scope" which {
       "retain original paired or absent context and all or exact English resource selection" in {
         Given("a real scaffold, selected native Article review run, public export and prebuilt infographic authority")
@@ -248,7 +526,7 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
     }
   }
 
-  private def _with_fixture(name: String)(body: Fixture => Unit): Unit = {
+  private def _with_fixture(name: String, accepted: Boolean = true, structural: Boolean = false)(body: Fixture => Unit): Unit = {
     val work = Files.createDirectories(Paths.get("target/document-project-publication-preparation-spec/work").toAbsolutePath.normalize())
     val root = Files.createTempDirectory(work, name + "-").toRealPath()
     try {
@@ -259,9 +537,12 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
       _write(projectdescriptor, Files.readString(projectdescriptor, StandardCharsets.UTF_8).replace(
         "activeOptionalWorkProducts: []", "activeOptionalWorkProducts:\n  - article-review-html"
       ))
-      _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+      if (structural) _write_valid_presentation_semantics(project)
       val bundle = root.resolve("portable-bundle")
-      _execute(List("document-project", "export", project.toString, "--target", "simplemodeling-org", "--save", bundle.toString))
+      if (accepted) {
+        _execute(List("document-project", "run", project.toString, "--operation", "article.render-review"))
+        _execute(List("document-project", "export", project.toString, "--target", "simplemodeling-org", "--save", bundle.toString))
+      }
       val media = Files.createDirectory(root.resolve("original-media"))
       val site = media.resolve("publication")
       _write(media.resolve("conf/cozy/config.yaml"), """project:
@@ -300,6 +581,138 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
     } finally _delete(root)
   }
 
+  private def _write_valid_presentation_semantics(project: Path, includeproblemstructure: Boolean = true): Unit = {
+    val slug = project.getFileName.toString.stripSuffix(".dox")
+    val core = project.resolve("content/core-en.yaml")
+    val composition = _fixed_presentation_composition()
+    val problemstructure = _presentation_structure_yaml("problem-structure", "problem-step", "Problem", "The prior reader path was permissive.", "Show the reader-facing problem.")
+    val solutionstructure = _presentation_structure_yaml("solution-structure", "solution-step", "Solution", "The typed path preserves declared content.", "Show the reader-facing solution.")
+    val structures = if (includeproblemstructure) Vector(problemstructure, solutionstructure) else Vector(solutionstructure)
+    val bindings = for {
+      medium <- Vector("article", "slides", "video")
+      logicalpattern <- Vector("sequence", "causal-chain")
+    } yield _presentation_policy_binding_yaml(medium, logicalpattern)
+    val value = s"""schema: cozy.content-core.presentation-semantics.v2
+id: $slug-presentation-en
+contentCore:
+  id: $slug:core:en
+  language: en
+  identity: sha256:${_sha256(core)}
+composition: ${CozyExplanation.canonicalCompositionJson(composition)}
+storyFlow:
+  id: $slug-story-flow-en
+  transitions:
+    - id: problem-causes-solution
+      relationType: causes
+      fromStepId: problem-step
+      toStepId: solution-step
+structures:
+${structures.map(_indent(_, 2)).mkString("\n")}
+projectionPolicy:
+  schema: cozy.content-core.projection-policy.v1
+  id: $slug-projection-policy-en
+  revision: 1
+  bindings:
+${bindings.map(_indent(_, 4)).mkString("\n")}
+"""
+    Files.writeString(project.resolve("content/presentation-semantics-en.yaml"), value, StandardCharsets.UTF_8)
+  }
+
+  private def _fixed_presentation_composition(): CozyExplanation.Composition = {
+    val catalog = CozyExplanation.fixedCatalog
+    val none = Vector.empty[String]
+    val facts = Vector(
+      CozyExplanation.Fact("name", CozyExplanation.JsonString("Cozy"), none, none),
+      CozyExplanation.Fact("vision", CozyExplanation.JsonString("Make presentation semantics explicit"), none, none),
+      CozyExplanation.Fact("goals", CozyExplanation.JsonArray(Vector(_labeled_value("goal", "Reliable plans"))), none, none),
+      CozyExplanation.Fact("context", CozyExplanation.JsonString("Typed document workflow"), none, none),
+      CozyExplanation.Fact("useCases", CozyExplanation.JsonArray(Vector(_labeled_value("use-case", "Explain document semantics"))), none, none),
+      CozyExplanation.Fact("mainScenario", CozyExplanation.JsonObject(Vector(
+        "id" -> CozyExplanation.JsonString("scenario"),
+        "label" -> CozyExplanation.JsonString("Normalize a document"),
+        "steps" -> CozyExplanation.JsonArray(Vector(_labeled_value("scenario-step", "Validate semantics")))
+      )), none, none),
+      CozyExplanation.Fact("mechanisms", CozyExplanation.JsonArray(Vector(_labeled_value("mechanism", "Typed validation"))), none, none)
+    )
+    val problem = CozyExplanation.CompositionStep(
+      "problem-step", 1, "problem",
+      Vector(CozyExplanation.Claim("problem-claim", "The prior reader path was permissive.", "primary", none, none)),
+      _presentation_sequence(), none, none, Vector(CozyExplanation.ParameterSelection("problem"))
+    )
+    val solution = CozyExplanation.CompositionStep(
+      "solution-step", 2, "solution",
+      Vector(CozyExplanation.Claim("solution-claim", "The typed path preserves declared content.", "primary", none, none)),
+      _presentation_causal_chain(), none, none, Vector(CozyExplanation.ParameterSelection("solution"))
+    )
+    CozyExplanation.Composition(
+      "document-composition",
+      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.identity),
+      CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
+      CozyExplanation.Explanation(
+        CozyExplanation.PatternReference("problem-solution", 1),
+        Vector(
+          CozyExplanation.Parameter("problem", CozyExplanation.JsonString("The reader-facing path was permissive.")),
+          CozyExplanation.Parameter("solution", CozyExplanation.JsonString("The sibling schema is typed and closed."))
+        ),
+        Vector(problem, solution)
+      ),
+      Vector.empty,
+      Vector.empty
+    )
+  }
+
+  private def _labeled_value(id: String, label: String): CozyExplanation.JsonValue = CozyExplanation.JsonObject(Vector(
+    "id" -> CozyExplanation.JsonString(id),
+    "label" -> CozyExplanation.JsonString(label),
+    "sourceRefs" -> CozyExplanation.JsonArray(Vector.empty),
+    "assetRefs" -> CozyExplanation.JsonArray(Vector.empty)
+  ))
+
+  private def _presentation_sequence(): CozyVisualPage.Logical = CozyVisualPage.Logical(
+    "sequence",
+    Vector(
+      CozyVisualPage.Node("first", "step", "Reader input", Vector.empty),
+      CozyVisualPage.Node("second", "step", "Typed boundary", Vector.empty)
+    ),
+    Vector(CozyVisualPage.Relation("next", "next", "first", "second", Vector.empty))
+  )
+
+  private def _presentation_causal_chain(): CozyVisualPage.Logical = CozyVisualPage.Logical(
+    "causal-chain",
+    Vector(
+      CozyVisualPage.Node("cause", "cause", "Closed schema", Vector.empty),
+      CozyVisualPage.Node("effect", "effect", "Faithful projection", Vector.empty)
+    ),
+    Vector(
+      CozyVisualPage.Relation("causes", "causes", "cause", "effect", Vector.empty),
+      CozyVisualPage.Relation("enables", "enables", "cause", "effect", Vector.empty)
+    )
+  )
+
+  private def _presentation_structure_yaml(id: String, stepid: String, heading: String, text: String, intent: String): String =
+    s"""- id: $id
+  storyStepId: $stepid
+  article:
+    articleHeading: "$heading"
+    visibleText:
+      - "$text"
+    visualIntent: "$intent"
+  visualOverrides: []"""
+
+  private def _presentation_policy_binding_yaml(medium: String, logicalpattern: String): String =
+    s"""- medium: $medium
+  logicalPattern: $logicalpattern
+  visual:
+    pattern: flow-horizontal
+    parameters:
+      showRelationLabels: true"""
+
+  private def _indent(value: String, spaces: Int): String =
+    value.linesIterator.map(line => (" " * spaces) + line).mkString("\n")
+
+  private def _sha256(path: Path): String =
+    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
+
   private def _infographic_yaml(locale: String): String =
     s"""  - id: summary-$locale
        |    kind: infographic
@@ -316,11 +729,45 @@ final class CozyDocumentProjectPublicationPreparationSpec extends AnyWordSpec wi
        |      alt: Original summary
        |""".stripMargin
 
-  private def _execute(args: List[String]): Unit = {
+  private def _execute(args: List[String]): Unit = { _execute_output(args); () }
+
+  private def _execute_output(args: List[String]): String = {
     val bytes = new ByteArrayOutputStream()
     Console.withOut(new PrintStream(bytes, true, "UTF-8")) {
       CozyDocumentProject.execute(args) shouldBe true
     }
+    bytes.toString("UTF-8")
+  }
+
+  private def _capture_failure(action: => Unit): (RuntimeException, String) = {
+    val bytes = new ByteArrayOutputStream()
+    val failure = Console.withOut(new PrintStream(bytes, true, "UTF-8")) {
+      intercept[RuntimeException] { action }
+    }
+    failure -> bytes.toString("UTF-8")
+  }
+
+  private def _dispatch_failure(args: List[String]): (RuntimeException, String) =
+    _capture_failure { CozyMediaDispatcher.execute(args, CozyMedia.ProcessRunner.default) shouldBe true }
+
+  private def _export_args(fixture: Fixture): List[String] =
+    List("document-project", "export", fixture.project.toString, "--target", "simplemodeling-org", "--save", fixture.bundle.toString)
+
+  private def _preparation_args(fixture: Fixture, destination: Path): List[String] =
+    List("media", "prepare-publication", fixture.descriptor.toString, "--project", fixture.project.toString,
+      "--bundle", fixture.bundle.toString, "--task-root", fixture.taskroot.toString, "--save", destination.toString,
+      "--site-root", fixture.site.toString, "--site-config", fixture.site.resolve("site.conf").toString)
+
+  private def _require_unexecuted(fixture: Fixture): Unit = {
+    Files.exists(fixture.project.resolve("evidence/attempts"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+    Files.exists(fixture.project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+    Files.exists(fixture.bundle, LinkOption.NOFOLLOW_LINKS) shouldBe false
+  }
+
+  private def _require_no_write(fixture: Fixture, destination: Path, before: Map[String, Vector[Byte]]): Unit = {
+    _tree(fixture.root) shouldBe before
+    Files.exists(destination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+    _children(fixture.taskroot).exists(_.getFileName.toString.startsWith("publication-preparation-")) shouldBe false
   }
 
   private def _dispatch(args: List[String]): (Boolean, String) = {
