@@ -13,7 +13,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 21, 2026
  *  version Jun. 29, 2026
- * @version Jul.  1, 2026
+ *  version Jul.  1, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec
@@ -1233,40 +1234,40 @@ class CozyBokDashboardSpec
             """<html lang="en">"""
           )
           _read(dir.resolve("website.d/ja/index.html")) should include(
-            """href="../_/css/bootstrap-grid.min.css""""
+            """href="_/css/bootstrap-grid.min.css""""
           )
           _read(dir.resolve("website.d/ja/index.html")) should include(
-            """href="../_/css/site.css""""
+            """href="_/css/site.css""""
           )
           _read(dir.resolve("website.d/ja/index.html")) should include(
-            """href="../_/css/cozy-bok-dashboard.css""""
+            """href="_/css/cozy-bok-dashboard.css""""
           )
           _read(dir.resolve("website.d/en/index.html")) should include(
+            """href="_/css/bootstrap-grid.min.css""""
+          )
+          _read(dir.resolve("website.d/en/index.html")) should include(
+            """href="_/css/site.css""""
+          )
+          _read(dir.resolve("website.d/en/index.html")) should include(
+            """href="_/css/cozy-bok-dashboard.css""""
+          )
+          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
             """href="../_/css/bootstrap-grid.min.css""""
           )
-          _read(dir.resolve("website.d/en/index.html")) should include(
+          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
             """href="../_/css/site.css""""
           )
-          _read(dir.resolve("website.d/en/index.html")) should include(
+          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
             """href="../_/css/cozy-bok-dashboard.css""""
           )
-          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
-            """href="../../_/css/bootstrap-grid.min.css""""
-          )
-          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
-            """href="../../_/css/site.css""""
-          )
-          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
-            """href="../../_/css/cozy-bok-dashboard.css""""
+          _read(dir.resolve("website.d/en/concept/index.html")) should include(
+            """href="../_/css/bootstrap-grid.min.css""""
           )
           _read(dir.resolve("website.d/en/concept/index.html")) should include(
-            """href="../../_/css/bootstrap-grid.min.css""""
-          )
-          _read(dir.resolve("website.d/en/concept/index.html")) should include(
-            """href="../../_/css/site.css""""
+            """href="../_/css/site.css""""
           )
           _read(dir.resolve("website.d/en/glossary/index.html")) should include(
-            """href="../../_/css/site.css""""
+            """href="../_/css/site.css""""
           )
           _read(dir.resolve("website.d/ja/index.html")) should include(
             "日本語ホーム本文"

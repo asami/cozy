@@ -29,6 +29,8 @@ import scala.sys.process._
 import io.circe.{Decoder, HCursor, Json}
 import io.circe.parser
 import io.circe.syntax._
+import org.yaml.snakeyaml.{LoaderOptions, Yaml}
+import org.yaml.snakeyaml.constructor.SafeConstructor
 
 /*
  * @since   Aug. 14, 2026
@@ -473,7 +475,7 @@ private[cozy] trait CozyBokSitePages {
                       _ui(locale, "dashboard.kpi.categories") -> categorycount.toString
                     )
                   )}
-       |          ${_article_dashboard_body(locale, articles)}
+       |          ${_article_dashboard_body(locale, articles, _article_notice_media(config, locale))}
        |        </section>
        |      </article>
        |    </div>
@@ -534,7 +536,92 @@ private[cozy] trait CozyBokSitePages {
     path != "index.html"
   }
 
-  private def _article_dashboard_body(locale: String, articles: Vector[ArticleIndexItem]): String = {
+  private final case class ArticleCardMediaLink(href: String, label: String, mediatype: Option[String])
+
+  private def _article_notice_media(config: BuildConfig, locale: String): Map[String, Vector[ArticleCardMediaLink]] = {
+    val directory = config.doxsitePath.resolve("WEB-INF/data").resolve(locale)
+    if (!Files.isDirectory(directory))
+      Map.empty
+    else {
+      val stream = Files.list(directory)
+      try {
+        val entries = stream.iterator.asScala.filter(path =>
+          Files.isRegularFile(path) && path.getFileName.toString.matches("notice[0-9]+\\.yaml")
+        ).toVector.sortBy(_.getFileName.toString).map { path =>
+          try {
+            val options = new LoaderOptions()
+            options.setAllowDuplicateKeys(false)
+            val notice = _article_notice_map(new Yaml(new SafeConstructor(options)).load[Any](Files.readString(path, StandardCharsets.UTF_8)), "Notice")
+            val uri = _article_notice_string(notice, "notice.uri").getOrElse(
+              throw new IllegalArgumentException("Missing notice.uri")
+            )
+            val links = notice.get("notice.media").map { value =>
+              val media = _article_notice_map(value, "notice.media")
+              val pdfs = Vector(
+                "article_pdf" -> (if (locale == "ja") "記事 PDF" else "Article PDF"),
+                "summary_slides_pdf" -> (if (locale == "ja") "要約スライド PDF" else "Summary slides PDF")
+              ).flatMap { case (role, defaultlabel) =>
+                media.get(role).flatMap { value =>
+                  val pdf = _article_notice_map(value, role)
+                  val href = _article_notice_string(pdf, "public_path").getOrElse(throw new IllegalArgumentException(s"Missing $role public_path"))
+                  if (!_article_notice_string(pdf, "media_type").contains("application/pdf"))
+                    throw new IllegalArgumentException(s"$role media_type must be application/pdf")
+                  val label = _article_notice_string(pdf, "label").getOrElse(defaultlabel)
+                  _article_media_safe_url(href).map(ArticleCardMediaLink(_, label, Some("application/pdf")))
+                }
+              }
+              val video = media.get("video").flatMap { value =>
+                val item = _article_notice_map(value, "video")
+                if (!_article_notice_string(item, "status").contains("published")) None
+                else {
+                  val key = _article_notice_string(item, "presentation") match {
+                    case Some("external-link") => "watch_url"
+                    case Some("site-hosted") => "content_url"
+                    case _ => throw new IllegalArgumentException("Unknown published video presentation")
+                  }
+                  val href = _article_notice_string(item, key).getOrElse(throw new IllegalArgumentException(s"Missing video $key"))
+                  _article_media_safe_url(href).map(ArticleCardMediaLink(_, if (locale == "ja") "動画" else "Video", None))
+                }
+              }
+              pdfs ++ video.toVector
+            }.getOrElse(Vector.empty)
+            uri.stripPrefix("/") -> links
+          } catch {
+            case NonFatal(error) => throw new IllegalArgumentException(s"Malformed article media Notice $path: ${error.getMessage}", error)
+          }
+        }
+        if (entries.map(_._1).distinct.size != entries.size)
+          throw new IllegalArgumentException(s"Duplicate article URI in native Notices: $directory")
+        entries.toMap
+      } finally stream.close()
+    }
+  }
+
+  private def _article_notice_map(value: Any, field: String): Map[String, Any] = value match {
+    case map: java.util.Map[_, _] => map.asScala.map {
+      case (key: String, item) => key -> item
+      case _ => throw new IllegalArgumentException(s"$field keys must be strings")
+    }.toMap
+    case _ => throw new IllegalArgumentException(s"$field must be a mapping")
+  }
+
+  private def _article_notice_string(value: Map[String, Any], field: String): Option[String] =
+    value.get(field).map {
+      case text: String if text.trim.nonEmpty => text
+      case _ => throw new IllegalArgumentException(s"$field must be a nonblank string")
+    }
+
+  private def _article_media_safe_url(value: String): Option[String] = {
+    try {
+      val uri = new java.net.URI(value)
+      val safe = !value.exists(c => c.isControl || c.isWhitespace || c == '\\') &&
+        ((value.startsWith("/") && !value.startsWith("//") && uri.getRawAuthority == null && uri.getScheme == null) ||
+          (Option(uri.getScheme).exists(_.equalsIgnoreCase("https")) && uri.getHost != null))
+      if (safe) Some(value) else None
+    } catch { case NonFatal(_) => None }
+  }
+
+  private def _article_dashboard_body(locale: String, articles: Vector[ArticleIndexItem], media: Map[String, Vector[ArticleCardMediaLink]]): String = {
     val progress = _term_extraction_progress_card(
       locale,
       articles.count(x => x.termextraction.isPlanned && _is_term_extraction_done(x.termextraction)),
@@ -542,12 +629,18 @@ private[cozy] trait CozyBokSitePages {
     )
     val articlecards = articles.map { article =>
       val brief = if (article.brief.trim.isEmpty) "" else s"""<p>${_html_escape(article.brief)}</p>"""
+      val medialinks = media.getOrElse(article.hreffromarticleindex.stripPrefix("../").stripPrefix("/"), Vector.empty).map { link =>
+        val mediatype = link.mediatype.map(x => s""" type="${_html_escape(x)}"""").getOrElse("")
+        s"""<li><a href="${_html_escape(link.href)}"${mediatype}>${_html_escape(link.label)}</a></li>"""
+      }
+      val mediahtml = if (medialinks.isEmpty) "" else medialinks.mkString("<ul class=\"bok-article-media-links\">", "", "</ul>")
       s"""<article class="bok-article-tile" data-article-category="${_html_escape(article.categoryslug)}">
          |  <div class="bok-article-tile-head">
          |    <span class="badge bok-badge-info">${_html_escape(article.categorytitle)}</span>
          |  </div>
          |  <h3><a href="${_html_escape(article.hreffromarticleindex)}">${_html_escape(article.title)}</a></h3>
          |  ${brief}
+         |  ${mediahtml}
          |</article>""".stripMargin
     }
     val body =

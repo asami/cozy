@@ -1,14 +1,16 @@
 # Phase 75 Checklist: Effective SmartDox Content Boundary and Kroki Site-Port Alignment
 
-Phase status: in progress / Step 75.1 independently accepted
+Phase status: in progress / Steps 75.1 and 75.2 accepted; 75.3 actual-site acceptance pending
 Ledger for: [Phase 75](phase-75.md)
 
 Current status: Step 75.1 implementation, focused producer/consumer validation,
 and local SmartDox dependency refresh are recorded in workflow evidence.
 Independent Step 75.1 review passed. Step 75.2 focused validation passed all
 71 tests for Kroki, CSS paths, and Arcadia composition. Its independent review
-and local commit are recorded in the Step 75.2 workflow result. Step 75.3
-actual site/browser and article-card media verification remain pending.
+and local commit are recorded in the Step 75.2 workflow result. Step 75.3's
+native Notice-to-card repair passes focused tests and fixture browser checks.
+Actual-site identity, Arcadia presentation, and complete Step acceptance remain
+pending.
 Owner: Cozy, with SmartDox owning the effective-content and parser contract.
 Update rule: check an item only when its required acceptance evidence is
 verified; record the accepted Step/release commit as its closure basis.
@@ -19,6 +21,13 @@ Cozy consumer tests, and independent protected review with no blockers.
 Step 75.2 adds 71 passing focused tests, including exact-byte Arcadia
 preservation, partial-output fallback, and disabled-Arcadia controls. The
 actual HTTP/browser portions of COZY-75-06/07 remain unchecked for Step 75.3.
+The bounded Step 75.3 repair adds 19 passing tests across the native card,
+existing dashboard, and article-media acceptance specifications. Its generated
+JA/EN fixture has six visible media links, six loaded locale-local stylesheets,
+and 14 successful HTTP responses. Both video resources reach browser readiness
+state 4 without errors. All four PDF links navigate to their expected URLs and
+their files parse as one-page PDFs; PDF content rendering in the verification
+browser remains unverified because its viewer stays blank.
 Unchecked items and Phase release remain pending. No publication or deployment
 has occurred.
 
@@ -116,6 +125,17 @@ has occurred.
       distinguish the intended Arcadia page from a merely styled Dashboard.
 
 ## COZY-75-08: Article-card media links
+
+Native BoK repair evidence: `_article_dashboard_body` previously rendered only
+article navigation and brief text, discarding the producer's existing
+`notice.media`. Cards now consume the matching article's direct, exact-locale
+Notice, preserve PDF labels and canonical URLs, and show published video links.
+Focused controls cover missing roles, unpublished video, unsafe URLs, malformed
+metadata, alternate-locale isolation, and single-locale compatibility. This
+evidence uses actual `DoxSiteGenerator` output from the persistent bilingual
+fixture and a private publication copy. It does not identify or verify the
+reported production card page. The actual project/output path and reported
+page identity are still needed before closing the following acceptance items.
 
 - [ ] Reproduce the reported missing or incorrect article-card links for the
       article PDF, summary-slide PDF, and video; identify the cause across
