@@ -8,10 +8,13 @@ producer_dependency=SmartDox effective-content contract
 
 Planned at: 2026-09-28
 Development item: Step 75.1 implemented, focused-validated, and accepted by
-independent Step review. Steps 75.2 and 75.3 are not started.
+independent Step review. Step 75.2 implements the Kroki-port, locale CSS,
+and Arcadia composition repairs, with 71 focused tests passing. Step 75.3
+remains pending for actual site/browser and article-card media verification.
 
 Current status: in progress; Step 75.1 acceptance is recorded by its local
-acceptance commit. Phase release remains pending.
+acceptance commit. Step 75.2 validation passed; independent review and local
+commit are recorded in the Step 75.2 workflow result. Phase release remains pending.
 Owner: Cozy, with SmartDox as the Step 75.1 producer.
 Update rule: update progress from verified workflow evidence; mark acceptance
 only after the corresponding independent review and local acceptance commit.

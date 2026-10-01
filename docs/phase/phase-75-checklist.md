@@ -5,7 +5,10 @@ Ledger for: [Phase 75](phase-75.md)
 
 Current status: Step 75.1 implementation, focused producer/consumer validation,
 and local SmartDox dependency refresh are recorded in workflow evidence.
-Independent Step 75.1 review passed. Steps 75.2 and 75.3 remain pending.
+Independent Step 75.1 review passed. Step 75.2 focused validation passed all
+71 tests for Kroki, CSS paths, and Arcadia composition. Its independent review
+and local commit are recorded in the Step 75.2 workflow result. Step 75.3
+actual site/browser and article-card media verification remain pending.
 Owner: Cozy, with SmartDox owning the effective-content and parser contract.
 Update rule: check an item only when its required acceptance evidence is
 verified; record the accepted Step/release commit as its closure basis.
@@ -13,6 +16,9 @@ verified; record the accepted Step/release commit as its closure basis.
 Closure basis: Step 75.1's local acceptance commit records the checked items,
 149 passing parser tests, 44 passing producer integration tests, 9 passing
 Cozy consumer tests, and independent protected review with no blockers.
+Step 75.2 adds 71 passing focused tests, including exact-byte Arcadia
+preservation, partial-output fallback, and disabled-Arcadia controls. The
+actual HTTP/browser portions of COZY-75-06/07 remain unchecked for Step 75.3.
 Unchecked items and Phase release remain pending. No publication or deployment
 has occurred.
 
@@ -20,7 +26,7 @@ has occurred.
 
 - [x] Freeze the exact SmartDox effective-document/content API and the
       participating source roots before changing either producer or consumer.
-- [ ] Inventory the separate Cozy candidate diff and freeze the exact admitted
+- [x] Inventory the separate Cozy candidate diff and freeze the exact admitted
       Kroki-port, CSS-reference, and Arcadia page-preservation files; preserve
       unrelated changes in that source tree.
 - [x] Record the exact SmartDox development coordinate and the Cozy consumer
@@ -82,28 +88,29 @@ has occurred.
 
 ## COZY-75-05: Kroki adapter
 
-- [ ] Change the Docker Antora launch environment in `CozyBokSiteBuild` from
+- [x] Change the Docker Antora launch environment in `CozyBokSiteBuild` from
       `SMARTDOX_KROKI_PORT=9609` to `SMARTDOX_KROKI_PORT=8000`.
-- [ ] Update the focused `CozyBokSpec` launch-contract assertion and prove
+- [x] Update the focused `CozyBokSpec` launch-contract assertion and prove
       that the obsolete port is absent.
-- [ ] Preserve the existing configured toolchain-image propagation and all
+- [x] Preserve the existing configured toolchain-image propagation and all
       unrelated media-site behavior.
 
 ## COZY-75-06: Locale-local CSS assets
 
-- [ ] Prove that JA/EN home and nested pages resolve CSS links against their
+- [x] Prove that JA/EN home and nested pages resolve CSS links against their
       locale-local Antora asset root, not the canonical website root.
-- [ ] Cover single-locale output as an unchanged compatibility control.
+- [x] Cover single-locale output as an unchanged compatibility control.
 - [ ] Verify the actual generated stylesheet URLs return successfully over
       HTTP and the intended pages display correctly in a browser.
 
 ## COZY-75-07: Arcadia page preservation
 
-- [ ] Preserve the established Arcadia root and JA/EN home pages instead of
+- [x] Preserve the established Arcadia root and JA/EN home pages instead of
       overwriting locale homes with generated BoK Dashboards.
-- [ ] Preserve Arcadia-owned category indexes and verify their intended
-      content and presentation.
-- [ ] Keep existing generated BoK behavior for non-Arcadia sites and for
+- [x] Preserve Arcadia-owned category indexes with exact-byte regression
+      evidence. Actual content/presentation browser verification remains
+      pending in Step 75.3.
+- [x] Keep existing generated BoK behavior for non-Arcadia sites and for
       destinations not owned by an Arcadia page.
 - [ ] Add focused page-composition regression evidence; browser checks must
       distinguish the intended Arcadia page from a merely styled Dashboard.
@@ -123,7 +130,7 @@ has occurred.
 
 - [x] Record focused SmartDox producer evidence for the effective-content and
       public-content closure and include-compatibility contract.
-- [ ] Record focused Cozy consumer and Kroki-launch evidence against the exact
+- [x] Record focused Cozy consumer and Kroki-launch evidence against the exact
       accepted dependency coordinate.
 - [ ] Record locale-local CSS and Arcadia page-preservation regression
       evidence, including the actual JA/EN home and category browser results.

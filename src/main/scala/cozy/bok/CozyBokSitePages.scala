@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -58,7 +58,8 @@ private[cozy] trait CozyBokSitePages {
   private def _write_home_page(config: BuildConfig, target: Path, locale: String): Unit =
     {
       val page = target.resolve("index.html")
-      _write_text(
+      if (!_arcadia_owns_page(config, page))
+        _write_text(
         page,
       s"""<!doctype html>
          |<html lang="${_html_escape(locale)}">
@@ -118,11 +119,19 @@ private[cozy] trait CozyBokSitePages {
     val categories = _category_contents(config.sourcepath)
     categories.foreach { category =>
       val page = target.resolve(category.slug).resolve("index.html")
-      _write_text(
-        page,
-        _category_html_page(config, category, categories, locale, page)
-      )
+      if (!_arcadia_owns_page(config, page))
+        _write_text(
+          page,
+          _category_html_page(config, category, categories, locale, page)
+        )
     }
+  }
+
+  private def _arcadia_owns_page(config: BuildConfig, page: Path): Boolean = {
+    val website = config.websitePath.toAbsolutePath.normalize
+    val destination = page.toAbsolutePath.normalize
+    config.arcadia.enabled && destination.startsWith(website) &&
+      Files.isRegularFile(config.arcadiaSitePath.resolve(website.relativize(destination)))
   }
 
   private def _write_special_pages(
@@ -206,7 +215,7 @@ private[cozy] trait CozyBokSitePages {
     categories: Vector[CategoryContent]
   ): Unit = {
     _remove_category_index_nav_items(target, categories)
-    _inject_antora_knowledge_tag_chips(config, target, locale)
+    _inject_antora_knowledge_tag_chips(config, target, locale, categories)
     _inject_antora_sie_term_links(config, target, locale)
     _inject_antora_sie_scenario_links(config, target, locale)
   }
@@ -235,7 +244,15 @@ private[cozy] trait CozyBokSitePages {
       }
     }
 
-  private def _inject_antora_knowledge_tag_chips(config: BuildConfig, target: Path, locale: String): Unit = {
+  private def _inject_antora_knowledge_tag_chips(
+    config: BuildConfig,
+    target: Path,
+    locale: String,
+    categories: Vector[CategoryContent]
+  ): Unit = {
+    val protectedpages = (Vector(target.resolve("index.html"), target.resolve("category/index.html")) ++
+      categories.map(category => target.resolve(category.slug).resolve("index.html"))).
+      map(_.toAbsolutePath.normalize).toSet
     val tagsbyhref = _tag_index(config, locale).tags.flatMap { tag =>
       tag.refs.collect {
         case ref if _is_antora_knowledge_tag_ref(ref) => ref.href -> tag
@@ -246,7 +263,8 @@ private[cozy] trait CozyBokSitePages {
     tagsbyhref.foreach {
       case (href, tags) =>
         val page = target.resolve(href)
-        if (Files.isRegularFile(page)) {
+        if (Files.isRegularFile(page) &&
+            !(protectedpages.contains(page.toAbsolutePath.normalize) && _arcadia_owns_page(config, page))) {
           val content = Files.readString(page, StandardCharsets.UTF_8)
           if (!content.contains("bok-knowledge-tag-chip-list")) {
             val chips = _knowledge_tag_chips_for_entries(target, page, tags, locale)
@@ -353,10 +371,11 @@ private[cozy] trait CozyBokSitePages {
     categories: Vector[CategoryContent]
   ): Unit = {
     val page = target.resolve("category").resolve("index.html")
-    _write_text(
-      page,
-      _category_index_page(config, categories, locale, page)
-    )
+    if (!_arcadia_owns_page(config, page))
+      _write_text(
+        page,
+        _category_index_page(config, categories, locale, page)
+      )
   }
 
   private def _category_index_page(

@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -73,8 +73,17 @@ private[cozy] trait CozyBokDashboardCore {
     if (_dashboard_color_groups.contains(normalized)) normalized else "aurora"
   }
 
-  private def _site_asset_href(config: BuildConfig, page: Path, path: String): String =
-    _site_root_prefix(config, page) + path
+  private def _site_asset_href(config: BuildConfig, page: Path, path: String): String = {
+    val website = config.websitePath.toAbsolutePath.normalize
+    val normalizedpage = page.toAbsolutePath.normalize
+    val root = config.localeMode match {
+      case LocaleMode.SingleLocaleRoot => website
+      case LocaleMode.MultiLocaleSubdirs =>
+        config.languages.map(lang => website.resolve(lang).normalize).
+          find(normalizedpage.startsWith(_)).getOrElse(website)
+    }
+    _relative_href(page, root.resolve(path))
+  }
 
   private[bok] def _relative_href(page: Path, destination: Path): String =
     page.toAbsolutePath.normalize.getParent.relativize(destination.toAbsolutePath.normalize).toString.replace(java.io.File.separatorChar, '/')

@@ -16,7 +16,8 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -1858,7 +1859,7 @@ class CozyBokSpec
             "Docker Antora starts the internal Kroki server on SmartDox's Antora port"
           )
           runner.commands.exists(cmd =>
-            cmd.contains("SMARTDOX_KROKI_PORT=9609") &&
+            cmd.contains("SMARTDOX_KROKI_PORT=8000") &&
               cmd.contains("SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev")
           ) shouldBe true
         }
