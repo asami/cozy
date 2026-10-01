@@ -1,11 +1,11 @@
 package cozy.media
 
 import org.goldenport.RAISE
-import cozy.publication.{CozyArticleMediaSiteCommand, CozyArticleMediaWipCommand}
+import cozy.publication.{CozyArticleMediaSiteCommand, CozyArticleMediaWipCommand, CozyDocumentProjectPublicationPreparationCommand}
 
 /*
  * @since   Sep. 2, 2026
- * @version Sep. 2, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaDispatcher {
@@ -61,6 +61,9 @@ private[cozy] object CozyMediaDispatcher {
         true
       case "media" :: "register-site" :: rest =>
         println(CozyArticleMediaSiteCommand.execute(rest))
+        true
+      case "media" :: "prepare-publication" :: rest =>
+        println(CozyDocumentProjectPublicationPreparationCommand.execute(rest))
         true
       case "media" :: "register-site-wip" :: rest =>
         println(CozyArticleMediaWipCommand.execute(rest))

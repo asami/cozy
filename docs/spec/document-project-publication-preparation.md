@@ -2,9 +2,12 @@
 
 ## Status and authority
 
-Phase 57.3 P573-01 specifies this native client boundary; P573-02 delivers the
-implementation and P573-03 its failure proof. This specification does not claim
-that the installed Cozy already exposes the preparation command. Until it does,
+Phase 57.3 P573-01 specifies this native client boundary. P573-02 now authors the
+API, media command and bounded executable proof described below; behavior remains
+pending validation and review until actual evidence is recorded. The full
+provider, Work Product and currentness failure matrix, and installed skill
+capability completion, belong to P573-03. This specification does not claim that
+the installed Cozy already exposes the preparation command. Until it does,
 clients report missing preparation-client capability and stop without a legacy
 adapter fallback.
 
@@ -32,6 +35,30 @@ cozy document-project export <canonical.dox> --target simplemodeling-org --save 
 cozy media prepare-publication <media-file> --project <canonical.dox> --bundle <verified-public-export> --task-root <existing canonical task-private root> --save <absent direct child> [--target <media-resource>] [--site-root <canonical paired root> --site-config <canonical paired config>]
 ```
 
+`CozyDocumentProjectPublicationPreparationCommand.Config.create(List[String])`
+parses exactly one media-file and the four required named options into the API
+configuration. Options accept both `--name value` and `--name=value` in any
+order. Missing, duplicate, empty, null and unknown inputs, extra positionals,
+`--dry-run`, `--profile` and `--publication` are rejected. Host paths normalize
+absolute; paired site paths must already be absolute. Canonical source/site
+admission remains with the unchanged producers. `execute(args)` and
+`execute(config)` call preparation and render only a completed installed result:
+
+```text
+Cozy Media Prepare Publication
+status: PREPARED
+root: <installed prepared-root>
+export: <installed prepared-root>/export
+registry:
+  - <installed prepared-root>/<native registry bundle>.json
+```
+
+`Prepared(root: Path, exportRoot: Path, registryPaths: Vector[Path])` contains
+actual installed paths. Registry filenames come from the existing registry
+loader's bundle names; the client adds no parser or schema. Producer failures
+escape unchanged before any successful command output; the invoking skill
+reports `BLOCKED` for a failed native command.
+
 The producer-native operation resolution and actual run result govern progress.
 Missing providers/capabilities, blocked required Work Products, failed native
 execution, or invalid evidence stop before export or preparation. Structural
@@ -53,29 +80,37 @@ separate authorization and are outside this preparation boundary.
 
 ## Required preparation call order
 
-1. Call `planCurrentRegistration(config.registration)` before any destination
-   write. Consume its fresh producer evidence; do not parse hashes, replace
+1. After rejecting a null Config, call
+   `planCurrentRegistration(config.registration)` before any task-root or
+   destination mutation. Consume its fresh producer evidence; do not parse hashes, replace
    descriptors, synthesize receipts, or duplicate currentness authority.
-2. Validate `taskRoot` as an existing direct canonical directory. Require an
-   absent destination that is its direct child, disjoint from the project,
-   source export bundle, media descriptor/context/profile, and site roots.
+2. Validate normalized absolute `taskRoot` as an existing direct non-symlink
+   directory whose real path equals its normalized path. Require a destination
+   absent under `NOFOLLOW_LINKS` that is its direct child. Reject containment in
+   either direction between either output boundary and producer-returned project,
+   source export bundle, media descriptor roots/identities, effective profile
+   roots/identities, configured project/profile inputs, and optional site
+   root/config/source.
    Original paired site options remain paired and canonical; absent context
    remains absent without invented defaults.
 3. Immediately before relying on source bytes, call
    `revalidateCurrentRegistration` and consume the returned fresh value.
-4. Prepare under an owned temporary child of `taskRoot`. Copy exactly the
+4. Allocate one owned `Files.createTempDirectory` child of `taskRoot`. Copy exactly the
    admitted manifest, receipt, and article-review HTML into the layout below;
    do not copy an arbitrary tree or private source/evidence. Producer
    `CozyDocumentProjectExport.verifyBundle` and target `admit` must accept the
-   copied bundle with evidence equal to the original verified bundle.
+   copied bundle with evidence equal to the fresh original verified bundle.
+   Use `Files.copy` for only these three files; copy no media or site authority.
 5. Call unchanged `CozyArticleMediaSiteCommand.execute` with its `Config`, the
    prepared root as `publicationRoot`, and original descriptor, media resource,
    and paired site inputs. Do not create compatibility descriptors or copy
    authority into the preparation.
 6. Immediately before success installation, revalidate the original current
-   registration again. Reject an existing destination and atomically rename
-   the complete preparation into the absent destination. Return the actual
-   prepared export and native registry paths.
+   registration again. The sole package-private specification callback runs
+   after site registration immediately before this check; production delegates
+   to the same overload with a no-op. Reject an existing destination under
+   `NOFOLLOW_LINKS` and use `Files.move` with `ATOMIC_MOVE`, without replacement
+   or fallback. Return only the complete installed export and registry paths.
 
 ## Prepared layout and proven scope
 
@@ -101,11 +136,14 @@ production build.
 Producer/capability/currentness failures report `BLOCKED` with their exact
 diagnostics and offending facets; unsupported operations and dry-runs never
 become success. Planning and input rejection perform no destination write. A
-later failure removes only the client's owned temporary preparation, leaves no
+later failure removes only the client's owned temporary preparation without
+following symlinks, leaves no
 partial installed destination, and preserves source project, source export,
 original media/site authority, and any existing destination bytes. Propagate
 fresh producer diagnostics without synthetic attempts, receipts, currentness,
-or success claims. The skill performs no direct evidence editing, adoption,
+or success claims. If cleanup fails, attach that error as suppressed on the
+original failure. Never remove a preexisting destination or original source.
+The skill performs no direct evidence editing, adoption,
 hash parsing, receipt synthesis, or copy workaround.
 
 Execution assumes a single developer does not concurrently mutate source
@@ -118,3 +156,18 @@ are allowed, but PDF/slide/Web/video inspection-only rasterization, video-frame
 extraction, and montage QA are excluded. Structural skill acceptance validates
 frontmatter and agent-interface YAML only; genuine native behavior proof belongs
 to P573-02/03.
+
+## Executable preparation proof
+
+[CozyDocumentProjectPublicationPreparationSpec](../../src/test/scala/cozy/publication/CozyDocumentProjectPublicationPreparationSpec.scala)
+authors five bounded native scenarios: paired/absent original context with
+all/exact English selection and exact portable export/strict registry metadata;
+six ScalaCheck dispatcher permutations with split/equal-value options; existing
+destination preservation; missing/file/aliased/non-direct/source-overlapping
+output rejection; and a controlled authored source change before final
+revalidation that propagates the fresh producer diagnostic and cleans only
+owned temporary output. Fixtures scaffold a real Document Project, select
+Article review, execute its native run, and export through the unchanged
+producer. Prebuilt PNG bytes are admitted media evidence, never native receipt
+substitutes. These authored scenarios remain pending parent validation/review;
+they do not claim the P573-03 full failure matrix or installed skill acceptance.

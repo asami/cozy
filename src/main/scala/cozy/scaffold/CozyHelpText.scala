@@ -4,7 +4,8 @@ package cozy.scaffold
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
  *  version Sep. 11, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -265,6 +266,9 @@ private[cozy] object CozyHelpText {
       |
       |  media register-site <media-file> --publication <dir> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]
       |      Register declared published site-media evidence as provider-neutral SmartDox article-media metadata.
+      |
+      |  media prepare-publication <media-file> --project <canonical.dox> --bundle <verified-export> --task-root <existing-canonical-dir> --save <absent-direct-child> [--target <resource-id>] [--site-root <dir> --site-config <file>]
+      |      Atomically prepare only a task-private verified public export and native article-media registry. PREPARED reports installed paths and this bounded scope.
       |
       |  media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]
       |      Install validated local WIP video and register provider-neutral SmartDox article-media metadata.
