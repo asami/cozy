@@ -1,71 +1,83 @@
 # Phase 75 Checklist: Effective SmartDox Content Boundary and Kroki Site-Port Alignment
 
-Phase status: planned / not started
+Phase status: in progress / Step 75.1 independently accepted
 Ledger for: [Phase 75](phase-75.md)
 
-This is a planning ledger only.  No implementation, validation, review,
-commit, dependency refresh, publication, or deployment is recorded here.
+Current status: Step 75.1 implementation, focused producer/consumer validation,
+and local SmartDox dependency refresh are recorded in workflow evidence.
+Independent Step 75.1 review passed. Steps 75.2 and 75.3 remain pending.
+Owner: Cozy, with SmartDox owning the effective-content and parser contract.
+Update rule: check an item only when its required acceptance evidence is
+verified; record the accepted Step/release commit as its closure basis.
+
+Closure basis: Step 75.1's local acceptance commit records the checked items,
+149 passing parser tests, 44 passing producer integration tests, 9 passing
+Cozy consumer tests, and independent protected review with no blockers.
+Unchecked items and Phase release remain pending. No publication or deployment
+has occurred.
 
 ## Entry
 
-- [ ] Freeze the exact SmartDox effective-document/content API and the
+- [x] Freeze the exact SmartDox effective-document/content API and the
       participating source roots before changing either producer or consumer.
 - [ ] Inventory the separate Cozy candidate diff and freeze the exact admitted
       Kroki-port, CSS-reference, and Arcadia page-preservation files; preserve
       unrelated changes in that source tree.
-- [ ] Record the exact SmartDox development coordinate and the Cozy consumer
+- [x] Record the exact SmartDox development coordinate and the Cozy consumer
       baseline used for focused evidence.
 
 ## SDX-75-01: Effective document identity
 
-- [ ] Specify and implement a single effective-content accessor for public
+- [x] Specify and implement a single effective-content accessor for public
       Dox sources.
-- [ ] Prove that `<slug>.dox/index.dox` resolves as logical `<slug>.dox` and
+- [x] Prove that `<slug>.dox/index.dox` resolves as logical `<slug>.dox` and
       public `<slug>.html`, while ordinary `<slug>.dox` behavior is unchanged.
-- [ ] Keep the accessor as the sole owner of physical-package interpretation.
+- [x] Keep the accessor as the sole owner of physical-package interpretation.
 
 ## SDX-75-02: Fixed public-content closure
 
-- [ ] Route LinkCollection, Antora projection, route metadata, and site-link
+- [x] Route LinkCollection, Antora projection, route metadata, and site-link
       resolution through the effective-content accessor.
-- [ ] Enumerate only the declared inputs of a `<slug>.dox/` package; do not
+- [x] Enumerate only the declared inputs of a `<slug>.dox/` package; do not
       recursively scan descendants for Markdown or Dox parser candidates.
-- [ ] Add a regression fixture whose unselected package descendant contains a
+- [x] Add a regression fixture whose unselected package descendant contains a
       bare `_source` key and prove that public output and links remain correct
       without altering that file.  A `review/` note is one representative case,
       not a special exclusion rule.
 
 ## SDX-75-03: Markdown source parsing
 
-- [ ] Select parsing only after an explicit package-structure or site-source
-      admission, then use the admitted source suffix: `.md` must enter the
-      Markdown parser, not the SmartDox/Dox parser.
-- [ ] Transform the resulting Markdown AST into the shared document AST
+- [x] Select parsing only after an explicit package-structure or site-source
+      admission, then use the admitted source suffix: `.md`/`.markdown` defaults to
+      Pure CommonMark plus GFM tables; explicit Config Enhanced retains the
+      existing Dox parser. Content never selects mode.
+- [x] For Pure, transform the resulting Markdown AST into the shared document AST
       without reinterpreting SmartDox/Dox-specific syntax from the original
       Markdown bytes.
-- [ ] Cover valid participating Markdown, Dox-only syntax embedded in Markdown,
+- [x] Cover valid participating Pure Markdown, literal Dox-only syntax in Pure,
+      explicit Enhanced legacy semantics,
       and the independent non-enumeration of arbitrary package descendants.
 
 ## SDX-75-04: Include-resolution compatibility
 
-- [ ] Keep the existing include resolver's logical site-relative input
+- [x] Keep the existing include resolver's logical site-relative input
       contract unchanged; resolve a Document Project's effective `index.dox`
       as the physical base before calling it.
-- [ ] Add one focused regression fixture with an absolute physical base and a
+- [x] Add one focused regression fixture with an absolute physical base and a
       relative include.  Prove resolution retains the absolute-base meaning and
       never loses a leading `/` by sending the base through a relative-URI
       normalizer.
-- [ ] Characterize an ordinary document's existing include result alongside
+- [x] Characterize an ordinary document's existing include result alongside
       the Document Project fixture.  Do not introduce a global path type
       system, all-input scan, hash/manifest gate, or broad resolver rewrite.
 
 ## COZY-75-04: Consumer integration
 
-- [ ] Refresh only the admitted SmartDox development dependency after producer
+- [x] Refresh only the admitted SmartDox development dependency after producer
       evidence is available.
-- [ ] Add or update Cozy-focused integration evidence for logical package
+- [x] Add or update Cozy-focused integration evidence for logical package
       identity, canonical public path, and review-note exclusion.
-- [ ] Do not add a Cozy route mapper, content scanner, or exception for review
+- [x] Do not add a Cozy route mapper, content scanner, or exception for review
       note syntax.
 
 ## COZY-75-05: Kroki adapter
@@ -109,7 +121,7 @@ commit, dependency refresh, publication, or deployment is recorded here.
 
 ## Closure evidence
 
-- [ ] Record focused SmartDox producer evidence for the effective-content and
+- [x] Record focused SmartDox producer evidence for the effective-content and
       public-content closure and include-compatibility contract.
 - [ ] Record focused Cozy consumer and Kroki-launch evidence against the exact
       accepted dependency coordinate.

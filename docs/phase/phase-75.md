@@ -1,13 +1,22 @@
 # Phase 75: Effective SmartDox Content Boundary and Kroki Site-Port Alignment
 
-status=planned
+status=in_progress
 execution_priority=production-site-build-correctness
 entry_condition=explicit_owner_start
 primary_owner=Cozy
 producer_dependency=SmartDox effective-content contract
 
 Planned at: 2026-09-28
-Development item: not started
+Development item: Step 75.1 implemented, focused-validated, and accepted by
+independent Step review. Steps 75.2 and 75.3 are not started.
+
+Current status: in progress; Step 75.1 acceptance is recorded by its local
+acceptance commit. Phase release remains pending.
+Owner: Cozy, with SmartDox as the Step 75.1 producer.
+Update rule: update progress from verified workflow evidence; mark acceptance
+only after the corresponding independent review and local acceptance commit.
+The work-outline rows below retain the planned commitments. Step 75.1 progress
+is recorded in the checklist; their planned status is not a closure claim.
 
 Renumbered from the local, uncommitted Phase 74 plan on 2026-09-30 to avoid
 colliding with the independently closed Phase 74 Abstract UI Runtime Contract
@@ -75,10 +84,11 @@ bounded adapter correction, not a new global path-validation, hashing, or type
 framework.  Existing ordinary-document include behavior is a compatibility
 constraint, not an input to be reinterpreted.
 
-When a participating public input has a `.md` suffix, it is Markdown input:
-SmartDox must parse it with the Markdown parser first and transform the
-resulting Markdown AST into the shared document representation.  It must not
-run SmartDox/Dox-specific syntax directly over Markdown source.  Parser
+User-authorized parser direction: participating `.md`/`.markdown` inputs default
+to Pure: CommonMark plus GFM tables produces a Markdown AST that transforms into
+the shared SmartDox AST, without Dox grammar over source or AST leaves. Explicit
+Config Enhanced selection retains the existing mixed Markdown/Dox parser. Both
+modes return the existing document AST; content never selects a mode.  Parser
 selection occurs only after the fixed package structure or another explicit
 site-source declaration has admitted the file; arbitrary Markdown descendants
 are not parser candidates.
@@ -127,8 +137,9 @@ its logical `.dox` identity.  It also owns suffix-directed source parsing. The
 implementation must centralize this behind an effective-content accessor (for
 example, `effectiveContent` or `getDox`); it must not duplicate package-path
 special cases in LinkCollection or Antora.  That accessor must preserve source
-kind: an explicitly admitted `.md` uses Markdown parsing followed by AST
-transformation, while `.dox` uses the SmartDox/Dox parser.  It must not turn a
+kind: an explicitly admitted `.md`/`.markdown` defaults to Pure Markdown AST
+transformation; explicit Enhanced retains existing Dox parsing, while `.dox`
+uses the SmartDox/Dox parser.  It must not turn a
 recursive package-directory scan into an implicit source declaration.
 
 ### Cozy consumer/adapter contract
@@ -157,7 +168,7 @@ started.
 | --- | --- | --- |
 | SDX-75-01 | Freeze and implement one SmartDox effective-document/content contract for ordinary Dox files and `<slug>.dox/index.dox` packages. | planned |
 | SDX-75-02 | Route LinkCollection, Antora input/projection, public route metadata, and site-link resolution through that contract; enumerate only declared `<slug>.dox/` package inputs rather than recursively discovering files. | planned |
-| SDX-75-03 | Parse participating `.md` sources as Markdown and transform their AST; never apply SmartDox/Dox-specific syntax directly to Markdown bytes. | planned |
+| SDX-75-03 | Parse admitted `.md`/`.markdown` with default Pure Markdown AST transformation; explicit Enhanced retains existing Dox parsing. | planned |
 | SDX-75-04 | Preserve the legacy include resolver contract by adapting a Document Project to its effective physical base before link/include resolution; add a focused absolute-base/relative-include regression. | planned |
 | COZY-75-04 | Adopt the exact SmartDox contract in Cozy integration evidence without adding a duplicate path mapper or a review-note parser. | planned |
 | COZY-75-05 | Apply and validate the isolated Docker Antora Kroki-port adapter correction (`8000`). | planned |
@@ -178,9 +189,9 @@ started.
   unselected file does not affect SmartDox parsing, link collection, Antora
   generation, or public-site output.
 - A participating `.md` source is explicitly admitted by the fixed package
-  structure or a site-source declaration, then parsed as Markdown before any
-  SmartDox document transformation.  SmartDox/Dox-specific syntax is never
-  interpreted directly from Markdown bytes.
+  structure or a site-source declaration, then defaults to Pure Markdown AST transformation. Pure never interprets
+  Dox syntax from source or AST leaves; explicit Config Enhanced retains the
+  existing Dox parser and the shared AST.
 - An ordinary source file and a Document Project source with an absolute
   physical base both resolve their relative includes as before.  The Document
   Project adapter chooses its effective `index.dox` base without passing that
@@ -233,8 +244,8 @@ started.
 1. Freeze the SmartDox effective-content API, fixed package-input inventory,
    and Markdown-source parsing behavior with focused producer specifications.
 2. Update each SmartDox site consumer to use that API, with no physical-path
-   conditionals outside the producer abstraction and no Dox parser applied to
-   Markdown source.
+   conditionals outside the producer abstraction and default Pure Markdown AST projection; explicit Enhanced retains the
+   existing Dox route.
 3. Add the focused include-compatibility regression: an absolute physical base
    and relative include must resolve through the effective source without
    changing the established resolver contract.
