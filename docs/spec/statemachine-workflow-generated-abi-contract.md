@@ -7,15 +7,19 @@ updated_at=2026-09-17
 
 ## Scope
 
-This contract defines Cozy's deterministic producer projection for normalized
-`WorkflowDefinition` values. It consumes the accepted Phase 62.1 source ABI
+This accepted v1 contract defines Cozy's deterministic producer projection for
+normalized `WorkflowDefinition` collections whose invocation policies are all
+empty, including empty input. Policy-bearing collections use the separately
+frozen [Phase66 v2 contract](workflow-retry-timeout-abi-contract.md), whose
+S66.2 acceptance remains pending. The v1 contract and Phase62 history remain
+unchanged. This contract consumes the accepted Phase 62.1 source ABI
 and the established CML Workflow source normalization. It defines generated
 schemas and bootstrap metadata only; it is not a StateMachine runtime,
 provider implementation, or caller integration.
 
 ## Fixed artifact identities
 
-Each Scala generation route emits these additive artifacts:
+For metadata-free v1 input, each Scala generation route emits these additive artifacts:
 
 - package `domain.statemachine.workflow`;
 - `StateMachineWorkflowAbi.scala`, with schema version
@@ -51,7 +55,7 @@ or a Provider implementation.
 `StateMachineRequiredOperationIdentity` to a `ProviderIdentity`. No generated
 Workflow descriptor selects a provider or creates a binding value.
 
-The generated Workflow descriptor carries only source-model data. Its
+The generated v1 Workflow descriptor carries only source-model data. Its
 declaration-ordered `WorkflowRequiredOperationDescriptor` values are separate
 from the generic `StateMachineRequiredOperation` schema and carry only typed
 Required SPI identity, Action identity, operation identity, input and result
@@ -89,7 +93,7 @@ or execution policy.
 
 ## Canonical JSON and compatibility
 
-The JSON sidecar has fields in this exact order: `schemaVersion`, then
+The v1 JSON sidecar has fields in this exact order: `schemaVersion`, then
 `workflows`. Workflow records follow normalized declaration order. Within each
 Workflow record the field order is `identity`, `version`, `source`, `states`,
 `actions`, and `requiredSpi`; nested records likewise preserve their declared

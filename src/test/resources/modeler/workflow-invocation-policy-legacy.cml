@@ -1,0 +1,110 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## PaymentCommand
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+| name | type   | multiplicity |
+|------+--------+--------------|
+| id   | string | 1            |
+
+## PaymentResult
+
+### EXTENDS
+
+OperationResult
+
+# WORKFLOW
+
+## OrderProgress
+
+version = workflow-v1
+
+### COMPOSITE-STATEMACHINE
+
+#### CONSTITUENT
+
+##### payment
+
+state-machine = PaymentLifecycle
+subject = payment
+subject-type = PaymentCommand
+
+#### STATE
+
+##### Pending
+
+##### Complete
+
+#### DERIVATION
+
+##### pending
+
+state = Pending
+when = payment.Awaiting
+
+##### complete
+
+state = Complete
+when = payment.Paid
+
+#### ACTION
+
+##### capture-payment
+
+kind = OPERATION
+operation = capturePayment
+input = payment.subject
+
+### REQUIRED-OPERATION
+
+#### capture-payment-capability
+
+action = capture-payment
+
+# STATE-MACHINE
+
+## PaymentLifecycle
+
+### State
+
+#### Awaiting
+
+##### Transition
+
+to = Paid
+on = captured
+
+#### Paid
+
+# SERVICE
+
+## OrderService
+
+### OPERATION
+
+#### capturePayment
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+PaymentCommand
+
+##### OUTPUT
+
+###### TYPE
+
+PaymentResult

@@ -1,34 +1,39 @@
 # Phase66 Checklist
 
 Phase: [Workflow Retry and Timeout ABI](phase-66.md)
-Current status: in-progress; all Steps unaccepted
+Current status: in-progress; S66.1 COMMITTED, S66.2/S66.3 acceptance pending
 Updated: 2026-10-02
 
 ## S66.1
 
-Current status: implementation in-progress; acceptance pending.
+- Current status: COMMITTED; accepted.
 
 Owner: Cozy source/model producer; parent owns validation and acceptance.
 
-Update rule: record implementation evidence without checking outcomes until
-the parent completes the frozen focused validation and independent Step review.
+Acceptance evidence: commit `358ae6d1a233557b3e45087558ecff89e420f4af`,
+parent `97bf6c1e641bb245cc425341523f2c31cbcda636`;
+review `P66-S661-REVIEW-001` PASS; validation `P66-S661A-VAL-002`,
+166 passed / 0 failed. These receipts cover S66.1 only.
 
 Completion rule: the complete source accumulator satisfies the canonical
 grammar, typed normalization and legacy constructor compatibility, and the
 parent accepts the validated tree through protected focused review.
 
-- [ ] Canonical Workflow INVOCATION-POLICY grammar and lowering design recorded.
-- [ ] Action/Participant targets and typed retry/timeout normalize losslessly.
-- [ ] Syntax, range, absence, identity and placement behavior specified through real CML.
-- [ ] CSM semantics and legacy Workflow construction compatibility validated.
-- [ ] Focused new-spec and bounded regression accumulator validation passes.
-- [ ] Fresh independent protected focused Step review closes; Step accepted.
+- [x] Canonical Workflow INVOCATION-POLICY grammar and lowering design recorded.
+- [x] Action/Participant targets and typed retry/timeout normalize losslessly.
+- [x] Syntax, range, absence, identity and placement behavior specified through real CML.
+- [x] CSM semantics and legacy Workflow construction compatibility validated.
+- [x] Focused new-spec and bounded regression accumulator validation passes.
+- [x] Fresh independent protected focused Step review closes; Step accepted.
 
 ## S66.2
 
-Current status: pending; unaccepted.
+- Current status: implementation in-progress; acceptance pending.
 
 Owner: Cozy generated Workflow ABI/bootstrap producer.
+
+Contract: [Workflow Retry and Timeout Generated ABI](../spec/workflow-retry-timeout-abi-contract.md)
+is frozen/in-progress. S66.2 tests, review, commit and acceptance are pending.
 
 Update rule: freeze the generated ABI implementation boundary in the parent;
 update evidence and outcomes only after its validation and independent Step review.
@@ -45,7 +50,7 @@ and the parent accepts that validated boundary.
 
 ## S66.3
 
-Current status: pending; unaccepted.
+- Current status: pending; unaccepted.
 
 Owner: goldenport-cncf metadata admission/consumer-fixture boundary; Cozy
 supplies the real generated fixture. CNCF Phase81 owns runtime enforcement.
@@ -65,8 +70,9 @@ and the parent accepts the validated boundary.
 
 ## Phase closure
 
-All closure outcomes remain pending. No test, review, commit, Step or Phase
-acceptance is asserted by this checklist.
+All Phase closure outcomes remain pending. The recorded S66.1 receipts assert
+that Step's acceptance only. S66.2/S66.3 validation, review and acceptance,
+final full validation, mandatory full Phase review and release remain pending.
 
 - [ ] All three Steps accepted with their complete accumulators.
 - [ ] Final full validation completed at PHASE_RELEASE_COMMIT.

@@ -1,8 +1,12 @@
 # Workflow Retry and Timeout Source Contract
 
-Status: in-progress; S66.1 acceptance pending
+Status: accepted; S66.1 COMMITTED
 Phase: [66](../phase/phase-66.md)
 Updated: 2026-10-02
+
+S66.1 acceptance: commit `358ae6d1a233557b3e45087558ecff89e420f4af`,
+review `P66-S661-REVIEW-001` PASS, validation `P66-S661A-VAL-002`
+(166 passed / 0 failed). Source grammar and normalization remain unchanged.
 
 ## Ownership and canonical grammar
 
@@ -105,7 +109,8 @@ The lowering design is documented in
 
 S66.1 does not project policy metadata into generated ABI or execute it.
 S66.2 owns optional v2 Workflow ABI/bootstrap for policy-bearing inputs;
-metadata-free inputs retain byte-identical v1 output. S66.3 owns CNCF metadata
+see the frozen [generated ABI contract](workflow-retry-timeout-abi-contract.md).
+Metadata-free inputs retain byte-identical v1 output. S66.3 owns CNCF metadata
 admission and a real CML-agnostic consumer fixture. CNCF Phase81 owns runtime
 enforcement. Deadline, Timer/Wait, Cancellation, FailurePolicy, general
 idempotency, backoff/jitter and dedicated Iteration are outside this contract.
@@ -116,4 +121,6 @@ idempotency, backoff/jitter and dedicated Iteration are outside this contract.
 typed normalization: ordered source identities, Action/Participant resolution,
 absence, numeric limits and invalid syntax, uniqueness, malformed structure,
 wrong placement, deterministic CSM preservation and Judgment/Admission
-eligibility. Focused validation and independent Step acceptance are pending.
+eligibility. S66.1 focused validation and independent Step acceptance are
+complete with the receipts above; S66.2 generated-product validation and
+acceptance remain pending.
