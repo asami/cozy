@@ -10,7 +10,8 @@ import scala.collection.mutable
 
 /*
  * @since   Sep.  7, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Normalizes and validates the CSM-06 CML surface into the CSM-07 typed IR. */
@@ -41,15 +42,22 @@ private[modeler] object CompositeStateMachineCml {
     roots: Vector[LogicalSection],
     model: KaleidoxModel,
     operations: Vector[CompositeStateMachineOperation]
-  ): Vector[WorkflowDefinition] =
+  ): Vector[WorkflowDefinition] = {
+    if (roots.exists(_same_section_key(_, "INVOCATION-POLICY")))
+      RAISE.syntaxErrorFault("INVOCATION-POLICY must be a direct Workflow definition section.")
     roots.filter(_same_section_key(_, "WORKFLOW")).flatMap(_normalize_workflow_root(_, model, operations))
+  }
 
   private def _normalize_workflow_root(
     root: LogicalSection,
     model: KaleidoxModel,
     operations: Vector[CompositeStateMachineOperation]
-  ): Vector[WorkflowDefinition] =
+  ): Vector[WorkflowDefinition] = {
+    _reject_invocation_policy_fields(root, "WORKFLOW root", includetarget = true)
+    if (_children(root, "INVOCATION-POLICY").nonEmpty)
+      RAISE.syntaxErrorFault("INVOCATION-POLICY must be a direct Workflow definition section, not a Workflow root section.")
     root.blocks.sections.toVector.flatMap(_normalize_workflow_definition(root, _, model, operations))
+  }
 
   private def _normalize_workflow_definition(
     root: LogicalSection,
@@ -61,17 +69,22 @@ private[modeler] object CompositeStateMachineCml {
     val composites = _children(definition, "COMPOSITE-STATEMACHINE")
     val requiredoperations = _children(definition, "REQUIRED-OPERATION")
     val providedoperations = _children(definition, "OPERATION")
-    _validate_workflow_structure(definition, name, composites, requiredoperations, providedoperations)
+    val invocationpolicies = _children(definition, "INVOCATION-POLICY")
+    _validate_workflow_structure(definition, name, composites, requiredoperations, providedoperations, invocationpolicies)
     composites.headOption.map { composite =>
       val version = _workflow_version(definition, name)
       val statemachine = _normalize_definition(composite, model, operations, name)
+      val required = _required_operations(requiredoperations.headOption, name, statemachine.actions)
       WorkflowDefinition(
         identity = name,
         version = version,
         source = WorkflowSourceCorrelation(_workflow_source(root), _workflow_source(definition)),
         compositeStateMachine = statemachine,
-        requiredOperations = _required_operations(requiredoperations.headOption, name, statemachine.actions),
-        providedOperations = _provided_operations(providedoperations.headOption, name, operations)
+        requiredOperations = required,
+        providedOperations = _provided_operations(providedoperations.headOption, name, operations),
+        invocationPolicies = WorkflowInvocationPolicyCml.normalize(
+          invocationpolicies.headOption, name, statemachine.actions, required, _direct_field_entries
+        )
       )
     }
   }
@@ -107,11 +120,12 @@ private[modeler] object CompositeStateMachineCml {
     context: String,
     composites: Vector[LogicalSection],
     requiredoperations: Vector[LogicalSection],
-    providedoperations: Vector[LogicalSection]
+    providedoperations: Vector[LogicalSection],
+    invocationpolicies: Vector[LogicalSection]
   ): Unit = {
-    if (composites.isEmpty && (requiredoperations.nonEmpty || providedoperations.nonEmpty))
+    if (composites.isEmpty && (requiredoperations.nonEmpty || providedoperations.nonEmpty || invocationpolicies.nonEmpty))
       RAISE.syntaxErrorFault(
-        s"WORKFLOW '$context' requires a COMPOSITE-STATEMACHINE structural section when API/SPI operations are declared."
+        s"WORKFLOW '$context' requires a COMPOSITE-STATEMACHINE structural section when API/SPI operations are declared or invocation policies are declared."
       )
     if (composites.size > 1)
       RAISE.syntaxErrorFault(s"WORKFLOW '$context' requires exactly one COMPOSITE-STATEMACHINE structural section.")
@@ -119,6 +133,15 @@ private[modeler] object CompositeStateMachineCml {
       RAISE.syntaxErrorFault(s"WORKFLOW '$context' accepts at most one REQUIRED-OPERATION section.")
     if (providedoperations.size > 1)
       RAISE.syntaxErrorFault(s"WORKFLOW '$context' accepts at most one OPERATION section.")
+    if (invocationpolicies.size > 1)
+      RAISE.syntaxErrorFault(s"WORKFLOW '$context' accepts at most one INVOCATION-POLICY section.")
+    _reject_invocation_policy_fields(definition, s"WORKFLOW '$context'", includetarget = true)
+    (requiredoperations ++ providedoperations).foreach { section =>
+      _reject_invocation_policy_fields(section, s"WORKFLOW '$context' ${section.nameForModel}", includetarget = true)
+    }
+    definition.blocks.sections.filterNot(_same_section_key(_, "INVOCATION-POLICY")).foreach { section =>
+      _reject_misplaced_invocation_policy(section, s"WORKFLOW '$context'")
+    }
     definition.blocks.sections.foreach { section =>
       if (_workflow_misplaced_structural_sections.exists(_same_section_key(section, _)))
         RAISE.syntaxErrorFault(s"WORKFLOW '$context' does not admit misplaced structural section '${section.nameForModel}'.")
@@ -216,6 +239,26 @@ private[modeler] object CompositeStateMachineCml {
       RAISE.syntaxErrorFault(s"$context does not admit execution-binding vocabulary '$fieldname'.")
     }
 
+  private val _invocation_policy_fields = Set(
+    "PARTICIPANT", "MAXIMUM-ATTEMPTS", "FIXED-RETRY-DELAY-MILLIS", "EXECUTION-TIMEOUT-MILLIS"
+  )
+
+  private def _reject_invocation_policy_fields(section: LogicalSection, context: String, includetarget: Boolean): Unit = {
+    val forbidden = if (includetarget) _invocation_policy_fields + "ACTION" else _invocation_policy_fields
+    _direct_field_entries(section).collectFirst {
+      case (fieldname, _) if forbidden.exists(_same_key(fieldname, _)) => fieldname
+    }.foreach { fieldname =>
+      RAISE.syntaxErrorFault(s"$context field '$fieldname' belongs in a Workflow INVOCATION-POLICY entry.")
+    }
+  }
+
+  private def _reject_misplaced_invocation_policy(section: LogicalSection, context: String): Unit = {
+    if (_same_section_key(section, "INVOCATION-POLICY"))
+      RAISE.syntaxErrorFault(s"$context INVOCATION-POLICY must be a direct Workflow definition section.")
+    _reject_invocation_policy_fields(section, context, includetarget = false)
+    section.blocks.sections.foreach(_reject_misplaced_invocation_policy(_, context))
+  }
+
   private def _normalize_definition_root(
     root: LogicalSection,
     model: KaleidoxModel,
@@ -230,6 +273,7 @@ private[modeler] object CompositeStateMachineCml {
     identity: String
   ): CompositeStateMachineDefinition = {
     val name = Option(identity).map(_.trim).filter(_.nonEmpty).getOrElse(definition.nameForModel)
+    _reject_misplaced_invocation_policy(definition, s"COMPOSITE-STATEMACHINE '$name'")
     val allowed = Set("CONSTITUENT", "STATE", "DERIVATION", "INITIAL", "ACTION", "CONSTITUENT-ACTION", "DERIVED-ACTION")
     definition.blocks.sections.foreach { section =>
       if (!allowed.exists(_same_section_key(section, _)))
@@ -407,6 +451,7 @@ private[modeler] object CompositeStateMachineCml {
     val entries = section.toVector.flatMap(_.blocks.sections.toVector).map { entry =>
       val identity = _nonempty(entry.nameForModel, s"COMPOSITE-STATEMACHINE '$context' ACTION identity")
       val actioncontext = s"ACTION '$identity'"
+      _reject_invocation_policy_fields(entry, actioncontext, includetarget = true)
       val fields = _direct_field_entries(entry)
       val kind = _action_kind(_required_direct_action_field(fields, "KIND", actioncontext), identity)
       val candidateadmission = _is_candidate_admission_kind(kind)

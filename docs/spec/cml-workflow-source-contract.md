@@ -3,14 +3,16 @@
 status=accepted
 phase=62
 slice=WFL-62-01A
-updated_at=2026-09-17
+updated_at=2026-10-02
 
 ## Scope
 
 `WORKFLOW` is a first-class top-level CML source root. It is a source-model
 contract only: it does not declare a workflow run, persistence identity,
-provider, engine, execution mode, retry policy, REST surface, or generated
-projection.
+provider, engine, execution mode, REST surface, or generated projection.
+Phase66 adds optional source invocation-policy metadata as specified in
+[Workflow Retry and Timeout Source Contract](workflow-retry-timeout-source-contract.md).
+That declaration does not execute retries or timeouts.
 
 Every structural Workflow lowers to one existing
 `CompositeStateMachineDefinition`. The Composite StateMachine remains the
@@ -21,7 +23,8 @@ semantics.
 
 A `WORKFLOW` source uses the CML Literate Model's concurrent layers:
 
-- Structural DSL: `COMPOSITE-STATEMACHINE` and `REQUIRED-OPERATION`.
+- Structural DSL: `COMPOSITE-STATEMACHINE`, `REQUIRED-OPERATION`, the established
+  provided `OPERATION` section, and Phase66's optional `INVOCATION-POLICY`.
 - Direct metadata DSL: one direct `version` value on each structural Workflow
   definition.
 - Narrative prose: ordinary prose and nonstructural headings, which remain
@@ -30,9 +33,9 @@ A `WORKFLOW` source uses the CML Literate Model's concurrent layers:
 A direct child of a `WORKFLOW` root is a structural Workflow definition only
 when it has a direct `COMPOSITE-STATEMACHINE` child. A child with only prose or
 nonstructural headings is narrative and does not create a Workflow definition.
-A direct `REQUIRED-OPERATION` child without that structural sibling is malformed
-structural syntax and is rejected; it is never reclassified as narrative or
-silently discarded.
+A direct `REQUIRED-OPERATION`, provided `OPERATION`, or `INVOCATION-POLICY`
+child without that structural sibling is malformed structural syntax and is
+rejected; it is never reclassified as narrative or silently discarded.
 
 ## Canonical source form
 
@@ -93,7 +96,9 @@ value. Missing, duplicate, and empty direct values are rejected.
 An optional `REQUIRED-OPERATION` section declares capability requirements. Its
 entry heading is a unique capability identity and its one direct `action`
 field refers to a unique Action declared by the lowered Composite StateMachine.
-The referred Action must be an `OPERATION` Action.
+The referred Action must be an `OPERATION` or `JUDGMENT` Action. An `ADMISSION`
+Action retains deterministic local StateMachine semantics and cannot satisfy
+this invocation capability boundary.
 
 The normalized mapping carries only:
 
@@ -104,7 +109,9 @@ The normalized mapping carries only:
 It does not select a provider, supply an `InvocationBinding`, choose direct or
 orchestrated invocation, create a Continuation, or prescribe control or
 runtime behavior. A declared Action may be the target of at most one required
-capability mapping.
+capability mapping. Phase66's `INVOCATION-POLICY` may refer to that capability
+as a Participant target, retaining its declared identity and the mapped
+canonical Action; it still does not bind a provider.
 
 ## Validation
 
@@ -114,7 +121,7 @@ The normalizer rejects:
   `REQUIRED-OPERATION` sections;
 - misplaced direct CSM structural sections such as `STATE` or `ACTION`;
 - missing, duplicate, or empty direct `version` metadata;
-- unknown Actions, non-`OPERATION` Actions, duplicate capability identities,
+- unknown Actions, Actions outside `OPERATION`/`JUDGMENT`, duplicate capability identities,
   and duplicate Action mappings;
 - nested or undeclared structural content in a required-operation entry; and
 - `INVOCATION-BINDING`, `ORCHESTRATION`, `CONTINUATION`, `PROVIDER`, `SCRIPT`,
@@ -124,6 +131,13 @@ The normalizer rejects:
 Narrative prose may discuss those concepts as prose, but it cannot be shaped
 as direct Workflow metadata or structural headings to declare executable
 semantics.
+
+The Phase66 exception is exactly one optional direct `INVOCATION-POLICY`
+section on a Workflow definition. It declares retry and per-attempt timeout
+metadata for an Action or required capability. Its full grammar and rejection
+rules are in the linked canonical source contract. Direct policy fields on
+other Workflow structures and policy sections inside the CSM are rejected.
+The existing `RETRY` heading and execution-binding vocabulary bans remain.
 
 ## Source correlation and compatibility
 
