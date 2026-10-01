@@ -1,35 +1,46 @@
-# Skill as Human-Readable Procedure
+# Skill Specification and Skill Logic
 
 Date: 2026-10-02
-Status: design direction
+Status: corrected design direction
 
-## Position
+## Correction
 
-In the SimpleModeling/Cozy process framework, SKILL is not only an executable AI instruction. It is also a human-readable procedural description of how an Activity is carried out.
+The earlier formulation that SKILL itself is the human-readable top-level procedure is refined.
 
-The preferred SKILL form is an ordinary sequential procedure that a human can read and an AI can execute.
+In the SimpleModeling/Cozy process framework:
 
-SKILL should remain conceptually single-threaded. Concurrency control, exclusion, lease, coordination, retry/recovery, and durable state progression are not SKILL concerns. When required, they are supplied by CNCF Workflow/StateMachine/runtime mechanisms outside the SKILL.
+- **Skill Specification** describes the Activity/purpose and top-level work in a form understandable to humans.
+- **Skill Logic** is a thin executable semantic worker/adapter for AI-native or ambiguous work.
+- **Workflow/StateMachine** owns executable sequencing, branching, iteration and deterministic control flow.
 
-## Three roles of SKILL
+Human readability is therefore primarily a property of the Skill Specification, not a reason to duplicate Workflow control logic in the Skill implementation.
 
-1. express AI-native semantic work;
-2. execute ambiguous or non-routine work before it is sufficiently formalized;
-3. preserve the top-level work procedure in a form understandable to humans.
+## Skill Logic responsibilities
 
-The third role remains useful even after lower-level behavior becomes deterministic. A SKILL may describe the overall procedure while individual steps delegate to generated Operations, Workflow/StateMachine, human approval, or sub-Skills.
+Skill Logic should:
 
-This supports gradual formalization:
+1. receive a bounded request/WorkOrder;
+2. obtain only the context needed for the semantic task;
+3. perform AI-native or ambiguous/non-routine semantic work;
+4. return typed Result/Evidence.
+
+It should not implement the overall work procedure, review/repair loops, closure progression, concurrency, exclusion, retry/recovery, or durable state.
+
+## Formalization path
 
 ```text
-human-readable / AI-executable procedure
+Skill Specification
+  human-readable work description
         |
-        +-- ambiguous semantic step -> SKILL / AI
-        +-- stabilized step          -> Operation
-        +-- deterministic process    -> Workflow / StateMachine
-        +-- approval                 -> Human
+        v
+Workflow / StateMachine
+  executable procedure
+        |
+        +-- deterministic Operation
+        +-- semantic WorkOrder -> Skill Logic
+        +-- Human Approval
 ```
 
-Formalization should move deterministic execution semantics downward rather than turning SKILL itself into a state machine or concurrency language.
+As ambiguous work becomes deterministic, move it from Skill Logic into Operation/Workflow/StateMachine. Skill Logic should become thinner.
 
-This refines the existing Practice -> Activity -> SKILL mapping: Activity remains the abstract unit of work; SKILL is its concrete procedural realization when such a procedure is useful.
+This also refines Practice -> Activity -> SKILL mapping: Activity and Skill Specification explain the work; executable control is modeled separately as Workflow where required; Skill Logic supplies semantic AI participation rather than acting as a second Workflow engine.
