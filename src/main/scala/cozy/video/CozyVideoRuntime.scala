@@ -27,11 +27,39 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] object CozyVideoRuntime {
+  import CozyVideoImplementation._
+
+  private[video] final case class WaveData(
+    audioformat: Int,
+    samplerate: Int,
+    channels: Int,
+    bitspersample: Int,
+    data: Array[Byte]
+  ) {
+    def durationSeconds: Double =
+      if (samplerate <= 0 || channels <= 0 || bitspersample <= 0)
+        0.0
+      else
+        data.length.toDouble / (samplerate.toDouble * channels.toDouble * (bitspersample.toDouble / 8.0))
+  }
+
+  private[video] final case class NarrationSelection(
+    provider: String,
+    diagnostics: Vector[String]
+  )
+}
+
 private[cozy] trait CozyVideoRuntime {
   self: CozyVideoTypes with CozyVideoCommand with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+
+  private[video] type WaveData = CozyVideoRuntime.WaveData
+  private[video] lazy val WaveData = CozyVideoRuntime.WaveData
+  private[video] type NarrationSelection = CozyVideoRuntime.NarrationSelection
+  private[video] lazy val NarrationSelection = CozyVideoRuntime.NarrationSelection
   trait VideoProcessRunner {
     def run(args: Vector[String], cwd: Path): VideoCommandResult
   }
@@ -56,25 +84,6 @@ private[cozy] trait CozyVideoRuntime {
       }
     }
   }
-
-  private[video] final case class WaveData(
-    audioformat: Int,
-    samplerate: Int,
-    channels: Int,
-    bitspersample: Int,
-    data: Array[Byte]
-  ) {
-    def durationSeconds: Double =
-      if (samplerate <= 0 || channels <= 0 || bitspersample <= 0)
-        0.0
-      else
-        data.length.toDouble / (samplerate.toDouble * channels.toDouble * (bitspersample.toDouble / 8.0))
-  }
-
-  private[video] final case class NarrationSelection(
-    provider: String,
-    diagnostics: Vector[String]
-  )
 
   private[video] def _execution_path(projectroot: Path, execution: VideoExecutionConfig, path: Path): String =
     execution.toolMode match {

@@ -16,7 +16,8 @@ import CozyExplanationProjectionCodec._
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanationProjection {
@@ -33,7 +34,7 @@ private[cozy] object CozyExplanationProjection {
     video: VideoMapping,
     identity: String
   )
-  final case class VisualPageSetSelector(id: String, identity: String)
+  final case class VisualPageSetSelector(id: String)
   final case class StoryboardSelector(identity: String)
   final case class ProjectionPresentation(
     visualPageSet: VisualPageSetSelector,
@@ -50,9 +51,6 @@ private[cozy] object CozyExplanationProjection {
     planIdentity: String,
     projectionMapIdentity: String,
     explanationCatalogIdentity: String,
-    presentationLogicalCatalogIdentity: String,
-    presentationCatalogIdentity: String,
-    visualPageSetIdentity: String,
     storyboardIdentity: String,
     presentationMappingIdentity: String,
     videoMappingIdentity: String,
@@ -309,7 +307,7 @@ private[cozy] object CozyExplanationProjection {
     "version: 1",
     s"identity: ${validated.projection.identity}",
     s"projectionMapIdentity: ${validated.projection.projectionMapIdentity}",
-    s"visualPageSetIdentity: ${validated.projection.presentation.visualPageSet.identity}",
+    s"visualPageSetId: ${validated.projection.presentation.visualPageSet.id}",
     s"storyboardIdentity: ${validated.projection.video.storyboard.identity}"
   ).mkString("\n")
 
@@ -402,10 +400,6 @@ private[cozy] object CozyExplanationProjection {
       case _: CozyVisualPage.PageSet => ()
       case _ => _stale("$command.visualPageSet", "named VisualPageSet must be cozy.visual-page-set.v1")
     }
-    if (pages.catalogIdentity != plan.presentationCatalog.catalogIdentity)
-      _stale("$.receipt.presentationCatalogIdentity", "named VisualPageSet full presentation catalog identity is not current")
-    if (pages.logicalCatalogIdentity != plan.plan.presentationCatalog.identity)
-      _stale("$.presentationCatalog.identity", "named VisualPageSet logical presentation catalog identity is not current")
     val result = CozyVideoImplementation.loadStoryboard(storyboardpath)
     if (!result.isValid)
       _stale("$command.storyboard", result.diagnostics.map(_.render).mkString("; "))
@@ -456,7 +450,7 @@ private[cozy] object CozyExplanationProjection {
           _stale(s"$$.presentation.stepMappings[$index].pageIds", s"mapped page is missing asset provenance: $id")
         }
         sourceids.foreach { id =>
-          val declaration = sourcedeclarations.getOrElse(id,
+          sourcedeclarations.getOrElse(id,
             _stale(s"$$.presentation.stepMappings[$index].pageIds", s"Plan source does not resolve in the current Composition: $id"))
           val p36source = _descriptor_resource(media.visualpagesetpath, pagesources(id).path,
             s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id.path")
@@ -464,8 +458,6 @@ private[cozy] object CozyExplanationProjection {
             _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id", "Composition source binding is missing")), s"source.$id")
           if (!java.util.Arrays.equals(Files.readAllBytes(p36source), Files.readAllBytes(p37source)))
             _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id", "P36 source bytes do not agree with the explicit P37 source binding")
-          if (_sha256_bytes(Files.readAllBytes(p37source)) != declaration.sha256)
-            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.sources.$id", "P37 source bytes do not agree with the current SourceDeclaration")
         }
         assetids.foreach { id =>
           val declaration = assetdeclarations.getOrElse(id,
@@ -477,8 +469,6 @@ private[cozy] object CozyExplanationProjection {
             _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id", "Composition asset binding is missing")), s"asset.$id")
           if (p36asset.mediaType != declaration.mediaType)
             _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id.mediaType", "P36 asset mediaType does not agree with the current P37 AssetDeclaration")
-          if (p36asset.sha256 != declaration.sha256)
-            _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id.sha256", "P36 asset digest does not agree with the current P37 AssetDeclaration")
           if (!java.util.Arrays.equals(Files.readAllBytes(p36path), Files.readAllBytes(p37path)))
             _stale(s"$$.presentation.stepMappings[$index].pageIds.$pageid.assets.$id", "P36 asset bytes do not agree with the explicit P37 asset binding")
         }
@@ -533,7 +523,7 @@ private[cozy] object CozyExplanationProjection {
     val projectionmap = map.projectionMap
     val pageset = media.visualpageset.document.asInstanceOf[CozyVisualPage.PageSet]
     val presentation = ProjectionPresentation(
-      VisualPageSetSelector(pageset.id, media.visualpageset.documentIdentity),
+      VisualPageSetSelector(pageset.id),
       projectionmap.presentation.stepMappings,
       projectionmap.presentation.identity
     )
@@ -546,10 +536,7 @@ private[cozy] object CozyExplanationProjection {
       projectionmap.compositionIdentity,
       projectionmap.planIdentity,
       projectionmap.identity,
-      projectionmap.explanationCatalog.identity,
-      projectionmap.presentationCatalog.identity,
-      media.visualpageset.catalogIdentity,
-      media.visualpageset.documentIdentity,
+      map.plan.catalog.identity,
       media.storyboardidentity,
       presentation.identity,
       video.identity,
@@ -683,7 +670,7 @@ private[cozy] object CozyExplanationProjection {
     val parser = new JsonFactory().createParser(text)
     try {
       if (parser.nextToken() == null) _fail("EXPLANATION_SCHEMA_INVALID", source, "JSON input is required")
-      val value = _parse_json_value(parser, source)
+      val value = _parse_json_value(parser, source, Vector.empty)
       if (parser.nextToken() != null) _fail("EXPLANATION_SCHEMA_INVALID", source, "trailing JSON tokens are not admitted")
       value
     } catch {
@@ -692,7 +679,7 @@ private[cozy] object CozyExplanationProjection {
     } finally parser.close()
   }
 
-  private[media] def _parse_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String): CozyExplanation.JsonValue = parser.getCurrentToken match {
+  private[media] def _parse_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String, location: Vector[String]): CozyExplanation.JsonValue = parser.getCurrentToken match {
     case JsonToken.START_OBJECT =>
       val fields = Vector.newBuilder[(String, CozyExplanation.JsonValue)]
       val seen = mutable.Set.empty[String]
@@ -702,12 +689,16 @@ private[cozy] object CozyExplanationProjection {
         if (seen.contains(name)) _fail("EXPLANATION_DUPLICATE_FIELD", source, s"duplicate JSON field: $name")
         seen += name
         if (parser.nextToken() == null) _fail("EXPLANATION_SCHEMA_INVALID", source, s"missing JSON value for field: $name")
-        fields += name -> _parse_json_value(parser, source)
+        if ((name == "identity" && (location == Vector("explanationCatalog") || location == Vector("presentationCatalog"))) ||
+            (location == Vector("presentation", "visualPageSet") && Set("identity", "value").contains(name)) ||
+            (location == Vector("receipt") && Set("presentationLogicalCatalogIdentity", "presentationCatalogIdentity", "visualPageSetIdentity", "presentationLogicalCatalog", "presentationCatalog", "visualPageSet").contains(name)))
+          _discard_json_value(parser, source)
+        else fields += name -> _parse_json_value(parser, source, location :+ name)
       }
       CozyExplanation.JsonObject(fields.result())
     case JsonToken.START_ARRAY =>
       val values = Vector.newBuilder[CozyExplanation.JsonValue]
-      while (parser.nextToken() != JsonToken.END_ARRAY) values += _parse_json_value(parser, source)
+      while (parser.nextToken() != JsonToken.END_ARRAY) values += _parse_json_value(parser, source, location :+ "[]")
       CozyExplanation.JsonArray(values.result())
     case JsonToken.VALUE_STRING => CozyExplanation.JsonString(parser.getText)
     case JsonToken.VALUE_TRUE => CozyExplanation.JsonBoolean(true)
@@ -716,6 +707,24 @@ private[cozy] object CozyExplanationProjection {
       try CozyExplanation.JsonNumber(parser.getLongValue) catch { case NonFatal(_) => _fail("EXPLANATION_SCHEMA_INVALID", source, "integer is outside supported range") }
     case JsonToken.VALUE_NUMBER_FLOAT => _fail("EXPLANATION_SCHEMA_INVALID", source, "non-finite or floating-point JSON numbers are not admitted")
     case JsonToken.VALUE_NULL => _fail("EXPLANATION_SCHEMA_INVALID", source, "JSON null is not admitted")
+    case _ => _fail("EXPLANATION_SCHEMA_INVALID", source, s"unsupported JSON token: ${parser.getCurrentToken}")
+  }
+
+  private def _discard_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String): Unit = parser.getCurrentToken match {
+    case JsonToken.START_OBJECT =>
+      val seen = mutable.Set.empty[String]
+      while (parser.nextToken() != JsonToken.END_OBJECT) {
+        if (parser.getCurrentToken != JsonToken.FIELD_NAME) _fail("EXPLANATION_SCHEMA_INVALID", source, "JSON object member name is required")
+        val name = parser.getCurrentName
+        if (seen.contains(name)) _fail("EXPLANATION_DUPLICATE_FIELD", source, s"duplicate JSON field: $name")
+        seen += name
+        if (parser.nextToken() == null) _fail("EXPLANATION_SCHEMA_INVALID", source, s"missing JSON value for field: $name")
+        _discard_json_value(parser, source)
+      }
+    case JsonToken.START_ARRAY =>
+      while (parser.nextToken() != JsonToken.END_ARRAY) _discard_json_value(parser, source)
+    case JsonToken.VALUE_STRING | JsonToken.VALUE_TRUE | JsonToken.VALUE_FALSE |
+        JsonToken.VALUE_NUMBER_INT | JsonToken.VALUE_NUMBER_FLOAT | JsonToken.VALUE_NULL => ()
     case _ => _fail("EXPLANATION_SCHEMA_INVALID", source, s"unsupported JSON token: ${parser.getCurrentToken}")
   }
 

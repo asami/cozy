@@ -2,6 +2,7 @@ package cozy.media
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.nio.file.attribute.FileTime
 import scala.collection.JavaConverters._
 import io.circe.parser.parse
 import org.scalatest.GivenWhenThen
@@ -11,7 +12,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Aug. 29, 2026
  *  version Aug. 30, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -482,9 +484,37 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
 
         When("the accepted infographic source bytes change")
         _write(infographic, "infographic-changed")
+        Files.setLastModifiedTime(infographic, FileTime.fromMillis(Files.getLastModifiedTime(root.resolve("target/cozy-media/article-ja.pdf")).toMillis + 1000))
 
         Then("planning reports the article PDF stale through existing receipt-v2 evidence")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-pdf-ja: build")
+      }
+    }
+
+    "regenerate an invalid PDF output without a content identity gate" in {
+      _with_temp_dir("invalid-output-regeneration") { root =>
+        Given("an accepted article PDF whose generated output becomes invalid")
+        _write(root.resolve("knowledge/article.dox"), "article")
+        _write_infographic(root)
+        val descriptor = root.resolve("media.json")
+        _write(descriptor, _descriptor())
+        val runner = new CozyMedia.ProcessRunner {
+          def run(command: Vector[String], workingdirectory: Path): Int = {
+            _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "regenerated")
+            0
+          }
+        }
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
+        val output = root.resolve("target/cozy-media/article-ja.pdf")
+        _write(output, "not-a-pdf")
+
+        When("Cozy plans and builds the package")
+        val planned = CozyMedia.plan(CozyMedia.CommandConfig(descriptor))
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
+
+        Then("format invalidity selects the real producer rather than a failed reuse")
+        planned should include("article-pdf-ja: build")
+        Files.readString(output, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nregenerated"
       }
     }
 
@@ -505,6 +535,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
 
         When("the bound article source changes")
         _write(root.resolve("knowledge/article.dox"), "changed")
+        Files.setLastModifiedTime(root.resolve("knowledge/article.dox"), FileTime.fromMillis(Files.getLastModifiedTime(root.resolve("target/cozy-media/article-ja.pdf")).toMillis + 1000))
 
         Then("planning reports the PDF stale")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-pdf-ja: build")
@@ -519,7 +550,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         _write_pdf(root.resolve("target/cozy-media/article-ja.pdf"), "altered")
 
         Then("the manifest output hash no longer accepts it")
-        CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-pdf-ja: build")
+        intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
       }
     }
     }

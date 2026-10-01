@@ -14,12 +14,23 @@ import play.api.libs.json.Json
 
 /*
  * @since   Sep. 16, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object Phase63McmlGenerationProvenanceSpec {
+  private final case class Delegated(
+    provenance: Path,
+    root: Path,
+    manifest: GenerationProvenance.Manifest
+  )
+}
+
 final class Phase63McmlGenerationProvenanceSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
+  import Phase63McmlGenerationProvenanceSpec.Delegated
+
   "Phase 63 MCML generation provenance aggregation" should {
     "publish a sorted V2 union from two explicit delegated sources" in {
       _with_temp_dir("cozy-phase63-mcml-aggregate") { directory =>
@@ -426,12 +437,6 @@ final class Phase63McmlGenerationProvenanceSpec
       }
     }
   }
-
-  private final case class Delegated(
-    provenance: Path,
-    root: Path,
-    manifest: GenerationProvenance.Manifest
-  )
 
   private def _make_delegated(
     projectroot: Path,

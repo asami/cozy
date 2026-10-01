@@ -11,7 +11,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 30, 2026
- * @version Sep.  2, 2026
+ *  version Sep.  2, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -303,7 +304,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         _write_png(montage)
         val pdfhash = _sha256(pdf)
         _write(manifest,
-          s"""{"schema":"cozy.summary-slides.render.v1","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"},"slideIrSha256":"${_sha256(root.resolve("slides.json"))}","templateSha256":"${_sha256(root.resolve("template.pptx"))}","pdf":{"sha256":"$pdfhash","pageCount":1},"slides":[{"id":"overview","title":"Overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pdfSha256":"$pdfhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("assets/infographic.png"))}"}]}],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
+          s"""{"schema":"cozy.summary-slides.render.v1","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"},"pdf":{"sha256":"$pdfhash","pageCount":1},"slides":[{"id":"overview","title":"Overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pdfSha256":"$pdfhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("assets/infographic.png"))}"}]}],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
         )
         0
       }

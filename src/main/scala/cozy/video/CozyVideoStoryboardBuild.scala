@@ -13,16 +13,15 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] trait CozyVideoStoryboardBuild {
-  self: CozyVideoImplementation.type =>
-
+private[cozy] object CozyVideoStoryboardBuild {
   private final case class StoryboardBuildPart(
-    partplan: VideoPartPlan,
+    partplan: CozyVideoImplementation.VideoPartPlan,
     sourcepath: Path,
-    storyboard: Storyboard,
+    storyboard: CozyVideoImplementation.Storyboard,
     storyboardsection: Option[String],
     handoffpath: Path,
     handoff: Json
@@ -34,6 +33,12 @@ private[cozy] trait CozyVideoStoryboardBuild {
     outputpath: Path,
     manifestpath: Path
   )
+}
+
+private[cozy] trait CozyVideoStoryboardBuild {
+  self: CozyVideoImplementation.type =>
+
+  import CozyVideoStoryboardBuild.{StoryboardBuildPart, StoryboardBuildMode}
 
   private val _confirmation_mode = "confirmation"
   private val _final_mode = "final"

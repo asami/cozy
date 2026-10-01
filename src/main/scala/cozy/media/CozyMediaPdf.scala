@@ -8,7 +8,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 29, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPdf {
@@ -98,7 +99,7 @@ private[cozy] object CozyMediaPdf {
     val infographic = _infographic_resource(plan, resolved, configuration)
     val parent = Option(output.getParent).getOrElse(_invalid(s"Article PDF output requires a parent: $output"))
     Files.createDirectories(parent)
-    val before = CozyMediaReceipt.capture(plan).inputSetSha256
+    val before = CozyMediaReceipt.observeInputs(plan)
     val staged = Files.createTempFile(parent, ".cozy-media-pdf-", ".pdf")
     Files.delete(staged)
     try {
@@ -120,7 +121,7 @@ private[cozy] object CozyMediaPdf {
       if (!_direct_regular_file(infographic.source.get))
         _invalid(s"Article PDF infographic authority source changed during build: ${resource.id}")
       CozyMedia.requireSiteContext(plan)
-      val after = CozyMediaReceipt.capture(plan).inputSetSha256
+      val after = CozyMediaReceipt.observeInputs(plan)
       if (before != after)
         _invalid(s"Article PDF inputs changed during build; no fresh acceptance evidence was written: ${resource.id}")
       try Files.move(staged, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)

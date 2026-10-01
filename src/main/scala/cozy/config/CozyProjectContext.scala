@@ -1,15 +1,15 @@
 package cozy.config
 
-import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import io.circe.{Json => CJson}
 import org.goldenport.RAISE
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectContext {
@@ -20,8 +20,8 @@ private[cozy] object CozyProjectContext {
   final case class FileEvidence(
     path: Path,
     identity: Path,
-    sha256: String,
     size: Long,
+    modifiedTime: FileTime,
     filekey: AnyRef
   ) {
     def fileKey: AnyRef = filekey
@@ -342,7 +342,7 @@ private[cozy] object CozyProjectContext {
       firstbytes.length.toLong != before.size() || secondbytes.length.toLong != before.size() ||
       !firstbytes.sameElements(secondbytes))
       _invalid(s"Cozy project context $label changed while being read: $lexical")
-    FileSnapshot(FileEvidence(lexical, identity, _sha256(firstbytes), firstbytes.length.toLong, before.fileKey()), firstbytes)
+    FileSnapshot(FileEvidence(lexical, identity, firstbytes.length.toLong, before.lastModifiedTime(), before.fileKey()), firstbytes)
   }
 
   private def _read_file_bytes(path: Path, label: String): Array[Byte] =
@@ -404,12 +404,6 @@ private[cozy] object CozyProjectContext {
     }
 
   private def _exists(path: Path): Boolean = Files.exists(path, LinkOption.NOFOLLOW_LINKS)
-
-  private def _sha256(bytes: Array[Byte]): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(bytes)
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
-  }
 
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 }

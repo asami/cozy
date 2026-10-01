@@ -2,7 +2,6 @@ package cozy.document
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -11,7 +10,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -27,7 +27,7 @@ final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with G
         val firstsummary = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
         val secondsummary = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
 
-        Then("typed sections, every closed block form, references, units, order, wording, emphasis, and original-byte identities are retained exactly")
+        Then("typed sections, every closed block form, references, units, order, wording, emphasis, and semantic bindings are retained exactly")
         firstdocument shouldBe seconddocument
         firstsummary shouldBe secondsummary
         firstdocument.description.locale shouldBe "ja"
@@ -35,30 +35,37 @@ final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with G
         firstdocument.description.document.sections.map(_.id) shouldBe Vector("document-root")
         firstdocument.description.document.sections.head.blocks.map(_.getClass.getSimpleName) shouldBe Vector("Paragraph", "ListBlock", "Example", "Note", "LogicalStructure")
         firstdocument.description.document.sections.head.blocks.collect { case value: CozyDocumentDescription.ListBlock => value.items.map(_.text) } shouldBe Vector(Vector("List item wording"))
-        firstdocument.coreIdentity shouldBe _identity(fixture._1)
-        firstdocument.documentIdentity shouldBe _identity(fixture._2)
+        firstdocument.core.core.id shouldBe "application-modeling"
+        firstdocument.description.core.id shouldBe "application-modeling"
         firstsummary.description.summary.units.map(_.id) shouldBe Vector("summary-primary", "summary-conclusion")
         firstsummary.description.summary.units.map(_.emphasis) shouldBe Vector("primary", "conclusion")
-        firstsummary.summaryIdentity shouldBe _identity(fixture._3)
+        firstsummary.description.document.id shouldBe "document-ja"
       }
     }
 
-    "bind current direct bytes rather than parsed contents or stable IDs alone" in {
+    "consume changed valid source bytes while preserving direct logical bindings" in {
       _with_temp_dir("cozy-document-description-currentness") { root =>
-        Given("a valid direct Core, Document, and Summary bound to their original raw-byte identities")
+        Given("a valid direct Core, Document, and Summary with direct logical bindings")
         val fixture = _fixture(root)
         val originalcore = Files.readString(fixture._1, StandardCharsets.UTF_8)
         val originaldocument = Files.readString(fixture._2, StandardCharsets.UTF_8)
+        val originalsummary = Files.readString(fixture._3, StandardCharsets.UTF_8)
 
-        When("otherwise parseable Core bytes and then Document bytes change")
+        When("otherwise valid Core and Document bytes change and a logical binding is made wrong")
         Files.writeString(fixture._1, originalcore + "\n", StandardCharsets.UTF_8)
-        val corefailure = _failure(CozyDocumentDescription.loadDocument(fixture._1, fixture._2))
+        val changedcore = CozyDocumentDescription.loadDocument(fixture._1, fixture._2)
         Files.writeString(fixture._1, originalcore, StandardCharsets.UTF_8)
         Files.writeString(fixture._2, originaldocument + "\n", StandardCharsets.UTF_8)
+        val changeddocument = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
+        Files.writeString(fixture._3, originalsummary.replace("core:\n  id: application-modeling", "core:\n  id: wrong-core"), StandardCharsets.UTF_8)
+        val corefailure = _failure(CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3))
+        Files.writeString(fixture._3, originalsummary.replace("document:\n  id: document-ja", "document:\n  id: wrong-document"), StandardCharsets.UTF_8)
         val documentfailure = _failure(CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3))
 
-        Then("stale upstream identity bindings fail before either validated model can be consumed")
-        corefailure.code shouldBe "DESCRIPTION_DOCUMENT_CORE"
+        Then("each supplied current source is observed without caching while wrong logical IDs still fail")
+        changedcore.description.document.title shouldBe "Article 9 document"
+        changeddocument.description.summary.title shouldBe "Article 9 summary"
+        corefailure.code shouldBe "DESCRIPTION_SUMMARY_CORE"
         documentfailure.code shouldBe "DESCRIPTION_SUMMARY_DOCUMENT"
       }
     }
@@ -108,7 +115,7 @@ final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with G
         val fixture = _fixture(root)
         val document = Files.readString(fixture._2, StandardCharsets.UTF_8)
         val summary = Files.readString(fixture._3, StandardCharsets.UTF_8)
-        val unknown = _write(root.resolve("unknown/ja/document.yaml"), document + "unknown: forbidden\n")
+        val unknown = _write(root.resolve("unknown/ja/document.yaml"), document.replace("title: Article 9 document", "title: Article 9 document\n  unknown: forbidden"))
         val duplicate = _write(root.resolve("duplicate/ja/document.yaml"), document.replace("id: document-ja\n", "id: document-ja\nid: duplicate-document-ja\n"))
         val wrongpath = _write(root.resolve("wrong-path/ja/document.yml"), document)
         val badlocale = _write(root.resolve("en/document.yaml"), document)
@@ -133,7 +140,7 @@ final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with G
           _failure(CozyDocumentDescription.loadDocument(fixture._1, malformed))
         )
 
-        Then("unknown or duplicate fields, mismatched locale, invalid vocabulary or references, incomplete coverage, and malformed bytes fail closed")
+        Then("nested unknown or duplicate fields, mismatched locale, invalid vocabulary or references, incomplete coverage, and malformed bytes fail closed")
         failures.map(_.code) should contain allOf (
           "DESCRIPTION_FIELDS", "DESCRIPTION_PATH", "DESCRIPTION_LOCALE", "DESCRIPTION_BLOCK_KIND", "DESCRIPTION_REFERENCE",
           "DESCRIPTION_COVERAGE", "DESCRIPTION_EMPHASIS", "DESCRIPTION_SOURCE"
@@ -142,26 +149,72 @@ final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with G
     }
   }
 
+  "accept root and binding extras without inspecting them while retaining closed nested schema" in {
+    _with_temp_dir("cozy-document-description-historical-extras") { root =>
+      Given("canonical no-hash Document and Summary authorities plus opaque historical root and binding extras")
+      val fixture = _fixture(root)
+      val document = Files.readString(fixture._2, StandardCharsets.UTF_8)
+      val summary = Files.readString(fixture._3, StandardCharsets.UTF_8)
+      val canonicaldocument = CozyDocumentDescription.loadDocument(fixture._1, fixture._2)
+      val canonicalsummary = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
+      val canonicaldocumenthtml = CozyDocumentDescriptionProjection.render(canonicaldocument)
+      val canonicalsummaryhtml = CozyDocumentDescriptionProjection.renderSummary(canonicalsummary)
+      Files.writeString(fixture._2, document.replace("core:\n  id: application-modeling", "core:\n  id: application-modeling\n  identity: { historical: true }\n  extra: [ignored]") + "legacyRoot: 17\n", StandardCharsets.UTF_8)
+      Files.writeString(fixture._3, summary.replace("core:\n  id: application-modeling", "core:\n  id: application-modeling\n  identity: [opaque]\n  extra: false").replace("document:\n  id: document-ja", "document:\n  id: document-ja\n  identity: { old: value }") + "legacyRoot: { opaque: [value] }\n", StandardCharsets.UTF_8)
+
+      When("both authorities are loaded through the V1 semantic boundary")
+      val loaded = CozyDocumentDescription.loadDocument(fixture._1, fixture._2)
+      val summaryloaded = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
+
+      Then("only required semantic fields are retained and unrelated extras are neither inspected nor emitted")
+      loaded shouldBe canonicaldocument
+      summaryloaded shouldBe canonicalsummary
+      CozyDocumentDescriptionProjection.render(loaded) shouldBe canonicaldocumenthtml
+      CozyDocumentDescriptionProjection.renderSummary(summaryloaded) shouldBe canonicalsummaryhtml
+    }
+  }
+
+  "reject missing and malformed required semantic fields while preserving closed nested content" in {
+    _with_temp_dir("cozy-document-description-required-fields") { root =>
+      Given("otherwise valid Document and Summary authorities with missing or non-string required semantic fields")
+      val fixture = _fixture(root)
+      val document = Files.readString(fixture._2, StandardCharsets.UTF_8)
+      val summary = Files.readString(fixture._3, StandardCharsets.UTF_8)
+      val missingroot = _write(root.resolve("missing-root/ja/document.yaml"), document.replace("id: document-ja\n", ""))
+      val malformedbinding = _write(root.resolve("malformed-binding/ja/document.yaml"), document.replace("id: application-modeling", "id: [application-modeling]"))
+      val missingsummary = _write(root.resolve("missing-summary/ja/summary.yaml"), summary.take(summary.indexOf("summary:\n")))
+
+      When("each authority is loaded through its V1 semantic boundary")
+      val failures = Vector(
+        _failure(CozyDocumentDescription.loadDocument(fixture._1, missingroot)),
+        _failure(CozyDocumentDescription.loadDocument(fixture._1, malformedbinding)),
+        _failure(CozyDocumentDescription.loadSummary(fixture._1, fixture._2, missingsummary))
+      )
+
+      Then("required root, binding, and Summary content fields reject without weakening nested closed grammar")
+      failures.foreach(_.code shouldBe "DESCRIPTION_STRUCTURE")
+    }
+  }
+
   private def _fixture(root: Path): (Path, Path, Path) = {
     val content = Files.createDirectories(root.resolve("content"))
     val locale = Files.createDirectories(content.resolve("ja"))
     val core = content.resolve("core.yaml")
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/core.yaml"), core)
-    val validated = CozyDocumentLogicTree.loadCore(core)
+    val validated = CozyDocumentLogicTree.loadSourceCore(core)
     val refs = _references(validated)
     val document = locale.resolve("document.yaml")
-    _write(document, _document(validated.core.id, _identity(core), refs))
+    _write(document, _document(validated.core.id, refs))
     val summary = locale.resolve("summary.yaml")
-    _write(summary, _summary(validated.core.id, _identity(core), _identity(document), validated.depthFirstSteps.head.id))
+    _write(summary, _summary(validated.core.id, validated.depthFirstSteps.head.id))
     (core, document, summary)
   }
 
-  private def _document(coreid: String, coreidentity: String, refs: String): String =
+  private def _document(coreid: String, refs: String): String =
     s"""|schema: cozy.document-description.v1
         |id: document-ja
         |core:
         |  id: $coreid
-        |  identity: $coreidentity
         |locale: ja
         |document:
         |  title: Article 9 document
@@ -202,15 +255,13 @@ final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with G
         |          sections: []
         |""".stripMargin
 
-  private def _summary(coreid: String, coreidentity: String, documentidentity: String, step: String): String =
+  private def _summary(coreid: String, step: String): String =
     s"""|schema: cozy.summary-description.v1
         |id: summary-ja
         |core:
         |  id: $coreid
-        |  identity: $coreidentity
         |document:
         |  id: document-ja
-        |  identity: $documentidentity
         |locale: ja
         |summary:
         |  title: Article 9 summary
@@ -237,13 +288,10 @@ final class CozyDocumentDescriptionSpec extends AnyWordSpec with Matchers with G
         |        flows: []
         |""".stripMargin
 
-  private def _references(core: CozyDocumentLogicTree.ValidatedCore): String = {
+  private def _references(core: CozyDocumentLogicTree.SourceCore): String = {
     def _values_(values: Vector[String]): String = values.mkString("[", ", ", "]")
     s"""|{ steps: ${_values_(core.depthFirstSteps.map(_.id))}, claims: ${_values_(core.claimsById.keys.toVector.sorted)}, nodes: ${_values_(core.nodesById.keys.toVector.sorted)}, relations: ${_values_(core.relationsById.keys.toVector.sorted)}, flows: ${_values_(core.flowsById.keys.toVector.sorted)} }""".stripMargin
   }
-
-  private def _identity(path: Path): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
 

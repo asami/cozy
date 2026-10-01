@@ -14,10 +14,13 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 26, 2026
  *  version Aug. 27, 2026
- * @version Sep.  2, 2026
+ *  version Sep.  2, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
+private[cozy] object CozyVideoStoryboard {
+  import CozyVideoImplementation._
+
   final case class Storyboard(
     schema: String,
     version: Int,
@@ -97,18 +100,21 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
   }
 
   final case class StoryboardValidateConfig(input: Path)
+
   object StoryboardValidateConfig {
     def create(args: List[String]): StoryboardValidateConfig =
       StoryboardValidateConfig(_required_input(args, "validate"))
   }
 
   final case class StoryboardInspectConfig(input: Path)
+
   object StoryboardInspectConfig {
     def create(args: List[String]): StoryboardInspectConfig =
       StoryboardInspectConfig(_required_input(args, "inspect"))
   }
 
   final case class StoryboardConvertConfig(input: Path, output: Path)
+
   object StoryboardConvertConfig {
     def create(args: List[String]): StoryboardConvertConfig = {
       val parsed = CozyCliArgs.parseStrict(
@@ -129,6 +135,7 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
     screen: String,
     output: Path
   )
+
   object StoryboardMigrateConfig {
     def create(args: List[String]): StoryboardMigrateConfig = {
       val parsed = CozyCliArgs.parseStrict(
@@ -150,6 +157,47 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
       )
     }
   }
+
+  private def _required_input(args: List[String], command: String): Path = {
+    val parsed = CozyCliArgs.parseStrict(org.goldenport.cli.spec.Parameter.argumentFile("input"))(args)
+    parsed.argument("input").map(CozyCliArgs.toPath).getOrElse(
+      throw new IllegalArgumentException(s"Missing Storyboard input for video storyboard $command")
+    )
+  }
+
+  private final case class MarkdownFailure(diagnostic: StoryboardDiagnostic) extends RuntimeException
+}
+
+private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
+  type Storyboard = CozyVideoStoryboard.Storyboard
+  lazy val Storyboard = CozyVideoStoryboard.Storyboard
+  type StoryboardScene = CozyVideoStoryboard.StoryboardScene
+  lazy val StoryboardScene = CozyVideoStoryboard.StoryboardScene
+  type StoryboardScreenValue = CozyVideoStoryboard.StoryboardScreenValue
+  type StoryboardScreen = CozyVideoStoryboard.StoryboardScreen
+  lazy val StoryboardScreen = CozyVideoStoryboard.StoryboardScreen
+  type StoryboardTextScreen = CozyVideoStoryboard.StoryboardTextScreen
+  lazy val StoryboardTextScreen = CozyVideoStoryboard.StoryboardTextScreen
+  type StoryboardVisualPageScreen = CozyVideoStoryboard.StoryboardVisualPageScreen
+  lazy val StoryboardVisualPageScreen = CozyVideoStoryboard.StoryboardVisualPageScreen
+  type StoryboardProductionInsert = CozyVideoStoryboard.StoryboardProductionInsert
+  lazy val StoryboardProductionInsert = CozyVideoStoryboard.StoryboardProductionInsert
+  type StoryboardPronunciationNote = CozyVideoStoryboard.StoryboardPronunciationNote
+  lazy val StoryboardPronunciationNote = CozyVideoStoryboard.StoryboardPronunciationNote
+  type StoryboardDiagnostic = CozyVideoStoryboard.StoryboardDiagnostic
+  lazy val StoryboardDiagnostic = CozyVideoStoryboard.StoryboardDiagnostic
+  type StoryboardResult = CozyVideoStoryboard.StoryboardResult
+  lazy val StoryboardResult = CozyVideoStoryboard.StoryboardResult
+  type StoryboardValidateConfig = CozyVideoStoryboard.StoryboardValidateConfig
+  lazy val StoryboardValidateConfig = CozyVideoStoryboard.StoryboardValidateConfig
+  type StoryboardInspectConfig = CozyVideoStoryboard.StoryboardInspectConfig
+  lazy val StoryboardInspectConfig = CozyVideoStoryboard.StoryboardInspectConfig
+  type StoryboardConvertConfig = CozyVideoStoryboard.StoryboardConvertConfig
+  lazy val StoryboardConvertConfig = CozyVideoStoryboard.StoryboardConvertConfig
+  type StoryboardMigrateConfig = CozyVideoStoryboard.StoryboardMigrateConfig
+  lazy val StoryboardMigrateConfig = CozyVideoStoryboard.StoryboardMigrateConfig
+  import CozyVideoStoryboard._required_input
+  import CozyVideoStoryboard.MarkdownFailure
 
   def loadStoryboard(source: Path): StoryboardResult = {
     val format = _source_format(source)
@@ -300,13 +348,6 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
       s"schema: ${migrated.schema}",
       s"identity: ${storyboardIdentity(migrated)}"
     ).mkString("\n")
-  }
-
-  private def _required_input(args: List[String], command: String): Path = {
-    val parsed = CozyCliArgs.parseStrict(org.goldenport.cli.spec.Parameter.argumentFile("input"))(args)
-    parsed.argument("input").map(CozyCliArgs.toPath).getOrElse(
-      throw new IllegalArgumentException(s"Missing Storyboard input for video storyboard $command")
-    )
   }
 
   private def _required_storyboard(source: Path): StoryboardResult = {
@@ -951,8 +992,6 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
 
   private def _diagnostic(code: String, path: String, reason: String, location: Option[String] = None): StoryboardDiagnostic =
     StoryboardDiagnostic(code, path, reason, location)
-
-  private final case class MarkdownFailure(diagnostic: StoryboardDiagnostic) extends RuntimeException
 
   private val _schema_v1 = "cozy.video.storyboard.v1"
   private val _version_v1 = 1

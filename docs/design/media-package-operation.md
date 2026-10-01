@@ -23,15 +23,16 @@ acceptance it is reconstructed from that exact merged candidate and current
 plan, then installed before the receipt. It records only currently valid public
 document PDFs with article-media roles `article_pdf` and `summary_slides_pdf`:
 knowledge, resource/role/locale/public path/media type, accepted relative
-output/hash, and receipt input-set identity. Direct `summary-slides-pdf` summary
+output/hash, without a receipt input-set identity. Direct `summary-slides-pdf` summary
 entries additionally bind the already verified renderer-manifest hash. Only that
 direct route requires the summary PDF structural verifier for page count/order/
 assets and current dependent receipts; a prebuilt `summary_slides_pdf` retains
 its ordinary receipt-derived role/path/hash currentness without renderer
 evidence or direct structural/dependency verification. This state neither
 duplicates nor weakens either contract. Exact reconstruction makes it a deterministic PDF-currentness guard
-for selected PDF verification and publication preflight, while receipt v2
-remains the authoritative resource-currentness check. Presentation-only slide
+for selected PDF verification and publication preflight, while declared-file
+timestamps determine generation reuse and receipt v2 protects output integrity.
+Presentation-only slide
 operations, presentation/video review state, and cross-media review do not
 depend on it or change shape. It performs no SmartDox registration, publish,
 PPTX exposure, or semantic, visual, or audiovisual approval.
@@ -66,9 +67,39 @@ registers with SmartDox. The existing presentation grammar, `articlePdf`
 dependency, receipt-v2 shape, and `cozy.media.cross-review.v1` boundary remain
 unchanged.
 
-Presentation is an adapter boundary: Cozy owns semantic-IR validation and invokes an approved external renderer by a configured argv vector, but never designs a layout or interpolates a shell command. The only presentation profile is `business`. The renderer manifest is untrusted evidence until Cozy checks collision-free descriptor-relative paths, IR/template/PPTX hashes, secure relationship-driven OOXML structure/text/per-slide media, and PNG evidence. Cozy reconstructs the deterministic cross-artifact review manifest exactly before recording only the explicit `article` or `slide-ir` alignment decision. A build can refresh current evidence but cannot alter the last approved semantic alignment; changed inputs or artifacts make the state stale. This keeps PPTX a distribution product rather than a semantic authority.
+Presentation is an adapter boundary: Cozy owns semantic-IR validation and invokes an approved external renderer by a configured argv vector, but never designs a layout or interpolates a shell command. The only presentation profile is `business`. The renderer manifest is untrusted evidence until Cozy checks collision-free descriptor-relative paths, PPTX output integrity, secure relationship-driven OOXML structure/text/per-slide media, and PNG evidence. Cozy reconstructs the deterministic cross-artifact review manifest exactly before recording only the explicit `article` or `slide-ir` alignment decision. A build can refresh current evidence but cannot alter the last approved semantic alignment; changed inputs or artifacts make the state stale. This keeps PPTX a distribution product rather than a semantic authority.
 
 ## Visual Page presentation coexistence
+
+Generation currentness and distribution integrity are distinct operations.
+The shared adapter selects local reuse from declared input existence and actual
+FileTime, through the existing pure file-update policy. Receipt input hashes,
+input-set hashes and PreparedPublication descriptor/input-set hashes are absent.
+Current-command observations stay in memory; they do not duplicate the model or
+replace removed hashes with a historical JSON-equality proof. Verify/publication
+retain actual artifact-byte checks, safe path binding and atomic installation.
+Historical input-hash properties are ignored by direct consumers. Presentation
+review snapshots contain only generation/decision timestamps, not aggregate
+review-manifest, artifact-set, or input-set identities. The review manifest is
+written last in a verified generation, so its modification time is the current
+generation boundary. Explicit alignment records the decision time. Unchanged
+reuse preserves the decision; a newer generation requires explicit realignment,
+including identical-byte regeneration. Historical snapshot hash properties are
+ignored without processing or re-emission. Structural and actual output
+integrity validation remain separate; timestamps are not content proofs.
+
+Explicit prebuilt acceptance is an operation on current inputs and current
+external output, not a comparison against an earlier receipt. Changed article,
+policy, producer, or production metadata does not alone veto adoption of
+unchanged media. The shared receipt adapter validates current regular files,
+retaining consumer-owned safe in-root symlink support, and
+site-bound PDF/PNG headers or declared SVG XML/root validity, and current video production identity/status/QA/output
+association before recording selected acceptance. It does not require unchanged
+historical evidence or duplicate metadata proofs. Current video output-to-QA
+association and publication transaction/input-race integrity remain separate
+from the removed old-receipt gate. Validation failure retains prior acceptance.
+SVG adoption uses its existing media type/public path declaration, with external
+entity resolution disabled; Phase 26 PNG-only publication is unchanged.
 
 The accepted presentation adapter remains the legacy
 `cozy.slide-ir.v1` / `--slide-ir` / `cozy.presentation.render.v1` path. Its
@@ -90,48 +121,61 @@ paths; normalization changes; symlink escapes; and missing or nonregular
 resolved files. `source` must parse as exactly `cozy.visual-page-set.v1` with
 integer version `1`. Every set page declares one shared catalog `{id,
 revision}` pair; resolution accepts exactly one supplied resolved catalog
-matching that pair and its full identity, and a mixed pair, unresolved catalog,
+matching that pair, and a mixed pair, unresolved catalog,
 or mismatch fails closed. The one media-route catalog/binding pair therefore
 binds every page deterministically. All legacy artifact/dependency fields
 retain their existing meanings, and profile retains its exact template/renderer
 shape. This variant cannot take an untagged legacy shape or infer `--slide-ir`.
 
-Its v2 renderer argv is the fixed legacy argv with `--slide-ir <source>`
-replaced by `--visual-page-set <source> --catalog <catalog> --binding
-<binding>`. Its `cozy.presentation.render.v2` manifest has exact canonical
-top-level fields `schema`, `target`, `profile`, `renderer`,
-`visualPageSetSha256`, `catalogSha256`, `bindingSha256`, `templateSha256`,
-`pptx`, `slides`, and `montage`. `visualPageSetSha256`, `catalogSha256`, and
-`bindingSha256` are canonical semantic 64-hex identities rather than raw input
-bytes. Slides follow VisualPageSet page order and use exactly `id`, `path`,
-`sha256`, `pptxSha256`, and page asset-ID-ordered `{id,sha256}` evidence.
-Cozy verifies renderer output, OOXML slide order/media linkage, and exact
-deterministic `cozy.media.presentation-review.v2` reconstruction; neither
-renderer nor review evidence approves itself.
+Its v2 renderer argv replaces `--slide-ir <source>` with
+`--visual-page-set <source> --catalog <catalog> --binding <binding>`.
+The v2 renderer's operational fields are
+`schema,target,profile,renderer,pptx,slides,montage`.
+Summary-PDF v2 uses `pdf` and optional sidecar `pptx` instead of the primary
+PPTX. Both filter obsolete `visualPageSetSha256`, `catalogSha256`,
+`visualPageSet`, `catalog`, and `binding` before ordered validation,
+without interpreting any JSON value or requiring their presence.
 
-Existing `cozy.media.receipt.v2` and `cozy.media.review-state.v1` schema shapes
-do not change. The route requires explicit receipt inputs for the VisualPageSet
-and catalog as structured documents plus binding and template bytes; strict
-Visual Page loading and v2 evidence prove assets without adding P36-05
-cross-media receipt semantics. This does not transfer review-state acceptance
-or semantic authority to generated evidence. Cozy owns validation, identity,
-orchestration, and stale-output evidence; the external renderer owns runtime
-rendering and external consumers own acceptance.
+Current PageSet/catalog/Binding loading is generation input validation, not a
+historical proof comparison. Page order, asset IDs, safe actual paths/bytes,
+PPTX relationships/media, PDF page count, PNG format, and atomic prior-output
+preservation remain. Review's three VisualPage provenance wrappers contain only
+`{path}`; private evidence carries only pages/asset declarations and a review
+path. No whole semantic copy, digest, or alternate identity is introduced.
+Renderer argv and external ownership are unchanged.
+
+The subsequent receipt migration removes the common input-set and per-input
+hash fields, including their direct review-state consumers. Remaining
+template/output/artifact hashes, deterministic review reconstruction,
+and review-state currentness remain unfinished later same-Phase work rather
+than integrity exemptions. Other Storyboard/video hashes and approvals likewise
+remain separately unfinished. This slice claims no Step/Phase closure or
+external renderer/consumer acceptance.
 
 ## Cross-media review boundary
 
-Cross-media Review is a verifier between two pre-existing Cozy evidence
-boundaries. It requires a current `visual-page-v1` presentation receipt and
-deterministic presentation-review v2 manifest, plus a current approved
-Storyboard-v2 review-evidence/handoff package. It reconstructs the shared
-VisualPageSet/catalog/binding and selected page/asset identities; it does not
-call either renderer, regenerate a slide or scene screen, alter a receipt,
-change a review state, or invoke publication.
+CrossReview reads existing current presentation and validated Storyboard review
+inputs. Actual named PageSet/catalog/page/Binding and safe files are validated
+separately; current per-side ordered asset IDs/media types and bytes are compared
+by the existing operation. It does not compare historical catalog/page/Binding
+snapshots with either current inputs or the other medium.
 
-The resulting `cozy.media.cross-review.v1` file is a currentness proof, not
-an approval record. Its explicit `not-recorded` semantic, visual, and
-audiovisual approval states preserve the human/AI decision boundary: a
-deterministic identity match cannot decide that an explanation is correct or
-that a rendered image is visually acceptable. Exact reconstruction rejects
-saved evidence after any source, catalog, binding, asset, renderer,
-presentation-review, Storyboard, or handoff change.
+The aggregate omits root PageSet/catalog/Binding proofs, per-page logical/
+visual proofs, presentation/Storyboard/evidence/handoff digest identities, and
+per-slide digests. Slides retain their declared IDs only. Legacy removed
+properties are ignored for any JSON value. CrossReview no longer computes or
+parses digests or duplicates video-owned identity checks. It still consumes the
+Storyboard review-input API, which now validates actual inputs and non-hash
+record structure without historical approval/currentness proofs. Actual presentation output integrity and cross-medium material
+byte agreement are independent of aggregate proof identities and remain intact.
+Verification enforces saved operational structure, uniqueness, and reference
+resolution instead of whole-record currentness equality. Build reconstructs once
+and atomically replaces an existing safe direct regular aggregate after input
+validation, never a participating input or review evidence; failure preserves
+prior bytes.
+
+The explicit approval values remain `not-recorded`. No renderer, publication,
+or semantic acceptance is invoked. Explicit media prebuilt adoption no longer
+rejects solely on old receipt/input mismatch. Template/output/artifact integrity
+remains separate from the removed Storyboard review identities; it is not a
+replacement proof gate.

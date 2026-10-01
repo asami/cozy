@@ -14,7 +14,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[media] object CozyExplanationJson {
@@ -23,7 +24,7 @@ private[media] object CozyExplanationJson {
     val parser = new JsonFactory().createParser(text)
     try {
       if (parser.nextToken() == null) _fail("EXPLANATION_SCHEMA_INVALID", source, "JSON input is required")
-      val value = _parse_json_value(parser, source)
+      val value = _parse_json_value(parser, source, Vector.empty)
       if (parser.nextToken() != null) _fail("EXPLANATION_SCHEMA_INVALID", source, "trailing JSON tokens are not admitted")
       value
     } catch {
@@ -32,7 +33,7 @@ private[media] object CozyExplanationJson {
     } finally parser.close()
   }
 
-  private[media] def _parse_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String): JsonValue = parser.getCurrentToken match {
+  private[media] def _parse_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String, location: Vector[String]): JsonValue = parser.getCurrentToken match {
     case JsonToken.START_OBJECT =>
       val fields = Vector.newBuilder[(String, JsonValue)]
       val seen = mutable.Set.empty[String]
@@ -42,12 +43,14 @@ private[media] object CozyExplanationJson {
         if (seen.contains(name)) _fail("EXPLANATION_DUPLICATE_FIELD", source, s"duplicate JSON field: $name")
         seen += name
         if (parser.nextToken() == null) _fail("EXPLANATION_SCHEMA_INVALID", source, s"missing JSON value for field: $name")
-        fields += name -> _parse_json_value(parser, source)
+        if (name == "identity" && (location == Vector("explanationCatalog") || location == Vector("presentationCatalog")))
+          _discard_json_value(parser, source)
+        else fields += name -> _parse_json_value(parser, source, location :+ name)
       }
       JsonObject(fields.result())
     case JsonToken.START_ARRAY =>
       val values = Vector.newBuilder[JsonValue]
-      while (parser.nextToken() != JsonToken.END_ARRAY) values += _parse_json_value(parser, source)
+      while (parser.nextToken() != JsonToken.END_ARRAY) values += _parse_json_value(parser, source, location :+ "[]")
       JsonArray(values.result())
     case JsonToken.VALUE_STRING => JsonString(parser.getText)
     case JsonToken.VALUE_TRUE => JsonBoolean(true)
@@ -56,6 +59,24 @@ private[media] object CozyExplanationJson {
       try JsonNumber(parser.getLongValue) catch { case NonFatal(_) => _fail("EXPLANATION_SCHEMA_INVALID", source, "integer is outside supported range") }
     case JsonToken.VALUE_NUMBER_FLOAT => _fail("EXPLANATION_SCHEMA_INVALID", source, "non-finite or floating-point JSON numbers are not admitted")
     case JsonToken.VALUE_NULL => _fail("EXPLANATION_SCHEMA_INVALID", source, "JSON null is not admitted")
+    case _ => _fail("EXPLANATION_SCHEMA_INVALID", source, s"unsupported JSON token: ${parser.getCurrentToken}")
+  }
+
+  private def _discard_json_value(parser: com.fasterxml.jackson.core.JsonParser, source: String): Unit = parser.getCurrentToken match {
+    case JsonToken.START_OBJECT =>
+      val seen = mutable.Set.empty[String]
+      while (parser.nextToken() != JsonToken.END_OBJECT) {
+        if (parser.getCurrentToken != JsonToken.FIELD_NAME) _fail("EXPLANATION_SCHEMA_INVALID", source, "JSON object member name is required")
+        val name = parser.getCurrentName
+        if (seen.contains(name)) _fail("EXPLANATION_DUPLICATE_FIELD", source, s"duplicate JSON field: $name")
+        seen += name
+        if (parser.nextToken() == null) _fail("EXPLANATION_SCHEMA_INVALID", source, s"missing JSON value for field: $name")
+        _discard_json_value(parser, source)
+      }
+    case JsonToken.START_ARRAY =>
+      while (parser.nextToken() != JsonToken.END_ARRAY) _discard_json_value(parser, source)
+    case JsonToken.VALUE_STRING | JsonToken.VALUE_TRUE | JsonToken.VALUE_FALSE |
+        JsonToken.VALUE_NUMBER_INT | JsonToken.VALUE_NUMBER_FLOAT | JsonToken.VALUE_NULL => ()
     case _ => _fail("EXPLANATION_SCHEMA_INVALID", source, s"unsupported JSON token: ${parser.getCurrentToken}")
   }
 
@@ -83,8 +104,6 @@ private[media] object CozyExplanationJson {
   }
 
   private[media] def _identity(value: JsonValue): String = "sha256:" + _sha256_bytes(_canonical(value).getBytes(StandardCharsets.UTF_8))
-
-  private[media] def _sha256_file(path: Path): String = _sha256_bytes(Files.readAllBytes(path))
 
   private[media] def _sha256_bytes(bytes: Array[Byte]): String =
     MessageDigest.getInstance("SHA-256").digest(bytes).map(value => f"${value & 0xff}%02x").mkString
@@ -154,12 +173,6 @@ private[media] object CozyExplanationJson {
   private[media] def _text(value: String, path: String): String = {
     if (value == null || value.isEmpty || value != value.trim || value.exists(_.isControl))
       _fail("EXPLANATION_SCHEMA_INVALID", path, "must be nonempty trimmed text without control characters")
-    value
-  }
-
-  private[media] def _sha256_text(value: String, path: String): String = {
-    if (value == null || !_sha256_pattern.pattern.matcher(value).matches)
-      _fail("EXPLANATION_SCHEMA_INVALID", path, "must be 64 lowercase hexadecimal SHA-256 characters")
     value
   }
 

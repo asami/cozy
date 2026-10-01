@@ -11,7 +11,8 @@ import CozyMedia._
 
 /*
  * @since   Aug. 25, 2026
- * @version Sep.  8, 2026
+ *  version Sep.  8, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPublicationTransaction {
@@ -60,8 +61,7 @@ private[cozy] object CozyMediaPublicationTransaction {
   ): Vector[PreparedPublication] = {
     if (!_is_direct_regular_file(plan.descriptorFile))
       RAISE.invalidArgumentFault(s"Media descriptor must be a direct regular non-symlink file: ${plan.descriptorFile}")
-    val descriptorhash = _sha256(plan.descriptorFile)
-    val inputsethash = CozyMediaReceipt.capture(plan).inputSetSha256
+    val observations = CozyMediaReceipt.observeInputs(plan)
     val effectiveprofile = effectiveProfile(plan, profile)
     val profileroot = _bind_profile_root(effectiveprofile.resolvedRoot)
     val publications = candidates.map { resolved =>
@@ -81,8 +81,7 @@ private[cozy] object CozyMediaPublicationTransaction {
         plan.descriptorFile,
         plan.descriptorRoot,
         plan.descriptor,
-        descriptorhash,
-        inputsethash,
+        observations,
         resolved.resource,
         target,
         plan.context,
@@ -183,10 +182,10 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault("Prepared media publication descriptor evidence is invalid")
     if (publication.descriptorFile != publication.descriptorFile.toAbsolutePath.normalize() || publication.descriptorRoot != publication.descriptorRoot.toAbsolutePath.normalize() || Option(publication.descriptorFile.getParent).forall(_ != publication.descriptorRoot))
       RAISE.invalidArgumentFault("Prepared media publication descriptor paths are invalid")
-    if (!_is_direct_regular_file(publication.descriptorFile) || !_is_sha256(publication.descriptorSha256) || _sha256(publication.descriptorFile) != publication.descriptorSha256)
+    if (!_is_direct_regular_file(publication.descriptorFile))
       RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
-    if (!_is_sha256(publication.inputSetSha256))
-      RAISE.invalidArgumentFault("Prepared media publication input-set identity is invalid")
+    if (!publication.observedInputs.find(_._1 == publication.descriptorFile).exists(_._2 == Files.getLastModifiedTime(publication.descriptorFile)))
+      RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
     val currentplan = CozyMedia.resolvePlan(publication.commandConfig)
     if (currentplan.siteContext != publication.siteContext)
       RAISE.invalidArgumentFault("Prepared media publication site context has changed")

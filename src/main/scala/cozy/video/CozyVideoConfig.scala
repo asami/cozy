@@ -28,10 +28,12 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 26, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] trait CozyVideoConfig {
+private[cozy] object CozyVideoConfig {
+  import CozyVideoImplementation._
 
   final case class InspectConfig(
     projectFile: Path,
@@ -41,6 +43,7 @@ private[cozy] trait CozyVideoConfig {
   ) {
     def projectRoot: Path = projectFile.getParent
   }
+
   object InspectConfig {
     def create(args: List[String]): InspectConfig = {
       val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_check_tools, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
@@ -61,6 +64,7 @@ private[cozy] trait CozyVideoConfig {
   ) {
     def projectRoot: Path = projectFile.getParent
   }
+
   object BuildConfig {
     def create(args: List[String]): BuildConfig = {
       val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_dry_run, _p_check_tools, _p_tool_mode, _p_docker_image, _p_mode)(_normalize_property_args(args))
@@ -81,6 +85,7 @@ private[cozy] trait CozyVideoConfig {
   ) {
     def projectRoot: Path = projectFile.getParent
   }
+
   object RenderConfig {
     def create(args: List[String]): RenderConfig = {
       val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_renderer, _p_part, _p_check_tools, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
@@ -110,6 +115,7 @@ private[cozy] trait CozyVideoConfig {
     def projectRoot: Path =
       Option(scriptFile.getParent).getOrElse(Paths.get(".").toAbsolutePath.normalize())
   }
+
   object SynthesizeConfig {
     def create(args: List[String]): SynthesizeConfig = {
       val parsed = CozyCliArgs.parseStrict(
@@ -144,6 +150,7 @@ private[cozy] trait CozyVideoConfig {
   ) {
     def projectRoot: Path = projectFile.getParent
   }
+
   object RdfConfig {
     def create(args: List[String]): RdfConfig = {
       val parsed = CozyCliArgs.parseStrict(_p_project_file, _p_save, _p_tool_mode, _p_docker_image)(_normalize_property_args(args))
@@ -163,6 +170,7 @@ private[cozy] trait CozyVideoConfig {
   ) {
     def projectRoot: Path = projectFile.getParent
   }
+
   object ReviewEvidenceConfig {
     def create(args: List[String]): ReviewEvidenceConfig = {
       val parsed = CozyCliArgs.parseStrict(
@@ -197,6 +205,7 @@ private[cozy] trait CozyVideoConfig {
     def projectRoot: Path =
       projectRootOverride.getOrElse(Paths.get(sys.props("user.dir"))).toAbsolutePath.normalize()
   }
+
   object TranscribeConfig {
     def create(args: List[String]): TranscribeConfig =
       create(args, Paths.get(sys.props("user.dir")).toAbsolutePath.normalize())
@@ -238,6 +247,7 @@ private[cozy] trait CozyVideoConfig {
     traceFile: Option[Path] = None,
     transcriptFile: Option[Path] = None
   )
+
   object DemoScriptConfig {
     def create(args: List[String]): DemoScriptConfig = {
       val parsed = CozyCliArgs.parseStrict(_p_input_video, _p_save, _p_events, _p_har, _p_trace, _p_transcript)(_normalize_property_args(args))
@@ -267,6 +277,7 @@ private[cozy] trait CozyVideoConfig {
     def projectRoot: Path =
       projectRootOverride.getOrElse(Paths.get(sys.props("user.dir"))).toAbsolutePath.normalize()
   }
+
   object ReplayConfig {
     def create(args: List[String]): ReplayConfig =
       create(args, Paths.get(sys.props("user.dir")).toAbsolutePath.normalize())
@@ -287,6 +298,28 @@ private[cozy] trait CozyVideoConfig {
       )
     }
   }
+}
+
+private[cozy] trait CozyVideoConfig {
+  type InspectConfig = CozyVideoConfig.InspectConfig
+  lazy val InspectConfig = CozyVideoConfig.InspectConfig
+  type BuildConfig = CozyVideoConfig.BuildConfig
+  lazy val BuildConfig = CozyVideoConfig.BuildConfig
+  type RenderConfig = CozyVideoConfig.RenderConfig
+  lazy val RenderConfig = CozyVideoConfig.RenderConfig
+  type SynthesizeConfig = CozyVideoConfig.SynthesizeConfig
+  lazy val SynthesizeConfig = CozyVideoConfig.SynthesizeConfig
+  type RdfConfig = CozyVideoConfig.RdfConfig
+  lazy val RdfConfig = CozyVideoConfig.RdfConfig
+  type ReviewEvidenceConfig = CozyVideoConfig.ReviewEvidenceConfig
+  lazy val ReviewEvidenceConfig = CozyVideoConfig.ReviewEvidenceConfig
+  type TranscribeConfig = CozyVideoConfig.TranscribeConfig
+  lazy val TranscribeConfig = CozyVideoConfig.TranscribeConfig
+  type DemoScriptConfig = CozyVideoConfig.DemoScriptConfig
+  lazy val DemoScriptConfig = CozyVideoConfig.DemoScriptConfig
+  type ReplayConfig = CozyVideoConfig.ReplayConfig
+  lazy val ReplayConfig = CozyVideoConfig.ReplayConfig
+
 
   private[video] val _p_project_file = spec.Parameter.argumentFile("project-file")
   private[video] val _p_input_video = spec.Parameter.argumentFile("input-video")

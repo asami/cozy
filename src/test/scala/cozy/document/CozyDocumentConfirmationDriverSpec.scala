@@ -11,12 +11,13 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Confirmation Driver" should {
-    "render each real Article 9 v2 confirmation kind twice with deterministic bytes disclosed identities and native selection markup" in {
+    "render each real Article 9 v2 confirmation kind twice with deterministic digest-free bytes and native selection markup" in {
       _with_temp_dir("cozy-document-confirmation-driver-render") { root =>
         Given("the direct Article 9 Japanese v2 Core, Document, Summary, and generic vocabulary bundle")
         val fixture = _fixture(root)
@@ -37,13 +38,13 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
         val documenthtml = Files.readString(documentone, StandardCharsets.UTF_8)
         val summaryhtml = Files.readString(summaryone, StandardCharsets.UTF_8)
 
-        Then("each direct output is byte-identical, self-disclosing, traceable, and natively selectable")
+        Then("each direct output is byte-identical, digest-free, reports exact logical IDs and output path, and is natively selectable")
         Files.readAllBytes(documentone).toVector shouldBe Files.readAllBytes(documenttwo).toVector
         Files.readAllBytes(summaryone).toVector shouldBe Files.readAllBytes(summarytwo).toVector
         documenthtml shouldBe documentexpected.html
         summaryhtml shouldBe summaryexpected.html
-        documenthtml should include("data-output-identity=\"" + documentexpected.identity + "\"")
-        summaryhtml should include("data-output-identity=\"" + summaryexpected.identity + "\"")
+        documenthtml should not include("data-output-identity")
+        summaryhtml should not include("data-output-identity")
         documenthtml should include("<button type=\"button\" class=\"step-control\"")
         documenthtml should include("data-step-control=\"true\"")
         documenthtml should include("aria-controls=\"flow-application-modeling structure-application-modeling prose-region\"")
@@ -92,28 +93,28 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
             else summaryvalidated.document.core.depthFirstSteps.flatMap(_.flow.transitions.map(_.id)) should contain(edge.ref)
           )
         }
-        documentreport should include(documentvalidated.coreIdentity)
-        documentreport should include(documentvalidated.documentIdentity)
-        summaryreport should include(summaryvalidated.summaryIdentity)
-        documentvalidated.coreIdentity shouldBe _identity(fixture._1)
-        documentvalidated.documentIdentity shouldBe _identity(fixture._2)
-        summaryvalidated.summaryIdentity shouldBe _identity(fixture._3)
+        documentreport should include(s"core: ${documentvalidated.core.core.id}")
+        documentreport should include(s"document: ${documentvalidated.description.id}")
+        documentreport should include(s"output: $documentone")
+        summaryreport should include(s"core: ${summaryvalidated.document.core.core.id}")
+        summaryreport should include(s"document: ${summaryvalidated.document.description.id}")
+        summaryreport should include(s"summary: ${summaryvalidated.description.id}")
+        summaryreport should include(s"output: $summaryone")
+        documentreport should not include("identity")
+        summaryreport should not include("identity")
       }
     }
 
     "render an admitted test-local sequence and next Flow through both strict confirmation commands" in {
       _with_temp_dir("cozy-confirmation-driver-sequence") { root =>
-        Given("a test-only Catalog variant with Root sequence next edges and correctly rebound raw identities")
+        Given("a test-only Catalog variant with Root sequence next edges")
         val fixture = _fixture(root)
-        val oldcoreidentity = _identity(fixture._1)
-        val olddocumentidentity = _identity(fixture._2)
         val coretext = Files.readString(fixture._1, StandardCharsets.UTF_8)
         val boundary = coretext.indexOf("\n  steps:\n")
         boundary should be > 0
         val roottext = coretext.substring(0, boundary).replace("pattern: mapping", "pattern: sequence").replace("role: source", "role: step").replace("role: target", "role: step").replace("relationType: maps-to", "relationType: next").replace("relationType: depends-on", "relationType: next")
         Files.writeString(fixture._1, roottext + coretext.substring(boundary), StandardCharsets.UTF_8)
-        Files.writeString(fixture._2, Files.readString(fixture._2, StandardCharsets.UTF_8).replace(oldcoreidentity, _identity(fixture._1)), StandardCharsets.UTF_8)
-        Files.writeString(fixture._3, Files.readString(fixture._3, StandardCharsets.UTF_8).replace(oldcoreidentity, _identity(fixture._1)).replace(olddocumentidentity, _identity(fixture._2)).replace("direction: forward", "direction: inverse"), StandardCharsets.UTF_8)
+        Files.writeString(fixture._3, Files.readString(fixture._3, StandardCharsets.UTF_8).replace("direction: forward", "direction: inverse"), StandardCharsets.UTF_8)
         val documentoutput = root.resolve("sequence-document.html")
         val summaryoutput = root.resolve("sequence-summary.html")
 
@@ -164,9 +165,9 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
       }
     }
 
-    "reject stale v2 inputs, incompatible generic resources, and closed command forms before publication" in {
+    "admit current valid v2 inputs while rejecting incompatible generic resources and closed command forms before publication" in {
       _with_temp_dir("cozy-document-confirmation-driver-rejection") { root =>
-        Given("copied Article 9 v2 authorities with separately stale or invalid confirmation inputs")
+        Given("copied Article 9 v2 authorities with current byte changes or invalid confirmation inputs")
         val stalecore = _fixture(Files.createDirectories(root.resolve("stale-core")))
         val staledocument = _fixture(Files.createDirectories(root.resolve("stale-document")))
         val invalidvocabulary = _fixture(Files.createDirectories(root.resolve("invalid-vocabulary")))
@@ -180,23 +181,24 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
         val crosskindoutput = root.resolve("cross-kind.html")
         val duplicateoutput = root.resolve("duplicate.html")
 
-        When("the command receives stale upstream bytes, a mismatched resource, or an invalid closed form")
+        When("the command receives current upstream bytes, a mismatched resource, or an invalid closed form")
         val failures = Vector(
-          _failure(_document_command(stalecore, stalecoreoutput)),
-          _failure(_summary_command(staledocument, staledocumentoutput)),
           _failure(_document_command(invalidvocabulary, invalidvocabularyoutput)),
           _failure(List("document-project", "confirmation", "render", "--core", invalidvocabulary._1.toString, "--document", invalidvocabulary._2.toString, "--kind", "document", "--save", missingoutput.toString)),
           _failure(List("document-project", "confirmation", "render", "--core", invalidvocabulary._1.toString, "--document", invalidvocabulary._2.toString, "--vocabulary", invalidvocabulary._4.toString, "--summary", invalidvocabulary._3.toString, "--kind", "document", "--save", crosskindoutput.toString)),
           _failure(List("document-project", "confirmation", "render", "--core", invalidvocabulary._1.toString, "--document", invalidvocabulary._2.toString, "--vocabulary", invalidvocabulary._4.toString, "--vocabulary", invalidvocabulary._4.toString, "--kind", "document", "--save", duplicateoutput.toString))
         )
 
-        Then("no stale or malformed request reaches a rendered output")
+        _execute(_document_command(stalecore, stalecoreoutput))
+        _execute(_summary_command(staledocument, staledocumentoutput))
+
+        Then("current semantic bytes render while malformed requests do not reach a rendered output")
         val reasons = failures.map(_.getMessage).mkString("\n")
-        reasons should include("DESCRIPTION_V2_DOCUMENT_CORE")
-        reasons should include("DESCRIPTION_V2_SUMMARY_DOCUMENT")
         reasons should include("CONFIRMATION_VOCABULARY_LOCALE")
         reasons should include("CONFIRMATION_CLI")
-        Vector(stalecoreoutput, staledocumentoutput, invalidvocabularyoutput, missingoutput, crosskindoutput, duplicateoutput).foreach(path => Files.exists(path, LinkOption.NOFOLLOW_LINKS) shouldBe false)
+        Files.exists(stalecoreoutput, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Files.exists(staledocumentoutput, LinkOption.NOFOLLOW_LINKS) shouldBe true
+        Vector(invalidvocabularyoutput, missingoutput, crosskindoutput, duplicateoutput).foreach(path => Files.exists(path, LinkOption.NOFOLLOW_LINKS) shouldBe false)
       }
     }
 
@@ -236,6 +238,24 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
         vocabulary should not include "アプリケーションモデリング"
       }
     }
+
+    "preserve a prior published output when closed generic vocabulary admission rejects" in {
+      _with_temp_dir("cozy-document-confirmation-driver-prior-output") { root =>
+        Given("one successful Document confirmation output and a subsequently malformed generic vocabulary")
+        val fixture = _fixture(root)
+        val output = root.resolve("preserved.html")
+        _execute(_document_command(fixture, output))
+        val prior = Files.readAllBytes(output).toVector
+        Files.writeString(fixture._4, Files.readString(fixture._4, StandardCharsets.UTF_8) + "unexpected: rejected\n", StandardCharsets.UTF_8)
+
+        When("the same safe destination is requested after vocabulary admission fails")
+        val failure = _failure(_document_command(fixture, output))
+
+        Then("the failure is classified before atomic publication and preserves the prior bytes")
+        failure.getMessage should include("CONFIRMATION_VOCABULARY_FIELDS")
+        Files.readAllBytes(output).toVector shouldBe prior
+      }
+    }
   }
 
   private def _fixture(root: Path): (Path, Path, Path, Path) = {
@@ -268,9 +288,6 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
 
   private def _failure(args: List[String]): IllegalArgumentException =
     intercept[IllegalArgumentException](CozyDocumentConfirmationCommand.execute(args))
-
-  private def _identity(path: Path): String =
-    "sha256:" + java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
 

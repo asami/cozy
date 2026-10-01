@@ -2,7 +2,7 @@ package cozy.document
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
+import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -11,12 +11,13 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 13, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Confirmation Projection v2" should {
-    "render deterministic self-disclosing output while escaping admitted text and attributes" in {
+    "render deterministic digest-free output while escaping admitted text and attributes" in {
       _with_temp_dir("cozy-document-confirmation-v2-determinism") { root =>
         Given("one strictly loaded v2 Document with text that needs HTML escaping and test-only generic vocabulary")
         val fixture = _fixture(root)
@@ -26,10 +27,9 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         val first = CozyDocumentConfirmationProjectionV2.render(fixture.validated, vocabulary)
         val second = CozyDocumentConfirmationProjectionV2.render(fixture.validated, vocabulary)
 
-        Then("HTML and its disclosed identity are byte-stable while text and attribute values are escaped")
+        Then("HTML is byte-stable without digest disclosure while text and attribute values are escaped")
         first shouldBe second
-        first.identity should startWith("sha256:")
-        first.html should include(s"""data-output-identity="${first.identity}"""")
+        first.html should not include("data-output-identity")
         first.html should include("Document &lt;title&gt; &amp; &quot;quoted&quot;")
         first.html should include("<title>Document &lt;title&gt; &amp; &quot;quoted&quot;</title>")
         first.html should include("<div class=\"kicker\">Document &lt;title&gt; &amp; &quot;quoted&quot;</div>")
@@ -40,6 +40,37 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         first.html should include("aria-label=\"Status &lt;heading&gt; &amp; &quot;quoted&quot;\"")
         first.html should not include("Document <title>")
         first.html should not include("Step <root>")
+      }
+    }
+
+    "admit varied ignored binding metadata through production loading while preserving semantic Document output" in {
+      _with_temp_dir("cozy-document-confirmation-v2-legacy-metadata") { root =>
+        Given("one admitted semantic Document and scalar object array null or historical binding metadata")
+        val fixture = _fixture(root)
+        val vocabulary = _vocabulary(fixture.validated.core)
+        val baseline = CozyDocumentConfirmationProjectionV2.render(fixture.validated, vocabulary).html
+        val metadata = Gen.oneOf(
+          Gen.const("  historical: sha256:not-a-binding"),
+          Gen.const("  historical: [legacy, metadata]"),
+          Gen.const("  historical: { source: legacy }"),
+          Gen.const("  historical: null"),
+          Gen.const("  identity: stale-looking-value"),
+          Gen.alphaNumStr.suchThat(_.nonEmpty).map(value => s"  historical: '$value'")
+        )
+        var index = 0
+
+        val property = Prop.forAll(metadata) { value =>
+          index += 1
+          val path = _write(root.resolve(s"metadata-$index/ja/document.yaml"), _document(fixture.validated.core, value))
+          val variant = CozyDocumentDescriptionV2.loadDocument(fixture.corepath, path)
+          CozyDocumentConfirmationProjectionV2.render(variant, vocabulary).html == baseline
+        }
+
+        When("production V2 admission reads each unchanged semantic source with ignored binding metadata")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+
+        Then("at least thirty admitted samples retain identical escaped digest-free HTML")
+        result.passed shouldBe true
       }
     }
 
@@ -127,7 +158,7 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
       }
     }
 
-    "reproduce the reference desktop hierarchy while keeping nested semantic evidence and identities secondary" in {
+    "reproduce the reference desktop hierarchy while keeping nested semantic evidence accessible" in {
       _with_temp_dir("cozy-document-confirmation-v2-accessibility") { root =>
         Given("a complete current admitted v2 Document and a complete test-only vocabulary")
         val fixture = _fixture(root)
@@ -135,18 +166,15 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
 
         When("the content-height confirmation workspace and activation-only reveal are composed")
         val statusposition = html.indexOf("Complete Document coverage")
-        val identityposition = html.indexOf("Core identity")
 
-        Then("compact status, persistent desktop Core navigation, activation-only reveal, and nested Flow and Structure retain keyboard-operable self-contained evidence")
+        Then("compact status, persistent desktop Core navigation, activation-only reveal, and nested Flow and Structure retain keyboard-operable digest-free evidence")
         html should include("Complete Document coverage")
         html should include("Current admitted sources")
         html should include("No unresolved references")
         statusposition should be >= 0
-        identityposition should be > statusposition
-        html should include("<details class=\"secondary\">")
         html should include(s"""data-core-id="${fixture.validated.core.core.id}"""")
-        html should include(s"${fixture.validated.coreIdentity}</dd>")
-        html should include(s"${fixture.validated.documentIdentity}</dd>")
+        html should not include("data-output-identity")
+        html should not include("Core identity")
         html should include(":focus-visible")
         html should include(".page{max-width:1500px;margin:0 auto;padding:24px}")
         html should include(".workspace{display:grid;grid-template-columns:minmax(280px,.82fr) 62px minmax(430px,1.4fr);gap:16px;align-items:start}")
@@ -205,7 +233,8 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
   private final class Fixture(
     val validated: CozyDocumentDescriptionV2.ValidatedDocument,
     val root: CozyDocumentLogicTree.Step,
-    val child: CozyDocumentLogicTree.Step
+    val child: CozyDocumentLogicTree.Step,
+    val corepath: Path
   )
 
   private def _fixture(root: Path): Fixture = {
@@ -215,13 +244,13 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/core.yaml"), core)
     val validatedcore = CozyDocumentLogicTree.loadCore(core)
     val document = locale.resolve("document.yaml")
-    _write(document, _document(validatedcore, _identity(core)))
+    _write(document, _document(validatedcore))
     val validated = CozyDocumentDescriptionV2.loadDocument(core, document)
     val corestep = validated.core.core.root
-    new Fixture(validated, corestep, corestep.steps.head)
+    new Fixture(validated, corestep, corestep.steps.head, core)
   }
 
-  private def _document(core: CozyDocumentLogicTree.ValidatedCore, coreidentity: String): String = {
+  private def _document(core: CozyDocumentLogicTree.ValidatedCore, metadata: String = ""): String = {
     val root = core.core.root
     val child = root.steps.head
     val allrefs = _references(core.depthFirstSteps, core.claimsById.keys.toVector, core.nodesById.keys.toVector, core.relationsById.keys.toVector, core.flowsById.keys.toVector)
@@ -239,7 +268,7 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
         |id: document-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
+        |$metadata
         |locale: ja
         |document:
         |  title: 'Document <title> & "quoted"'
@@ -326,10 +355,7 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
       "Relations",
       "No direct child Flow transitions",
       "Logical Structure reference",
-      "Identities",
-      "Core identity",
-      "Document identity",
-      "Output identity"
+      "Claim ID audit"
     )
     val patterns = _wording(core.depthFirstSteps.map(_.structure.pattern).toSet)
     val roles = _wording(core.depthFirstSteps.flatMap(_.structure.nodes.map(_.role)).toSet)
@@ -362,7 +388,6 @@ final class CozyDocumentConfirmationProjectionV2Spec extends AnyWordSpec with Ma
   }
 
   private def _occurrences(value: String, part: String): Int = value.sliding(part.length).count(_ == part)
-  private def _identity(path: Path): String = "sha256:" + MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
 
   private def _write(path: Path, value: String): Path = {

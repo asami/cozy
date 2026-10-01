@@ -14,13 +14,29 @@ import scala.collection.mutable.ArrayBuffer
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyVideoStoryboardBuildModeSpec {
+  private final case class ArtifactSnapshot(
+    bytes: Vector[Byte],
+    modified: FileTime,
+    permissions: Set[PosixFilePermission]
+  )
+
+  private final case class StaticTool(result: CozyVideo.VideoToolCheck) extends CozyVideo.VideoToolProvider {
+    def check(context: CozyVideo.VideoToolContext): CozyVideo.VideoToolCheck = result
+  }
+}
+
 final class CozyVideoStoryboardBuildModeSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
+  import CozyVideoStoryboardBuildModeSpec.ArtifactSnapshot
+  import CozyVideoStoryboardBuildModeSpec.StaticTool
+
   "Cozy Video Storyboard build modes" should {
     "reject a Storyboard project without a mode while preserving the legacy no-mode build" in {
       _with_temp_dir("mode-required") { root =>
@@ -1173,16 +1189,6 @@ final class CozyVideoStoryboardBuildModeSpec
         result.passed shouldBe true
       }
     }
-  }
-
-  private final case class ArtifactSnapshot(
-    bytes: Vector[Byte],
-    modified: FileTime,
-    permissions: Set[PosixFilePermission]
-  )
-
-  private final case class StaticTool(result: CozyVideo.VideoToolCheck) extends CozyVideo.VideoToolProvider {
-    def check(context: CozyVideo.VideoToolContext): CozyVideo.VideoToolCheck = result
   }
 
   private def _build(project: Path, mode: String, runner: FakeRunner): String =

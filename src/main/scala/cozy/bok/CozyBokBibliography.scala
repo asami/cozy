@@ -32,12 +32,21 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
+private[cozy] object CozyBokBibliography {
+  import CozyBokImplementation._
+
+  private[bok] final case class PreservedSieHandoff(destination: Path, source: Path)
+}
+
 private[cozy] trait CozyBokBibliography {
   self: CozyBokImplementation.type =>
+
+  private[bok] type PreservedSieHandoff = CozyBokBibliography.PreservedSieHandoff
+  private[bok] lazy val PreservedSieHandoff = CozyBokBibliography.PreservedSieHandoff
   private[bok] def _stash_bibliography_cache(config: BuildConfig): Option[Path] = {
     val cache = config.project.resolve("target/cozy-bok/bibliography/cache")
     if (!Files.isDirectory(cache))
@@ -54,8 +63,6 @@ private[cozy] trait CozyBokBibliography {
       if (Files.isDirectory(source))
         _copy_directory(source, config.project.resolve("target/cozy-bok/bibliography/cache"))
     }
-
-  private[bok] final case class PreservedSieHandoff(destination: Path, source: Path)
 
   private[bok] def _stash_sie_handoffs(config: BuildConfig): Vector[PreservedSieHandoff] = {
     val projectroot = config.project.toAbsolutePath.normalize

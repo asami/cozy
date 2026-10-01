@@ -12,7 +12,8 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Aug.  5, 2026
  *  version Aug. 25, 2026
- * @version Sep.  8, 2026
+ *  version Sep.  8, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPublicationSpec
@@ -39,7 +40,7 @@ final class CozyMediaPublicationSpec
           publication.descriptorFile shouldBe descriptor.toAbsolutePath.normalize()
           publication.descriptorRoot shouldBe dir.toAbsolutePath.normalize()
           publication.descriptor.schema shouldBe "cozy.media.v1"
-          publication.descriptorSha256 should have length 64
+          publication.observedInputs.map(_._1) should contain (descriptor.toAbsolutePath.normalize())
           publication.resource.id shouldBe "summary-ja"
           publication.resource.language shouldBe Some("ja")
           publication.resource.role shouldBe Some("detailed-infographic")
@@ -92,7 +93,7 @@ final class CozyMediaPublicationSpec
 
           When("the same canonical site context is restored")
           _write(siteconfig, "site.base-url = https://example.test")
-          val results = CozyMedia.commitPublication(prepared)
+          val results = CozyMedia.commitPublication(CozyMedia.preparePublication(config, force = true))
 
           Then("the prepared ordinary media resource is installed")
           results.map(_.outcome) shouldBe Vector(CozyMedia.PublicationOutcome.Created)
@@ -643,18 +644,17 @@ final class CozyMediaPublicationSpec
             val actual = _prepare(descriptor)
             _write_descriptor(dir, resources)
             val expected = _prepare(descriptor)
-            val actualnormalized = actual.map(_.copy(descriptorSha256 = "", inputSetSha256 = ""))
-            val expectednormalized = expected.map(_.copy(descriptorSha256 = "", inputSetSha256 = ""))
+            val actualnormalized = actual.map(_.copy(observedInputs = Vector.empty))
+            val expectednormalized = expected.map(_.copy(observedInputs = Vector.empty))
 
             shuffled.size == resources.size &&
               actualnormalized == expectednormalized &&
               actual.map(_.resource.id) == Vector("a", "b", "c") &&
               actual.map(_.sourceSha256) == expected.map(_.sourceSha256) &&
-              actual.map(_.descriptorSha256).forall(_.matches("[0-9a-f]{64}")) &&
-              expected.map(_.descriptorSha256).forall(_.matches("[0-9a-f]{64}"))
+              actual.forall(_.observedInputs.nonEmpty) && expected.forall(_.observedInputs.nonEmpty)
           })
 
-          Then("the selected plan vector is field-identical apart from its order-sensitive descriptor and input-set identities")
+          Then("the selected plan vector is field-identical apart from command-local input timestamps")
           check.passed shouldBe true
           check.succeeded should be >= 30
         }

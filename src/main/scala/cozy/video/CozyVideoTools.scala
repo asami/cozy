@@ -27,12 +27,14 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] trait CozyVideoTools {
-  self: CozyVideoConfig with CozyVideoModel =>
+private[cozy] object CozyVideoTools {
+  import CozyVideoImplementation._
+
   sealed trait VideoToolMode { def label: String }
+
   object VideoToolMode {
     case object Docker extends VideoToolMode { val label = "docker" }
     case object Host extends VideoToolMode { val label = "host" }
@@ -47,6 +49,7 @@ private[cozy] trait CozyVideoTools {
   }
 
   sealed trait VideoToolStatus { def label: String }
+
   object VideoToolStatus {
     case object Available extends VideoToolStatus { val label = "available" }
     case object Missing extends VideoToolStatus { val label = "missing" }
@@ -131,6 +134,7 @@ private[cozy] trait CozyVideoTools {
   final case class VideoToolRegistry(providers: Vector[VideoToolProvider]) {
     def checks(context: VideoToolContext): Vector[VideoToolCheck] = providers.map(_.check(context))
   }
+
   object VideoToolRegistry {
     val default: VideoToolRegistry = production(VideoToolProbe.default)
 
@@ -181,6 +185,7 @@ private[cozy] trait CozyVideoTools {
     def httpGet(uri: URI): VideoHttpResult
     def exists(path: Path): Boolean
   }
+
   object VideoToolProbe {
     val default: VideoToolProbe = DefaultVideoToolProbe
   }
@@ -230,6 +235,7 @@ private[cozy] trait CozyVideoTools {
     def audioQuery(baseurl: String, text: String, speakerid: Int): Json
     def synthesis(baseurl: String, speakerid: Int, audioquery: Json): Array[Byte]
   }
+
   object VoicevoxClient {
     val default: VoicevoxClient = DefaultVoicevoxClient
   }
@@ -670,7 +676,65 @@ private[cozy] trait CozyVideoTools {
         )
     }
   }
+}
 
+private[cozy] trait CozyVideoTools {
+  self: CozyVideoConfig with CozyVideoModel =>
+
+  type VideoToolMode = CozyVideoTools.VideoToolMode
+  lazy val VideoToolMode = CozyVideoTools.VideoToolMode
+  type VideoToolStatus = CozyVideoTools.VideoToolStatus
+  lazy val VideoToolStatus = CozyVideoTools.VideoToolStatus
+  type VideoToolCheck = CozyVideoTools.VideoToolCheck
+  lazy val VideoToolCheck = CozyVideoTools.VideoToolCheck
+  type VideoToolContext = CozyVideoTools.VideoToolContext
+  lazy val VideoToolContext = CozyVideoTools.VideoToolContext
+  type VideoExecutionConfig = CozyVideoTools.VideoExecutionConfig
+  lazy val VideoExecutionConfig = CozyVideoTools.VideoExecutionConfig
+  private[video] type DockerMount = CozyVideoTools.DockerMount
+  private[video] lazy val DockerMount = CozyVideoTools.DockerMount
+  private[video] type ReviewEvidenceDockerMounts = CozyVideoTools.ReviewEvidenceDockerMounts
+  private[video] lazy val ReviewEvidenceDockerMounts = CozyVideoTools.ReviewEvidenceDockerMounts
+  type VideoToolProvider = CozyVideoTools.VideoToolProvider
+  type VideoToolRegistry = CozyVideoTools.VideoToolRegistry
+  lazy val VideoToolRegistry = CozyVideoTools.VideoToolRegistry
+  type UncheckedToolProvider = CozyVideoTools.UncheckedToolProvider
+  lazy val UncheckedToolProvider = CozyVideoTools.UncheckedToolProvider
+  type VideoCommandResult = CozyVideoTools.VideoCommandResult
+  lazy val VideoCommandResult = CozyVideoTools.VideoCommandResult
+  type VideoHttpResult = CozyVideoTools.VideoHttpResult
+  lazy val VideoHttpResult = CozyVideoTools.VideoHttpResult
+  type VideoToolProbe = CozyVideoTools.VideoToolProbe
+  lazy val VideoToolProbe = CozyVideoTools.VideoToolProbe
+  private[video] lazy val DefaultVideoToolProbe = CozyVideoTools.DefaultVideoToolProbe
+  type VoicevoxClient = CozyVideoTools.VoicevoxClient
+  lazy val VoicevoxClient = CozyVideoTools.VoicevoxClient
+  type NarrationAudio = CozyVideoTools.NarrationAudio
+  lazy val NarrationAudio = CozyVideoTools.NarrationAudio
+  type NarrationProvider = CozyVideoTools.NarrationProvider
+  private[video] lazy val DefaultVoicevoxClient = CozyVideoTools.DefaultVoicevoxClient
+  type DockerToolchainProvider = CozyVideoTools.DockerToolchainProvider
+  lazy val DockerToolchainProvider = CozyVideoTools.DockerToolchainProvider
+  type DockerImageProvider = CozyVideoTools.DockerImageProvider
+  lazy val DockerImageProvider = CozyVideoTools.DockerImageProvider
+  type TextusToolchainImageProvider = CozyVideoTools.TextusToolchainImageProvider
+  lazy val TextusToolchainImageProvider = CozyVideoTools.TextusToolchainImageProvider
+  type VoicevoxProvider = CozyVideoTools.VoicevoxProvider
+  lazy val VoicevoxProvider = CozyVideoTools.VoicevoxProvider
+  type MacosSayProvider = CozyVideoTools.MacosSayProvider
+  lazy val MacosSayProvider = CozyVideoTools.MacosSayProvider
+  type PiperProvider = CozyVideoTools.PiperProvider
+  lazy val PiperProvider = CozyVideoTools.PiperProvider
+  type FfmpegProvider = CozyVideoTools.FfmpegProvider
+  lazy val FfmpegProvider = CozyVideoTools.FfmpegProvider
+  type RemotionNodeProvider = CozyVideoTools.RemotionNodeProvider
+  lazy val RemotionNodeProvider = CozyVideoTools.RemotionNodeProvider
+  type PlaywrightProvider = CozyVideoTools.PlaywrightProvider
+  lazy val PlaywrightProvider = CozyVideoTools.PlaywrightProvider
+  type WhisperCppProvider = CozyVideoTools.WhisperCppProvider
+  lazy val WhisperCppProvider = CozyVideoTools.WhisperCppProvider
+  type PythonPillowProvider = CozyVideoTools.PythonPillowProvider
+  lazy val PythonPillowProvider = CozyVideoTools.PythonPillowProvider
   private[video] def _first_success(results: Vector[VideoCommandResult]): Option[VideoCommandResult] =
     results.find(_.isSuccess)
 

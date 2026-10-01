@@ -4,7 +4,7 @@ import cozy.ui.CozyLogicalUiRuntime._
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyLogicalUiRuntimeValidation {
@@ -246,7 +246,6 @@ object CozyLogicalUiRuntimeValidation {
       case NumberValue(number) if number == null => Left(_error("LUI74_VALUE_INVALID", path + ".number", "null numeric payload"))
       case TimestampValue(instant) if instant == null => Left(_error("LUI74_VALUE_INVALID", path + ".instant", "null timestamp payload"))
       case _: TextValue | _: NumberValue | _: BooleanValue | MissingValue | _: TimestampValue => Right(())
-      case _ => Left(_error("LUI74_VALUE_INVALID", path, "unknown display value"))
     }
 
   private def _validate_optional_text(value: Option[String], path: String): Either[RuntimeError, Unit] =

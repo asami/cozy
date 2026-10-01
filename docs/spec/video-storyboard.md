@@ -28,11 +28,9 @@ generation and confirmation prerequisites. A build validates each declared
 `parts[].storyboard` source, section, tools, credits, and safe output path; it
 does not read or require `storyboardReview`, visual evidence, or
 `confirmationReview` approval. Confirmation and final remain explicitly
-selected, independent modes with separate outputs. `storyboardReview` and its
-hash/evidence decoders remain review-only transitional contracts: malformed
-legacy declarations are not promised to load before the separately assigned
-native hash/model/scaffold removal. Existing cache and evidence identities are
-also transitional, not the future Phase 71 currentness contract.
+selected, independent modes with separate outputs. `storyboardReview` remains
+a review-only contract. The DM14 contract in Section 9.1 supersedes its former
+approval/hash decoding; actual declaration syntax is still validated.
 
 ### 2026-09-29 P710-02C native currentness amendment
 
@@ -328,7 +326,7 @@ the commands exist in the current implementation.
 | `cozy video storyboard validate <storyboard.md\|storyboard.json>` | Parse, validate, normalize, and report the semantic identity and structured diagnostics. It MUST not build video or mutate a source Storyboard. |
 | `cozy video storyboard inspect <storyboard.md\|storyboard.json>` | Perform the same safe parse/validation and display normalized schema/version, scene order, field summary, references, and identity without changing semantic content. |
 | `cozy video storyboard convert <input> --save <output.md\|output.json>` | Validate first, then write deterministic canonical output. A legacy input requires an explicit adapter selection and diagnostic migration report. Failed validation MUST not produce a claimed Storyboard output. |
-| `cozy video storyboard review-evidence <video-project> --save <dir>` | Create deterministic content-review evidence from the approved normalized Storyboard, recording its identity and any optional visual-story/diagram/asset identities. It MUST reject stale or unapproved input. |
+| `cozy video storyboard review-evidence <video-project> --save <dir>` | Create deterministic content-review data from the selected current Storyboard and optional declared safe visual inputs, without digest-based approval or historical currentness gates. |
 | `cozy video build <video-project> --mode confirmation` | Validate and consume each declared Storyboard part source and create a confirmation output with a distinct location. Optional review state is not a build prerequisite. |
 | `cozy video build <video-project> --mode final` | Validate and consume each declared Storyboard part source, create a separate final output, and never overwrite confirmation output. Final does not require a confirmation artifact or approval record. |
 
@@ -341,56 +339,45 @@ Storyboard.
 
 ## 9. Review, build, and external boundaries
 
-Storyboard approval is an explicit review concern, not a generation or audiovisual acceptance gate. Optional
-image-backed visual-story evidence is a projection of normalized data and is
-required only when diagrams, assets, frames, layout, or image selection need
-separate inspection. When requested, its input identity MUST include the
-Storyboard identity and the identities of admitted visual inputs; changed
-inputs make the evidence stale.
+Storyboard semantic, visual, and audiovisual approval remains an explicit human/AI
+decision outside deterministic generation. A review declaration selects inputs;
+neither its presence nor generated evidence claims quality approval.
 
 ### 9.1 Project declaration and P30-02 evidence contract
 
-A video project MAY declare one root `storyboardReview` object. Its required
-`source` is a safe project-relative direct regular Storyboard file and its
-required `approvedIdentity` is the exact `sha256:<lowercase-hex>` identity of
-the normalized Storyboard that a human has approved. The declaration is an
-explicit approval record; a current source whose identity differs from
-`approvedIdentity` is unapproved and MUST be rejected by explicit review
-operations that claim it current; it is not a build prerequisite.
+A video project MAY declare one root `storyboardReview` object with a required
+safe project-relative direct regular `source`, optional `visualStory`, and
+optional `visualPage`. Historical `approvedIdentity` and
+`approvedEvidenceIdentity` properties are ignored for any JSON value; they
+are not required, parsed, compared, or re-emitted. No replacement whole-model
+proof, approval fingerprint, or new approval metadata framework is introduced.
 
-`storyboardReview.visualStory` is optional. Its presence means that the
-project explicitly requests image-backed visual review. It contains:
+`visualStory` selects a safe `evidenceDirectory` below `target/cozy-video`
+and ordered duplicate-free `inputRefs` from the Storyboard's declared
+diagram/asset references. The review-evidence command validates current source
+syntax and selected direct safe files, requires the declared save directory,
+copies the selected inputs, and writes deterministic review/handoff data.
+Evidence retains schema, `status:validated`, source, scenes and optional
+`visualInputs` containing `reference,source,path`; no content digests are
+computed. V1 handoff contains only schema and evidencePath.
+The typed result/current APIs carry file locations only.
 
-- `evidenceDirectory`: a safe project-relative directory below
-  `target/cozy-video` where Cozy writes the derived package;
-- `inputRefs`: an ordered, duplicate-free subset of the selected Storyboard's
-  `diagramRefs` and `assetRefs`; and
-- optional `approvedEvidenceIdentity`: the exact identity of a previously
-  inspected visual-story evidence package.
+Explicit review validation checks supported schema/status, required non-hash
+fields, current declared inputs and existing direct visual copies. It does not
+compare old evidence bytes, copied-input digests, renderer configuration, or
+the full historical payload with current inputs. Valid source/material updates
+can proceed; malformed documents, missing/unsafe actual inputs, invalid
+PageSet/catalog/page/Binding, and missing effective renderer/part still reject.
+Generation does not turn optional review state into a build prerequisite.
+No hash value, including a historical approval value, grants semantic quality
+approval. External reviewers retain that responsibility.
 
-`cozy video storyboard review-evidence <video-project> --save <dir>` requires
-the current Storyboard identity to equal `approvedIdentity`. When
-`visualStory` is present, `--save` MUST equal its `evidenceDirectory`; every
-selected input reference MUST be a present, direct regular non-symlink file
-contained by the project. Cozy writes `review-evidence.json`, copied visual
-inputs below `visual-inputs/`, and `handoff.json`. `review-evidence.json` has
-schema `cozy.video.storyboard-review-evidence.v1`, status `validated`, the
-Storyboard source path and identity, ordered scene review data (section,
-speaker, role, narration, screen heading/content, caption, timing, direction),
-and visual-input records only when requested. Its `identity` is the
-`sha256:` digest of the canonical evidence payload excluding that identity
-field. `handoff.json` has schema `cozy.video.storyboard-handoff.v1` and carries
-only the evidence path, evidence identity, Storyboard identity, and optional
-visual-input identities for a Dox/PPTX consumer; Cozy neither creates nor
-accepts that consumer's artifact.
-
-A requested visual review is current only when the evidence package exists,
-revalidates against the current approved Storyboard and selected input hashes,
-and its identity equals `approvedEvidenceIdentity`. A missing approval, missing
-evidence, changed input, missing input, malformed record, or identity mismatch
-MUST fail closed when explicit review currentness is requested. Generation does
-not invoke this validator or open saved evidence. Without `visualStory`, no
-visual evidence or handoff is required.
+Saved scene, visual-input, and renderer entries retain their required non-hash
+field types. Scene arrays are nonempty; visual-input references, renderer part
+IDs, visual-page scene IDs, and per-page asset IDs must be unique. Removed
+entry-level `identity` and asset `sha256` values are ignored. Visual-copy safety
+includes every parent component below the evidence directory. These checks do
+not compare historical scene content or renderer settings with current values.
 
 ### 9.1.1 P36-05 Storyboard-v2 Visual Page proof
 
@@ -399,7 +386,7 @@ and `cozy.video.storyboard-handoff.v2`; this dispatch never upgrades a v1
 Storyboard or alters its v1 evidence/handoff bytes. A v2 Storyboard containing
 one or more `kind: visual-page` screens MUST declare exactly one closed
 `storyboardReview.visualPage` object with exactly these required fields:
-`binding`, `evidenceDirectory`, and `approvedEvidenceIdentity`. A v1
+`binding` and `evidenceDirectory`. Historical `approvedEvidenceIdentity` is ignored. A v1
 Storyboard, or a v2 Storyboard with no visual-page screen, MUST reject that
 declaration rather than ignore it. Existing `visualStory` grammar remains a
 separate optional visual-input route; when both declarations occur in v2 their
@@ -410,33 +397,35 @@ For every visual-page screen, Cozy resolves the literal `source` and `catalog`
 from the Storyboard source directory, loads exactly that VisualPageSet with
 exactly that catalog, selects `pageId` exactly once, and validates the one
 declared binding against that resolved set/catalog. It never infers a catalog,
-page, binding, renderer, path, or identity. Evidence and handoff retain each
-literal `{kind,source,catalog,pageId}` and, in scene order, record
-`visualPageSetIdentity`, `catalogIdentity`, `logicalIdentity`,
-`visualPageIdentity`, ordered selected assets `{id,path,mediaType,sha256}`,
-and `bindingIdentity`.
+page, binding, renderer, path, or identity. Generated evidence and handoff
+`visualPages` entries are exactly `sceneId,kind,source,catalog,pageId,assets`.
+Assets retain ordered `{id,path,mediaType,modifiedAt}` declarations/observations,
+with full `FileTime.toString` precision. Current referenced safe files are
+resolved directly. DM14 deletes the four VisualPage digests and copied Binding
+proof; old hash/replacement-value properties may have any JSON value and are
+ignored, not interpreted or emitted. An old VisualPage/assets/Binding snapshot
+is not required to equal current inputs.
+
+DM14 removes the review-local Storyboard/approval/evidence/handoff digests,
+visual-copy digests and renderer digests together with historical full-payload
+comparison gates. General Storyboard identity operations and separate
+confirmation/runtime/publication integrity contracts are not covered here.
 
 For every project part selecting `storyboardReview.source`, Cozy selects its
 effective `VideoRenderer` from the part override or project renderer. At least
 one such part and one selected renderer per part are required for v2
 visual-page review. Evidence and handoff record `effectiveRenderers` ordered
-by part ID; each entry carries the canonical renderer configuration and its
-SHA-256 identity. Renderer execution is not part of this proof route.
+by part ID; each entry carries only partId and the selected renderer configuration. Renderer execution is not part of this proof route.
 Generation parts need not share that review source: each build part instead
 uses its own declared safe Storyboard source under the Phase 71 boundary.
 
-The v2 evidence payload has ordered fields `schema`, `status`, `source`,
-`storyboardIdentity`, `scenes`, `visualInputs`, `visualPages`, and
-`effectiveRenderers`, followed by its SHA-256 `identity`. The v2 handoff
-payload has ordered fields `schema`, `status`, `evidencePath`,
-`evidenceIdentity`, `storyboardIdentity`, `visualInputs`, `visualPages`, and
-`effectiveRenderers`, followed by its own SHA-256 `identity`. Before a v2
-visual-page explicit review-currentness operation, Cozy
-recomputes both expected values from direct current inputs and rejects any
-schema, payload, self-identity, approval, binding, catalog, logical/visual
-page, page asset, selected renderer, or handoff mismatch as stale. This does
-not self-approve visual quality or change narration, timing, transition, or
-audiovisual-review authority.
+The v2 evidence fields are `schema,status,source,scenes,visualInputs,
+visualPages,effectiveRenderers`. Handoff fields are
+`schema,status,evidencePath,visualInputs,visualPages,effectiveRenderers`.
+Historical root `identity,storyboardIdentity,evidenceIdentity`, visual-input
+identities and effective-renderer identities are ignored without digest parsing.
+Generated records omit all of them. VisualPage operational entries remain
+structurally validated, but are not compared as historical currentness proofs.
 
 ### 9.2 P30-03 Storyboard build and confirmation contract
 
@@ -463,7 +452,7 @@ selected part/source paths, declared handoff and part-artifact paths, frozen
 mode/settings projections, and a successful ffprobe summary. Native mode
 records and handoffs MUST NOT carry local cache, source, handoff, output, or
 manifest hash identities. The accepted v1/v2 Storyboard semantic identity and
-the separately owned review/audio/integrity hash contracts remain unchanged.
+the separately owned audio/integrity hash contracts remain unchanged.
 
 `video.yaml` MAY retain one root `confirmationReview` object with the exact
 single field `approvedIdentity` as historical review metadata. `final` does
@@ -577,14 +566,17 @@ deployment. Those responsibilities remain separately scoped.
 
 ### Cross-media Review consumption
 
-The optional `cozy media cross-review` route consumes only an already current
-Storyboard-v2 review-evidence/handoff pair. It verifies the pair through the
-same approved Storyboard, literal visual-page screen, binding, selected asset,
-and effective-renderer reconstruction used before video confirmation/final
-work. It then compares the resulting VisualPageSet/catalog/binding and selected
-page identities against a current Visual Page presentation review. It neither
-changes the Storyboard contract, generates a video or a scene image, approves
-semantic/visual/audiovisual content, nor changes the existing video build gate.
+CrossReview consumes current presentation and validated Storyboard-v2 inputs.
+Actual per-side references, declared ordered asset IDs/media types, and safe file
+bytes are checked by the existing operation. No PageSet/catalog/logical/page/
+Binding historical or cross-medium snapshot equality is required. Aggregate
+assets remain `{id,mediaType}`; removed proof properties are ignored for any
+JSON value. Saved verification enforces structure, uniqueness, and references,
+not whole aggregate equality. Build may atomically replace a safe existing
+aggregate while protecting actual inputs/review evidence and prior bytes on
+failure. It does not render, publish, or approve semantic/visual/audiovisual
+content. Media receipt admission and non-review artifact integrity remain
+separate responsibilities.
 
 ## 12. Phase 61 legacy dialogue authoring compatibility
 

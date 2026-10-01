@@ -6,17 +6,19 @@ import java.nio.file.{Files, LinkOption, Path, Paths}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Description Projection" should {
-    "admit the direct Article 9 Japanese Document authority at its exact current Core binding" in {
+    "admit the direct Article 9 Japanese Document authority at its direct logical Core binding" in {
       _with_temp_dir("cozy-document-description-article-nine") { root =>
         Given("unchanged copied direct Article 9 Core and Japanese Document authorities")
         val fixture = _fixture(root)
@@ -24,12 +26,10 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         When("the Document authority is loaded through its typed admission boundary")
         val validated = CozyDocumentDescription.loadDocument(fixture._1, fixture._2)
 
-        Then("the complete recursive authority remains current and has complete typed Core coverage")
+        Then("the complete recursive authority retains its exact logical ID and complete typed Core coverage")
         validated.description.id shouldBe "application-modeling-document-ja"
         validated.description.locale shouldBe "ja"
         validated.core.core.id shouldBe "application-modeling"
-        validated.coreIdentity shouldBe "sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc"
-        validated.documentIdentity shouldBe "sha256:1f7192fbf4fd47713bc7e6da515d27b5cf7ee91b45805be99a642d5cf31eb4df"
         _sections(validated.description.document.sections).map(_.id) should contain allOf ("application-modeling-introduction", "conclusion-section")
       }
     }
@@ -73,7 +73,7 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
       }
     }
 
-    "admit the direct Article 9 Japanese Summary authority at its exact current Core and Document bindings" in {
+    "admit the direct Article 9 Japanese Summary authority at its direct logical Core and Document bindings" in {
       _with_temp_dir("cozy-document-description-summary-article-nine") { root =>
         Given("unchanged copied direct Article 9 Core, Document, and Summary authorities")
         val fixture = _summary_fixture(root)
@@ -81,13 +81,11 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         When("the Summary authority is loaded through its typed admission boundary")
         val validated = CozyDocumentDescription.loadSummary(fixture._1, fixture._2, fixture._3)
 
-        Then("the concise authority remains current against both direct upstream byte identities")
+        Then("the concise authority retains both direct upstream logical IDs")
         validated.description.id shouldBe "application-modeling-summary-ja"
         validated.description.locale shouldBe "ja"
-        validated.description.core.identity shouldBe "sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc"
+        validated.description.core.id shouldBe "application-modeling"
         validated.description.document.id shouldBe "application-modeling-document-ja"
-        validated.description.document.identity shouldBe "sha256:1f7192fbf4fd47713bc7e6da515d27b5cf7ee91b45805be99a642d5cf31eb4df"
-        validated.summaryIdentity shouldBe "sha256:55b518b61fcb43a2b8d338c082d6eed63742dd7956ff32a85a64f1d34882877c"
         validated.description.summary.units.map(_.id) shouldBe Vector("foundation-purpose", "use-case-model", "collaboration-interaction", "executable-elements", "review-and-realization")
       }
     }
@@ -102,20 +100,41 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         val first = CozyDocumentDescriptionProjection.render(validated)
         val second = CozyDocumentDescriptionProjection.render(validated)
 
-        Then("its exact bytes and identity are stable while readable authored prose is primary")
+        Then("its exact HTML bytes are stable while readable authored prose is primary")
         first shouldBe second
-        first.identity should startWith ("sha256:")
         first.html should include("SimpleModeling 第9回 アプリケーションモデリング")
         first.html should include("ユースケースから実現モデルへ")
         first.html should include("生成AIは対応案を作成でき")
         first.html should include("data-document-id=\"application-modeling-document-ja\"")
-        first.html should include("data-core-identity=\"sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc\"")
+        first.html should include("data-core-id=\"application-modeling\"")
+        first.html should not include "identity"
         first.html should include("data-core-relations=\"root-domain-maps-to-application")
         first.html should include("data-relation-id=\"collaboration-responsibility-causes-interaction\" data-relation-type=\"causes\"")
         first.html should include("data-relation-id=\"collaboration-responsibility-enables-interaction\" data-relation-type=\"enables\"")
         first.html should include("data-relation-id=\"execution-event-causes-service\" data-relation-type=\"causes\"")
         first.html should include("data-relation-id=\"execution-event-enables-service\" data-relation-type=\"enables\"")
         first.html should not include("<table")
+      }
+    }
+
+    "preserve deterministic escaped HTML and semantic bindings across varied authored prose" in {
+      _with_temp_dir("cozy-document-description-determinism") { root =>
+        Given("a direct Article 9 Document authority and at least thirty safe authored-prose variations")
+        val fixture = _fixture(root)
+        val original = Files.readString(fixture._2, StandardCharsets.UTF_8)
+        val wording = Gen.nonEmptyListOf(Gen.alphaNumChar).map(_.mkString)
+
+        When("ScalaCheck loads and renders each supplied current prose variation twice")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(wording) { value =>
+          Files.writeString(fixture._2, original.replace("生成AIは対応案を作成でき", s"生成AIは$value <&>"), StandardCharsets.UTF_8)
+          val validated = CozyDocumentDescription.loadDocument(fixture._1, fixture._2)
+          val first = CozyDocumentDescriptionProjection.render(validated)
+          val second = CozyDocumentDescriptionProjection.render(validated)
+          first == second && first.html.contains("&lt;&amp;&gt;") && !first.html.contains("<&>") && validated.description.core.id == "application-modeling"
+        })
+
+        Then("equal semantic input renders equal escaped HTML without any output digest")
+        check.passed shouldBe true
       }
     }
 
@@ -157,18 +176,15 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         val first = CozyDocumentDescriptionProjection.renderSummary(validated)
         val second = CozyDocumentDescriptionProjection.renderSummary(validated)
 
-        Then("its exact bytes and identity are stable while authored units, emphasis, and references remain primary and ordered")
+        Then("its exact HTML bytes are stable while authored units, emphasis, and references remain primary and ordered")
         first shouldBe second
-        first.identity should startWith ("sha256:")
         first.html should include("SimpleModeling 第9回 アプリケーションモデリング：要約")
         first.html should include("ドメインの意味を利用目的の実現へつなぐ")
         first.html should include("要求から振る舞いまでの対応を保ち")
         first.html should include("data-summary-id=\"application-modeling-summary-ja\"")
-        first.html should include("data-summary-identity=\"sha256:55b518b61fcb43a2b8d338c082d6eed63742dd7956ff32a85a64f1d34882877c\"")
         first.html should include("data-document-id=\"application-modeling-document-ja\"")
-        first.html should include("data-document-identity=\"sha256:1f7192fbf4fd47713bc7e6da515d27b5cf7ee91b45805be99a642d5cf31eb4df\"")
         first.html should include("data-core-id=\"application-modeling\"")
-        first.html should include("data-core-identity=\"sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc\"")
+        first.html should not include "identity"
         first.html should include("data-core-relations=\"root-domain-maps-to-application\"")
         first.html should include("data-core-relations=\"realization-scenario-maps-to-model\"")
         first.html should include("data-core-relations=\"conclusion-cml-depends-on-review\"")
@@ -224,7 +240,8 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         Then("the atomically requested HTML equals the in-memory deterministic projection")
         Files.readString(output, StandardCharsets.UTF_8) shouldBe expected.html
         report should include("Cozy Document Description Render")
-        report should include(expected.identity)
+        report should include("core: application-modeling")
+        report should not include "identity"
       }
     }
 
@@ -242,8 +259,8 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         Then("the atomically requested HTML equals the in-memory deterministic Summary projection")
         Files.readString(output, StandardCharsets.UTF_8) shouldBe expected.html
         report should include("Cozy Summary Description Render")
-        report should include(validated.summaryIdentity)
-        report should include(expected.identity)
+        report should include("core: application-modeling")
+        report should not include "identity"
         report should include("application-modeling-document-ja")
       }
     }
@@ -277,29 +294,33 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
       }
     }
 
-    "reject stale Summary Core or Document bindings before a summary review output can be published" in {
+    "render changed valid Summary inputs while rejecting wrong logical bindings before replacing prior output" in {
       _with_temp_dir("cozy-document-description-summary-currentness") { root =>
-        Given("copied Summary authorities with separately stale direct Core and Document bytes")
-        val corefixture = _summary_fixture(Files.createDirectories(root.resolve("stale-core")))
-        val documentfixture = _summary_fixture(Files.createDirectories(root.resolve("stale-document")))
-        val coreidentity = "sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc"
-        Files.writeString(corefixture._1, Files.readString(corefixture._1, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
-        val currentcoreidentity = CozyDocumentLogicTree.loadCore(corefixture._1).coreIdentity
-        Files.writeString(corefixture._2, Files.readString(corefixture._2, StandardCharsets.UTF_8).replace(coreidentity, currentcoreidentity), StandardCharsets.UTF_8)
-        Files.writeString(documentfixture._2, Files.readString(documentfixture._2, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
-        val coreoutput = root.resolve("stale-core.html")
-        val documentoutput = root.resolve("stale-document.html")
+        Given("copied Summary authorities with changed valid bytes and a separate wrong logical Summary binding")
+        val changedfixture = _summary_fixture(Files.createDirectories(root.resolve("changed")))
+        val wrongfixture = _summary_fixture(Files.createDirectories(root.resolve("wrong")))
+        Files.writeString(changedfixture._1, Files.readString(changedfixture._1, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
+        val changedtitle = "SimpleModeling 第9回 アプリケーションモデリング（改訂）"
+        Files.writeString(changedfixture._2, Files.readString(changedfixture._2, StandardCharsets.UTF_8).replace("title: SimpleModeling 第9回 アプリケーションモデリング", s"title: $changedtitle"), StandardCharsets.UTF_8)
+        val changedsummarytitle = "SimpleModeling 第9回 アプリケーションモデリング：要約（改訂）"
+        Files.writeString(changedfixture._3, Files.readString(changedfixture._3, StandardCharsets.UTF_8).replace("title: SimpleModeling 第9回 アプリケーションモデリング：要約", s"title: $changedsummarytitle"), StandardCharsets.UTF_8)
+        Files.writeString(wrongfixture._3, Files.readString(wrongfixture._3, StandardCharsets.UTF_8).replace("id: application-modeling-document-ja", "id: wrong-document"), StandardCharsets.UTF_8)
+        val changedoutput = root.resolve("changed.html")
+        val wrongoutput = root.resolve("wrong.html")
+        val priorwrong = "previous output must remain intact"
+        Files.writeString(wrongoutput, priorwrong, StandardCharsets.UTF_8)
 
-        When("the closed Summary command is executed against either stale upstream binding")
-        val failures = Vector(
-          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", corefixture._1.toString, "--document", corefixture._2.toString, "--summary", corefixture._3.toString, "--kind", "summary", "--save", coreoutput.toString))),
-          _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", documentfixture._1.toString, "--document", documentfixture._2.toString, "--summary", documentfixture._3.toString, "--kind", "summary", "--save", documentoutput.toString)))
-        )
+        When("the closed Summary command renders changed bytes and then receives the wrong binding")
+        _execute(List("document-project", "description", "render", "--core", changedfixture._1.toString, "--document", changedfixture._2.toString, "--summary", changedfixture._3.toString, "--kind", "summary", "--save", changedoutput.toString))
+        val prior = Files.readString(changedoutput, StandardCharsets.UTF_8)
+        val changedsummary = CozyDocumentDescription.loadSummary(changedfixture._1, changedfixture._2, changedfixture._3)
+        val failure = _failure(CozyDocumentDescriptionCommand.execute(List("document-project", "description", "render", "--core", wrongfixture._1.toString, "--document", wrongfixture._2.toString, "--summary", wrongfixture._3.toString, "--kind", "summary", "--save", wrongoutput.toString)))
 
-        Then("currentness fails closed before either output destination is published")
-        failures.map(_.code) shouldBe Vector("DESCRIPTION_SUMMARY_CORE", "DESCRIPTION_SUMMARY_DOCUMENT")
-        Files.exists(coreoutput, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(documentoutput, LinkOption.NOFOLLOW_LINKS) shouldBe false
+        Then("the supplied changed current bytes render, while a wrong logical ID preserves output safety")
+        prior should include(changedsummarytitle)
+        changedsummary.document.description.document.title shouldBe changedtitle
+        failure.code shouldBe "DESCRIPTION_SUMMARY_DOCUMENT"
+        Files.readString(wrongoutput, StandardCharsets.UTF_8) shouldBe priorwrong
       }
     }
 

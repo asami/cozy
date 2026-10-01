@@ -6,8 +6,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- *  version Sep. 12, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescriptionCommand {
@@ -32,7 +32,7 @@ private[cozy] object CozyDocumentDescriptionCommand {
           val rendered = CozyDocumentDescriptionProjection.render(validated)
           val destination = _destination(request.save)
           _publish(destination, rendered.html)
-          println(s"Cozy Document Description Render\nkind: document\ncore: ${validated.core.core.id}\ndocument: ${validated.description.id}\nidentity: ${rendered.identity}\noutput: $destination")
+          println(s"Cozy Document Description Render\nkind: document\ncore: ${validated.core.core.id}\ndocument: ${validated.description.id}\noutput: $destination")
           true
         case "summary" =>
           val summary = request.summary.getOrElse(_fail("DESCRIPTION_CLI", "$.command", "--kind summary requires exactly --core <core.yaml> --document <document.yaml> --summary <summary.yaml> --kind summary --save <output.html>"))
@@ -40,7 +40,7 @@ private[cozy] object CozyDocumentDescriptionCommand {
           val rendered = CozyDocumentDescriptionProjection.renderSummary(validated)
           val destination = _destination(request.save)
           _publish(destination, rendered.html)
-          println(s"Cozy Summary Description Render\nkind: summary\nsummary: ${validated.description.id}\nsummary identity: ${validated.summaryIdentity}\nreview identity: ${rendered.identity}\ncore: ${validated.document.core.core.id}\ncore identity: ${validated.document.coreIdentity}\ndocument: ${validated.document.description.id}\ndocument identity: ${validated.document.documentIdentity}\noutput: $destination")
+          println(s"Cozy Summary Description Render\nkind: summary\nsummary: ${validated.description.id}\ncore: ${validated.document.core.core.id}\ndocument: ${validated.document.description.id}\noutput: $destination")
           true
         case _ => _fail("DESCRIPTION_CLI", "$.kind", "--kind must be document or summary")
       }

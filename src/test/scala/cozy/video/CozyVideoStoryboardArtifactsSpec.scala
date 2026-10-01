@@ -11,13 +11,19 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyVideoStoryboardArtifactsSpec {
+  private final case class Snapshot(bytes: Vector[Byte], modified: FileTime, permissions: Set[PosixFilePermission])
+}
+
 final class CozyVideoStoryboardArtifactsSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
+  import CozyVideoStoryboardArtifactsSpec.Snapshot
+
   "Cozy Video Storyboard artifacts" should {
     "atomically replace the exact prepared destination set" in {
       _with_temp_dir("success") { root =>
@@ -284,8 +290,6 @@ final class CozyVideoStoryboardArtifactsSpec
 
   private def _read(path: Path): String =
     Files.readString(path, StandardCharsets.UTF_8)
-
-  private final case class Snapshot(bytes: Vector[Byte], modified: FileTime, permissions: Set[PosixFilePermission])
 
   private def _snapshot(path: Path): Snapshot =
     Snapshot(Files.readAllBytes(path).toVector, Files.getLastModifiedTime(path), Files.getPosixFilePermissions(path).asScala.toSet)

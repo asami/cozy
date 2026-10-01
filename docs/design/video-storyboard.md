@@ -82,7 +82,7 @@ Cozy owns the following responsibilities for the Storyboard boundary:
   path/reference validation;
 - explicit legacy-dialogue adapter selection and migration diagnostics;
 - normalized content-review and optional visual-story review evidence;
-- explicit review approval identity checks and stale-input rejection;
+- explicit review input/format/reference validation without historical approval hashes;
 - independently selectable confirmation/final modes and their distinct lifecycle/output records;
 - artifact identity calculation, deterministic invalidation, and cache metadata;
   and
@@ -185,87 +185,26 @@ value was rejected.
 
 ## 6. Approval and optional visual-story evidence
 
-The normal review path approves the normalized Storyboard identity. Optional
-image-backed visual-story evidence is a derived projection for cases where
-PNG frames, diagrams, layout, or image selection need separate inspection; it
-is not a second source and is not mandatory for ordinary Storyboard or
-confirmation-video review.
-
-When optional visual-story evidence is requested, its evidence identity MUST
-record at least:
-
-- the approved Storyboard identity;
-- each admitted diagram and asset reference identity;
-- the visual-story generator/schema identity; and
-- the evidence output identity.
-
-Evidence is stale when any recorded input identity differs, an admitted input
-is missing, or the Storyboard is no longer the approved identity. Cozy rejects
-it when explicit review currentness is requested. Generation neither reads nor
-requires optional visual evidence; if no optional visual review was requested,
-the ordinary review path remains separate.
-
-Dox/PPTX hand-off data may carry these normalized identities and evidence
-locations. Cozy does not decide whether an external consumer accepts the
-result.
+Deterministic review projects current declared Storyboard/visual inputs into
+reviewable evidence. Semantic/visual/audiovisual approval remains an external
+decision; no generated digest or review declaration represents that decision.
+Historical approval/content identity gates are removed under the DM14 policy.
+Actual safe inputs, formats and declared references remain independently valid.
+Missing or invalid actual files still report failures; valid changes do not
+require equality with an old proof. Dox/PPTX handoffs carry locations and
+operational review data, not digest identities or consumer acceptance.
 
 ### 6.1 P30-02 projection boundary
 
-P30-02 uses a root `storyboardReview` declaration only for explicit review of
-an already selected Storyboard and, when requested, a bounded visual-input
-subset. It is not the build source selector. `source` and `approvedIdentity`
-prove the review gate. The optional `visualStory` declaration supplies a deterministic
-derived evidence directory, an ordered subset of declared Storyboard
-references, and a human-recorded `approvedEvidenceIdentity` after visual
-inspection. It does not add renderer, narration, character, credit, or
-PPTX-generation policy to Storyboard content.
-
-The evidence generator loads the current typed Storyboard, verifies the normal
-approval identity, validates every requested visual input as a direct regular
-file below the project root, copies only those admitted inputs into the derived
-package, and writes canonical review and hand-off JSON. The package identity
-is a digest of its canonical payload; no artifact identifies itself by a
-filesystem timestamp or an external consumer result. Revalidation compares the
-current Storyboard and input identities with the package and optional human
-approval record. A requested but stale or unapproved visual package is a
-fail-closed explicit-review input. An absent optional declaration remains the
-normal non-visual review path.
-
-The hand-off JSON is deliberately sufficient for Dox/PPTX consumers to locate
-and compare the normalized evidence but insufficient to claim that a deck was
-generated or accepted. P30-03 owns actual Storyboard-to-build integration and
-confirmation/final modes. The explicit review command applies this gate when a
-review result is requested; generation does not apply it merely because a
-declaration is present.
-
-### 6.2 P30-03 execution and confirmation boundary
-
-`parts[].storyboard` is a source-selection adapter, not a second rendering
-model. Its optional `storyboardSection` binds the part to the identically
-named section of that one normalized source; omission deliberately selects the
-whole Storyboard. The adapter loads the same normalized typed `Storyboard`
-used by review and projects the selected scenes into a generated execution handoff under
-`target/cozy-video/storyboard/<part-id>/`. Existing narration and renderer
-adapters consume that projection; a legacy `parts[].script` continues through
-its existing path and is never silently selected for a Storyboard part.
-
-The confirmation build produces a deterministic mode manifest and a separate
-generated confirmation video. A human records acceptance by copying only the
-manifest identity into `video.yaml` as
-`confirmationReview.approvedIdentity`. This keeps approval explicit and
-reviewable while avoiding a timestamped or external-consumer-owned state.
-Phase 71 supersedes its former final prerequisite: final neither reads nor
-requires this record, and confirmation may be absent.
-
-Mode-specific output directories and manifests prevent confirmation from
-overwriting final artifacts. Native v2 assembly treats generated records as
-descriptive local products, not cache-key containers. The unchanged common
-generation policy compares declared safe input and generated-product
-`FileTime`s; a hit additionally requires direct artifacts, complete typed
-metadata, and a read-only valid ffprobe. It does not compare source narration
-or pronunciation bodies, canonical source content, or generated digests.
-Final rendered-video evidence remains a distinct post-build operation, and
-any PPTX derived from that evidence remains a Dox/PPTX consumer concern.
+P30-02 uses `storyboardReview.source` and optional visual declarations as
+review-input selection, not build selection or semantic approval. The decoder
+ignores arbitrary old approval properties. The generator validates current
+inputs, copies admitted visual files and writes deterministic review/handoff
+data without hash calculation. Explicit review validation checks required
+non-hash structure and actual inputs/copies, not historical whole-payload,
+renderer, source, material, or approval equality. Result/current APIs expose
+locations only. This supersedes the prior hash-based P30-02 review contract;
+it does not alter independent confirmation or audiovisual review authority.
 
 ## 7. Confirmation/final separation and cache design
 
@@ -328,7 +267,7 @@ storyboard convert
   -> explicit source adapter + validated lossless serialization
 
 storyboard review-evidence
-  -> approved identity + optional visual-input identity + derived evidence
+  -> current typed source + optional safe visual inputs + derived evidence
 
 video build --mode confirmation|final
   -> each part's safe typed source + mode-specific derived artifacts
@@ -369,8 +308,9 @@ catalog and resolves `pageId` exactly once. It never chooses catalog, binding,
 renderer, or a page by inference.
 
 The literal reference is Storyboard meaning and therefore participates in the
-Storyboard identity. The resolved page/catalog/binding/renderer/asset
-identities remain future visual-evidence inputs; P36-04 neither creates a
+Storyboard identity. Actual page/catalog/Binding inputs and asset observations
+are resolved by the review operation; no copied semantic proof is required.
+Effective-renderer identities remain a separate unfinished layer. P36-04 neither creates a
 renderer invocation nor advances receipt/review evidence responsibility.
 Planning carries the same closed reference as scene metadata while preserving
 narration, speaker, timing, silence, transition, confirmation/final, and
@@ -388,42 +328,43 @@ consumer acceptance.
 
 `P36-05-DEC-001` is implemented as a separately versioned proof route only
 for a Storyboard v2 that contains a Visual Page screen. Its one closed
-`storyboardReview.visualPage` declaration has `binding`, `evidenceDirectory`,
-and `approvedEvidenceIdentity`; the binding is safe project-relative while
+`storyboardReview.visualPage` declaration has `binding` and `evidenceDirectory`; the binding is safe project-relative while
 each screen's literal `source` and `catalog` remain rooted at its Storyboard
 source directory. Cozy uses no discovery route: it loads that exact
 VisualPageSet/catalog pair, resolves `pageId` exactly once, and validates the
 one binding against every resolved set/catalog.
 
-Evidence and handoff v2 preserve the literal
-`{kind,source,catalog,pageId}` with VisualPageSet, catalog, logical-page,
-visual-page, selected page-asset, binding, and canonical effective-renderer
-identities. Each part selecting the reviewed Storyboard source must resolve a
-part override or project renderer; the sorted renderer proof is a canonical
-configuration plus SHA-256 identity. The handoff has a separate canonical
-self identity. That reconstruction is the preserved explicit-review proof
-contract. Native confirmation/final assembly does not reconstruct this
-historical visual-evidence proof as a cache criterion; it independently uses
-the native v2 direct-input `FileTime`, safety, typed-metadata, and ffprobe
-contract. Any explicit-review change, absence, unsafe path, unresolved page,
-missing part/renderer, approval mismatch, evidence mismatch, or handoff
-mismatch rejects closed.
+Evidence and handoff v2 entries are exactly
+`sceneId,kind,source,catalog,pageId,assets`. Assets retain
+`{id,path,mediaType,modifiedAt}` observations from safe current direct files.
+The four VisualPage digest fields and complete Binding copy are deleted
+without substitute JSON/fingerprint proof. Legacy removed properties are ignored
+for any JSON value; actual named set/catalog/page/Binding validation is separate
+from historical evidence, and old asset observations are not currentness gates.
 
-The v1 Storyboard and v1 evidence/handoff remain unchanged, as do legacy video
-projects. This boundary does not execute a renderer, generate a video, accept
-external consumers, claim focused validation, or close VIS36-05.
+Explicit v2 validation resolves actual current PageSet/catalog/page/Binding
+and effective renderer selection; historical review data is structurally checked
+but is not required to equal current inputs. Review-local approval, source,
+self/evidence/handoff, visual-copy and renderer digests are removed in both v1
+and v2. No new equality/currentness framework replaces them. General Storyboard
+identity APIs and native confirmation/final assembly contracts remain separate.
 
 ## 13. P36-06 Cross-media Review consumption
 
-A later Cozy-only Cross-media Review may read, but never rewrite, an existing
-current P36-05 evidence/handoff pair. It proves that the literal Storyboard
-screen resolves to one page of the presentation's current VisualPageSet and
-that catalog, binding, selected-page, and selected-asset identities agree.
-This is a structural currentness check between generated evidence boundaries;
-it leaves Storyboard narration, timing, transition, confirmation/final, and
-audiovisual review authority intact. It records no semantic, visual, or
-audiovisual acceptance decision and excludes SmartDox/Textus consumer work,
-renderer execution, publication, and deployment.
+CrossReview validates actual current per-side PageSet/catalog/page/Binding and
+safe files; its existing asset operation compares IDs/media types/bytes across
+independent roots. It does not compare full catalog/page/Binding copies.
+Presentation provenance wrappers are `{path}`; aggregate pages are
+`{sceneId,pageId,assets}` and omit all removed proof properties.
+
+Saved verification checks operational structure, uniqueness, and reference
+resolution, not reconstructed whole-value equality. Build constructs once and
+may atomically replace a safe direct regular aggregate, never actual inputs or
+participating review evidence. Invalid input and generation failure preserve
+prior bytes. Approval states remain `not-recorded`; no renderer, publication,
+deployment, or semantic/visual/audiovisual acceptance occurs. Media receipt
+admission and non-review artifact integrity remain separate
+responsibilities, not replacement proof gates.
 
 ## 14. Phase 61 legacy authoring compatibility boundary
 

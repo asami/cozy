@@ -19,7 +19,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPresentation {
@@ -91,18 +92,13 @@ private[cozy] object CozyMediaPresentation {
       } yield ResourceConfig(contract, profile, catalog, binding, slideimages, montage, renderermanifest, reviewmanifest, reviewstate, articlepdf, infographic)
   }
 
-  final case class VisualPageAssetEvidence(id: String, sha256: String)
+  final case class VisualPageAssetEvidence(id: String, path: Path, mediaType: String)
   final case class VisualPagePageEvidence(
     id: String,
-    logicalIdentity: String,
-    visualPageIdentity: String,
     assets: Vector[VisualPageAssetEvidence]
   )
   final case class VisualPageEvidence(
     reviewPath: Path,
-    visualPageSetIdentity: String,
-    catalogIdentity: String,
-    bindingIdentity: String,
     pages: Vector[VisualPagePageEvidence]
   )
 
@@ -285,21 +281,14 @@ private[cozy] object CozyMediaPresentation {
     if (!_is_visual_page(configuration))
       _invalid(s"Cross-media Review requires a visual-page-v1 presentation resource: ${resolved.resource.id}")
     val visual = _visual_page_input(plan, resolved)
-    val logicalidentities = visual.document.logicalIdentities.toMap
-    val visualidentities = visual.document.visualPageIdentities.toMap
     val pages = visual.document.document.pages.map { page =>
       VisualPagePageEvidence(
         page.id,
-        logicalidentities.getOrElse(page.id, _invalid(s"Presentation VisualPage logical identity is missing: ${page.id}")),
-        visualidentities.getOrElse(page.id, _invalid(s"Presentation VisualPage identity is missing: ${page.id}")),
-        page.assets.map(asset => VisualPageAssetEvidence(asset.id, asset.sha256))
+        page.assets.map(asset => VisualPageAssetEvidence(asset.id, CozyVisualPage._safe_direct_file(visual.source.getParent, asset.path, s"asset.${asset.id}.path"), asset.mediaType))
       )
     }
     VisualPageEvidence(
       _path(plan, configuration.reviewManifest, s"Presentation VisualPage reviewManifest ${resolved.resource.id}"),
-      visual.document.documentIdentity,
-      visual.document.catalogIdentity,
-      visual.binding.bindingIdentity,
       pages
     )
   }
@@ -316,18 +305,15 @@ private[cozy] object CozyMediaPresentation {
   }
 
   def requireCurrent(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, requireReviewState: Boolean): Unit = {
-    if (!CozyMediaReceipt.current(plan, resolved))
+    if (!CozyMediaReceipt.current(plan, resolved) || !CozyMediaReceipt.integrityCurrent(plan, resolved))
       _invalid(s"Presentation resource lacks current receipt evidence: ${resolved.resource.id}")
     _verify_review_manifest(plan, resolved)
     val configuration = _configuration(resolved)
     val article = _dependency(plan, configuration.articlePdf, resolved)
     val infographic = _dependency(plan, configuration.infographic, resolved)
-    val presentationReceipt = _receipt_entry(plan, resolved).receipt.getOrElse(_invalid("Presentation receipt is missing"))
     Vector(article, infographic).foreach { dependency =>
-      if (!CozyMediaReceipt.current(plan, dependency)) _invalid(s"Presentation dependency lacks current receipt evidence: ${dependency.resource.id}")
-      val receipt = _receipt_entry(plan, dependency).receipt.getOrElse(_invalid("Presentation dependency receipt is missing"))
-      if (receipt.inputSetSha256 != presentationReceipt.inputSetSha256)
-        _invalid(s"Presentation dependency receipt generation differs: ${dependency.resource.id}")
+      if (!CozyMediaReceipt.current(plan, dependency) || !CozyMediaReceipt.integrityCurrent(plan, dependency))
+        _invalid(s"Presentation dependency lacks current receipt evidence: ${dependency.resource.id}")
     }
     if (requireReviewState) CozyMediaReviewState.requireAligned(plan, resolved)
   }
@@ -365,13 +351,12 @@ private[cozy] object CozyMediaPresentation {
       "target" -> Json.fromString(resolved.resource.id),
       "knowledge" -> Json.fromString(plan.descriptor.knowledge.id),
       "language" -> Json.fromString(resolved.resource.language.get),
-      "inputSetSha256" -> Json.fromString(CozyMediaReceipt.capture(plan).inputSetSha256),
       "renderer" -> Json.obj("name" -> Json.fromString(renderer.name), "version" -> Json.fromString(renderer.version)),
-      "slideIr" -> _identity_json(plan, resolved.source.get),
-      "template" -> _identity_json(plan, template),
+      "slideIr" -> Json.obj("path" -> Json.fromString(_relative(plan, resolved.source.get))),
+      "template" -> Json.obj("path" -> Json.fromString(_relative(plan, template))),
       "pptx" -> _identity_json(plan, output),
       "slides" -> Json.fromValues(document.slides.map(slide => Json.obj("id" -> Json.fromString(slide.id), "title" -> Json.fromString(slide.title), "path" -> Json.fromString(_artifact(artifacts, s"slide:${slide.id}").path), "sha256" -> Json.fromString(_artifact(artifacts, s"slide:${slide.id}").sha256)))),
-      "assets" -> Json.fromValues(document.assetIds.sorted.map(id => Json.obj("id" -> Json.fromString(id), "sha256" -> Json.fromString(_sha256(_asset_path(plan, id)))))),
+      "assets" -> Json.fromValues(document.assetIds.sorted.map(id => Json.obj("id" -> Json.fromString(id)))),
       "montage" -> _artifact_json(_artifact(artifacts, "montage")),
       "articlePdf" -> Json.obj("id" -> Json.fromString(article.resource.id), "sha256" -> Json.fromString(_sha256(_output(article)))),
       "infographic" -> Json.obj("id" -> Json.fromString(infographic.resource.id), "sha256" -> Json.fromString(_sha256(_output(infographic)))),
@@ -399,32 +384,29 @@ private[cozy] object CozyMediaPresentation {
       "target" -> Json.fromString(resolved.resource.id),
       "knowledge" -> Json.fromString(plan.descriptor.knowledge.id),
       "language" -> Json.fromString(resolved.resource.language.get),
-      "inputSetSha256" -> Json.fromString(CozyMediaReceipt.capture(plan).inputSetSha256),
       "renderer" -> Json.obj("name" -> Json.fromString(renderer.name), "version" -> Json.fromString(renderer.version)),
-      "visualPageSet" -> _semantic_identity_json(plan, visual.source, visual.document.documentIdentity),
-      "catalog" -> _semantic_identity_json(plan, visual.catalog, visual.document.catalogIdentity),
-      "binding" -> _semantic_identity_json(plan, visual.bindingpath, visual.binding.bindingIdentity),
-      "template" -> _identity_json(plan, template),
+      "visualPageSet" -> Json.obj("path" -> Json.fromString(_relative(plan, visual.source))),
+      "catalog" -> Json.obj("path" -> Json.fromString(_relative(plan, visual.catalog))),
+      "binding" -> Json.obj("path" -> Json.fromString(_relative(plan, visual.bindingpath))),
+      "template" -> Json.obj("path" -> Json.fromString(_relative(plan, template))),
       "pptx" -> _identity_json(plan, output),
       "slides" -> Json.fromValues(visual.document.document.pages.map(page => Json.obj(
         "id" -> Json.fromString(page.id),
         "path" -> Json.fromString(_artifact(artifacts, s"slide:${page.id}").path),
         "sha256" -> Json.fromString(_artifact(artifacts, s"slide:${page.id}").sha256)
       ))),
-      "assets" -> Json.fromValues(_visual_assets(visual).map(asset => Json.obj("id" -> Json.fromString(asset.id), "sha256" -> Json.fromString(asset.sha256)))),
+      "assets" -> Json.fromValues(_visual_assets(visual).map(asset => Json.obj("id" -> Json.fromString(asset.id), "path" -> Json.fromString(asset.path), "mediaType" -> Json.fromString(asset.mediaType)))),
       "montage" -> _artifact_json(_artifact(artifacts, "montage")),
       "articlePdf" -> Json.obj("id" -> Json.fromString(article.resource.id), "sha256" -> Json.fromString(_sha256(_output(article)))),
       "infographic" -> Json.obj("id" -> Json.fromString(infographic.resource.id), "sha256" -> Json.fromString(_sha256(_output(infographic)))),
       "verification" -> Json.obj("status" -> Json.fromString("valid"), "findings" -> Json.arr())
     )
 
-  def reviewSnapshot(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, acceptedAt: String): CozyMediaReviewState.Snapshot = {
+  def reviewSnapshot(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): CozyMediaReviewState.Snapshot = {
     _verify_review_manifest(plan, resolved)
     val configuration = _configuration(resolved)
     val review = _path(plan, configuration.reviewManifest, "Presentation review manifest")
-    val artifactvalues = artifacts(plan, resolved)
-    val artifactset = Json.fromValues(artifactvalues.sortBy(_.id).map(_artifact_json)).noSpaces.getBytes(StandardCharsets.UTF_8)
-    CozyMediaReviewState.Snapshot(CozyMediaReceipt.capture(plan).inputSetSha256, _sha256(review), _sha256_bytes(artifactset), acceptedAt)
+    CozyMediaReviewState.Snapshot(Files.getLastModifiedTime(review).toInstant.toString)
   }
 
   private def _artifacts(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, requirecurrentassets: Boolean): Vector[CozyMediaReceipt.Artifact] = {
@@ -505,7 +487,7 @@ private[cozy] object CozyMediaPresentation {
   }
 
   private def _verify_renderer_manifest(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, document: CozyMediaSlideIr.Document, template: Path, output: Path, renderer: JsonObject): Unit = {
-    _exact_keys(renderer, Set("schema", "target", "profile", "renderer", "slideIrSha256", "templateSha256", "pptx", "slides", "montage"), "Presentation renderer manifest")
+    _exact_keys(renderer.remove("slideIrSha256").remove("templateSha256"), Set("schema", "target", "profile", "renderer", "pptx", "slides", "montage"), "Presentation renderer manifest")
     if (_string(renderer, "schema", "Presentation renderer manifest") != _renderer_schema || _string(renderer, "target", "Presentation renderer manifest") != resolved.resource.id || _string(renderer, "profile", "Presentation renderer manifest") != _configuration(resolved).profile)
       _invalid("Presentation renderer manifest identity differs from descriptor")
     val profile = _profile(plan, _configuration(resolved), resolved)
@@ -513,8 +495,6 @@ private[cozy] object CozyMediaPresentation {
     _exact_keys(rendereridentity, Set("name", "version"), "Presentation renderer identity")
     if (_string(rendereridentity, "name", "Presentation renderer identity") != profile.renderer.name || _string(rendereridentity, "version", "Presentation renderer identity") != profile.renderer.version)
       _invalid("Presentation renderer identity differs from profile")
-    if (_sha256_value(renderer, "slideIrSha256", "Presentation renderer manifest") != _sha256(resolved.source.get) || _sha256_value(renderer, "templateSha256", "Presentation renderer manifest") != _sha256(template))
-      _invalid("Presentation renderer manifest input hashes differ")
     val pptx = _object(renderer("pptx").get, "Presentation renderer PPTX")
     _exact_keys(pptx, Set("path", "sha256"), "Presentation renderer PPTX")
     if (_serialized_path(plan, _string(pptx, "path", "Presentation renderer PPTX"), "Presentation PPTX path") != output || _sha256_value(pptx, "sha256", "Presentation renderer PPTX") != _sha256(output))
@@ -530,11 +510,8 @@ private[cozy] object CozyMediaPresentation {
       val expected = slide.elements.flatMap(_.asset).distinct.sorted
       val actual = assets.map { item =>
         val asset = _object(item, "Presentation renderer asset")
-        _exact_keys(asset, Set("id", "sha256"), "Presentation renderer asset")
-        val id = _string(asset, "id", "Presentation renderer asset")
-        if (_sha256_value(asset, "sha256", "Presentation renderer asset") != _sha256(_asset_path(plan, id))) _invalid(s"Presentation renderer asset hash differs: $id")
-        id
-      }.sorted
+        _string(asset, "id", "Presentation renderer asset")
+      }
       if (actual != expected || actual.distinct.size != actual.size) _invalid(s"Presentation renderer slide assets differ: ${slide.id}")
     }
     val montage = _object(renderer("montage").get, "Presentation renderer montage")
@@ -544,7 +521,7 @@ private[cozy] object CozyMediaPresentation {
   }
 
   private def _verify_visual_page_renderer_manifest(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, visual: VisualPageInput, template: Path, output: Path, renderer: JsonObject): Unit = {
-    _exact_ordered_keys(renderer, Vector("schema", "target", "profile", "renderer", "visualPageSetSha256", "catalogSha256", "bindingSha256", "templateSha256", "pptx", "slides", "montage"), "Presentation VisualPage renderer manifest")
+    _exact_ordered_keys(renderer.filterKeys(name => !Set("slideIrSha256", "templateSha256", "visualPageSetSha256", "catalogSha256", "visualPageSet", "catalog", "binding").contains(name)), Vector("schema", "target", "profile", "renderer", "pptx", "slides", "montage"), "Presentation VisualPage renderer manifest")
     if (_string(renderer, "schema", "Presentation VisualPage renderer manifest") != _visual_page_renderer_schema || _string(renderer, "target", "Presentation VisualPage renderer manifest") != resolved.resource.id || _string(renderer, "profile", "Presentation VisualPage renderer manifest") != _configuration(resolved).profile)
       _invalid("Presentation VisualPage renderer manifest identity differs from descriptor")
     val profile = _profile(plan, _configuration(resolved), resolved)
@@ -552,11 +529,6 @@ private[cozy] object CozyMediaPresentation {
     _exact_keys(rendereridentity, Set("name", "version"), "Presentation VisualPage renderer identity")
     if (_string(rendereridentity, "name", "Presentation VisualPage renderer identity") != profile.renderer.name || _string(rendereridentity, "version", "Presentation VisualPage renderer identity") != profile.renderer.version)
       _invalid("Presentation VisualPage renderer identity differs from profile")
-    if (_sha256_value(renderer, "visualPageSetSha256", "Presentation VisualPage renderer manifest") != _semantic_sha256(visual.document.documentIdentity) ||
-        _sha256_value(renderer, "catalogSha256", "Presentation VisualPage renderer manifest") != _semantic_sha256(visual.document.catalogIdentity) ||
-        _sha256_value(renderer, "bindingSha256", "Presentation VisualPage renderer manifest") != _semantic_sha256(visual.binding.bindingIdentity) ||
-        _sha256_value(renderer, "templateSha256", "Presentation VisualPage renderer manifest") != _sha256(template))
-      _invalid("Presentation VisualPage renderer manifest input hashes differ")
     val pptx = _object(renderer("pptx").getOrElse(_invalid("Presentation VisualPage renderer PPTX is missing")), "Presentation VisualPage renderer PPTX")
     _exact_keys(pptx, Set("path", "sha256"), "Presentation VisualPage renderer PPTX")
     if (_serialized_path(plan, _string(pptx, "path", "Presentation VisualPage renderer PPTX"), "Presentation VisualPage PPTX path") != output || _sha256_value(pptx, "sha256", "Presentation VisualPage renderer PPTX") != _sha256(output))
@@ -570,21 +542,20 @@ private[cozy] object CozyMediaPresentation {
       _exact_ordered_keys(entry, Vector("id", "path", "sha256", "pptxSha256", "assets"), "Presentation VisualPage renderer slide")
       if (_sha256_value(entry, "pptxSha256", "Presentation VisualPage renderer slide") != _sha256(output)) _invalid(s"Presentation VisualPage renderer slide differs: ${page.id}")
       val assets = entry("assets").flatMap(_.asArray).getOrElse(_invalid("Presentation VisualPage renderer slide assets must be an array")).toVector
-      val expected = page.assets.map(asset => asset.id -> asset.sha256)
+      val expected = page.assets.map(_.id)
       val actual = assets.map { item =>
         val asset = _object(item, "Presentation VisualPage renderer asset")
-        _exact_ordered_keys(asset, Vector("id", "sha256"), "Presentation VisualPage renderer asset")
-        _string(asset, "id", "Presentation VisualPage renderer asset") -> _sha256_value(asset, "sha256", "Presentation VisualPage renderer asset")
+        _string(asset, "id", "Presentation VisualPage renderer asset")
       }
-      if (actual != expected || actual.map(_._1).distinct.size != actual.size) _invalid(s"Presentation VisualPage renderer slide assets differ: ${page.id}")
+      if (actual != expected || actual.distinct.size != actual.size) _invalid(s"Presentation VisualPage renderer slide assets differ: ${page.id}")
     }
     val montage = _object(renderer("montage").getOrElse(_invalid("Presentation VisualPage renderer montage is missing")), "Presentation VisualPage renderer montage")
     _exact_keys(montage, Set("path", "sha256", "pptxSha256"), "Presentation VisualPage renderer montage")
     if (_serialized_path(plan, _string(montage, "path", "Presentation VisualPage renderer montage"), "Presentation montage path") != _path(plan, _configuration(resolved).montage, "Presentation montage") || _sha256_value(montage, "pptxSha256", "Presentation VisualPage renderer montage") != _sha256(output)) _invalid("Presentation VisualPage renderer montage differs")
-    _verify_visual_page_pptx(output, pages)
+    _verify_visual_page_pptx(output, pages, visual.source.getParent)
   }
 
-  private def _verify_visual_page_pptx(path: Path, pages: Vector[CozyVisualPage.Page]): Unit = {
+  private def _verify_visual_page_pptx(path: Path, pages: Vector[CozyVisualPage.Page], sourceroot: Path): Unit = {
     val zip = try new ZipFile(path.toFile) catch { case NonFatal(_) => _invalid(s"Presentation PPTX cannot be opened: $path") }
     try {
       val entries = zip.entries.asScala.toVector.filterNot(_.isDirectory)
@@ -622,9 +593,9 @@ private[cozy] object CozyMediaPresentation {
           if (relation._1 != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image") _invalid("Presentation PPTX slide relation is not an image")
           _package_target("ppt/slides", relation._2, "ppt/media/")
         }
-        val expectedhashes = page.assets.map(_.sha256).sorted
-        val actualhashes = images.map(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image") else _sha256_bytes(zip.getInputStream(zip.getEntry(image)).readAllBytes())).sorted
-        if (actualhashes != expectedhashes) _invalid(s"Presentation PPTX slide media differs: ${page.id}")
+        val expectedbytes = page.assets.map(asset => Files.readAllBytes(CozyVisualPage._safe_direct_file(sourceroot, asset.path, s"asset.${asset.id}.path")))
+        val actualbytes = images.map(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image") else zip.getInputStream(zip.getEntry(image)).readAllBytes())
+        _verify_media(expectedbytes, actualbytes, page.id)
         images
       }
       val packagedmedia = entries.filter(_.getName.startsWith("ppt/media/")).map(_.getName).toSet
@@ -671,14 +642,24 @@ private[cozy] object CozyMediaPresentation {
           if (relation._1 != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image") _invalid("Presentation PPTX slide relation is not an image")
           _package_target("ppt/slides", relation._2, "ppt/media/")
         }
-        val expectedhashes = slide.elements.flatMap(_.asset).distinct.sorted.map(id => _sha256(_asset_path(plan, id)))
-        val actualhashes = images.map(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image") else _sha256_bytes(zip.getInputStream(zip.getEntry(image)).readAllBytes())).sorted
-        if (actualhashes != expectedhashes) _invalid(s"Presentation PPTX slide media differs: ${slide.id}")
+        val expectedbytes = slide.elements.flatMap(_.asset).distinct.sorted.map(id => Files.readAllBytes(_asset_path(plan, id)))
+        val actualbytes = images.map(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image") else zip.getInputStream(zip.getEntry(image)).readAllBytes())
+        _verify_media(expectedbytes, actualbytes, slide.id)
         images
       }
       val packagedmedia = entries.filter(_.getName.startsWith("ppt/media/")).map(_.getName).toSet
       if (referencedmedia.toSet != packagedmedia) _invalid("Presentation PPTX has orphan media entries")
     } finally zip.close()
+  }
+
+  private def _verify_media(expected: Vector[Array[Byte]], actual: Vector[Array[Byte]], label: String): Unit = {
+    if (actual.size != expected.size) _invalid(s"Presentation PPTX slide media differs: $label")
+    var remaining = expected
+    actual.foreach { bytes =>
+      val index = remaining.indexWhere(value => java.util.Arrays.equals(value, bytes))
+      if (index < 0) _invalid(s"Presentation PPTX slide media differs: $label")
+      remaining = remaining.patch(index, Vector.empty, 1)
+    }
   }
 
   private def _verify_review_manifest(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit = {
@@ -689,13 +670,16 @@ private[cozy] object CozyMediaPresentation {
     val path = _path(plan, _configuration(resolved).reviewManifest, "Presentation review manifest")
     if (!_direct_regular_file(path)) _invalid("Presentation deterministic review manifest is missing")
     val objectvalue = parse(Files.readString(path, StandardCharsets.UTF_8)).fold(_ => _invalid("Presentation review manifest must be JSON"), _.asObject.getOrElse(_invalid("Presentation review manifest must be an object")))
-    val required = Set("schema", "target", "knowledge", "language", "inputSetSha256", "renderer", "slideIr", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification")
-    _exact_keys(objectvalue, required, "Presentation review manifest")
+    val required = Set("schema", "target", "knowledge", "language", "renderer", "slideIr", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification")
+    _exact_keys(objectvalue.remove("inputSetSha256"), required, "Presentation review manifest")
     val configuration = _configuration(resolved)
     val document = CozyMediaSlideIr.validate(plan, resolved, requireAssets = true)
     val output = resolved.output.getOrElse(_invalid("Presentation output is missing"))
     val expected = _review_json(plan, resolved, document, output, _template(plan, resolved), _artifacts(plan, resolved, requirecurrentassets = true), _profile(plan, configuration, resolved).renderer, _dependency(plan, configuration.articlePdf, resolved), _dependency(plan, configuration.infographic, resolved))
-    if (Json.fromJsonObject(objectvalue) != expected)
+    val normalized = Vector("slideIr", "template").foldLeft(objectvalue.remove("inputSetSha256")) { (current, name) =>
+      current.add(name, current(name).getOrElse(_invalid(s"Presentation review $name is missing")).mapObject(_.remove("sha256")))
+    }
+    if (Json.fromJsonObject(normalized) != expected)
       _invalid("Presentation review manifest differs from current deterministic reconstruction")
   }
 
@@ -703,12 +687,18 @@ private[cozy] object CozyMediaPresentation {
     val path = _path(plan, _configuration(resolved).reviewManifest, "Presentation VisualPage review manifest")
     if (!_direct_regular_file(path)) _invalid("Presentation deterministic VisualPage review manifest is missing")
     val objectvalue = parse(Files.readString(path, StandardCharsets.UTF_8)).fold(_ => _invalid("Presentation VisualPage review manifest must be JSON"), _.asObject.getOrElse(_invalid("Presentation VisualPage review manifest must be an object")))
-    _exact_ordered_keys(objectvalue, Vector("schema", "target", "knowledge", "language", "inputSetSha256", "renderer", "visualPageSet", "catalog", "binding", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification"), "Presentation VisualPage review manifest")
+    _exact_ordered_keys(objectvalue.remove("inputSetSha256"), Vector("schema", "target", "knowledge", "language", "renderer", "visualPageSet", "catalog", "binding", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification"), "Presentation VisualPage review manifest")
     val configuration = _configuration(resolved)
     val visual = _visual_page_input(plan, resolved)
     val output = resolved.output.getOrElse(_invalid("Presentation output is missing"))
     val expected = _visual_page_review_json(plan, resolved, visual, output, _template(plan, resolved), _visual_page_artifacts(plan, resolved, visual, requirecurrentassets = true), _profile(plan, configuration, resolved).renderer, _dependency(plan, configuration.articlePdf, resolved), _dependency(plan, configuration.infographic, resolved))
-    if (Json.fromJsonObject(objectvalue) != expected)
+    val normalized = Vector("visualPageSet", "catalog", "binding", "template").foldLeft(objectvalue.remove("inputSetSha256")) { (current, name) =>
+      val wrapper = _object(current(name).getOrElse(_invalid(s"Presentation review $name is missing")), s"Presentation review $name")
+        .filterKeys(key => key != "value" && key != "sha256")
+      _exact_ordered_keys(wrapper, Vector("path"), s"Presentation review $name")
+      current.add(name, Json.fromJsonObject(wrapper))
+    }
+    if (Json.fromJsonObject(normalized) != expected)
       _invalid("Presentation VisualPage review manifest differs from current deterministic reconstruction")
   }
 
@@ -755,10 +745,12 @@ private[cozy] object CozyMediaPresentation {
   private def _profile(plan: CozyMedia.Plan, configuration: ResourceConfig, resolved: CozyMedia.ResolvedResource): ProfileConfig = plan.descriptor.profiles.get(configuration.profile).flatMap(_.presentation).getOrElse(_invalid(s"Presentation profile is not configured: ${resolved.resource.id}"))
   private def _template(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Path = _path(plan, _profile(plan, _configuration(resolved), resolved).template, "Presentation template")
   private def _dependency(plan: CozyMedia.Plan, id: String, resolved: CozyMedia.ResolvedResource): CozyMedia.ResolvedResource = plan.resources.find(_.resource.id == id).filter(_.resource.id != resolved.resource.id).getOrElse(_invalid(s"Presentation dependency is not declared: $id"))
-  private def _asset_path(plan: CozyMedia.Plan, id: String): Path =
-    plan.resources.find(_.resource.id == id).flatMap(resolved => resolved.output.orElse(if (resolved.resource.build == "prebuilt") resolved.source else None)).getOrElse(
+  private def _asset_path(plan: CozyMedia.Plan, id: String): Path = {
+    val path = plan.resources.find(_.resource.id == id).flatMap(resolved => resolved.output.orElse(if (resolved.resource.build == "prebuilt") resolved.source else None)).getOrElse(
       _invalid(s"Presentation asset has no output: $id")
     )
+    _direct_descriptor_input(plan.descriptorRoot, _relative(plan, path), s"Presentation asset $id")
+  }
   private def _output(resolved: CozyMedia.ResolvedResource): Path = resolved.output.orElse(if (resolved.resource.build == "prebuilt") resolved.source else None).getOrElse(_invalid(s"Media resource has no output: ${resolved.resource.id}"))
   private def _path(plan: CozyMedia.Plan, value: String, label: String): Path = { val path = plan.descriptorRoot.resolve(_identity(value, label)).normalize(); if (!path.startsWith(plan.descriptorRoot)) _invalid(s"$label escapes descriptor root"); path }
   private def _descriptor_path(root: Path, value: String, label: String): Path = { val path = root.resolve(_identity(value, label)).normalize(); if (!path.startsWith(root)) _invalid(s"$label escapes descriptor root"); path }
@@ -787,8 +779,7 @@ private[cozy] object CozyMediaPresentation {
   private def _artifact(values: Vector[CozyMediaReceipt.Artifact], id: String): CozyMediaReceipt.Artifact = values.find(_.id == id).getOrElse(_invalid(s"Presentation artifact is missing: $id"))
   private def _artifact_json(value: CozyMediaReceipt.Artifact): Json = Json.fromFields(Vector("id" -> Json.fromString(value.id), "role" -> Json.fromString(value.role), "path" -> Json.fromString(value.path), "sha256" -> Json.fromString(value.sha256)) ++ value.sourceSha256.map(x => "sourceSha256" -> Json.fromString(x)).toVector)
   private def _identity_json(plan: CozyMedia.Plan, path: Path): Json = Json.obj("path" -> Json.fromString(_relative(plan, path)), "sha256" -> Json.fromString(_sha256(path)))
-  private def _semantic_identity_json(plan: CozyMedia.Plan, path: Path, identity: String): Json = Json.obj("path" -> Json.fromString(_relative(plan, path)), "sha256" -> Json.fromString(_semantic_sha256(identity)))
-  private def _visual_assets(visual: VisualPageInput): Vector[CozyVisualPage.Asset] = visual.document.document.pages.flatMap(_.assets).distinct.sortBy(asset => (asset.id, asset.sha256))
+  private def _visual_assets(visual: VisualPageInput): Vector[CozyVisualPage.Asset] = visual.document.document.pages.flatMap(_.assets).distinct.sortBy(asset => (asset.id, asset.path, asset.mediaType))
   private def _pptx(path: Path): Boolean = _direct_regular_file(path) && path.getFileName.toString.toLowerCase(java.util.Locale.ROOT).endsWith(".pptx")
   private def _png(path: Path): Boolean = { val bytes = if (_direct_regular_file(path)) Files.readAllBytes(path) else Array.emptyByteArray; bytes.length > 8 && bytes.take(8).sameElements(Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) }
   private def _xml(bytes: Array[Byte], label: String): Document = try {
@@ -853,7 +844,6 @@ private[cozy] object CozyMediaPresentation {
     values.combinations(2).foreach { pair => if (_overlap(pair.head._2, pair(1)._2)) _invalid(s"$label overlap: ${pair.head._1} and ${pair(1)._1}") }
   private def _sha256(path: Path): String = _sha256_bytes(Files.readAllBytes(path))
   private def _sha256_bytes(bytes: Array[Byte]): String = MessageDigest.getInstance("SHA-256").digest(bytes).map(x => f"${x & 0xff}%02x").mkString
-  private def _semantic_sha256(identity: String): String = identity match { case value if value.matches("sha256:[0-9a-f]{64}") => value.drop("sha256:".length); case _ => _invalid("Presentation VisualPage canonical identity must be SHA-256") }
   private def _sha256_value(value: JsonObject, field: String, label: String): String = { val hash = _string(value, field, label); if (hash.matches("[0-9a-f]{64}")) hash else _invalid(s"$label.$field must be SHA-256") }
   private def _object(value: Json, label: String): JsonObject = value.asObject.getOrElse(_invalid(s"$label must be an object"))
   private def _exact_keys(value: JsonObject, expected: Set[String], label: String): Unit = if (value.keys.toSet != expected) _invalid(s"$label requires exactly: ${expected.toVector.sorted.mkString(", ")}")

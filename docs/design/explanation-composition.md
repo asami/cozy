@@ -69,7 +69,8 @@ logical graph, page mapping, scene mapping, or narration.
 
 Cozy owns deterministic model operations only:
 
-- direct-file parsing with closed-field and duplicate-field rejection;
+- direct-file parsing with duplicate-field rejection and closed fields outside
+  the narrowly defined source/asset material declarations;
 - exact explanation-catalog and Subject/Explanation Pattern resolution;
 - direct `--explanation-catalog <file>` and
   `--presentation-catalog <file>` companions for every Composition
@@ -95,9 +96,10 @@ publish, or approve anything.
 
 Phase 36 owns the existing `cozy.presentation-semantics.catalog.v1`, Visual
 Page, Logical Pattern, Relation, Visual Pattern, catalog/binding, and
-presentation projection semantics. Its supplied catalog has two existing
-identity results: the full presentation-catalog identity and the existing
-logical-catalog identity. P37 does not define or change that schema.
+presentation projection semantics. The supplied current catalog resolves by
+ID/revision and validates its actual graph, role, relation, and Visual
+definitions. DM14 deletes both full/logical catalog digests and selector hash
+comparisons without replacement snapshots. P37 does not redefine that schema.
 
 The existing Storyboard contract owns speaker, narration, duration, silence,
 transition, production inserts, captions, direction, and audiovisual review
@@ -197,6 +199,16 @@ explicit later catalog revision defines it.
 
 ## 5. Authored Composition and deterministic Plan
 
+Composition sources require `{id}` and assets require `{id,mediaType}`. Readers
+ignore ordinary extra material fields without parsing, retaining, validating,
+or re-emitting them; required field types, uniqueness, and duplicate-key
+rejection remain. Exact declaration IDs must have explicit safe direct regular
+file bindings, with no symlinked ancestors or leaf. Current valid material
+bytes need no declaration digest rebinding. DM12 removes only those material
+fields/computations; canonical catalog, Composition, Plan, ProjectionMap,
+Projection, and receipt identities remain unfinished same-Phase work, without
+Step/Phase closure or general timestamp/adoption claims.
+
 The Composition is an authored value, not a generated outline. It names an
 explanation catalog selector, one Subject Pattern, one Explanation Pattern,
 typed subject facts, and `explanation.steps`. Every step is authored and has
@@ -215,8 +227,8 @@ fields. The value is checked against the explicitly supplied P36 presentation
 catalog; Cozy does not derive or repair a graph. Every reference must resolve
 exactly once. A selected Explanation Pattern's roles and authored steps must
 agree in order and identity; missing or extra steps are rejected. The P36
-catalog identity/revision binding remains in the Plan and Projection
-selectors and receipts.
+catalog ID/revision remains in Plan and Projection selectors; catalog digest
+proofs and copies are removed from selectors and receipts.
 
 The `expand` operation means deterministic validation, normalization, and
 copying of every explicitly authored step, claim, emphasis, Logical
@@ -225,9 +237,10 @@ generate or infer a graph, role, claim, or step. Each Plan step contains
 `parameterProvenance.values` as the ordered `{name,value}` values used for
 that step and a derived identity over those values; names alone are not
 sufficient provenance. Plan contains selectors for both named catalogs, with
-the P36 `presentationCatalog` selector exactly
-`{id,revision,identity}` where `identity` is the existing logical-catalog
-identity.
+both selectors exactly `{id,revision}`. Obsolete root selector `identity`
+values are discarded before restricted AST conversion, without interpreting
+any JSON value shape; required fields, syntax, duplicate keys (including inside
+removed values), and unrelated fields still reject.
 The `product-overview`, `product-mechanism`, and `problem-solution` cases
 therefore preserve their authored typed roles and Relations in Plan steps;
 none generates or infers them.
@@ -268,9 +281,12 @@ the Plan step's P36-compatible `logical` value exactly. The union of every
 source and asset reference carried by the Plan step, its claims, and its
 logical nodes and Relations as applicable must occur in that resolved P36
 page's `sources` and `assets` declarations. The existing P37 explicit
-`--source <id>=<file>` and `--asset <id>=<file>` bindings must verify current
-direct bytes against the P37 declarations and the resolved P36 declarations
-under their existing path/digest rules. Additional P36 page provenance remains
+`--source <id>=<file>` and `--asset <id>=<file>` bindings must preserve
+required declaration presence and safe direct resolution in both P37 and P36.
+Asset media types and actual referenced source/asset bytes must agree across
+those resolved paths, using byte equality rather than digest comparison.
+Disagreement retains `EXPLANATION_PROJECTION_STALE` and field-path diagnostics
+and fails before replacing prior output. Additional P36 page provenance remains
 owned by P36 and does not change Plan identity.
 
 For every authored Plan step -> video `sceneId` mapping, the exact scene must
@@ -290,11 +306,15 @@ not discover, generate, modify, render, publish, or approve VisualPageSet,
 Storyboard, or media.
 
 The final Projection copies both independent mapping sections and their
-mapping identities. Its receipt binds Composition, Plan, explanation catalog,
-P36 logical-catalog, full P36 presentation-catalog, VisualPageSet,
-Storyboard, presentation mapping, and video mapping identities. A receipt
-proves identity/currentness only; it is not semantic, visual, audiovisual,
-publication, or consumer approval.
+mapping identities. Its receipt retains Composition, Plan, Explanation
+catalog, Storyboard, and mapping identities as unfinished later same-Phase
+work. DM14 removes the P36 full/logical catalog and PageSet proof fields, and
+uses only `{id}` for the PageSet selector. Old hash and interrupted full-value
+properties are ignored without interpretation or emission. No entire catalog
+comparison or replacement snapshot gate is introduced. Current named input
+validity and operational page/scene resolution remain separate from those
+removed gates; the receipt is not semantic, visual, audiovisual, publication,
+or consumer approval.
 
 The existing Storyboard-v2 contract exposes canonical `storyboardIdentity`,
 but no separately modeled root ID. Projection records that identity as the
@@ -304,8 +324,8 @@ filename, scene, or any other substitute.
 Whenever an operation's validated direct-file input closure includes declared
 sources or assets, the caller supplies each declaration as a repeatable direct
 binding exactly once: `--source <id>=<file>` and `--asset <id>=<file>`. The ID
-must match the declaration, and the direct regular-file bytes must match its
-declared SHA-256. These flags are explicit call inputs; they are never
+must match the declaration, and the file must be a current safe direct regular
+input; no declaration digest rebinding is required. These flags are explicit call inputs; they are never
 serialized into identities and are never discovered.
 
 Every operation reads only its explicitly named direct-file inputs. The

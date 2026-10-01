@@ -32,13 +32,16 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 29, 2026
+ *  version Aug. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
-private[cozy] trait CozyBokSieMetadata {
-  self: CozyBokImplementation.type =>
+private[cozy] object CozyBokSieMetadata {
+  import CozyBokImplementation._
+
   private final case class FinalizationBackup(target: Path, backup: Option[Path])
+
   private final case class RdfExtensionDeclaration(
     id: String,
     kind: String,
@@ -47,6 +50,30 @@ private[cozy] trait CozyBokSieMetadata {
     logicalpath: String
   )
 
+  private final case class GraphComponentRef(
+    kind: String,
+    name: String,
+    organization: Option[String],
+    version: Option[String],
+    location: String
+  )
+
+  private final case class GraphComponentReferenceEntry(
+    kind: String,
+    name: String,
+    organization: Option[String],
+    versions: Vector[String],
+    location: String
+  )
+}
+
+private[cozy] trait CozyBokSieMetadata {
+  self: CozyBokImplementation.type =>
+
+  import CozyBokSieMetadata.FinalizationBackup
+  import CozyBokSieMetadata.RdfExtensionDeclaration
+  import CozyBokSieMetadata.GraphComponentRef
+  import CozyBokSieMetadata.GraphComponentReferenceEntry
   private val _finalization_file_allowlist = Vector(
     "rdf/site.ttl",
     "rdf/site.jsonld",
@@ -720,22 +747,6 @@ private[cozy] trait CozyBokSieMetadata {
       _write_text(graphpath, versioned.spaces2 + "\n")
     }
   }
-
-  private final case class GraphComponentRef(
-    kind: String,
-    name: String,
-    organization: Option[String],
-    version: Option[String],
-    location: String
-  )
-
-  private final case class GraphComponentReferenceEntry(
-    kind: String,
-    name: String,
-    organization: Option[String],
-    versions: Vector[String],
-    location: String
-  )
 
   private def _validate_graph_nodes(nodes: Vector[Json]): Vector[GraphComponentRef] =
     nodes.zipWithIndex.flatMap { case (node, index) =>

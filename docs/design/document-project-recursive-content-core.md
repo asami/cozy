@@ -36,13 +36,15 @@ out-of-parent endpoint.
 ## Locale boundary
 
 `cozy.content-core.logic-tree-format.v1` is a separate direct YAML authority.
-It binds `coreId` and `coreIdentity` to the exact direct bytes of `core.yaml`,
+It binds `coreId` to the semantic id of the directly supplied `core.yaml`,
 declares a BCP-47 `locale`, and has one-to-one `stepBindings`,
 `claimBindings`, and `nodeBindings`. Its closed `chrome` vocabulary owns every
 locale-sensitive fixed phrase emitted by the overview and slides: overview and
 document-title labels, page-count wording, section headings, empty states, and
 navigation labels. This makes Japanese wording a format choice rather than
-Core identity or filename state.
+Core identity or filename state. Its root loader reads the required semantic
+fields and ignores ordinary additional root properties; its nested semantic and
+chrome objects remain closed.
 
 Both direct YAML authorities undergo duplicate-key-rejecting SnakeYAML
 admission on their UTF-8-validated bytes before `StructuredDocumentLoader`
@@ -74,4 +76,14 @@ cozy document-project logic-tree render --core <core.yaml> --format <format.yaml
 
 It does not construct a Document Project or persist workflow state. It reads
 only the two supplied direct files and atomically writes the explicitly named
-safe HTML destination.
+safe HTML destination. It renders each supplied input pair directly and does
+not store a freshness decision, receipt, timestamp, or output identity. Equal
+semantic inputs render deterministic HTML bytes. The separate Description
+Core-identity chain remains outside this Logic Tree decision.
+
+## Phase 71.1 DM08 supersession
+
+Phase 71.1 / P710-03-DM-08 resolves the referenced Description boundary:
+`ValidatedCore` is hash-free and carries the admitted semantic Core plus its
+depth-first traversal only. This does not alter Logic Tree validation, Format
+wording, projections, or output behavior.

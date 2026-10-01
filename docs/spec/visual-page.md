@@ -52,18 +52,17 @@ schema, version, id, knowledge, language, catalog, logical, visual, assets, sour
 | `catalog` | Exactly `{id, revision}`; selects a separately supplied resolved catalog. |
 | `logical` | Exactly `{pattern, nodes, relations}`. |
 | `visual` | Exactly `{pattern, parameters}`. |
-| `assets` | Ordered declarations of exactly `{id, path, mediaType, sha256}`. |
+| `assets` | Ordered declarations requiring `{id, path, mediaType}`; ordinary extra asset fields are ignored. |
 | `sources` | Ordered declarations of exactly `{id, path}`. |
 
 `catalog` resolves a separately supplied versioned catalog document with
 schema exactly `cozy.presentation-semantics.catalog.v1`, schema version
 exactly `1`, matching catalog `id`, and positive catalog `revision`. Its
 canonical root field order is exactly `schema, version, id, revision,
-relations, logicalPatterns, visualPatterns`. The resolved catalog identity is
-the SHA-256 of canonical JSON for that complete resolved catalog; its logical
-catalog identity is the SHA-256 of canonical JSON containing only `schema`,
-`version`, `id`, `revision`, `relations`, and `logicalPatterns`. Resolution
-failure, mismatch, or stale identity fails closed.
+relations, logicalPatterns, visualPatterns`. Resolution validates the supplied
+current catalog by ID/revision and its actual definitions. No resolved full or
+logical catalog digest is calculated, retained, or compared. Missing catalogs,
+invalid definitions, and unresolved references still reject.
 
 Every logical node has exactly `id`, `role`, `label`, and `sourceRefs`; every
 logical relation has exactly `id`, `type`, `from`, `to`, and `sourceRefs`.
@@ -77,18 +76,20 @@ traversal, URI-like spelling, control character, backslash, symlink-escaping
 resolution, and unknown reference. A lexically safe path that resolves through
 a symlink outside its allowed root is unsafe.
 
-Every asset declaration's `sha256` is the lowercase SHA-256 digest of its
-resolved direct regular asset-file bytes. Validation reads those resolved bytes
-and rejects a digest mismatch. Consequently, a same-path asset byte change
-without a corresponding declared digest update fails closed; a correct digest
-update changes `visualPageIdentity` and makes dependent visual evidence stale.
+Every asset declaration resolves from the actual Visual Page input's parent
+to a direct regular file with neither symlinked ancestors nor a symlinked leaf.
+Required IDs, paths, and media types remain validated. Current valid asset-byte
+changes require no declaration digest or rebinding; material readers ignore
+ordinary extras, including malformed obsolete metadata, without parsing,
+validating, retaining, or re-emitting them. Missing or ill-typed required
+fields and duplicate object keys still reject.
 
 No Visual Page semantic field may contain coordinates, fonts, colors,
 PowerPoint shapes, transitions, or renderer IDs.
 
 `visual.pattern` selects a Visual Pattern. `visual.parameters` is the closed
 typed object declared by that exact catalog entry. A parameter's JSON type or
-reference type, optionality, and no-default behavior are catalog identity.
+reference type, optionality, and no-default behavior are catalog semantics.
 There are no inferred defaults, unknown values, aliases, or renderer-specific
 values. A missing required parameter, unknown parameter, ill-typed value,
 alias, or implicit default fails closed.
@@ -98,8 +99,8 @@ It has schema exactly `cozy.visual-page-set.v1`, integer `version: 1`, a stable
 `id`, and ordered nonempty `pages` containing full VisualPage values. Page
 sequence is semantic, and every contained page `id` is unique. Every contained
 page MUST declare the same catalog `{id, revision}` pair. Set resolution accepts
-exactly one supplied resolved catalog whose pair and full resolved identity match
-that pair; a mixed pair, unresolved catalog, or mismatch fails closed.
+exactly one supplied resolved catalog matching that pair; a mixed pair,
+unresolved catalog, or ID/revision mismatch fails closed.
 Presentation therefore binds every page deterministically through its one
 catalog/binding pair. A future v2 video screen identifies one page in a safe
 referenced set by source path and page ID.
@@ -200,41 +201,41 @@ Revision 2 binding MUST include it exactly once with the existing ordered five
 semantic slots `knowledge`, `nodes`, `relations`, `assets`, and `parameters`.
 Revision 1 bindings remain complete with their original three pattern entries.
 
-## 4. Identity and lossless serializations
+## 4. Typed values and lossless serializations
 
-`logicalIdentity` is canonical SHA-256 identity of page `id`, `knowledge`,
-`language`, the resolved logical catalog identity, logical graph, source
-declarations, and source bindings. It excludes visual choice, parameters, and
-assets. Replacing one compatible Visual Pattern preserves `logicalIdentity`;
-changing a Relation or provenance changes it.
+DM14 removes VisualPage-owned catalog, logical-catalog, logical-page,
+visual-page, and PageSet digests. `ValidatedDocument` contains exactly
+`document`, `catalog`, and `canonicalJson`. No complete JSON copy, canonical
+string, fingerprint, or substitute identity proves that historical evidence
+matches the current input. A valid compatible projection or content update is
+processed as current input rather than rejected by a historical proof.
 
-`visualPageIdentity` is canonical SHA-256 identity of the complete normalized
-VisualPage, including each declared asset digest, and the resolved full catalog
-identity. Asset changes change `visualPageIdentity` and derived visual evidence.
-A Visual Page Set identity includes its complete normalized set and preserves
-page sequence.
-
-Canonical JSON is the identity source: UTF-8, deterministic field order,
-preserved array order, no insignificant whitespace, and exact normalized typed
-values. It emits all and only defined fields.
+Canonical JSON preserves deterministic field order, array order, and exact
+normalized typed values. It emits all and only defined fields and supports
+lossless conversion; it is not an operational historical-current proof gate.
 
 Restricted Markdown, YAML, and JSON are lossless admitted serializations of
 the same typed value. A parser rejects content it cannot preserve and reports
 complete field, duplicate, schema, and type diagnostics with a field path or
 source location and concise reason.
 
-JSON has no duplicate or unknown keys and canonical output uses the root and
-nested field order declared here. YAML has the same closed-key/type rules and
-rejects anchors, aliases, merge keys, duplicate keys, and unknown keys.
+JSON rejects duplicate keys and unknown keys outside asset declarations;
+canonical output uses the root and nested field order declared here. YAML has
+the same required-field and closed-object rules and rejects anchors, aliases,
+merge keys, and duplicate keys. Only ordinary extra asset fields are ignored.
 
 Restricted Markdown has fixed order: root metadata; catalog; logical pattern,
 nodes, and relations; visual pattern and parameters; assets; then sources. It
 allows only canonical inline JSON for arrays and typed parameter values. It
 does not admit arbitrary prose, additional headings, extension fields, aliases,
-or alternate field spellings. Canonical Markdown emits that grammar
-deterministically. Conversion parses and validates a typed value before writing
+or alternate field spellings. Ordinary extra asset fields may normalize only
+inside `assets:` or `pages:` inline JSON. The original inline JSON must equal
+its compact canonical AST before filtering; filtering preserves required-key
+order, and the complete normalized text must equal canonical Markdown. Thus
+prose, envelope order, line count, required-key order, and trailing LF remain
+strict. Canonical Markdown emits that grammar deterministically. Conversion parses and validates a typed value before writing
 canonical JSON, YAML, or Markdown; equivalent admitted inputs produce the
-same canonical JSON and identities.
+same canonical typed value and JSON.
 
 ### 4.1 Direct core command and restricted-Markdown grammar
 
@@ -280,8 +281,8 @@ video, or generated media artifact. The required `.html` output is a
 deterministic UTF-8 semantic review artifact, not a physical-layout or
 renderer-binding artifact. It MUST display the ordered page IDs,
 Logical/Visual Pattern IDs, ordered logical nodes, Relations with their type
-and catalog direction, typed visual parameters, and document/catalog
-identities. Every page-supplied text value MUST be HTML-escaped.
+and catalog direction, typed visual parameters, document schema and ID, and
+catalog ID and revision. Every page-supplied text value MUST be HTML-escaped.
 
 `--png` MAY occur once. When selected, it writes one deterministic `.png`
 logical-structure image generated only from the same validated input. Any
@@ -299,26 +300,35 @@ pre-existing selected output byte sequence unchanged. Preview invokes no
 external process or renderer.
 
 The Preview report is deterministic and has these exact ordered fields; the
-`pngIdentity` line occurs only when `--png` was selected:
+`png` line occurs only when `--png` was selected:
 
 ```text
 schema: cozy.visual-page.preview.v1
 version: 1
 generator: cozy media visual-page preview
-documentIdentity: <validated-document-identity>
-catalogIdentity: <resolved-catalog-identity>
-htmlIdentity: <sha256-html-bytes>
-pngIdentity: <sha256-png-bytes>
-previewIdentity: <preview-provenance-identity>
+documentId: <validated-document-id>
+catalogId: <resolved-catalog-id>
+catalogRevision: <resolved-catalog-revision>
+pageCount: <validated-page-count>
+html: generated
+png: generated
 status: generated
 ```
 
-`htmlIdentity` and optional `pngIdentity` are SHA-256 identities of their
-written bytes. `previewIdentity` is SHA-256 provenance binding, in order,
-`cozy.visual-page.preview.v1`, the validated document identity, catalog
-identity, HTML identity, and optional PNG identity. It is output provenance
-only and MUST NOT alter VisualPage, Media Package receipt, binding, renderer,
-or review identities.
+Phase 71.1 supersedes Preview hash-output provenance. Preview MUST NOT compute
+or emit artifact digests or document/catalog digest metadata in its report or
+HTML. It preserves semantic identifiers, ordering, strict input validity, and
+PNG format integrity through CRC32. Equivalent current inputs produce identical
+selected output bytes and reports; a valid label change reaches the selected
+output without identity rebinding. Optional PNG presence follows command
+selection only.
+
+Direct Preview provenance and DM12 material-field removal do not complete the
+remaining core, catalog, binding, renderer, receipt, and output identity
+migrations. These remain unfinished same-Phase obligations, not permanent
+integrity exemptions. This section does not claim
+full inventory removal, timestamp currentness/adoption, Step or Phase completion,
+or downstream consumer acceptance.
 
 Canonical Markdown is the following no-prose, line-oriented grammar. Each
 `<json>` is one compact canonical JSON value: no insignificant whitespace,
@@ -386,7 +396,7 @@ catalog pair in the supplied `CozyVisualPage.ValidatedDocument`.
 `patterns` is a nonempty array of entries exactly `{visualPattern,slots}`.
 `visualPattern` must be a Visual Pattern ID in the selected resolved catalog.
 Entries are unique; canonical output sorts them lexicographically by
-`visualPattern`, so incidental input entry order does not affect identity. The
+`visualPattern`, so incidental input entry order does not affect the normalized value. The
 binding is complete: every Visual Pattern in the selected catalog is
 represented exactly once, and the supplied validated Visual Page document may
 use only those bound pattern IDs.
@@ -409,12 +419,13 @@ Every rejection is a structured `VISUAL_PAGE_BINDING_*` diagnostic carrying a
 field path and concise reason. It does not modify or reinterpret the supplied
 Visual Page and does not invoke a renderer.
 
-The normalized canonical JSON and `bindingIdentity` are exposed by the
-validated binding. `bindingIdentity` is the deterministic SHA-256 identity of
-the canonical UTF-8 binding bytes. Equivalent admitted JSON key and pattern
-entry orderings converge to the same canonical JSON and identity. Binding
-identity does not alter Visual Page logical identity, visual-page identity, or
-document identity.
+The validated binding exposes its typed `binding` and normalized `canonicalJson`.
+`Binding.canonicalValue` is the complete JSON object obtained by parsing that
+canonical JSON, with exactly `schema,version,id,profile,catalog,patterns`.
+Conversion failure uses the existing `VISUAL_PAGE_BINDING_JSON` diagnostic.
+Equivalent admitted key and pattern-entry orderings converge to the same typed
+Binding and canonical JSON value. No Binding digest is calculated or exposed.
+Ordinary IDs, complete catalog patterns, and ordered physical-slot mappings remain.
 
 ## 6. Binding, receipts, and projection
 
@@ -434,26 +445,29 @@ normalization changes; symlink escapes; and a missing or nonregular resolved
 file. The `source` must parse as exactly
 `cozy.visual-page-set.v1` with integer version `1`. It invokes a renderer with
 `--visual-page-set`, `--catalog`, and `--binding`, and expects
-`cozy.presentation.render.v2`. Its renderer and review receipts bind Visual
-Page Set/page identities, catalog, binding, template, renderer, and asset
-hashes. Changed page/catalog/binding/template/renderer/asset inputs make
-dependent visual output and evidence stale.
+ `cozy.presentation.render.v2`. Actual current PageSet, catalog, and Binding
+loading remains required for rendering; historical copies do not.
 
-`cozy.presentation.render.v2` accepts exactly ordered top-level `schema`,
-`target`, `profile`, `renderer`, `visualPageSetSha256`, `catalogSha256`,
-`bindingSha256`, `templateSha256`, `pptx`, `slides`, and `montage`. The first
-three hashes are the 64-hex canonical semantic identities, while template and
-generated artifact hashes are raw bytes. Its page-ordered `slides` entries are
-exactly `id`, `path`, `sha256`, `pptxSha256`, and `assets`; assets are exact
-`id`, `sha256` values in their page asset-ID order. Cozy reconstructs exact
-`cozy.media.presentation-review.v2` evidence containing VisualPageSet,
-catalog, binding, template, PPTX, slides, assets, and montage identity
-evidence, without self-approving review meaning. The existing receipt and
-review-state schemas are unchanged; receipt configuration explicitly names the
-VisualPageSet/catalog structured-document and binding/template byte inputs.
+After ignoring obsolete `visualPageSetSha256`, `catalogSha256`,
+`visualPageSet`, `catalog`, and `binding` properties, v2 renderer fields are
+exactly ordered `schema,target,profile,renderer,templateSha256,pptx,slides,montage`.
+Those five obsolete properties may be absent or hold any JSON value; no proof
+type, digest, or full-value equality is required or re-emitted. Page-ordered
+slides retain `id,path,sha256,pptxSha256,assets` with ordered unique asset IDs.
+Actual paths, PPTX relationship/media structure, PDF/PNG formats, required
+outputs, and current declared asset-byte agreement remain validated.
 
-This implemented route leaves the existing slide-IR source, `--slide-ir`, and
-`cozy.presentation.render.v1` contract untouched.
+Presentation review's `visualPageSet`, `catalog`, and `binding` wrappers
+are exactly `{path}`. No PageSet/catalog/logical/page/Binding snapshot is
+copied into VisualPage evidence. Renderer argv is unchanged, and external
+renderer implementation or acceptance is not claimed. Existing template,
+output, input-set, receipt, review-state, and other artifact hashes/currentness
+checks are unfinished later same-Phase work, not integrity exemptions or
+Phase completion. Failed generation preserves the previous successful output.
+
+The existing slide-IR source and `--slide-ir` route remain separate. DM12 also
+requires only ordered unique asset IDs from `cozy.presentation.render.v1`,
+ignoring ordinary extras; all other v1 renderer and OOXML validity gates remain.
 
 ## 7. Storyboard v2 screen
 
@@ -479,12 +493,17 @@ values. Cozy loads the `source` as a VisualPageSet using the exact supplied
 catalog and requires `pageId` to resolve exactly once. Duplicate page IDs and
 zero or multiple matches reject fail closed. Catalog, binding, renderer, and
 resolved identity inference are prohibited.
-A v2 Storyboard identity contains the screen reference, not a substituted or
-guessed page identity. Scene-screen visual evidence and receipts bind resolved
-page, catalog, binding, renderer, and asset identities. A page change stales
-visual evidence; it does not rewrite narration, speaker, duration, silence,
-transition, confirmation/final separation, or audiovisual acceptance, and it
-does not make audiovisual acceptance implicit.
+A v2 Storyboard identity contains the screen reference. Generated v2
+`visualPages` entries are exactly `sceneId,kind,source,catalog,pageId,assets`;
+assets retain `{id,path,mediaType,modifiedAt}` observations. DM14 deletes the
+four VisualPage digests and copied Binding proof, ignores legacy removed proof
+properties, and does not compare old VisualPage/assets/Binding snapshots with
+current values. Actual current referenced PageSet/catalog/page/Binding and safe
+files are validated separately. Narration, timing, and audiovisual authority
+are unchanged. Storyboard/approval/evidence self-identities, optional
+visual-input hashes, effective-renderer identities, and independent v1 video
+contracts remain unfinished later obligations; their presence does not make
+the removed proof gates required.
 
 v1 remains exactly as accepted. Only explicit
 `cozy video storyboard migrate --from v1 --to v2 --screen text <input> --save
@@ -504,8 +523,7 @@ cozy media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> 
 
 Each required option occurs exactly once and accepts either separated or
 `--option=value` form. `legacy-slide-ir` remains the existing direct legacy
-Slide IR input parser; its raw direct-file bytes are never normalized before
-digest calculation. `semantic-map` is exactly one direct regular non-symlink
+Slide IR input parser. `semantic-map` is exactly one direct regular non-symlink
 UTF-8 `.json` file. `catalog` is the separately supplied resolved Visual Page
 catalog. `save` must end in `.json`.
 
@@ -515,12 +533,11 @@ semantic meaning; only the deterministic report and saved VisualPageSet are
 canonical ordered outputs:
 
 ```text
-schema, version, legacySlideIrSha256, visualPageSet, bindings
+schema, version, visualPageSet, bindings
 ```
 
 `schema` is exactly `cozy.visual-page.migration-map.v1`; `version` is integer
-`1`; and `legacySlideIrSha256` is lowercase 64-hex SHA-256 of the raw direct
-legacy Slide IR file bytes. `visualPageSet` is a complete embedded
+`1`. `visualPageSet` is a complete embedded
 `cozy.visual-page-set.v1` object, never a path or one Page. It is parsed and
 validated through the Visual Page contract against the separately supplied
 catalog with the semantic-map directory as its safe source/asset root.
@@ -539,7 +556,7 @@ A text source element binds only to a `node-label` or `source-path` whose
 resolved typed value is the exact source text. An asset source element binds
 only to an `asset-id` whose resolved ID is the exact source asset. Unknown,
 duplicate, missing, out-of-range, unresolved, ambiguous, wrong-kind,
-wrong-value, malformed UTF-8, non-JSON, symlink, schema, version, digest,
+wrong-value, malformed UTF-8, non-JSON, symlink, schema, version,
 Page-vs-PageSet, inferred, or lossy mapping fails with a structured migration
 diagnostic. Such failure creates no output and preserves any pre-existing
 output bytes.
@@ -552,11 +569,8 @@ deterministic text report is exactly the ordered fields:
 ```text
 schema: cozy.visual-page.migration-report.v1
 version: 1
-legacySlideIrSha256: <raw-legacy-digest>
 sourceElementCount: <count>
 bindingCount: <count>
-catalogIdentity: <resolved-catalog-identity>
-visualPageSetIdentity: <resolved-set-identity>
 status: migrated
 ```
 

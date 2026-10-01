@@ -66,7 +66,7 @@ and enforce all endpoints and the stated role/total cardinalities, so observed
 edge count cannot exceed eligible endpoint-pair count despite the static
 maximum of 16. No initial form admits extra nodes or relations.
 
-Canonical arrays are identity-bearing: root order remains stated above;
+Canonical arrays preserve normalized semantics: root order remains stated above;
 relations use their listed order; logical patterns are exactly `sequence`,
 `causal-chain`, `dependency-map`, `mapping`; visual patterns are exactly
 `flow-horizontal`, `flow-vertical`, `mapping-columns`; node roles sort
@@ -93,54 +93,43 @@ relation alias, extra `item`, visual parameter, or inferred rendering meaning.
 The relationless form is still an explicit logical/visual selection, never a
 renderer-side reading of an empty graph.
 
-## 2. Identity and provenance
+## 2. Current typed inputs and provenance
 
-The contract has two purposeful identities:
+DM14 removes the five VisualPage-owned digest APIs and calculations without
+replacement proof APIs. `ValidatedDocument` is exactly
+`(document,catalog,canonicalJson)`. Compatible projection changes and valid
+content updates are processed by the current typed model. Canonical serializers
+support normalization and lossless interchange, not historical-current proof.
 
-- `logicalIdentity` binds page identity, knowledge/language, resolved catalog
-  logical catalog identity, logical graph, sources, and source bindings. The
-  logical catalog identity is SHA-256 of canonical JSON for catalog `schema`,
-  `version`, `id`, `revision`, `relations`, and `logicalPatterns`. It excludes
-  projection selection, parameters, and assets.
-- `visualPageIdentity` binds the complete normalized page, including selected
-  projection and each declared asset `sha256`, to the resolved full catalog
-  identity, which is SHA-256 of complete canonical catalog JSON.
-
-Compatible horizontal and vertical projections can therefore retain one
-logical identity, while a Relation or provenance change cannot be hidden by a
-visually identical arrow. Every asset is exactly `{id, path, mediaType,
-sha256}`; its lowercase digest validates the resolved direct regular asset
-bytes. Same-path byte changes without a digest update fail closed, and a
-correct digest update changes `visualPageIdentity`. Asset and projection
-changes do not rewrite logical content but do stale dependent visual evidence.
-
-`VisualPageSet` permits ordered presentation consumption without making a
-single page multi-screen. Its sequence is identity-bearing and every contained
-page ID is unique. Every page declares the same catalog `{id, revision}` pair,
-and resolution accepts exactly one supplied resolved catalog matching that pair
-and its full identity; a mixed pair, unresolved catalog, or mismatch fails
-closed. The one media-route catalog/binding pair therefore binds every page
-deterministically. A presentation route cannot silently reorder pages and a
-Storyboard v2 `pageId` resolves exactly once. Duplicate page IDs and zero or
-multiple resolution matches fail closed.
+Every asset requires `{id,path,mediaType}` and resolves to a safe direct regular
+file beneath the actual input parent, without symlinked ancestors or leaf.
+Current valid bytes require no digest rebinding. PageSet order remains semantic,
+page IDs are unique, every page selects the same catalog ID/revision, and each
+reference resolves exactly once. Actual graph, role, parameter, catalog, and
+path validation remains strict.
 
 ## 3. Representation architecture
 
 Markdown is review-oriented, YAML is human-authored structured input, and JSON
-is machine interchange. None is a different semantic model. They converge
-before identity calculation:
+is machine interchange. None is a different semantic model. They converge through typed normalization:
 
 ```text
 restricted Markdown / YAML / JSON
   -> strict representation parser
   -> typed VisualPage or VisualPageSet
   -> catalog resolution and validation
-  -> canonical JSON and identities
+  -> canonical JSON
 ```
 
-Strict rejection of unknown information, YAML aliases/merges, duplicate keys,
-unsafe references, and non-lossless Markdown is intentional. It prevents a
-serializer from claiming an identity for content it dropped or rewrote.
+YAML aliases/merges, duplicate keys, unsafe references, and non-lossless
+Markdown reject. Asset readers require the three current fields and ignore
+ordinary extra asset fields without parsing, validating, retaining, or
+re-emitting them, including malformed obsolete metadata. All other object
+shapes remain closed. Restricted Markdown permits this normalization only in
+`assets:` or `pages:` inline JSON: the original inline JSON must already be
+compact canonical JSON, required-key order is preserved while extras are
+removed, and the entire normalized envelope must equal canonical Markdown.
+Heading, prose, field order, line-count, and trailing-LF constraints remain.
 
 ## 4. Fast semantic preview
 
@@ -160,7 +149,8 @@ PPTX, PowerPoint, receipt, review, video, or other generated-artifact input.
 The required UTF-8 HTML file is a deterministic semantic review artifact. It
 shows ordered page IDs; each page's Logical and Visual Pattern IDs; ordered
 logical nodes; Relations with ID, type, `from-to` direction, endpoints, and
-source references; typed visual parameters; and document/catalog identities.
+source references; typed visual parameters; document schema and ID; and catalog
+ID and revision.
 Every page-supplied value is HTML-escaped. The HTML has no physical layout or
 renderer vocabulary in its input contract.
 
@@ -178,25 +168,35 @@ outputs, input, and catalog and renders all selected bytes before it atomically
 replaces either target through same-directory moves. Invalid input, catalog, or
 arguments leave all pre-existing selected output bytes unchanged.
 
-The deterministic text report has this ordered form, with `pngIdentity` absent
+The deterministic text report has this ordered form, with `png` absent
 when `--png` is absent:
 
 ```text
 schema: cozy.visual-page.preview.v1
 version: 1
 generator: cozy media visual-page preview
-documentIdentity: <validated-document-identity>
-catalogIdentity: <resolved-catalog-identity>
-htmlIdentity: <sha256-html-bytes>
-pngIdentity: <sha256-png-bytes>
-previewIdentity: <preview-provenance-identity>
+documentId: <validated-document-id>
+catalogId: <resolved-catalog-id>
+catalogRevision: <resolved-catalog-revision>
+pageCount: <validated-page-count>
+html: generated
+png: generated
 status: generated
 ```
 
-`previewIdentity` binds `cozy.visual-page.preview.v1`, validated document
-identity, catalog identity, HTML digest, and optional PNG digest in that order.
-It is output provenance only: it does not change a Visual Page, Media Package
-receipt, binding, renderer, or review identity.
+Phase 71.1 supersedes Preview hash-output provenance with these semantic
+identifiers and generation results. The report and HTML compute and emit no
+artifact digest or document/catalog digest metadata. Optional PNG presence is
+selected by the command. Deterministic rendering, semantic ordering and strict
+validity remain, including PNG CRC32 format integrity; a valid label change is
+rendered directly without identity rebinding.
+
+The direct Preview, DM12 material, and DM14 VisualPage proof removals leave
+Explanation/Document, renderer, receipt, review-state, and output identities as
+unfinished same-Phase migration obligations, not
+permanent integrity exemptions. It claims neither full inventory removal nor
+timestamp currentness/adoption, Step or Phase completion, or downstream
+consumer acceptance.
 
 ## 5. Versioned business binding
 
@@ -227,9 +227,12 @@ fields, unsafe/nonregular/symlink input, wrong schema/version/profile, invalid
 tokens, catalog mismatches, unknown or incomplete patterns, and invalid slot
 sets with structured `VISUAL_PAGE_BINDING_*` diagnostics carrying a field path
 and reason. Equivalent JSON key or pattern-entry ordering normalizes to one
-canonical JSON value. `bindingIdentity` is the deterministic SHA-256 identity
-of those canonical UTF-8 binding bytes; it does not alter Visual Page logical,
-visual-page, or document identity.
+canonical JSON value. `ValidatedBinding` carries the typed `binding` and
+`canonicalJson`; `Binding.canonicalValue` parses that canonical serialization
+into the exact complete object `schema,version,id,profile,catalog,patterns`,
+using existing BindingFault vocabulary on conversion failure. The typed value
+preserves the actual physical mapping; consumers do not copy it into a
+historical-current proof or require historical slot equality.
 
 Physical slots are opaque template/renderer slot identifiers only. They carry
 no coordinate, font, color, PowerPoint Shape kind, renderer object ID,
@@ -261,54 +264,39 @@ resolved files. `source` must parse as exactly
 accepted exact template/renderer shape. This object accepts no untagged legacy
 shape and never infers `--slide-ir`.
 
-Its fixed v2 renderer argv replaces legacy `--slide-ir <source>` with
-`--visual-page-set <source> --catalog <catalog> --binding <binding>`. Its exact
-v2 manifest canonical top-level order is `schema, target, profile, renderer,
-visualPageSetSha256, catalogSha256, bindingSha256, templateSha256, pptx,
-slides, montage`. Its three semantic identity fields are lowercase 64-hex
-canonical identities, not raw source bytes; template and generated artifacts
-use raw byte SHA-256. Each page-ordered slide entry is exactly `id`, `path`,
-`sha256`, `pptxSha256`, and page-asset-ordered `assets` entries of exactly
-`id`, `sha256`. Cozy reconstructs the separate
-`cozy.media.presentation-review.v2` evidence from the trusted VisualPageSet,
-catalog, binding, template, renderer, artifacts, article PDF, and infographic;
-that reconstruction verifies freshness only and never records semantic
-approval. The route coexists with, but does not replace, the existing
-`--slide-ir` / `cozy.presentation.render.v1` route.
+Its fixed v2 renderer argv replaces `--slide-ir <source>` with
+`--visual-page-set <source> --catalog <catalog> --binding <binding>`.
+After filtering the five obsolete PageSet/catalog/Binding proof properties,
+renderer fields are `schema,target,profile,renderer,templateSha256,pptx,slides,montage`.
+Missing or any-valued obsolete properties do not veto generation. Slides retain
+ordered required IDs/assets and actual PPTX/PNG paths and structure; linked
+OOXML media are validated against current safe declared bytes. Summary-PDF v2
+applies the same deletion while retaining actual PDF page count and PNG checks.
 
-The independently versioned JSON-only Storyboard v2 route uses a closed
-`visual-page` screen reference of exactly `{kind,source,catalog,pageId}`. Both
-paths are direct safe descriptor-relative files rooted at the Storyboard source
-directory: neither permits empty, absolute, traversal, URI-like,
-query/fragment/control, backslash, non-normalized, final-symlink,
-ancestor-symlink, missing, or nonregular input. Cozy loads the VisualPageSet
-through the supplied catalog and resolves `pageId` exactly once. A v2 scene
-therefore retains Storyboard ownership of narration, speaker, duration,
-silence, transition, confirmation, final, and audiovisual-review semantics.
-The literal reference participates in Storyboard identity; resolved
-page/catalog/binding/renderer/asset identities belong to later visual evidence
-and are never guessed into Storyboard content.
+Review wrappers for `visualPageSet`, `catalog`, and `binding` contain only
+`{path}`. The private page evidence is `(id,assets)` and the aggregate evidence
+is `(reviewPath,pages)`; neither contains semantic snapshots. Failed generation
+keeps prior output. Template/output/artifact hashes, receipt input-set checks,
+and review-state currentness remain unfinished later same-Phase work.
 
-P36-05 implements that later review-proof boundary without broadening the
-Visual Page model. A v2 visual-page review owns one safe project-relative
-binding, an evidence directory, and a required approval identity; it records
-the literal screen reference with the resolved VisualPageSet, catalog,
-logical-page, visual-page, selected asset, binding, and effective selected
-renderer identities. The v2 handoff has its own canonical identity. Changed,
-missing, unsafe, unresolved, or noncanonical inputs fail before confirmation,
-final build, cache reuse, or output work. This route invokes no renderer and
-does not accept any external consumer.
+Storyboard v2 keeps the literal `{kind,source,catalog,pageId}` screen reference.
+Its review loads the actual current set, named catalog, selected page, and
+Binding. Generated entries are `sceneId,kind,source,catalog,pageId,assets`, with
+`{id,path,mediaType,modifiedAt}` asset observations and no VisualPage digest or
+Binding copy. Legacy removed proof fields are ignored; old assets or Binding
+snapshots are not compared with current inputs. The non-VisualPage Storyboard,
+approval, self-identity, optional visual-input, and effective-renderer checks
+remain distinct unfinished obligations, not substitutes for removed proof.
 
-The current v1 presentation and Storyboard contracts remain exactly accepted.
-P36-04 provides v2 parsing, planning metadata, and the explicit
-`migrate --from v1 --to v2 --screen text <input> --save <output.json>`
-adapter only. Existing `cozy.media.receipt.v2` and review-state v1 schema shapes remain unchanged.
-The implemented visual-page presentation route requires explicit existing
-receipt inputs for the VisualPageSet and catalog as structured documents and
-for the binding and template as bytes. Assets are proved by strict Visual Page
-loading plus v2 renderer/review evidence; this does not extend cross-media
-receipt semantics. No v1 parser, receipt, review state, or renderer path
-acquires new behavior from this design.
+CrossReview resolves current per-side page references and already-declared
+asset IDs/media types/actual bytes. It neither compares semantic snapshots nor
+demands a saved aggregate equal a freshly reconstructed whole value. It validates
+saved operational structure and ID references. Build constructs once and may
+atomically replace a safe direct regular aggregate, but never actual input or
+review evidence. It records `not-recorded` approvals and invokes no renderer.
+Existing media receipt admission and outer evidence/artifact hashes remain
+later work; this bounded change claims no Step/Phase closure or external
+renderer/consumer acceptance.
 
 ## 7. Explicit migration only
 
@@ -323,11 +311,10 @@ cozy media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> 
 Each required option occurs once, in separated or `--option=value` form. Its
 semantic map is a direct regular non-symlink UTF-8 `.json` file and a closed
 `cozy.visual-page.migration-map.v1` object with integer `version: 1`, exactly
-the named fields `schema, version, legacySlideIrSha256, visualPageSet,
-bindings`, and no duplicate or unknown fields. JSON member order carries no
-semantic meaning; only the deterministic report and saved VisualPageSet are
-canonical ordered outputs. The digest is lowercase SHA-256 of unnormalized raw direct legacy Slide IR
-bytes. `visualPageSet` is a complete embedded `cozy.visual-page-set.v1`, not a
+the named fields `schema, version, visualPageSet, bindings`, and no duplicate
+or unknown fields. JSON member order carries no semantic meaning; only the
+deterministic report and saved VisualPageSet are canonical ordered outputs.
+`visualPageSet` is a complete embedded `cozy.visual-page-set.v1`, not a
 path or Page; the Visual Page contract resolves it through the separately
 supplied catalog using the semantic-map directory as its source/asset root.
 
@@ -338,15 +325,14 @@ flattened legacy `(slideId, elementIndex)` source set and target
 `(pageId, kind, id)` set are each bijective. Page IDs and selected node-label,
 asset-ID, or source-path target values resolve exactly once. Text binds only
 to an equal node-label/source-path value; assets bind only to an equal asset
-ID. Any ambiguity, loss, inference, malformed/unsafe input, schema/version or
-digest mismatch, or incomplete/duplicate/unresolved/wrong-kind binding fails
+ID. Any ambiguity, loss, inference, malformed/unsafe input, schema/version,
+or incomplete/duplicate/unresolved/wrong-kind binding fails
 without an output claim.
 
 Only a validated map atomically replaces the `.json` output in its directory
 with canonical VisualPageSet JSON plus newline, then emits a deterministic
-`cozy.visual-page.migration-report.v1` text report containing its version, raw
-legacy digest, source/binding count, catalog identity, VisualPageSet identity,
-and `status: migrated`. This boundary invokes no renderer, receipt,
+`cozy.visual-page.migration-report.v1` text report containing exactly schema,
+version, source/binding count, and `status: migrated`. This boundary invokes no renderer, receipt,
 Storyboard, Media Package, review state, or external consumer. It has no
 inference path and does not declare an old slide to be a Logical Pattern.
 

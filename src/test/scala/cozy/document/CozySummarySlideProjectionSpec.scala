@@ -1,6 +1,7 @@
 package cozy.document
 
 import cozy.media.{CozyMedia, CozyVisualPage, CozyVisualPageBinding}
+import io.circe.Json
 import org.apache.pdfbox.pdmodel.{PDDocument, PDPage}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
@@ -8,12 +9,14 @@ import java.security.MessageDigest
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 13, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -31,10 +34,11 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         val second = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
         val pages = second.visualPageSet.document.asInstanceOf[CozyVisualPage.PageSet].pages
         val binding = CozyVisualPageBinding.load(fixture.binding, second.visualPageSet)
+        val summaryitems = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary).description.summary.units.head.diagram.get.items
 
         Then("the deterministic model retains exact page order, directions, semantic roles, localized labels, sources, asset identity, and binding without a hidden file effect")
         Files.exists(pagesetoutput, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        first.visualPageSet.documentIdentity shouldBe second.visualPageSet.documentIdentity
+        first.visualPageSet.document shouldBe second.visualPageSet.document
         pages.map(_.id) shouldBe Vector("overview-domain-to-application", "overview-realization-to-foundation", "overview-conclusion-to-realization")
         pages.map(_.logical.pattern) shouldBe Vector("mapping", "dependency-map", "dependency-map")
         pages.map(_.visual.pattern) shouldBe Vector("mapping-columns", "flow-vertical", "flow-vertical")
@@ -50,15 +54,15 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         )
         pages.flatMap(_.logical.nodes.map(_.label)).toSet should contain allOf ("Node root-domain-model", "Step use-case-realization", "Step application-conclusion")
         pages.foreach(_.sources.map(_.id) shouldBe Vector("core", "document", "summary", "profile", "media"))
-        pages.foreach(_.assets shouldBe Vector(CozyVisualPage.Asset("infographic", "infographic.svg", "image/svg+xml", _sha256(fixture.infographic))))
+        pages.foreach(_.assets shouldBe Vector(CozyVisualPage.Asset("infographic", "infographic.svg", "image/svg+xml")))
         pages.foreach(_.logical.nodes.foreach(_.sourceRefs shouldBe Vector("core", "document", "summary")))
         pages.foreach(_.logical.relations.foreach(_.sourceRefs shouldBe Vector("core", "summary")))
-        CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary).description.summary.units.head.diagram.get.items.map(_.ref) should not contain "application-modeling"
+        summaryitems.map(_.ref) should not contain "application-modeling"
         pages.flatMap(_.visual.parameters.map(_.name)) should not contain "emphasisNode"
         binding.id shouldBe "business-binding"
         binding.profile shouldBe "business"
         second.provenance.mediaTarget shouldBe "summary-slides-pdf"
-        second.provenance.profile.identity shouldBe _identity(fixture.profile)
+        second.provenance shouldBe _expected_provenance(fixture)
       }
     }
 
@@ -91,7 +95,7 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         val projected = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
 
         Then("the canonical model is available while the prior PageSet and all admitted inputs remain unchanged")
-        projected.visualPageSet.documentIdentity.nonEmpty shouldBe true
+        projected.visualPageSet.document.pages.nonEmpty shouldBe true
         Files.readAllBytes(pagesetoutput).toVector shouldBe prior
         _input_bytes(fixture) shouldBe inputbytes
       }
@@ -116,7 +120,7 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         first.outputPath shouldBe output
         firstbytes shouldBe (first.projection.visualPageSet.canonicalJson + "\n").getBytes(StandardCharsets.UTF_8).toVector
         Files.readAllBytes(second.outputPath).toVector shouldBe firstbytes
-        first.projection.visualPageSet.documentIdentity shouldBe second.projection.visualPageSet.documentIdentity
+        first.projection.visualPageSet.document shouldBe second.projection.visualPageSet.document
         _input_bytes(fixture) shouldBe inputbytes
       }
     }
@@ -219,6 +223,99 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
     }
 
     "semantic admission" which {
+    "admit each independently whitespace-changed current authority without rebinding the profile" in {
+      _with_work("cozy-summary-slide-projection-current-bytes") { root =>
+        Given("a canonical profile, its semantic baseline, and one isolated valid whitespace change per authority")
+        val fixture = _fixture(root)
+        val baseline = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
+        val authorities = Vector(fixture.core, fixture.document, fixture.summary, fixture.media, fixture.catalog, fixture.binding, fixture.profile)
+        val prior = Files.readAllBytes(root.resolve("visual-pages.json")).toVector
+
+        When("each changed authority is projected using the existing profile and current source bytes")
+        val results = authorities.map { path =>
+          val original = Files.readAllBytes(path)
+          Files.write(path, original ++ "\n".getBytes(StandardCharsets.UTF_8))
+          val inputs = _input_bytes(fixture)
+          val projected = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
+          val unchanged = _input_bytes(fixture) == inputs && Files.readAllBytes(root.resolve("visual-pages.json")).toVector == prior
+          Files.write(path, original)
+          (projected, unchanged)
+        }
+
+        Then("all seven current authorities yield the unchanged semantic PageSet and logical provenance without replacing outputs or mutating inputs")
+        results.foreach { case (projected, unchanged) =>
+          projected.visualPageSet.canonicalJson shouldBe baseline.visualPageSet.canonicalJson
+          projected.provenance shouldBe _expected_provenance(fixture)
+          unchanged shouldBe true
+        }
+      }
+    }
+
+    "project the current authored Document label without modifying its profile" in {
+      _with_work("cozy-summary-slide-projection-authored-label") { root =>
+        Given("a semantic baseline and an updated author label for the existing root-domain-model Node")
+        val fixture = _fixture(root)
+        val baseline = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
+        val profilebytes = Files.readAllBytes(fixture.profile).toVector
+        val prior = Files.readAllBytes(root.resolve("visual-pages.json")).toVector
+        _write(fixture.document, Files.readString(fixture.document, StandardCharsets.UTF_8).replace("text: Node root-domain-model", "text: Updated domain author label"))
+        val inputbytes = _input_bytes(fixture)
+
+        When("the unchanged profile projects the current Document bytes")
+        val projected = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
+        val expected = baseline.visualPageSet.canonicalJson.replace("Node root-domain-model", "Updated domain author label")
+        val pages = projected.visualPageSet.document.pages
+
+        Then("the authored label changes while IDs, page order, relations, and non-hash provenance remain correct")
+        pages.head.logical.nodes.head.label shouldBe "Updated domain author label"
+        projected.visualPageSet.canonicalJson shouldBe expected
+        projected.provenance shouldBe _expected_provenance(fixture)
+        Files.readAllBytes(fixture.profile).toVector shouldBe profilebytes
+        Files.readAllBytes(root.resolve("visual-pages.json")).toVector shouldBe prior
+        _input_bytes(fixture) shouldBe inputbytes
+      }
+    }
+
+    "ignore ordinary extra metadata of any value shape in every input binding without changing projection semantics" in {
+      _with_work("cozy-summary-slide-projection-binding-metadata") { root =>
+        Given("canonical id/path bindings, unchanged semantic inputs, and scalar, malformed-looking text, object, array, null, and generated metadata")
+        val fixture = _fixture(root)
+        val baseline = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
+        val prior = Files.readAllBytes(root.resolve("visual-pages.json")).toVector
+        val fixed = Vector(Json.fromInt(7), Json.fromBoolean(true), Json.fromString("sha256:malformed [not a digest]"), Json.obj("nested" -> Json.fromString("ordinary")), Json.arr(Json.fromInt(1), Json.Null), Json.Null)
+        val generated = Gen.oneOf(
+          Gen.choose(-1000, 1000).map(Json.fromInt),
+          Gen.alphaNumStr.map(Json.fromString),
+          Gen.alphaNumStr.map(value => Json.obj("nested" -> Json.fromString(value))),
+          Gen.listOf(Gen.choose(-100, 100)).map(values => Json.arr(values.map(Json.fromInt): _*)),
+          Gen.const(Json.Null)
+        )
+        def _admit_metadata_(values: Vector[Json]): Boolean = {
+          _write(fixture.profile, _profile_with_metadata(fixture, values))
+          val inputs = _input_bytes(fixture)
+          val projected = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
+          val prepared = CozySummarySlidePdf.prepare(root, root.relativize(fixture.profile))
+          projected.visualPageSet.canonicalJson == baseline.visualPageSet.canonicalJson &&
+            projected.provenance == baseline.provenance &&
+            prepared.projection.visualPageSet.canonicalJson == baseline.visualPageSet.canonicalJson &&
+            prepared.projection.provenance == baseline.provenance &&
+            prepared.pageSetPath == root.resolve("visual-pages.json") &&
+            _input_bytes(fixture) == inputs && Files.readAllBytes(root.resolve("visual-pages.json")).toVector == prior
+        }
+        val property = Prop.forAll(Gen.listOfN(6, generated)) { values => _admit_metadata_(values.toVector) }
+
+        When("the production projector and coordinator admit every fixed shape and at least thirty generated combinations across all six bindings")
+        val fixedresults = fixed.map(value => _admit_metadata_(Vector.fill(6)(value)))
+        val checked = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+
+        Then("every sample retains the complete canonical output and logical provenance without hidden input or output mutation")
+        fixedresults shouldBe Vector.fill(fixed.size)(true)
+        checked.passed shouldBe true
+        checked.succeeded should be >= 30
+        baseline.provenance shouldBe _expected_provenance(fixture)
+      }
+    }
+
     "project the effective generated infographic output instead of its source" in {
       _with_work("cozy-summary-slide-projection-generated-infographic") { root =>
         Given("a copy-built infographic whose generated output differs from its declared source")
@@ -229,16 +326,15 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         )
         val output = _write(fixture.root.resolve("target/infographic.svg"), "generated infographic output\n")
         Files.writeString(fixture.media, media, StandardCharsets.UTF_8)
-        _rewrite_profile(fixture)
 
         When("the summary slide profile is projected")
         val projected = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
         val pages = projected.visualPageSet.document.asInstanceOf[CozyVisualPage.PageSet].pages
 
-        Then("every Visual Page asset names and hashes the effective generated output")
-        val expected = CozyVisualPage.Asset("infographic", "target/infographic.svg", "image/svg+xml", _sha256(output))
+        Then("every Visual Page asset names the effective generated output with its required media type")
+        val expected = CozyVisualPage.Asset("infographic", "target/infographic.svg", "image/svg+xml")
         pages.foreach(_.assets shouldBe Vector(expected))
-        _sha256(output) should not be _sha256(fixture.infographic)
+        Files.readAllBytes(output).toVector should not be Files.readAllBytes(fixture.infographic).toVector
       }
     }
 
@@ -265,14 +361,59 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
       }
     }
 
-    "reject stale unsafe malformed and semantically mismatched authorities while retaining prior derived bytes" in {
+    "reject missing, malformed, or mismatched required binding data even when ordinary metadata is present" in {
+      Given("isolated canonical fixtures with ignored metadata and one missing, wrong-type, or mismatched required field")
+      val records = Vector("core", "document", "summary", "media", "catalog", "binding")
+      val commoncases = records.flatMap { record =>
+        Vector(
+          (record, "id", Option.empty[String]),
+          (record, "id", Some("23")),
+          (record, "id", Some("wrong-logical-id")),
+          (record, "path", Option.empty[String]),
+          (record, "path", Some("{}")),
+          (record, "path", Some("missing-authority.yaml"))
+        )
+      }
+      val specialcases = Vector(
+        ("media", "summarySlidesPdf", Option.empty[String]),
+        ("media", "summarySlidesPdf", Some("[]")),
+        ("media", "summarySlidesPdf", Some("wrong-target")),
+        ("catalog", "revision", Option.empty[String]),
+        ("catalog", "revision", Some("invalid")),
+        ("catalog", "revision", Some("0")),
+        ("catalog", "revision", Some("3")),
+        ("binding", "profile", Option.empty[String]),
+        ("binding", "profile", Some("false")),
+        ("binding", "profile", Some("wrong-profile"))
+      )
+
+      When("each malformed binding is admitted through the production projector")
+      val failures = (commoncases ++ specialcases).zipWithIndex.map { case ((record, field, replacement), index) =>
+        _rejected_case("cozy-summary-slide-projection-required-binding-" + index) { fixture =>
+          _mutate_binding(fixture, record, field, replacement)
+        }
+      }
+
+      Then("required data still fails before output replacement and is never supplied by ignored metadata")
+      failures.size shouldBe 46
+      failures.foreach(_.reason should not be empty)
+      failures.map(_.code).toSet should contain allOf (
+        "SUMMARY_SLIDE_PROJECTION_FIELD",
+        "SUMMARY_SLIDE_PROJECTION_TYPE",
+        "SUMMARY_SLIDE_PROJECTION_PATH",
+        "SUMMARY_SLIDE_PROJECTION_CORE",
+        "SUMMARY_SLIDE_PROJECTION_DOCUMENT",
+        "SUMMARY_SLIDE_PROJECTION_SUMMARY",
+        "SUMMARY_SLIDE_PROJECTION_BINDING",
+        "SUMMARY_SLIDE_PROJECTION_CATALOG",
+        "SUMMARY_SLIDE_PROJECTION_MEDIA_TARGET"
+      )
+    }
+
+    "reject unsafe malformed and semantically mismatched authorities while retaining prior derived bytes" in {
       Given("a previously projected closed fixture for each independent profile or authority mutation")
 
       val rejectioncases: Vector[(String, Fixture => Path)] = Vector(
-        "cozy-summary-slide-projection-stale" -> ((fixture: Fixture) => {
-          Files.writeString(fixture.core, Files.readString(fixture.core, StandardCharsets.UTF_8) + "\n", StandardCharsets.UTF_8)
-          fixture.profile
-        }),
         "cozy-summary-slide-projection-unsafe" -> ((fixture: Fixture) =>
           _write(fixture.root.resolve("unsafe.yaml"), Files.readString(fixture.profile, StandardCharsets.UTF_8).replace("path: content/core.yaml", "path: ../core.yaml"))
         ),
@@ -281,6 +422,18 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         ),
         "cozy-summary-slide-projection-duplicate" -> ((fixture: Fixture) =>
           _write(fixture.root.resolve("duplicate.yaml"), Files.readString(fixture.profile, StandardCharsets.UTF_8).replace("schema: cozy.summary-slide-projection.v1\n", "schema: cozy.summary-slide-projection.v1\nschema: cozy.summary-slide-projection.v1\n"))
+        ),
+        "cozy-summary-slide-projection-anchor" -> ((fixture: Fixture) =>
+          _write(fixture.root.resolve("anchor.yaml"), Files.readString(fixture.profile, StandardCharsets.UTF_8).replace("  id: document-ja", "  id: &documentid document-ja"))
+        ),
+        "cozy-summary-slide-projection-alias" -> ((fixture: Fixture) =>
+          _write(fixture.root.resolve("alias.yaml"), Files.readString(fixture.profile, StandardCharsets.UTF_8).replace("  id: document-ja", "  id: *documentid"))
+        ),
+        "cozy-summary-slide-projection-merge" -> ((fixture: Fixture) =>
+          _write(fixture.root.resolve("merge.yaml"), Files.readString(fixture.profile, StandardCharsets.UTF_8).replace("document:\n", "document:\n  <<: {}\n"))
+        ),
+        "cozy-summary-slide-projection-tag" -> ((fixture: Fixture) =>
+          _write(fixture.root.resolve("tag.yaml"), Files.readString(fixture.profile, StandardCharsets.UTF_8).replace("  id: document-ja", "  id: !!str document-ja"))
         ),
         "cozy-summary-slide-projection-unknown" -> ((fixture: Fixture) =>
           _write(fixture.root.resolve("unknown.yaml"), Files.readString(fixture.profile, StandardCharsets.UTF_8) + "unknown: prohibited\n")
@@ -310,8 +463,8 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
           )
           _write(fixture.core, source)
           val core = CozyDocumentLogicTree.loadCore(fixture.core)
-          _write(fixture.document, _document_source(core, _identity(fixture.core)))
-          _write(fixture.summary, _summary_source(core, _identity(fixture.core), _identity(fixture.document)))
+          _write(fixture.document, _document_source(core))
+          _write(fixture.summary, _summary_source(core))
           val profile = _rewrite_profile(fixture)
           _write(profile, Files.readString(profile, StandardCharsets.UTF_8).replace(
             "      - diagramItemId: overview-domain-model\n        role: source\n",
@@ -320,11 +473,11 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         }),
         "cozy-summary-slide-projection-media" -> ((fixture: Fixture) => {
           Files.writeString(fixture.media, Files.readString(fixture.media, StandardCharsets.UTF_8).replace("catalog: presentation/catalog.json", "catalog: presentation/wrong.json"), StandardCharsets.UTF_8)
-          _rewrite_profile(fixture)
+          fixture.profile
         }),
         "cozy-summary-slide-projection-blank-target-public-path" -> ((fixture: Fixture) => {
           Files.writeString(fixture.media, Files.readString(fixture.media, StandardCharsets.UTF_8).replace("publicPath: /summary-slides.pdf", "publicPath: \"\""), StandardCharsets.UTF_8)
-          _rewrite_profile(fixture)
+          fixture.profile
         }),
         "cozy-summary-slide-projection-duplicate-article-pdf" -> ((fixture: Fixture) => {
           val source = Files.readString(fixture.media, StandardCharsets.UTF_8)
@@ -332,23 +485,23 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
           val end = source.indexOf("  - id: infographic\n")
           val article = source.substring(start, end)
           Files.writeString(fixture.media, source.substring(0, end) + article + source.substring(end), StandardCharsets.UTF_8)
-          _rewrite_profile(fixture)
+          fixture.profile
         }),
         "cozy-summary-slide-projection-asset-kind" -> ((fixture: Fixture) => {
           Files.writeString(fixture.media, Files.readString(fixture.media, StandardCharsets.UTF_8).replace("  - id: infographic\n    kind: infographic", "  - id: infographic\n    kind: document"), StandardCharsets.UTF_8)
-          _rewrite_profile(fixture)
+          fixture.profile
         }),
         "cozy-summary-slide-projection-catalog" -> ((fixture: Fixture) => {
           Files.writeString(fixture.catalog, "{\"schema\":\"cozy.presentation-semantics.catalog.v1\"}", StandardCharsets.UTF_8)
-          _rewrite_profile(fixture)
+          fixture.profile
         }),
         "cozy-summary-slide-projection-binding" -> ((fixture: Fixture) => {
           Files.writeString(fixture.binding, Files.readString(fixture.binding, StandardCharsets.UTF_8).replace("\"business\"", "\"wrong\""), StandardCharsets.UTF_8)
-          _rewrite_profile(fixture)
+          fixture.profile
         })
       )
 
-      When("each stale, path-unsafe, closed-grammar, coverage, media, catalog, or binding failure is projected")
+      When("each path-unsafe, closed-grammar, coverage, media, catalog, or binding failure is projected")
       val failures = rejectioncases.map { case (name, mutate) => name -> _rejected_case(name)(mutate) }
 
       Then("every failure is fail-closed before the explicit writer can replace the established root-level output")
@@ -360,7 +513,6 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
       failures.collectFirst { case (name, failure) if name == "cozy-summary-slide-projection-asset-kind" => failure.code } shouldBe Some("SUMMARY_SLIDE_PROJECTION_MEDIA_ASSET")
       failures.collectFirst { case (name, failure) if name == "cozy-summary-slide-projection-unrelated-edge-free-item" => failure.code } shouldBe Some("SUMMARY_SLIDE_PROJECTION_MAPPING_ITEM")
       codes should contain allOf (
-        "SUMMARY_SLIDE_PROJECTION_IDENTITY",
         "SUMMARY_SLIDE_PROJECTION_PATH",
         "SUMMARY_SLIDE_PROJECTION_EMPHASIS",
         "SUMMARY_SLIDE_PROJECTION_MAPPING_COVERAGE",
@@ -393,8 +545,8 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
     val core = content.resolve("core.yaml")
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/core.yaml"), core)
     val validated = CozyDocumentLogicTree.loadCore(core)
-    val document = _write(locale.resolve("document.yaml"), _document_source(validated, _identity(core)))
-    val summary = _write(locale.resolve("summary.yaml"), _summary_source(validated, _identity(core), _identity(document), includestandalone = revision == 2))
+    val document = _write(locale.resolve("document.yaml"), _document_source(validated))
+    val summary = _write(locale.resolve("summary.yaml"), _summary_source(validated, includestandalone = revision == 2))
     val presentation = Files.createDirectories(root.resolve("presentation"))
     val catalog = _write(presentation.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(CozyVisualPage.fixedCatalog(revision)))
     val binding = _write(presentation.resolve("binding.json"), _binding_source(revision))
@@ -408,7 +560,7 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
     fixture
   }
 
-  private def _document_source(core: CozyDocumentLogicTree.ValidatedCore, coreidentity: String): String = {
+  private def _document_source(core: CozyDocumentLogicTree.ValidatedCore): String = {
     val refs = _references(core)
     val steplabels = core.depthFirstSteps.map(step => s"    - stepRef: ${step.id}\n      text: Step ${step.id}").mkString("\n")
     val nodelabels = core.nodesById.keys.toVector.sorted.map(node => s"    - nodeRef: $node\n      text: Node $node").mkString("\n")
@@ -416,7 +568,6 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         |id: document-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
         |locale: ja
         |document:
         |  title: Article 9 document
@@ -438,7 +589,7 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         |""".stripMargin
   }
 
-  private def _summary_source(core: CozyDocumentLogicTree.ValidatedCore, coreidentity: String, documentidentity: String, includestandalone: Boolean = false): String = {
+  private def _summary_source(core: CozyDocumentLogicTree.ValidatedCore, includestandalone: Boolean = false): String = {
     val root = core.core.root
     val steps = root.id +: root.steps.map(_.id)
     val claims = root.claims.map(_.id)
@@ -456,10 +607,8 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         |id: summary-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
         |document:
         |  id: document-ja
-        |  identity: $documentidentity
         |locale: ja
         |summary:
         |  title: Article 9 overview
@@ -572,30 +721,24 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         |id: application-overview-pages
         |core:
         |  id: application-modeling
-        |  identity: ${_identity(fixture.core)}
         |  path: content/core.yaml
         |document:
         |  id: document-ja
-        |  identity: ${_identity(fixture.document)}
         |  path: content/ja/document.yaml
         |summary:
         |  id: summary-ja
-        |  identity: ${_identity(fixture.summary)}
         |  path: content/ja/summary.yaml
         |locale: ja
         |media:
         |  id: application-modeling
-        |  identity: ${_identity(fixture.media)}
         |  path: media.yaml
         |  summarySlidesPdf: summary-slides-pdf
         |catalog:
         |  id: presentation
         |  revision: ${fixture.catalogrevision}
-        |  identity: ${_identity(fixture.catalog)}
         |  path: presentation/catalog.json
         |binding:
         |  id: business-binding
-        |  identity: ${_identity(fixture.binding)}
         |  profile: business
         |  path: presentation/binding.json
         |pages:
@@ -659,10 +802,42 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
 
   private def _rewrite_profile(fixture: Fixture): Path = _write(fixture.profile, _profile_source(fixture))
 
+  private def _expected_provenance(fixture: Fixture): CozySummarySlideProjection.ProjectionProvenance = {
+    import CozySummarySlideProjection.{InputProvenance, ProjectionProvenance}
+    ProjectionProvenance(
+      InputProvenance("application-overview-pages", "projection.yaml"),
+      InputProvenance("application-modeling", "content/core.yaml"),
+      InputProvenance("document-ja", "content/ja/document.yaml"),
+      InputProvenance("summary-ja", "content/ja/summary.yaml"),
+      InputProvenance("application-modeling", "media.yaml"),
+      InputProvenance("presentation", "presentation/catalog.json"),
+      InputProvenance("business-binding", "presentation/binding.json"),
+      "ja",
+      "summary-slides-pdf"
+    )
+  }
+
+  private def _profile_with_metadata(fixture: Fixture, values: Vector[Json]): String =
+    Vector("core", "document", "summary", "media", "catalog", "binding").zip(values).foldLeft(_profile_source(fixture)) { case (source, (record, value)) =>
+      source.replace(s"$record:\n", s"$record:\n  identity: ${value.noSpaces}\n  sha256: ${value.noSpaces}\n  authorMetadata: ${value.noSpaces}\n")
+    }
+
+  private def _mutate_binding(fixture: Fixture, record: String, field: String, replacement: Option[String]): Path = {
+    val source = _profile_with_metadata(fixture, Vector.fill(6)(Json.Null))
+    val next = Map("core" -> "document", "document" -> "summary", "summary" -> "locale", "media" -> "catalog", "catalog" -> "binding", "binding" -> "pages")(record)
+    val start = source.indexOf(record + ":\n")
+    val end = source.indexOf("\n" + next + ":", start) + 1
+    val lines = source.substring(start, end).split("\n", -1).toVector
+    val changed = lines.flatMap { line =>
+      if (line.startsWith(s"  $field:")) replacement.map(value => s"  $field: $value").toVector
+      else Vector(line)
+    }.mkString("\n")
+    _write(fixture.profile, source.substring(0, start) + changed + source.substring(end))
+  }
+
   private def _set_media_source(fixture: Fixture, source: String): Path = {
     val media = Files.readString(fixture.media, StandardCharsets.UTF_8).replace("    source: visual-pages.json\n", s"    source: $source\n")
     _write(fixture.media, media)
-    _rewrite_profile(fixture)
   }
 
   private def _rejected_case(name: String)(mutate: Fixture => Path): CozySummarySlideProjection.ProjectionFault = {
@@ -707,12 +882,12 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         _write_png(montage)
         val pdfhash = _sha256(pdf)
         val slides = pages.map { page =>
-          val assets = page.assets.map(asset => s"""{"id":"${asset.id}","sha256":"${_sha256(root.resolve(asset.path))}"}""").mkString(",")
+          val assets = page.assets.map(asset => s"""{"id":"${asset.id}"}""").mkString(",")
           s"""{"id":"${page.id}","path":"target/slides/${page.id}.png","sha256":"${_sha256(images.resolve(page.id + ".png"))}","pdfSha256":"$pdfhash","assets":[$assets]}"""
         }.mkString(",")
         _write(
           manifest,
-          s"""{"schema":"cozy.summary-slides.render.v2","target":"summary-slides-pdf","profile":"business","renderer":{"name":"cozy-renderer","version":"1"},"visualPageSetSha256":"${_semantic_sha256(visual.documentIdentity)}","catalogSha256":"${_semantic_sha256(visual.catalogIdentity)}","bindingSha256":"${_semantic_sha256(bindingdocument.bindingIdentity)}","templateSha256":"${_sha256(template)}","pdf":{"sha256":"$pdfhash","pageCount":${pages.size}},"slides":[$slides],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
+          s"""{"schema":"cozy.summary-slides.render.v2","target":"summary-slides-pdf","profile":"business","renderer":{"name":"cozy-renderer","version":"1"},"binding":${bindingdocument.canonicalJson},"templateSha256":"${_sha256(template)}","pdf":{"sha256":"$pdfhash","pageCount":${pages.size}},"slides":[$slides],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
         )
         0
       }
@@ -754,7 +929,6 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
       "infographic" -> fixture.infographic
     ).map { case (name, path) => name -> Files.readAllBytes(path).toVector }
 
-  private def _identity(path: Path): String = "sha256:" + _sha256(path)
   private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
   private def _write(path: Path, value: String): Path = {

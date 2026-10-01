@@ -6,7 +6,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 11, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentLogicTreeCommand {
@@ -25,7 +26,7 @@ private[cozy] object CozyDocumentLogicTreeCommand {
       }
       val destination = _destination(request.save)
       _publish(destination, rendered.html)
-      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: ${validated.core.id}\nlocale: ${validated.format.locale}\nidentity: ${rendered.identity}\noutput: $destination")
+      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: ${validated.core.id}\nlocale: ${validated.format.locale}\noutput: $destination")
       true
     case _ => false
   }

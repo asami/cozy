@@ -2,7 +2,8 @@ package cozy.media
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
+import io.circe.Json
+import io.circe.parser.parse
 
 import scala.collection.JavaConverters._
 
@@ -14,7 +15,8 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyExplanationSpec
@@ -44,6 +46,64 @@ final class CozyExplanationSpec
   }
 
   "Cozy Explanation Composition" should {
+    "discard obsolete catalog selector identities through public parsing and loading while preserving required input validity" in {
+      _with_work("catalog-selector-migration") { root =>
+        Given("current named catalogs, direct material bindings, and generated obsolete selector value shapes")
+        val catalogfile = _write(root.resolve("explanation-catalog.json"), CozyExplanation.canonicalCatalogJson(_catalog))
+        val presentationfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(_presentation_catalog))
+        val bindings = CozyExplanation.ResourceBindings(
+          Map("source" -> _write(root.resolve("source.txt"), "current source")),
+          Map("asset" -> _write(root.resolve("asset.txt"), "current asset"))
+        )
+        val composition = _composition()
+        val canonical = CozyExplanation.canonicalCompositionJson(composition)
+        val compositionfile = _write(root.resolve("composition.json"), canonical)
+        val plan = CozyExplanation.expand(CozyExplanation.loadComposition(compositionfile, catalogfile, presentationfile, bindings))
+        val planjson = CozyExplanation.canonicalPlanJson(plan)
+        val obsolete = Vector("\"obsolete\"", "{}", "[]", "true", "null", "1.5", "9223372036854775808")
+        def _historical_(text: String, name: String, raw: String): String = parse(text).toOption.get.mapObject { fields =>
+          fields.add(name, fields(name).get.mapObject(_.add("identity", parse(raw).toOption.get)))
+        }.noSpaces
+
+        When("public parse and load paths process each historical value and ScalaCheck varies both Plan selectors")
+        val loaded = obsolete.map { raw =>
+          val input = _write(root.resolve("historical-composition.json"), _historical_(canonical, "explanationCatalog", raw))
+          CozyExplanation.parseCompositionJson(Files.readString(input)).explanationCatalog shouldBe composition.explanationCatalog
+          CozyExplanation.loadComposition(input, catalogfile, presentationfile, bindings).composition
+        }
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(Gen.oneOf(obsolete), Gen.oneOf(Vector("explanationCatalog", "presentationCatalog"))) { (raw, name) =>
+          val text = _historical_(planjson, name, raw)
+          val input = _write(root.resolve("historical-plan.json"), text)
+          CozyExplanation.parsePlanJson(text) == plan && CozyExplanation.loadPlan(input, compositionfile, catalogfile, presentationfile, bindings).plan == plan
+        })
+        val invalid = Vector(
+          canonical.replace("\"revision\":1", "\"revision\":true"),
+          canonical.replace("\"revision\":1", "\"revision\":0"),
+          canonical.replace("\"id\":\"software-explanation\"", "\"id\":null"),
+          _historical_(canonical, "explanationCatalog", "{}").replace("\"identity\":{}", "\"unknown\":{}"),
+          _historical_(canonical, "explanationCatalog", "{}").replace("\"identity\":{}", "\"identity\":{\"duplicate\":1,\"duplicate\":2}"),
+          _historical_(canonical, "explanationCatalog", "{}").replace("\"identity\":{}", "\"identity\":{},\"identity\":[]"),
+          canonical + "{}", canonical.dropRight(1)
+        )
+        val failures = invalid.map(text => _failure(CozyExplanation.parseCompositionJson(text)))
+        val invalidplans = Vector("explanationCatalog", "presentationCatalog").flatMap { name =>
+          Vector(Json.obj("id" -> Json.Null, "revision" -> Json.fromInt(1)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromBoolean(true)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(0)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(1), "unknown" -> Json.obj())).map { selector =>
+            parse(planjson).toOption.get.mapObject(_.add(name, selector)).noSpaces
+          }
+        } ++ Vector(_historical_(planjson, "presentationCatalog", "{}").replace("\"identity\":{}", "\"identity\":{\"duplicate\":1,\"duplicate\":2}"), planjson + "{}", planjson.dropRight(1))
+        val planfailures = invalidplans.map(text => _failure(CozyExplanation.parsePlanJson(text)))
+
+        Then("historical values disappear from typed selectors while malformed required fields, unknown fields, duplicates and syntax still reject")
+        loaded.distinct shouldBe Vector(composition)
+        check.passed shouldBe true
+        check.succeeded should be >= 30
+        failures should have size invalid.size
+        planfailures should have size invalidplans.size
+        plan.presentationCatalog shouldBe CozyExplanation.CatalogSelector(_presentation_catalog.id, _presentation_catalog.revision)
+        CozyExplanation.canonicalPlanJson(plan) should not include ("\"identity\":\"obsolete\"")
+      }
+    }
+
     "validate and expand a complete explicit software-product Composition without semantic inference" in {
       _with_work("expand") { root =>
         Given("named catalog files, declared direct source and asset bytes, and one authored product-mechanism Composition")
@@ -51,7 +111,7 @@ final class CozyExplanationSpec
         val presentationfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(_presentation_catalog))
         val sourcefile = _write(root.resolve("sources/source.txt"), "source bytes")
         val assetfile = _write(root.resolve("assets/asset.txt"), "asset bytes")
-        val composition = _composition(_sha256(sourcefile), _sha256(assetfile))
+        val composition = _composition()
         val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
         val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
 
@@ -60,13 +120,13 @@ final class CozyExplanationSpec
         val first = CozyExplanation.expand(loaded)
         val second = CozyExplanation.expand(loaded)
 
-        Then("the Plan preserves authored role, claim, P36 Logical Pattern/Relation graph, parameter provenance, and P36 logical catalog identity")
+        Then("the Plan preserves authored role, claim, P36 Logical Pattern/Relation graph, parameter provenance, and named catalog ID/revision")
         first shouldBe second
         first.steps.map(_.semanticRole) shouldBe Vector("mechanism")
         first.steps.map(_.claims) shouldBe composition.explanation.steps.map(_.claims)
         first.steps.map(_.logical) shouldBe composition.explanation.steps.map(_.logical)
         first.steps.head.parameterProvenance.values shouldBe loaded.composition.explanation.parameters
-        first.presentationCatalog.identity shouldBe CozyVisualPage.logicalCatalogIdentity(_presentation_catalog)
+        first.presentationCatalog shouldBe CozyExplanation.CatalogSelector(_presentation_catalog.id, _presentation_catalog.revision)
         first.compositionIdentity shouldBe CozyExplanation.compositionIdentity(composition)
         CozyExplanation.canonicalPlanJson(first) should not include ("\"pageId\"")
         CozyExplanation.canonicalPlanJson(first) should not include ("\"sceneId\"")
@@ -82,7 +142,7 @@ final class CozyExplanationSpec
         val presentationfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(_presentation_catalog))
         val sourcefile = _write(root.resolve("sources/source.txt"), "problem-solution source bytes")
         val assetfile = _write(root.resolve("assets/asset.txt"), "problem-solution asset bytes")
-        val composition = _problem_solution_composition(_sha256(sourcefile), _sha256(assetfile))
+        val composition = _problem_solution_composition()
         val compositionfile = _write(root.resolve("problem-solution-composition.json"), CozyExplanation.canonicalCompositionJson(composition))
         val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
 
@@ -106,9 +166,56 @@ final class CozyExplanationSpec
       }
     }
 
+    "load historical material metadata with current direct bindings and serialize only required declarations" in {
+      _with_work("material-metadata") { root =>
+        Given("hash-free declarations, exact direct binding IDs, and historical ordinary extra metadata")
+        val catalogfile = _write(root.resolve("explanation-catalog.json"), CozyExplanation.canonicalCatalogJson(_catalog))
+        val presentationfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(_presentation_catalog))
+        val sourcefile = _write(root.resolve("sources/source.txt"), "original source bytes")
+        val assetfile = _write(root.resolve("assets/asset.txt"), "original asset bytes")
+        val composition = _composition()
+        val canonical = CozyExplanation.canonicalCompositionJson(composition)
+        val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
+        val extras = Vector(Json.fromString("malformed obsolete digest"), Json.fromBoolean(true), Json.fromInt(7), Json.obj("ordinary" -> Json.fromString("metadata")))
+        val inputs = extras.zipWithIndex.map { case (extra, index) =>
+          val value = parse(canonical).toOption.get.mapObject { fields =>
+            Vector("sources", "assets").foldLeft(fields) { (current, name) =>
+              current.add(name, Json.fromValues(current(name).get.asArray.get.map(_.mapObject(_.add("sha256", extra).add("ordinaryMetadata", extra)))))
+            }
+          }
+          _write(root.resolve(s"historical-$index.json"), value.noSpaces)
+        }
+        val invalidinputs = Vector(
+          canonical.replace("\"mediaType\":\"text/plain\"", "\"mediaType\":true"),
+          canonical.replace(",\"mediaType\":\"text/plain\"", ""),
+          canonical.replace("\"id\":\"source\"", "\"id\":true"),
+          canonical.replace("\"mediaType\":\"text/plain\"", "\"mediaType\":\"text/plain\",\"mediaType\":\"text/plain\"")
+        ).zipWithIndex.map { case (text, index) => _write(root.resolve(s"invalid-material-$index.json"), text) }
+        Files.createSymbolicLink(root.resolve("sources/link.txt"), sourcefile)
+
+        When("valid current bytes replace each bound file and historical declarations are loaded alongside invalid required fields and bindings")
+        _write(sourcefile, "changed valid source bytes")
+        _write(assetfile, "changed valid asset bytes")
+        val loaded = inputs.map(input => CozyExplanation.loadComposition(input, catalogfile, presentationfile, bindings))
+        val plans = loaded.map(CozyExplanation.expand)
+        val failures = invalidinputs.map(input => _failure(CozyExplanation.loadComposition(input, catalogfile, presentationfile, bindings))) ++ Vector(
+          _failure(CozyExplanation.loadComposition(inputs.head, catalogfile, presentationfile, bindings.copy(sources = Map.empty))),
+          _failure(CozyExplanation.loadComposition(inputs.head, catalogfile, presentationfile, bindings.copy(assets = Map("asset" -> root.resolve("assets/missing.txt"))))),
+          _failure(CozyExplanation.loadComposition(inputs.head, catalogfile, presentationfile, bindings.copy(sources = Map("source" -> root.resolve("sources/link.txt")))))
+        )
+
+        Then("current file bytes remain valid, canonical declarations retain their IDs and media type, and required fields and direct binding safety still reject")
+        loaded.map(_.composition).distinct shouldBe Vector(composition)
+        loaded.map(value => CozyExplanation.canonicalCompositionJson(value.composition)).distinct shouldBe Vector(canonical)
+        plans.foreach(_.steps.head.logical shouldBe composition.explanation.steps.head.logical)
+        failures should have size 7
+        failures.foreach(_.getMessage should include_text("EXPLANATION_"))
+      }
+    }
+
     "canonicalize recursively reordered dynamic values while preserving authored array order" in {
       Given("an accepted Composition containing ordered lists, a scenario value, and mechanism-link parameters")
-      val composition = _composition(Vector.fill(64)("a").mkString, Vector.fill(64)("b").mkString)
+      val composition = _composition()
       val originaljson = _composition_json_value(composition)
       val original = CozyExplanation.parseCompositionJson(_json_text(originaljson))
       val reorderedjson = _reorder_json_value(originaljson)
@@ -130,7 +237,7 @@ final class CozyExplanationSpec
       reordered.explanation.parameters shouldBe original.explanation.parameters
     }
 
-    "reject companion, compatibility, logical-data, stale-byte, and incomplete-expansion failures with EXPLANATION diagnostics" in {
+    "reject companion, compatibility, logical-data, invalid-binding, and incomplete-expansion failures with EXPLANATION diagnostics" in {
       _with_work("rejections") { root =>
         Given("one otherwise valid direct-file Composition closure and adversarial variants")
         val catalogfile = _write(root.resolve("explanation-catalog.json"), CozyExplanation.canonicalCatalogJson(_catalog))
@@ -140,7 +247,7 @@ final class CozyExplanationSpec
         ))
         val sourcefile = _write(root.resolve("sources/source.txt"), "source bytes")
         val assetfile = _write(root.resolve("assets/asset.txt"), "asset bytes")
-        val composition = _composition(_sha256(sourcefile), _sha256(assetfile))
+        val composition = _composition()
         val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
         val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
         val incompatible = _write(root.resolve("incompatible.json"), CozyExplanation.canonicalCompositionJson(
@@ -153,7 +260,7 @@ final class CozyExplanationSpec
           composition.copy(explanation = composition.explanation.copy(steps = Vector.empty))
         ))
 
-        When("operations omit or duplicate direct companions, select an incompatible pattern, provide malformed P36 logical data, stale bytes, or omit authored expansion steps")
+        When("operations omit or duplicate direct companions, select an incompatible pattern, provide malformed P36 logical data, invalid bindings, or omit authored expansion steps")
         val omission = _failure(CozyExplanation.execute(List("validate", compositionfile.toString, "--explanation-catalog", catalogfile.toString)))
         val duplicate = _failure(CozyExplanation.execute(List(
           "validate", compositionfile.toString,
@@ -167,11 +274,11 @@ final class CozyExplanationSpec
         val logicalfailure = _failure(CozyExplanation.loadComposition(malformedlogical, catalogfile, presentationfile, bindings))
         val incompletefailure = _failure(CozyExplanation.loadComposition(incomplete, catalogfile, presentationfile, bindings))
         val alteredpresentationfailure = _failure(CozyExplanation.loadComposition(compositionfile, catalogfile, alteredpresentationfile, bindings))
-        _write(sourcefile, "changed source bytes")
-        val stalefailure = _failure(CozyExplanation.loadComposition(compositionfile, catalogfile, presentationfile, bindings))
+        val missingbindings = bindings.copy(sources = Map("source" -> root.resolve("sources/missing.txt")))
+        val missingfailure = _failure(CozyExplanation.loadComposition(compositionfile, catalogfile, presentationfile, missingbindings))
 
         Then("every rejected input reports a structured EXPLANATION code, field path, and concise reason without inference")
-        Vector(omission, duplicate, incompatiblefailure, logicalfailure, incompletefailure, stalefailure).map(_.getMessage).forall(message =>
+        Vector(omission, duplicate, incompatiblefailure, logicalfailure, incompletefailure, missingfailure).map(_.getMessage).forall(message =>
           message.contains("EXPLANATION_") && message.contains("path=") && message.contains("reason=")
         ) shouldBe true
         omission.getMessage should include_text("EXPLANATION_COMMAND_INVALID")
@@ -180,7 +287,7 @@ final class CozyExplanationSpec
         logicalfailure.getMessage should include_text("EXPLANATION_REFERENCE_INVALID")
         incompletefailure.getMessage should include_text("EXPLANATION_EXPANSION_INCOMPLETE")
         alteredpresentationfailure.getMessage should include_text("EXPLANATION_PRESENTATION_CATALOG_INVALID")
-        stalefailure.getMessage should include_text("EXPLANATION_ASSET_STALE")
+        missingfailure.getMessage should include_text("EXPLANATION_REFERENCE_INVALID")
       }
     }
   }
@@ -193,7 +300,7 @@ final class CozyExplanationSpec
         val presentationfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(_presentation_catalog))
         val sourcefile = _write(root.resolve("sources/source.txt"), "source bytes")
         val assetfile = _write(root.resolve("assets/asset.txt"), "asset bytes")
-        val composition = _composition(_sha256(sourcefile), _sha256(assetfile))
+        val composition = _composition()
         val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
         val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
         val plan = CozyExplanation.expand(CozyExplanation.loadComposition(compositionfile, catalogfile, presentationfile, bindings))
@@ -223,7 +330,7 @@ final class CozyExplanationSpec
         Files.readString(output, StandardCharsets.UTF_8) shouldBe CozyExplanation.canonicalPlanJson(plan) + "\n"
         inspect should include_text("schema: cozy.explanation-plan.v1")
         inspect should include_text("step: 1:mechanism-step")
-        validate should include_text("presentationLogicalCatalogIdentity")
+        validate should include_text("presentationCatalogRevision")
         convert should include_text("identity: sha256:")
         CozyExplanation.canonicalPlanJson(plan) should not include ("projectionMap")
         CozyExplanation.canonicalPlanJson(plan) should not include ("visualPageSet")
@@ -290,7 +397,7 @@ final class CozyExplanationSpec
     order.map(key => "\"" + key + "\":" + values(key)).mkString("{", ",", "}")
   }
 
-  private def _composition(sourcedigest: String, assetdigest: String): CozyExplanation.Composition = {
+  private def _composition(): CozyExplanation.Composition = {
     val source = Vector("source")
     val asset = Vector("asset")
     val facts = Vector(
@@ -321,20 +428,20 @@ final class CozyExplanationSpec
     )
     CozyExplanation.Composition(
       "composition-1",
-      CozyExplanation.CatalogSelector(_catalog.id, _catalog.revision, CozyExplanation.catalogIdentity(_catalog)),
+      CozyExplanation.CatalogSelector(_catalog.id, _catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(
         CozyExplanation.PatternReference("product-mechanism", 1),
         Vector(CozyExplanation.Parameter("mechanismLinks", links)),
         Vector(step)
       ),
-      Vector(CozyExplanation.SourceDeclaration("source", sourcedigest)),
-      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain", assetdigest))
+      Vector(CozyExplanation.SourceDeclaration("source")),
+      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain"))
     )
   }
 
-  private def _problem_solution_composition(sourcedigest: String, assetdigest: String): CozyExplanation.Composition = {
-    val base = _composition(sourcedigest, assetdigest)
+  private def _problem_solution_composition(): CozyExplanation.Composition = {
+    val base = _composition()
     val step = base.explanation.steps.head
     val problem = step.copy(
       id = "problem-step",
@@ -366,8 +473,7 @@ final class CozyExplanationSpec
   private def _composition_json_value(composition: CozyExplanation.Composition): CozyExplanation.JsonValue = {
     val catalogselector = CozyExplanation.JsonObject(Vector(
       "id" -> CozyExplanation.JsonString(composition.explanationCatalog.id),
-      "revision" -> CozyExplanation.JsonNumber(composition.explanationCatalog.revision),
-      "identity" -> CozyExplanation.JsonString(composition.explanationCatalog.identity)
+      "revision" -> CozyExplanation.JsonNumber(composition.explanationCatalog.revision)
     ))
     val subjectpattern = CozyExplanation.JsonObject(Vector(
       "id" -> CozyExplanation.JsonString(composition.subject.pattern.id),
@@ -436,15 +542,13 @@ final class CozyExplanationSpec
     }
     val sources = composition.sources.map { source =>
       CozyExplanation.JsonObject(Vector(
-        "id" -> CozyExplanation.JsonString(source.id),
-        "sha256" -> CozyExplanation.JsonString(source.sha256)
+        "id" -> CozyExplanation.JsonString(source.id)
       ))
     }
     val assets = composition.assets.map { asset =>
       CozyExplanation.JsonObject(Vector(
         "id" -> CozyExplanation.JsonString(asset.id),
-        "mediaType" -> CozyExplanation.JsonString(asset.mediaType),
-        "sha256" -> CozyExplanation.JsonString(asset.sha256)
+        "mediaType" -> CozyExplanation.JsonString(asset.mediaType)
       ))
     }
     CozyExplanation.JsonObject(Vector(
@@ -527,7 +631,6 @@ final class CozyExplanationSpec
     path
   }
 
-  private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _with_work[A](name: String)(body: Path => A): A = {
     val root = Files.createTempDirectory("cozy-explanation-" + name + "-")

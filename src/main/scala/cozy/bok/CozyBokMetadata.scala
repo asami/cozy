@@ -32,14 +32,21 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
+private[cozy] object CozyBokMetadata {
+  import CozyBokImplementation._
+
+  private[bok] final case class CategorySummary(slug: String, title: String, description: String, purpose: BokPurpose)
+}
+
 private[cozy] trait CozyBokMetadata {
   self: CozyBokImplementation.type =>
-  private[bok] final case class CategorySummary(slug: String, title: String, description: String, purpose: BokPurpose)
 
+  private[bok] type CategorySummary = CozyBokMetadata.CategorySummary
+  private[bok] lazy val CategorySummary = CozyBokMetadata.CategorySummary
   private[bok] def _regular_category_summaries(source: Path): Vector[CategorySummary] =
     _category_summaries(source).filterNot(x => _is_special_category(x.slug))
 

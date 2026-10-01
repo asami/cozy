@@ -5,7 +5,6 @@ import java.io.StringReader
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.yaml.snakeyaml.{LoaderOptions, Yaml}
@@ -14,12 +13,13 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescription {
-  final case class CoreBinding(id: String, identity: String)
-  final case class DocumentBinding(id: String, identity: String)
+  final case class CoreBinding(id: String)
+  final case class DocumentBinding(id: String)
   final case class References(
     steps: Vector[String],
     claims: Vector[String],
@@ -54,15 +54,12 @@ private[cozy] object CozyDocumentDescription {
     summary: Summary
   )
   final case class ValidatedDocument(
-    core: CozyDocumentLogicTree.ValidatedCore,
-    description: DocumentDescription,
-    coreIdentity: String,
-    documentIdentity: String
+    core: CozyDocumentLogicTree.SourceCore,
+    description: DocumentDescription
   )
   final case class ValidatedSummary(
     document: ValidatedDocument,
-    description: SummaryDescription,
-    summaryIdentity: String
+    description: SummaryDescription
   )
 
   final case class DescriptionFault(code: String, path: String, reason: String)
@@ -88,21 +85,17 @@ private[cozy] object CozyDocumentDescription {
   private val _summary_schema = "cozy.summary-description.v1"
   private val _id_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
-  private val _identity_pattern = "sha256:[0-9a-f]{64}".r
   private val _reference_fields = Set("steps", "claims", "nodes", "relations", "flows")
 
   def loadDocument(corePath: Path, documentPath: Path): ValidatedDocument = {
-    val core = CozyDocumentLogicTree.loadCore(corePath)
+    val core = CozyDocumentLogicTree.loadSourceCore(corePath)
     val documentpath = _admit_localized(documentPath, "document", "document.yaml")
     val documentbytes = _read_bytes(documentpath, "document")
     val description = _document_description(_load_document(documentpath, documentbytes, "document"), core)
-    val identity = _identity(documentbytes)
     if (description.core.id != core.core.id)
       _fail("DESCRIPTION_DOCUMENT_CORE", "$.core.id", "must exactly equal the directly admitted Core id")
-    if (description.core.identity != core.coreIdentity)
-      _fail("DESCRIPTION_DOCUMENT_CORE", "$.core.identity", "must bind the direct Core byte SHA-256 identity")
     _validate_locale(documentpath, description.locale, "$.locale")
-    ValidatedDocument(core, description, core.coreIdentity, identity)
+    ValidatedDocument(core, description)
   }
 
   def loadSummary(corePath: Path, documentPath: Path, summaryPath: Path): ValidatedSummary = {
@@ -110,17 +103,17 @@ private[cozy] object CozyDocumentDescription {
     val summarypath = _admit_localized(summaryPath, "summary", "summary.yaml")
     val summarybytes = _read_bytes(summarypath, "summary")
     val description = _summary_description(_load_document(summarypath, summarybytes, "summary"), document.core)
-    if (description.core.id != document.description.core.id || description.core.identity != document.coreIdentity)
-      _fail("DESCRIPTION_SUMMARY_CORE", "$.core", "must bind the directly admitted Core id and byte identity")
-    if (description.document.id != document.description.id || description.document.identity != document.documentIdentity)
-      _fail("DESCRIPTION_SUMMARY_DOCUMENT", "$.document", "must bind the directly admitted Document id and byte identity")
+    if (description.core.id != document.description.core.id)
+      _fail("DESCRIPTION_SUMMARY_CORE", "$.core.id", "must exactly equal the directly admitted Core id")
+    if (description.document.id != document.description.id)
+      _fail("DESCRIPTION_SUMMARY_DOCUMENT", "$.document.id", "must exactly equal the directly admitted Document id")
     _validate_locale(summarypath, description.locale, "$.locale")
-    ValidatedSummary(document, description, _identity(summarybytes))
+    ValidatedSummary(document, description)
   }
 
-  private def _document_description(value: Json, core: CozyDocumentLogicTree.ValidatedCore): DocumentDescription = {
+  private def _document_description(value: Json, core: CozyDocumentLogicTree.SourceCore): DocumentDescription = {
     val fields = _object(value, "$")
-    _exact_fields(fields, Set("schema", "id", "core", "locale", "document"), "$")
+    _required_fields(fields, Set("schema", "id", "core", "locale", "document"), "$")
     if (_string(fields, "schema", "$") != _document_schema)
       _fail("DESCRIPTION_DOCUMENT_SCHEMA", "$.schema", s"must be exactly ${_document_schema}")
     val ids = mutable.Set.empty[String]
@@ -138,9 +131,9 @@ private[cozy] object CozyDocumentDescription {
     )
   }
 
-  private def _summary_description(value: Json, core: CozyDocumentLogicTree.ValidatedCore): SummaryDescription = {
+  private def _summary_description(value: Json, core: CozyDocumentLogicTree.SourceCore): SummaryDescription = {
     val fields = _object(value, "$")
-    _exact_fields(fields, Set("schema", "id", "core", "document", "locale", "summary"), "$")
+    _required_fields(fields, Set("schema", "id", "core", "document", "locale", "summary"), "$")
     if (_string(fields, "schema", "$") != _summary_schema)
       _fail("DESCRIPTION_SUMMARY_SCHEMA", "$.schema", s"must be exactly ${_summary_schema}")
     val content = _object(_field(fields, "summary", "$"), "$.summary")
@@ -162,7 +155,7 @@ private[cozy] object CozyDocumentDescription {
   private def _sections(
     values: Vector[Json],
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.SourceCore,
     ids: mutable.Set[String]
   ): Vector[(Section, Coverage)] =
     values.zipWithIndex.map { case (value, index) => _section(value, s"$path[$index]", core, ids) }
@@ -170,7 +163,7 @@ private[cozy] object CozyDocumentDescription {
   private def _section(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.SourceCore,
     ids: mutable.Set[String]
   ): (Section, Coverage) = {
     val fields = _object(value, path)
@@ -189,7 +182,7 @@ private[cozy] object CozyDocumentDescription {
   private def _block(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.SourceCore,
     ids: mutable.Set[String]
   ): (Block, Coverage) = {
     val fields = _object(value, path)
@@ -226,7 +219,7 @@ private[cozy] object CozyDocumentDescription {
   private def _list_item(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.SourceCore,
     ids: mutable.Set[String]
   ): (ListItem, Coverage) = {
     val fields = _object(value, path)
@@ -237,7 +230,7 @@ private[cozy] object CozyDocumentDescription {
     (ListItem(id, _text(_string(fields, "text", path), s"$path.text"), refs), _coverage(refs))
   }
 
-  private def _summary_unit(value: Json, path: String, core: CozyDocumentLogicTree.ValidatedCore): SummaryUnit = {
+  private def _summary_unit(value: Json, path: String, core: CozyDocumentLogicTree.SourceCore): SummaryUnit = {
     val fields = _object(value, path)
     _exact_fields(fields, Set("id", "heading", "message", "emphasis", "coreRefs"), path)
     val emphasis = _string(fields, "emphasis", path)
@@ -254,20 +247,20 @@ private[cozy] object CozyDocumentDescription {
 
   private def _core_binding(value: Json, path: String): CoreBinding = {
     val fields = _object(value, path)
-    _exact_fields(fields, Set("id", "identity"), path)
-    CoreBinding(_id(_string(fields, "id", path), s"$path.id"), _identity_value(_string(fields, "identity", path), s"$path.identity"))
+    _required_fields(fields, Set("id"), path)
+    CoreBinding(_id(_string(fields, "id", path), s"$path.id"))
   }
 
   private def _document_binding(value: Json, path: String): DocumentBinding = {
     val fields = _object(value, path)
-    _exact_fields(fields, Set("id", "identity"), path)
-    DocumentBinding(_id(_string(fields, "id", path), s"$path.id"), _identity_value(_string(fields, "identity", path), s"$path.identity"))
+    _required_fields(fields, Set("id"), path)
+    DocumentBinding(_id(_string(fields, "id", path), s"$path.id"))
   }
 
   private def _references(
     value: Json,
     path: String,
-    core: CozyDocumentLogicTree.ValidatedCore,
+    core: CozyDocumentLogicTree.SourceCore,
     required: Boolean
   ): References = {
     val fields = _object(value, path)
@@ -299,7 +292,7 @@ private[cozy] object CozyDocumentDescription {
   private def _coverage(refs: References): Coverage =
     Coverage(refs.steps.toSet, refs.claims.toSet, refs.nodes.toSet, refs.relations.toSet, refs.flows.toSet)
 
-  private def _validate_document_coverage(coverage: Coverage, core: CozyDocumentLogicTree.ValidatedCore): Unit =
+  private def _validate_document_coverage(coverage: Coverage, core: CozyDocumentLogicTree.SourceCore): Unit =
     if (coverage.steps != core.stepsById.keySet || coverage.claims != core.claimsById.keySet || coverage.nodes != core.nodesById.keySet ||
       coverage.relations != core.relationsById.keySet || coverage.flows != core.flowsById.keySet)
       _fail("DESCRIPTION_COVERAGE", "$.document", "must explicitly cover every Core Step, claim, node, Relation, and Flow")
@@ -365,17 +358,16 @@ private[cozy] object CozyDocumentDescription {
       case NonFatal(_) => _fail("DESCRIPTION_SOURCE", path, "must be valid UTF-8")
     }
 
-  private def _identity(bytes: Array[Byte]): String = "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(value => f"${value & 0xff}%02x").mkString
   private def _object(value: Json, path: String): JsonObject = value.asObject.getOrElse(_fail("DESCRIPTION_STRUCTURE", path, "must be an object"))
   private def _array(value: Json, path: String): Vector[Json] = value.asArray.map(_.toVector).getOrElse(_fail("DESCRIPTION_STRUCTURE", path, "must be an array"))
   private def _field(fields: JsonObject, name: String, path: String): Json = fields(name).getOrElse(_fail("DESCRIPTION_STRUCTURE", path, s"missing required field: $name"))
   private def _string(fields: JsonObject, name: String, path: String): String = _string_value(_field(fields, name, path), s"$path.$name")
   private def _string_value(value: Json, path: String): String = value.asString.getOrElse(_fail("DESCRIPTION_STRUCTURE", path, "must be a string"))
   private def _exact_fields(fields: JsonObject, expected: Set[String], path: String): Unit = if (fields.keys.toSet != expected) _fail("DESCRIPTION_FIELDS", path, s"must contain exactly: ${expected.toVector.sorted.mkString(", ")}")
+  private def _required_fields(fields: JsonObject, expected: Set[String], path: String): Unit = expected.find(name => !fields.contains(name)).foreach(name => _fail("DESCRIPTION_STRUCTURE", path, s"missing required field: $name"))
   private def _id(value: String, path: String): String = if (_id_pattern.pattern.matcher(value).matches()) value else _fail("DESCRIPTION_ID", path, "must be a nonempty stable identifier")
   private def _text(value: String, path: String): String = if (value.nonEmpty && value == value.trim) value else _fail("DESCRIPTION_WORDING", path, "must be nonempty and trimmed")
   private def _locale(value: String, path: String): String = if (_locale_pattern.pattern.matcher(value).matches()) value else _fail("DESCRIPTION_LOCALE", path, "must be a declared BCP-47 language tag")
-  private def _identity_value(value: String, path: String): String = if (_identity_pattern.pattern.matcher(value).matches()) value else _fail("DESCRIPTION_IDENTITY", path, "must be a sha256:<64 lowercase hexadecimal characters> identity")
   private def _add_id(ids: mutable.Set[String], id: String, path: String): Unit = if (!ids.add(id)) _fail("DESCRIPTION_IDENTITY", path, s"duplicate document identity: $id")
   private def _unique(values: Vector[String], path: String, label: String): Unit = values.groupBy(identity).collectFirst { case (value, duplicates) if duplicates.size > 1 => value }.foreach(value => _fail("DESCRIPTION_IDENTITY", path, s"duplicate $label: $value"))
   private def _fail(code: String, path: String, reason: String): Nothing = throw DescriptionFault(code, path, reason)

@@ -123,3 +123,14 @@ Coordinates, dimensions, CSS, HTML, fonts, pages, and pagination are not
 admitted fields at any v2 schema level. This specification authorizes neither
 renderer nor CLI changes, locale-resource work, Article 9 v2 driver changes,
 or modifications to the completed v1 implementation.
+
+## Phase 71.1 DM08 supersession
+
+Phase 71.1 / P710-03-DM-08 supersedes the earlier raw-byte V2 binding text.
+`core`, `document`, and Summary binding mappings require only a valid `id`;
+other metadata in those mappings is ignored without parsing, preservation, or
+re-emission, regardless of scalar, object, array, or null shape. The validated
+Core, Document, and Summary models store no source hashes. Current supplied
+bytes are parsed on every load; rejection remains for real logical-ID,
+semantic-reference, locale, path, UTF-8, YAML, and closed non-binding-schema
+defects.

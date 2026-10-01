@@ -6,7 +6,6 @@ import java.io.StringReader
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption}
-import java.security.MessageDigest
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.yaml.snakeyaml.{LoaderOptions, Yaml}
@@ -16,11 +15,12 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 13, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySummarySlideProjection {
-  final case class InputProvenance(id: String, identity: String, path: String)
+  final case class InputProvenance(id: String, path: String)
   final case class ProjectionProvenance(
     profile: InputProvenance,
     core: InputProvenance,
@@ -42,10 +42,10 @@ private[cozy] object CozySummarySlideProjection {
   final case class ProjectionFault(code: String, path: String, reason: String)
     extends IllegalArgumentException(s"$code path=$path reason=$reason")
 
-  private final case class InputRecord(id: String, identity: String, path: String)
-  private final case class MediaRecord(id: String, identity: String, path: String, summaryslidespdf: String)
-  private final case class CatalogRecord(id: String, revision: Int, identity: String, path: String)
-  private final case class BindingRecord(id: String, identity: String, profile: String, path: String)
+  private final case class InputRecord(id: String, path: String)
+  private final case class MediaRecord(id: String, path: String, summaryslidespdf: String)
+  private final case class CatalogRecord(id: String, revision: Int, path: String)
+  private final case class BindingRecord(id: String, profile: String, path: String)
   private final case class MappingItem(diagramitemid: String, role: String)
   private final case class MappingEdge(diagramedgeid: String)
   private final case class Mapping(
@@ -86,7 +86,6 @@ private[cozy] object CozySummarySlideProjection {
   private val _root_fields = Vector("schema", "version", "id", "core", "document", "summary", "locale", "media", "catalog", "binding", "pages")
   private val _id_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
-  private val _identity_pattern = "sha256:[0-9a-f]{64}".r
 
   def project(projectRoot: Path, profilePath: Path): Projection = {
     val root = _project_root(projectRoot)
@@ -110,9 +109,9 @@ private[cozy] object CozySummarySlideProjection {
     val corepath = _bound_file(root, profile.core, "core")
     val documentpath = _bound_file(root, profile.document, "document")
     val summarypath = _bound_file(root, profile.summary, "summary")
-    val mediapath = _bound_file(root, InputRecord(profile.media.id, profile.media.identity, profile.media.path), "media")
-    val catalogpath = _bound_file(root, InputRecord(profile.catalog.id, profile.catalog.identity, profile.catalog.path), "catalog")
-    val bindingpath = _bound_file(root, InputRecord(profile.binding.id, profile.binding.identity, profile.binding.path), "binding")
+    val mediapath = _bound_file(root, InputRecord(profile.media.id, profile.media.path), "media")
+    val catalogpath = _bound_file(root, InputRecord(profile.catalog.id, profile.catalog.path), "catalog")
+    val bindingpath = _bound_file(root, InputRecord(profile.binding.id, profile.binding.path), "binding")
     val summary = CozyDocumentDescriptionV2.loadSummary(corepath, documentpath, summarypath)
     _validate_source_bindings(profile, summary)
     val selectedmedia = _select_media(profile, _media_descriptor(mediapath), mediapath)
@@ -126,13 +125,13 @@ private[cozy] object CozySummarySlideProjection {
     val projection = Projection(
       validated,
       ProjectionProvenance(
-        InputProvenance(profile.id, _identity(profilebytes), _relative(selectedmedia.root, profilepath, "profile")),
-        InputProvenance(profile.core.id, profile.core.identity, _relative(selectedmedia.root, corepath, "core")),
-        InputProvenance(profile.document.id, profile.document.identity, _relative(selectedmedia.root, documentpath, "document")),
-        InputProvenance(profile.summary.id, profile.summary.identity, _relative(selectedmedia.root, summarypath, "summary")),
-        InputProvenance(profile.media.id, profile.media.identity, _relative(selectedmedia.root, mediapath, "media")),
-        InputProvenance(profile.catalog.id, profile.catalog.identity, _relative(selectedmedia.root, catalogpath, "catalog")),
-        InputProvenance(profile.binding.id, profile.binding.identity, _relative(selectedmedia.root, bindingpath, "binding")),
+        InputProvenance(profile.id, _relative(selectedmedia.root, profilepath, "profile")),
+        InputProvenance(profile.core.id, _relative(selectedmedia.root, corepath, "core")),
+        InputProvenance(profile.document.id, _relative(selectedmedia.root, documentpath, "document")),
+        InputProvenance(profile.summary.id, _relative(selectedmedia.root, summarypath, "summary")),
+        InputProvenance(profile.media.id, _relative(selectedmedia.root, mediapath, "media")),
+        InputProvenance(profile.catalog.id, _relative(selectedmedia.root, catalogpath, "catalog")),
+        InputProvenance(profile.binding.id, _relative(selectedmedia.root, bindingpath, "binding")),
         profile.locale,
         selectedmedia.resource.id
       ),
@@ -188,20 +187,16 @@ private[cozy] object CozySummarySlideProjection {
 
   private def _input_record(value: Json, path: String): InputRecord = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "identity", "path"), path)
     InputRecord(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _identity_value(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity"),
       _safe_path_value(_string(_field(fields, "path", path), s"$path.path"), s"$path.path")
     )
   }
 
   private def _media_record(value: Json, path: String): MediaRecord = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "identity", "path", "summarySlidesPdf"), path)
     MediaRecord(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _identity_value(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity"),
       _safe_path_value(_string(_field(fields, "path", path), s"$path.path"), s"$path.path"),
       _token(_string(_field(fields, "summarySlidesPdf", path), s"$path.summarySlidesPdf"), s"$path.summarySlidesPdf")
     )
@@ -209,23 +204,19 @@ private[cozy] object CozySummarySlideProjection {
 
   private def _catalog_record(value: Json, path: String): CatalogRecord = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "revision", "identity", "path"), path)
     CatalogRecord(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
       _positive_integer(_field(fields, "revision", path), s"$path.revision"),
-      _identity_value(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity"),
       _safe_path_value(_string(_field(fields, "path", path), s"$path.path"), s"$path.path")
     )
   }
 
   private def _binding_record(value: Json, path: String): BindingRecord = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "identity", "profile", "path"), path)
     val profile = _token(_string(_field(fields, "profile", path), s"$path.profile"), s"$path.profile")
     if (profile != "business") _fail("SUMMARY_SLIDE_PROJECTION_BINDING", s"$path.profile", "must be exactly business")
     BindingRecord(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _identity_value(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity"),
       profile,
       _safe_path_value(_string(_field(fields, "path", path), s"$path.path"), s"$path.path")
     )
@@ -284,14 +275,13 @@ private[cozy] object CozySummarySlideProjection {
 
   private def _validate_source_bindings(profile: Profile, summary: CozyDocumentDescriptionV2.ValidatedSummary): Unit = {
     val document = summary.document
-    if (summary.document.core.core.id != profile.core.id || document.coreIdentity != profile.core.identity)
-      _fail("SUMMARY_SLIDE_PROJECTION_CORE", "$.core", "must equal the directly admitted v2 Core id and raw identity")
-    if (document.description.id != profile.document.id || document.documentIdentity != profile.document.identity)
-      _fail("SUMMARY_SLIDE_PROJECTION_DOCUMENT", "$.document", "must equal the directly admitted v2 Document id and raw identity")
-    if (summary.description.id != profile.summary.id || summary.summaryIdentity != profile.summary.identity)
-      _fail("SUMMARY_SLIDE_PROJECTION_SUMMARY", "$.summary", "must equal the directly admitted v2 Summary id and raw identity")
-    if (summary.description.core.id != profile.core.id || summary.description.core.identity != profile.core.identity ||
-        summary.description.document.id != profile.document.id || summary.description.document.identity != profile.document.identity)
+    if (document.core.core.id != profile.core.id)
+      _fail("SUMMARY_SLIDE_PROJECTION_CORE", "$.core", "must equal the directly admitted v2 Core id")
+    if (document.description.id != profile.document.id)
+      _fail("SUMMARY_SLIDE_PROJECTION_DOCUMENT", "$.document", "must equal the directly admitted v2 Document id")
+    if (summary.description.id != profile.summary.id)
+      _fail("SUMMARY_SLIDE_PROJECTION_SUMMARY", "$.summary", "must equal the directly admitted v2 Summary id")
+    if (summary.description.core.id != profile.core.id || summary.description.document.id != profile.document.id)
       _fail("SUMMARY_SLIDE_PROJECTION_SUMMARY", "$.summary", "must retain the existing Core and Document bindings")
     if (document.description.locale != profile.locale || summary.description.locale != profile.locale)
       _fail("SUMMARY_SLIDE_PROJECTION_LOCALE", "$.locale", "must exactly equal the admitted v2 Document and Summary locale")
@@ -344,7 +334,7 @@ private[cozy] object CozySummarySlideProjection {
     SelectedMedia(
       resource,
       root,
-      CozyVisualPage.Asset(asset.id, _relative(root, assetpath, "infographic"), mediatype, _sha256(assetpath))
+      CozyVisualPage.Asset(asset.id, _relative(root, assetpath, "infographic"), mediatype)
     )
   }
 
@@ -646,12 +636,8 @@ private[cozy] object CozySummarySlideProjection {
   private def _labels(value: CozyDocumentDescriptionV2.Labels): LabelIndex =
     LabelIndex(value.steps.map(item => item.stepRef -> item.text).toMap, value.nodes.map(item => item.nodeRef -> item.text).toMap)
 
-  private def _bound_file(root: Path, record: InputRecord, label: String): Path = {
-    val path = _safe_file(root, record.path, s"$$.$label.path")
-    if (_sha256_identity(path) != record.identity)
-      _fail("SUMMARY_SLIDE_PROJECTION_IDENTITY", s"$$.$label.identity", "must equal the direct raw-byte SHA-256 identity")
-    path
-  }
+  private def _bound_file(root: Path, record: InputRecord, label: String): Path =
+    _safe_file(root, record.path, s"$$.$label.path")
 
   private def _safe_file(root: Path, raw: String, label: String): Path = {
     val relative = _safe_relative_path(raw, label)
@@ -774,9 +760,6 @@ private[cozy] object CozySummarySlideProjection {
     try StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString
     catch { case NonFatal(_) => _fail("SUMMARY_SLIDE_PROJECTION_UTF8", path, "must be valid UTF-8") }
 
-  private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(_read_bytes(path, "source")).map(value => f"${value & 0xff}%02x").mkString
-  private def _sha256_identity(path: Path): String = "sha256:" + _sha256(path)
-  private def _identity(bytes: Array[Byte]): String = "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(value => f"${value & 0xff}%02x").mkString
 
   private def _object(value: Json, path: String): JsonObject = value.asObject.getOrElse(_fail("SUMMARY_SLIDE_PROJECTION_TYPE", path, "must be an object"))
   private def _array(value: Json, path: String): Vector[Json] = value.asArray.map(_.toVector).getOrElse(_fail("SUMMARY_SLIDE_PROJECTION_TYPE", path, "must be an array"))
@@ -795,10 +778,6 @@ private[cozy] object CozySummarySlideProjection {
   private def _token(value: String, path: String): String = {
     if (value == null || value.isEmpty || value != value.trim || !_id_pattern.pattern.matcher(value).matches())
       _fail("SUMMARY_SLIDE_PROJECTION_ID", path, "must be a nonempty stable identity token")
-    value
-  }
-  private def _identity_value(value: String, path: String): String = {
-    if (!_identity_pattern.pattern.matcher(value).matches()) _fail("SUMMARY_SLIDE_PROJECTION_IDENTITY", path, "must be sha256:<64 lowercase hexadecimal characters>")
     value
   }
   private def _exact_fields(fields: JsonObject, expected: Vector[String], path: String, ordered: Boolean = false, actualorder: Option[Vector[String]] = None): Unit = {

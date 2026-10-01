@@ -11,7 +11,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 29, 2026
- * @version Aug. 29, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -36,11 +37,127 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
         _page_count(slideirpdf) shouldBe 1
         _page_count(visualpdf) shouldBe 2
         slideirman should include("cozy.summary-slides.render.v1")
-        slideirman should include(_sha256(root.resolve("slide-ir/assets/infographic.png")))
+        slideirman should include("\"assets\":[{\"id\":\"infographic\"}]")
         visualman should include("cozy.summary-slides.render.v2")
         visualman.indexOf("\"overview\"") should be < visualman.indexOf("\"details\"")
-        visualman should include("visualPageSetSha256")
-        visualman should include(_sha256(root.resolve("visual-page/assets/infographic.png")))
+        visualman should not include("visualPageSetSha256")
+        io.circe.parser.parse(visualman).toOption.get.hcursor.downField("binding").focus shouldBe None
+        visualman should include("\"assets\":[{\"id\":\"infographic\"}]")
+      }
+    }
+
+    "render current PDFs without requiring historical Binding proofs" in {
+      _with_temp_dir("complete-binding-proof") { root =>
+        Given("a direct Visual Page PDF accepted from a complete Binding with its previous PDF and receipt")
+        val descriptor = _write_fixture(root, "visual-page-v1", includepptx = false)
+        _accept_dependencies(descriptor)
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(root))
+        val output = root.resolve("target/summary.pdf")
+        val variants = Vector("missing-binding", "binding-type", "binding-incomplete", "binding-slot") ++ Vector("\"obsolete\"", "{}", "[]", "true", "null", "1.5", "9223372036854775808").map("obsolete:" + _)
+
+        When("a real rebuild receives missing ill-typed incomplete or changed obsolete Binding proof")
+        val results = variants.map { variant =>
+          _write(root.resolve("target/summary-renderer.json"), "{}")
+          val action = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor, target = Some("summary"))).resources.find(_.resource.id == "summary").get.action
+          val result = CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(root, variant = variant))
+          (result, _page_count(output), action)
+        }
+
+        Then("each rebuild accepts the valid PDF and its required renderer evidence")
+        results should have size variants.size
+        results.foreach { case (result, pagecount, action) =>
+          action shouldBe CozyMedia.Action.Build
+          result should include("summary")
+          pagecount shouldBe 1
+        }
+      }
+    }
+
+    "ignore missing and arbitrary historical renderer input hashes for both contracts" in {
+      _with_temp_dir("historical-renderer-inputs") { root =>
+        Given("current declared Slide-IR and Visual Page inputs with valid PDF artifacts")
+        val cases = for {
+          contract <- Vector("slide-ir-v1", "visual-page-v1")
+          oldvalue <- Vector(None, Some("false"), Some("null"), Some("{}"), Some("\"obsolete\""))
+        } yield (contract, oldvalue)
+
+        When("renderer output omits or supplies arbitrary old input hash values")
+        val results = cases.zipWithIndex.map { case ((contract, oldvalue), index) =>
+          val directory = root.resolve(index.toString)
+          val descriptor = _write_fixture(directory, contract, includepptx = false)
+          _accept_dependencies(descriptor)
+          val initial = _renderer(directory)
+          val runner = new CozyMedia.ProcessRunner {
+            def run(command: Vector[String], workingdirectory: Path): Int = {
+              val status = initial.run(command, workingdirectory)
+              val manifest = Path.of(command(command.indexOf("--manifest") + 1))
+              oldvalue.foreach { raw =>
+                val json = io.circe.parser.parse(Files.readString(manifest)).fold(error => throw error, identity)
+                val obsolete = io.circe.parser.parse(raw).fold(error => throw error, identity)
+                _write(manifest, json.mapObject(_.add("slideIrSha256", obsolete).add("templateSha256", obsolete)).noSpaces)
+              }
+              status
+            }
+          }
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), runner)
+          CozyMedia.verify(CozyMedia.CommandConfig(descriptor, target = Some("summary")))
+        }
+
+        Then("actual PDF validation succeeds independently of historical input hash fields")
+        results should have size cases.size
+        results.foreach(_ should include("status: valid"))
+      }
+    }
+
+    "ignore ordinary renderer material metadata for both contracts while retaining required asset IDs" in {
+      _with_temp_dir("historical-material-proof") { root =>
+        Given("current direct Slide-IR and Visual Page dependencies with renderer material extras")
+        val cases = Vector("slide-ir-v1", "visual-page-v1").map { contract =>
+          val directory = root.resolve(contract)
+          val descriptor = _write_fixture(directory, contract, includepptx = false)
+          _accept_dependencies(descriptor)
+          directory -> descriptor
+        }
+
+        When("both renderer contracts return required asset IDs with malformed obsolete and ordinary extra metadata")
+        val verified = cases.map { case (directory, descriptor) =>
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(directory, variant = "historical-asset"))
+          CozyMedia.verify(CozyMedia.CommandConfig(descriptor, target = Some("summary")))
+        }
+
+        Then("actual PDF page counts and current structural evidence remain usable")
+        cases.foreach { case (directory, _) =>
+          _page_count(directory.resolve("target/summary.pdf")) shouldBe 1
+        }
+        verified.foreach(_ should include("status: valid"))
+      }
+    }
+
+    "reject actual Visual Page asset bytes that disagree with the declared media resource before replacing a prior PDF" in {
+      _with_temp_dir("visual-asset-disagreement") { root =>
+        Given("a current infographic resource, a different valid direct page asset with the same ID and media type, and a prior PDF")
+        val descriptor = _write_fixture(root, "visual-page-v1", includepptx = false)
+        val alternate = root.resolve("assets/alternate.png")
+        Files.write(alternate, Files.readAllBytes(root.resolve("assets/infographic.png")) ++ Array[Byte](1))
+        val source = root.resolve("visual-pages.json")
+        val document = CozyVisualPage.load(source, root.resolve("catalog.json")).document.asInstanceOf[CozyVisualPage.PageSet]
+        _write(source, CozyVisualPage.canonicalJson(document.copy(pages = document.pages.map(page =>
+          page.copy(assets = page.assets.map(_.copy(path = "assets/alternate.png")))
+        ))))
+        _accept_dependencies(descriptor)
+        val output = root.resolve("target/summary.pdf")
+        _write_pdf(output, 1, "prior")
+        val prior = Files.readAllBytes(output).toVector
+        var invoked = false
+        val runner = _renderer(root, _ => invoked = true)
+
+        When("the summary route resolves its page declaration and explicit media resource")
+        val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), runner))
+
+        Then("actual resource byte disagreement rejects before rendering and preserves the prior PDF")
+        failure.getMessage should include("asset differs from declared resource")
+        invoked shouldBe false
+        Files.readAllBytes(output).toVector shouldBe prior
       }
     }
 
@@ -86,24 +203,29 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
     "reject malformed, stale, and page-inconsistent direct renderer evidence before receipt acceptance" which {
       "reject malformed hashes, page count, order, and page asset evidence" in {
         _with_temp_dir("evidence-rejection") { root =>
-          Given("direct Slide-IR targets with renderer evidence variants")
-          val variants = Vector("missing-pdf", "malformed", "non-pdf", "hash", "count", "order", "asset")
+          Given("direct Slide-IR and Visual Page targets with renderer evidence variants and prior PDFs")
+          val variants = Vector("missing-pdf", "malformed", "non-pdf", "hash", "count", "order", "wrong-asset", "missing-asset", "duplicate-asset", "wrong-asset-type")
+
+          val cases = Vector("slide-ir-v1", "visual-page-v1").flatMap { contract =>
+            variants.map { variant =>
+              val directory = root.resolve(contract).resolve(variant)
+              val descriptor = _write_fixture(directory, contract, includepptx = false, pages = 2)
+              _accept_dependencies(descriptor)
+              val output = directory.resolve("target/summary.pdf")
+              _write_pdf(output, 1, "prior")
+              val manifest = directory.resolve("target/cozy-media/manifest.json")
+              (directory, descriptor, output, manifest, Files.readString(manifest, StandardCharsets.UTF_8), variant)
+            }
+          }
 
           When("each variant attempts to replace a prior primary PDF")
-          val failures = variants.map { variant =>
-            val directory = root.resolve(variant)
-            val descriptor = _write_fixture(directory, "slide-ir-v1", includepptx = false, pages = 2)
-            _accept_dependencies(descriptor)
-            val output = directory.resolve("target/summary.pdf")
-            _write_pdf(output, 1, "prior-$variant")
-            val manifest = directory.resolve("target/cozy-media/manifest.json")
-            val previous = Files.readString(manifest, StandardCharsets.UTF_8)
+          val failures = cases.map { case (directory, descriptor, output, manifest, previous, variant) =>
             val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(directory, variant = variant)))
             output -> (failure -> (previous -> Files.readString(manifest, StandardCharsets.UTF_8)))
           }
 
           Then("every invalid evidence shape leaves the prior primary PDF and acceptance receipt visible")
-          failures should have size variants.size
+          failures should have size cases.size
           failures.foreach { case (output, (failure, (previous, actual))) =>
             failure.getMessage.toLowerCase(java.util.Locale.ROOT) should include("summary-slides pdf")
             _page_count(output) shouldBe 1
@@ -217,7 +339,7 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
           val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), runner))
 
           Then("the staged result is rejected before atomic installation or receipt visibility")
-          failure.getMessage should include("input hashes differ")
+        failure.getMessage should include("inputs changed during build")
           _page_count(output) shouldBe 1
           Files.readString(manifest, StandardCharsets.UTF_8) shouldBe previous
         }
@@ -430,10 +552,17 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
       val hash = _sha256(pdf)
       val renderedids = if (variant == "order") ids.reverse else ids
       val count = if (variant == "count") ids.size + 1 else ids.size
-      val assethash = if (variant == "asset") "0" * 64 else _sha256(root.resolve("assets/infographic.png"))
+      val assetproof = variant match {
+        case "wrong-asset" => """[{"id":"wrong"}]"""
+        case "missing-asset" => "[]"
+        case "duplicate-asset" => """[{"id":"infographic"},{"id":"infographic"}]"""
+        case "wrong-asset-type" => """[{"id":true}]"""
+        case "historical-asset" => """[{"id":"infographic","ordinaryMetadata":{"old":true},"sha256":"malformed"}]"""
+        case _ => """[{"id":"infographic"}]"""
+      }
       val slides = renderedids.map { id =>
         val title = if (!visual && id == "overview") ",\"title\":\"Overview\"" else if (!visual) ",\"title\":\"" + id.capitalize + "\"" else ""
-        s"""{"id":"$id"$title,"path":"target/slides/$id.png","sha256":"${_sha256(images.resolve(id + ".png"))}","pdfSha256":"$hash","assets":[{"id":"infographic","sha256":"$assethash"}]}"""
+        s"""{"id":"$id"$title,"path":"target/slides/$id.png","sha256":"${_sha256(images.resolve(id + ".png"))}","pdfSha256":"$hash","assets":$assetproof}"""
       }.mkString(",")
       val pptx = if (command.contains("--pptx")) {
         val path = Path.of(command(command.indexOf("--pptx") + 1))
@@ -442,9 +571,17 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
       val identity = if (visual) {
         val document = CozyVisualPage.load(root.resolve("visual-pages.json"), root.resolve("catalog.json"))
         val binding = CozyVisualPageBinding.load(root.resolve("binding.json"), document)
-        s""""schema":"cozy.summary-slides.render.v2","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"},"visualPageSetSha256":"${_semantic_sha256(document.documentIdentity)}","catalogSha256":"${_semantic_sha256(document.catalogIdentity)}","bindingSha256":"${_semantic_sha256(binding.bindingIdentity)}","templateSha256":"${_sha256(root.resolve("template.pptx"))}""""
+        val bindingfield = variant match {
+          case "missing-binding" => ""
+          case "binding-type" => "\"binding\":\"wrong\","
+          case "binding-incomplete" => "\"binding\":{},"
+          case "binding-slot" => "\"binding\":" + binding.canonicalJson.replace("nodes-slot", "revised-nodes-slot") + ","
+          case value if value.startsWith("obsolete:") => Vector("visualPageSetSha256", "catalogSha256", "visualPageSet", "catalog", "binding").map(name => "\"" + name + "\":" + value.stripPrefix("obsolete:") + ",").mkString
+          case _ => ""
+        }
+        s""""schema":"cozy.summary-slides.render.v2","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"}${if (bindingfield.nonEmpty) "," + bindingfield.stripSuffix(",") else ""}"""
       } else {
-        s""""schema":"cozy.summary-slides.render.v1","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"},"slideIrSha256":"${_sha256(Path.of(command(command.indexOf("--slide-ir") + 1)))}","templateSha256":"${_sha256(root.resolve("template.pptx"))}""""
+        s""""schema":"cozy.summary-slides.render.v1","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"}"""
       }
       val pdfhash = if (variant == "hash") "0" * 64 else hash
       _write(manifest, s"""{$identity,"pdf":{"sha256":"$pdfhash","pageCount":$count},"slides":[$slides],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$hash"}$pptx}""")
@@ -478,7 +615,7 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
       "overview", "article/example", "en", CozyVisualPage.CatalogReference("core", 1),
       CozyVisualPage.Logical("sequence", Vector(CozyVisualPage.Node("discover", "step", "Discover", Vector("research")), CozyVisualPage.Node("apply", "step", "Apply", Vector("research"))), Vector(CozyVisualPage.Relation("next", "next", "discover", "apply", Vector("research")))),
       CozyVisualPage.Visual("flow-horizontal", Vector.empty),
-      Vector(CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png", _sha256(root.resolve("assets/infographic.png")))),
+      Vector(CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png")),
       Vector(CozyVisualPage.SourceBinding("research", "sources/research.txt"))
     )
     val pageset = pages match {
@@ -534,7 +671,6 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
   private def _sha256(path: Path): String =
     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
-  private def _semantic_sha256(value: String): String = value.stripPrefix("sha256:")
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
     val work = Paths.get(sys.props("user.dir")).resolve("target")

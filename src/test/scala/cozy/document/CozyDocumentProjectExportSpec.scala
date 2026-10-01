@@ -15,10 +15,17 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyDocumentProjectExportSpec {
+  private final case class BundleBytes(manifest: Vector[Byte], receipt: Vector[Byte], output: Vector[Byte])
+}
+
 final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozyDocumentProjectExportSpec.BundleBytes
+
   "Cozy Document Project export" should {
     "atomically publish the portable Article review bundle" in {
       _with_temp_dir("cozy-document-project-export-bundle") { root =>
@@ -701,8 +708,6 @@ final class CozyDocumentProjectExportSpec extends AnyWordSpec with Matchers with
       }
     }
   }
-
-  private final case class BundleBytes(manifest: Vector[Byte], receipt: Vector[Byte], output: Vector[Byte])
 
   private def _accepted_project(root: Path, slug: String): Path = {
     val parent = Files.createDirectory(root.resolve(s"$slug-parent"))

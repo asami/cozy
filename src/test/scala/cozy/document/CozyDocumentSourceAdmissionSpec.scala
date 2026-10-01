@@ -12,10 +12,16 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyDocumentSourceAdmissionSpec {
+  private final case class Fixture(core: Path, document: Path, summary: Path)
+}
+
 final class CozyDocumentSourceAdmissionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozyDocumentSourceAdmissionSpec.Fixture
+
   "Cozy Document source admission" should {
     "E-SRC-001 admit the direct hash-free Core Document and Summary grammar in source order" in {
       _with_temp_dir("cozy-source-admission-valid") { root =>
@@ -113,7 +119,7 @@ final class CozyDocumentSourceAdmissionSpec extends AnyWordSpec with Matchers wi
         val wrongsummarycore = _write(summarycorefixture.summary, _replace_once(summary, "core:\n  id: application-modeling", "core:\n  id: wrong-summary-core"))
         val wrongsummarydocument = _write(summarydocumentfixture.summary, _replace_once(summary, "document:\n  id: application-modeling-document-ja-v2", "document:\n  id: wrong-summary-document"))
         val missingsummarydocument = _write(summarymissingfixture.summary, _replace_once(summary, "document:\n  id: application-modeling-document-ja-v2\n", "document:\n"))
-        val unknownsummarybinding = _write(summaryunknownfixture.summary, _replace_once(summary, "document:\n  id: application-modeling-document-ja-v2\n", "document:\n  id: application-modeling-document-ja-v2\n  unknown: forbidden\n"))
+        val extrasummarybinding = _write(summaryunknownfixture.summary, _replace_once(summary, "document:\n  id: application-modeling-document-ja-v2\n", "document:\n  id: application-modeling-document-ja-v2\n  unknown: ignored\n"))
         val wrongsummarylocale = _write(summarylocalefixture.summary, _replace_once(summary, "locale: ja", "locale: zz"))
         val differentlocaleparent = _write(root.resolve("summary-path/content/en/summary.yaml"), summary)
 
@@ -127,7 +133,6 @@ final class CozyDocumentSourceAdmissionSpec extends AnyWordSpec with Matchers wi
           _failure(CozyDocumentDescriptionV2.loadSourceSummary(summarycorefixture.core, summarycorefixture.document, wrongsummarycore)),
           _failure(CozyDocumentDescriptionV2.loadSourceSummary(summarydocumentfixture.core, summarydocumentfixture.document, wrongsummarydocument)),
           _failure(CozyDocumentDescriptionV2.loadSourceSummary(summarymissingfixture.core, summarymissingfixture.document, missingsummarydocument)),
-          _failure(CozyDocumentDescriptionV2.loadSourceSummary(summaryunknownfixture.core, summaryunknownfixture.document, unknownsummarybinding)),
           _failure(CozyDocumentDescriptionV2.loadSourceSummary(summarylocalefixture.core, summarylocalefixture.document, wrongsummarylocale)),
           _failure(CozyDocumentDescriptionV2.loadSourceSummary(summarypathfixture.core, summarypathfixture.document, differentlocaleparent))
         )
@@ -135,17 +140,19 @@ final class CozyDocumentSourceAdmissionSpec extends AnyWordSpec with Matchers wi
         Then("the closed schema, binding, locale, and content-root boundaries fail before any output exists")
         failures shouldBe Vector(
           "DESCRIPTION_V2_DOCUMENT_CORE",
-          "DESCRIPTION_V2_FIELDS",
+          "DESCRIPTION_V2_STRUCTURE",
           "DESCRIPTION_V2_FIELDS",
           "DESCRIPTION_V2_LOCALE",
           "DESCRIPTION_V2_PATH",
           "DESCRIPTION_V2_SUMMARY_CORE",
           "DESCRIPTION_V2_SUMMARY_DOCUMENT",
-          "DESCRIPTION_V2_FIELDS",
-          "DESCRIPTION_V2_FIELDS",
+          "DESCRIPTION_V2_STRUCTURE",
           "DESCRIPTION_V2_LOCALE",
           "DESCRIPTION_V2_PATH"
         )
+        And("ordinary extra binding metadata remains ignored under the DM08 contract")
+        CozyDocumentDescriptionV2.loadSourceSummary(summaryunknownfixture.core, summaryunknownfixture.document, extrasummarybinding) shouldBe
+          CozyDocumentDescriptionV2.loadSourceSummary(fixture.core, fixture.document, fixture.summary)
       }
     }
 
@@ -333,8 +340,6 @@ final class CozyDocumentSourceAdmissionSpec extends AnyWordSpec with Matchers wi
       check.succeeded should be >= 30
     }
   }
-
-  private final case class Fixture(core: Path, document: Path, summary: Path)
 
   private def _fixture(root: Path): Fixture = {
     val core = _copy_core(_resource("/cozy/document/phase-59/application-modeling/content-v2/core.yaml"), root.resolve("content/core.yaml"))

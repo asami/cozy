@@ -43,17 +43,17 @@ constructing a video Projection:
 1. the named Plan is current for the named Composition and catalogs;
 2. the named Projection Map is current for that Plan and contains every Plan
    Step once, in Plan order;
-3. the named Visual Page Set is current for the named Presentation Catalog and
-   has the Plan's logical catalog identity;
+3. the named Visual Page Set's typed full Presentation Catalog equals the Plan's
+   Presentation Catalog, and its catalog ID/revision agrees with the Plan selector;
 4. every mapped Page ID resolves exactly once in that set; and
 5. every mapped page preserves the mapped Plan Step's logical value and
    required source and asset provenance; and
-6. every required source descriptor's bytes agree with its explicit binding
-   and the binding digest agrees with the current SourceDeclaration, while
-   every required asset descriptor's media type and digest agree with the
-   current AssetDeclaration and its bytes agree with the explicit binding.
+6. every required source/asset ID is declared in the Composition and resolves
+   to an explicit binding; source descriptor bytes agree with their binding's
+   actual bytes, while asset descriptor media types agree with the
+   AssetDeclaration and descriptor bytes agree with the explicit asset binding.
 
-The review model retains input identities, ordered steps, claims, sources,
+The review model retains ordinary document and catalog IDs/revisions, ordered steps, claims, sources,
 assets, Logical Pattern nodes and typed Relations, Visual Pattern, and typed
 parameters verbatim. It does not infer claims, relations, logical patterns,
 visual patterns, or physical layout.
@@ -62,22 +62,25 @@ visual patterns, or physical layout.
 
 The generated UTF-8 document embeds all CSS and schematic inline SVG. It has:
 
-1. an identity and currentness header;
+1. a provenance header with renderer profile, Composition ID, Explanation
+   Catalog ID/revision, Presentation Catalog ID/revision, Visual Page Set ID,
+   Step count, and reviewed Page count;
 2. a static explanation-flow overview containing Subject Pattern, Explanation
    Pattern, ordered Steps, and every Step-to-Page mapping in order;
 3. one ordered card per mapped Page with its semantic role, claims, Logical
    Pattern, typed Relations, Visual Pattern, and parameters; and
 4. static page details for nodes, Relations, sources, assets, parameters, and
-   consumed identities.
+   source/asset references. Asset details retain ID, mediaType, and path.
 
 The whole overview remains readable and printable without JavaScript. CSS,
 HTML structure, schematic SVG, and optional interaction are renderer details;
-they are excluded from every semantic identity and cannot write back to source
-documents.
+they cannot write back to source documents. Header string values use the same
+HTML escaping as authored content. Catalog IDs and revisions identify the
+declared immutable catalog revisions; no Plan or Projection Map ID is invented.
 
-## Receipt and Currentness
+## Success Report and Regeneration
 
-The deterministic command report is a `cozy.explanation-preview.v1` receipt
+The deterministic command report uses `cozy.explanation-preview.v1`
 whose lines occur in this exact order:
 
 ```text
@@ -85,29 +88,52 @@ schema: cozy.explanation-preview.v1
 version: 1
 generator: cozy media explanation preview
 rendererProfile: cozy.explanation-preview.renderer.v1
-compositionIdentity: <sha256 identity>
-planIdentity: <sha256 identity>
-projectionMapIdentity: <sha256 identity>
-explanationCatalogIdentity: <sha256 identity>
-presentationCatalogIdentity: <sha256 identity>
-visualPageSetIdentity: <sha256 identity>
-htmlIdentity: <sha256 identity>
-identity: <sha256 identity>
+compositionId: <Composition ID>
+explanationCatalogId: <Explanation Catalog ID>
+explanationCatalogRevision: <Explanation Catalog revision>
+presentationCatalogId: <Presentation Catalog ID>
+presentationCatalogRevision: <Presentation Catalog revision>
+visualPageSetId: <Visual Page Set ID>
+stepCount: <Plan Step count>
+pageCount: <rendered mapped-Page occurrence count>
+html: generated
+status: generated
 ```
 
-`identity` is SHA-256 over the preceding receipt lines through `htmlIdentity`,
-joined by LF and encoded as UTF-8; the `identity` line is excluded. The
-renderer profile is the exact constant shown above. The rendered identity
-header repeats the consumed identities and renderer profile, but not the HTML
-or receipt identity, so the HTML remains a non-self-referential deterministic
-input to its receipt.
+The lines are joined by LF. The renderer profile is the exact constant shown
+above. Step count comes from the Plan; reviewed Page count is the number of
+rendered mapped-Page occurrences, including repeated mappings to one Page and
+excluding unmapped Pages. Report data comes from the validated Composition,
+catalogs, Visual Page Set, and ordered rendering closure. It has no artifact
+digest, output target path, or generated time. A valid visual parameter edit
+under unchanged semantic IDs/revisions/counts changes the rendered HTML while
+leaving this report unchanged.
 
 Any missing, unsafe, malformed, duplicate, unknown, incompatible,
-identity-mismatched, or stale input fails closed with structured diagnostics.
+semantically mismatched, or stale input fails closed with structured diagnostics.
 Identical accepted inputs and preview renderer/profile produce byte-identical
 HTML. Output aliases of consumed inputs fail before atomic replacement, so the
-preview remains read-only and cannot write back to any input. The existing
-`cozy media visual-page preview` command and schema remain unchanged.
+preview remains read-only and cannot write back to any input. The producer
+always renders validated inputs and computes HTML and report before atomic
+replacement. It introduces no timestamp/cache/adoption logic and does not
+touch inputs. Rejected grammar and input preserve the prior selected output.
+The existing `cozy media visual-page preview` command, schema, and semantic
+HTML remain available with its current semantic report: `schema`, `version`,
+`generator`, `documentId`, `catalogId`, `catalogRevision`, `pageCount`, `html`,
+and `status` in order for HTML-only output.
+
+## Phase 71.1 Migration Boundary
+
+Phase 71.1 supersedes this consumer's former artifact hash checks and output.
+Typed catalog equality, selector ID/revision, declared resource IDs, mediaType,
+and actual descriptor/binding byte agreement establish the explicit joins.
+Byte comparison validates agreement between the two supplied resources; it
+does not decide generated-output reuse or establish content identities.
+The reused Explanation and Visual Page models/codecs still carry upstream
+hash requirements pending their unfinished same-Phase migration. They are not
+published-integrity exceptions or the accepted final state of Preview; this
+bounded consumer neither bypasses their validity checks nor adds hash calls.
+Timestamp currentness and explicit adoption remain separate same-Phase work.
 
 ## Non-goals
 

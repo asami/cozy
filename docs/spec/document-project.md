@@ -855,7 +855,7 @@ entry grammar.  A `supersedes` reference names exactly one direct earlier
 candidate with changes-requested feedback; it derives that earlier candidate as
 superseded without altering its immutable evidence. Its candidate evidence
 binds both that earlier candidate and its changes-requested feedback record by
-id, project-relative path, and SHA-256 identity.
+id and project-relative path.
 
 `feedback` receives a closed `cozy.content-core-feedback.v1` document. Its
 fields are `schema`, `id`, `candidate`, `reviewer`, `decision`, and one
@@ -870,13 +870,18 @@ candidate id and `decision` is exactly `accepted`.
 Successful candidates, failed dialogue attempts, feedback records, and
 acceptance records are distinct direct non-symlink append-only evidence below
 `evidence/content-core/`.  A successful candidate retains raw source, idea,
-request, and response text with deterministic SHA-256 identities; it also
-retains provider/model, outcome, diagnostics, Core replacement, and any direct
-supersession relation.  A failed bundle retains the same provenance and
-diagnostics but no candidate.  Feedback retains its candidate and reviewer
-identities and the immutable decision payload.  Acceptance retains the exact
-candidate, reviewer, prior Core, and resulting Core identities.  Existing
-evidence bytes are never replaced.
+request, and response text; it also retains provider/model, outcome,
+diagnostics, Core replacement, and any direct supersession relation.  A failed
+bundle retains the same provenance and diagnostics but no candidate.  Feedback
+retains its candidate and reviewer references and the immutable decision
+payload.  Acceptance retains the exact candidate, reviewer, direct prior Core
+path and resulting Core path.  Existing evidence bytes are never replaced.
+Canonical evidence emits text as `{text}`, names as `{id}`, decisions as
+`{value}`, diagnostics as `[{text}]`, candidate references as `{id,path}`, and
+supersession feedback as `{id,path}`.  It emits no hash field.  Historical
+extra properties are ignored by ordinary object loading while required schema,
+id, path, text, and value fields and referenced direct regular files remain
+independently validated.
 
 The forms share exactly one project-local, direct regular lock file at
 `<project>/.content-core.lock`. The lock is a retained empty coordination
@@ -884,7 +889,7 @@ artifact, not evidence, authored semantic authority, a schema field, or a
 state record. After CLI and external input-document admission, each form uses
 one non-waiting exclusive file-lock attempt before observing Content Core state,
 creating an evidence directory, appending evidence, reading or validating the
-Core hash, or replacing the Core. A busy or overlapping same-JVM lock returns
+Core, or replacing the Core. A busy or overlapping same-JVM lock returns
 only retryable `DP-OP-001`, and performs no evidence or Core mutation. A
 symlinked, non-regular, or unusable lock target returns `DP-PATH-001`.
 
@@ -893,17 +898,24 @@ Content Core. Only `accept` may replace the existing direct Core. After all
 candidate, decision, input, replacement, and identity validation, it first
 publishes the immutable acceptance evidence and only then writes the Core using
 a same-directory temporary file and `ATOMIC_MOVE`. Thus a Core replacement is
-never published without durable evidence. The evidence binds both prior and
-resulting identities to the descriptor's lexically exact direct `contentCore`
-path. A record is applied only when the actual direct current Core hash equals
-its resulting hash; it is pending when that hash equals its prior hash; and it
-is historical and terminal for every other current Core hash. Retrying the
-same candidate and exact human acceptance may resume a pending record without
-adding evidence, and an already applied exact retry succeeds idempotently.
-Different candidate, reviewer, decision, prior, or resulting input rejects
-with `DP-OP-001` before writes. Pending, applied, and historical records all
-prevent feedback, revision, or another acceptance for that candidate. This
-protocol adds no schema/version, remote/provider, or compatibility behavior.
+never published without durable evidence. The evidence binds both paths to the
+descriptor's lexically exact direct `contentCore` path. Before that first
+evidence append, it captures the direct Core `FileTime` without following links
+and records `priorCore: {path, modifiedTime}`; `resultingCore` records only its
+path. Immediately before atomic replacement the direct Core's current
+`FileTime` must equal that captured value, otherwise `DP-OP-001` preserves both
+Core and evidence. For an exact existing human acceptance, parsed accepted
+entries equal to the candidate entries succeed idempotently without writing,
+including formatting-only Core changes. A different parsed Core can resume only
+when retained `priorCore.modifiedTime` equals the current direct Core `FileTime`.
+Historical records without that timestamp, with a changed timestamp, or with an
+incompatible decision are non-resumable `DP-OP-001`; metadata is never guessed
+from evidence time or historical hash values. This timestamp tracks only the
+descriptor Content Core at this evidence-first interrupted-acceptance boundary;
+it is not a general freshness framework. Pending, applied, and historical
+records all prevent feedback, revision, or another acceptance for that
+candidate. This protocol adds no schema/version, remote/provider, or
+compatibility behavior.
 
 - `inspect` MUST inspect and report a derived project view without mutating
   authored authority, durable evidence, registration, or delivery.  The

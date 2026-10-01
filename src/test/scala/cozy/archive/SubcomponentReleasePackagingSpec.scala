@@ -15,13 +15,25 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 20, 2026
- * @version Aug. 21, 2026
+ *  version Aug. 21, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object SubcomponentReleasePackagingSpec {
+  private final case class Fixture(
+    parentproject: Path,
+    parentcar: Path,
+    childcars: Vector[Path],
+    composition: Path
+  )
+}
+
 final class SubcomponentReleasePackagingSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
+  import SubcomponentReleasePackagingSpec.Fixture
+
   "RSC03-AC-01 deterministic parent/child CAR and payload packaging with exact post-package integrity evidence" in {
     _with_temp_dir("rsc03-ac01") { root =>
       Given("a complete parent CAR and independently identified Documentation, SourceCode, and external-platform presentation CARs")
@@ -303,13 +315,6 @@ final class SubcomponentReleasePackagingSpec
   private val _source_code_signature = "c291cmNlLXNpZw=="
   private val _web_presentation_signature = "d2ViLXNpZw=="
   private val _published_at = "2026-08-20T00:00:00Z"
-
-  private final case class Fixture(
-    parentproject: Path,
-    parentcar: Path,
-    childcars: Vector[Path],
-    composition: Path
-  )
 
   private def _fixture(root: Path): Fixture = {
     val parentproject = root.resolve("parent-project")

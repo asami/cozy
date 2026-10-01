@@ -28,11 +28,27 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 27, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] object CozyVideoCommand {
+  private final case class SynthesisInput[Script, Project, Execution](
+    scriptfile: Path,
+    script: Script,
+    savedir: Path,
+    projectfile: Path,
+    projectroot: Path,
+    project: Project,
+    execution: Execution
+  )
+}
+
 private[cozy] trait CozyVideoCommand {
   self: CozyVideoTypes with CozyVideoStoryboard with CozyVideoStoryboardReview with CozyVideoStoryboardBuild with CozyVideoRuntime with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+
+  private type SynthesisInput = CozyVideoCommand.SynthesisInput[VideoScript, VideoProject, VideoExecutionConfig]
+
   def execute(args: List[String]): Boolean = execute(args, VideoToolRegistry.default)
 
   def execute(args: List[String], tools: VideoToolRegistry): Boolean =
@@ -176,16 +192,6 @@ private[cozy] trait CozyVideoCommand {
     _render_synthesis_result(result)
   }
 
-  private final case class SynthesisInput(
-    scriptfile: Path,
-    script: VideoScript,
-    savedir: Path,
-    projectfile: Path,
-    projectroot: Path,
-    project: VideoProject,
-    execution: VideoExecutionConfig
-  )
-
   private def _synthesis_input(config: SynthesizeConfig): SynthesisInput =
     config.part match {
       case Some(part) => _project_synthesis_input(config, part)
@@ -199,7 +205,7 @@ private[cozy] trait CozyVideoCommand {
           config.dockerImage,
           config.voicevoxUrl
         )
-        SynthesisInput(config.scriptFile, script, config.saveDir, config.scriptFile, config.projectRoot, project, execution)
+        CozyVideoCommand.SynthesisInput(config.scriptFile, script, config.saveDir, config.scriptFile, config.projectRoot, project, execution)
     }
 
   private def _project_synthesis_input(config: SynthesizeConfig, requestedpart: String): SynthesisInput = {
@@ -233,7 +239,7 @@ private[cozy] trait CozyVideoCommand {
       config.dockerImage,
       config.voicevoxUrl
     )
-    SynthesisInput(source, script, savedir, plan.projectFile, plan.projectRoot, plan.project, execution)
+    CozyVideoCommand.SynthesisInput(source, script, savedir, plan.projectFile, plan.projectRoot, plan.project, execution)
   }
 
   private def _validate_project_synthesis_output(

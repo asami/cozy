@@ -13,13 +13,19 @@ import scala.collection.mutable.ArrayBuffer
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyVideoStoryboardNarrationSpec {
+  private final case class NarrationFixture(root: Path, project: Path, audio: Path)
+}
+
 final class CozyVideoStoryboardNarrationSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
+  import CozyVideoStoryboardNarrationSpec.NarrationFixture
+
   import CozyVideoSpec.{RecordingVoicevoxClient, StubProvider}
 
   "Cozy Video native Storyboard narration" should {
@@ -332,8 +338,6 @@ final class CozyVideoStoryboardNarrationSpec
     }
     }
   }
-
-  private final case class NarrationFixture(root: Path, project: Path, audio: Path)
 
   private final class RecordingToolProvider extends CozyVideo.VideoToolProvider {
     val contexts = ArrayBuffer.empty[CozyVideo.VideoToolContext]

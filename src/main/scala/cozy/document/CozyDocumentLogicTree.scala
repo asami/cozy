@@ -5,7 +5,6 @@ import io.circe.{Json, JsonObject}
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import java.io.StringReader
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
@@ -15,8 +14,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- *  version Sep. 12, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentLogicTree {
@@ -57,7 +56,6 @@ private[cozy] object CozyDocumentLogicTree {
   final case class Format(
     id: String,
     coreId: String,
-    coreIdentity: String,
     locale: String,
     stepBindings: Vector[StepBinding],
     claimBindings: Vector[ClaimBinding],
@@ -67,8 +65,6 @@ private[cozy] object CozyDocumentLogicTree {
   final case class Validated(
     core: Core,
     format: Format,
-    coreIdentity: String,
-    formatIdentity: String,
     depthFirstSteps: Vector[Step]
   ) {
     lazy val stepsById: Map[String, Step] = depthFirstSteps.map(value => value.id -> value).toMap
@@ -89,7 +85,6 @@ private[cozy] object CozyDocumentLogicTree {
 
   final case class ValidatedCore(
     core: Core,
-    coreIdentity: String,
     depthFirstSteps: Vector[Step]
   ) extends CoreStructure
 
@@ -102,14 +97,13 @@ private[cozy] object CozyDocumentLogicTree {
   private val _format_schema = "cozy.content-core.logic-tree-format.v1"
   private val _id_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
   private val _locale_pattern = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*".r
-  private val _identity_pattern = "sha256:[0-9a-f]{64}".r
 
   def load(coreValue: Path, formatValue: Path): Validated = {
     val corepath = _admit_core(coreValue)
     val formatpath = _admit_format(formatValue)
     val corebytes = _read_bytes(corepath, "core")
     val formatbytes = _read_bytes(formatpath, "format")
-    _validate(corebytes, _load_document(corepath, corebytes, "core"), formatbytes, _load_document(formatpath, formatbytes, "format"))
+    _validate(corebytes, _load_document(corepath, corebytes, "core"), _load_document(formatpath, formatbytes, "format"))
   }
 
   private[cozy] def loadCore(coreValue: Path): ValidatedCore = {
@@ -126,27 +120,23 @@ private[cozy] object CozyDocumentLogicTree {
 
   private[cozy] def validate(coreBytes: Array[Byte], coreValue: Json, formatValue: Json): Validated = {
     _decode_utf8(coreBytes, "$.core")
-    _validate(coreBytes, coreValue, formatValue.noSpaces.getBytes(StandardCharsets.UTF_8), formatValue)
+    _validate(coreBytes, coreValue, formatValue)
   }
 
-  private def _validate(corebytes: Array[Byte], corevalue: Json, formatbytes: Array[Byte], formatvalue: Json): Validated = {
+  private def _validate(corebytes: Array[Byte], corevalue: Json, formatvalue: Json): Validated = {
     _decode_utf8(corebytes, "$.core")
-    _decode_utf8(formatbytes, "$.format")
     val core = _core(corevalue)
     _validate_tree(core.root)
     val format = _format(formatvalue)
-    val coreidentity = "sha256:" + _sha256(corebytes)
     if (format.coreId != core.id)
       _fail("LOGIC_TREE_FORMAT_CORE", "$.coreId", "must exactly equal the direct Core id")
-    if (format.coreIdentity != coreidentity)
-      _fail("LOGIC_TREE_FORMAT_IDENTITY", "$.coreIdentity", "must bind the direct Core byte SHA-256 identity")
     _validate_wording(core, format)
-    Validated(core, format, coreidentity, "sha256:" + _sha256(formatbytes), _depth_first(core.root))
+    Validated(core, format, _depth_first(core.root))
   }
 
   private def _validate_core(corebytes: Array[Byte], corevalue: Json): ValidatedCore = {
     val source = _source_core(corebytes, corevalue)
-    ValidatedCore(source.core, "sha256:" + _sha256(corebytes), source.depthFirstSteps)
+    ValidatedCore(source.core, source.depthFirstSteps)
   }
 
   private def _source_core(corebytes: Array[Byte], corevalue: Json): SourceCore = {
@@ -229,19 +219,15 @@ private[cozy] object CozyDocumentLogicTree {
 
   private def _format(value: Json): Format = {
     val fields = _object(value, "$")
-    _exact_fields(fields, Set("schema", "id", "coreId", "coreIdentity", "locale", "stepBindings", "claimBindings", "nodeBindings", "chrome"), "$")
+    _required_fields(fields, Set("schema", "id", "coreId", "locale", "stepBindings", "claimBindings", "nodeBindings", "chrome"), "$")
     if (_string(fields, "schema", "$") != _format_schema)
       _fail("LOGIC_TREE_FORMAT_SCHEMA", "$.schema", s"must be exactly ${_format_schema}")
-    val identity = _string(fields, "coreIdentity", "$")
-    if (!_identity_pattern.pattern.matcher(identity).matches())
-      _fail("LOGIC_TREE_FORMAT_IDENTITY", "$.coreIdentity", "must be a sha256:<64 lowercase hexadecimal characters> identity")
     val locale = _string(fields, "locale", "$")
     if (!_locale_pattern.pattern.matcher(locale).matches())
       _fail("LOGIC_TREE_FORMAT_LOCALE", "$.locale", "must be a declared BCP-47 language tag")
     Format(
       _id(_string(fields, "id", "$"), "$.id"),
       _id(_string(fields, "coreId", "$"), "$.coreId"),
-      identity,
       locale,
       _array(_field(fields, "stepBindings", "$"), "$.stepBindings").zipWithIndex.map { case (item, index) => _step_binding(item, s"$$.stepBindings[$index]") },
       _array(_field(fields, "claimBindings", "$"), "$.claimBindings").zipWithIndex.map { case (item, index) => _claim_binding(item, s"$$.claimBindings[$index]") },
@@ -526,6 +512,9 @@ private[cozy] object CozyDocumentLogicTree {
       _fail("LOGIC_TREE_FIELDS", path, s"must contain exactly: ${expected.toVector.sorted.mkString(", ")}")
   }
 
+  private def _required_fields(fields: JsonObject, required: Set[String], path: String): Unit =
+    required.foreach(name => _field(fields, name, path))
+
   private def _id(value: String, path: String): String = {
     if (!_id_pattern.pattern.matcher(value).matches()) _fail("LOGIC_TREE_ID", path, "must be a nonempty stable identifier")
     value
@@ -540,11 +529,6 @@ private[cozy] object CozyDocumentLogicTree {
     values.groupBy(identity).collectFirst { case (value, duplicates) if duplicates.size > 1 => value }.foreach { value =>
       _fail("LOGIC_TREE_IDENTITY", path, s"duplicate $label: $value")
     }
-  }
-
-  private def _sha256(bytes: Array[Byte]): String = {
-    val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
-    digest.map(value => f"${value & 0xff}%02x").mkString
   }
 
   private def _fail(code: String, path: String, reason: String): Nothing = throw LogicTreeFault(code, path, reason)

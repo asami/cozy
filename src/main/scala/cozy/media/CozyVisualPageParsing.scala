@@ -4,12 +4,12 @@ import cozy.media.CozyVisualPage._
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
 import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 2, 2026
- * @version Sep. 2, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVisualPageParsing {
@@ -65,7 +65,7 @@ private[cozy] trait CozyVisualPageParsing {
   }
 
   private[cozy] final def _asset_value(asset: Asset): Value = VObject(Vector(
-    "id" -> VString(asset.id), "path" -> VString(asset.path), "mediaType" -> VString(asset.mediaType), "sha256" -> VString(asset.sha256)
+    "id" -> VString(asset.id), "path" -> VString(asset.path), "mediaType" -> VString(asset.mediaType)
   ))
 
   private[cozy] final def _source_value(source: SourceBinding): Value =
@@ -116,12 +116,6 @@ private[cozy] trait CozyVisualPageParsing {
     }
     "\"" + escaped + "\""
   }
-
-  private[cozy] final def _identity(value: Value): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(_canonical(value).getBytes(StandardCharsets.UTF_8)).map(byte => f"${byte & 0xff}%02x").mkString
-
-  private[cozy] final def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
 
   private[cozy] final def _markdown_line(key: String, value: Value): String = s"$key: ${_canonical(value)}"
   private[cozy] final def _parameter_text(value: ParameterValue): String = _canonical(_parameter_value(value))

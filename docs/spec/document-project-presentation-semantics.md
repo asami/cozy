@@ -69,16 +69,28 @@ cannot invent a medium or bypass Phase 36 compatibility.
 ## Normalization and currentness
 
 The immutable `Validated` aggregate retains the admitted v1 binding, canonical
-v2 semantic identity, validated Composition, normalized Plan, explanation and
-presentation catalog identities, policy identity, declared source and asset
-identities, structures, visual selections, and currentness identity.
+v2 semantic identity, validated Composition, normalized Plan, explanation
+catalog identity, policy identity, required source and asset
+declarations, structures, visual selections, and currentness identity. Nested
+Composition sources emit only `{id}` and assets only `{id,mediaType}`; historical
+ordinary material extras are ignored by the Phase 37 reader and never emitted.
 
 Canonical identities are derived from fixed-order normalized content, not YAML
 mapping order. Unordered structure, transition, override, policy-binding, and
 parameter collections use stable canonical ordering; reader-facing text and
 the ordered Phase 37 Plan retain their semantic order. A v1 binding, v2
-semantics, Composition, catalog, policy, declared source, or declared asset
-identity change changes the relevant aggregate/currentness identity.
+semantics, Composition, catalog ID/revision, policy, or required source/asset declaration
+change changes the relevant aggregate/currentness identity. Valid current
+material-byte changes require safe direct inputs, not declaration digest
+rebinding. DM14 removes `presentationCatalogIdentity`,
+`presentationLogicalCatalogIdentity`, `presentationCatalogValue`, and
+`presentationLogicalCatalogValue` from Validated, projection, receipt, and
+currentness content without replacement proofs. Current named catalog definitions
+still validate graph/Visual choices, including valid same-ID/revision updates;
+no historical catalog snapshot is compared. Core, semantic, Explanation catalog,
+Composition/Plan, policy, projection, renderer/output, receipt and currentness
+hash layers remain unfinished later same-Phase work without any
+Step/Phase completion or timestamp/adoption claim.
 
 ## Closed diagnostics
 

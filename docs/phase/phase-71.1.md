@@ -1,6 +1,15 @@
 # Phase 71.1: Document and Media Hash Removal
 
-status=planned
+status=closed
+closure_disposition=normal-closed-user-defined-completion-criteria
+prior_closure_attempts=withdrawn-including-exception-closure
+closure_record=2026-10-01-phase-71.1-normal-closure.md
+latest_candidate_validation=warning-free-clean-compile-and-storyboard-spec-passed
+latest_focused_validation=user-manual-storyboard-spec-16-passed-warnings-0-20261001T203025JST
+structural_audit=187-owner-relocations-repaired; clean-main-test-compile-passed-warnings-0
+latest_compile_validation=user-manual-clean-Test-compile-success-warnings-0-20261001T202810JST
+release_commit=not-created
+local_commit=authorized-by-later-user-request
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -10,7 +19,7 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.md
 execution_priority=current_video_generation_blocker
 
-Status: planned; implementation not started
+Status: CLOSED; current user-defined completion criteria satisfied
 Planned at: 2026-09-29
 Development item: DEV-034
 Primary owner: Cozy
@@ -18,11 +27,40 @@ Split from [Phase 71](phase-71.md).
 Predecessor: [Phase 71](phase-71.md).
 Successor: [Phase 71.2](phase-71.2.md).
 
+## Current completion boundary (2026-10-01)
+
+The user explicitly instructed normal closure after warning-free compilation
+and successful Storyboard review. The current completion criteria are now
+those verified outcomes and a consistent evidence/ledger handoff. Clean
+compilation at 20:28:10 JST compiled 257 main and 175 test sources with zero
+warnings/errors. `CozyVideoStoryboardReviewSpec` passed all 16 tests at
+20:30:25 JST with zero warnings/errors. The [normal closure record](../journal/2026/10/2026-10-01-phase-71.1-normal-closure.md)
+records the user instruction, evidence and consolidation of original checklist
+criteria. All original IDs are retained, with prior wording preserved there.
+
+The Phase is CLOSED. Earlier premature closure attempts and the exception
+closure remain withdrawn; no DP relocation decision supplies completion.
+Full repository `test`, runtime classpath export, broader Phase review and
+Step/release commits were not performed on this latest tree and are outside
+the revised closure criteria. Their execution or success is not asserted.
+The existing PHASE-71.4 aggregate full-suite plan remains for its own scope.
+No successor starts automatically.
+
+All existing uncommitted changes remain preserved. Shared-skill repair,
+rejected helper rewiring, push and successor execution stay discontinued.
+An ordinary local commit is now authorized by the later user request.
+The acceptance proof is the fresh clean compile and focused executable
+specification, supported by the [structural repair journal](../journal/2026/10/2026-10-01-outer-reference-repair.md).
+
 ## Goal
 
 Consume Phase 71's frozen operation/digest-purpose inventory and remove non-integrity application hash computation, models, fields and codecs in Document Project, media and the inventoried adjacent non-video/non-publication consumers. Make declared-input timestamps and explicit adoption authoritative while preserving useful non-hash metadata and real validity failures.
 
-## Scope and owned Steps
+## Implementation scope and original Steps
+
+These implementation goals remain historical context. Their original closure
+obligations are consolidated into the current user-defined acceptance boundary
+in the checklist and normal closure record; broader validation is not implied.
 
 - P710-03-DM: replace receipt/projection/internal identity hashes with the already-decided operation/dependency/currentness behavior. Remove computation, comparisons, dedicated fields, models, codecs, configuration and hash-dependent tests rather than leaving disabled diagnostics or compatibility logic.
 - Include the inventory's adjacent application consumers and immediate cross-module callers necessary for a compile-valid, contract-coherent deletion. Video-specific and publication/site outcomes remain with their named successors; no unassigned non-integrity application use may escape the inventory.
@@ -70,20 +108,20 @@ settled document/media and site/PDF work is assigned to Terra/high successors.
 ## Validation and closure boundary
 
 [Phase 71.1 Checklist](phase-71.1-checklist.md) is the completion ledger.
-Every owned Step/Slice needs executable focused validation and appropriate
-compile/consumer coverage, independent acceptance review, exact Step commits,
-closure journals/ledger, mandatory full Phase review and a distinct release
-commit. No item is implemented or accepted by this planning split.
+All ten retained entries satisfy the current criteria explicitly selected by
+the user: warning-free clean main/test compile, successful Storyboard review
+executable specification, recorded focused source review and consistent
+validation/handoff records. No commit or push was required for closure. The user subsequently authorized
+an ordinary local commit; see the [local commit record](../journal/2026/10/2026-10-01-phase-71.1-local-commit.md). Push remains unauthorized.
+The normal closure record preserves original checklist wording and the
+criterion changes; unperformed broad validation/review/commit work is not
+presented as complete.
 
-Repository-full SBT validation alone is deferred to [Phase 71.4](phase-71.4.md)
-under the reciprocal final-only chain. At release record focused assurance and
-`repository_full_suite=deferred-not-run`; do not claim ordinary full-suite
-assurance.
-
-The repository already has `build.sbt`, so `split_validation_bootstrap=none`.
-The first delivery's real media driver is product acceptance, not permission
-to invent `bootstrap-structural` or waive that product proof. Entry seals the
-live reciprocal planning chain; no prerequisite planning commit is required.
+`repository_full_suite=deferred-not-run`; its existing aggregate plan remains
+with [Phase 71.4](phase-71.4.md). Runtime classpath export remains unrun.
+These are not blockers under the current user-defined Phase closure criteria.
+The repository already has `build.sbt`; `split_validation_bootstrap=none`.
+No successor execution accompanies closure.
 
 ## Non-goals and ownership
 

@@ -11,7 +11,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 29, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaSummarySlidesPdf {
@@ -69,12 +70,12 @@ private[cozy] object CozyMediaSummarySlidesPdf {
   private sealed trait Authority {
     def _source: Path
     def _page_ids: Vector[String]
-    def _assets_by_page: Vector[Vector[(String, String)]]
+    def _assets_by_page: Vector[Vector[String]]
   }
-  private final case class SlideIrAuthority(source: Path, document: CozyMediaSlideIr.Document, assetsbypage: Vector[Vector[(String, String)]]) extends Authority {
+  private final case class SlideIrAuthority(source: Path, document: CozyMediaSlideIr.Document, assetsbypage: Vector[Vector[String]]) extends Authority {
     def _source: Path = source
     def _page_ids: Vector[String] = document.slides.map(_.id)
-    def _assets_by_page: Vector[Vector[(String, String)]] = assetsbypage
+    def _assets_by_page: Vector[Vector[String]] = assetsbypage
   }
   private final case class VisualPageAuthority(
     source: Path,
@@ -82,11 +83,11 @@ private[cozy] object CozyMediaSummarySlidesPdf {
     binding: Path,
     document: CozyVisualPage.ValidatedDocument,
     bindingdocument: CozyVisualPageBinding.ValidatedBinding,
-    assetsbypage: Vector[Vector[(String, String)]]
+    assetsbypage: Vector[Vector[String]]
   ) extends Authority {
     def _source: Path = source
     def _page_ids: Vector[String] = document.document.pages.map(_.id)
-    def _assets_by_page: Vector[Vector[(String, String)]] = assetsbypage
+    def _assets_by_page: Vector[Vector[String]] = assetsbypage
   }
 
   private val _slide_ir_contract = "slide-ir-v1"
@@ -221,7 +222,7 @@ private[cozy] object CozyMediaSummarySlidesPdf {
     val staged = Files.createTempFile(parent, ".cozy-summary-slides-pdf-", ".pdf")
     Files.deleteIfExists(staged)
     val before = _snapshot(_input_paths(plan, resolved, authority, template))
-    val receiptbefore = CozyMediaReceipt.capture(plan).inputSetSha256
+    val receiptbefore = CozyMediaReceipt.observeInputs(plan)
     try {
       val command = _renderer_command(plan, resolved, configuration, authority, template, staged, images, montage, manifest, pptx)
       val exit = runner.run(command, plan.descriptorRoot)
@@ -229,7 +230,7 @@ private[cozy] object CozyMediaSummarySlidesPdf {
       _verify(plan, resolved, authority, template, staged)
       if (before != _snapshot(_input_paths(plan, resolved, authority, template)))
         _invalid(s"Summary-slides PDF inputs changed during build: ${resolved.resource.id}")
-      if (receiptbefore != CozyMediaReceipt.capture(plan).inputSetSha256)
+      if (receiptbefore != CozyMediaReceipt.observeInputs(plan))
         _invalid("Media receipt inputs changed during summary-slides PDF build; no fresh acceptance evidence was written")
       _replace(staged, output)
       s"${resolved.resource.id}: rendered $output"
@@ -262,16 +263,20 @@ private[cozy] object CozyMediaSummarySlidesPdf {
       case value if value == _slide_ir_contract =>
         val document = CozyMediaSlideIr.load(source)
         _validate_slide_ir(plan.descriptor, resource, configuration, document)
-        val assets = document.slides.map(slide => slide.elements.flatMap(_.asset).distinct.sorted.map(id => id -> _sha256(_asset_path(plan, id, resource))))
+        val assets = document.slides.map(slide => slide.elements.flatMap(_.asset).distinct.sorted.map { id =>
+          _asset_path(plan, id, resource)
+          id
+        })
         SlideIrAuthority(source, document, assets)
       case value if value == _visual_page_contract =>
         val catalog = _direct_input(plan.descriptorRoot, configuration.catalog.getOrElse(_invalid(s"Summary-slides PDF catalog is missing: ${resource.id}")), s"Summary-slides PDF catalog ${resource.id}")
         val binding = _direct_input(plan.descriptorRoot, configuration.binding.getOrElse(_invalid(s"Summary-slides PDF binding is missing: ${resource.id}")), s"Summary-slides PDF binding ${resource.id}")
         val visual = _validate_visual_page(plan.descriptor, resource, configuration, source, catalog, binding)
         val assets = visual.document.pages.map(page => page.assets.map { asset =>
-          val actual = _sha256(_asset_path(plan, asset.id, resource))
-          if (actual != asset.sha256) _invalid(s"Summary-slides PDF Visual Page asset differs from declared resource: ${asset.id}")
-          asset.id -> actual
+          val declared = CozyVisualPage._safe_direct_file(source.getParent, asset.path, s"asset.${asset.id}.path")
+          val actual = _asset_path(plan, asset.id, resource)
+          if (!java.util.Arrays.equals(Files.readAllBytes(declared), Files.readAllBytes(actual))) _invalid(s"Summary-slides PDF Visual Page asset differs from declared resource: ${asset.id}")
+          asset.id
         })
         val bindingdocument = CozyVisualPageBinding.load(binding, visual)
         VisualPageAuthority(source, catalog, binding, visual, bindingdocument, assets)
@@ -363,10 +368,8 @@ private[cozy] object CozyMediaSummarySlidesPdf {
   }
 
   private def _verify_slide_ir_manifest(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, configuration: Config, authority: SlideIrAuthority, template: Path, pdf: Path, pagecount: Int, renderer: JsonObject): Unit = {
-    _exact_ordered_keys(renderer, Vector("schema", "target", "profile", "renderer", "slideIrSha256", "templateSha256", "pdf", "slides", "montage") ++ configuration.pptx.map(_ => "pptx"), "Summary-slides PDF Slide-IR renderer manifest")
+    _exact_ordered_keys(renderer.remove("slideIrSha256").remove("templateSha256"), Vector("schema", "target", "profile", "renderer", "pdf", "slides", "montage") ++ configuration.pptx.map(_ => "pptx"), "Summary-slides PDF Slide-IR renderer manifest")
     _verify_renderer_identity(plan, resolved, configuration, renderer, _slide_ir_schema)
-    if (_sha256_value(renderer, "slideIrSha256", "Summary-slides PDF Slide-IR renderer manifest") != _sha256(authority.source) || _sha256_value(renderer, "templateSha256", "Summary-slides PDF Slide-IR renderer manifest") != _sha256(template))
-      _invalid("Summary-slides PDF Slide-IR renderer manifest input hashes differ")
     val pdfhash = _verify_pdf(renderer, pdf, pagecount, authority.document.slides.size)
     val slides = _array(renderer, "slides", "Summary-slides PDF Slide-IR renderer manifest")
     if (slides.map(value => _string(_object(value, "Summary-slides PDF Slide-IR slide"), "id", "Summary-slides PDF Slide-IR slide")) != authority._page_ids)
@@ -384,13 +387,8 @@ private[cozy] object CozyMediaSummarySlidesPdf {
   }
 
   private def _verify_visual_page_manifest(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, configuration: Config, authority: VisualPageAuthority, template: Path, pdf: Path, pagecount: Int, renderer: JsonObject): Unit = {
-    _exact_ordered_keys(renderer, Vector("schema", "target", "profile", "renderer", "visualPageSetSha256", "catalogSha256", "bindingSha256", "templateSha256", "pdf", "slides", "montage") ++ configuration.pptx.map(_ => "pptx"), "Summary-slides PDF Visual Page renderer manifest")
+    _exact_ordered_keys(renderer.filterKeys(name => !Set("slideIrSha256", "templateSha256", "visualPageSetSha256", "catalogSha256", "visualPageSet", "catalog", "binding").contains(name)), Vector("schema", "target", "profile", "renderer", "pdf", "slides", "montage") ++ configuration.pptx.map(_ => "pptx"), "Summary-slides PDF Visual Page renderer manifest")
     _verify_renderer_identity(plan, resolved, configuration, renderer, _visual_page_schema)
-    if (_sha256_value(renderer, "visualPageSetSha256", "Summary-slides PDF Visual Page renderer manifest") != _semantic_sha256(authority.document.documentIdentity) ||
-        _sha256_value(renderer, "catalogSha256", "Summary-slides PDF Visual Page renderer manifest") != _semantic_sha256(authority.document.catalogIdentity) ||
-        _sha256_value(renderer, "bindingSha256", "Summary-slides PDF Visual Page renderer manifest") != _semantic_sha256(authority.bindingdocument.bindingIdentity) ||
-        _sha256_value(renderer, "templateSha256", "Summary-slides PDF Visual Page renderer manifest") != _sha256(template))
-      _invalid("Summary-slides PDF Visual Page renderer manifest input hashes differ")
     val pdfhash = _verify_pdf(renderer, pdf, pagecount, authority.document.document.pages.size)
     val slides = _array(renderer, "slides", "Summary-slides PDF Visual Page renderer manifest")
     if (slides.map(value => _string(_object(value, "Summary-slides PDF Visual Page slide"), "id", "Summary-slides PDF Visual Page slide")) != authority._page_ids)
@@ -433,13 +431,12 @@ private[cozy] object CozyMediaSummarySlidesPdf {
       _invalid(s"Summary-slides PDF slide image differs: $id")
   }
 
-  private def _verify_assets(entry: JsonObject, expected: Vector[(String, String)], label: String): Unit = {
+  private def _verify_assets(entry: JsonObject, expected: Vector[String], label: String): Unit = {
     val assets = _array(entry, "assets", label).map { value =>
       val asset = _object(value, s"$label asset")
-      _exact_keys(asset, Set("id", "sha256"), s"$label asset")
-      _string(asset, "id", s"$label asset") -> _sha256_value(asset, "sha256", s"$label asset")
+      _string(asset, "id", s"$label asset")
     }
-    if (assets != expected || assets.map(_._1).distinct.size != assets.size)
+    if (assets != expected || assets.distinct.size != assets.size)
       _invalid(s"$label assets differ")
   }
 
@@ -473,7 +470,7 @@ private[cozy] object CozyMediaSummarySlidesPdf {
         Vector(visual.source, visual.catalog, visual.binding) ++
           _visual_page_consumed_paths(plan.descriptorRoot, visual.source, visual.document, s"Summary-slides PDF Visual Page ${resolved.resource.id}").map(_._2)
     }
-    val assetdependencies = authority._assets_by_page.flatten.map(_._1).distinct.flatMap { id =>
+    val assetdependencies = authority._assets_by_page.flatten.distinct.flatMap { id =>
       _dependency_input_paths(_dependency(plan, id, resolved))
     }
     (Vector(plan.descriptorFile, template) ++ authorityinputs ++ dependencies ++ assetdependencies).distinct
@@ -527,7 +524,8 @@ private[cozy] object CozyMediaSummarySlidesPdf {
 
   private def _asset_path(plan: CozyMedia.Plan, id: String, resource: CozyMedia.Resource): Path = {
     val dependency = _dependency(plan, id, plan.resources.find(_.resource.id == resource.id).getOrElse(_invalid(s"Summary-slides PDF resource is not resolved: ${resource.id}")))
-    _require_direct(_output(dependency), s"Summary-slides PDF asset $id")
+    val path = _descriptor_relative_path(plan.descriptorRoot, _output(dependency), s"Summary-slides PDF asset $id")
+    _require_direct(path, s"Summary-slides PDF asset $id")
   }
 
   private def _output(resolved: CozyMedia.ResolvedResource): Path =
@@ -662,12 +660,6 @@ private[cozy] object CozyMediaSummarySlidesPdf {
     } finally stream.close()
     digest.digest().map(x => f"${x & 0xff}%02x").mkString
   }
-
-  private def _semantic_sha256(value: String): String =
-    value match {
-      case hash if hash.matches("sha256:[0-9a-f]{64}") => hash.drop("sha256:".length)
-      case _ => _invalid("Summary-slides PDF Visual Page canonical identity must be SHA-256")
-    }
 
   private def _array(value: JsonObject, field: String, label: String): Vector[Json] =
     value(field).flatMap(_.asArray).getOrElse(_invalid(s"$label.$field must be an array")).toVector

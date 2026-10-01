@@ -17,12 +17,13 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Media Cross-media Review" should {
-    "reconstruct one current Visual Page across presentation and Storyboard evidence without recording approval" in {
+    "process current Visual Page inputs without historical proof gates or recording approval" in {
       _with_temp_dir("cross-media") { root =>
         Given("a current Visual Page presentation and a current approved Storyboard v2 visual-page review")
         val media = _write_media_fixture(root)
@@ -44,7 +45,12 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         val source = _write_storyboard(root, storyboard)
         val project = _write_project(root, source, storyboard, "sha256:" + "0" * 64)
         val evidence = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, root.resolve("target/cozy-video/v2-review")))
-        _write_project(root, source, storyboard, evidence.evidenceIdentity)
+        _write_project(root, source, storyboard, "obsolete")
+        Vector(evidence.evidencePath, evidence.handoffPath).foreach { path =>
+          val saved = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption.get
+          val historical = saved.mapObject(_.add("identity", Json.Null).add("storyboardIdentity", Json.True).add("evidenceIdentity", Json.obj()).add("visualInputIdentities", Json.arr()))
+          Files.writeString(path, historical.noSpaces, StandardCharsets.UTF_8)
+        }
         val output = root.resolve("target/cozy-media/cross-review.json")
 
         When("Cozy builds and then verifies structural Cross-media Review evidence")
@@ -52,11 +58,16 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         val verified = CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
         val review = parser.parse(Files.readString(output, StandardCharsets.UTF_8)).toOption.get
 
-        Then("the common VisualPageSet and selected page are identity-bound without self-approval or renderer execution")
+        Then("the selected page and operational references are recorded without copied VisualPage proofs or renderer execution")
         built should include("status: valid")
         verified should include("status: valid")
         review.hcursor.get[String]("schema").toOption shouldBe Some("cozy.media.cross-review.v1")
-        review.hcursor.get[String]("visualPageSetIdentity").toOption.get should startWith("sha256:")
+        review.hcursor.downField("visualPageSetIdentity").focus shouldBe None
+        review.hcursor.downField("binding").focus shouldBe None
+        Vector("presentationReviewIdentity", "storyboardEvidenceIdentity", "storyboardHandoffIdentity", "storyboardIdentity").foreach { name =>
+          review.hcursor.downField(name).focus shouldBe None
+        }
+        review.hcursor.downField("slides").downArray.focus.get shouldBe Json.obj("id" -> Json.fromString("overview"))
         review.hcursor.downField("slides").downArray.get[String]("id").toOption shouldBe Some("overview")
         review.hcursor.downField("visualPages").downArray.get[String]("sceneId").toOption shouldBe Some("visual")
         review.hcursor.downField("verification").get[String]("semanticApproval").toOption shouldBe Some("not-recorded")
@@ -64,8 +75,24 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         review.hcursor.downField("verification").get[String]("audiovisualApproval").toOption shouldBe Some("not-recorded")
         rendererinvoked shouldBe false
 
-        Given("the saved review, a duplicate saved-proof key, and then a participating binding are changed after construction")
+        Given("a saved review with historical any-valued proof properties, invalid required references, and duplicate keys")
         val originalreview = Files.readString(output, StandardCharsets.UTF_8)
+        val obsolete = Vector("\"obsolete\"", "{}", "[]", "true", "null", "1.5", "9223372036854775808")
+        When("verification receives obsolete proofs without any current whole-record equality gate")
+        val accepted = obsolete.map { raw =>
+          val extra = parser.parse(raw).toOption.get
+          val historical = review.mapObject { fields =>
+            Vector("visualPageSetIdentity", "catalogIdentity", "bindingIdentity", "visualPageSet", "catalog", "binding", "presentationReviewIdentity", "storyboardEvidenceIdentity", "storyboardHandoffIdentity", "storyboardIdentity").foldLeft(fields)((current, name) => current.add(name, extra)).add("slides", Json.fromValues(fields("slides").get.asArray.get.map(_.mapObject(_.add("sha256", extra))))).add("visualPages", Json.fromValues(fields("visualPages").get.asArray.get.map(_.mapObject { page =>
+              Vector("logicalIdentity", "visualPageIdentity", "logical", "visualPage", "binding").foldLeft(page)((current, name) => current.add(name, extra))
+            })))
+          }
+          _write(output, historical.noSpaces)
+          CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
+        }
+        Then("each obsolete value is ignored rather than interpreted as proof")
+        accepted.foreach(_ should include("status: valid"))
+
+        When("required verification fields, unresolved IDs, or duplicate JSON keys are supplied")
         Files.writeString(output, originalreview.replace("\"status\":\"valid\"", "\"status\":\"changed\""), StandardCharsets.UTF_8)
         val tampered = intercept[RuntimeException] {
           CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
@@ -75,23 +102,108 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         val duplicate = intercept[RuntimeException] {
           CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
         }
+        val unresolved = Vector(originalreview.replace("\"pageId\":\"overview\"", "\"pageId\":\"missing\""), originalreview.replace("\"id\":\"infographic\"", "\"id\":\"missing\"")) .map { invalid =>
+          _write(output, invalid)
+          intercept[RuntimeException](CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json")))
+        }
         Files.writeString(output, originalreview, StandardCharsets.UTF_8)
+
+        Then("actual structural and reference failures reject")
+        tampered.getMessage should include("Cross-media Review")
+        duplicate.getMessage.toLowerCase should include("duplicate")
+        unresolved.foreach(_.getMessage should include("resolve"))
+
+        Given("a participating current Binding changes a valid physical slot")
         val binding = root.resolve("binding.json")
         val originalbinding = Files.readString(binding, StandardCharsets.UTF_8)
         Files.writeString(binding, originalbinding.replace("nodes-slot", "revised-nodes-slot"), StandardCharsets.UTF_8)
-        val stale = intercept[RuntimeException] {
-          CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
-        }
+        When("the presentation is really rebuilt and Cross-media Review consumes the updated inputs")
+        CozyMedia.build(CozyMedia.CommandConfig(media), _presentation_runner(root, () => rendererinvoked = true))
+        rendererinvoked shouldBe true
+        rendererinvoked = false
+        val updated = CozyMediaCrossReview.build(CozyMediaCrossReview.BuildConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
+        val current = CozyMediaCrossReview.verify(CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json"))
 
-        Then("tampered or duplicate saved proof and stale participant input reject before any renderer or approval action")
-        tampered.getMessage should include("Cross-media Review")
-        duplicate.getMessage should include("Cross-media Review")
-        duplicate.getMessage.toLowerCase should include("duplicate")
-        stale.getMessage.nonEmpty shouldBe true
+        Then("the existing safe aggregate is replaced and verifies without an obsolete Binding comparison")
+        updated should include("status: valid")
+        current should include("status: valid")
         review.hcursor.downField("verification").get[String]("semanticApproval").toOption shouldBe Some("not-recorded")
         review.hcursor.downField("verification").get[String]("visualApproval").toOption shouldBe Some("not-recorded")
         review.hcursor.downField("verification").get[String]("audiovisualApproval").toOption shouldBe Some("not-recorded")
         rendererinvoked shouldBe false
+      }
+    }
+
+    "compare current material bytes across different project roots and preserve prior evidence on disagreement or unsafe proof paths" in {
+      _with_temp_dir("cross-material-closure") { root =>
+        Given("semantically equal PageSets with equal material IDs and media types under separate safe presentation and video roots")
+        val presentationroot = root.resolve("presentation")
+        val videoroot = root.resolve("video")
+        val media = _write_media_fixture(presentationroot)
+        _write_media_fixture(videoroot)
+        CozyMedia.build(CozyMedia.CommandConfig(media), _presentation_runner(presentationroot, () => ()))
+        val storyboard = _storyboard()
+        val source = _write_storyboard(videoroot, storyboard)
+        val initialproject = _write_project(videoroot, source, storyboard, "sha256:" + "0" * 64)
+        val evidence = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(initialproject, videoroot.resolve("target/cozy-video/v2-review")))
+        val project = _write_project(videoroot, source, storyboard, "obsolete")
+        val output = presentationroot.resolve("target/cozy-media/cross-review.json")
+        val config = CozyMediaCrossReview.BuildConfig(media, "slides", project, "target/cozy-media/cross-review.json")
+
+        When("Cross-media Review compares the equal resources through their own project roots")
+        val accepted = CozyMediaCrossReview.build(config)
+        val review = parser.parse(Files.readString(output, StandardCharsets.UTF_8)).toOption.get
+
+        Then("the current material closure succeeds without Binding copies and aggregate assets retain only ID and media type")
+        accepted should include("status: valid")
+        review.hcursor.downField("binding").focus shouldBe None
+        review.hcursor.downField("visualPages").downArray.downField("assets").downArray.focus.get shouldBe
+          Json.obj("id" -> Json.fromString("infographic"), "mediaType" -> Json.fromString("image/png"))
+
+        Given("the video asset changes valid bytes at the same observed FileTime, followed by an unsafe material proof path")
+        val prior = Files.readAllBytes(output).toVector
+        val asset = videoroot.resolve("assets/infographic.png")
+        val bytes = Files.readAllBytes(asset)
+        val modified = Files.getLastModifiedTime(asset, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+        Files.write(asset, bytes ++ Array[Byte](1))
+        Files.setLastModifiedTime(asset, modified)
+
+        When("Cross-media Review sees actual material disagreement despite matching IDs media types and current observations")
+        val mismatch = intercept[RuntimeException](CozyMediaCrossReview.build(config))
+
+        Then("byte disagreement rejects without replacing the prior aggregate")
+        mismatch.getMessage should include("assets differ from presentation")
+        Files.readAllBytes(output).toVector shouldBe prior
+
+        Given("equal material bytes are restored and the video Binding alone changes a physical slot")
+        Files.write(asset, bytes)
+        Files.setLastModifiedTime(asset, modified)
+        val bindingpath = videoroot.resolve("binding.json")
+        val originalbinding = Files.readString(bindingpath, StandardCharsets.UTF_8)
+        _write(bindingpath, originalbinding.replace("nodes-slot", "revised-nodes-slot"))
+        val unapproved = _write_project(videoroot, source, storyboard, "sha256:" + "0" * 64)
+        val different = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(unapproved, videoroot.resolve("target/cozy-video/v2-review")))
+        _write_project(videoroot, source, storyboard, "obsolete")
+
+        When("current per-side inputs have different valid physical Binding slots")
+        val updated = CozyMediaCrossReview.build(config)
+
+        Then("normal processing replaces prior aggregate evidence without copied Binding agreement")
+        updated should include("status: valid")
+        parser.parse(Files.readString(different.evidencePath, StandardCharsets.UTF_8)).toOption.get.hcursor.downField("visualPages").downArray.downField("binding").focus shouldBe None
+
+        Given("an actual current VisualPage asset declaration is changed to an unsafe path")
+        val currentaggregate = Files.readAllBytes(output).toVector
+        val pageset = videoroot.resolve("visual-pages.json")
+        val original = Files.readString(pageset, StandardCharsets.UTF_8)
+        _write(pageset, original.replace("\"path\":\"assets/infographic.png\"", "\"path\":\"../infographic.png\""))
+
+        When("Cross-media Review resolves that unsafe actual input")
+        val unsafe = intercept[RuntimeException](CozyMediaCrossReview.build(config))
+
+        Then("actual input validity rejects and the prior successful aggregate remains intact")
+        unsafe.getMessage should include("VISUAL_PAGE_PATH")
+        Files.readAllBytes(output).toVector shouldBe currentaggregate
       }
     }
 
@@ -111,7 +223,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
       }
     }
 
-    "reject saving over current Storyboard review evidence" in {
+    "reject saving over current review evidence and actual VisualPage inputs" in {
       _with_temp_dir("collision") { root =>
         Given("a current Visual Page presentation and current Storyboard v2 review evidence")
         val media = _write_media_fixture(root)
@@ -120,19 +232,20 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         val source = _write_storyboard(root, storyboard)
         val initialproject = _write_project(root, source, storyboard, "sha256:" + "0" * 64)
         val evidence = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(initialproject, root.resolve("target/cozy-video/v2-review")))
-        val project = _write_project(root, source, storyboard, evidence.evidenceIdentity)
+        val project = _write_project(root, source, storyboard, "obsolete")
         val evidencepath = CozyVideo.storyboardReviewCurrent(project).evidencePath
-        val originalbytes = Files.readAllBytes(evidencepath).toVector
-        val savepath = root.relativize(evidencepath).toString.replace(java.io.File.separatorChar, '/')
+        val protectedinputs = Vector(evidencepath, source, root.resolve("visual-pages.json"), root.resolve("catalog.json"), root.resolve("binding.json"))
+        val originalbytes = protectedinputs.map(path => path -> Files.readAllBytes(path).toVector)
 
-        When("Cross-media Review build uses --save at the current Storyboard review-evidence.json")
-        val failure = intercept[RuntimeException] {
-          CozyMediaCrossReview.build(CozyMediaCrossReview.BuildConfig(media, "slides", project, savepath))
+        When("Cross-media Review build uses --save at review evidence or an actual input JSON path")
+        val failures = protectedinputs.map { path =>
+          val savepath = root.relativize(path).toString.replace(java.io.File.separatorChar, '/')
+          intercept[RuntimeException](CozyMediaCrossReview.build(CozyMediaCrossReview.BuildConfig(media, "slides", project, savepath)))
         }
 
         Then("the existing evidence is rejected without changing any bytes")
-        failure.getMessage should include("--save")
-        Files.readAllBytes(evidencepath).toVector shouldBe originalbytes
+        failures.foreach(_.getMessage should include("must not replace"))
+        originalbytes.foreach { case (path, bytes) => Files.readAllBytes(path).toVector shouldBe bytes }
       }
     }
   }
@@ -154,7 +267,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         Vector(CozyVisualPage.Relation("next", "next", "discover", "apply", Vector("research")))
       ),
       CozyVisualPage.Visual("flow-horizontal", Vector.empty),
-      Vector(CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png", _sha256(root.resolve("assets/infographic.png")))),
+      Vector(CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png")),
       Vector(CozyVisualPage.SourceBinding("research", "sources/research.txt"))
     )
     _write(root.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(_catalog))
@@ -248,13 +361,13 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         val montage = Path.of(command(command.indexOf("--montage") + 1))
         val manifest = Path.of(command(command.indexOf("--manifest") + 1))
         val validated = CozyVisualPage.load(root.resolve("visual-pages.json"), root.resolve("catalog.json"))
-        val binding = CozyVisualPageBinding.load(root.resolve("binding.json"), validated)
+        CozyVisualPageBinding.load(root.resolve("binding.json"), validated)
         _write_pptx(pptx, "Overview", root.resolve("assets/infographic.png"))
         _write_png(images.resolve("overview.png"))
         _write_png(montage)
         val pptxhash = _sha256(pptx)
         _write(manifest,
-          s"""{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"visualPageSetSha256":"${_semantic_sha256(validated.documentIdentity)}","catalogSha256":"${_semantic_sha256(validated.catalogIdentity)}","bindingSha256":"${_semantic_sha256(binding.bindingIdentity)}","templateSha256":"${_sha256(root.resolve("template.pptx"))}","pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[{"id":"overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pptxSha256":"$pptxhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("assets/infographic.png"))}"}]}],"montage":{"path":"target/rendered/montage.png","sha256":"${_sha256(montage)}","pptxSha256":"$pptxhash"}}"""
+          s"""{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[{"id":"overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pptxSha256":"$pptxhash","assets":[{"id":"infographic"}]}],"montage":{"path":"target/rendered/montage.png","sha256":"${_sha256(montage)}","pptxSha256":"$pptxhash"}}"""
         )
         0
       }
@@ -293,7 +406,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
   private def _write_project(root: Path, source: Path, storyboard: CozyVideo.Storyboard, approval: String): Path = {
     val review = Json.obj(
       "source" -> Json.fromString(root.relativize(source).toString.replace(java.io.File.separatorChar, '/')),
-      "approvedIdentity" -> Json.fromString(CozyVideo.storyboardIdentity(storyboard)),
+      "approvedIdentity" -> Json.fromString("obsolete"),
       "visualPage" -> Json.obj(
         "binding" -> Json.fromString("binding.json"),
         "evidenceDirectory" -> Json.fromString("target/cozy-video/v2-review"),
@@ -411,7 +524,6 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
     Files.writeString(path, value, StandardCharsets.UTF_8)
   }
 
-  private def _semantic_sha256(value: String): String = value.stripPrefix("sha256:")
   private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _with_temp_dir[A](name: String)(body: Path => A): A = {

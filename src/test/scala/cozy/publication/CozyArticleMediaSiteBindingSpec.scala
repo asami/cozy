@@ -16,7 +16,8 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReferen
 /*
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -526,10 +527,10 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           When("the site binding planner evaluates the stale PDF output evidence")
           _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
         }
-        val nonarticleevidence = _with_part5_pdf_fixture("pdf-nonarticle-evidence") { fixture =>
+        val unrelatedsource = _with_part5_pdf_fixture("pdf-unrelated-source") { fixture =>
           _write(fixture.root.resolve("input/summary-ja.png"), "changed non-article source")
-          When("the site binding planner evaluates retained PDFs after non-article evidence changes")
-          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+          When("the site binding planner evaluates PDFs after an unrelated resource source changes")
+          CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
         }
         val alteredstate = _with_part5_pdf_fixture("pdf-altered-state") { fixture =>
           _write(fixture.root.resolve("target/cozy-media/pdf-review-state.json"), "{}")
@@ -550,8 +551,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
         Then("each invalid Phase 40 boundary fails closed")
         missingstate.getMessage should include("Site-registration PDF review-state preflight")
         staleoutput.getMessage should include("Site-registration PDF preflight")
-        nonarticleevidence.getMessage should include("part-5-article-pdf-en")
-        nonarticleevidence.getMessage should include("restore")
+        unrelatedsource.candidates.exists(_.resourceId == "part-5-article-pdf-en") shouldBe true
         alteredstate.getMessage should include("Site-registration PDF review-state preflight")
         alteredstate.getMessage should include("rebuild")
         incompatible.getMessage should include("requires kind document")
@@ -583,9 +583,9 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
   private def _with_part5_pdf_fixture[A](name: String)(f: SiteBindingPart5Fixture.Data => A): A =
     _with_part5_fixture(name, _part5_pdf_yaml()) { fixture =>
       _write(fixture.root.resolve("knowledge/part-5.dox"), "Part 5 article authority")
-      _write(fixture.root.resolve("input/summary-ja.png"), "Part 5 summary ja source")
-      _write(fixture.root.resolve("input/summary-en.png"), "Part 5 summary en source")
-      _write(fixture.root.resolve("input/unbound.png"), "Part 5 unbound source")
+      _write_png(fixture.root.resolve("input/summary-ja.png"))
+      _write_png(fixture.root.resolve("input/summary-en.png"))
+      _write_png(fixture.root.resolve("input/unbound.png"))
       _write(fixture.root.resolve("target/video-ja.mp4"), "Part 5 video ja")
       _write(fixture.root.resolve("target/video-en.mp4"), "Part 5 video en")
       _write(fixture.root.resolve("target/article-ja.pdf"), "%PDF-1.7\nPart 5 article ja")
@@ -775,6 +775,12 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
        |  "youtube": {"status": "$youtubestatus", "videoUrl": "$url"}
        |}
        |""".stripMargin
+
+  private def _write_png(path: Path): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val image = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB)
+    javax.imageio.ImageIO.write(image, "png", path.toFile) shouldBe true
+  }
 
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

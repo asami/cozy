@@ -1,6 +1,6 @@
 # Document Project Summary Slide PDF Projection Design
 
-Status: NORMATIVE DESIGN; Phase 59, Step P590-01, Slice P590-01A
+Status: NORMATIVE DESIGN; Phase 59 contract reconciled by Phase 71.1 / P710-03-DM-09
 
 This design defines the explicit `cozy.summary-slide-projection.v1` profile
 that connects admitted Document Project v2 Core, Document Description, and
@@ -31,24 +31,33 @@ media, catalog, binding, pages
 
 `schema` is exactly `cozy.summary-slide-projection.v1`; `version` is integer
 `1`; `id` is a stable nonempty profile ID; and `locale` equals the bound v2
-Document and Summary locale. `core`, `document`, and `summary` are each exactly
-`{id, identity, path}`. Their identities are raw admitted-byte identities and
+Document and Summary locale. Canonical `core`, `document`, and `summary` are
+`{id, path}`. Their logical IDs match the loaded sources and nested bindings;
 their paths are safe project-relative paths.
 
-`media` is exactly `{id, identity, path, summarySlidesPdf}`. Its `id` equals
-the direct `media.yaml` descriptor's `knowledge.id`; `identity` is that
-descriptor's exact raw-byte identity; `path` is its safe project-relative
+Canonical `media` is `{id, path, summarySlidesPdf}`. Its `id` equals the direct
+`media.yaml` descriptor's `knowledge.id`; `path` is its safe project-relative
 direct-file path; and `summarySlidesPdf` identifies one resource in that
-descriptor. It is a closed binding to the descriptor and target, not a copy of
-the descriptor's configuration. `catalog` is exactly `{id, revision, identity,
-path}`. `binding` is exactly `{id, identity, profile, path}`, where `profile`
-is exactly `business`.
+descriptor. These required fields bind the descriptor and target without
+copying configuration. Canonical `catalog` is `{id, revision, path}`, with a
+positive admitted fixed revision (1 or 2). Canonical `binding` is
+`{id, profile, path}`, where `profile` is exactly `business`. Loaded catalog ID
+and revision and binding ID and profile must match these records.
+
+The six input-binding objects read only their required typed fields and ignore
+ordinary extra metadata of any scalar, object, array, or null shape. Such
+metadata is not retained or re-emitted. Historical hash properties follow this
+same ordinary rule without a hash-specific branch or codec. The enclosing
+objects and required field types remain mandatory; root/page/item/edge/parameter
+closure, schema/version, ordered root fields, and strict UTF-8/YAML admission
+remain unchanged.
 
 Every path is safe project-relative POSIX spelling. Absolute paths, traversal,
 URI-like values, control characters, backslashes, non-normalized spellings,
 nonregular files, final symlinks, and symlinked ancestors below the allowed root
-are rejected. The profile's own raw identity is retained only in operation
-provenance, never copied into the profile.
+are rejected. The projector loads current source bytes and validates semantics
+without a raw-byte identity gate. A valid whitespace change needs no rebinding;
+a current authored localized label becomes the projected label.
 
 The projector admits and uses one pre-existing fixed catalog/binding pair. It
 does not generate, copy, or change either. The descriptor target named by
@@ -189,11 +198,14 @@ Every generated Page declares sources, in deterministic order, for `core`,
 `document`, `summary`, `profile`, and `media`; each source `{id,path}` is the
 corresponding bound safe path, project-root-relative to the PageSet parent.
 Page assets contain exactly the descriptor target's configured infographic as
-`{id,path,mediaType,sha256}`, resolved from the declared existing media resource;
+`{id,path,mediaType}`, resolved from the declared existing media resource;
 its path is likewise project-root-relative to that PageSet parent. Each page
-references that same sole asset, so the Phase 40 required-asset check succeeds.
+references that same sole asset, so the current Phase 40 required-asset check
+succeeds. DM12 removes the material hash field and computation. Safe direct
+files, media types, and actual-byte agreement with the selected resource remain
+the connection authority; current valid bytes require no digest rebinding.
 
-All Summary raw data remains source-bound for provenance and currentness.
+All Summary data remains bound to its logical source and safe path.
 Existing Visual Page output contains only selected diagram nodes/edges,
 catalog-supported relation labels, and the projector-derived eligible emphasis
 node. It does not
@@ -202,25 +214,41 @@ omissions, arbitrary CSS, physical layout, or new tag text. Semantic
 tag/structure marking beyond that unchanged Visual Page/renderer contract is
 out of scope and is not silently encoded.
 
-Operation provenance retains exact IDs, raw identities, safe paths, locale, and
-the media target for profile, Core, Document, Summary, media, catalog, and
-binding. It adds no Visual Page fields. Phase 40 alone owns renderer invocation,
+Operation provenance retains exact logical IDs and safe actual relative paths
+for profile, Core, Document, Summary, media, catalog, and binding, plus locale
+and selected media target. Every input entry is exactly `{id, path}`. This
+boundary computes, stores, parses, compares, and emits no profile or bound-input
+artifact hash. It adds no Visual Page fields. Phase 40 owns renderer invocation,
 physical layout, PDF generation, verification, receipt construction, and review
 currentness. The projector outputs only the canonical PageSet and connects it,
 with the pre-existing binding, to that route; it writes no PDF, PPTX, renderer
 manifest, receipt, catalog, or binding.
 
-The Article 9 media descriptor records those seven projection authorities as
-explicit bytes-normalized receipt inputs: projection profile, Core, Document,
-Summary, media descriptor, catalog, and binding. This uses the unmodified
-Phase 40 receipt/currentness route: after acceptance, a byte change to any one
-of them stales the existing PDF receipt without a second receipt type or a
-renderer change.
+The copied Article 9 media descriptor still records those seven authorities as
+bytes-normalized receipt inputs. The existing receipt-currentness scenario
+continues to document this unfinished Phase 40 consumer; it does not prove the
+desired final timestamp behavior. Visual Page canonical/catalog/binding
+identities, renderer/output manifest hashes, and media receipt/currentness
+hashes remain unfinished SAME-Phase layers for dedicated migration, with current
+contracts only until that migration. DM12 material-field removal does not
+claim timestamp/adoption integration or Step/Phase completion.
+
+Projection and coordinator `prepare` read current valid bytes. Independent
+whitespace changes preserve the complete canonical semantics and non-hash
+provenance, without replacing an existing PageSet, PDF, renderer manifest, or
+receipt. A changed author label updates the selected node while retaining
+logical IDs, page order, relations, and provenance. Generation/currentness is a
+separate integration responsibility: declared producers, timestamps,
+conservative regeneration, and explicit prebuilt adoption remain unfinished
+Phase obligations under [file-update-management.md](../spec/file-update-management.md).
+The pure projector introduces no cache, timestamp gate, receipt scheme,
+collision protection, or generation operation.
 
 ## 5. Failure and non-goals
 
 Validation fails before PageSet output or receipt visibility for missing,
-unknown, duplicate, stale, malformed, unsafe, or mismatched inputs; a media
+unknown closed-grammar fields, duplicate keys, malformed required types,
+unsafe paths, or mismatched required semantics; a media
 target that is not the required existing Phase 40 target; unresolved labels;
 duplicate/missing edge or required-endpoint coverage; unrelated items; a
 profile-supplied `emphasisNode`; invalid roles, relation types, endpoints,
@@ -233,3 +261,30 @@ This design neither changes source schemas, Visual Page schemas, the accepted
 Revision 1 catalog/binding shape, renderer, receipt, nor Phase 40/58 behavior;
 adds layout to Summary; invents semantics; or
 publishes/deploys/registers external media.
+
+## Phase 71.1 DM08 boundary reconciliation
+
+Historical DM08 account; its profile/provenance hash statements are superseded
+by DM09 below and do not define current admission authority.
+
+Phase 71.1 / P710-03-DM-08 changes only V2 source-model admission: nested
+Core, Document, and Summary relationships are checked by logical IDs and
+locale, without model hashes. The profile's raw-byte identity, provenance,
+media/catalog/asset verification, and receipt/currentness layers remain
+unchanged and explicitly unfinished SAME-Phase responsibilities.
+
+## Phase 71.1 DM09 boundary reconciliation
+
+Phase 71.1 / P710-03-DM-09 removes raw identities from the six input-binding
+records and seven input-provenance entries. Required logical IDs, safe paths,
+locale, revision, business profile, media target, strict YAML, and mappings
+continue to validate actual meaning. Generic ignored binding metadata cannot
+change canonical projection or logical provenance; missing, malformed, or
+mismatched required data still fails before prior output is replaced.
+
+The projector remains one cohesive input-admission and deterministic mapping
+responsibility; deletion of its raw-identity helpers requires no extraction or
+new abstraction. D02/D04/M05, timestamp/adoption integration, Step/Phase closure,
+and successor acceptance are not completed by this Slice. Remaining Visual
+Page, renderer, and media receipt hashes require later admitted SAME-Phase
+migration; repository-full tests remain deferred-not-run to Phase 71.4.

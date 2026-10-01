@@ -16,7 +16,8 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 /*
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteCommandPart5Fixture {
@@ -461,7 +462,7 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
         Then("all PDF currentness and role failures leave the registry unchanged")
         missing._1.getMessage should include("Site-registration PDF review-state preflight")
         missing._2 shouldBe missing._3
-        drift._1.getMessage should include("Site-registration PDF preflight")
+        drift._1.getMessage should include("Site-registration PDF")
         drift._2 shouldBe drift._3
         incompatible._1.getMessage should include("requires kind document")
         incompatible._2 shouldBe incompatible._3
@@ -896,9 +897,9 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
   private def _with_part5_pdf_fixture[A](name: String)(f: SiteCommandPart5Fixture.Data => A): A =
     _with_part5_fixture(name, _part5_pdf_yaml()) { fixture =>
       _write(fixture.root.resolve("knowledge/part-5.dox"), "Part 5 article authority")
-      _write(fixture.root.resolve("input/summary-ja.png"), "Part 5 summary ja source")
-      _write(fixture.root.resolve("input/summary-en.png"), "Part 5 summary en source")
-      _write(fixture.root.resolve("input/unbound.png"), "Part 5 unbound source")
+      _write_png(fixture.root.resolve("input/summary-ja.png"))
+      _write_png(fixture.root.resolve("input/summary-en.png"))
+      _write_png(fixture.root.resolve("input/unbound.png"))
       _write(fixture.root.resolve("target/video-ja.mp4"), "Part 5 video ja")
       _write(fixture.root.resolve("target/video-en.mp4"), "Part 5 video en")
       _write(fixture.root.resolve("target/article-ja.pdf"), "%PDF-1.7\nPart 5 article ja")
@@ -1099,6 +1100,12 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
        |  "youtube": {"status": "$youtubestatus", "videoUrl": "$url"}
        |}
        |""".stripMargin
+
+  private def _write_png(path: Path): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val image = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB)
+    javax.imageio.ImageIO.write(image, "png", path.toFile) shouldBe true
+  }
 
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))

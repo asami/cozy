@@ -6,7 +6,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentConfirmationCommand {
@@ -26,7 +27,7 @@ private[cozy] object CozyDocumentConfirmationCommand {
           val rendered = CozyDocumentConfirmationProjectionV2.render(validated, vocabulary)
           val destination = _destination(request.save)
           _publish(destination, rendered.html)
-          println(s"Cozy Document Confirmation Render\nkind: document\ncore: ${validated.core.core.id}\ncore identity: ${validated.coreIdentity}\ndocument: ${validated.description.id}\ndocument identity: ${validated.documentIdentity}\nidentity: ${rendered.identity}\noutput: $destination")
+          println(s"Cozy Document Confirmation Render\nkind: document\ncore: ${validated.core.core.id}\ndocument: ${validated.description.id}\noutput: $destination")
           true
         case "summary" =>
           val summary = request.summary.getOrElse(_fail("CONFIRMATION_CLI", "$.command", "--kind summary requires exactly --core <core.yaml> --document <document.yaml> --vocabulary <vocabulary.yaml> --summary <summary.yaml> --kind summary --save <output.html>"))
@@ -35,7 +36,7 @@ private[cozy] object CozyDocumentConfirmationCommand {
           val rendered = CozySummaryConfirmationProjectionV2.render(validated, vocabulary)
           val destination = _destination(request.save)
           _publish(destination, rendered.html)
-          println(s"Cozy Summary Confirmation Render\nkind: summary\ncore: ${validated.document.core.core.id}\ncore identity: ${validated.document.coreIdentity}\ndocument: ${validated.document.description.id}\ndocument identity: ${validated.document.documentIdentity}\nsummary: ${validated.description.id}\nsummary identity: ${validated.summaryIdentity}\nidentity: ${rendered.identity}\noutput: $destination")
+          println(s"Cozy Summary Confirmation Render\nkind: summary\ncore: ${validated.document.core.core.id}\ndocument: ${validated.document.description.id}\nsummary: ${validated.description.id}\noutput: $destination")
           true
         case _ => _fail("CONFIRMATION_CLI", "$.kind", "--kind must be document or summary")
       }

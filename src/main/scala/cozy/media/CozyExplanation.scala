@@ -7,8 +7,8 @@ import CozyExplanationJson._
 
 /*
  * @since   Aug. 28, 2026
- *  version Aug. 28, 2026
- * @version Sep.  9, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanation {
@@ -37,9 +37,9 @@ private[cozy] object CozyExplanation {
     explanationPatterns: Vector[ExplanationPattern],
     reservedNarrativeArgumentIds: Vector[String]
   )
-  final case class CatalogSelector(id: String, revision: Int, identity: String)
-  final case class SourceDeclaration(id: String, sha256: String)
-  final case class AssetDeclaration(id: String, mediaType: String, sha256: String)
+  final case class CatalogSelector(id: String, revision: Int)
+  final case class SourceDeclaration(id: String)
+  final case class AssetDeclaration(id: String, mediaType: String)
   final case class Fact(name: String, value: JsonValue, sourceRefs: Vector[String], assetRefs: Vector[String])
   final case class Parameter(name: String, value: JsonValue)
   final case class Claim(id: String, text: String, emphasis: String, sourceRefs: Vector[String], assetRefs: Vector[String])
@@ -88,11 +88,7 @@ private[cozy] object CozyExplanation {
     identity: String
   )
   final case class ResourceBindings(sources: Map[String, Path] = Map.empty, assets: Map[String, Path] = Map.empty)
-  final case class PresentationCatalog(
-    catalog: CozyVisualPage.Catalog,
-    catalogIdentity: String,
-    logicalCatalogIdentity: String
-  )
+  final case class PresentationCatalog(catalog: CozyVisualPage.Catalog)
   final case class ValidatedCatalog(catalog: Catalog, canonicalJson: String, identity: String)
   final case class ValidatedComposition(
     composition: Composition,
@@ -116,7 +112,6 @@ private[cozy] object CozyExplanation {
   private[media] val _plan_schema = "cozy.explanation-plan.v1"
   private[media] val _presentation_catalog_schema = "cozy.presentation-semantics.catalog.v1"
   private[media] val _token_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
-  private[media] val _sha256_pattern = "[0-9a-f]{64}".r
   private[media] val _identity_pattern = "sha256:[0-9a-f]{64}".r
   private[media] val _value_types = Set("text", "goal-list", "use-case-list", "scenario", "mechanism-list", "mechanism-link-list")
   private[media] val _reserved_ids = Vector(
@@ -176,7 +171,7 @@ private[cozy] object CozyExplanation {
 
   private[cozy] def fixedPresentationCatalog: PresentationCatalog = {
     val catalog = CozyVisualPage.fixedCatalog
-    PresentationCatalog(catalog, CozyVisualPage.catalogIdentity(catalog), CozyVisualPage.logicalCatalogIdentity(catalog))
+    PresentationCatalog(catalog)
   }
 
   def parseCatalogJson(text: String): Catalog = _parse_catalog(_parse_json(text, "$"), "$")
@@ -255,7 +250,7 @@ private[cozy] object CozyExplanation {
       case fault: CozyVisualPage.VisualPageFault =>
         _fail("EXPLANATION_PRESENTATION_CATALOG_INVALID", "presentation-catalog", fault.getMessage)
     }
-    PresentationCatalog(catalog, CozyVisualPage.catalogIdentity(catalog), CozyVisualPage.logicalCatalogIdentity(catalog))
+    PresentationCatalog(catalog)
   }
 
   private def _presentation_validation_probe(catalog: CozyVisualPage.Catalog): CozyVisualPage.PageSet =
@@ -446,7 +441,8 @@ private[cozy] object CozyExplanation {
     "version: 1",
     s"identity: ${validated.plan.identity}",
     s"compositionIdentity: ${validated.plan.compositionIdentity}",
-    s"presentationLogicalCatalogIdentity: ${validated.plan.presentationCatalog.identity}",
+    s"presentationCatalogId: ${validated.plan.presentationCatalog.id}",
+    s"presentationCatalogRevision: ${validated.plan.presentationCatalog.revision}",
     s"steps: ${validated.plan.steps.size}"
   ).mkString("\n")
 

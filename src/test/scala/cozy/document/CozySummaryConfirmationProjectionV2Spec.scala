@@ -2,7 +2,6 @@ package cozy.document
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -12,10 +11,23 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 13, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozySummaryConfirmationProjectionV2Spec {
+  private final case class Fixture(
+    validatedsummary: CozyDocumentDescriptionV2.ValidatedSummary,
+    core: CozyDocumentLogicTree.ValidatedCore,
+    relation: CozyDocumentLogicTree.Relation,
+    transition: CozyDocumentLogicTree.Transition,
+    corepath: Path
+  )
+}
+
 final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozySummaryConfirmationProjectionV2Spec.Fixture
+
   "Cozy Summary Confirmation Projection v2" should {
     "preserve explicit item focus in ordinary and overview partitions under reordered items and inverse readings" in {
       _with_temp_dir("cozy-summary-v2-explicit-focus") { root =>
@@ -238,7 +250,7 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
       }
     }
 
-    "render deterministic self-disclosing output while escaping Summary and Document wording" in {
+    "render deterministic digest-free output while escaping Summary and Document wording" in {
       _with_temp_dir("cozy-summary-confirmation-v2-determinism") { root =>
         Given("one strictly admitted v2 Summary with text and labels that require HTML escaping")
         val fixture = _fixture(root)
@@ -248,10 +260,9 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         val first = CozySummaryConfirmationProjectionV2.render(fixture.validatedsummary, vocabulary)
         val second = CozySummaryConfirmationProjectionV2.render(fixture.validatedsummary, vocabulary)
 
-        Then("the escaped self-disclosing HTML and identity are byte-stable")
+        Then("the escaped digest-free HTML is byte-stable")
         first shouldBe second
-        first.identity should startWith("sha256:")
-        first.html should include(s"""data-output-identity="${first.identity}"""")
+        first.html should not include("data-output-identity")
         first.html should include("Summary &lt;title&gt; &amp; &quot;quoted&quot;")
         first.html should include("<title>Summary &lt;title&gt; &amp; &quot;quoted&quot;</title>")
         first.html should include("<div class=\"kicker\">Summary &lt;title&gt; &amp; &quot;quoted&quot;</div>")
@@ -261,6 +272,39 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         first.html should include("Status &lt;heading&gt; &amp; &quot;quoted&quot;")
         first.html should not include("Summary <title>")
         first.html should not include("Step <root>")
+      }
+    }
+
+    "admit varied ignored nested binding metadata through production loading while preserving semantic Summary output" in {
+      _with_temp_dir("cozy-summary-confirmation-v2-legacy-metadata") { root =>
+        Given("one admitted Summary and scalar object array null or historical metadata on nested bindings")
+        val fixture = _fixture(root)
+        val vocabulary = _vocabulary(fixture.validatedsummary.document.core)
+        val baseline = CozySummaryConfirmationProjectionV2.render(fixture.validatedsummary, vocabulary).html
+        val metadata = Gen.oneOf(
+          Gen.const("  historical: sha256:not-a-binding"),
+          Gen.const("  historical: [legacy, metadata]"),
+          Gen.const("  historical: { source: legacy }"),
+          Gen.const("  historical: null"),
+          Gen.const("  identity: stale-looking-value"),
+          Gen.alphaNumStr.suchThat(_.nonEmpty).map(value => s"  historical: '$value'")
+        )
+        var index = 0
+
+        val property = Prop.forAll(metadata) { value =>
+          index += 1
+          val directory = root.resolve(s"metadata-$index/ja")
+          val documentpath = _write(directory.resolve("document.yaml"), _document(fixture.core, value))
+          val summarypath = _write(directory.resolve("summary.yaml"), _summary(fixture.core, fixture.relation, fixture.transition, value, value))
+          val variant = CozyDocumentDescriptionV2.loadSummary(fixture.corepath, documentpath, summarypath)
+          CozySummaryConfirmationProjectionV2.render(variant, vocabulary).html == baseline
+        }
+
+        When("production V2 admission reads each unchanged semantic Document and Summary with ignored binding metadata")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+
+        Then("at least thirty admitted samples retain identical escaped digest-free HTML")
+        result.passed shouldBe true
       }
     }
 
@@ -425,20 +469,16 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
 
         When("the self-contained reference-shaped workspace is composed")
         val statusposition = html.indexOf("Selected explicit Summary sources are current and admitted")
-        val identityposition = html.indexOf("Core identity")
 
-        Then("status stays selective, identities stay secondary, and the connected native flow remains accessible")
+        Then("status stays selective, digest disclosures stay absent, and the connected native flow remains accessible")
         secondpanel should include("data-emphasis=\"conclusion\"")
         html should include("data-empty-diagram=\"true\"")
         html should include("Selected explicit Summary sources are current and admitted")
         html should include("No unresolved selected references")
         html should not include("Complete coverage")
         statusposition should be >= 0
-        identityposition should be > statusposition
-        html should include("<details class=\"secondary\">")
-        html should include(fixture.validatedsummary.document.coreIdentity)
-        html should include(fixture.validatedsummary.document.documentIdentity)
-        html should include(fixture.validatedsummary.summaryIdentity)
+        html should not include("data-output-identity")
+        html should not include("Core identity")
         html should include("aspect-ratio:16 / 9")
         html should include("@media (max-width:850px){.page{padding:14px}.header{align-items:flex-start;flex-direction:column}.flow{grid-template-columns:1fr}")
         html should include(":focus-visible")
@@ -541,8 +581,6 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
     }
   }
 
-  private final case class Fixture(validatedsummary: CozyDocumentDescriptionV2.ValidatedSummary)
-
   private def _overview_unit(validated: CozyDocumentDescriptionV2.ValidatedSummary): CozyDocumentDescriptionV2.SummaryUnit = {
     val root = validated.document.core.core.root
     val refs = CozyDocumentDescriptionV2.References(root.id +: root.steps.map(_.id), root.claims.map(_.id), root.structure.nodes.map(_.id), root.structure.relations.map(_.id), Vector(root.flow.id))
@@ -586,13 +624,13 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
     val relation = validatedcore.depthFirstSteps.flatMap(_.structure.relations).head
     val transition = validatedcore.depthFirstSteps.flatMap(_.flow.transitions).head
     val document = locale.resolve("document.yaml")
-    _write(document, _document(validatedcore, _identity(core)))
+    _write(document, _document(validatedcore))
     val summary = locale.resolve("summary.yaml")
-    _write(summary, _summary(validatedcore, relation, transition, _identity(core), _identity(document)))
-    new Fixture(CozyDocumentDescriptionV2.loadSummary(core, document, summary))
+    _write(summary, _summary(validatedcore, relation, transition))
+    new Fixture(CozyDocumentDescriptionV2.loadSummary(core, document, summary), validatedcore, relation, transition, core)
   }
 
-  private def _document(core: CozyDocumentLogicTree.ValidatedCore, coreidentity: String): String = {
+  private def _document(core: CozyDocumentLogicTree.ValidatedCore, metadata: String = ""): String = {
     val refs = _references(core)
     val steplabels = core.depthFirstSteps.map { step =>
       val text = if (step == core.core.root) "Step <root> & \"quoted\"" else s"Step ${step.id}"
@@ -606,7 +644,7 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
         |id: document-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
+        |$metadata
         |locale: ja
         |document:
         |  title: 'Document <title> & "quoted"'
@@ -639,18 +677,18 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
     core: CozyDocumentLogicTree.ValidatedCore,
     relation: CozyDocumentLogicTree.Relation,
     transition: CozyDocumentLogicTree.Transition,
-    coreidentity: String,
-    documentidentity: String
+    coremetadata: String = "",
+    documentmetadata: String = ""
   ): String = {
     val refs = _references(core)
     s"""|schema: cozy.summary-description.v2
         |id: summary-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
+        |$coremetadata
         |document:
         |  id: document-ja
-        |  identity: $documentidentity
+        |$documentmetadata
         |locale: ja
         |summary:
         |  title: 'Summary <title> & "quoted"'
@@ -743,12 +781,7 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
       "No authored diagram for this selected unit",
       "Selected sources",
       "Document omissions",
-      "Rationale",
-      "Identities",
-      "Core identity",
-      "Document identity",
-      "Summary identity",
-      "Output identity"
+      "Rationale"
     )
     val sourcecategories = Map("steps" -> "Steps", "claims" -> "Claims", "nodes" -> "Nodes", "relations" -> "Relations", "flows" -> "Flows")
     val diagramitemkinds = Map("step" -> "Step", "node" -> "Node")
@@ -786,7 +819,6 @@ final class CozySummaryConfirmationProjectionV2Spec extends AnyWordSpec with Mat
     html.substring(html.lastIndexOf("<", index), html.indexOf(">", index) + 1)
   }
   private def _occurrences(value: String, part: String): Int = value.sliding(part.length).count(_ == part)
-  private def _identity(path: Path): String = "sha256:" + MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
 
   private def _write(path: Path, value: String): Path = {

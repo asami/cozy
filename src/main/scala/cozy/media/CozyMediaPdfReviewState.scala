@@ -9,8 +9,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 30, 2026
- *  version Aug. 30, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPdfReviewState {
@@ -22,7 +22,6 @@ private[cozy] object CozyMediaPdfReviewState {
     mediaType: String,
     output: String,
     sha256: String,
-    inputSetSha256: String,
     rendererManifestSha256: Option[String]
   )
 
@@ -53,7 +52,7 @@ private[cozy] object CozyMediaPdfReviewState {
       _state(plan, candidate, Set.empty, None).exists { state =>
         val path = _state_path(plan)
         _direct_regular_file(path) &&
-          Files.readAllBytes(path).sameElements((_json(state).spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+          _record_matches(path, state)
       }
     } catch {
       case NonFatal(_) => false
@@ -76,7 +75,7 @@ private[cozy] object CozyMediaPdfReviewState {
       _site_registration_state(plan).exists { state =>
         val path = _state_path(plan)
         _direct_regular_file(path) &&
-          Files.readAllBytes(path).sameElements((_json(state).spaces2 + "\n").getBytes(StandardCharsets.UTF_8))
+          _record_matches(path, state)
       }
     } catch {
       case NonFatal(_) => false
@@ -220,7 +219,7 @@ private[cozy] object CozyMediaPdfReviewState {
     val renderer =
       if (_direct_summary_slides_pdf(resolved)) Some(_renderer_manifest_sha256(plan, resolved))
       else None
-    Resource(entry.id, role, language, publicpath, mediatype, relative, entry.sha256, receipt.inputSetSha256, renderer)
+    Resource(entry.id, role, language, publicpath, mediatype, relative, entry.sha256, renderer)
   }
 
   private def _direct_summary_slides_pdf(resolved: CozyMedia.ResolvedResource): Boolean =
@@ -248,6 +247,16 @@ private[cozy] object CozyMediaPdfReviewState {
       "resources" -> Json.fromValues(state.resources.map(_resource_json))
     )
 
+  private def _record_matches(path: Path, state: State): Boolean = {
+    val json = io.circe.parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption
+    val normalized = json.map(_.mapObject { fields =>
+      fields("resources").flatMap(_.asArray).map { resources =>
+        fields.add("resources", Json.fromValues(resources.map(_.mapObject(_.remove("inputSetSha256")))))
+      }.getOrElse(fields)
+    })
+    normalized.contains(_json(state))
+  }
+
   private def _resource_json(value: Resource): Json =
     Json.fromFields(Vector(
       "id" -> Json.fromString(value.id),
@@ -256,8 +265,7 @@ private[cozy] object CozyMediaPdfReviewState {
       "publicPath" -> Json.fromString(value.publicPath),
       "mediaType" -> Json.fromString(value.mediaType),
       "output" -> Json.fromString(value.output),
-      "sha256" -> Json.fromString(value.sha256),
-      "inputSetSha256" -> Json.fromString(value.inputSetSha256)
+      "sha256" -> Json.fromString(value.sha256)
     ) ++ value.rendererManifestSha256.map(hash => "rendererManifestSha256" -> Json.fromString(hash)).toVector)
 
   private def _state_path(plan: CozyMedia.Plan): Path =

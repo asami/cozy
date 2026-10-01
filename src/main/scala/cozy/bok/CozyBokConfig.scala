@@ -32,28 +32,12 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
-private[cozy] trait CozyBokConfig {
-  self: CozyBokImplementation.type =>
-  private[bok] val _default_docker_image = "ghcr.io/asami/textus-toolchain:latest"
-  private[bok] val _ui_resource_base = "cozy.bok.BokUi"
-  private[bok] val _ui_resource_config = I18NContext.ResourceBundleConfig.englishFallback
-
-  sealed trait LocaleMode
-  object LocaleMode {
-    case object MultiLocaleSubdirs extends LocaleMode
-    case object SingleLocaleRoot extends LocaleMode
-
-    def create(value: String): LocaleMode =
-      value match {
-        case "multi_locale_subdirs" | "multi-locale-subdirs" => MultiLocaleSubdirs
-        case "single_locale_root" | "single-locale-root" => SingleLocaleRoot
-        case other => RAISE.invalidArgumentFault(s"Unsupported bok locale mode: ${other}")
-      }
-  }
+private[cozy] object CozyBokConfig {
+  import CozyBokImplementation._
 
   final case class CreateConfig(
     save: Path,
@@ -62,6 +46,7 @@ private[cozy] trait CozyBokConfig {
     language: String,
     policy: ProjectFilePolicy
   )
+
   final case class CategoryConfig(
     project: Path,
     name: String,
@@ -72,9 +57,11 @@ private[cozy] trait CozyBokConfig {
     terms: Vector[CategoryTerm],
     policy: ProjectFilePolicy
   )
+
   final case class BokGoal(title: String, subgoals: Vector[String]) {
     def isEmpty: Boolean = title.trim.isEmpty && subgoals.isEmpty
   }
+
   final case class BokPurpose(
     vision: Option[String],
     goals: Vector[BokGoal],
@@ -83,34 +70,25 @@ private[cozy] trait CozyBokConfig {
   ) {
     def isEmpty: Boolean = vision.isEmpty && goals.isEmpty && flatGoals.isEmpty && flatSubgoals.isEmpty
   }
+
   object BokPurpose {
     lazy val empty: BokPurpose = new BokPurpose(None, Vector.empty)
   }
+
   final case class CategoryArticle(slug: String, title: String, purpose: String) {
     def fileName: String = s"${slug}.dox"
     def htmlName: String = s"${slug}.html"
   }
+
   final case class CategoryTerm(path: String, title: String, definition: String, reading: Option[String] = None) {
     def termPath: String = path.stripPrefix("glossary/").stripPrefix("/")
     def fileName: String = s"${termPath}.dox"
     def htmlName(category: String): String = s"../glossary/${category}/${termPath}.html"
   }
-  final case class DoctorConfig(input: Path, fix: Boolean, dryRun: Boolean)
-  final case class PreviewConfig(input: Path, port: Option[Int])
-  sealed trait ProjectFilePolicy
-  object ProjectFilePolicy {
-    case object Default extends ProjectFilePolicy
-    case object Skip extends ProjectFilePolicy
-    case object Overwrite extends ProjectFilePolicy
 
-    def create(args: ParsedArgs): ProjectFilePolicy =
-      if (args.request.switches.exists(x => x.name == "no-project-files" || x.name == "no-scaffold-files"))
-        Skip
-      else if (args.request.switches.exists(x => x.name == "overwrite-project-files" || x.name == "force-project-files"))
-        Overwrite
-      else
-        Default
-  }
+  final case class DoctorConfig(input: Path, fix: Boolean, dryRun: Boolean)
+
+  final case class PreviewConfig(input: Path, port: Option[Int])
 
   object CreateConfig {
     def create(args: List[String]): CreateConfig = {
@@ -224,6 +202,60 @@ private[cozy] trait CozyBokConfig {
       case Vector(path) => CategoryTerm(path, _titleize(path), s"${_titleize(path)} definition.")
       case _ => RAISE.invalidArgumentFault(s"Invalid bok category term: ${value}")
     }
+  }
+}
+
+private[cozy] trait CozyBokConfig {
+  self: CozyBokImplementation.type =>
+
+  type CreateConfig = CozyBokConfig.CreateConfig
+  lazy val CreateConfig = CozyBokConfig.CreateConfig
+  type CategoryConfig = CozyBokConfig.CategoryConfig
+  lazy val CategoryConfig = CozyBokConfig.CategoryConfig
+  type BokGoal = CozyBokConfig.BokGoal
+  lazy val BokGoal = CozyBokConfig.BokGoal
+  type BokPurpose = CozyBokConfig.BokPurpose
+  lazy val BokPurpose = CozyBokConfig.BokPurpose
+  type CategoryArticle = CozyBokConfig.CategoryArticle
+  lazy val CategoryArticle = CozyBokConfig.CategoryArticle
+  type CategoryTerm = CozyBokConfig.CategoryTerm
+  lazy val CategoryTerm = CozyBokConfig.CategoryTerm
+  type DoctorConfig = CozyBokConfig.DoctorConfig
+  lazy val DoctorConfig = CozyBokConfig.DoctorConfig
+  type PreviewConfig = CozyBokConfig.PreviewConfig
+  lazy val PreviewConfig = CozyBokConfig.PreviewConfig
+  import CozyBokConfig._parse_category_article
+  import CozyBokConfig._parse_category_term
+  private[bok] val _default_docker_image = "ghcr.io/asami/textus-toolchain:latest"
+  private[bok] val _ui_resource_base = "cozy.bok.BokUi"
+  private[bok] val _ui_resource_config = I18NContext.ResourceBundleConfig.englishFallback
+
+  sealed trait LocaleMode
+  object LocaleMode {
+    case object MultiLocaleSubdirs extends LocaleMode
+    case object SingleLocaleRoot extends LocaleMode
+
+    def create(value: String): LocaleMode =
+      value match {
+        case "multi_locale_subdirs" | "multi-locale-subdirs" => MultiLocaleSubdirs
+        case "single_locale_root" | "single-locale-root" => SingleLocaleRoot
+        case other => RAISE.invalidArgumentFault(s"Unsupported bok locale mode: ${other}")
+      }
+  }
+
+  sealed trait ProjectFilePolicy
+  object ProjectFilePolicy {
+    case object Default extends ProjectFilePolicy
+    case object Skip extends ProjectFilePolicy
+    case object Overwrite extends ProjectFilePolicy
+
+    def create(args: ParsedArgs): ProjectFilePolicy =
+      if (args.request.switches.exists(x => x.name == "no-project-files" || x.name == "no-scaffold-files"))
+        Skip
+      else if (args.request.switches.exists(x => x.name == "overwrite-project-files" || x.name == "force-project-files"))
+        Overwrite
+      else
+        Default
   }
 
   private[bok] def _titleize(value: String): String =

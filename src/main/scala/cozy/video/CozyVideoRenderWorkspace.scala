@@ -27,12 +27,35 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- *  version Aug. 14, 2026
- * @version Sep. 16, 2026
+ *  version Sep. 16, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] object CozyVideoRenderWorkspace {
+  import CozyVideoImplementation._
+
+  private[video] final case class CharacterDialogueAssets(characters: Json, visuals: Map[String, Json])
+
+  private[video] object CharacterDialogueAssets {
+    val empty = CharacterDialogueAssets(Json.obj(), Map.empty)
+  }
+
+  private[video] final case class CharacterDialogueTemplateResource(name: String, bytes: Array[Byte], sha256: String)
+
+  private[video] final case class CharacterDialogueTemplate(dialogue: CharacterDialogueTemplateResource, diagramlayout: CharacterDialogueTemplateResource) {
+    def resources: Vector[(String, String)] = Vector(dialogue, diagramlayout).map(x => x.name -> x.sha256)
+  }
+}
+
 private[cozy] trait CozyVideoRenderWorkspace {
   self: CozyVideoTypes with CozyVideoRuntime with CozyVideoCommand with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRdf with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+
+  private[video] type CharacterDialogueAssets = CozyVideoRenderWorkspace.CharacterDialogueAssets
+  private[video] lazy val CharacterDialogueAssets = CozyVideoRenderWorkspace.CharacterDialogueAssets
+  private[video] type CharacterDialogueTemplateResource = CozyVideoRenderWorkspace.CharacterDialogueTemplateResource
+  private[video] lazy val CharacterDialogueTemplateResource = CozyVideoRenderWorkspace.CharacterDialogueTemplateResource
+  private[video] type CharacterDialogueTemplate = CozyVideoRenderWorkspace.CharacterDialogueTemplate
+  private[video] lazy val CharacterDialogueTemplate = CozyVideoRenderWorkspace.CharacterDialogueTemplate
   private[video] def _render_remotion(
     config: RenderConfig,
     plan: VideoPlan,
@@ -203,11 +226,6 @@ private[cozy] trait CozyVideoRenderWorkspace {
     propsjson
   }
 
-  private[video] final case class CharacterDialogueAssets(characters: Json, visuals: Map[String, Json])
-  private[video] object CharacterDialogueAssets {
-    val empty = CharacterDialogueAssets(Json.obj(), Map.empty)
-  }
-
   private[video] def _is_character_dialogue(part: VideoPartPlan, script: VideoScript, renderer: Option[VideoRenderer]): Boolean = {
     val strategy = _part_renderer_property(part, "strategy").orElse(renderer.flatMap(_.strategy)).map(_.trim.toLowerCase)
     part.partType == "dialogue" && (strategy match {
@@ -221,11 +239,6 @@ private[cozy] trait CozyVideoRenderWorkspace {
     part.renderer.split(",").toVector.map(_.trim).collectFirst {
       case field if field.startsWith(name + "=") => field.drop(name.length + 1).trim
     }.filter(_.nonEmpty)
-
-  private[video] final case class CharacterDialogueTemplateResource(name: String, bytes: Array[Byte], sha256: String)
-  private[video] final case class CharacterDialogueTemplate(dialogue: CharacterDialogueTemplateResource, diagramlayout: CharacterDialogueTemplateResource) {
-    def resources: Vector[(String, String)] = Vector(dialogue, diagramlayout).map(x => x.name -> x.sha256)
-  }
 
   private[video] def _load_character_dialogue_template(): CharacterDialogueTemplate = {
     val dialogue = _load_character_dialogue_template_resource("DialogueVideo.jsx", _character_dialogue_template_sha256)

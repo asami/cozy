@@ -462,13 +462,17 @@ identity-only placeholder.  Only an explicitly accepted human decision may add
 or replace an accepted entry.  Raw AI dialogue remains provenance outside the
 Core. The Core contains neither status nor renderer/delivery/provider fields.
 The P45-02 evidence boundary retains provider, model, source, idea, request,
-response, candidate, feedback, and acceptance identities without making a
-provider invocation, mutable Core status, or receipt. Acceptance uses an
-evidence-first recoverable visibility protocol: immutable evidence is durable
-before the only Core move; its declared direct Core prior/result hashes classify
-the record as pending, applied, or historical; and only the same human decision
-can resume pending evidence without adding another record. It adds no schema,
-version, provider, remote workflow, or compatibility branch. Structured
+response, candidate, feedback, and acceptance semantics without making a
+provider invocation, mutable Core status, or receipt. Canonical evidence uses
+text payloads, named references, decision values, direct project-relative paths,
+and no hash field; ordinary historical object loading ignores additional
+properties while validating the required semantic fields and direct referenced
+files. Acceptance uses an evidence-first recoverable visibility protocol:
+immutable evidence is durable before the only Core move; it captures the direct
+prior Core `FileTime` at evidence append, permits an already-applied retry by
+ordered accepted-entry meaning, and permits pending replay only when that
+timestamp still equals the direct Core. It adds no generic metadata framework,
+schema, version, provider, remote workflow, or compatibility branch. Structured
 semantic vocabulary and automation remain out of scope.
 
 ## Command and scaffold boundary
@@ -690,24 +694,25 @@ exact candidate and human reviewer with the sole decision `accepted`.
 Every input has a closed JSON/YAML schema and is admitted as a direct,
 non-symlink regular file. Candidate/attempt, feedback, and acceptance records
 are append-only, direct project-local files below `evidence/content-core/`.
-They retain raw source, idea, request, response, provider/model identity,
-diagnostics, candidate/result Core identity, reviewer identity, decision, and
-any direct supersession link. The evidence is not public source, a render
-input, a receipt, a dashboard projection, or an external provider command.
-No accepted/rejected/superseded decision can be rewritten; a changed Core makes
-the old acceptance record historical because it binds the resulting Core hash.
+They retain raw source, idea, request, response, provider/model reference,
+diagnostics, candidate/result Core paths, reviewer reference, decision, and any
+direct supersession link. The evidence is not public source, a render input, a
+receipt, a dashboard projection, or an external provider command. No
+accepted/rejected/superseded decision can be rewritten; a changed Core makes an
+acceptance record non-resumable unless its ordered accepted entries already
+match the candidate or its retained prior Core timestamp remains current.
 
 The forms use one project-local direct regular coordination file at
 `<project>/.content-core.lock`. It is deliberately neither evidence nor
 authored semantic authority and adds no state record. After input admission,
 the non-waiting exclusive lock encloses all Content Core state observation,
-evidence-directory creation and append, Core hash validation, and Core
-replacement. A busy or same-JVM-overlapping lock is a retryable `DP-OP-001`
-with no evidence or Core mutation; an unsafe or unusable lock path is
-`DP-PATH-001`. The evidence-first acceptance/recovery protocol remains inside
-that critical section: exact pending acceptance resumes, an exact resulting
-hash is idempotently accepted, and a third hash remains historical and
-terminal.
+evidence-directory creation and append, Core validation, and Core replacement.
+A busy or same-JVM-overlapping lock is a retryable `DP-OP-001` with no evidence
+or Core mutation; an unsafe or unusable lock path is `DP-PATH-001`. The
+evidence-first acceptance/recovery protocol remains inside that critical
+section: an exact semantic replacement is idempotently accepted, an exact
+pending timestamp resumes, and missing or changed timestamp metadata is
+historical and terminal.
 
 Generic `run` remains available for unrelated declared operations. For
 `content-core.compose`, descriptor admission is followed by the ordinary

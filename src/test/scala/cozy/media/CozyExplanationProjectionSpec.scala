@@ -2,7 +2,6 @@ package cozy.media
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 
 import scala.collection.JavaConverters._
 
@@ -14,16 +13,37 @@ import cozy.CozySpecVocabulary
 import cozy.video.CozyVideoImplementation
 import io.circe.Json
 import io.circe.parser
+import io.circe.parser.parse
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyExplanationProjectionSpec {
+  private final case class Fixture(
+    catalogfile: Path,
+    presentationcatalogfile: Path,
+    compositionfile: Path,
+    planfile: Path,
+    mapfile: Path,
+    visualpagesetfile: Path,
+    storyboardfile: Path,
+    bindings: CozyExplanation.ResourceBindings,
+    presentationcatalog: CozyVisualPage.Catalog,
+    pages: CozyVisualPage.PageSet,
+    storyboard: CozyVideoImplementation.Storyboard,
+    projectionmap: CozyExplanationProjection.ProjectionMap
+  )
+}
+
 final class CozyExplanationProjectionSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
+  import CozyExplanationProjectionSpec.Fixture
+
   "Cozy Explanation ProjectionMap" should {
     "canonicalize generated root key orders and validate inspect and convert one explicit map" in {
       _with_work("map-canonical") { root =>
@@ -56,6 +76,47 @@ final class CozyExplanationProjectionSpec
   }
 
   "Cozy Explanation Projection" should {
+    "ignore obsolete selectors and receipt proofs while processing current valid media" in {
+      _with_work("projection-proof-removal") { root =>
+        Given("a current explicit Projection closure with no historical VisualPage proof requirement")
+        val fixture = _fixture(root)
+        val output = root.resolve("projection.json")
+        CozyExplanation.execute(_project_command(fixture, output))
+        val original = Files.readString(output, StandardCharsets.UTF_8)
+        val originalmap = Files.readString(fixture.mapfile, StandardCharsets.UTF_8)
+        val obsolete = Vector("\"obsolete\"", "{}", "[]", "true", "null", "1.5", "9223372036854775808")
+
+        When("public ProjectionMap and Projection loading encounter every obsolete JSON value shape")
+        val results = obsolete.map { raw =>
+          val extra = parse(raw).toOption.get
+          val map = parse(originalmap).toOption.get.mapObject { fields =>
+            Vector("explanationCatalog", "presentationCatalog").foldLeft(fields)((current, name) => current.add(name, current(name).get.mapObject(_.add("identity", extra))))
+          }.noSpaces
+          _write(fixture.mapfile, map)
+          CozyExplanationProjection.loadProjectionMap(fixture.mapfile, fixture.compositionfile, fixture.planfile, fixture.catalogfile, fixture.presentationcatalogfile, fixture.bindings)
+          val legacy = parse(original).toOption.get.mapObject { fields =>
+            fields.add("presentation", fields("presentation").get.mapObject { presentation =>
+              presentation.add("visualPageSet", presentation("visualPageSet").get.mapObject(_.add("identity", extra).add("value", extra)))
+            }).add("receipt", fields("receipt").get.mapObject { receipt =>
+              Vector("presentationLogicalCatalogIdentity", "presentationCatalogIdentity", "visualPageSetIdentity", "presentationLogicalCatalog", "presentationCatalog", "visualPageSet").foldLeft(receipt)((current, name) => current.add(name, extra))
+            })
+          }.noSpaces
+          _write(output, legacy)
+          CozyExplanation.execute(_verify_command(fixture, output))
+        }
+        val invalidmaps = Vector("explanationCatalog", "presentationCatalog").flatMap { name =>
+          Vector(Json.obj("id" -> Json.Null, "revision" -> Json.fromInt(1)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromBoolean(true)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(0)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(1), "unknown" -> Json.obj())).map(selector => parse(originalmap).toOption.get.mapObject(_.add(name, selector)).noSpaces)
+        } ++ Vector(originalmap.replace("\"explanationCatalog\":{", "\"explanationCatalog\":{\"identity\":{\"duplicate\":1,\"duplicate\":2},"), originalmap + "{}", originalmap.trim.dropRight(1))
+        val failures = invalidmaps.map(text => _failure(CozyExplanationProjection.parseProjectionMapJson(text)))
+
+        Then("removed proofs do not independently veto verification and canonical typed output emits none of them")
+        results.foreach(_ should include_text("cozy.explanation-projection.v1"))
+        failures should have size invalidmaps.size
+        val normalized = CozyExplanationProjection.canonicalProjectionJson(CozyExplanationProjection.parseProjectionJson(Files.readString(output)))
+        normalized shouldBe original.trim
+      }
+    }
+
     "project only the selected receipt with copied mappings and verify the same current closure" in {
       _with_work("project") { root =>
         Given("multiple P36 pages and multiple P30 v2 visual-page scenes whose counts deliberately differ")
@@ -85,8 +146,7 @@ final class CozyExplanationProjectionSpec
         validated.projection.presentation.identity shouldBe fixture.projectionmap.presentation.identity
         validated.projection.video.identity shouldBe fixture.projectionmap.video.identity
         validated.projection.video.storyboard.identity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
-        validated.projection.receipt.visualPageSetIdentity shouldBe CozyVisualPage.visualPageSetIdentity(fixture.pages, fixture.presentationcatalog)
-        validated.projection.receipt.presentationCatalogIdentity shouldBe CozyVisualPage.catalogIdentity(fixture.presentationcatalog)
+        validated.projection.presentation.visualPageSet shouldBe CozyExplanationProjection.VisualPageSetSelector(fixture.pages.id)
         validated.canonicalJson should not include ("\"storyboard\":{\"id\"")
         fixture.pages.pages.size should be > fixture.storyboard.scenes.size
         fixture.pages.pages.filter(_.logical == fixture.pages.pages.head.logical).map(_.visual.pattern) should contain allOf ("flow-horizontal", "flow-vertical")
@@ -150,7 +210,7 @@ final class CozyExplanationProjectionSpec
         validated.projection.video.identity shouldBe fixture.projectionmap.video.identity
         validated.projection.presentation.visualPageSet.id shouldBe "product-mechanism-pages"
         validated.projection.video.storyboard.identity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
-        validated.projection.receipt.visualPageSetIdentity shouldBe CozyVisualPage.visualPageSetIdentity(fixture.pages, fixture.presentationcatalog)
+        validated.projection.presentation.visualPageSet shouldBe CozyExplanationProjection.VisualPageSetSelector(fixture.pages.id)
         validated.projection.receipt.storyboardIdentity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
         validated.canonicalJson should not include ("inferred")
         validated.canonicalJson should not include ("approval")
@@ -187,12 +247,14 @@ final class CozyExplanationProjectionSpec
         ))
         val changedpages = fixture.pages.copy(pages = fixture.pages.pages.updated(0, changedpage))
         _write(root.resolve("sources/p36-source.txt"), "P36 source bytes with the same ID")
-        val divergentasset = _write(root.resolve("assets/p36-asset.txt"), "P36 asset bytes with the same ID")
+        _write(root.resolve("assets/p36-asset.txt"), "P36 asset bytes with the same ID")
+        val sourceoutput = _write(root.resolve("source-failure.json"), "preserve-source")
+        val assetoutput = _write(root.resolve("asset-failure.json"), "preserve-asset")
         val sourcevariant = fixture.pages.copy(pages = fixture.pages.pages.map(page =>
           page.copy(sources = Vector(CozyVisualPage.SourceBinding("source", "sources/p36-source.txt")))
         ))
         val assetvariant = fixture.pages.copy(pages = fixture.pages.pages.map(page =>
-          page.copy(assets = Vector(CozyVisualPage.Asset("asset", "assets/p36-asset.txt", "text/plain", _sha256(divergentasset))))
+          page.copy(assets = Vector(CozyVisualPage.Asset("asset", "assets/p36-asset.txt", "text/plain")))
         ))
         val nonvisual = fixture.storyboard.copy(scenes = fixture.storyboard.scenes.updated(0, fixture.storyboard.scenes.head.copy(
           screen = CozyVideoImplementation.StoryboardTextScreen("Text only", "Not a visual page")
@@ -220,9 +282,9 @@ final class CozyExplanationProjectionSpec
           unsafefile, fixture.compositionfile, fixture.planfile, fixture.catalogfile, fixture.presentationcatalogfile, fixture.bindings
         ))
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(sourcevariant))
-        val sourcefailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("source-failure.json"))))
+        val sourcefailure = _failure(CozyExplanation.execute(_project_command(fixture, sourceoutput)))
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(assetvariant))
-        val assetfailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("asset-failure.json"))))
+        val assetfailure = _failure(CozyExplanation.execute(_project_command(fixture, assetoutput)))
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(changedpages))
         val pagefailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("page-failure.json"))))
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(fixture.pages))
@@ -248,8 +310,10 @@ final class CozyExplanationProjectionSpec
         selectorfailure.getMessage should include_text("compositionIdentity")
         sourcefailure.getMessage should include_text("P36 source bytes do not agree")
         sourcefailure.getMessage should include_text("sources.source")
-        assetfailure.getMessage should include_text("P36 asset digest does not agree")
+        assetfailure.getMessage should include_text("P36 asset bytes do not agree")
         assetfailure.getMessage should include_text("assets.asset")
+        Files.readString(sourceoutput, StandardCharsets.UTF_8) shouldBe "preserve-source"
+        Files.readString(assetoutput, StandardCharsets.UTF_8) shouldBe "preserve-asset"
         pagefailure.getMessage should include_text("pageIds")
         screenfailure.getMessage should include_text("sceneIds")
         receiptfailure.getMessage should include_text("Projection does not exactly preserve")
@@ -259,21 +323,6 @@ final class CozyExplanationProjectionSpec
     }
   }
 
-  private final case class Fixture(
-    catalogfile: Path,
-    presentationcatalogfile: Path,
-    compositionfile: Path,
-    planfile: Path,
-    mapfile: Path,
-    visualpagesetfile: Path,
-    storyboardfile: Path,
-    bindings: CozyExplanation.ResourceBindings,
-    presentationcatalog: CozyVisualPage.Catalog,
-    pages: CozyVisualPage.PageSet,
-    storyboard: CozyVideoImplementation.Storyboard,
-    projectionmap: CozyExplanationProjection.ProjectionMap
-  )
-
   private def _fixture(root: Path): Fixture = {
     val catalog = _catalog()
     val presentationcatalog = _presentation_catalog()
@@ -282,12 +331,12 @@ final class CozyExplanationProjectionSpec
     val sourcefile = _write(root.resolve("sources/source.txt"), "source bytes")
     val assetfile = _write(root.resolve("assets/asset.txt"), "asset bytes")
     val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
-    val composition = _composition(catalog, _sha256(sourcefile), _sha256(assetfile))
+    val composition = _composition(catalog)
     val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
     val validatedcomposition = CozyExplanation.loadComposition(compositionfile, catalogfile, presentationcatalogfile, bindings)
     val plan = CozyExplanation.expand(validatedcomposition)
     val planfile = _write(root.resolve("plan.json"), CozyExplanation.canonicalPlanJson(plan))
-    val pages = _pages(plan, presentationcatalog, _sha256(assetfile))
+    val pages = _pages(plan, presentationcatalog)
     val visualpagesetfile = _write(root.resolve("visual-pages.json"), CozyVisualPage.canonicalJson(pages))
     val storyboard = _storyboard(pages)
     val storyboardfile = _write(root.resolve("storyboard.json"), CozyVideoImplementation.canonicalStoryboardJson(storyboard))
@@ -304,12 +353,12 @@ final class CozyExplanationProjectionSpec
     val sourcefile = _write(root.resolve("sources/source.txt"), "mechanism source bytes")
     val assetfile = _write(root.resolve("assets/asset.txt"), "mechanism asset bytes")
     val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
-    val composition = _mechanism_composition(catalog, _sha256(sourcefile), _sha256(assetfile))
+    val composition = _mechanism_composition(catalog)
     val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
     val validatedcomposition = CozyExplanation.loadComposition(compositionfile, catalogfile, presentationcatalogfile, bindings)
     val plan = CozyExplanation.expand(validatedcomposition)
     val planfile = _write(root.resolve("plan.json"), CozyExplanation.canonicalPlanJson(plan))
-    val page = _mechanism_page(plan.steps.head.logical, presentationcatalog, _sha256(assetfile))
+    val page = _mechanism_page(plan.steps.head.logical, presentationcatalog)
     val pages = CozyVisualPage.PageSet("product-mechanism-pages", Vector(page))
     val visualpagesetfile = _write(root.resolve("visual-pages.json"), CozyVisualPage.canonicalJson(pages))
     val storyboard = _mechanism_storyboard()
@@ -319,7 +368,7 @@ final class CozyExplanationProjectionSpec
     Fixture(catalogfile, presentationcatalogfile, compositionfile, planfile, mapfile, visualpagesetfile, storyboardfile, bindings, presentationcatalog, pages, storyboard, projectionmap)
   }
 
-  private def _mechanism_composition(catalog: CozyExplanation.Catalog, sourcedigest: String, assetdigest: String): CozyExplanation.Composition = {
+  private def _mechanism_composition(catalog: CozyExplanation.Catalog): CozyExplanation.Composition = {
     val sources = Vector("source")
     val assets = Vector("asset")
     val facts = Vector(
@@ -351,15 +400,15 @@ final class CozyExplanationProjectionSpec
     )
     CozyExplanation.Composition(
       "product-mechanism-composition",
-      CozyExplanation.CatalogSelector(catalog.id, catalog.revision, CozyExplanation.catalogIdentity(catalog)),
+      CozyExplanation.CatalogSelector(catalog.id, catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(
         CozyExplanation.PatternReference("product-mechanism", 1),
         Vector(CozyExplanation.Parameter("mechanismLinks", mechanismlinks)),
         Vector(step)
       ),
-      Vector(CozyExplanation.SourceDeclaration("source", sourcedigest)),
-      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain", assetdigest))
+      Vector(CozyExplanation.SourceDeclaration("source")),
+      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain"))
     )
   }
 
@@ -372,7 +421,7 @@ final class CozyExplanationProjectionSpec
     Vector(CozyVisualPage.Relation("mechanism-maps-to", "maps-to", "mechanism-source", "mechanism-target", sources))
   )
 
-  private def _mechanism_page(logical: CozyVisualPage.Logical, catalog: CozyVisualPage.Catalog, assetdigest: String): CozyVisualPage.Page = CozyVisualPage.Page(
+  private def _mechanism_page(logical: CozyVisualPage.Logical, catalog: CozyVisualPage.Catalog): CozyVisualPage.Page = CozyVisualPage.Page(
     "page-mechanism",
     "product-mechanism",
     "en",
@@ -382,7 +431,7 @@ final class CozyExplanationProjectionSpec
       CozyVisualPage.VisualParameter("sourceColumnTitle", CozyVisualPage.StringParameter("Goal and use case")),
       CozyVisualPage.VisualParameter("targetColumnTitle", CozyVisualPage.StringParameter("Mechanism"))
     )),
-    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain", assetdigest)),
+    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain")),
     Vector(CozyVisualPage.SourceBinding("source", "sources/source.txt"))
   )
 
@@ -454,7 +503,7 @@ final class CozyExplanationProjectionSpec
     )
   )
 
-  private def _composition(catalog: CozyExplanation.Catalog, sourcedigest: String, assetdigest: String): CozyExplanation.Composition = {
+  private def _composition(catalog: CozyExplanation.Catalog): CozyExplanation.Composition = {
     val sources = Vector("source")
     val assets = Vector("asset")
     val facts = Vector(
@@ -480,11 +529,11 @@ final class CozyExplanationProjectionSpec
     }
     CozyExplanation.Composition(
       "product-overview-composition",
-      CozyExplanation.CatalogSelector(catalog.id, catalog.revision, CozyExplanation.catalogIdentity(catalog)),
+      CozyExplanation.CatalogSelector(catalog.id, catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(CozyExplanation.PatternReference("product-overview", 1), Vector.empty, steps),
-      Vector(CozyExplanation.SourceDeclaration("source", sourcedigest)),
-      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain", assetdigest))
+      Vector(CozyExplanation.SourceDeclaration("source")),
+      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain"))
     )
   }
 
@@ -497,9 +546,9 @@ final class CozyExplanationProjectionSpec
     Vector(CozyVisualPage.Relation(s"$role-next", "next", s"$role-start", s"$role-end", sources))
   )
 
-  private def _pages(plan: CozyExplanation.Plan, catalog: CozyVisualPage.Catalog, assetdigest: String): CozyVisualPage.PageSet = {
-    val primary = plan.steps.map { step => _page(s"page-${step.semanticRole}-a", step.logical, catalog, assetdigest) }
-    val secondary = _page("page-vision-b", plan.steps.head.logical, catalog, assetdigest, "flow-vertical")
+  private def _pages(plan: CozyExplanation.Plan, catalog: CozyVisualPage.Catalog): CozyVisualPage.PageSet = {
+    val primary = plan.steps.map { step => _page(s"page-${step.semanticRole}-a", step.logical, catalog) }
+    val secondary = _page("page-vision-b", plan.steps.head.logical, catalog, "flow-vertical")
     CozyVisualPage.PageSet("product-overview-pages", primary.updated(0, primary.head) :+ secondary)
   }
 
@@ -507,7 +556,6 @@ final class CozyExplanationProjectionSpec
     id: String,
     logical: CozyVisualPage.Logical,
     catalog: CozyVisualPage.Catalog,
-    assetdigest: String,
     visualpattern: String = "flow-horizontal"
   ): CozyVisualPage.Page = CozyVisualPage.Page(
     id,
@@ -516,7 +564,7 @@ final class CozyExplanationProjectionSpec
     CozyVisualPage.CatalogReference(catalog.id, catalog.revision),
     logical,
     CozyVisualPage.Visual(visualpattern, Vector.empty),
-    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain", assetdigest)),
+    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain")),
     Vector(CozyVisualPage.SourceBinding("source", "sources/source.txt"))
   )
 
@@ -608,8 +656,6 @@ final class CozyExplanationProjectionSpec
     path
   }
 
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _with_work[A](name: String)(body: Path => A): A = {
     val root = Files.createTempDirectory("cozy-explanation-projection-" + name + "-")

@@ -13,13 +13,23 @@ import play.api.libs.json.Json
 
 /*
  * @since   Sep. 17, 2026
- * @version Sep. 17, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozySbtBridgeMultiProvenanceSpec {
+  private final case class Delegated(
+    provenance: Path,
+    root: Path,
+    manifest: GenerationProvenance.Manifest
+  )
+}
+
 final class CozySbtBridgeMultiProvenanceSpec
     extends AnyWordSpec
     with Matchers
     with GivenWhenThen {
+  import CozySbtBridgeMultiProvenanceSpec.Delegated
+
   "sbt-bridge v1 aggregate-rebind-generation-provenance" should {
     "dispatch two explicit delegated V1 inputs to V2 aggregate evidence" in {
       _with_temp_dir("cozy-sbt-bridge-multi-provenance") { directory =>
@@ -126,12 +136,6 @@ final class CozySbtBridgeMultiProvenanceSpec
       }
     }
   }
-
-  private final case class Delegated(
-    provenance: Path,
-    root: Path,
-    manifest: GenerationProvenance.Manifest
-  )
 
   private def _make_delegated(
     outputroot: Path,

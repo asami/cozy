@@ -2,7 +2,6 @@ package cozy.media
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 
 import scala.collection.JavaConverters._
 
@@ -14,13 +13,30 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Aug. 30, 2026
- * @version Aug. 30, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyExplanationPreviewSpec {
+  private final case class Fixture(
+    catalogfile: Path,
+    presentationcatalogfile: Path,
+    compositionfile: Path,
+    planfile: Path,
+    mapfile: Path,
+    visualpagesetfile: Path,
+    bindings: CozyExplanation.ResourceBindings,
+    pageset: CozyVisualPage.PageSet,
+    projectionmap: CozyExplanationProjection.ProjectionMap
+  )
+}
+
 final class CozyExplanationPreviewSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
+  import CozyExplanationPreviewSpec.Fixture
+
   "Cozy Explanation Preview" should {
     "rendering and receipt behavior" which {
       "render a current multi-step and multi-page closure with byte-stable HTML and an exact deterministic receipt" in {
@@ -57,26 +73,54 @@ final class CozyExplanationPreviewSpec
           html should include_text("data-visual-pattern=\"flow-vertical\"")
           html should not include "htmlIdentity"
           html should not include "receiptIdentity"
+          Vector("Composition identity", "Plan identity", "Projection Map identity", "Explanation Catalog identity",
+            "Presentation Catalog identity", "Visual Page Set identity").foreach { label =>
+            html should not include s"<dt>$label</dt>"
+          }
+          html should include_text("<code>" + fixture.pageset.pages.head.assets.head.mediaType + "</code>")
+          html should include_text("<dl class=\"provenance\">")
+          html should include_text("<dt>Composition ID</dt><dd><code>problem-solution-composition</code></dd>")
+          html should include_text("<dt>Explanation Catalog ID</dt><dd><code>explanation</code></dd>")
+          html should include_text("<dt>Explanation Catalog revision</dt><dd><code>1</code></dd>")
+          html should include_text("<dt>Presentation Catalog ID</dt><dd><code>presentation</code></dd>")
+          html should include_text("<dt>Presentation Catalog revision</dt><dd><code>1</code></dd>")
+          html should include_text("<dt>Visual Page Set ID</dt><dd><code>review-pages</code></dd>")
+          html should include_text("<dt>Step count</dt><dd><code>2</code></dd>")
+          html should include_text("<dt>Reviewed Page count</dt><dd><code>3</code></dd>")
 
-          And("the receipt has its frozen LF field order and hashes only the preceding receipt lines")
+          And("the report has its frozen LF field order and ordinary semantic IDs, catalog revisions, and rendered occurrence counts")
           receiptlines.map(_.takeWhile(_ != ':')) shouldBe Vector(
             "schema",
             "version",
             "generator",
             "rendererProfile",
-            "compositionIdentity",
-            "planIdentity",
-            "projectionMapIdentity",
-            "explanationCatalogIdentity",
-            "presentationCatalogIdentity",
-            "visualPageSetIdentity",
-            "htmlIdentity",
-            "identity"
+            "compositionId",
+            "explanationCatalogId",
+            "explanationCatalogRevision",
+            "presentationCatalogId",
+            "presentationCatalogRevision",
+            "visualPageSetId",
+            "stepCount",
+            "pageCount",
+            "html",
+            "status"
           )
-          receiptlines.head shouldBe "schema: cozy.explanation-preview.v1"
-          receiptlines(2) shouldBe "generator: cozy media explanation preview"
-          receiptlines(3) shouldBe "rendererProfile: cozy.explanation-preview.renderer.v1"
-          receiptlines.last shouldBe "identity: " + _sha256_text(receiptlines.dropRight(1).mkString("\n"))
+          receiptlines shouldBe Vector(
+            "schema: cozy.explanation-preview.v1",
+            "version: 1",
+            "generator: cozy media explanation preview",
+            "rendererProfile: cozy.explanation-preview.renderer.v1",
+            "compositionId: problem-solution-composition",
+            "explanationCatalogId: explanation",
+            "explanationCatalogRevision: 1",
+            "presentationCatalogId: presentation",
+            "presentationCatalogRevision: 1",
+            "visualPageSetId: review-pages",
+            "stepCount: 2",
+            "pageCount: 3",
+            "html: generated",
+            "status: generated"
+          )
         }
       }
 
@@ -85,8 +129,6 @@ final class CozyExplanationPreviewSpec
           Given("one current direct-file product-overview Composition, Plan, Projection Map, catalogs, bindings, and mapped Visual Pages")
           val fixture = _product_overview_fixture(root)
           val output = root.resolve("product-overview.html")
-          val composition = CozyExplanation.parseCompositionJson(Files.readString(fixture.compositionfile, StandardCharsets.UTF_8))
-          val presentationcatalog = _presentation_catalog()
           val plan = CozyExplanation.parsePlanJson(Files.readString(fixture.planfile, StandardCharsets.UTF_8))
 
           When("the product-overview Explanation Preview is requested through its explicit direct-file command")
@@ -94,7 +136,7 @@ final class CozyExplanationPreviewSpec
           val html = Files.readString(output, StandardCharsets.UTF_8)
           val receiptlines = report.split("\\n").toVector
 
-          Then("the receipt binds the current product-overview identities and the static HTML preserves authored role and page order")
+          Then("the report describes the product-overview semantic IDs and counts and the static HTML preserves authored role and page order")
           plan.explanationPattern shouldBe CozyExplanation.PatternReference("product-overview", 1)
           plan.steps.map(_.semanticRole) shouldBe Vector("vision", "goal", "context", "use-case", "main-scenario")
           fixture.projectionmap.presentation.stepMappings.map(_.stepId) shouldBe plan.steps.map(_.id)
@@ -103,20 +145,42 @@ final class CozyExplanationPreviewSpec
             "version",
             "generator",
             "rendererProfile",
-            "compositionIdentity",
-            "planIdentity",
-            "projectionMapIdentity",
-            "explanationCatalogIdentity",
-            "presentationCatalogIdentity",
-            "visualPageSetIdentity",
-            "htmlIdentity",
-            "identity"
+            "compositionId",
+            "explanationCatalogId",
+            "explanationCatalogRevision",
+            "presentationCatalogId",
+            "presentationCatalogRevision",
+            "visualPageSetId",
+            "stepCount",
+            "pageCount",
+            "html",
+            "status"
           )
-          report should include_text("compositionIdentity: " + CozyExplanation.compositionIdentity(composition))
-          report should include_text("planIdentity: " + plan.identity)
-          report should include_text("projectionMapIdentity: " + fixture.projectionmap.identity)
-          report should include_text("presentationCatalogIdentity: " + CozyVisualPage.catalogIdentity(presentationcatalog))
-          report should include_text("visualPageSetIdentity: " + CozyVisualPage.visualPageSetIdentity(fixture.pageset, presentationcatalog))
+          receiptlines shouldBe Vector(
+            "schema: cozy.explanation-preview.v1",
+            "version: 1",
+            "generator: cozy media explanation preview",
+            "rendererProfile: cozy.explanation-preview.renderer.v1",
+            "compositionId: product-overview-composition",
+            "explanationCatalogId: explanation",
+            "explanationCatalogRevision: 1",
+            "presentationCatalogId: presentation",
+            "presentationCatalogRevision: 1",
+            "visualPageSetId: product-overview-pages",
+            "stepCount: 5",
+            "pageCount: 6",
+            "html: generated",
+            "status: generated"
+          )
+          html should include_text("<dt>Composition ID</dt><dd><code>product-overview-composition</code></dd>")
+          html should include_text("<dt>Explanation Catalog ID</dt><dd><code>explanation</code></dd>")
+          html should include_text("<dt>Explanation Catalog revision</dt><dd><code>1</code></dd>")
+          html should include_text("<dt>Presentation Catalog ID</dt><dd><code>presentation</code></dd>")
+          html should include_text("<dt>Presentation Catalog revision</dt><dd><code>1</code></dd>")
+          html should include_text("<dt>Visual Page Set ID</dt><dd><code>product-overview-pages</code></dd>")
+          html should include_text("<dt>Step count</dt><dd><code>5</code></dd>")
+          html should include_text("<dt>Reviewed Page count</dt><dd><code>6</code></dd>")
+          html should include_text("<code>" + fixture.pageset.pages.head.assets.head.mediaType + "</code>")
           html should include_text("Explanation Pattern <code>product-overview@1</code>")
           html should include_text("vision is an authored product overview claim.")
           html should include_text("<code>sequence</code>")
@@ -132,6 +196,70 @@ final class CozyExplanationPreviewSpec
           html.indexOf("data-step-id=\"context-step\"") should be < html.indexOf("data-step-id=\"use-case-step\"")
           html.indexOf("data-step-id=\"use-case-step\"") should be < html.indexOf("data-step-id=\"main-scenario-step\"")
           html.indexOf("data-page-id=\"page-vision-a\"") should be < html.indexOf("data-page-id=\"page-vision-b\"")
+        }
+      }
+
+      "replace the same output after a valid visual parameter change while preserving semantic report data and all other inputs" in {
+        _with_work("same-output-replacement") { root =>
+          Given("a current product-overview closure and snapshots of every named document and explicit resource binding")
+          val fixture = _product_overview_fixture(root)
+          val output = root.resolve("review.html")
+          val inputpaths = Vector(fixture.planfile, fixture.compositionfile, fixture.mapfile, fixture.catalogfile,
+            fixture.presentationcatalogfile, fixture.visualpagesetfile) ++ fixture.bindings.sources.values ++ fixture.bindings.assets.values
+          val snapshots = inputpaths.map(path => path -> Files.readAllBytes(path).toVector)
+          val mappedpages = fixture.projectionmap.presentation.stepMappings.flatMap(_.pageIds)
+
+          When("Preview first renders the current selected review output")
+          val firstreport = CozyExplanation.execute(_preview_command(fixture, output))
+          val firstbytes = Files.readAllBytes(output).toVector
+          val firsthtml = Files.readString(output, StandardCharsets.UTF_8)
+
+          Then("the first review contains the authored mapping column title and the current semantic counts")
+          firsthtml should include_text("Source concepts")
+          firstreport should include_text("stepCount: 5")
+          firstreport should include_text("pageCount: 6")
+
+          Given("only the mapped main-scenario Page's valid sourceColumnTitle changes while IDs, logical values, mappings, catalogs, and resources remain the same")
+          val title = "<Sources & \"concepts\">"
+          val changedpageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
+            if (page.id == "page-main-scenario-a") page.copy(visual = page.visual.copy(
+              parameters = page.visual.parameters.map { parameter =>
+                if (parameter.name == "sourceColumnTitle") parameter.copy(value = CozyVisualPage.StringParameter(title))
+                else parameter
+              }
+            )) else page
+          })
+          _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(changedpageset))
+
+          When("Preview consumes the actual changed PageSet and renders again to the same selected output")
+          val secondreport = CozyExplanation.execute(_preview_command(fixture, output))
+          val secondbytes = Files.readAllBytes(output).toVector
+          val secondhtml = Files.readString(output, StandardCharsets.UTF_8)
+
+          Then("the output bytes and escaped title change, the semantic report stays identical, and authored mappings and all three patterns remain present")
+          secondbytes should not be firstbytes
+          secondhtml should include_text("&lt;Sources &amp; &quot;concepts&quot;&gt;")
+          secondhtml should not include "Source concepts"
+          secondhtml should not include title
+          secondreport shouldBe firstreport
+          Vector("flow-horizontal", "flow-vertical", "mapping-columns").foreach { pattern =>
+            secondhtml should include_text(s"""data-visual-pattern="$pattern"""")
+          }
+          fixture.projectionmap.presentation.stepMappings.foreach { mapping =>
+            secondhtml should include_text(s"""data-step-id="${mapping.stepId}"""")
+            mapping.pageIds.foreach { pageid =>
+              secondhtml should include_text(s"""data-page-id="$pageid"""")
+            }
+          }
+          mappedpages.sliding(2).foreach { pair =>
+            secondhtml.indexOf(s"""data-page-id="${pair.head}"""") should be < secondhtml.indexOf(s"""data-page-id="${pair.last}"""")
+          }
+
+          And("every snapshotted input except the intentionally edited PageSet stays byte-identical")
+          snapshots.foreach { case (path, bytes) =>
+            if (path == fixture.visualpagesetfile) Files.readAllBytes(path).toVector should not be bytes
+            else Files.readAllBytes(path).toVector shouldBe bytes
+          }
         }
       }
     }
@@ -214,24 +342,23 @@ final class CozyExplanationPreviewSpec
         }
       }
 
-      "reject a mapped Page whose asset digest disagrees with its Composition declaration" in {
-        _with_work("asset-digest-agreement") { root =>
-          Given("a current explanation closure, an asset descriptor with a different digest, and sentinel output bytes")
+      "reject a valid mapped Page asset whose actual bytes disagree with its explicit Composition binding" in {
+        _with_work("valid-asset-bytes-agreement") { root =>
+          Given("a current explanation closure, a valid asset descriptor for different bytes with the declared media type, and sentinel output bytes")
           val fixture = _fixture(root)
-          val output = _write(root.resolve("asset-digest-agreement.html"), "preserve-me")
-          val descriptor = _write(root.resolve("descriptor-asset-digest.txt"), "different asset digest bytes")
-          val descriptordigest = _sha256_file(descriptor)
+          val output = _write(root.resolve("valid-asset-bytes-agreement.html"), "preserve-me")
+          val descriptor = _write(root.resolve("descriptor-valid-asset.txt"), "different valid asset bytes")
           val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-            page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString, sha256 = descriptordigest)))
+            page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString)))
           })
-          val pagesfile = _write(root.resolve("asset-digest-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
+          val pagesfile = _write(root.resolve("valid-asset-bytes-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
 
-          When("the explanation Preview consumes the mismatched asset digest")
+          When("the explanation Preview consumes the valid descriptor and the different explicit asset binding")
           val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
 
-          Then("Preview reports stale asset digest agreement and preserves the sentinel output")
+          Then("Preview reports stale actual asset byte agreement and preserves the sentinel output")
           failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-          failure.getMessage should include_text("P36 asset digest")
+          failure.getMessage should include_text("P36 asset bytes")
           Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
         }
       }
@@ -368,30 +495,30 @@ final class CozyExplanationPreviewSpec
             "schema",
             "version",
             "generator",
-            "documentIdentity",
-            "catalogIdentity",
-            "htmlIdentity",
-            "previewIdentity",
+            "documentId",
+            "catalogId",
+            "catalogRevision",
+            "pageCount",
+            "html",
             "status"
           )
           report should include_text("schema: cozy.visual-page.preview.v1")
+          report.split("\\n").toVector shouldBe Vector(
+            "schema: cozy.visual-page.preview.v1",
+            "version: 1",
+            "generator: cozy media visual-page preview",
+            "documentId: review-pages",
+            "catalogId: presentation",
+            "catalogRevision: 1",
+            "pageCount: 3",
+            "html: generated",
+            "status: generated"
+          )
           Files.readString(output, StandardCharsets.UTF_8) should include_text("Cozy Visual Page Semantic Preview")
         }
       }
     }
   }
-
-  private final case class Fixture(
-    catalogfile: Path,
-    presentationcatalogfile: Path,
-    compositionfile: Path,
-    planfile: Path,
-    mapfile: Path,
-    visualpagesetfile: Path,
-    bindings: CozyExplanation.ResourceBindings,
-    pageset: CozyVisualPage.PageSet,
-    projectionmap: CozyExplanationProjection.ProjectionMap
-  )
 
   private def _fixture(root: Path): Fixture = {
     val catalog = _catalog()
@@ -401,11 +528,11 @@ final class CozyExplanationPreviewSpec
     val sourcefile = _write(root.resolve("sources/source.txt"), "source bytes")
     val assetfile = _write(root.resolve("assets/asset.txt"), "asset bytes")
     val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
-    val composition = _composition(catalog, _sha256_file(sourcefile), _sha256_file(assetfile))
+    val composition = _composition(catalog)
     val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
     val plan = CozyExplanation.expand(CozyExplanation.loadComposition(compositionfile, catalogfile, presentationcatalogfile, bindings))
     val planfile = _write(root.resolve("plan.json"), CozyExplanation.canonicalPlanJson(plan))
-    val pageset = _pages(plan, presentationcatalog, _sha256_file(assetfile))
+    val pageset = _pages(plan, presentationcatalog)
     val visualpagesetfile = _write(root.resolve("visual-pages.json"), CozyVisualPage.canonicalJson(pageset))
     val projectionmap = _projection_map(plan)
     val mapfile = _write(root.resolve("projection-map.json"), CozyExplanationProjection.canonicalProjectionMapJson(projectionmap))
@@ -420,11 +547,11 @@ final class CozyExplanationPreviewSpec
     val sourcefile = _write(root.resolve("sources/source.txt"), "product overview source bytes")
     val assetfile = _write(root.resolve("assets/asset.txt"), "product overview asset bytes")
     val bindings = CozyExplanation.ResourceBindings(Map("source" -> sourcefile), Map("asset" -> assetfile))
-    val composition = _product_overview_composition(catalog, _sha256_file(sourcefile), _sha256_file(assetfile))
+    val composition = _product_overview_composition(catalog)
     val compositionfile = _write(root.resolve("composition.json"), CozyExplanation.canonicalCompositionJson(composition))
     val plan = CozyExplanation.expand(CozyExplanation.loadComposition(compositionfile, catalogfile, presentationcatalogfile, bindings))
     val planfile = _write(root.resolve("plan.json"), CozyExplanation.canonicalPlanJson(plan))
-    val pageset = _product_overview_pages(plan, presentationcatalog, _sha256_file(assetfile))
+    val pageset = _product_overview_pages(plan, presentationcatalog)
     val visualpagesetfile = _write(root.resolve("visual-pages.json"), CozyVisualPage.canonicalJson(pageset))
     val projectionmap = _product_overview_projection_map(plan)
     val mapfile = _write(root.resolve("projection-map.json"), CozyExplanationProjection.canonicalProjectionMapJson(projectionmap))
@@ -432,9 +559,7 @@ final class CozyExplanationPreviewSpec
   }
 
   private def _product_overview_composition(
-    catalog: CozyExplanation.Catalog,
-    sourcedigest: String,
-    assetdigest: String
+    catalog: CozyExplanation.Catalog
   ): CozyExplanation.Composition = {
     val sources = Vector("source")
     val assets = Vector("asset")
@@ -461,11 +586,11 @@ final class CozyExplanationPreviewSpec
     }
     CozyExplanation.Composition(
       "product-overview-composition",
-      CozyExplanation.CatalogSelector(catalog.id, catalog.revision, CozyExplanation.catalogIdentity(catalog)),
+      CozyExplanation.CatalogSelector(catalog.id, catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(CozyExplanation.PatternReference("product-overview", 1), Vector.empty, steps),
-      Vector(CozyExplanation.SourceDeclaration("source", sourcedigest)),
-      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain", assetdigest))
+      Vector(CozyExplanation.SourceDeclaration("source")),
+      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain"))
     )
   }
 
@@ -485,14 +610,13 @@ final class CozyExplanationPreviewSpec
 
   private def _product_overview_pages(
     plan: CozyExplanation.Plan,
-    catalog: CozyVisualPage.Catalog,
-    assetdigest: String
+    catalog: CozyVisualPage.Catalog
   ): CozyVisualPage.PageSet = {
     val primary = plan.steps.map { step =>
       val visualpattern = if (step.semanticRole == "main-scenario") "mapping-columns" else "flow-horizontal"
-      _product_overview_page(s"page-${step.semanticRole}-a", step.logical, catalog, assetdigest, visualpattern)
+      _product_overview_page(s"page-${step.semanticRole}-a", step.logical, catalog, visualpattern)
     }
-    val secondary = _product_overview_page("page-vision-b", plan.steps.head.logical, catalog, assetdigest, "flow-vertical")
+    val secondary = _product_overview_page("page-vision-b", plan.steps.head.logical, catalog, "flow-vertical")
     CozyVisualPage.PageSet("product-overview-pages", primary :+ secondary)
   }
 
@@ -500,7 +624,6 @@ final class CozyExplanationPreviewSpec
     id: String,
     logical: CozyVisualPage.Logical,
     catalog: CozyVisualPage.Catalog,
-    assetdigest: String,
     visualpattern: String = "flow-horizontal"
   ): CozyVisualPage.Page = CozyVisualPage.Page(
     id,
@@ -512,7 +635,7 @@ final class CozyExplanationPreviewSpec
       CozyVisualPage.VisualParameter("sourceColumnTitle", CozyVisualPage.StringParameter("Source concepts")),
       CozyVisualPage.VisualParameter("targetColumnTitle", CozyVisualPage.StringParameter("Target outcomes"))
     ) else Vector.empty),
-    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain", assetdigest)),
+    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain")),
     Vector(CozyVisualPage.SourceBinding("source", "sources/source.txt"))
   )
 
@@ -617,7 +740,7 @@ final class CozyExplanationPreviewSpec
     )
   )
 
-  private def _composition(catalog: CozyExplanation.Catalog, sourcedigest: String, assetdigest: String): CozyExplanation.Composition = {
+  private def _composition(catalog: CozyExplanation.Catalog): CozyExplanation.Composition = {
     val sources = Vector("source")
     val assets = Vector("asset")
     val facts = Vector(
@@ -648,7 +771,7 @@ final class CozyExplanationPreviewSpec
     )
     CozyExplanation.Composition(
       "problem-solution-composition",
-      CozyExplanation.CatalogSelector(catalog.id, catalog.revision, CozyExplanation.catalogIdentity(catalog)),
+      CozyExplanation.CatalogSelector(catalog.id, catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(
         CozyExplanation.PatternReference("problem-solution", 1),
@@ -658,8 +781,8 @@ final class CozyExplanationPreviewSpec
         ),
         steps
       ),
-      Vector(CozyExplanation.SourceDeclaration("source", sourcedigest)),
-      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain", assetdigest))
+      Vector(CozyExplanation.SourceDeclaration("source")),
+      Vector(CozyExplanation.AssetDeclaration("asset", "text/plain"))
     )
   }
 
@@ -675,12 +798,12 @@ final class CozyExplanationPreviewSpec
     )
   )
 
-  private def _pages(plan: CozyExplanation.Plan, catalog: CozyVisualPage.Catalog, assetdigest: String): CozyVisualPage.PageSet = {
+  private def _pages(plan: CozyExplanation.Plan, catalog: CozyVisualPage.Catalog): CozyVisualPage.PageSet = {
     val logical = plan.steps.head.logical
     CozyVisualPage.PageSet("review-pages", Vector(
-      _page("problem-page-a", logical, catalog, assetdigest, "flow-horizontal"),
-      _page("problem-page-b", logical, catalog, assetdigest, "flow-vertical"),
-      _page("solution-page", logical, catalog, assetdigest, "flow-horizontal")
+      _page("problem-page-a", logical, catalog, "flow-horizontal"),
+      _page("problem-page-b", logical, catalog, "flow-vertical"),
+      _page("solution-page", logical, catalog, "flow-horizontal")
     ))
   }
 
@@ -688,7 +811,6 @@ final class CozyExplanationPreviewSpec
     id: String,
     logical: CozyVisualPage.Logical,
     catalog: CozyVisualPage.Catalog,
-    assetdigest: String,
     visualpattern: String
   ): CozyVisualPage.Page = CozyVisualPage.Page(
     id,
@@ -697,7 +819,7 @@ final class CozyExplanationPreviewSpec
     CozyVisualPage.CatalogReference(catalog.id, catalog.revision),
     logical,
     CozyVisualPage.Visual(visualpattern, Vector.empty),
-    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain", assetdigest)),
+    Vector(CozyVisualPage.Asset("asset", "assets/asset.txt", "text/plain")),
     Vector(CozyVisualPage.SourceBinding("source", "sources/source.txt"))
   )
 
@@ -784,14 +906,6 @@ final class CozyExplanationPreviewSpec
     path
   }
 
-  private def _sha256_file(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
-
-  private def _sha256_text(value: String): String =
-    _sha256_bytes(value.getBytes(StandardCharsets.UTF_8))
-
-  private def _sha256_bytes(bytes: Array[Byte]): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _with_work[A](name: String)(body: Path => A): A = {
     val root = Files.createTempDirectory("cozy-explanation-preview-" + name + "-")

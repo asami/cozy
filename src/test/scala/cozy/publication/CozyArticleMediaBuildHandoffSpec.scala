@@ -15,10 +15,16 @@ import cozy.bok.CozyBok
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyArticleMediaBuildHandoffSpec {
+  private final case class Fixture(root: Path, project: Path, publication: Path, repository: Path)
+}
+
 final class CozyArticleMediaBuildHandoffSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozyArticleMediaBuildHandoffSpec.Fixture
+
   "Cozy BoK article-media build handoff" should {
     "canonicalize strategy names before project construction" which {
       "retain aliases in the effective BuildConfig and reject unsupported names before filesystem work" in {
@@ -173,8 +179,6 @@ final class CozyArticleMediaBuildHandoffSpec extends AnyWordSpec with Matchers w
       }
     }
   }
-
-  private final case class Fixture(root: Path, project: Path, publication: Path, repository: Path)
 
   private final class HandoffRunner(failfirstdox: Boolean = false) extends CozyBok.Runner {
     var commands = Vector.empty[Vector[String]]

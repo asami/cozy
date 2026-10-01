@@ -12,13 +12,14 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Logic Tree" should {
     "admit the recursive Article 9 Core and Japanese Format" which {
-      "retain every current Article 9 statement, stable identity, nested owner, and local CozyVisualPage vocabulary" in {
+      "retain every current Article 9 statement, stable id, nested owner, and local CozyVisualPage vocabulary" in {
         _with_temp_dir("cozy-document-logic-tree-article-nine") { root =>
           Given("the direct Article 9 Core authority and its direct Japanese wording Format")
           val fixture = _fixture(root)
@@ -41,19 +42,72 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
         }
       }
 
-      "bind the Format to exact Core bytes instead of a Core id or parsed value alone" in {
+      "admit unchanged Core semantics when valid source bytes differ without a Format hash binding" in {
         _with_temp_dir("cozy-document-logic-tree-identity") { root =>
-          Given("a direct Article 9 Core and a Format bound to its original SHA-256 bytes")
+          Given("a direct Article 9 Core and its historical Format with an ignored extra property")
           val fixture = _fixture(root)
           val original = Files.readString(fixture._1, StandardCharsets.UTF_8)
-          Files.writeString(fixture._1, original + "\n", StandardCharsets.UTF_8)
+          Files.writeString(fixture._1, original + "\n# unchanged semantic source\n", StandardCharsets.UTF_8)
 
-          When("only otherwise parseable Core bytes change")
-          val failure = _failure(CozyDocumentLogicTree.load(fixture._1, fixture._2))
+          When("only valid Core bytes change while its logical Core remains unchanged")
+          val validated = CozyDocumentLogicTree.load(fixture._1, fixture._2)
+          val rendered = CozyDocumentLogicTreeProjection.overview(validated)
 
-          Then("the Format binding rejects the changed direct-byte identity")
-          failure.code shouldBe "LOGIC_TREE_FORMAT_IDENTITY"
-          failure.path shouldBe "$.coreIdentity"
+          Then("the Format still binds the supplied Core by logical id and renders semantic content")
+          validated.core.id shouldBe "application-modeling"
+          rendered.kind shouldBe "overview"
+          rendered.html should include("logic-tree-overview")
+        }
+      }
+
+      "admit canonical no-hash and opaque historical root extras without inspecting them" in {
+        _with_temp_dir("cozy-document-logic-tree-format-extras") { root =>
+          Given("canonical no-hash Format content plus historical and unrelated opaque root extras")
+          val fixture = _fixture(root)
+          val original = Files.readString(fixture._2, StandardCharsets.UTF_8)
+          val canonical = _write(root.resolve("canonical/format-ja.yaml"), _without_format_identity(original))
+          val historical = _write(
+            root.resolve("historical/format-ja.yaml"),
+            original.replace(
+              "coreIdentity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc",
+              """coreIdentity:
+                |  opaque: [null, true, {legacy: false}]
+                |unrelated: {values: [1, false, {nested: opaque}]}""".stripMargin
+            )
+          )
+
+          When("the canonical and extra-bearing Format authorities are loaded")
+          val canonicalvalidated = CozyDocumentLogicTree.load(fixture._1, canonical)
+          val historicalvalidated = CozyDocumentLogicTree.load(fixture._1, historical)
+
+          Then("only required semantic fields participate and both inputs produce equivalent admitted content")
+          canonicalvalidated shouldBe historicalvalidated
+          CozyDocumentLogicTreeProjection.overview(canonicalvalidated) shouldBe CozyDocumentLogicTreeProjection.overview(historicalvalidated)
+        }
+      }
+
+      "reject malformed or missing required Format semantic fields while ignoring only ordinary extras" in {
+        _with_temp_dir("cozy-document-logic-tree-format-required") { root =>
+          Given("canonical Format variants with missing Core id or wording and malformed schema, locale, or chrome")
+          val fixture = _fixture(root)
+          val canonical = _without_format_identity(Files.readString(fixture._2, StandardCharsets.UTF_8))
+          val missingcoreid = _write(root.resolve("missing-core-id/format-ja.yaml"), canonical.replace("coreId: application-modeling\n", ""))
+          val schema = _write(root.resolve("schema/format-ja.yaml"), canonical.replace("schema: cozy.content-core.logic-tree-format.v1", "schema: unknown"))
+          val locale = _write(root.resolve("locale/format-ja.yaml"), canonical.replace("locale: ja", "locale: invalid_locale"))
+          val wording = _write(root.resolve("wording/format-ja.yaml"), canonical.replace("stepBindings:", "stepWords:"))
+          val chrome = _write(root.resolve("chrome/format-ja.yaml"), canonical.replace("chrome:\n", "chrome: malformed\n"))
+
+          When("each required semantic field is admitted")
+          val failures = Vector(
+            _failure(CozyDocumentLogicTree.load(fixture._1, missingcoreid)),
+            _failure(CozyDocumentLogicTree.load(fixture._1, schema)),
+            _failure(CozyDocumentLogicTree.load(fixture._1, locale)),
+            _failure(CozyDocumentLogicTree.load(fixture._1, wording)),
+            _failure(CozyDocumentLogicTree.load(fixture._1, chrome))
+          )
+
+          Then("missing or malformed semantic fields retain their structural, schema, and locale rejection taxonomy")
+          failures.map(_.code) should contain allOf ("LOGIC_TREE_STRUCTURE", "LOGIC_TREE_FORMAT_SCHEMA", "LOGIC_TREE_FORMAT_LOCALE")
         }
       }
     }
@@ -201,9 +255,12 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           val first = CozyDocumentLogicTreeProjection.overview(validated)
           val second = CozyDocumentLogicTreeProjection.overview(validated)
 
-          Then("the self-contained reader tree has stable bytes and every declared Step, local relation, and Flow edge")
+          Then("the self-contained reader tree has stable bytes, no output identity token, and every declared Step, local relation, and Flow edge")
           first shouldBe second
+          first.kind shouldBe "overview"
           first.html should include("id=\"logic-tree-overview\"")
+          first.html should not include("sha256:")
+          first.html should not include("data-core-identity=")
           validated.depthFirstSteps.foreach(step => first.html should include(s"""id="step-${step.id}""""))
           first.html should include("root-domain-maps-to-application")
           first.html should include("realization-depends-on-foundation")
@@ -228,8 +285,11 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           val first = CozyDocumentLogicTreeProjection.slides(validated)
           val second = CozyDocumentLogicTreeProjection.slides(validated)
 
-          Then("every parent and leaf has one depth-first page with ancestor context, keyboard navigation, and one-page print form")
+          Then("every parent and leaf has one deterministic no-identity depth-first page with ancestor context, keyboard navigation, and one-page print form")
           first shouldBe second
+          first.kind shouldBe "slides"
+          first.html should not include("sha256:")
+          first.html should not include("data-core-identity=")
           validated.depthFirstSteps.foreach(step => first.html should include(s"""id="slide-${step.id}""""))
           first.html should include("aspect-ratio:16/9")
           first.html should include("ancestor-context")
@@ -261,10 +321,10 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(kinds) { kind =>
             val first = if (kind == "overview") CozyDocumentLogicTreeProjection.overview(validated) else CozyDocumentLogicTreeProjection.slides(validated)
             val second = if (kind == "overview") CozyDocumentLogicTreeProjection.overview(validated) else CozyDocumentLogicTreeProjection.slides(validated)
-            first == second && first.html.contains(validated.core.id)
+            first.kind == kind && second.kind == kind && first.html == second.html && first.html.contains(validated.core.id)
           })
 
-          Then("all generated selections retain an exact deterministic output identity")
+          Then("all generated selections retain exact deterministic kind and HTML models")
           check.passed shouldBe true
           check.succeeded should be >= 30
         }
@@ -285,6 +345,10 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
           Files.isRegularFile(output, LinkOption.NOFOLLOW_LINKS) shouldBe true
           Files.readString(output, StandardCharsets.UTF_8) should include("logic-tree-overview")
           report should include("Cozy Content Core Logic Tree Render")
+          report should include("core: application-modeling")
+          report should include("locale: ja")
+          report should not include("identity:")
+          report should not include("sha256:")
           _relative_files(root) shouldBe Set("content/core.yaml", "content/format-ja.yaml", "overview.html")
         }
       }
@@ -345,6 +409,9 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
          |        id: use-case-realization-flow
          |        transitions: []""".stripMargin
     )
+
+  private def _without_format_identity(value: String): String =
+    value.replace("coreIdentity: sha256:d7b8339d1a79790ad45d7e99bc9e7bf353322d7ffc2f05b44da2b8a98c826cbc\n", "")
 
   private def _execute(args: List[String]): String = {
     val bytes = new ByteArrayOutputStream()

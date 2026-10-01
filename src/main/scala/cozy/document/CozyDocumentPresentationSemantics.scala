@@ -11,7 +11,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep.  4, 2026
- * @version Sep.  9, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentPresentationSemantics {
@@ -42,8 +43,6 @@ private[cozy] object CozyDocumentPresentationSemantics {
     composition: CozyExplanation.ValidatedComposition,
     plan: CozyExplanation.Plan,
     explanationCatalogIdentity: String,
-    presentationCatalogIdentity: String,
-    presentationLogicalCatalogIdentity: String,
     policy: ProjectionPolicy,
     sources: Vector[CozyExplanation.SourceDeclaration],
     assets: Vector[CozyExplanation.AssetDeclaration],
@@ -166,8 +165,6 @@ private[cozy] object CozyDocumentPresentationSemantics {
       composition,
       plan,
       catalogs.explanation.identity,
-      catalogs.presentation.catalogIdentity,
-      catalogs.presentation.logicalCatalogIdentity,
       policy,
       composition.composition.sources.sortBy(_.id),
       composition.composition.assets.sortBy(_.id),
@@ -401,14 +398,12 @@ private[cozy] object CozyDocumentPresentationSemantics {
     "compositionIdentity" -> Json.fromString(composition.identity),
     "planIdentity" -> Json.fromString(plan.identity),
     "explanationCatalogIdentity" -> Json.fromString(catalogs.explanation.identity),
-    "presentationCatalogIdentity" -> Json.fromString(catalogs.presentation.catalogIdentity),
-    "presentationLogicalCatalogIdentity" -> Json.fromString(catalogs.presentation.logicalCatalogIdentity),
     "policyIdentity" -> Json.fromString(policy.identity),
     "sources" -> Json.fromValues(composition.composition.sources.sortBy(_.id).map(source => Json.fromFields(Vector(
-      "id" -> Json.fromString(source.id), "sha256" -> Json.fromString(source.sha256)
+      "id" -> Json.fromString(source.id)
     )))),
     "assets" -> Json.fromValues(composition.composition.assets.sortBy(_.id).map(asset => Json.fromFields(Vector(
-      "id" -> Json.fromString(asset.id), "mediaType" -> Json.fromString(asset.mediaType), "sha256" -> Json.fromString(asset.sha256)
+      "id" -> Json.fromString(asset.id), "mediaType" -> Json.fromString(asset.mediaType)
     )))),
     "structures" -> Json.fromValues(structures.sortBy(_.id).map(_selected_structure_value))
   ))

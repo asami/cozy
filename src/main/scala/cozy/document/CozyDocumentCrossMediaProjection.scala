@@ -7,7 +7,8 @@ import java.security.MessageDigest
 
 /*
  * @since   Sep.  4, 2026
- * @version Sep.  6, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentCrossMediaProjection {
@@ -43,8 +44,6 @@ private[cozy] object CozyDocumentCrossMediaProjection {
     compositionIdentity: String,
     planIdentity: String,
     explanationCatalogIdentity: String,
-    presentationCatalogIdentity: String,
-    presentationLogicalCatalogIdentity: String,
     policyIdentity: String,
     sources: Vector[CozyExplanation.SourceDeclaration],
     assets: Vector[CozyExplanation.AssetDeclaration],
@@ -95,8 +94,6 @@ private[cozy] object CozyDocumentCrossMediaProjection {
       value.composition.identity,
       value.plan.identity,
       value.explanationCatalogIdentity,
-      value.presentationCatalogIdentity,
-      value.presentationLogicalCatalogIdentity,
       value.policy.identity,
       value.sources.sortBy(_.id),
       value.assets.sortBy(_.id),
@@ -170,8 +167,6 @@ private[cozy] object CozyDocumentCrossMediaProjection {
       "compositionIdentity" -> Json.fromString(value.compositionIdentity),
       "planIdentity" -> Json.fromString(value.planIdentity),
       "explanationCatalogIdentity" -> Json.fromString(value.explanationCatalogIdentity),
-      "presentationCatalogIdentity" -> Json.fromString(value.presentationCatalogIdentity),
-      "presentationLogicalCatalogIdentity" -> Json.fromString(value.presentationLogicalCatalogIdentity),
       "policyIdentity" -> Json.fromString(value.policyIdentity),
       "sources" -> Json.fromValues(value.sources.sortBy(_.id).map(_source_value)),
       "assets" -> Json.fromValues(value.assets.sortBy(_.id).map(_asset_value)),
@@ -232,14 +227,12 @@ private[cozy] object CozyDocumentCrossMediaProjection {
   )
 
   private def _source_value(value: CozyExplanation.SourceDeclaration): Json = Json.obj(
-    "id" -> Json.fromString(value.id),
-    "sha256" -> Json.fromString(value.sha256)
+    "id" -> Json.fromString(value.id)
   )
 
   private def _asset_value(value: CozyExplanation.AssetDeclaration): Json = Json.obj(
     "id" -> Json.fromString(value.id),
-    "mediaType" -> Json.fromString(value.mediaType),
-    "sha256" -> Json.fromString(value.sha256)
+    "mediaType" -> Json.fromString(value.mediaType)
   )
 
   private def _identity(value: String): String =

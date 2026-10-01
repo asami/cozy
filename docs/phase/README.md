@@ -103,7 +103,12 @@ Phase status index (individual Phase/checklist files are authoritative):
     operation/producer contract and digest-purpose inventory; 7h expected,
     Sol high.
   - [Phase 71.1](phase-71.1.md): document/media and inventoried adjacent
-    application hash removal, timestamps and explicit adoption; 7h, Terra high.
+    application hash removal, timestamps and explicit adoption; CLOSED.
+    Current user-defined completion criteria are satisfied: warning-free clean
+    main/test compile at 20:28:10 JST and all 16 Storyboard review tests passed
+    at 20:30:25 JST. The [normal closure record](../journal/2026/10/2026-10-01-phase-71.1-normal-closure.md)
+    preserves original criteria and their explicit consolidation. Existing
+    uncommitted work is retained; no commit or push was performed.
   - [Phase 71.2](phase-71.2.md): remaining video hashes, dialogue continuity
     and pronunciation propagation/actual synthesis; 6h, Sol high.
   - [Phase 71.3](phase-71.3.md): complete local site/PDF currentness and
@@ -111,7 +116,12 @@ Phase status index (individual Phase/checklist files are authoritative):
   - [Phase 71.4](phase-71.4.md): non-black video ending, combined-tree real
     media/site acceptance and the one aggregate full SBT suite; 6h, Sol high.
 
-  Phases 71.1–71.4 remain PLANNED/not started. Default final-only defers only
+  Phases 71.2–71.4 remain PLANNED/not started. Phase 71.1 is normally
+  closed under the current user-defined validation criteria. Full repository
+  test, runtime classpath export and broader review were not performed on the
+  latest tree and are not asserted by this closure. Earlier exception closure
+  remains withdrawn; no relocation decision is used to complete this ledger.
+  For the remaining planned members, default final-only defers only
   repository-full validation to 71.4; focused validation, review, Step
   acceptance and release closure remain mandatory for every member. Human
   approval is not a generation prerequisite. All application hashes except

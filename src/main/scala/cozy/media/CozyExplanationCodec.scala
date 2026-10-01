@@ -5,7 +5,8 @@ import CozyExplanationJson._
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[media] object CozyExplanationCodec {
@@ -151,12 +152,11 @@ private[media] object CozyExplanationCodec {
   }
 
   private[media] def _parse_catalog_selector(value: JsonValue, path: String): CatalogSelector = {
-    val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "revision", "identity"), path)
+    val fields = _object(value, path).filterNot(_._1 == "identity")
+    _exact_fields(fields, Vector("id", "revision"), path)
     CatalogSelector(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _positive_int(_field(fields, "revision", path), s"$path.revision"),
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
+      _positive_int(_field(fields, "revision", path), s"$path.revision")
     )
   }
 
@@ -270,20 +270,18 @@ private[media] object CozyExplanationCodec {
 
   private[media] def _parse_source_declaration(value: JsonValue, path: String): SourceDeclaration = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "sha256"), path)
+    _unique(fields.map(_._1), path, "field")
     SourceDeclaration(
-      _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _sha256_text(_string(_field(fields, "sha256", path), s"$path.sha256"), s"$path.sha256")
+      _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id")
     )
   }
 
   private[media] def _parse_asset_declaration(value: JsonValue, path: String): AssetDeclaration = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "mediaType", "sha256"), path)
+    _unique(fields.map(_._1), path, "field")
     AssetDeclaration(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _text(_string(_field(fields, "mediaType", path), s"$path.mediaType"), s"$path.mediaType"),
-      _sha256_text(_string(_field(fields, "sha256", path), s"$path.sha256"), s"$path.sha256")
+      _text(_string(_field(fields, "mediaType", path), s"$path.mediaType"), s"$path.mediaType")
     )
   }
 
@@ -466,14 +464,8 @@ private[media] object CozyExplanationCodec {
       _fail("EXPLANATION_REFERENCE_INVALID", "$command.source", "each declared source requires exactly one direct --source binding and no extras")
     if (bindings.assets.keySet != declaredassets)
       _fail("EXPLANATION_REFERENCE_INVALID", "$command.asset", "each declared asset requires exactly one direct --asset binding and no extras")
-    sources.foreach { source =>
-      if (_sha256_file(_direct_input(bindings.sources(source.id), s"source.${source.id}")) != source.sha256)
-        _fail("EXPLANATION_ASSET_STALE", s"$$.sources.${source.id}.sha256", "direct source bytes do not match the declared SHA-256")
-    }
-    assets.foreach { asset =>
-      if (_sha256_file(_direct_input(bindings.assets(asset.id), s"asset.${asset.id}")) != asset.sha256)
-        _fail("EXPLANATION_ASSET_STALE", s"$$.assets.${asset.id}.sha256", "direct asset bytes do not match the declared SHA-256")
-    }
+    sources.foreach(source => _direct_input(bindings.sources(source.id), s"source.${source.id}"))
+    assets.foreach(asset => _direct_input(bindings.assets(asset.id), s"asset.${asset.id}"))
   }
 
   private[media] def _validate_references(references: Vector[String], declared: Set[String], path: String): Unit =
@@ -703,10 +695,10 @@ private[media] object CozyExplanationCodec {
   }
 
   private[media] def _catalog_selector(catalog: ValidatedCatalog): CatalogSelector =
-    CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.identity)
+    CatalogSelector(catalog.catalog.id, catalog.catalog.revision)
 
   private[media] def _presentation_selector(catalog: PresentationCatalog): CatalogSelector =
-    CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.logicalCatalogIdentity)
+    CatalogSelector(catalog.catalog.id, catalog.catalog.revision)
 
   private[media] def _catalog_value(catalog: Catalog): JsonValue = JsonObject(Vector(
     "schema" -> JsonString(_catalog_schema),
@@ -814,11 +806,11 @@ private[media] object CozyExplanationCodec {
   ))
 
   private[media] def _source_declaration_value(source: SourceDeclaration): JsonValue = JsonObject(Vector(
-    "id" -> JsonString(source.id), "sha256" -> JsonString(source.sha256)
+    "id" -> JsonString(source.id)
   ))
 
   private[media] def _asset_declaration_value(asset: AssetDeclaration): JsonValue = JsonObject(Vector(
-    "id" -> JsonString(asset.id), "mediaType" -> JsonString(asset.mediaType), "sha256" -> JsonString(asset.sha256)
+    "id" -> JsonString(asset.id), "mediaType" -> JsonString(asset.mediaType)
   ))
 
   private[media] def _plan_value(plan: Plan, includeidentity: Boolean): JsonValue = {
@@ -855,7 +847,7 @@ private[media] object CozyExplanationCodec {
   ))
 
   private[media] def _catalog_selector_value(selector: CatalogSelector): JsonValue = JsonObject(Vector(
-    "id" -> JsonString(selector.id), "revision" -> JsonNumber(selector.revision), "identity" -> JsonString(selector.identity)
+    "id" -> JsonString(selector.id), "revision" -> JsonNumber(selector.revision)
   ))
 
   private[media] def _pattern_reference_value(reference: PatternReference): JsonValue = JsonObject(Vector(

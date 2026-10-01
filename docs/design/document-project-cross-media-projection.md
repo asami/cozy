@@ -1,6 +1,6 @@
 # Document Project Cross-Media Projection Design
 
-Status: Phase 46.1 design
+Status: Phase 46.1 design with the Phase 71.1 material-declaration contract
 
 ## Ownership
 
@@ -48,6 +48,33 @@ pages use the `slides` Visual selection; scenes use the `video` selection.
 Reader-facing visible text becomes slide text and scene caption. Narration,
 timing, transition, animation, and production instructions are deliberately
 absent: the accepted input provides none, so Phase 46.1 must not infer them.
+
+## Material declaration boundary in Phase 71.1
+
+The Projection copies typed material declarations in stable ID order. Canonical
+source objects contain exactly `{id}` and asset objects exactly
+`{id, mediaType}`. Material hashes are neither calculated, parsed, compared,
+nor emitted by this projection. Valid byte replacement at the same bound
+source or asset path leaves unchanged declarations equal; that equality
+describes the typed declaration boundary and does not establish file freshness.
+
+The remaining Core, Explanation catalog, semantic/currentness, projection, renderer,
+output, and receipt hash layers are still unfinished migration work in Phase
+71.1. Operation/FileTime timestamp and adoption behavior is also mandatory in
+this same Phase. The current identity implementation is transitional, not an
+accepted end state or an integrity exemption. This bounded material change
+preserves semantic, validation, safety, and typed coverage contracts and does
+not establish production same-path reuse.
+
+## DM14 catalog proof removal
+
+Projection contains no `presentationCatalogIdentity`,
+`presentationLogicalCatalogIdentity`, `presentationCatalogValue`, or
+`presentationLogicalCatalogValue`. These deleted historical catalog proofs
+are not replaced by copied JSON, canonical strings, fingerprints, or alternate
+identity fields. Actual named catalog validation is performed upstream on
+current inputs; a valid same-ID/revision definition update is not independently
+vetoed by a historical catalog copy.
 
 ## Coverage boundary
 

@@ -6,6 +6,7 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
+import java.nio.file.attribute.FileTime
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -15,7 +16,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 15, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -2053,13 +2055,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.writeString(feedback, _feedback_json("feedback-pending", "candidate-pending-acceptance", "changes-requested"), StandardCharsets.UTF_8)
         Files.writeString(alternate, _acceptance_json("acceptance-alternate", "candidate-pending-acceptance"), StandardCharsets.UTF_8)
         _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-        val prior = _sha256(core)
-        val replacement = _accepted_candidate_core_yaml("content-core-pending-acceptance", "en", "accepted-candidate-pending-acceptance", "pending acceptance replacement")
+        val prior = Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS)
         val acceptanceevidence = project.resolve("evidence/content-core/acceptances/acceptance-pending.yaml")
         Files.createDirectories(acceptanceevidence.getParent)
         Files.writeString(
           acceptanceevidence,
-          _acceptance_record_yaml(project, "acceptance-pending", "candidate-pending-acceptance", "human-reviewer", "content/core-en.yaml", prior, _sha256_string(replacement)),
+          _acceptance_record_yaml("acceptance-pending", "candidate-pending-acceptance", "human-reviewer", "content/core-en.yaml", prior),
           StandardCharsets.UTF_8
         )
         val evidencebefore = Files.readAllBytes(acceptanceevidence)
@@ -2093,16 +2094,16 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.writeString(dialogue, _succeeded_dialogue_json("candidate-historical", "historical replacement"), StandardCharsets.UTF_8)
         Files.writeString(acceptance, _acceptance_json("acceptance-historical", "candidate-historical"), StandardCharsets.UTF_8)
         _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-        val prior = _sha256(core)
-        val replacement = _accepted_candidate_core_yaml("content-core-historical-acceptance", "en", "accepted-candidate-historical", "historical replacement")
+        val prior = Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS)
         val acceptanceevidence = project.resolve("evidence/content-core/acceptances/acceptance-historical.yaml")
         Files.createDirectories(acceptanceevidence.getParent)
         Files.writeString(
           acceptanceevidence,
-          _acceptance_record_yaml(project, "acceptance-historical", "candidate-historical", "human-reviewer", "content/core-en.yaml", prior, _sha256_string(replacement)),
+          _acceptance_record_yaml("acceptance-historical", "candidate-historical", "human-reviewer", "content/core-en.yaml", prior),
           StandardCharsets.UTF_8
         )
         Files.writeString(core, _core_yaml("content-core-historical-acceptance", "en", "independent current Core"), StandardCharsets.UTF_8)
+        Files.setLastModifiedTime(core, FileTime.from(prior.toInstant.plusSeconds(1)))
         val currentbefore = Files.readAllBytes(core)
         val evidencebefore = Files.readAllBytes(acceptanceevidence)
 
@@ -3688,7 +3689,7 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
     )
     CozyExplanation.Composition(
       "document-composition",
-      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.identity),
+      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(
         CozyExplanation.PatternReference("problem-solution", 1),
@@ -3895,32 +3896,26 @@ diagnostics:
 """
 
   private def _acceptance_record_yaml(
-    project: Path,
     acceptanceid: String,
     candidateid: String,
     reviewer: String,
     corepath: String,
-    prior: String,
-    resulting: String
+    prior: FileTime
   ): String =
     s"""schema: cozy.content-core-acceptance-record.v1
 id: \"$acceptanceid\"
 candidate:
   id: \"$candidateid\"
   path: \"evidence/content-core/candidates/$candidateid.yaml\"
-  sha256: ${_sha256(project.resolve(s"evidence/content-core/candidates/$candidateid.yaml"))}
 reviewer:
   id: \"$reviewer\"
-  sha256: ${_sha256_string(reviewer)}
 decision:
   value: accepted
-  sha256: ${_sha256_string("accepted")}
 priorCore:
   path: \"$corepath\"
-  sha256: $prior
+  modifiedTime: \"${prior.toInstant.toString}\"
 resultingCore:
   path: \"$corepath\"
-  sha256: $resulting
 """
 
   private def _valid_storyboard: String =
@@ -3963,9 +3958,6 @@ resultingCore:
 
   private def _sha256(path: Path): String =
     MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
-
-  private def _sha256_string(value: String): String =
-    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)).map(item => f"${item & 0xff}%02x").mkString
 
   private def _resolved(profile: String, activeoptionalworkproducts: Vector[String] = Vector.empty): CozyDocumentWorkflow.ResolvedWorkflow =
     CozyDocumentWorkflow.resolve(profile, activeoptionalworkproducts) match {

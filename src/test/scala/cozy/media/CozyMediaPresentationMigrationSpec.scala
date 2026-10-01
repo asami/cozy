@@ -3,7 +3,6 @@ package cozy.media
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
@@ -12,10 +11,25 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 27, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyMediaPresentationMigrationSpec {
+  private final case class Fixture(
+    legacy: Path,
+    catalog: Path,
+    page: CozyVisualPage.Page,
+    pageset: CozyVisualPage.PageSet,
+    bindings: Vector[String],
+    semanticmap: Path,
+    output: Path
+  )
+}
+
 final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozyMediaPresentationMigrationSpec.Fixture
+
   "Cozy media presentation migration" should {
     "migrate a complete human-authored map through the public CLI without invoking a renderer" in {
       _with_work("migration-success") { root =>
@@ -33,18 +47,15 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
         }
         val saved = CozyVisualPage.load(fixture.output, fixture.catalog)
 
-        Then("it atomically saves the canonical target set and emits the deterministic raw-digest migration report")
+        Then("it atomically saves the canonical target set and emits the deterministic non-hash migration report")
         Files.readString(fixture.output, StandardCharsets.UTF_8) shouldBe CozyVisualPage.canonicalJson(fixture.pageset) + "\n"
         saved.document shouldBe fixture.pageset
-        saved.documentIdentity shouldBe CozyVisualPage.visualPageSetIdentity(fixture.pageset, _catalog())
+        saved.document shouldBe fixture.pageset
         report.stripSuffix("\n") shouldBe Vector(
           "schema: cozy.visual-page.migration-report.v1",
           "version: 1",
-          s"legacySlideIrSha256: ${_sha256(fixture.legacy)}",
           "sourceElementCount: 6",
           "bindingCount: 6",
-          s"catalogIdentity: ${saved.catalogIdentity}",
-          s"visualPageSetIdentity: ${saved.documentIdentity}",
           "status: migrated"
         ).mkString("\n")
       }
@@ -54,7 +65,6 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
       _with_work("migration-rejections") { root =>
         Given("a valid migration fixture, a pre-existing output, and source/map/target failure variants")
         val fixture = _fixture(root)
-        val digest = _sha256(fixture.legacy)
         val sentinel = "preserve-existing-output".getBytes(StandardCharsets.UTF_8)
         val incomplete = fixture.bindings.dropRight(1)
         val duplicate = fixture.bindings :+ fixture.bindings.head
@@ -66,22 +76,21 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
         val malformedutf8 = root.resolve("malformed-utf8.json")
         Files.write(malformedutf8, Array[Byte]('{'.toByte, 0xc3.toByte, 0x28.toByte, '}'.toByte))
         val nonjson = _write(root.resolve("non-json.json"), "not JSON")
-        val pagetarget = _write(root.resolve("page-target.json"), _migration_map(digest, fixture.page, fixture.bindings))
-        val unknownfield = _write(root.resolve("unknown-field.json"), _migration_map(digest, fixture.pageset, fixture.bindings).dropRight(1) + ",\"unknown\":true}")
-        val duplicatefield = _write(root.resolve("duplicate-field.json"), _migration_map(digest, fixture.pageset, fixture.bindings).replace("\"schema\":\"cozy.visual-page.migration-map.v1\"", "\"schema\":\"cozy.visual-page.migration-map.v1\",\"schema\":\"cozy.visual-page.migration-map.v1\""))
-        val missingfield = _write(root.resolve("missing-field.json"), _migration_map(digest, fixture.pageset, fixture.bindings).replace("\"bindings\":", "\"omittedBindings\":"))
-        val sourcemismatch = _write(root.resolve("source-mismatch.json"), _migration_map("0" * 64, fixture.pageset, fixture.bindings))
-        val incompletepath = _write(root.resolve("incomplete.json"), _migration_map(digest, fixture.pageset, incomplete))
-        val duplicatepath = _write(root.resolve("duplicate.json"), _migration_map(digest, fixture.pageset, duplicate))
-        val outofrangepath = _write(root.resolve("out-of-range.json"), _migration_map(digest, fixture.pageset, outofrange))
-        val duplicatetargetpath = _write(root.resolve("duplicate-target.json"), _migration_map(digest, fixture.pageset, duplicatetarget))
-        val unresolvedtargetpath = _write(root.resolve("unresolved-target.json"), _migration_map(digest, fixture.pageset, unresolvedtarget))
-        val wrongkindpath = _write(root.resolve("wrong-kind.json"), _migration_map(digest, fixture.pageset, wrongkind))
-        val wrongvaluepath = _write(root.resolve("wrong-value.json"), _migration_map(digest, fixture.pageset, wrongvalue))
+        val pagetarget = _write(root.resolve("page-target.json"), _migration_map(fixture.page, fixture.bindings))
+        val unknownfield = _write(root.resolve("unknown-field.json"), _migration_map(fixture.pageset, fixture.bindings).dropRight(1) + ",\"unknown\":true}")
+        val legacyhashfield = _write(root.resolve("legacy-hash-field.json"), _migration_map(fixture.pageset, fixture.bindings).dropRight(1) + ",\"legacySlideIrSha256\":\"obsolete\"}")
+        val duplicatefield = _write(root.resolve("duplicate-field.json"), _migration_map(fixture.pageset, fixture.bindings).replace("\"schema\":\"cozy.visual-page.migration-map.v1\"", "\"schema\":\"cozy.visual-page.migration-map.v1\",\"schema\":\"cozy.visual-page.migration-map.v1\""))
+        val missingfield = _write(root.resolve("missing-field.json"), _migration_map(fixture.pageset, fixture.bindings).replace("\"bindings\":", "\"omittedBindings\":"))
+        val incompletepath = _write(root.resolve("incomplete.json"), _migration_map(fixture.pageset, incomplete))
+        val duplicatepath = _write(root.resolve("duplicate.json"), _migration_map(fixture.pageset, duplicate))
+        val outofrangepath = _write(root.resolve("out-of-range.json"), _migration_map(fixture.pageset, outofrange))
+        val duplicatetargetpath = _write(root.resolve("duplicate-target.json"), _migration_map(fixture.pageset, duplicatetarget))
+        val unresolvedtargetpath = _write(root.resolve("unresolved-target.json"), _migration_map(fixture.pageset, unresolvedtarget))
+        val wrongkindpath = _write(root.resolve("wrong-kind.json"), _migration_map(fixture.pageset, wrongkind))
+        val wrongvaluepath = _write(root.resolve("wrong-value.json"), _migration_map(fixture.pageset, wrongvalue))
         val link = root.resolve("semantic-link.json")
         Files.createSymbolicLink(link, fixture.semanticmap)
         val variants = Vector(
-          "source-digest" -> sourcemismatch,
           "incomplete" -> incompletepath,
           "duplicate-source" -> duplicatepath,
           "out-of-range" -> outofrangepath,
@@ -90,6 +99,7 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
           "wrong-kind" -> wrongkindpath,
           "wrong-value" -> wrongvaluepath,
           "unknown-field" -> unknownfield,
+          "legacy-hash-field" -> legacyhashfield,
           "duplicate-field" -> duplicatefield,
           "missing-field" -> missingfield,
           "page-target" -> pagetarget,
@@ -120,7 +130,6 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
           stdout shouldBe ""
           outputbytes.sameElements(sentinel) shouldBe true
         }
-        failures("source-digest")._1.getMessage should include("MIGRATION_LEGACY_DIGEST")
         failures("incomplete")._1.getMessage should include("MIGRATION_BINDING_MISSING")
         failures("duplicate-source")._1.getMessage should include("MIGRATION_BINDING_DUPLICATE")
         failures("out-of-range")._1.getMessage should include("MIGRATION_BINDING_RANGE")
@@ -129,6 +138,7 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
         failures("wrong-kind")._1.getMessage should include("MIGRATION_TARGET_KIND")
         failures("wrong-value")._1.getMessage should include("MIGRATION_TARGET_VALUE")
         failures("unknown-field")._1.getMessage should include("MIGRATION_FIELDS")
+        failures("legacy-hash-field")._1.getMessage should include("MIGRATION_FIELDS")
         failures("duplicate-field")._1.getMessage should include("MIGRATION_DUPLICATE_FIELD")
         failures("missing-field")._1.getMessage should include("MIGRATION_FIELDS")
         failures("page-target")._1.getMessage should include("MIGRATION_TARGET_PAGE_SET")
@@ -142,12 +152,11 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
       _with_work("migration-property") { root =>
         Given("one legacy source and map whose six exact bindings can be generated in distinct valid orders")
         val fixture = _fixture(root)
-        val digest = _sha256(fixture.legacy)
         val orders = Gen.choose(0, 719).map(index => _permutation(fixture.bindings, index))
 
         When("ScalaCheck migrates at least thirty generated binding-order variations")
         val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(orders) { bindings =>
-          _write(fixture.semanticmap, _migration_map(digest, fixture.pageset, bindings))
+          _write(fixture.semanticmap, _migration_map(fixture.pageset, bindings))
           val report = CozyMediaPresentationMigration.execute(List(
             fixture.legacy.toString,
             "--semantic-map", fixture.semanticmap.toString,
@@ -155,7 +164,7 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
             "--save", fixture.output.toString
           ))
           Files.readString(fixture.output, StandardCharsets.UTF_8) == CozyVisualPage.canonicalJson(fixture.pageset) + "\n" &&
-            CozyVisualPage.load(fixture.output, fixture.catalog).documentIdentity == CozyVisualPage.visualPageSetIdentity(fixture.pageset, _catalog()) &&
+            CozyVisualPage.load(fixture.output, fixture.catalog).document == fixture.pageset &&
             report.contains("status: migrated")
         })
 
@@ -164,17 +173,35 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
         check.succeeded should be >= 30
       }
     }
-  }
 
-  private final case class Fixture(
-    legacy: Path,
-    catalog: Path,
-    page: CozyVisualPage.Page,
-    pageset: CozyVisualPage.PageSet,
-    bindings: Vector[String],
-    semanticmap: Path,
-    output: Path
-  )
+    "accept a byte-level legacy source change when its parsed semantic values remain bound" in {
+      _with_work("migration-semantic-source") { root =>
+        Given("a valid map and a direct legacy Slide IR with equivalent YAML whitespace")
+        val fixture = _fixture(root)
+        val before = Files.readAllBytes(fixture.legacy)
+        Files.write(fixture.legacy, Files.readString(fixture.legacy, StandardCharsets.UTF_8).replace("layout: content\n", "layout: content  \n").getBytes(StandardCharsets.UTF_8))
+
+        When("the migration reads the changed legacy source against the unchanged semantic map")
+        val report = CozyMediaPresentationMigration.execute(List(
+          fixture.legacy.toString,
+          "--semantic-map", fixture.semanticmap.toString,
+          "--catalog", fixture.catalog.toString,
+          "--save", fixture.output.toString
+        ))
+
+        Then("its semantic bindings remain valid without a byte-identity gate")
+        Files.readAllBytes(fixture.legacy).sameElements(before) shouldBe false
+        Files.readString(fixture.output, StandardCharsets.UTF_8) shouldBe CozyVisualPage.canonicalJson(fixture.pageset) + "\n"
+        report shouldBe Vector(
+          "schema: cozy.visual-page.migration-report.v1",
+          "version: 1",
+          "sourceElementCount: 6",
+          "bindingCount: 6",
+          "status: migrated"
+        ).mkString("\n")
+      }
+    }
+  }
 
   private def _fixture(root: Path): Fixture = {
     _write(root.resolve("sources/migration.txt"), "migration provenance")
@@ -202,7 +229,7 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
         |        asset: infographic
         |""".stripMargin
     )
-    val asset = CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png", _sha256(root.resolve("assets/infographic.png")))
+    val asset = CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png")
     val labels = Vector("Overview", "Detail", "Context", "Summary", "Caption")
     val nodes = labels.zipWithIndex.map { case (label, index) =>
       CozyVisualPage.Node("step-" + (index + 1), "step", label, Vector("migration"))
@@ -230,15 +257,15 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
       _binding("overview", 5, "asset-id", "infographic")
     )
     val catalog = _write(root.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(_catalog()))
-    val semanticmap = _write(root.resolve("migration-map.json"), _migration_map(_sha256(legacy), pageset, bindings))
+    val semanticmap = _write(root.resolve("migration-map.json"), _migration_map(pageset, bindings))
     Fixture(legacy, catalog, page, pageset, bindings, semanticmap, root.resolve("migrated.json"))
   }
 
   private def _binding(slideid: String, elementindex: Int, kind: String, id: String): String =
     s"""{"slideId":"$slideid","elementIndex":$elementindex,"target":{"pageId":"migration-page","kind":"$kind","id":"$id"}}"""
 
-  private def _migration_map(digest: String, document: CozyVisualPage.Document, bindings: Vector[String]): String =
-    s"""{"schema":"cozy.visual-page.migration-map.v1","version":1,"legacySlideIrSha256":"$digest","visualPageSet":${CozyVisualPage.canonicalJson(document)},"bindings":${bindings.mkString("[", ",", "]")}}"""
+  private def _migration_map(document: CozyVisualPage.Document, bindings: Vector[String]): String =
+    s"""{"schema":"cozy.visual-page.migration-map.v1","version":1,"visualPageSet":${CozyVisualPage.canonicalJson(document)},"bindings":${bindings.mkString("[", ",", "]")}}"""
 
   private def _catalog(): CozyVisualPage.Catalog = CozyVisualPage.Catalog(
     "core", 1,
@@ -295,8 +322,6 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
     Files.write(path, value.getBytes(StandardCharsets.UTF_8))
     path
   }
-
-  private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _with_work[A](name: String)(body: Path => A): A = {
     val root = Files.createTempDirectory("cozy-presentation-migration-" + name + "-")

@@ -2,6 +2,9 @@
 
 Status: normative for Phase 58.2, Step P582-05, Slice P582-05A
 
+Phase 71.1 supersedes only digest-derived resource wording and CLI/output
+assertions. It does not claim that current source-loader bindings are hash-free.
+
 ## Strict generic resource
 
 The resource schema is exactly `cozy.document-confirmation-vocabulary.v1`.
@@ -53,7 +56,7 @@ The only admitted grammar is:
 For `summary`, exactly one `--summary <summary.yaml>` is additionally
 required; for `document`, `--summary` is rejected. Unknown, duplicate,
 missing, cross-kind, or positional command forms reject without publication.
-The command MUST use strict v2 source admission and current byte identities,
+The command MUST use strict v2 source admission and current source bindings,
 then locale-compatible vocabulary and the matching v2 renderer. It MUST
 publish only an atomically moved direct regular non-symlink HTML destination
 under a direct existing directory.
@@ -63,8 +66,7 @@ under a direct existing directory.
 `CozyDocumentConfirmationVocabularySpec` proves strict schema/path/YAML/
 locale/wording admission and the generic-only adapter. `CozyDocumentConfirmationDriverSpec`
 uses the Article 9 v2 Japanese bundle to prove both confirmation kinds render
-twice to identical bytes and disclosed identities; exact v2 currentness and
-traceability; accepted native selection markup; strict generic-resource and
+twice to identical digest-free bytes; exact v2 source admission; accepted native selection markup; strict generic-resource and
 command rejection; safe publication rejection; and absence of Article 9
 Step/node/prose maps from the production generic resource. These specs use
 `AnyWordSpec`, adjacent Given/When/Then clauses, and `should` matchers.
@@ -83,5 +85,13 @@ No behavior of `document-project description render`, the v1 schema/loader/
 projection, export code, or generated HTML authority is changed. The v2
 renderers' generic heading and readable primary/audit presentation change
 only as specified by their paired presentation contracts; admitted source
-models, authored identities, selection, and accepted Summary slides remain
+models, authored semantic IDs, selection, and accepted Summary slides remain
 unchanged.
+
+## Phase 71.1 DM08 supersession
+
+Phase 71.1 / P710-03-DM-08 makes the command's current source bindings
+semantic logical-ID bindings, not raw-byte identities. The driver reads current
+valid V2 Core/Document/Summary bytes without rebinding hashes and still rejects
+real schema, ID, reference, locale, path, vocabulary, and command-form faults.
+Neither renderer output nor the generic vocabulary contract changes.

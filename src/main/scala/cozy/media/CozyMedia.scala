@@ -18,7 +18,8 @@ import scala.util.control.NonFatal
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -271,8 +272,7 @@ private[cozy] object CozyMedia {
     descriptorFile: Path,
     descriptorRoot: Path,
     descriptor: Descriptor,
-    descriptorSha256: String,
-    inputSetSha256: String,
+    observedInputs: Vector[(Path, java.nio.file.attribute.FileTime)],
     resource: Resource,
     target: Option[String],
     context: CozyProjectContext.Context,
@@ -441,7 +441,7 @@ private[cozy] object CozyMedia {
       if (findings.nonEmpty)
         RAISE.invalidArgumentFault("Media build structural verification failed:\n" + findings.map(x => s"- $x").mkString("\n"))
       val acceptedidentity = CozyMediaReceipt.capture(mediaplan)
-      if (plannedidentity.exists(_.inputSetSha256 != acceptedidentity.inputSetSha256))
+      if (plannedidentity.exists(_.observedFiles != acceptedidentity.observedFiles))
         RAISE.invalidArgumentFault("Media receipt inputs changed during selected build; no fresh acceptance evidence was written")
       val reviewstates = selected.filter(_.resource.build == "presentation").map(resolved => CozyMediaReviewState.prepareRefresh(mediaplan, resolved))
       val acceptance = CozyMediaReceipt.prepareAcceptance(mediaplan, selected, acceptedidentity, config.target)
@@ -834,7 +834,7 @@ private[cozy] object CozyMedia {
       CozyMediaPresentation.build(mediaplan, resolved, runner)
     }
     val after = CozyMediaReceipt.capture(mediaplan)
-    if (before.inputSetSha256 != after.inputSetSha256)
+    if (before.observedFiles != after.observedFiles)
       RAISE.invalidArgumentFault("Media receipt inputs changed during presentation build; no fresh acceptance evidence was written")
     val reviewstates = selected.map(resolved => CozyMediaReviewState.prepareRefresh(mediaplan, resolved))
     val receipt = CozyMediaReceipt.prepare(mediaplan, selected, after, config.target)
@@ -916,7 +916,7 @@ private[cozy] object CozyMedia {
         }
       }
       val receiptfindings =
-        if (requirereceipt && !CozyMediaReceipt.current(plan, resolved)) Vector(s"${resource.id}: missing or stale cozy.media.receipt.v2 evidence")
+        if (requirereceipt && (!CozyMediaReceipt.current(plan, resolved) || !CozyMediaReceipt.integrityCurrent(plan, resolved))) Vector(s"${resource.id}: missing or stale cozy.media.receipt.v2 evidence")
         else Vector.empty
       val pdfreviewstatefindings =
         if (requirereceipt) try {

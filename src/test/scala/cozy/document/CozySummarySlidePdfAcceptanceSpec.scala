@@ -13,10 +13,25 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 14, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozySummarySlidePdfAcceptanceSpec {
+  private final case class FailureEvidence(
+    failure: RuntimeException,
+    pdfbytes: Vector[Byte],
+    manifestbytes: Vector[Byte],
+    receiptbytes: Vector[Byte],
+    priorpdf: Vector[Byte],
+    priormanifest: Vector[Byte],
+    priorreceipt: Vector[Byte]
+  )
+}
+
 final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozySummarySlidePdfAcceptanceSpec.FailureEvidence
+
   "Cozy Article 9 Summary Slide PDF" should {
     "render the static Japanese projection with ordered provenance and distinct flow semantics" in {
       _with_work("cozy-summary-slide-pdf-article-9") { root =>
@@ -30,6 +45,7 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         val connection = CozySummarySlidePdf.prepare(root, root.relativize(fixture.profile))
         val visual = CozyVisualPage.load(fixture.pageset, fixture.catalog)
         val binding = CozyVisualPageBinding.load(fixture.binding, visual)
+        val receipt = CozyMediaReceipt.manifest(fixture.receipt).flatMap(_.resources.find(_.id == "summary-slides-pdf")).flatMap(_.receipt).getOrElse(fail("summary-slides receipt is required"))
 
         Then("the emitted PDF has the complete ordered page set and exact source and Summary provenance")
         _page_count(fixture.pdf) shouldBe 4
@@ -57,14 +73,7 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         visual.document.pages.tail.flatMap(_.logical.nodes.map(_.id)).toSet should contain allOf ("overview-realization", "overview-foundation", "overview-conclusion", "overview-application-modeling")
         visual.document.pages.last.logical.nodes.map(node => node.id -> node.role) shouldBe Vector("overview-application-modeling" -> "item")
         visual.document.pages.last.visual.parameters shouldBe Vector.empty
-        connection.projection.provenance.summary.id shouldBe "application-modeling-summary-ja-v2"
-        connection.projection.provenance.summary.path shouldBe "content-v2/ja/summary.yaml"
-        connection.projection.provenance.summary.identity shouldBe "sha256:241ef33aa477a0cbddddb23d02ace3ed913e3aa95a5dfaeca26a69456490c8db"
-        connection.projection.provenance.core.identity shouldBe "sha256:6afe2e0a8bc534be97e12fb34dffd0175ee82baccb22b98923f92801d3ee0998"
-        connection.projection.provenance.document.identity shouldBe "sha256:5e91fb42d9e18ab3a8209de937b691c7ae4075b4ce2e227b6e74fcc6d28703ac"
-        connection.projection.provenance.media.identity shouldBe "sha256:e7fcba38324e6a7539b976ebbfcd0050fca5e63368784cc948766116d635fb75"
-        connection.projection.provenance.catalog.identity shouldBe "sha256:1d74ed3a94bf4c0d5f7b336de0763775d2040097abbe873b2eddd606bc34706f"
-        connection.projection.provenance.binding.identity shouldBe "sha256:e6cc253e94926f88bd720b8a876f047da8d8ae5e3242ee088dd513657586f04c"
+        connection.projection.provenance shouldBe _expected_provenance
         connection.projection.provenance.mediaTarget shouldBe "summary-slides-pdf"
         binding.id shouldBe "business-binding"
         binding.profile shouldBe "business"
@@ -72,7 +81,6 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-realization-to-foundation\"")
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-conclusion-to-realization\"")
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-application-modeling-standalone\"")
-        val receipt = CozyMediaReceipt.manifest(fixture.receipt).flatMap(_.resources.find(_.id == "summary-slides-pdf")).flatMap(_.receipt).getOrElse(fail("summary-slides receipt is required"))
         receipt.inputs.filter(_.id.startsWith("projection-")).map(input => (input.id, input.role, input.path, input.normalization)) shouldBe Vector(
           ("projection-binding", "projection-binding", "presentation/binding.json", "bytes"),
           ("projection-catalog", "projection-catalog", "presentation/catalog.json", "bytes"),
@@ -126,27 +134,63 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
       currentness.map(_._2._2).forall(value => !value) shouldBe true
     }
 
-    "reject every independently changed authority before replacing accepted PDF evidence" in {
-      Given("isolated accepted copies and one independent Core, Document, Summary, Profile, catalog, or binding mutation per copy")
+    "semantic admission" which {
+    "prepare every independently whitespace-changed current authority without replacing accepted output or evidence" in {
+      _with_work("cozy-summary-slide-pdf-current-source") { root =>
+        Given("an accepted Article 9 PDF, its semantic baseline, and historical ordinary metadata in the unchanged binding profile")
+        val fixture = _copy_fixture(root)
+        _accept_prebuilt_dependencies(fixture)
+        CozySummarySlidePdf.build(root, root.relativize(fixture.profile), _renderer(root))
+        val baseline = CozySummarySlidePdf.prepare(root, root.relativize(fixture.profile))
+        val prior = _evidence_bytes(fixture)
+        val authorities = Vector(fixture.core, fixture.document, fixture.summary, fixture.profile, fixture.media, fixture.catalog, fixture.binding)
+
+        When("the coordinator prepares each independently whitespace-changed authority without rebinding the historical metadata")
+        val results = authorities.map { path =>
+          val original = Files.readAllBytes(path)
+          _append(path, "\n")
+          val inputs = authorities.map(input => Files.readAllBytes(input).toVector)
+          val prepared = CozySummarySlidePdf.prepare(root, root.relativize(fixture.profile))
+          val unchanged = _evidence_bytes(fixture) == prior && authorities.map(input => Files.readAllBytes(input).toVector) == inputs
+          Files.write(path, original)
+          prepared -> unchanged
+        }
+
+        Then("each prepare preserves the connection, complete canonical semantics, logical provenance, and prior PageSet/PDF/manifest/receipt bytes")
+        baseline.projection.provenance shouldBe _expected_provenance
+        results.foreach { case (prepared, unchanged) =>
+          prepared.pageSetPath shouldBe baseline.pageSetPath
+          prepared.pageSetPath shouldBe fixture.pageset
+          prepared.projection.visualPageSet.canonicalJson shouldBe baseline.projection.visualPageSet.canonicalJson
+          prepared.projection.provenance shouldBe _expected_provenance
+          unchanged shouldBe true
+        }
+      }
+    }
+
+    "reject every independently invalid authority before replacing accepted PDF evidence" in {
+      Given("isolated accepted copies and one independent invalid Core schema, Document/Summary ID, profile root field, media knowledge ID, catalog schema, or binding profile")
       val mutations: Vector[(String, Fixture => Unit)] = Vector(
-        "core" -> ((fixture: Fixture) => _append(fixture.core, "\n")),
-        "document" -> ((fixture: Fixture) => _append(fixture.document, "\n")),
-        "summary" -> ((fixture: Fixture) => _append(fixture.summary, "\n")),
+        "core" -> ((fixture: Fixture) => _replace(fixture.core, "schema: cozy.content-core.logic-tree.v1", "schema: invalid.core.v1")),
+        "document" -> ((fixture: Fixture) => _replace(fixture.document, "id: application-modeling-document-ja-v2", "id: wrong-document-ja-v2")),
+        "summary" -> ((fixture: Fixture) => _replace(fixture.summary, "id: application-modeling-summary-ja-v2", "id: wrong-summary-ja-v2")),
         "profile" -> ((fixture: Fixture) => _append(fixture.profile, "\nunknown: rejected\n")),
-        "catalog" -> ((fixture: Fixture) => _append(fixture.catalog, "\n")),
-        "binding" -> ((fixture: Fixture) => _append(fixture.binding, "\n"))
+        "media" -> ((fixture: Fixture) => _replace(fixture.media, "  id: application-modeling", "  id: wrong-knowledge")),
+        "catalog" -> ((fixture: Fixture) => _replace(fixture.catalog, "\"schema\":\"cozy.presentation-semantics.catalog.v1\"", "\"schema\":\"invalid.catalog.v1\"")),
+        "binding" -> ((fixture: Fixture) => _replace(fixture.binding, "\"profile\":\"business\"", "\"profile\":\"wrong-profile\""))
       )
 
       When("each changed authority is passed through the existing coordinator")
-      val failures = mutations.map { case (name, mutate) => _stale_case("cozy-summary-slide-pdf-stale-" + name)(mutate) }
+      val failures = mutations.map { case (name, mutate) => _invalid_case("cozy-summary-slide-pdf-invalid-" + name)(mutate) }
 
-      Then("each stale or malformed authority fails closed and leaves the accepted PDF and receipt un-replaced")
+      Then("each invalid required semantic authority fails closed and leaves the accepted PDF, renderer manifest, and receipt un-replaced")
       failures.foreach { evidence =>
         evidence.failure.getMessage should not be empty
         evidence.pdfbytes shouldBe evidence.priorpdf
         evidence.manifestbytes shouldBe evidence.priormanifest
         evidence.receiptbytes shouldBe evidence.priorreceipt
       }
+    }
     }
 
     "reject every independently missing authority before replacing accepted PDF evidence" in {
@@ -186,16 +230,6 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
     val pdf: Path,
     val renderermanifest: Path,
     val receipt: Path
-  )
-
-  private final case class FailureEvidence(
-    failure: RuntimeException,
-    pdfbytes: Vector[Byte],
-    manifestbytes: Vector[Byte],
-    receiptbytes: Vector[Byte],
-    priorpdf: Vector[Byte],
-    priormanifest: Vector[Byte],
-    priorreceipt: Vector[Byte]
   )
 
   private def _currentness_case(name: String)(mutate: Fixture => Unit): (Boolean, Boolean) = {
@@ -249,7 +283,7 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
     CozyMedia.build(CozyMedia.CommandConfig(fixture.media, target = Some("infographic")))
   }
 
-  private def _stale_case(name: String)(mutate: Fixture => Unit): FailureEvidence = {
+  private def _invalid_case(name: String)(mutate: Fixture => Unit): FailureEvidence = {
     var result = Option.empty[FailureEvidence]
     _with_work(name) { root =>
       val fixture = _copy_fixture(root)
@@ -312,7 +346,7 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         val montage = Path.of(command(command.indexOf("--montage") + 1))
         val manifest = Path.of(command(command.indexOf("--manifest") + 1))
         val visual = CozyVisualPage.load(pageset, catalog)
-        val bindingdocument = CozyVisualPageBinding.load(binding, visual)
+        CozyVisualPageBinding.load(binding, visual)
         val pages = visual.document.pages
         val currentpdf = pdfbytes.getOrElse {
           val value = _write_pdf(pdf, pages.size)
@@ -325,12 +359,12 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         _write_png(montage)
         val pdfhash = _sha256(pdf)
         val slides = pages.map { page =>
-          val assets = page.assets.map(asset => s"""{"id":"${asset.id}","sha256":"${_sha256(root.resolve(asset.path))}"}""").mkString(",")
+          val assets = page.assets.map(asset => s"""{"id":"${asset.id}"}""").mkString(",")
           s"""{"id":"${page.id}","path":"target/slides/${page.id}.png","sha256":"${_sha256(images.resolve(page.id + ".png"))}","pdfSha256":"$pdfhash","assets":[$assets]}"""
         }.mkString(",")
         _write(
           manifest,
-          s"""{"schema":"cozy.summary-slides.render.v2","target":"summary-slides-pdf","profile":"business","renderer":{"name":"cozy-renderer","version":"1"},"visualPageSetSha256":"${_semantic_sha256(visual.documentIdentity)}","catalogSha256":"${_semantic_sha256(visual.catalogIdentity)}","bindingSha256":"${_semantic_sha256(bindingdocument.bindingIdentity)}","templateSha256":"${_sha256(template)}","pdf":{"sha256":"$pdfhash","pageCount":${pages.size}},"slides":[$slides],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
+          s"""{"schema":"cozy.summary-slides.render.v2","target":"summary-slides-pdf","profile":"business","renderer":{"name":"cozy-renderer","version":"1"},"templateSha256":"${_sha256(template)}","pdf":{"sha256":"$pdfhash","pageCount":${pages.size}},"slides":[$slides],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
         )
         0
       }
@@ -361,12 +395,34 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
   private def _append(path: Path, value: String): Unit =
     Files.write(path, Files.readAllBytes(path) ++ value.getBytes(StandardCharsets.UTF_8))
 
+  private def _replace(path: Path, before: String, after: String): Unit = {
+    Files.writeString(path, Files.readString(path, StandardCharsets.UTF_8).replace(before, after), StandardCharsets.UTF_8)
+    ()
+  }
+
+  private def _evidence_bytes(fixture: Fixture): Vector[Vector[Byte]] =
+    Vector(fixture.pageset, fixture.pdf, fixture.renderermanifest, fixture.receipt).map(path => Files.readAllBytes(path).toVector)
+
+  private def _expected_provenance: CozySummarySlideProjection.ProjectionProvenance = {
+    import CozySummarySlideProjection.{InputProvenance, ProjectionProvenance}
+    ProjectionProvenance(
+      InputProvenance("application-modeling-pages-ja-v2", "projection.yaml"),
+      InputProvenance("application-modeling", "content-v2/core.yaml"),
+      InputProvenance("application-modeling-document-ja-v2", "content-v2/ja/document.yaml"),
+      InputProvenance("application-modeling-summary-ja-v2", "content-v2/ja/summary.yaml"),
+      InputProvenance("application-modeling", "media.yaml"),
+      InputProvenance("presentation", "presentation/catalog.json"),
+      InputProvenance("business-binding", "presentation/binding.json"),
+      "ja",
+      "summary-slides-pdf"
+    )
+  }
+
   private def _remove(path: Path): Unit = {
     Files.delete(path)
     ()
   }
 
-  private def _semantic_sha256(value: String): String = value.stripPrefix("sha256:")
   private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
   private def _write(path: Path, value: String): Path = {

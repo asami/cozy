@@ -2,6 +2,9 @@
 
 Status: normative for Phase 58.2, Step P582-05, Slice P582-05A
 
+Phase 71.1 removes only generic digest wording and presentation reporting;
+source-loader byte bindings remain a later same-Phase obligation.
+
 This design introduces the production boundary that supplies generic review
 wording to the already accepted v2 Document and Summary confirmation renderers.
 It does not alter v1 descriptions, their loader/projection/CLI route, the v2
@@ -49,7 +52,7 @@ Catalog, source meaning, fallback rules, or the closed v1 authoring behavior.
 
 `document-project confirmation render` is a closed command with `--core`,
 `--document`, `--vocabulary`, `--kind`, and `--save`; `--summary` is required
-only for `--kind summary`. It first admits strict v2 source identities, then
+only for `--kind summary`. It first admits strict v2 source bindings, then
 the locale-compatible generic vocabulary, and calls the matching accepted v2
 renderer. The command publishes only an absent or direct regular non-symlink
 `.html` file under an existing direct non-symlink directory, using one atomic
@@ -61,8 +64,8 @@ The `content-v2` test fixture is a real Japanese Article 9 v2 source bundle.
 Its Document owns all localized Step/node labels and prose; its Summary owns
 all unit editorial content, ordering, retained points, diagrams, and
 omissions. The separate generic Japanese resource contains no Article 9
-labels or prose. The driver exercises repeated deterministic renderings,
-identity traceability/currentness, native selection DOM, strict vocabulary
+labels or prose. The driver exercises repeated deterministic digest-free renderings,
+current source admission, native selection DOM, strict vocabulary
 rejection, command closure, and unsafe-output rejection.
 
 ## Non-goals
@@ -70,3 +73,10 @@ rejection, command closure, and unsafe-output rejection.
 This boundary adds no Core field, source semantic field, v1 conversion,
 export/API/SPI route, physical-layout authoring input, external publication,
 or generated-HTML authority.
+
+## Phase 71.1 DM08 supersession
+
+Phase 71.1 / P710-03-DM-08 changes only the source-binding interpretation used
+before this driver renders: valid current V2 bytes bind by exact logical IDs,
+not rebounded hashes. The command and both renderers retain their existing
+output and generic-vocabulary responsibilities.

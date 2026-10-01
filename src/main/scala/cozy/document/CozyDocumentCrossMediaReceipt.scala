@@ -7,7 +7,8 @@ import java.security.MessageDigest
 
 /*
  * @since   Sep.  6, 2026
- * @version Sep.  6, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentCrossMediaReceipt {
@@ -17,8 +18,6 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
     compositionIdentity: String,
     planIdentity: String,
     explanationCatalogIdentity: String,
-    presentationCatalogIdentity: String,
-    presentationLogicalCatalogIdentity: String,
     policyIdentity: String,
     sources: Vector[CozyExplanation.SourceDeclaration],
     assets: Vector[CozyExplanation.AssetDeclaration],
@@ -55,8 +54,6 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
       projection.compositionIdentity,
       projection.planIdentity,
       projection.explanationCatalogIdentity,
-      projection.presentationCatalogIdentity,
-      projection.presentationLogicalCatalogIdentity,
       projection.policyIdentity,
       projection.sources.sortBy(_.id),
       projection.assets.sortBy(_.id),
@@ -101,8 +98,6 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
         (receipt.compositionIdentity == projection.compositionIdentity) -> "Composition identity changed",
         (receipt.planIdentity == projection.planIdentity) -> "Plan identity changed",
         (receipt.explanationCatalogIdentity == projection.explanationCatalogIdentity) -> "explanation catalog identity changed",
-        (receipt.presentationCatalogIdentity == projection.presentationCatalogIdentity) -> "presentation catalog identity changed",
-        (receipt.presentationLogicalCatalogIdentity == projection.presentationLogicalCatalogIdentity) -> "presentation logical catalog identity changed",
         (receipt.policyIdentity == projection.policyIdentity) -> "projection policy identity changed",
         (receipt.semanticIdentity == projection.semanticIdentity) -> "semantic identity changed",
         (receipt.currentnessIdentity == projection.currentnessIdentity) -> "currentness identity changed",
@@ -302,8 +297,6 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
       "compositionIdentity" -> Json.fromString(value.compositionIdentity),
       "planIdentity" -> Json.fromString(value.planIdentity),
       "explanationCatalogIdentity" -> Json.fromString(value.explanationCatalogIdentity),
-      "presentationCatalogIdentity" -> Json.fromString(value.presentationCatalogIdentity),
-      "presentationLogicalCatalogIdentity" -> Json.fromString(value.presentationLogicalCatalogIdentity),
       "policyIdentity" -> Json.fromString(value.policyIdentity),
       "sources" -> Json.fromValues(value.sources.sortBy(_.id).map(_source_value)),
       "assets" -> Json.fromValues(value.assets.sortBy(_.id).map(_asset_value)),
@@ -318,14 +311,12 @@ private[cozy] object CozyDocumentCrossMediaReceipt {
   }
 
   private def _source_value(value: CozyExplanation.SourceDeclaration): Json = Json.obj(
-    "id" -> Json.fromString(value.id),
-    "sha256" -> Json.fromString(value.sha256)
+    "id" -> Json.fromString(value.id)
   )
 
   private def _asset_value(value: CozyExplanation.AssetDeclaration): Json = Json.obj(
     "id" -> Json.fromString(value.id),
-    "mediaType" -> Json.fromString(value.mediaType),
-    "sha256" -> Json.fromString(value.sha256)
+    "mediaType" -> Json.fromString(value.mediaType)
   )
 
   private def _identity(value: String): String = _identity(value.getBytes(StandardCharsets.UTF_8))

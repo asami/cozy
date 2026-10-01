@@ -2,7 +2,7 @@ package cozy
 
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
-import cozy.archive.{ComponentRepositoryIndex, RepositoryArtifactCatalog}
+import cozy.archive.ComponentRepositoryIndex
 import cozy.runtime.CozySbtBridge
 import play.api.libs.json.Json
 import org.scalacheck.{Gen, Prop, Test}
@@ -15,7 +15,8 @@ import org.scalatest.wordspec.AnyWordSpec
  *  version May. 20, 2026
  *  version Jun. 27, 2026
  *  version Aug. 13, 2026
- * @version Sep. 17, 2026
+ *  version Sep. 17, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec

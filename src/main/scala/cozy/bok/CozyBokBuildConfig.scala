@@ -32,13 +32,13 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
-private[cozy] trait CozyBokBuildConfig {
-  self: CozyBokImplementation.type =>
-  private[bok] val _default_bok_ui_bundle = "target/cozy-bok/ui-bundle/ui-bundle.zip"
+private[cozy] object CozyBokBuildConfig {
+  import CozyBokImplementation._
 
   final case class BuildConfig(
     project: Path,
@@ -73,8 +73,11 @@ private[cozy] trait CozyBokBuildConfig {
   }
 
   final case class ArcadiaConfig(enabled: Boolean, source: String)
+
   final case class DirectAssetsConfig(enabled: Boolean, items: Vector[DirectAsset])
+
   final case class DirectAsset(source: String, destination: String)
+
   final case class PublicationSettings(
     path: String,
     warehouse: Option[String],
@@ -88,6 +91,7 @@ private[cozy] trait CozyBokBuildConfig {
     def artifactBasePath(project: Path): Path = repositoryPath(project)
     def publicationRepositoryBasePath(project: Path): Path = repositoryPath(project)
   }
+
   final case class PublicationConfig(
     project: Path,
     source: String,
@@ -108,6 +112,7 @@ private[cozy] trait CozyBokBuildConfig {
     def artifactBasePath: Path = repositoryPath
     def manifestPath: Path = project.resolve("target/cozy-bok/publish/latest/manifest.json").toAbsolutePath.normalize()
   }
+
   final case class WorkflowConfig(
     project: Path,
     name: String,
@@ -115,10 +120,15 @@ private[cozy] trait CozyBokBuildConfig {
     env: Map[String, String],
     backup: Option[WebsiteBackupConfig] = None
   )
+
   final case class WebsiteBackupConfig(source: Path, root: Path, compressed: Boolean)
+
   private[bok] final case class PublishStep(name: String, status: String, message: String)
+
   private[bok] final case class WebsiteBackupSnapshot(path: Path, yearmonth: YearMonth, order: String)
+
   private[bok] final case class BibliographyRdfAlias(aliastail: String, targettail: String, title: String)
+
   private[bok] final case class KnowledgeSourceResource(kind: String, href: String, mediatype: String) {
     def toJson: Json = Json.obj(
       "kind" -> Json.fromString(kind),
@@ -126,6 +136,7 @@ private[cozy] trait CozyBokBuildConfig {
       "mediaType" -> Json.fromString(mediatype)
     )
   }
+
   private[bok] final case class PublishPreflight(
     stage: Option[WorkflowConfig],
     upload: WorkflowConfig,
@@ -138,6 +149,7 @@ private[cozy] trait CozyBokBuildConfig {
   ) {
     def packageCount: Int = videopackages.size + infographicpackages.size + projectpackages.size
   }
+
   private[bok] final case class ParsedArgs(request: CliRequest) {
     def argument(name: String): Option[String] =
       request.arguments.find(_.name == name).map(_.asString).map(_.trim).filter(_.nonEmpty)
@@ -171,6 +183,275 @@ private[cozy] trait CozyBokBuildConfig {
       }
     }
   }
+
+  final case class SiteConfig(
+    values: Map[String, String],
+    lists: Map[String, Vector[String]],
+    goalTrees: Map[String, Vector[BokGoal]] = Map.empty
+  ) {
+    def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
+    def boolean(path: String): Option[Boolean] =
+      value(path).map(_.toLowerCase(java.util.Locale.ROOT)).collect {
+        case "true" | "yes" | "on" => true
+        case "false" | "no" | "off" => false
+      }
+    def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty)
+    def goalTree(path: String): Vector[BokGoal] = goalTrees.getOrElse(path, Vector.empty)
+  }
+
+  object SiteConfig {
+    lazy val empty: SiteConfig = new SiteConfig(Map.empty, Map.empty, Map.empty)
+  }
+
+  object BuildConfig {
+    def create(args: List[String]): BuildConfig = {
+      val parsed = BokArgs.build(args)
+      parsed.validateNoUnrecognized()
+      val strategy = _strategy(parsed)
+      val project = _project(parsed)
+      val config = _load_config(project)
+      val source = config.value("bok.source").getOrElse("src/main/doxsite")
+      val uibundlesetting = config.value("bok.ui-bundle")
+      uibundlesetting.foreach { value =>
+        val uibundlepath = project.resolve(value).toAbsolutePath.normalize
+        if (!Files.isRegularFile(uibundlepath))
+          RAISE.invalidArgumentFault(
+            s"Configured bok.ui-bundle must be an existing regular file: ${value}"
+          )
+      }
+      val projectroot = _finalization_project_root(project)
+      val admittedsource = _admit_build_config_source(project.resolve(source), projectroot)
+      val admittedrelative = projectroot.relativize(admittedsource).toString
+      val site = _load_site_config(admittedsource)
+      val languages = _languages(config, site)
+      val sitetitle = site.value("site.metadata.name").getOrElse("KnowledgeHub BoK")
+      val siteid = site.value("site.metadata.id").
+        orElse(site.value("site.metadata.key")).
+        map(_site_identifier).
+        filter(_.nonEmpty).
+        getOrElse(_site_identifier(sitetitle))
+      val siteurl = site.value("site.metadata.url").flatMap(_site_base_uri)
+      val dockerimage =
+        parsed.property("docker-image").
+          orElse(config.value("bok.docker-image")).
+          orElse(config.value("cozy.docker-image")).
+          orElse(config.value("pdf.docker-image")).
+          orElse(config.value("smartdox.pdf.docker-image")).
+          orElse(config.value("cozy.pdf.docker-image")).
+          getOrElse(_default_docker_image)
+      BuildConfig(
+        project,
+        admittedrelative,
+        config.value("bok.website").getOrElse("website.d"),
+        config.value("bok.antora").getOrElse("antora.d"),
+        config.value("bok.doxsite").getOrElse("doxsite.d"),
+        config.value("bok.arcadia-site").getOrElse("arcadiasite.d"),
+        uibundlesetting.getOrElse(_default_bok_ui_bundle),
+        strategy,
+        dockerimage,
+        site.value("output.scope.policy").orElse(config.value("bok.output.scope.policy")).getOrElse("home_only"),
+        sitetitle,
+        siteid,
+        siteurl,
+        _locale_mode(config, site),
+        _default_locale(config, site, languages),
+        languages,
+        ArcadiaConfig(_boolean(config, "bok.arcadia.enabled", false), config.value("bok.arcadia.source").getOrElse("src/main/arcadiasite")),
+        _direct_assets(project, config),
+        _publication_settings(parsed, config, strategy),
+        _dashboard_color_group(parsed, config, site),
+        !parsed.request.switches.exists(_.name == "no-bib-service")
+      )
+    }
+  }
+
+  private def _admit_build_config_source(source: Path, projectroot: Path): Path = {
+    val normalized = source.toAbsolutePath.normalize()
+    if (!normalized.startsWith(projectroot))
+      RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $source")
+    if (normalized != projectroot)
+      _validate_build_config_source_parent(
+        projectroot,
+        Option(normalized.getParent).getOrElse(projectroot)
+      )
+    if (Files.exists(normalized, LinkOption.NOFOLLOW_LINKS) &&
+        (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)))
+      RAISE.invalidArgumentFault(
+        s"BoK configured source root must be an existing non-symbolic-link directory inside the project root: $source"
+      )
+    val canonicalprojectroot = projectroot.toRealPath()
+    val canonical = _nearest_existing_build_config_path(normalized).toRealPath()
+    if (!canonical.startsWith(canonicalprojectroot))
+      RAISE.invalidArgumentFault(s"BoK configured source root must resolve below the project root: $source")
+    normalized
+  }
+
+  private def _validate_build_config_source_parent(root: Path, parent: Path): Unit = {
+    if (!parent.startsWith(root))
+      RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $parent")
+    var current = root
+    root.relativize(parent).iterator.asScala.foreach { segment =>
+      val next = current.resolve(segment.toString)
+      if (Files.exists(next, LinkOption.NOFOLLOW_LINKS) &&
+          (Files.isSymbolicLink(next) || !Files.isDirectory(next, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"BoK configured source root is unsafe: $next")
+      current = next
+    }
+  }
+
+  private def _nearest_existing_build_config_path(path: Path): Path = {
+    var current = path
+    while (!Files.exists(current, LinkOption.NOFOLLOW_LINKS))
+      current = Option(current.getParent).getOrElse(current)
+    current
+  }
+
+  private def _site_base_uri(value: String): Option[String] =
+    Option(value).map(_.trim).filter(_.nonEmpty).map { x =>
+      if (x.endsWith("/")) x else x + "/"
+    }
+
+  object PublicationConfig {
+    def apply(
+      project: Path,
+      source: String,
+      publication: String,
+      warehouse: Option[String],
+      repository: String,
+      version: Option[String],
+      force: Boolean,
+      videoEnabled: Boolean,
+      dryRun: Boolean,
+      strategy: String
+    ): PublicationConfig =
+      new PublicationConfig(project, source, publication, warehouse, repository, version, force, videoEnabled, dryRun, strategy, force)
+
+    def create(name: String, args: List[String]): PublicationConfig = {
+      val parsed = BokArgs.publication(name, args)
+      val project = _project(parsed)
+      parsed.validateNoUnrecognized()
+      if (name == "publish-media" && parsed.pathProperty("warehouse").nonEmpty)
+        RAISE.invalidArgumentFault("--warehouse is not supported by bok publish-media")
+      val config = _load_config(project)
+      val strategy = _strategy(parsed, config.value("bok.strategy").getOrElse("production"))
+      val publication = parsed.pathProperty("publication").
+        map(_.toString).
+        orElse(config.value("bok.publication")).
+        getOrElse("src/main/publication")
+      val (warehouse, repository) = _publication_artifact_roots(parsed, config)
+      val explicitforce = parsed.request.switches.exists(_.name == "force")
+      val force = explicitforce ||
+        (name != "publish-media" && _boolean(config, "bok.video.force", false))
+      val videoenabled = _boolean(config, "bok.video.enabled", true)
+      val dryrun = parsed.request.switches.exists(_.name == "dry-run")
+      if (dryrun && name != "publish")
+        RAISE.invalidArgumentFault(s"--dry-run is only supported by bok publish: ${name}")
+      PublicationConfig(
+        project,
+        config.value("bok.source").getOrElse("src/main/doxsite"),
+        publication,
+        warehouse,
+        repository,
+        parsed.property("version"),
+        force,
+        videoenabled,
+        dryrun,
+        strategy,
+        explicitforce
+      )
+    }
+  }
+
+  private def _workflow_command(config: CozyProjectYamlConfig.Config, name: String): Vector[String] =
+    config.value(s"bok.workflow.${name}.command").map(x => Vector("sh", "-c", x)).getOrElse(Vector.empty)
+
+  private def _workflow_env(config: CozyProjectYamlConfig.Config, name: String): Map[String, String] = {
+    val defaults = Map(
+      "WEBSITE_SOURCE_DIR" -> config.value("bok.website").getOrElse("website.d"),
+      "REPOSITORY_SOURCE_DIR" -> config.value("bok.repository").
+        orElse(config.value("bok.warehouse").map(_repository_under_warehouse)).
+        getOrElse("repository")
+    ) ++ (if (name == "stage") config.value("bok.website-staging").map("WEBSITE_STAGING_DIR" -> _).toMap else Map.empty)
+    defaults ++ config.mapUnder(s"bok.workflow.${name}.env")
+  }
+
+  object WorkflowConfig {
+    def create(name: String, args: List[String]): WorkflowConfig = {
+      val parsed = BokArgs.workflow(name, args)
+      val project = _project(parsed)
+      parsed.validateNoUnrecognized()
+      val config = _load_config(project)
+      val env = _workflow_env(config, name)
+      WorkflowConfig(
+        project,
+        name,
+        _workflow_command(config, name),
+        env,
+        _workflow_backup_config(project, config, name, env)
+      )
+    }
+  }
+
+  private def _workflow_backup_config(
+    project: Path,
+    config: CozyProjectYamlConfig.Config,
+    name: String,
+    env: Map[String, String]
+  ): Option[WebsiteBackupConfig] =
+    if (name == "upload" && _boolean(config, "bok.backup.enabled", false)) {
+      val source = project.resolve(env.getOrElse("WEBSITE_SOURCE_DIR", config.value("bok.website").getOrElse("website.d"))).toAbsolutePath.normalize()
+      val root = project.resolve(
+        config.value("bok.backup.dir").
+          orElse(config.value("bok.backup.path")).
+          getOrElse("website.backup")
+      ).toAbsolutePath.normalize()
+      Some(WebsiteBackupConfig(source, root, _boolean(config, "bok.backup.compressed", true)))
+    } else {
+      None
+    }
+}
+
+private[cozy] trait CozyBokBuildConfig {
+  self: CozyBokImplementation.type =>
+
+  type BuildConfig = CozyBokBuildConfig.BuildConfig
+  lazy val BuildConfig = CozyBokBuildConfig.BuildConfig
+  type ArcadiaConfig = CozyBokBuildConfig.ArcadiaConfig
+  lazy val ArcadiaConfig = CozyBokBuildConfig.ArcadiaConfig
+  type DirectAssetsConfig = CozyBokBuildConfig.DirectAssetsConfig
+  lazy val DirectAssetsConfig = CozyBokBuildConfig.DirectAssetsConfig
+  type DirectAsset = CozyBokBuildConfig.DirectAsset
+  lazy val DirectAsset = CozyBokBuildConfig.DirectAsset
+  type PublicationSettings = CozyBokBuildConfig.PublicationSettings
+  lazy val PublicationSettings = CozyBokBuildConfig.PublicationSettings
+  type PublicationConfig = CozyBokBuildConfig.PublicationConfig
+  lazy val PublicationConfig = CozyBokBuildConfig.PublicationConfig
+  type WorkflowConfig = CozyBokBuildConfig.WorkflowConfig
+  lazy val WorkflowConfig = CozyBokBuildConfig.WorkflowConfig
+  type WebsiteBackupConfig = CozyBokBuildConfig.WebsiteBackupConfig
+  lazy val WebsiteBackupConfig = CozyBokBuildConfig.WebsiteBackupConfig
+  private[bok] type PublishStep = CozyBokBuildConfig.PublishStep
+  private[bok] lazy val PublishStep = CozyBokBuildConfig.PublishStep
+  private[bok] type WebsiteBackupSnapshot = CozyBokBuildConfig.WebsiteBackupSnapshot
+  private[bok] lazy val WebsiteBackupSnapshot = CozyBokBuildConfig.WebsiteBackupSnapshot
+  private[bok] type BibliographyRdfAlias = CozyBokBuildConfig.BibliographyRdfAlias
+  private[bok] lazy val BibliographyRdfAlias = CozyBokBuildConfig.BibliographyRdfAlias
+  private[bok] type KnowledgeSourceResource = CozyBokBuildConfig.KnowledgeSourceResource
+  private[bok] lazy val KnowledgeSourceResource = CozyBokBuildConfig.KnowledgeSourceResource
+  private[bok] type PublishPreflight = CozyBokBuildConfig.PublishPreflight
+  private[bok] lazy val PublishPreflight = CozyBokBuildConfig.PublishPreflight
+  private[bok] type ParsedArgs = CozyBokBuildConfig.ParsedArgs
+  private[bok] lazy val ParsedArgs = CozyBokBuildConfig.ParsedArgs
+  type SiteConfig = CozyBokBuildConfig.SiteConfig
+  lazy val SiteConfig = CozyBokBuildConfig.SiteConfig
+  import CozyBokBuildConfig._admit_build_config_source
+  import CozyBokBuildConfig._validate_build_config_source_parent
+  import CozyBokBuildConfig._nearest_existing_build_config_path
+  import CozyBokBuildConfig._site_base_uri
+  import CozyBokBuildConfig._workflow_command
+  import CozyBokBuildConfig._workflow_env
+  import CozyBokBuildConfig._workflow_backup_config
+  private[bok] val _default_bok_ui_bundle = "target/cozy-bok/ui-bundle/ui-bundle.zip"
 
   private[bok] object BokArgs {
     private val _p_save = spec.Parameter.propertyFileOption("save")
@@ -284,24 +565,6 @@ private[cozy] trait CozyBokBuildConfig {
         case _ => args
       }
   }
-  final case class SiteConfig(
-    values: Map[String, String],
-    lists: Map[String, Vector[String]],
-    goalTrees: Map[String, Vector[BokGoal]] = Map.empty
-  ) {
-    def value(path: String): Option[String] = values.get(path).map(_.trim).filter(_.nonEmpty)
-    def boolean(path: String): Option[Boolean] =
-      value(path).map(_.toLowerCase(java.util.Locale.ROOT)).collect {
-        case "true" | "yes" | "on" => true
-        case "false" | "no" | "off" => false
-      }
-    def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty)
-    def goalTree(path: String): Vector[BokGoal] = goalTrees.getOrElse(path, Vector.empty)
-  }
-  object SiteConfig {
-    lazy val empty: SiteConfig = new SiteConfig(Map.empty, Map.empty, Map.empty)
-  }
-
   private[bok] val _default_preview_port = "8980"
 
   trait Runner {
@@ -323,109 +586,6 @@ private[cozy] trait CozyBokBuildConfig {
     }
   }
 
-  object BuildConfig {
-    def create(args: List[String]): BuildConfig = {
-      val parsed = BokArgs.build(args)
-      parsed.validateNoUnrecognized()
-      val strategy = _strategy(parsed)
-      val project = _project(parsed)
-      val config = _load_config(project)
-      val source = config.value("bok.source").getOrElse("src/main/doxsite")
-      val uibundlesetting = config.value("bok.ui-bundle")
-      uibundlesetting.foreach { value =>
-        val uibundlepath = project.resolve(value).toAbsolutePath.normalize
-        if (!Files.isRegularFile(uibundlepath))
-          RAISE.invalidArgumentFault(
-            s"Configured bok.ui-bundle must be an existing regular file: ${value}"
-          )
-      }
-      val projectroot = _finalization_project_root(project)
-      val admittedsource = _admit_build_config_source(project.resolve(source), projectroot)
-      val admittedrelative = projectroot.relativize(admittedsource).toString
-      val site = _load_site_config(admittedsource)
-      val languages = _languages(config, site)
-      val sitetitle = site.value("site.metadata.name").getOrElse("KnowledgeHub BoK")
-      val siteid = site.value("site.metadata.id").
-        orElse(site.value("site.metadata.key")).
-        map(_site_identifier).
-        filter(_.nonEmpty).
-        getOrElse(_site_identifier(sitetitle))
-      val siteurl = site.value("site.metadata.url").flatMap(_site_base_uri)
-      val dockerimage =
-        parsed.property("docker-image").
-          orElse(config.value("bok.docker-image")).
-          orElse(config.value("cozy.docker-image")).
-          orElse(config.value("pdf.docker-image")).
-          orElse(config.value("smartdox.pdf.docker-image")).
-          orElse(config.value("cozy.pdf.docker-image")).
-          getOrElse(_default_docker_image)
-      BuildConfig(
-        project,
-        admittedrelative,
-        config.value("bok.website").getOrElse("website.d"),
-        config.value("bok.antora").getOrElse("antora.d"),
-        config.value("bok.doxsite").getOrElse("doxsite.d"),
-        config.value("bok.arcadia-site").getOrElse("arcadiasite.d"),
-        uibundlesetting.getOrElse(_default_bok_ui_bundle),
-        strategy,
-        dockerimage,
-        site.value("output.scope.policy").orElse(config.value("bok.output.scope.policy")).getOrElse("home_only"),
-        sitetitle,
-        siteid,
-        siteurl,
-        _locale_mode(config, site),
-        _default_locale(config, site, languages),
-        languages,
-        ArcadiaConfig(_boolean(config, "bok.arcadia.enabled", false), config.value("bok.arcadia.source").getOrElse("src/main/arcadiasite")),
-        _direct_assets(project, config),
-        _publication_settings(parsed, config, strategy),
-        _dashboard_color_group(parsed, config, site),
-        !parsed.request.switches.exists(_.name == "no-bib-service")
-      )
-    }
-  }
-
-  private def _admit_build_config_source(source: Path, projectroot: Path): Path = {
-    val normalized = source.toAbsolutePath.normalize()
-    if (!normalized.startsWith(projectroot))
-      RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $source")
-    if (normalized != projectroot)
-      _validate_build_config_source_parent(
-        projectroot,
-        Option(normalized.getParent).getOrElse(projectroot)
-      )
-    if (Files.exists(normalized, LinkOption.NOFOLLOW_LINKS) &&
-        (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS)))
-      RAISE.invalidArgumentFault(
-        s"BoK configured source root must be an existing non-symbolic-link directory inside the project root: $source"
-      )
-    val canonicalprojectroot = projectroot.toRealPath()
-    val canonical = _nearest_existing_build_config_path(normalized).toRealPath()
-    if (!canonical.startsWith(canonicalprojectroot))
-      RAISE.invalidArgumentFault(s"BoK configured source root must resolve below the project root: $source")
-    normalized
-  }
-
-  private def _validate_build_config_source_parent(root: Path, parent: Path): Unit = {
-    if (!parent.startsWith(root))
-      RAISE.invalidArgumentFault(s"BoK configured source root must be inside the project root: $parent")
-    var current = root
-    root.relativize(parent).iterator.asScala.foreach { segment =>
-      val next = current.resolve(segment.toString)
-      if (Files.exists(next, LinkOption.NOFOLLOW_LINKS) &&
-          (Files.isSymbolicLink(next) || !Files.isDirectory(next, LinkOption.NOFOLLOW_LINKS)))
-        RAISE.invalidArgumentFault(s"BoK configured source root is unsafe: $next")
-      current = next
-    }
-  }
-
-  private def _nearest_existing_build_config_path(path: Path): Path = {
-    var current = path
-    while (!Files.exists(current, LinkOption.NOFOLLOW_LINKS))
-      current = Option(current.getParent).getOrElse(current)
-    current
-  }
-
   private[bok] def _site_identifier(value: String): String =
     value.trim.toLowerCase(Locale.ROOT).
       replaceAll("[^\\p{L}\\p{N}]+", "-").
@@ -435,107 +595,4 @@ private[cozy] trait CozyBokBuildConfig {
         case x => x
       }
 
-  private def _site_base_uri(value: String): Option[String] =
-    Option(value).map(_.trim).filter(_.nonEmpty).map { x =>
-      if (x.endsWith("/")) x else x + "/"
-    }
-
-  object PublicationConfig {
-    def apply(
-      project: Path,
-      source: String,
-      publication: String,
-      warehouse: Option[String],
-      repository: String,
-      version: Option[String],
-      force: Boolean,
-      videoEnabled: Boolean,
-      dryRun: Boolean,
-      strategy: String
-    ): PublicationConfig =
-      new PublicationConfig(project, source, publication, warehouse, repository, version, force, videoEnabled, dryRun, strategy, force)
-
-    def create(name: String, args: List[String]): PublicationConfig = {
-      val parsed = BokArgs.publication(name, args)
-      val project = _project(parsed)
-      parsed.validateNoUnrecognized()
-      if (name == "publish-media" && parsed.pathProperty("warehouse").nonEmpty)
-        RAISE.invalidArgumentFault("--warehouse is not supported by bok publish-media")
-      val config = _load_config(project)
-      val strategy = _strategy(parsed, config.value("bok.strategy").getOrElse("production"))
-      val publication = parsed.pathProperty("publication").
-        map(_.toString).
-        orElse(config.value("bok.publication")).
-        getOrElse("src/main/publication")
-      val (warehouse, repository) = _publication_artifact_roots(parsed, config)
-      val explicitforce = parsed.request.switches.exists(_.name == "force")
-      val force = explicitforce ||
-        (name != "publish-media" && _boolean(config, "bok.video.force", false))
-      val videoenabled = _boolean(config, "bok.video.enabled", true)
-      val dryrun = parsed.request.switches.exists(_.name == "dry-run")
-      if (dryrun && name != "publish")
-        RAISE.invalidArgumentFault(s"--dry-run is only supported by bok publish: ${name}")
-      PublicationConfig(
-        project,
-        config.value("bok.source").getOrElse("src/main/doxsite"),
-        publication,
-        warehouse,
-        repository,
-        parsed.property("version"),
-        force,
-        videoenabled,
-        dryrun,
-        strategy,
-        explicitforce
-      )
-    }
-  }
-
-  private def _workflow_command(config: CozyProjectYamlConfig.Config, name: String): Vector[String] =
-    config.value(s"bok.workflow.${name}.command").map(x => Vector("sh", "-c", x)).getOrElse(Vector.empty)
-
-  private def _workflow_env(config: CozyProjectYamlConfig.Config, name: String): Map[String, String] = {
-    val defaults = Map(
-      "WEBSITE_SOURCE_DIR" -> config.value("bok.website").getOrElse("website.d"),
-      "REPOSITORY_SOURCE_DIR" -> config.value("bok.repository").
-        orElse(config.value("bok.warehouse").map(_repository_under_warehouse)).
-        getOrElse("repository")
-    ) ++ (if (name == "stage") config.value("bok.website-staging").map("WEBSITE_STAGING_DIR" -> _).toMap else Map.empty)
-    defaults ++ config.mapUnder(s"bok.workflow.${name}.env")
-  }
-
-  object WorkflowConfig {
-    def create(name: String, args: List[String]): WorkflowConfig = {
-      val parsed = BokArgs.workflow(name, args)
-      val project = _project(parsed)
-      parsed.validateNoUnrecognized()
-      val config = _load_config(project)
-      val env = _workflow_env(config, name)
-      WorkflowConfig(
-        project,
-        name,
-        _workflow_command(config, name),
-        env,
-        _workflow_backup_config(project, config, name, env)
-      )
-    }
-  }
-
-  private def _workflow_backup_config(
-    project: Path,
-    config: CozyProjectYamlConfig.Config,
-    name: String,
-    env: Map[String, String]
-  ): Option[WebsiteBackupConfig] =
-    if (name == "upload" && _boolean(config, "bok.backup.enabled", false)) {
-      val source = project.resolve(env.getOrElse("WEBSITE_SOURCE_DIR", config.value("bok.website").getOrElse("website.d"))).toAbsolutePath.normalize()
-      val root = project.resolve(
-        config.value("bok.backup.dir").
-          orElse(config.value("bok.backup.path")).
-          getOrElse("website.backup")
-      ).toAbsolutePath.normalize()
-      Some(WebsiteBackupConfig(source, root, _boolean(config, "bok.backup.compressed", true)))
-    } else {
-      None
-    }
 }

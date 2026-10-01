@@ -53,7 +53,13 @@ shown here:
 
 Unknown root or nested fields, duplicate JSON object fields, malformed UTF-8,
 malformed JSON, `null`, non-finite numbers, unsupported scalar types, and a
-wrong schema/version MUST be rejected before a typed value is exposed.
+wrong schema/version MUST be rejected before a typed value is exposed, except
+for the specifically removed proof properties below. Obsolete selector
+`identity` is token-discarded before restricted AST conversion for the root
+`explanationCatalog` and `presentationCatalog`: string/object/array/boolean/
+null/fractional/oversized numeric values are ignored without interpretation.
+Duplicate keys, including inside discarded objects, malformed JSON, and trailing
+tokens still reject; required ID/revision and unrelated unknown fields stay strict.
 
 ### 2.2 Canonical JSON
 
@@ -86,15 +92,23 @@ rejected rather than silently deduplicated.
 
 ### 2.3 SHA-256 identities
 
+These canonical catalog, Composition, Plan, ProjectionMap, Projection, and
+receipt identity layers remain unfinished same-Phase migration obligations.
+DM12 removes source/asset material fields and computations only; their current
+contracts below are not permanent integrity exceptions or a completion claim.
+
 Every P37-derived identity MUST be the SHA-256 digest of the corresponding
 canonical JSON UTF-8 bytes, serialized as
 `sha256:<64-lowercase-hex>`. The value field that records an identity is
 excluded from the bytes hashed for that value; all other defined fields are
 included.
 
-The existing P36 logical-catalog and full presentation-catalog identity
-results consumed by this contract are likewise canonical UTF-8 SHA-256
-identities under the P36 contract; P37 only records and compares them.
+DM14 removes P36 logical/full catalog proofs and catalog-selector digests.
+Selectors contain only ID/revision; current catalog definitions are loaded and
+validated directly. No entire catalog equality gate or substitute JSON proof
+is used. Remaining Explanation catalog, Composition, Plan, mappings,
+Projection/receipt, provenance, and Storyboard hashes are later unfinished
+same-Phase work, not exemptions or completion.
 
 Catalog and Composition identity results are derived results and MUST NOT be
 serialized as an `identity` self field in their roots. The catalog root's
@@ -102,7 +116,7 @@ serialized as an `identity` self field in their roots. The catalog root's
 stable authored Composition identifier; neither is a digest. A catalog
 identity is derived from its complete canonical root. A Composition identity
 is derived from its complete canonical root, including its selected catalog
-identity.
+ID/revision.
 
 Plan, ProjectionMap, and Projection each have a root `identity` self field as
 their final field. That field is excluded from the bytes hashed for the root.
@@ -275,8 +289,7 @@ The canonical Composition root has exactly this field order and has no root
   "id": "<composition-id>",
   "explanationCatalog": {
     "id":"<catalog-id>",
-    "revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "revision":1
   },
   "subject": {
     "pattern":{"id":"software-product","version":1},
@@ -292,8 +305,8 @@ The canonical Composition root has exactly this field order and has no root
 }
 ```
 
-`explanationCatalog.identity` is the derived identity of the explicitly
-supplied explanation-catalog file. It is not a catalog self field. `subject`
+`explanationCatalog` is exactly `{id,revision}` and resolves the explicitly
+supplied current catalog; obsolete `identity` is ignored and not emitted. `subject`
 has exactly `pattern` and `facts`; `explanation` has exactly `pattern`,
 `parameters`, and `steps`.
 
@@ -303,16 +316,19 @@ the selected catalog definitions. The value MUST have its exact catalog type;
 there is no string-to-number, scalar-to-list, record, default, or nullable
 coercion.
 
-Sources have exactly `{id,sha256}` and assets have exactly
-`{id,mediaType,sha256}`. IDs are unique, `mediaType` is nonempty text, and
-each digest is a lowercase SHA-256 token for the explicitly named bytes. No
-source or asset path is serialized. For every operation whose validated
-direct-file input closure includes declared sources or assets, the caller
-MUST provide each declaration exactly once using the repeatable bindings
-`--source <id>=<file>` and `--asset <id>=<file>`. The ID MUST match the
-declaration, and `<file>` MUST name a direct regular file whose bytes match
-the declared SHA-256. These flags are explicit call inputs, MUST NOT be
-serialized into any P37 identity, and MUST NOT be discovered.
+Sources require `{id}` and assets require `{id,mediaType}`. IDs are unique and
+`mediaType` is nonempty text. Ordinary extra material fields, including malformed
+obsolete metadata, are ignored without parsing, validating, retaining, or
+re-emitting them; missing or ill-typed required fields and duplicate keys
+reject. Other Composition object shapes remain closed. No source or asset
+path is serialized. For every operation whose validated direct-file input
+closure includes declared sources or assets, the caller MUST provide each
+declaration exactly once using the repeatable bindings `--source <id>=<file>`
+and `--asset <id>=<file>`. The ID MUST match the declaration, and `<file>` MUST
+name a safe direct regular file with neither symlinked ancestors nor a
+symlinked leaf. Current valid bytes require no declaration digest rebinding.
+These flags are explicit call inputs, MUST NOT be serialized into any P37
+identity, and MUST NOT be discovered.
 
 ### 4.2 Authored explanation steps
 
@@ -408,13 +424,11 @@ The canonical Plan root has exactly this field order:
   "compositionIdentity":"sha256:<64-lowercase-hex>",
   "explanationCatalog":{
     "id":"<catalog-id>",
-    "revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "revision":1
   },
   "presentationCatalog":{
     "id":"<p36-catalog-id>",
-    "revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "revision":1
   },
   "subjectPattern":{"id":"<subject-pattern-id>","version":1},
   "explanationPattern":{"id":"<explanation-pattern-id>","version":1},
@@ -423,11 +437,9 @@ The canonical Plan root has exactly this field order:
 }
 ```
 
-The Plan `presentationCatalog` selector is exactly `{id,revision,identity}`;
-its `identity` MUST be the existing Phase-36 logical-catalog identity from
-the explicitly supplied `cozy.presentation-semantics.catalog.v1` file. It is
-not a new P36 field or schema. The explanation-catalog selector carries the
-derived full explanation-catalog identity.
+Both Plan catalog selectors are exactly `{id,revision}` and resolve the
+explicitly supplied current catalogs. Their obsolete `identity` properties are
+ignored without hash/type interpretation and never emitted.
 
 `compositionIdentity` MUST match the current normalized Composition, both
 catalog selectors MUST match the supplied files, and pattern references MUST
@@ -526,12 +538,10 @@ The canonical ProjectionMap root has exactly this field order:
   "compositionIdentity":"sha256:<64-lowercase-hex>",
   "planIdentity":"sha256:<64-lowercase-hex>",
   "explanationCatalog":{
-    "id":"<catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "id":"<catalog-id>","revision":1
   },
   "presentationCatalog":{
-    "id":"<p36-catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "id":"<p36-catalog-id>","revision":1
   },
   "presentation":{
     "stepMappings":[],
@@ -563,9 +573,8 @@ and
 Each mapping array contains exactly one entry per Plan step in Plan order;
 target arrays are nonempty, ordered, duplicate-free stable IDs. Presentation
 and video target counts are independent. `stepId` values MUST match Plan
-steps exactly. The explanation-catalog selector is the full derived catalog
-identity, and the presentation-catalog selector is exactly the P36 logical
-selector `{id,revision,identity}`.
+steps exactly. Both catalog selectors are exactly `{id,revision}` and validate
+current named catalog references; obsolete selector identities are ignored.
 
 ProjectionMap carries only selectors, identities, and independently authored
 page/scene step mappings. It MUST NOT contain a resource path, VisualPageSet,
@@ -605,7 +614,7 @@ The canonical final Projection root has exactly this field order:
     "identity":"sha256:<64-lowercase-hex>"
   },
   "presentation":{
-    "visualPageSet":{"id":"<set-id>","identity":"sha256:<64-lowercase-hex>"},
+    "visualPageSet":{"id":"<set-id>"},
     "stepMappings":[],
     "identity":"sha256:<64-lowercase-hex>"
   },
@@ -619,9 +628,6 @@ The canonical final Projection root has exactly this field order:
     "planIdentity":"sha256:<64-lowercase-hex>",
     "projectionMapIdentity":"sha256:<64-lowercase-hex>",
     "explanationCatalogIdentity":"sha256:<64-lowercase-hex>",
-    "presentationLogicalCatalogIdentity":"sha256:<64-lowercase-hex>",
-    "presentationCatalogIdentity":"sha256:<64-lowercase-hex>",
-    "visualPageSetIdentity":"sha256:<64-lowercase-hex>",
     "storyboardIdentity":"sha256:<64-lowercase-hex>",
     "presentationMappingIdentity":"sha256:<64-lowercase-hex>",
     "videoMappingIdentity":"sha256:<64-lowercase-hex>",
@@ -633,10 +639,13 @@ The canonical final Projection root has exactly this field order:
 
 The final Projection copies the ProjectionMap's presentation and video
 `stepMappings` and independent mapping identities exactly. Its
-`presentationCatalog.identity` remains the existing P36 logical-catalog
-identity. The full P36 presentation-catalog identity is recorded separately
-as `receipt.presentationCatalogIdentity`; both that identity and the logical
-identity are required receipt inputs.
+catalog selectors are `{id,revision}` and its PageSet selector is exactly
+`{id}`. Receipt contains no presentation logical/full catalog or PageSet proof.
+Legacy selector `identity`/`value`, the three old receipt hash names, and the
+three interrupted replacement names `presentationLogicalCatalog`,
+`presentationCatalog`, `visualPageSet` are ignored at those exact locations
+for any JSON value before restricted AST conversion. They are not re-emitted
+or replaced by complete JSON, canonical strings, fingerprints, or other IDs.
 
 The existing Storyboard-v2 root has no separately modeled stable `id`. Its
 canonical `storyboardIdentity` is therefore the only Storyboard descriptor
@@ -648,7 +657,8 @@ file path, filename, scene, or any other substitute value.
 `project` receives exactly these named direct-file inputs: a ProjectionMap,
 Composition, Plan, explanation catalog, P36 presentation catalog, VisualPageSet,
 and Storyboard. It MUST verify Composition, Plan, ProjectionMap, and both
-catalog selectors and identities before writing only the final Projection and
+catalog ID/revision references and remaining independent identities before
+writing only the final Projection and
 receipt selected by `--save`.
 
 Every page ID MUST resolve exactly once in the named VisualPageSet. For every
@@ -659,9 +669,13 @@ carried anywhere by that Plan step—the step itself, its claims, and its
 logical nodes or Relations as applicable—MUST occur in the resolved P36 page's
 `sources` or `assets` declarations. The existing P37 explicit
 `--source <id>=<file>` and `--asset <id>=<file>` bindings MUST be used to
-verify current direct bytes against the P37 declarations and the resolved P36
-declarations under their existing path/digest rules. Extra P36 page provenance
-remains governed by P36 and MUST NOT alter Plan identity.
+require declaration presence and safe direct resolution in both P37 bindings
+and the resolved P36 declarations. Asset media types MUST agree, and each
+referenced source and asset MUST have equal actual bytes (`Arrays.equals`)
+across those independently resolved paths; no material digest is compared.
+Missing or disagreeing material remains `EXPLANATION_PROJECTION_STALE` with
+its field path and fails before replacing prior Projection/receipt output.
+Extra P36 page provenance remains governed by P36 and MUST NOT alter Plan identity.
 
 Every scene ID MUST resolve exactly once in the named Storyboard. For every
 Plan step -> mapped scene ID, the resolved scene MUST contain an existing
@@ -683,10 +697,11 @@ VisualPageSet, Storyboard, or any media. It only writes the selected final
 Projection/receipt. Page and scene cardinalities remain independent.
 
 The receipt identity is calculated from all receipt fields except its own
-identity. Verification MUST fail when Composition, Plan, ProjectionMap,
-explanation catalog, P36 logical catalog, full P36 presentation catalog,
-VisualPageSet, Storyboard, or either mapping changes, is missing, cannot be
-resolved, or is stale. A receipt proves identity/currentness only; it is not
+identity. Remaining Composition, Plan, ProjectionMap, Explanation catalog,
+Storyboard, mapping, and receipt currentness comparisons are unfinished later
+same-Phase mechanisms. VisualPage/catalog proof changes are not independent
+vetoes. Actual malformed inputs, unresolved page/scene mappings, or missing
+required files still fail. A receipt is not
 semantic, visual, audiovisual, publication, deployment, or consumer approval.
 
 ## 8. Direct-file command/input matrix
