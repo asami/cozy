@@ -1,8 +1,15 @@
 # Workflow Retry and Timeout Generated ABI Contract
 
-Status: frozen; implementation in-progress; S66.2 acceptance pending
+Status: accepted; S66.2 COMMITTED
 Phase: [66](../phase/phase-66.md), Step S66.2
 Updated: 2026-10-02
+
+S66.2 acceptance: commit `e3262754023e0afc42bb5fcd3aeecf1cca0ab78e`, parent
+`358ae6d1a233557b3e45087558ecff89e420f4af`; review `P66-S662-REVIEW-001`
+PASS; `P66-S662A-VAL-001` (152 passed / 0 failed); `P66-S662A-VAL-002`
+(three actual generated Scala 3.3.8 files compiled into 93 classes,
+SBT exit 0, lock released). These receipts cover the producer Step only;
+S66.3 consumer Step acceptance is recorded in the handoff; Phase acceptance remains pending.
 
 ## Producer ownership and schema selection
 
@@ -116,14 +123,16 @@ absence, numeric boundaries, declared aliases, Judgment, escaping, source
 correlation, mixed collections, empty input and deterministic repetition.
 Its representative normal outputs remain available for the parent-selected
 Scala 3.3.8 compilation probe; bounded variants use normalized models without
-overwriting those output directories. Validation and independent S66.2 review
-remain pending.
+overwriting those output directories. Producer validation and independent
+S66.2 review are accepted through the receipts above.
 
 ## Consumer handoff and exclusions
 
 Cozy owns source normalization and generated producer products. S66.3 owns
 CNCF metadata admission and copies actual generated JSON/Scala artifacts as a
 CML-agnostic consumer fixture; no consumer fixture is hand-authored here.
+The [S66.3 handoff](../phase/phase-66-cncf-handoff.md) records actual copied
+fixtures, the separate metadata receiver and accepted consumer Step evidence.
 CNCF Phase81 owns runtime enforcement. This contract does not add Deadline,
 Timer/Wait, Cancellation, FailurePolicy, backoff/jitter, general idempotency,
 Iteration, provider selection or new runtime APIs. ADMISSION eligibility

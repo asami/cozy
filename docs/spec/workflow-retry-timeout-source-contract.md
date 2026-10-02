@@ -109,7 +109,7 @@ The lowering design is documented in
 
 S66.1 does not project policy metadata into generated ABI or execute it.
 S66.2 owns optional v2 Workflow ABI/bootstrap for policy-bearing inputs;
-see the frozen [generated ABI contract](workflow-retry-timeout-abi-contract.md).
+see the accepted [generated ABI contract](workflow-retry-timeout-abi-contract.md).
 Metadata-free inputs retain byte-identical v1 output. S66.3 owns CNCF metadata
 admission and a real CML-agnostic consumer fixture. CNCF Phase81 owns runtime
 enforcement. Deadline, Timer/Wait, Cancellation, FailurePolicy, general
@@ -122,5 +122,13 @@ typed normalization: ordered source identities, Action/Participant resolution,
 absence, numeric limits and invalid syntax, uniqueness, malformed structure,
 wrong placement, deterministic CSM preservation and Judgment/Admission
 eligibility. S66.1 focused validation and independent Step acceptance are
-complete with the receipts above; S66.2 generated-product validation and
-acceptance remain pending.
+complete with the receipts above.
+
+S66.2 acceptance: commit `e3262754023e0afc42bb5fcd3aeecf1cca0ab78e`, parent
+`358ae6d1a233557b3e45087558ecff89e420f4af`; review `P66-S662-REVIEW-001`
+PASS; `P66-S662A-VAL-001` (152 passed / 0 failed); `P66-S662A-VAL-002`
+(three actual generated Scala 3.3.8 files compiled into 93 classes,
+SBT exit 0, lock released). These receipts cover the producer Step only;
+S66.3 consumer Step acceptance is recorded in the handoff; Phase acceptance remains pending.
+The [S66.3 handoff](../phase/phase-66-cncf-handoff.md) supplies the actual
+consumer fixture and receiver surface without changing this source contract.

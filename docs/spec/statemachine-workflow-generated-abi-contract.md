@@ -10,8 +10,10 @@ updated_at=2026-09-17
 This accepted v1 contract defines Cozy's deterministic producer projection for
 normalized `WorkflowDefinition` collections whose invocation policies are all
 empty, including empty input. Policy-bearing collections use the separately
-frozen [Phase66 v2 contract](workflow-retry-timeout-abi-contract.md), whose
-S66.2 acceptance remains pending. The v1 contract and Phase62 history remain
+accepted [Phase66 v2 contract](workflow-retry-timeout-abi-contract.md), whose
+S66.2 producer acceptance is recorded in that contract. The
+[S66.3 consumer handoff](../phase/phase-66-cncf-handoff.md) records accepted
+consumer Step evidence; full Phase closure remains pending. The v1 contract and Phase62 history remain
 unchanged. This contract consumes the accepted Phase 62.1 source ABI
 and the established CML Workflow source normalization. It defines generated
 schemas and bootstrap metadata only; it is not a StateMachine runtime,

@@ -28,7 +28,7 @@ ADMISSION remains deterministic local semantics.
 
 S66.2's separately frozen [generated ABI contract](../spec/workflow-retry-timeout-abi-contract.md)
 defines collection-wide schema selection and lossless Scala/JSON/bootstrap
-projection. Its implementation is in-progress and acceptance remains pending.
+projection. S66.2 is COMMITTED and accepted; its evidence is recorded below.
 
 ## Internal Steps and responsibility
 
@@ -41,6 +41,8 @@ projection. Its implementation is in-progress and acceptance remains pending.
 ## S66.1
 
 - Current status: COMMITTED; accepted.
+- Owner: Cozy source/model producer; parent owns acceptance.
+- Update rule: preserve accepted source evidence; change status only through parent acceptance.
 
 Cozy source grammar and typed normalization were accepted in commit
 `358ae6d1a233557b3e45087558ecff89e420f4af` (parent
@@ -50,21 +52,31 @@ Cozy source grammar and typed normalization were accepted in commit
 
 ## S66.2
 
-- Current status: implementation in-progress; acceptance pending.
+- Current status: COMMITTED; accepted.
+- Owner: Cozy generated Workflow ABI/bootstrap producer.
+- Update rule: preserve accepted producer receipts; parent alone records successor acceptance.
 
-Cozy owns conditional v2 producer projection and v1 byte compatibility.
-Tests, independent review, commit and acceptance for this Step remain pending.
+S66.2 acceptance: commit `e3262754023e0afc42bb5fcd3aeecf1cca0ab78e`, parent
+`358ae6d1a233557b3e45087558ecff89e420f4af`; review `P66-S662-REVIEW-001`
+PASS; `P66-S662A-VAL-001` (152 passed / 0 failed); `P66-S662A-VAL-002`
+(three actual generated Scala 3.3.8 files compiled into 93 classes,
+SBT exit 0, lock released). These receipts cover the producer Step only;
+S66.3 consumer Step acceptance is recorded in the handoff; Phase acceptance remains pending.
 
 ## S66.3
 
-- Current status: pending; unaccepted.
+- Current status: accepted; this change records local Step acceptance.
+- Owner: CNCF metadata admission and generated consumer fixtures; Cozy owns producer handoff.
+- Update rule: parent records evidence after consumer validation and independent Step review.
 
 CNCF owns metadata admission and the actual generated consumer fixture;
-Phase81 owns execution enforcement.
+Phase81 owns execution enforcement. The [consumer handoff](phase-66-cncf-handoff.md)
+records the pure receiver, actual fixtures and accepted Step evidence.
 
 Final full validation, mandatory independent full Phase review and release
 commit remain pending. S66.1 acceptance does not imply S66.2, S66.3 or Phase
-acceptance; the Phase remains in-progress.
+acceptance; S66.2 producer acceptance also does not imply successor or Phase
+acceptance. The Phase remains in-progress.
 
 ## Non-goals
 
