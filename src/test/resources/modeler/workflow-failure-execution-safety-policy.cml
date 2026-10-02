@@ -1,0 +1,168 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## PaymentCommand
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+| name | type   | multiplicity |
+|------+--------+--------------|
+| id   | string | 1            |
+
+## PaymentResult
+
+### EXTENDS
+
+OperationResult
+
+# WORKFLOW
+
+## SafetyWorkflow
+
+version = workflow-safety-v4
+
+### COMPOSITE-STATEMACHINE
+
+#### CONSTITUENT
+
+##### payment
+
+state-machine = PaymentLifecycle
+subject = payment
+subject-type = PaymentCommand
+
+#### STATE
+
+##### Pending
+
+##### Complete
+
+#### DERIVATION
+
+##### pending
+
+state = Pending
+when = payment.Awaiting
+
+##### complete
+
+state = Complete
+when = payment.Paid
+
+#### ACTION
+
+##### capture-payment
+
+kind = OPERATION
+operation = capturePayment
+input = payment.subject
+effect = EXTERNAL
+transaction = OUTSIDE_UNIT_OF_WORK
+idempotency = REQUIRED
+idempotency-key = payment-action-key
+compensation-handler = payment.refund
+
+### REQUIRED-OPERATION
+
+#### capture-payment-capability
+
+action = capture-payment
+
+### OPERATION
+
+#### capturePayment
+
+operation = OrderService.capturePayment
+
+### INVOCATION-POLICY
+
+#### capture-control
+
+action = capture-payment
+maximum-attempts = 3
+fixed-retry-delay-millis = 250
+execution-timeout-millis = 30000
+
+### LIFECYCLE
+
+deadline-millis = 60000
+cancellation = COOPERATIVE
+
+### WAIT
+
+#### payment-timer
+
+state = Pending
+delay-millis = 250
+
+#### completion-signal
+
+state = Complete
+signal = payment.completed
+
+### FAILURE-POLICY
+
+#### capture-failure
+
+participant = capture-payment-capability
+default-classification = PERMANENT
+
+##### transient.payment
+
+classification = RETRYABLE
+
+##### payment.rejected
+
+classification = PERMANENT
+
+### EXECUTION-SAFETY
+
+logical-execution-identity-ref = order-run
+duplicate-protection = REQUIRED
+idempotency-key-ref = order-start
+
+# STATE-MACHINE
+
+## PaymentLifecycle
+
+### State
+
+#### Awaiting
+
+##### Transition
+
+to = Paid
+on = captured
+
+#### Paid
+
+# SERVICE
+
+## OrderService
+
+### OPERATION
+
+#### capturePayment
+
+##### TYPE
+
+COMMAND
+
+##### INPUT
+
+###### TYPE
+
+PaymentCommand
+
+##### OUTPUT
+
+###### TYPE
+
+PaymentResult

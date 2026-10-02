@@ -52,7 +52,9 @@ final case class WorkflowDefinition(
   providedOperations: Vector[WorkflowProvidedOperation] = Vector.empty,
   invocationPolicies: Vector[WorkflowInvocationPolicy] = Vector.empty,
   lifecyclePolicy: Option[WorkflowLifecyclePolicy] = None,
-  waits: Vector[WorkflowWaitDeclaration] = Vector.empty
+  waits: Vector[WorkflowWaitDeclaration] = Vector.empty,
+  failurePolicies: Vector[WorkflowFailurePolicy] = Vector.empty,
+  executionSafetyPolicy: Option[WorkflowExecutionSafetyPolicy] = None
 )
 
 /** Explicit inbound operation declared by WORKFLOW CML, never inferred from an Action. */
