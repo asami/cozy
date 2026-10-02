@@ -110,9 +110,10 @@ The lowering design is documented in
 S66.1 does not project policy metadata into generated ABI or execute it.
 S66.2 owns optional v2 Workflow ABI/bootstrap for policy-bearing inputs;
 see the accepted [generated ABI contract](workflow-retry-timeout-abi-contract.md).
-Metadata-free inputs retain byte-identical v1 output. S66.3 owns CNCF metadata
-admission and a real CML-agnostic consumer fixture. CNCF Phase81 owns runtime
-enforcement. Deadline, Timer/Wait, Cancellation, FailurePolicy, general
+Metadata-free inputs retain byte-identical v1 output. Historical S66.3 records
+pure CNCF metadata admission and a real CML-agnostic consumer fixture. Cozy
+closes at producer delivery; CNCF owns connection and remaining consumer
+validation, with Phase81 owning runtime enforcement. Deadline, Timer/Wait, Cancellation, FailurePolicy, general
 idempotency, backoff/jitter and dedicated Iteration are outside this contract.
 
 ## Executable specifications
@@ -129,6 +130,7 @@ S66.2 acceptance: commit `e3262754023e0afc42bb5fcd3aeecf1cca0ab78e`, parent
 PASS; `P66-S662A-VAL-001` (152 passed / 0 failed); `P66-S662A-VAL-002`
 (three actual generated Scala 3.3.8 files compiled into 93 classes,
 SBT exit 0, lock released). These receipts cover the producer Step only;
-S66.3 consumer Step acceptance is recorded in the handoff; Phase acceptance remains pending.
+Historical S66.3 fixture/receiver Step acceptance, Cozy producer closure and
+CNCF-owned integration follow-up are recorded in the handoff and Phase checklist.
 The [S66.3 handoff](../phase/phase-66-cncf-handoff.md) supplies the actual
 consumer fixture and receiver surface without changing this source contract.

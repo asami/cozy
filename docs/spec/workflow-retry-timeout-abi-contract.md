@@ -9,7 +9,8 @@ S66.2 acceptance: commit `e3262754023e0afc42bb5fcd3aeecf1cca0ab78e`, parent
 PASS; `P66-S662A-VAL-001` (152 passed / 0 failed); `P66-S662A-VAL-002`
 (three actual generated Scala 3.3.8 files compiled into 93 classes,
 SBT exit 0, lock released). These receipts cover the producer Step only;
-S66.3 consumer Step acceptance is recorded in the handoff; Phase acceptance remains pending.
+Historical S66.3 fixture/receiver Step acceptance, Cozy producer closure and
+CNCF-owned integration follow-up are recorded in the handoff and Phase checklist.
 
 ## Producer ownership and schema selection
 
@@ -128,9 +129,11 @@ S66.2 review are accepted through the receipts above.
 
 ## Consumer handoff and exclusions
 
-Cozy owns source normalization and generated producer products. S66.3 owns
-CNCF metadata admission and copies actual generated JSON/Scala artifacts as a
-CML-agnostic consumer fixture; no consumer fixture is hand-authored here.
+Cozy owns source normalization and generated producer products, and closes
+Phase66 at their delivery. Historical S66.3 implements pure CNCF metadata
+admission and copies actual generated JSON/Scala artifacts as a CML-agnostic
+consumer fixture; no consumer fixture is hand-authored here. CNCF owns the
+remaining consumer connection, integration validation and runtime adoption.
 The [S66.3 handoff](../phase/phase-66-cncf-handoff.md) records actual copied
 fixtures, the separate metadata receiver and accepted consumer Step evidence.
 CNCF Phase81 owns runtime enforcement. This contract does not add Deadline,

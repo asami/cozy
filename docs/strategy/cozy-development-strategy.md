@@ -1832,9 +1832,13 @@ public skill behavior. Entity-local StateMachine persistence remains entity
 owned; CML Workflow has no entity-field shortcut for its consumer-owned runtime
 instance. UI Workflow, Flutter and Workflow Connection remain follow-up work.
 
-Phase 66 begins the planned `sm-workflow` runtime-control sequence with the
-minimal Retry / Timeout source semantics and lossless generated ABI required by
-the first consumer. Phase 67 separately plans scheduling/lifecycle metadata,
+Phase 66 is COMPLETE at Cozy delivery of minimal Retry / Timeout CML
+semantics, lossless generated ABI and the CNCF consumer handoff, as directed
+by the user on 2026-10-02. Its independent full review, bounded M0 closure
+and passing normal Cozy full validation are recorded in the
+[Phase66 checklist](../phase/phase-66-checklist.md). Historical S66.3 pure
+receiver/fixture evidence is retained. CNCF owns the remaining connection
+and CNCF-wide validation; Phase81 after Phase80 owns execution enforcement. Phase 67 separately plans scheduling/lifecycle metadata,
 Phase 68 failure/execution-safety metadata, and Phase 69 goal-oriented
 iteration semantics. Cozy owns syntax, model validation, lowering, and
 generated ABI; CNCF owns runtime scheduling, execution, and enforcement.

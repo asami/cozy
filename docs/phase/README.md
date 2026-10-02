@@ -59,8 +59,10 @@ Phase status index (individual Phase/checklist files are authoritative):
   sbt-cozy bridge and `simplemodeling-model` driver receipt. Each child
   completed its own full SBT validation. Neither weakens provenance nor closes
   the independent CNCF Phase 74.1.
-- Planned `sm-workflow` runtime-control sequence: [Phase 66](phase-66.md)
-  adds only Retry / Timeout declaration and ABI lowering; [Phase 67](phase-67.md),
+- `sm-workflow` runtime-control sequence: [Phase 66](phase-66.md) is
+  COMPLETE at Cozy delivery of Retry / Timeout declarations, deterministic
+  generated ABI and the CNCF handoff. CNCF owns connection and its remaining
+  validation; historical S66.3 metadata receiver/fixture evidence is preserved; [Phase 67](phase-67.md),
   [Phase 68](phase-68.md), and [Phase 69](phase-69.md) separately plan
   scheduling/lifecycle, failure/execution-safety, and semantic iteration.
   Cozy owns source semantics and generated ABI; CNCF owns runtime execution.

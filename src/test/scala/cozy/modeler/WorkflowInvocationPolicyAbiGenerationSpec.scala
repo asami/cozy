@@ -50,6 +50,10 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         val json = Json.parse(normalfirst(StateMachineWorkflowAbiGenerator.metadataPath))
         val record = (json \ "workflows").as[Vector[JsObject]].head
         val descriptor = normalfirst(paths(2))
+        val canonicaljson = StateMachineWorkflowAbiGenerator.canonicalJson(Vector(workflow))
+        val legacyworkflow = workflow.copy(invocationPolicies = Vector.empty)
+        val oldrecord = (Json.parse(StateMachineWorkflowAbiGenerator.canonicalJson(Vector(legacyworkflow))) \ "workflows").as[Vector[JsObject]].head
+        val olddescriptor = _realm_string(StateMachineWorkflowAbiGenerator.generate(Vector(legacyworkflow)), paths(2))
 
         Then("all four products agree between routes and repeated generation")
         normalfirst shouldBe normalsecond
@@ -58,7 +62,7 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         paths.filterNot(_ == StateMachineWorkflowAbiGenerator.metadataPath).foreach { path =>
           normalfirst(path) shouldBe _realm_string(generated, path)
         }
-        normalfirst(StateMachineWorkflowAbiGenerator.metadataPath) shouldBe StateMachineWorkflowAbiGenerator.canonicalJson(Vector(workflow))
+        normalfirst(StateMachineWorkflowAbiGenerator.metadataPath) shouldBe canonicaljson
         (json \ "schemaVersion").as[String] shouldBe StateMachineWorkflowAbiGenerator.policySchemaVersion
         normalfirst(_abi_path) should include("val VERSION: String = \"cozy.cml.statemachine-workflow-abi.v2\"")
         normalfirst(_abi_path) should include("sealed trait InvocationTarget { def identity: String }")
@@ -79,10 +83,7 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         }
 
         And("adding policy metadata preserves every established descriptor projection")
-        val legacyworkflow = workflow.copy(invocationPolicies = Vector.empty)
-        val oldrecord = (Json.parse(StateMachineWorkflowAbiGenerator.canonicalJson(Vector(legacyworkflow))) \ "workflows").as[Vector[JsObject]].head
         (record - "invocationPolicies") shouldBe oldrecord
-        val olddescriptor = _realm_string(StateMachineWorkflowAbiGenerator.generate(Vector(legacyworkflow)), paths(2))
         descriptor.take(descriptor.indexOf(",\n  invocationPolicies =")).replace("abi.v2", "abi.v1") shouldBe
           olddescriptor.take(olddescriptor.indexOf("\n)"))
       }
@@ -145,13 +146,14 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         val workflow = _workflow(_with_policy(source, "judgment-control", "participant = capture-payment-capability", "maximum-attempts = 1\nfixed-retry-delay-millis = 0"))
 
         When("the Judgment invocation policy is projected")
+        val originalcsm = _workflow(source).compositeStateMachine
         val record = (Json.parse(StateMachineWorkflowAbiGenerator.canonicalJson(Vector(workflow))) \ "workflows").as[Vector[JsObject]].head
         val scala = _realm_string(StateMachineWorkflowAbiGenerator.generate(Vector(workflow)), s"${_root}/OrderProgressStateMachineWorkflow1.scala")
 
         Then("only the Judgment has policy metadata and the original Actions retain their kinds")
         workflow.invocationPolicies.map(_.actionIdentity) shouldBe Vector("judge-payment")
         (record \ "actions").as[Vector[JsObject]].map(x => (x \ "kind").as[String]) shouldBe Vector("JUDGMENT", "ADMISSION")
-        workflow.compositeStateMachine shouldBe _workflow(source).compositeStateMachine
+        workflow.compositeStateMachine shouldBe originalcsm
         _expect_policies(record, workflow, scala)
       }
 
@@ -198,6 +200,7 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         val records = (Json.parse(json) \ "workflows").as[Vector[JsObject]]
         val controlledscala = _realm_string(first, s"${_root}/InvocationControlledWorkflowStateMachineWorkflow1.scala")
         val legacyscala = _realm_string(first, s"${_root}/LegacyWorkflowStateMachineWorkflow2.scala")
+        val repeatedjson = StateMachineWorkflowAbiGenerator.canonicalJson(workflows)
 
         Then("all descriptors share v2 and empty policies add no control defaults")
         (Json.parse(json) \ "schemaVersion").as[String] shouldBe StateMachineWorkflowAbiGenerator.policySchemaVersion
@@ -210,7 +213,7 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         legacyscala should include("invocationPolicies = Vector.empty")
         (records(1) \ "invocationPolicies").as[Vector[JsValue]] shouldBe Vector.empty
         _expect_policies(records.head, controlled, controlledscala)
-        json shouldBe StateMachineWorkflowAbiGenerator.canonicalJson(workflows)
+        json shouldBe repeatedjson
         controlledscala shouldBe _realm_string(second, s"${_root}/InvocationControlledWorkflowStateMachineWorkflow1.scala")
         legacyscala shouldBe _realm_string(second, s"${_root}/LegacyWorkflowStateMachineWorkflow2.scala")
       }
@@ -227,11 +230,14 @@ final class WorkflowInvocationPolicyAbiGenerationSpec extends AnyWordSpec with M
         When("both public routes generate the metadata-free source")
         outputs.foreach { case (command, out) => _run(command, _legacy_path, out) }
         val products = outputs.map { case (_, out) => _products(out, expected.keys.toVector) }
+        val productbytes = outputs.map { case (_, out) =>
+          expected.map { case (path, _) => path -> Files.readAllBytes(out.resolve(path)) }
+        }
 
         Then("every product has its independent original UTF-8 SHA-256 and no new declarations or keys")
         products.head shouldBe products(1)
-        outputs.foreach { case (_, out) =>
-          expected.foreach { case (path, hash) => _sha256(Files.readAllBytes(out.resolve(path))) shouldBe hash }
+        productbytes.foreach { bytes =>
+          expected.foreach { case (path, hash) => _sha256(bytes(path)) shouldBe hash }
         }
         products.head(_abi_path) should not include "InvocationPolicy"
         products.head(_abi_path) should not include "InvocationTarget"
