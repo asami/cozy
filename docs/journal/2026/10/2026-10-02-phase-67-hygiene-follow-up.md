@@ -1,3 +1,11 @@
+# Phase 67: Retained Hygiene Follow-ups
+
+Current status: nonblocking accepted follow-ups retained for separately scoped maintenance after Phase 67; no maintenance implementation in S67.3.
+Owner: Cozy modeler and executable-specification maintenance owners.
+Update rule: preserve the accepted records below; add resolution evidence only through separately scoped maintenance and its acceptance.
+Updated: 2026-10-02
+Phase: [67](../../../phase/phase-67.md)
+
 <!-- cncf-phase-finding:HYG-P67-S671-001:begin -->
 HYG-P67-S671-001 — CompositeStateMachineCml parser size. src/main/scala/cozy/modeler/CompositeStateMachineCml.scala is 1,097 lines, compared with 1,010 at the original Phase67 base, exceeding RULE.md's 1,000-line ordinary-source debt threshold. It combines Workflow ownership/API/SPI normalization, CSM constituent/derivation/action validation, and shared field/reference extraction. The S67.1 additions remain cohesive source-admission guards, and independent review found no resulting correctness or reviewability failure. Disposition: nonblocking Hygiene; evaluate a responsibility split in a separately frozen Cozy modeler-maintenance task after Phase67. Coordinate shared parser/helper boundaries and executable coverage before extraction; do not introduce an arbitrary partial extraction or expand S67.1 acceptance scope. Risk: increasing navigation and future review cost.
 <!-- cncf-phase-finding:HYG-P67-S671-001:end -->
