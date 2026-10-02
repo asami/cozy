@@ -2,7 +2,7 @@
 
 Status: active
 
-Current status: S67.1 source accepted with this local Step commit; S67.2 ABI generation remains pending.
+Current status: S67.1 source and S67.2 producer accepted; the local Step commit containing this record accepts S67.2. S67.3 handoff and Phase closure remain pending.
 Owner: Cozy; CNCF Phase 82 owns receiver integration and runtime behavior.
 Update rule: mark each Step accepted only after focused validation, independent review and its local commit; mark released only after Phase review, final Cozy validation and release commit.
 
@@ -51,4 +51,6 @@ Original Cozy base: `53a5c90f31fe5c7a1fa11ab7e21496fdf0ac4d84`. Only Cozy is a m
 
 ## Accepted Step evidence
 
-S67.1 SOURCE: `P67-S671-VAL-001` passed 291 tests in four suites; independent protected focused review `P67-S671-REVIEW-001` passed with zero current blockers. The local commit containing this record accepts the source IR, normalization, fixture and paired source specifications. Nonblocking `HYG-P67-S671-001` and `HYG-P67-S671-002` are retained in the [Phase Hygiene journal](../journal/2026/10/2026-10-02-phase-67-hygiene-follow-up.md). ABI generation, recipient handoff and Phase acceptance remain pending.
+S67.1 SOURCE: `P67-S671-VAL-001` passed 291 tests in four suites; independent protected focused review `P67-S671-REVIEW-001` passed with zero current blockers. Commit `10548ef5ad332327bf4f3f2105a2a8ba1bcbc61d` accepts the source IR, normalization, fixture and paired source specifications. Nonblocking `HYG-P67-S671-001` and `HYG-P67-S671-002` are retained in the [Phase Hygiene journal](../journal/2026/10/2026-10-02-phase-67-hygiene-follow-up.md).
+
+S67.2 PRODUCER: `P67-S672-VAL-007` passed 195 tests in five suites, including both public routes and exact v1/v2 product compatibility. `P67-S672-VAL-009` compiled ten actual generated / typed-consumer Scala sources with Scala 3.3.8 and its matching standard library into separate Cozy target outputs. Independent protected focused review `P67-S672-REVIEW-001` passed with zero current blockers and no new Hygiene or Development Candidate. The local Step commit containing this record accepts the deterministic lossless v3 producer, compatibility specifications and paired [ABI contract](../spec/workflow-scheduling-lifecycle-abi-contract.md) / [lowering design](../design/workflow-scheduling-lifecycle-abi-lowering.md). Recipient handoff and full Phase acceptance remain pending.

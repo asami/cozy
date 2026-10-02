@@ -14,37 +14,44 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   val bootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v1"
   val policySchemaVersion: String = "cozy.cml.statemachine-workflow-abi.v2"
   val policyBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v2"
+  val lifecycleSchemaVersion: String = "cozy.cml.statemachine-workflow-abi.v3"
+  val lifecycleBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v3"
   val metadataPath: String = "target/cozy/statemachine-workflow-abi.json"
 
   private val _root = "target/scala-3.3.8/src_managed/main/scala/domain/statemachine/workflow"
 
   def generate(workflows: Vector[WorkflowDefinition]): Realm = {
-    val policybearing = _has_policies(workflows)
+    val lifecyclebearing = _has_lifecycle(workflows)
+    val policybearing = lifecyclebearing || _has_policies(workflows)
     val builder = Realm.Builder()
-    builder.set(s"${_root}/StateMachineWorkflowAbi.scala", _abi_source(policybearing))
-    builder.set(s"${_root}/StateMachineWorkflowComponentFactoryBootstrap.scala", _bootstrap_source(workflows, policybearing))
+    builder.set(s"${_root}/StateMachineWorkflowAbi.scala", _abi_source(policybearing, lifecyclebearing))
+    builder.set(s"${_root}/StateMachineWorkflowComponentFactoryBootstrap.scala", _bootstrap_source(workflows, policybearing, lifecyclebearing))
     workflows.zipWithIndex.foreach { case (workflow, index) =>
       val objectname = _object_name(workflow, index)
-      builder.set(s"${_root}/$objectname.scala", _workflow_source(workflow, objectname, policybearing))
+      builder.set(s"${_root}/$objectname.scala", _workflow_source(workflow, objectname, policybearing, lifecyclebearing))
     }
     builder.build()
   }
 
   def canonicalJson(workflows: Vector[WorkflowDefinition]): String = {
-    val policybearing = _has_policies(workflows)
+    val lifecyclebearing = _has_lifecycle(workflows)
+    val policybearing = lifecyclebearing || _has_policies(workflows)
     _json_object(Vector(
-      "schemaVersion" -> _json_string(_schema_version(policybearing)),
-      "workflows" -> _json_array(workflows.map(_workflow_json(_, policybearing)))
+      "schemaVersion" -> _json_string(_schema_version(policybearing, lifecyclebearing)),
+      "workflows" -> _json_array(workflows.map(_workflow_json(_, policybearing, lifecyclebearing)))
     ))
   }
 
   private def _has_policies(workflows: Vector[WorkflowDefinition]): Boolean =
     workflows.exists(_.invocationPolicies.nonEmpty)
 
-  private def _schema_version(policybearing: Boolean): String =
-    if (policybearing) policySchemaVersion else schemaVersion
+  private def _has_lifecycle(workflows: Vector[WorkflowDefinition]): Boolean =
+    workflows.exists(x => x.lifecyclePolicy.nonEmpty || x.waits.nonEmpty)
 
-  private def _abi_source(policybearing: Boolean): String = {
+  private def _schema_version(policybearing: Boolean, lifecyclebearing: Boolean): String =
+    if (lifecyclebearing) lifecycleSchemaVersion else if (policybearing) policySchemaVersion else schemaVersion
+
+  private def _abi_source(policybearing: Boolean, lifecyclebearing: Boolean): String = {
     val declarations = if (policybearing)
       """  sealed trait InvocationTarget { def identity: String }
         |  object InvocationTarget {
@@ -57,10 +64,26 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
         |    executionTimeoutMillis: Option[Long], source: SourceIdentity)
         |""".stripMargin else ""
     val policyfield = if (policybearing) ", invocationPolicies: Vector[InvocationPolicy] = Vector.empty" else ""
+    val lifecycledeclarations = if (lifecyclebearing)
+      """  sealed trait CancellationMode { def canonicalValue: String }
+        |  object CancellationMode {
+        |    case object Cooperative extends CancellationMode {
+        |      val canonicalValue: String = "COOPERATIVE"
+        |    }
+        |  }
+        |  final case class LifecyclePolicy(deadlineMillis: Option[Long], cancellation: Option[CancellationMode], source: SourceIdentity)
+        |  sealed trait WaitTrigger
+        |  object WaitTrigger {
+        |    final case class Timer(delayMillis: Long) extends WaitTrigger
+        |    final case class Signal(identity: String) extends WaitTrigger
+        |  }
+        |  final case class WaitDeclaration(identity: String, state: String, stateIdentity: String, trigger: WaitTrigger, source: SourceIdentity)
+        |""".stripMargin else ""
+    val lifecyclefields = if (lifecyclebearing) ", lifecyclePolicy: Option[LifecyclePolicy] = None, waits: Vector[WaitDeclaration] = Vector.empty" else ""
     s"""package domain.statemachine.workflow
        |
        |object StateMachineWorkflowAbi {
-       |  val VERSION: String = ${_quote(_schema_version(policybearing))}
+       |  val VERSION: String = ${_quote(_schema_version(policybearing, lifecyclebearing))}
        |
        |  final case class SourceIdentity(line: Option[Int])
        |  final case class WorkflowSourceCorrelation(root: SourceIdentity, definition: SourceIdentity)
@@ -106,13 +129,13 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
        |    final case class Failed(failure: StateMachineOperationFailure) extends ActionExecution
        |  }
        |  final case class WorkflowRequiredOperationDescriptor(identity: StateMachineRequiredOperationIdentity, actionIdentity: String, operation: StateMachineOperationIdentity, inputType: Option[StateMachineInputTypeReference], resultType: Option[StateMachineResultTypeReference], capabilitySource: SourceIdentity, actionSource: SourceIdentity)
-       |${declarations}  final case class WorkflowDescriptor(schemaVersion: String, identity: String, version: String, source: WorkflowSourceCorrelation, states: Vector[State], actions: Vector[Action], requiredOperations: Vector[WorkflowRequiredOperationDescriptor]$policyfield)
+       |${declarations}${lifecycledeclarations}  final case class WorkflowDescriptor(schemaVersion: String, identity: String, version: String, source: WorkflowSourceCorrelation, states: Vector[State], actions: Vector[Action], requiredOperations: Vector[WorkflowRequiredOperationDescriptor]$policyfield$lifecyclefields)
        |  final case class ComponentFactoryMetadata(workflow: WorkflowDescriptor)
        |}
        |""".stripMargin
   }
 
-  private def _bootstrap_source(workflows: Vector[WorkflowDefinition], policybearing: Boolean): String = {
+  private def _bootstrap_source(workflows: Vector[WorkflowDefinition], policybearing: Boolean, lifecyclebearing: Boolean): String = {
     val references = workflows.zipWithIndex.map { case (workflow, index) =>
       s"${_object_name(workflow, index)}.componentFactoryMetadata"
     }
@@ -120,7 +143,7 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     s"""package domain.statemachine.workflow
        |
        |object StateMachineWorkflowComponentFactoryBootstrap {
-       |  val schemaVersion: String = ${_quote(if (policybearing) policyBootstrapSchemaVersion else bootstrapSchemaVersion)}
+       |  val schemaVersion: String = ${_quote(if (lifecyclebearing) lifecycleBootstrapSchemaVersion else if (policybearing) policyBootstrapSchemaVersion else bootstrapSchemaVersion)}
        |  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = $metadata
        |}
        |""".stripMargin
@@ -129,27 +152,30 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   private def _workflow_source(
     workflow: WorkflowDefinition,
     objectname: String,
-    policybearing: Boolean
+    policybearing: Boolean,
+    lifecyclebearing: Boolean
   ): String =
     s"""package domain.statemachine.workflow
        |
        |object $objectname {
-       |  val workflow: StateMachineWorkflowAbi.WorkflowDescriptor = ${_workflow_descriptor(workflow, policybearing)}
+       |  val workflow: StateMachineWorkflowAbi.WorkflowDescriptor = ${_workflow_descriptor(workflow, policybearing, lifecyclebearing)}
        |  val componentFactoryMetadata: StateMachineWorkflowAbi.ComponentFactoryMetadata = StateMachineWorkflowAbi.ComponentFactoryMetadata(workflow)
        |}
        |""".stripMargin
 
-  private def _workflow_descriptor(value: WorkflowDefinition, policybearing: Boolean): String = {
+  private def _workflow_descriptor(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean): String = {
     val policies = if (policybearing)
       s",\n  invocationPolicies = ${_vector(value.invocationPolicies.map(_invocation_policy))}" else ""
+    val lifecycle = if (lifecyclebearing)
+      s",\n  lifecyclePolicy = ${_option(value.lifecyclePolicy.map(_lifecycle_policy))},\n  waits = ${_vector(value.waits.map(_wait_declaration))}" else ""
     s"""StateMachineWorkflowAbi.WorkflowDescriptor(
-       |  schemaVersion = ${_quote(_schema_version(policybearing))},
+       |  schemaVersion = ${_quote(_schema_version(policybearing, lifecyclebearing))},
        |  identity = ${_quote(value.identity)},
        |  version = ${_quote(value.version)},
        |  source = ${_workflow_source_correlation(value.source)},
        |  states = ${_vector(value.compositeStateMachine.states.map(_state))},
        |  actions = ${_vector(value.compositeStateMachine.actions.map(_action))},
-       |  requiredOperations = ${_vector(value.requiredOperations.map(_required_spi))}$policies
+       |  requiredOperations = ${_vector(value.requiredOperations.map(_required_spi))}$policies$lifecycle
        |)""".stripMargin
   }
 
@@ -163,6 +189,21 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
 
   private def _retry_policy(value: WorkflowRetryPolicy): String =
     s"StateMachineWorkflowAbi.RetryPolicy(${value.maximumAttempts}, ${value.fixedRetryDelayMillis}L)"
+
+  private def _lifecycle_policy(value: WorkflowLifecyclePolicy): String =
+    s"StateMachineWorkflowAbi.LifecyclePolicy(${_option(value.deadlineMillis.map(x => s"${x}L"))}, ${_option(value.cancellation.map(_cancellation_mode))}, ${_workflow_source(value.source)})"
+
+  private def _cancellation_mode(value: WorkflowCancellationMode): String = value match {
+    case WorkflowCancellationMode.Cooperative => "StateMachineWorkflowAbi.CancellationMode.Cooperative"
+  }
+
+  private def _wait_declaration(value: WorkflowWaitDeclaration): String =
+    s"StateMachineWorkflowAbi.WaitDeclaration(${_quote(value.identity)}, ${_quote(value.state)}, ${_quote(value.stateIdentity)}, ${_wait_trigger(value.trigger)}, ${_workflow_source(value.source)})"
+
+  private def _wait_trigger(value: WorkflowWaitTrigger): String = value match {
+    case WorkflowWaitTrigger.Timer(delay) => s"StateMachineWorkflowAbi.WaitTrigger.Timer(${delay}L)"
+    case WorkflowWaitTrigger.Signal(identity) => s"StateMachineWorkflowAbi.WaitTrigger.Signal(${_quote(identity)})"
+  }
 
   private def _workflow_source_correlation(value: WorkflowSourceCorrelation): String =
     s"StateMachineWorkflowAbi.WorkflowSourceCorrelation(${_workflow_source(value.root)}, ${_workflow_source(value.definition)})"
@@ -194,7 +235,7 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   private def _source(value: CompositeStateMachineSourceIdentity): String =
     s"StateMachineWorkflowAbi.SourceIdentity(${_option(value.line.map(_.toString))})"
 
-  private def _workflow_json(value: WorkflowDefinition, policybearing: Boolean): String =
+  private def _workflow_json(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean): String =
     _json_object(Vector(
       "identity" -> _json_string(value.identity),
       "version" -> _json_string(value.version),
@@ -202,7 +243,30 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
       "states" -> _json_array(value.compositeStateMachine.states.map(_state_json)),
       "actions" -> _json_array(value.compositeStateMachine.actions.map(_action_json)),
       "requiredSpi" -> _json_array(value.requiredOperations.map(_required_spi_json))
-    ) ++ (if (policybearing) Vector("invocationPolicies" -> _json_array(value.invocationPolicies.map(_invocation_policy_json))) else Vector.empty))
+    ) ++ (if (policybearing) Vector("invocationPolicies" -> _json_array(value.invocationPolicies.map(_invocation_policy_json))) else Vector.empty)
+      ++ (if (lifecyclebearing) Vector(
+        "lifecyclePolicy" -> _json_option(value.lifecyclePolicy.map(_lifecycle_policy_json)),
+        "waits" -> _json_array(value.waits.map(_wait_declaration_json))
+      ) else Vector.empty))
+
+  private def _lifecycle_policy_json(value: WorkflowLifecyclePolicy): String =
+    _json_object(Vector(
+      "deadlineMillis" -> _json_option(value.deadlineMillis.map(_.toString)),
+      "cancellation" -> _json_option(value.cancellation.map(x => _json_string(x.canonicalValue))),
+      "source" -> _workflow_source_json(value.source)
+    ))
+
+  private def _wait_declaration_json(value: WorkflowWaitDeclaration): String =
+    _json_object(Vector(
+      "identity" -> _json_string(value.identity),
+      "state" -> _json_string(value.state),
+      "stateIdentity" -> _json_string(value.stateIdentity),
+      "trigger" -> (value.trigger match {
+        case WorkflowWaitTrigger.Timer(delay) => _json_object(Vector("kind" -> _json_string("TIMER"), "delayMillis" -> delay.toString))
+        case WorkflowWaitTrigger.Signal(identity) => _json_object(Vector("kind" -> _json_string("SIGNAL"), "identity" -> _json_string(identity)))
+      }),
+      "source" -> _workflow_source_json(value.source)
+    ))
 
   private def _invocation_policy_json(value: WorkflowInvocationPolicy): String =
     _json_object(Vector(
