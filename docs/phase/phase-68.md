@@ -2,7 +2,7 @@
 
 Status: active
 
-Current status: PHASE-68 active. S68.1 SOURCE is accepted at native local commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd after source353/353 and P68-S681-REVIEW-001 PASS. S68.2 ABI implementation/specification is authored; focused producer validation92/92 and actual generated Scala3.3.8 normal/value/mixed 4/4/10 source groups passed; independent producer review and native Step commit are pending. S68.3 remains planned.
+Current status: PHASE-68 active. S68.1 SOURCE accepted after source353/353, P68-S681-REVIEW-001 revision1 PASS and native commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd; S68.2 ABI accepted after producer92/92, actual Scala3.3.8 normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS and native commit 3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4. S68.3 [CNCF83 handoff](phase-68-cncf-handoff.md) authored; parent static verification, medium Step review and native Step commit pending. PHASE-68 remains active; sole full Phase review, final full suite and release pending.
 Owner: Cozy Phase 68 parent.
 Update rule: advance status and checklist items only with actual parent-owned validation, review and native commit evidence; synchronize the checklist with this ledger.
 Completion basis: the three accepted Cozy producer Steps, exactly one comprehensive Phase review, final Cozy full suite and a local release commit. CNCF runtime implementation is a recipient responsibility.
@@ -27,19 +27,19 @@ runtime deduplication implementation は CNCF の責務とする。
 | Step | Scope | Current status | Acceptance basis |
 | --- | --- | --- | --- |
 | S68.1 SOURCE | FAILURE-POLICY / EXECUTION-SAFETY CML, immutable IR, strict ownership and legacy source compatibility | Accepted: source353/353, P68-S681-REVIEW-001 PASS, commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd | New real-CML source suite plus the five existing source suites; parent diff checking, fresh protected source review and native local Step commit |
-| S68.2 ABI | Deterministic lossless v4 JSON/Scala/bootstrap, both public producer routes and exact legacy outputs | Authored; producer validation92/92 and actual Scala3.3.8 normal/value/mixed 4/4/10 compiler groups passed; review/commit pending | Producer specifications and independent original fixtures, actual generated Scala 3.3.8 typed-consumer compilation, focused review and native local Step commit |
-| S68.3 HANDOFF | Reproducible CNCF Phase83 producer/receiver contract and evidence | Planned | Same-Phase handoff document, focused review and local Step commit |
+| S68.2 ABI | Deterministic lossless v4 JSON/Scala/bootstrap, both public producer routes and exact legacy outputs | Accepted: producer92/92, actual Scala3.3.8 normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS, commit 3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4 | Producer specifications and independent original fixtures, actual generated Scala 3.3.8 typed-consumer compilation, focused review and native local Step commit |
+| S68.3 HANDOFF | Reproducible CNCF Phase83 producer/receiver contract and evidence | Authored; parent static verification, medium Step review and native Step commit pending | Same-Phase handoff document, parent static verification, focused review and local Step commit |
 
 S68.1 is defined by the normative [source contract](../spec/workflow-failure-execution-safety-source-contract.md),
 paired [lowering design](../design/workflow-failure-execution-safety-source-lowering.md),
 [real CML fixture](../../src/test/resources/modeler/workflow-failure-execution-safety-policy.cml)
 and [executable specification](../../src/test/scala/cozy/modeler/WorkflowExecutionSafetyCmlSpec.scala).
 The [Phase checklist](phase-68-checklist.md) remains the completion ledger.
-S68.2 is defined by the authored [ABI contract](../spec/workflow-failure-execution-safety-abi-contract.md),
+S68.2 is defined by the accepted [ABI contract](../spec/workflow-failure-execution-safety-abi-contract.md),
 [ABI lowering design](../design/workflow-failure-execution-safety-abi-lowering.md),
 [producer executable specification](../../src/test/scala/cozy/modeler/WorkflowExecutionSafetyAbiGenerationSpec.scala)
 and [independent original v3 baseline provenance](../../src/test/resources/modeler/workflow-execution-safety-v3-baseline/provenance.md).
-The same-Phase `phase-68-cncf-handoff.md` remains planned S68.3 work.
+The same-Phase [CNCF83 handoff](phase-68-cncf-handoff.md) is authored; S68.3 parent static verification, medium Step review and native Step commit remain pending.
 
 ## Source gate and producer boundary
 
@@ -57,7 +57,7 @@ parent `git diff --check` succeeded; the actual SBT JVM was Amazon Java25.0.4.
 No independent JDK17 execution was established. SBT/wrapper exited 0 with `lock=released`.
 Fresh protected focused source review P68-S681-REVIEW-001 revision1 passed,
 and native local S68.1 Step commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd
-records source acceptance. S68.2 and the Phase remain unaccepted.
+records source acceptance. S68.2 is also accepted; the Phase remains active.
 The final full suite and sole comprehensive Phase review are release gates
 after all three Step commits.
 
@@ -80,8 +80,10 @@ three separate analyses. Its native log is
 and summary is
 `/private/tmp/skill.cncf.d/a-e89ba2cc-4f50-4cc7-9f17-2ca0e625c375/20609-20261002T191906Z.summary.json`.
 Both records report SBT/wrapper exit0 and `lock=released`. Fresh independent
-producer review and native local Step commit remain pending; these successes
-do not accept S68.2 or close the Phase.
+producer review P68-S682-REVIEW-001 revision1 PASS and native local Step commit
+`3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4` record S68.2 acceptance, with zero
+CPB/HYG/DEV. S68.3 handoff is authored; parent static verification, medium Step
+review and native Step commit remain pending. The Phase remains active.
 
 Cozy owns source declarations, immutable producer IR and static ABI projection.
 CNCF83 owns observation-to-logical-failure mapping, retry dispatch, runtime

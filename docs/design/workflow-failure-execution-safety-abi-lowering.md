@@ -1,7 +1,7 @@
 # Workflow Failure and Execution Safety ABI Lowering
 
 Semantic role: Stable Semantics (frozen design).
-Current status: S68.1 SOURCE accepted; S68.2 implementation and executable specification authored; focused producer validation92/92 and actual generated Scala3.3.8 normal/value/mixed 4/4/10 source groups passed; independent producer review and native Step commit pending. S68.3 remains planned.
+Current status: S68.1 SOURCE accepted after source353/353, P68-S681-REVIEW-001 revision1 PASS and native commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd; S68.2 ABI accepted after producer92/92, actual Scala3.3.8 normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS and native commit 3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4. S68.3 [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) authored; parent static verification, medium Step review and native Step commit pending. PHASE-68 remains active; sole full Phase review, final full suite and release pending.
 Owner: Cozy Workflow ABI lowering, Phase68 parent.
 Update rule: synchronize lowering with the normative ABI/source contracts and executable specification; acceptance follows parent-owned native evidence.
 Phase: [68](../phase/phase-68.md), S68.2 ABI.
@@ -110,7 +110,9 @@ Scala2.12.18 Test/compile. Parent-admitted P68-S682-VAL-003 compiled the actual
 Scala3.3.8 normal/value/mixed 4/4/10 source groups in one serial invocation,
 with native .class/.tasty outputs for all eighteen sources and three separate
 analyses. Both records report SBT/wrapper exit0 and `lock=released`.
-Independent producer review and native Step commit remain pending.
+P68-S682-REVIEW-001 revision1 PASS and native Step commit
+`3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4` record S68.2 acceptance; S68.3 parent
+static verification, review and native Step commit remain pending.
 
 ## Receiver responsibility
 
@@ -123,4 +125,5 @@ budget. CNCF83 must enforce REQUIRED admission protection, maintain stable
 logical identity/key through retry/redelivery and distinct new executions,
 correlate physical attempts, persist histories and integrate the receiver.
 Those runtime mechanisms are recipient work, not Cozy completion gates. S68.3
-will author the actionable same-Phase handoff after producer acceptance.
+has authored the [same-Phase handoff](../phase/phase-68-cncf-handoff.md); parent
+static verification, review and native Step commit remain pending.

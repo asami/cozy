@@ -1,11 +1,11 @@
 # Workflow Failure and Execution Safety Source Contract
 
 Semantic role: Stable Semantics (normative)
-Current status: frozen S68.1 source semantics; implementation and executable specifications are authored with focused source validation passed. Independent review and Step commit remain pending.
+Current status: S68.1 SOURCE accepted after source353/353, P68-S681-REVIEW-001 revision1 PASS and native commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd; S68.2 ABI accepted after producer92/92, actual Scala3.3.8 normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS and native commit 3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4. S68.3 [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) authored; parent static verification, medium Step review and native Step commit pending. PHASE-68 remains active; sole full Phase review, final full suite and release pending.
 Owner: Cozy Workflow source contract, Phase 68 parent.
 Update rule: change this contract together with its paired executable specification and lowering design; record acceptance only from parent-owned validation, review and commit evidence.
 Phase: [68](../phase/phase-68.md), S68.1 SOURCE.
-Updated: 2026-10-02.
+Updated: 2026-10-03.
 
 ## Direct structural ownership
 
@@ -145,10 +145,10 @@ ScalaGenerator and ModelGenerationTarget. CLI/library category rejection remains
 the established source boundary. Normalization introduces no evaluator or
 executor and changes no CSM, Action, API/SPI, invocation, lifecycle or wait data.
 
-S68.2 plans deterministic v4 JSON/Scala/bootstrap projection, both public producer
+S68.2 accepted deterministic v4 JSON/Scala/bootstrap projection, both public producer
 routes, lossless string handling, exact legacy output compatibility and actual
-generated Scala 3.3.8 consumer compilation. S68.1 does not implement v4 generation.
-S68.3 plans the reproducible CNCF Phase 83 handoff. CNCF83 owns execution,
+generated Scala 3.3.8 consumer compilation. S68.1 remains the source Step.
+S68.3 has authored the [CNCF Phase 83 handoff](../phase/phase-68-cncf-handoff.md); parent static verification, review and native Step commit remain pending. CNCF83 owns execution,
 observation mapping, retry dispatch, storage, key composition, atomicity, replay
 results and attempt correlation. Cozy source metadata supplies neither runtime
 mechanisms nor proof of duplicate protection.
@@ -168,5 +168,7 @@ WorkflowRuntimeControlCmlSpec, StateMachineApiSpiSpec, WorkflowCmlSpec and
 CompositeStateMachineCmlSpec through serialized SBT, followed by `git diff --check`.
 P68-S681-VAL-005 passed the six-suite accumulator: 353/353 tests across six
 completed suites, with zero aborted suites. Test/compile and parent
-`git diff --check` succeeded. Acceptance, independent review and Step commit
-remain pending; no Phase closure is claimed.
+`git diff --check` succeeded. P68-S681-REVIEW-001 revision1 PASS and native
+Step commit `0a8062750a390343f7339fa4a1af8c02a6e4a8fd` record S68.1 acceptance.
+The accepted S68.2 evidence and authored/pending S68.3 handoff are linked above;
+no Phase closure is claimed.

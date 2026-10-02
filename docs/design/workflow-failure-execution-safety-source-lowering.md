@@ -1,11 +1,11 @@
 # Workflow Failure and Execution Safety Source Lowering
 
 Semantic role: Stable Semantics (frozen design)
-Current status: S68.1 source lowering authored; focused source validation passed. Independent review and Step commit remain pending. v4 generation remains planned S68.2 work.
+Current status: S68.1 SOURCE accepted after source353/353, P68-S681-REVIEW-001 revision1 PASS and native commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd; S68.2 ABI accepted after producer92/92, actual Scala3.3.8 normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS and native commit 3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4. S68.3 [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) authored; parent static verification, medium Step review and native Step commit pending. PHASE-68 remains active; sole full Phase review, final full suite and release pending.
 Owner: Cozy Workflow source lowering, Phase 68 parent.
 Update rule: update when lowering changes together with the authoritative source contract and executable specification; acceptance requires parent evidence.
 Phase: [68](../phase/phase-68.md), S68.1 SOURCE.
-Updated: 2026-10-02.
+Updated: 2026-10-03.
 
 ## Boundary and immutable extension
 
@@ -112,9 +112,11 @@ examples. All scenarios place semantic Given/When/Then adjacent to setup,
 admission and should-matchers. The parent owns the selected six-suite accumulator,
 compilation, diff checking and fresh source acceptance review.
 
-S68.2 will separately implement and prove v4 producer projection, lossless
-JSON/Scala/bootstrap, exact legacy outputs, both public generator routes and
-generated Scala 3.3.8 typed-consumer compilation. S68.3 will publish the same-Phase
-handoff record to CNCF83. Neither is claimed implemented or accepted by this source
-Step. CNCF runtime completion is a recipient responsibility, not a pending Cozy
-completion requirement.
+S68.1 source acceptance is recorded by source353/353, P68-S681-REVIEW-001
+revision1 PASS and native commit `0a8062750a390343f7339fa4a1af8c02a6e4a8fd`.
+S68.2 v4 projection is accepted after producer92/92, actual Scala3.3.8
+normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS and
+native commit `3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4`. S68.3 has authored the
+[same-Phase CNCF83 handoff](../phase/phase-68-cncf-handoff.md); parent static
+verification, review and native Step commit remain pending. CNCF runtime
+completion remains a recipient responsibility, not a pending Cozy requirement.

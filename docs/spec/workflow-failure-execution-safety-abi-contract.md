@@ -1,7 +1,7 @@
 # Workflow Failure and Execution Safety ABI Contract
 
 Semantic role: Stable Semantics (normative).
-Current status: S68.1 SOURCE accepted; S68.2 implementation and executable specification authored; focused producer validation92/92 and actual generated Scala3.3.8 normal/value/mixed 4/4/10 source groups passed; independent producer review and native Step commit pending. S68.3 remains planned.
+Current status: S68.1 SOURCE accepted after source353/353, P68-S681-REVIEW-001 revision1 PASS and native commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd; S68.2 ABI accepted after producer92/92, actual Scala3.3.8 normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS and native commit 3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4. S68.3 [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) authored; parent static verification, medium Step review and native Step commit pending. PHASE-68 remains active; sole full Phase review, final full suite and release pending.
 Owner: Cozy Workflow ABI producer, Phase68 parent.
 Update rule: update together with the paired lowering design and executable specification; advance acceptance only with parent-owned native evidence.
 Phase: [68](../phase/phase-68.md), S68.2 ABI.
@@ -160,8 +160,10 @@ including relevant Scala2.12.18 Test/compile. Parent-admitted P68-S682-VAL-003
 compiled the actual Scala3.3.8 normal/value/mixed 4/4/10 source groups in one
 serial invocation, with native .class/.tasty outputs for all eighteen sources
 and three separate analyses. Both records report SBT/wrapper exit0 and
-`lock=released`. Independent producer review, Step acceptance and native Step
-commit remain pending.
+`lock=released`. P68-S682-REVIEW-001 revision1 PASS and native Step commit
+`3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4` record S68.2 acceptance. S68.3 handoff
+authoring is complete; parent static verification, review and native Step commit
+remain pending.
 
 Authorities: [accepted source contract](workflow-failure-execution-safety-source-contract.md),
 [source IR](../../src/main/scala/cozy/modeler/WorkflowExecutionSafetyPolicy.scala),
