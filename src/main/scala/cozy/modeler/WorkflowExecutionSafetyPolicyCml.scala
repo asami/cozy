@@ -5,7 +5,7 @@ import org.goldenport.parser.LogicalSection
 
 /*
  * @since   Oct.  2, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Closed normalization and structural ownership for Workflow execution metadata. */
@@ -16,7 +16,7 @@ private[modeler] object WorkflowExecutionSafetyPolicyCml {
   private val _safety_fields = Set("defaultclassification", "logicalexecutionidentityref", "duplicateprotection", "idempotencykeyref")
   private val _execution_safety_fields = Set("logicalexecutionidentityref", "duplicateprotection", "idempotencykeyref")
   private val _composite_identity_sections = Set("CONSTITUENT", "STATE", "DERIVATION", "INITIAL", "ACTION", "CONSTITUENT-ACTION", "DERIVED-ACTION")
-  private val _workflow_identity_sections = Set("OPERATION", "REQUIRED-OPERATION", "INVOCATION-POLICY")
+  private val _workflow_identity_sections = Set("OPERATION", "REQUIRED-OPERATION", "INVOCATION-POLICY", "SEMANTIC-OUTCOME")
 
   def normalizeFailurePolicies(
     section: Option[LogicalSection],

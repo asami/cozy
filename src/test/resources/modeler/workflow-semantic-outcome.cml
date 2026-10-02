@@ -1,0 +1,270 @@
+# COMPONENT
+
+## Domain
+
+### PACKAGE
+
+domain
+
+# VALUE
+
+## ReviewContext
+- input-kind :: COMMAND
+
+### ATTRIBUTE
+| name | type   | multiplicity |
+|------+--------+--------------|
+| id   | string | 1            |
+
+## ReviewResult
+
+### EXTENDS
+
+OperationResult
+
+# WORKFLOW
+
+## ReviewWorkflow
+
+version = workflow-semantic-outcome-source
+
+### COMPOSITE-STATEMACHINE
+
+#### CONSTITUENT
+
+##### review
+
+state-machine = ReviewLifecycle
+subject = review
+subject-type = ReviewContext
+
+#### STATE
+
+##### Reviewing
+
+##### AwaitingInput
+
+##### Revising
+
+##### Rejected
+
+##### Approved
+
+#### DERIVATION
+
+##### reviewing
+state = Reviewing
+when = review.Reviewing
+
+##### awaiting-input
+state = AwaitingInput
+when = review.AwaitingInput
+
+##### revising
+state = Revising
+when = review.Revising
+
+##### rejected
+state = Rejected
+when = review.Rejected
+
+##### approved
+state = Approved
+when = review.Approved
+
+#### INITIAL
+
+review.Reviewing
+
+#### ACTION
+
+##### ReviewChange
+kind = OPERATION
+operation = submitReview
+input = review.subject
+effect = LOCAL
+transaction = REQUIRED
+idempotency = NOT_REQUIRED
+
+##### SupplyInput
+kind = OPERATION
+operation = supplyInput
+input = review.subject
+
+##### ReviseChange
+kind = OPERATION
+operation = reviseChange
+input = review.subject
+
+### REQUIRED-OPERATION
+
+#### review-capability
+action = ReviewChange
+
+#### input-capability
+action = SupplyInput
+
+### OPERATION
+
+#### beginReview
+operation = ReviewService.beginReview
+
+#### submitReview
+operation = ReviewService.submitReview
+
+### INVOCATION-POLICY
+
+#### review-control
+action = ReviewChange
+maximum-attempts = 3
+fixed-retry-delay-millis = 250
+execution-timeout-millis = 30000
+
+### LIFECYCLE
+
+deadline-millis = 60000
+cancellation = COOPERATIVE
+
+### WAIT
+
+#### awaiting-input
+state = AwaitingInput
+signal = review.input
+
+### FAILURE-POLICY
+
+#### review-failure
+action = ReviewChange
+default-classification = PERMANENT
+
+##### transient.review
+classification = RETRYABLE
+
+### EXECUTION-SAFETY
+
+logical-execution-identity-ref = review-run
+duplicate-protection = NOT_REQUIRED
+
+### SEMANTIC-OUTCOME
+
+#### revision-needed
+participant = review-capability
+outcome = NEEDS_REVISION
+role = review
+from = Reviewing
+to = Revising
+on = needsRevision
+
+#### input-needed
+action = ReviewChange
+outcome = NEEDS_INPUT
+role = review
+from = Reviewing
+to = AwaitingInput
+on = needsInput
+
+#### review-rejected
+action = ReviewChange
+outcome = REJECTED
+role = review
+from = Reviewing
+to = Rejected
+on = rejected
+
+# STATE-MACHINE
+
+## ReviewLifecycle
+
+### State
+
+#### Reviewing
+
+##### Transition
+to = AwaitingInput
+on = needsInput
+
+##### Transition
+to = Revising
+on = needsRevision
+
+##### Transition
+to = Rejected
+on = rejected
+
+##### Transition
+to = Approved
+on = approved
+
+#### AwaitingInput
+
+##### Transition
+to = Reviewing
+on = inputSupplied
+
+#### Revising
+
+##### Transition
+to = Reviewing
+on = revised
+
+#### Rejected
+
+#### Approved
+
+# SERVICE
+
+## ReviewService
+
+### OPERATION
+
+#### beginReview
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+ReviewContext
+
+##### OUTPUT
+###### TYPE
+ReviewResult
+
+#### submitReview
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+ReviewContext
+
+##### OUTPUT
+###### TYPE
+ReviewResult
+
+#### supplyInput
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+ReviewContext
+
+##### OUTPUT
+###### TYPE
+ReviewResult
+
+#### reviseChange
+
+##### TYPE
+COMMAND
+
+##### INPUT
+###### TYPE
+ReviewContext
+
+##### OUTPUT
+###### TYPE
+ReviewResult

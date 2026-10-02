@@ -3,7 +3,7 @@ package cozy.modeler
 /*
  * @since   Sep.  7, 2026
  *  version Sep. 22, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Immutable Cozy-side normalized IR for a Composite StateMachine definition. */
@@ -54,7 +54,8 @@ final case class WorkflowDefinition(
   lifecyclePolicy: Option[WorkflowLifecyclePolicy] = None,
   waits: Vector[WorkflowWaitDeclaration] = Vector.empty,
   failurePolicies: Vector[WorkflowFailurePolicy] = Vector.empty,
-  executionSafetyPolicy: Option[WorkflowExecutionSafetyPolicy] = None
+  executionSafetyPolicy: Option[WorkflowExecutionSafetyPolicy] = None,
+  semanticOutcomes: Vector[WorkflowSemanticOutcomeDeclaration] = Vector.empty
 )
 
 /** Explicit inbound operation declared by WORKFLOW CML, never inferred from an Action. */
