@@ -49,8 +49,9 @@ final-MP4 boundary observations remain separate diagnostic evidence in the
 [baseline journal](../journal/2026/10/2026-10-02-phase-71.2-dialogue-continuity-baseline.md).
 
 No same-visual failure was reproduced at those actual boundaries, so there is
-no production renderer correction. F01 acceptance still requires fresh
-selected validation, independent complete-Step review and an exact local
-commit. F02 owns actual compound-term payload, listening and pronunciation-only
+no production renderer correction. F01 is closed after fresh selected validation
+(5 suites, 170/170 tests), independent PASS complete-Step review
+`22242814-2c16-418b-837d-39d24901e5ba` revision 1 and exact local acceptance
+commit `6511b6ef7ec3991aa6bb3c233d2ac90bab59c410`. F02 owns actual compound-term payload, listening and pronunciation-only
 regeneration. Phase 71.2 remains IN_PROGRESS and full-suite validation remains
 deferred-not-run to PHASE-71.4.

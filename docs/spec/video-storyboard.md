@@ -627,6 +627,10 @@ headings, and every other source or display string unchanged. A malformed or
 nonboolean configuration MUST fail before provider I/O. This contract does not
 add recursive dictionary processing or any broader punctuation normalization.
 
+The [compound-narration contract](video-compound-narration.md) specifies the
+existing dictionary/display boundary and repeated public synthesis, with
+actual private-driver provider evidence separate from listening acceptance.
+
 ### 12.3 Requested versus generated effective timing
 
 Let `T` be the established selected target duration, `L` the lead silence,

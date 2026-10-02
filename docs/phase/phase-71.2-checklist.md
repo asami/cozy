@@ -1,7 +1,7 @@
 # Phase 71.2 Checklist
 
 Phase status: IN_PROGRESS
-Updated: 2026-10-02
+Updated: 2026-10-03
 Ledger for: [Phase 71.2](phase-71.2.md)
 Primary owner: Cozy
 Repository-full validation: aggregate-deferred to PHASE-71.4
@@ -19,7 +19,7 @@ persisted review ledger revision 5. P710-03-V-S05 focused validation passed
 00e73d99aaf486370032dc9036426a75559b303d. Its source-metadata
 and retained-purpose boundary is recorded in the
 [video purpose audit](../journal/2026/10/2026-10-02-phase-71.2-video-digest-boundary-audit.md).
-P710-F01 is in progress after [faithful private input preparation and native baseline execution](../journal/2026/10/2026-10-02-phase-71.2-dialogue-continuity-baseline.md):
+P710-F01 is accepted after [faithful private input preparation and native baseline execution](../journal/2026/10/2026-10-02-phase-71.2-dialogue-continuity-baseline.md):
 inspect, synthesize, render, build and review-evidence completed successfully
 with 34 scenes and 41 evidence frames. Subsequent parent inspection covers
 all 17 exact previous-end/answer-first final-MP4 boundaries, preserving the
@@ -29,10 +29,23 @@ and its executable chapter. Fresh selected validation passed: 5 suites, 170/170
 tests (continuity 2/2; four accumulator suites 168/168), including actual native
 rendering; failed, canceled, ignored, pending and aborted counts are zero, with
 no compiler warning lines. Native helper, SBT and wrapper exited 0 and the serial
-lock was released. Independent complete-F01 Step review and exact acceptance
-commit remain pending. F02 executable specifications, provider-payload,
-listening and pronunciation-only regeneration proof, its review/commit, full Phase
-review and the distinct release remain pending.
+lock was released. Independent PASS complete-F01 Step review
+22242814-2c16-418b-837d-39d24901e5ba revision 1 and exact acceptance commit
+6511b6ef7ec3991aa6bb3c233d2ac90bab59c410 close F01. F02 is IN_PROGRESS:
+the [compound-narration contract](../spec/video-compound-narration.md), design
+and two-scenario executable chapter are authored. Actual focused validation
+passed (5 suites, 165/165 tests: compound 2/2; accumulator 163/163), with zero
+failed/canceled/ignored/pending/aborted and no compiler warning lines.
+Helper/SBT/wrapper exited 0 and the serial lock was released. The full 34-scene
+driver completed baseline/corrected passes with 68 successful audio queries
+and 68 syntheses; source/display/other JSON, speakers and tuning are preserved,
+dictionary-only same-path regeneration is observed, and the corrected nine-mora
+prefix has no internal pause. Parent WAV inspection is complete. The actual
+user confirmed acceptable compound reading without unnatural dotted breaks on
+2026-10-03; the corrected pass uses the authored dictionary mapping with display
+text preserved and global middle-dot removal disabled. Independent F02
+review/commit, full Phase review and the distinct release remain
+pending; these results do not close F02.
 `repository_full_suite=deferred-not-run`, aggregate owner PHASE-71.4.
 The original P710-03/P710-04 labels are partitioned, not additional work.
 
@@ -53,20 +66,21 @@ Stage Status:
 
 Stage Status:
 
-- Current status: IN_PROGRESS
-- Current step: P710-F01-S02 continuity executable specification and normative docs authored; native 34-scene baseline and parent all-17 exact final-MP4 boundary observations retained; fresh selected validation passed (5 suites, 170/170 tests: continuity 2/2; accumulator 168/168), including actual native rendering, zero failed/canceled/ignored/pending/aborted and no compiler warning lines; native helper/SBT/wrapper exit 0 and serial lock released; independent complete-F01 Step review and exact acceptance commit pending. F02 remains pending.
+- Current status: CLOSED
+- Current step: P710-F01-S02 continuity executable specification and normative docs authored; native 34-scene baseline and parent all-17 exact final-MP4 boundary observations retained; fresh selected validation passed (5 suites, 170/170 tests: continuity 2/2; accumulator 168/168), including actual native rendering, zero failed/canceled/ignored/pending/aborted and no compiler warning lines; native helper/SBT/wrapper exit 0 and serial lock released; independent PASS complete-F01 Step review 22242814-2c16-418b-837d-39d24901e5ba revision 1 and exact acceptance commit 6511b6ef7ec3991aa6bb3c233d2ac90bab59c410 bind F01 acceptance. F02 remains IN_PROGRESS.
 - Owner: Cozy
 - Update rule: close only against the following checklist and accepted executable evidence
 
-- [ ] P710-F01-BEHAVIOR: The corresponding owned scope in Phase 71.2 satisfies its observable behavior and produces the declared frozen handoff; record actual driver/output evidence where required, not a configuration-only claim.
-- [ ] P710-F01-SPEC: Affected subsystem specification and Given/When/Then executable specifications, including changed consumers and relevant failure behavior, are reconciled and focused validation succeeds.
-- [ ] P710-F01-ACCEPT: Independent Step acceptance review and the exact Step acceptance commit bind this owned result without claiming successor implementation.
+- [x] P710-F01-BEHAVIOR: The corresponding owned scope in Phase 71.2 satisfies its observable behavior and produces the declared frozen handoff; record actual driver/output evidence where required, not a configuration-only claim.
+- [x] P710-F01-SPEC: Affected subsystem specification and Given/When/Then executable specifications, including changed consumers and relevant failure behavior, are reconciled and focused validation succeeds.
+- [x] P710-F01-ACCEPT: Independent Step acceptance review and the exact Step acceptance commit bind this owned result without claiming successor implementation.
 
 ## P710-F02: Compound-term provider reading and audio regeneration
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN_PROGRESS
+- Current step: P710-F02-S01 actual focused validation passed (5 suites, 165/165 tests: compound 2/2; accumulator 163/163), zero failed/canceled/ignored/pending/aborted, no compiler warning lines, helper/SBT/wrapper exit 0 and serial lock released; actual full-34-scene baseline/corrected passes retained 68 successful audio queries and 68 syntheses, unchanged source/display/other JSON/speakers/tuning, dictionary-only same-path regeneration, corrected nine-mora prefix without internal pause, and parent-inspected positive non-silent normalized PCM. The actual user confirmed acceptable compound reading without unnatural dotted breaks on 2026-10-03; the corrected pass uses the authored dictionary mapping with display text preserved and global middle-dot removal disabled. Independent complete-F02 review and exact acceptance commit remain pending; all three F02 boxes remain unchecked. See the [actual-results journal](../journal/2026/10/2026-10-03-phase-71.2-compound-narration.md).
 - Owner: Cozy
 - Update rule: close only against the following checklist and accepted executable evidence
 

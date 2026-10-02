@@ -1,6 +1,6 @@
 # Legacy Video Dialogue Continuity Specification
 
-Status: NORMATIVE contract for existing behavior; Phase 71.2 P710-F01 acceptance pending.
+Status: NORMATIVE contract for existing behavior; Phase 71.2 P710-F01 accepted.
 
 This contract applies to the legacy `parts[].script` character-dialogue route.
 It preserves the separate Storyboard v1/v2 contracts described in
@@ -73,8 +73,9 @@ Frame indices, bounds and measurements are recorded before assertions.
 
 The [baseline journal](../journal/2026/10/2026-10-02-phase-71.2-dialogue-continuity-baseline.md)
 retains parent-observed exact boundaries for all 17 pairs of the real native
-final MP4 and preservation evidence. Specification authoring alone does not
-close F01: fresh selected validation, independent complete-Step review and an
-exact acceptance commit remain required. Compound speech payload, listening and
+final MP4 and preservation evidence. F01 is closed with fresh selected
+validation (5 suites, 170/170 tests), independent PASS complete-Step review
+`22242814-2c16-418b-837d-39d24901e5ba` revision 1 and exact acceptance commit
+`6511b6ef7ec3991aa6bb3c233d2ac90bab59c410`. Compound speech payload, listening and
 pronunciation-only regeneration remain F02-owned; repository-full validation
 remains deferred-not-run to PHASE-71.4.
