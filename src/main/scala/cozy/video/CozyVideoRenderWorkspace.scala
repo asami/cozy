@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 16, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoRenderWorkspace {
@@ -40,10 +40,10 @@ private[cozy] object CozyVideoRenderWorkspace {
     val empty = CharacterDialogueAssets(Json.obj(), Map.empty)
   }
 
-  private[video] final case class CharacterDialogueTemplateResource(name: String, bytes: Array[Byte], sha256: String)
+  private[video] final case class CharacterDialogueTemplateResource(name: String, bytes: Array[Byte])
 
   private[video] final case class CharacterDialogueTemplate(dialogue: CharacterDialogueTemplateResource, diagramlayout: CharacterDialogueTemplateResource) {
-    def resources: Vector[(String, String)] = Vector(dialogue, diagramlayout).map(x => x.name -> x.sha256)
+    def resources: Vector[String] = Vector(dialogue.name, diagramlayout.name)
   }
 }
 
@@ -84,9 +84,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
           "visualEffects" -> props.hcursor.downField("visualEffects").focus.getOrElse(Json.arr()),
           "assets" -> props.hcursor.downField("assets").focus.getOrElse(Json.arr()),
           "credits" -> props.hcursor.downField("credits").focus.getOrElse(Json.Null),
-          "creditDigest" -> plan.credits.profileId.map(_ => Json.fromString(plan.credits.digest)).getOrElse(Json.Null),
           "rendererTemplate" -> props.hcursor.downField("rendererTemplate").focus.getOrElse(Json.Null),
-          "rendererTemplateSha256" -> props.hcursor.downField("rendererTemplateSha256").focus.getOrElse(Json.Null),
           "rendererTemplateResources" -> props.hcursor.downField("rendererTemplateResources").focus.getOrElse(Json.arr()),
           "recordingPath" -> props.hcursor.downField("recordingPath").focus.getOrElse(Json.Null),
           "timing" -> props.hcursor.downField("timing").focus.getOrElse(Json.obj())
@@ -219,7 +217,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
     Files.writeString(srcdir.resolve("render.mjs"), _remotion_render_mjs, StandardCharsets.UTF_8)
     val assets = _copy_remotion_assets(workdir, plan.assets)
     val dialogueassets = if (characterdialogue || characterwebdemo) _copy_character_dialogue_assets(plan.projectRoot, part, script, workdir, stagevisuals = characterdialogue) else CharacterDialogueAssets.empty
-    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir, characterdialogue, templateid, template.map(_.dialogue.sha256), template.map(_.resources), dialogueassets, recording)
+    val propsjson = _remotion_props_json(plan, part, script, audio, assets, workdir, characterdialogue, templateid, template.map(_.resources), dialogueassets, recording)
     Files.writeString(workdir.resolve("props.json"), propsjson.spaces2, StandardCharsets.UTF_8)
     Files.writeString(srcdir.resolve("props.ts"), _remotion_props_ts(propsjson), StandardCharsets.UTF_8)
     _copy_remotion_audio(workdir, audio)
@@ -255,7 +253,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
     val actualsha256 = _sha256_bytes(bytes)
     if (actualsha256 != expectedsha256)
       RAISE.invalidArgumentFault(s"Cozy character-dialogue renderer resource digest does not match the bundled template contract: $name")
-    CharacterDialogueTemplateResource(name, bytes, actualsha256)
+    CharacterDialogueTemplateResource(name, bytes)
   }
 
   private[video] def _sha256_bytes(bytes: Array[Byte]): String =
@@ -633,7 +631,6 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "renderer" -> Json.fromString(renderer),
       "scriptPath" -> Json.fromString(part.scriptPath.map(_.toString).getOrElse("")),
       "audioManifestPath" -> Json.fromString(audio.manifestPath.toString),
-      "audioManifestSha256" -> Json.fromString(_sha256(audio.manifestPath)),
       "outputPath" -> Json.fromString(part.outputPath.toString),
       "sceneCount" -> Json.fromInt(part.script.map(_.expandedScenes.size).getOrElse(0)),
       "estimatedDuration" -> Json.fromDoubleOrNull(part.estimatedDuration.getOrElse(0.0)),

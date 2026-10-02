@@ -13,7 +13,8 @@ import cozy.CozySpecVocabulary
  * @since   Jul. 18, 2026
  *  version Jul. 20, 2026
  *  version Aug. 26, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -588,6 +589,11 @@ final class CozyVideoProfileRenderSpec
         inspection should include_text("creditAudio: provider=voicevox voice=ずんだもん")
         inspection should include_text("voice-zundamon: required")
         build should include_text("creditProfile: publication")
+        build should include_text("credits:")
+        build should include_text("credits.json")
+        build should include_text("credits.md")
+        build should include_text("renderer-props.json")
+        build should not(include_text("creditDigest"))
         val creditjson = _read(pkg.resolve("build/credits/credits.json"))
         val creditmarkdown = _read(pkg.resolve("build/credits/credits.md"))
         val creditprops = _read(pkg.resolve("build/credits/renderer-props.json"))
@@ -596,15 +602,30 @@ final class CozyVideoProfileRenderSpec
         creditmarkdown should include_text("VOICEVOX:ずんだもん")
         creditprops should include_text("voice-zundamon")
         creditprops should include_text("\"enabled\" : false")
-        val digest = parser.parse(creditjson).toOption.get.hcursor.get[String]("digest").toOption.get
+        parser.parse(creditjson).toOption.get.hcursor.downField("digest").focus shouldBe None
+        parser.parse(creditprops).toOption.get.hcursor.downField("digest").focus shouldBe None
+        val partmanifest = _json(pkg.resolve("build/parts/explanation.manifest.json"))
+        partmanifest.hcursor.downField("creditDigest").focus shouldBe None
+        partmanifest.hcursor.downField("credits").downField("digest").focus shouldBe None
         _json(pkg.resolve("target/cozy-video/final/manifest.json")).hcursor.
           get[String]("creditProfile").toOption shouldBe Some("publication")
-        _read(pkg.resolve("rdf/video.ttl")) should include_text(digest)
-        _read(pkg.resolve("rdf/video.ttl")) should include_text("hasCredit")
+        val rdfmanifest = _json(pkg.resolve("rdf/manifest.json"))
+        rdfmanifest.hcursor.downField("creditDigest").focus shouldBe None
+        rdfmanifest.hcursor.get[String]("creditProfile").toOption shouldBe Some("publication")
+        Vector("rdf/video.ttl", "rdf/video.jsonld").foreach { path =>
+          val rdf = _read(pkg.resolve(path))
+          rdf should not(include_text("creditDigest"))
+          rdf should include_text("creditProfile")
+          rdf should include_text("publication")
+          rdf should include_text("hasCredit")
+          rdf should include_text("VOICEVOX:ずんだもん")
+          rdf should include_text("creditEvidence")
+        }
 
         And("the disabled credit presentation contributes no hold before the existing final URL page")
         val workdir = pkg.resolve("target/cozy-video/remotion/explanation")
         val props = _json(workdir.resolve("props.json"))
+        props.hcursor.downField("credits").downField("digest").focus shouldBe None
         _int(props, "timing", "creditPageStartFrame") shouldBe 225
         _int(props, "timing", "creditPageHoldFrames") shouldBe 0
         _int(props, "timing", "finalPageStartFrame") shouldBe
@@ -612,20 +633,21 @@ final class CozyVideoProfileRenderSpec
         _int(props, "timing", "finalPageHoldFrames") shouldBe 36
         _int(props, "timing", "totalFrames") shouldBe 261
 
+        Given("the successful native final record and all credit projections")
         val finalmanifest = pkg.resolve("target/cozy-video/final/manifest.json")
         val originalmanifestbytes = Files.readAllBytes(finalmanifest)
         val originalmanifest = parser.parse(new String(originalmanifestbytes, StandardCharsets.UTF_8)).toOption.get
-        originalmanifest.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.final.v2")
-        originalmanifest.hcursor.get[String]("status").toOption shouldBe Some("validated")
-        originalmanifest.hcursor.get[String]("mode").toOption shouldBe Some("final")
-        originalmanifest.hcursor.downField("creditDigest").focus shouldBe None
 
-        Given("the successful native final record and all credit projections")
         When("Cozy verifies the successful native credit record")
         val nativefindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
 
         Then("verification accepts the successful native credit record")
         nativefindings shouldBe Vector.empty
+        originalmanifest.hcursor.get[String]("schema").toOption shouldBe Some("cozy.video.final.v2")
+        originalmanifest.hcursor.get[String]("status").toOption shouldBe Some("validated")
+        originalmanifest.hcursor.get[String]("mode").toOption shouldBe Some("final")
+        originalmanifest.hcursor.get[String]("creditProfile").toOption shouldBe Some("publication")
+        originalmanifest.hcursor.downField("creditDigest").focus shouldBe None
 
         Vector(
           "schema" -> Json.fromString("cozy.video.final.v1") -> "native project credit manifest must be a validated final v2 record",
@@ -641,9 +663,15 @@ final class CozyVideoProfileRenderSpec
 
           Then(s"verification reports the $field contract")
           findings.mkString("\n") should include_text(expected)
+
+          Given("the exact original native record bytes restored after the field mutation")
           Files.write(finalmanifest, originalmanifestbytes)
-          And("the exact native record bytes restore a clean baseline")
-          CozyVideo.verifyCredits(pkg.resolve("video.yaml")) shouldBe Vector.empty
+
+          When("Cozy verifies the restored native record")
+          val restoredfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
+
+          Then("verification accepts the restored native record")
+          restoredfindings shouldBe Vector.empty
         }
 
         Given("a malformed native final record")
@@ -654,9 +682,15 @@ final class CozyVideoProfileRenderSpec
 
         Then("verification reports the native record contract")
         malformedfindings.mkString("\n") should include_text("native project credit manifest must be a validated final v2 record")
+
+        Given("the exact original native record bytes restored after malformed input")
         Files.write(finalmanifest, originalmanifestbytes)
-        And("the exact native record bytes restore a clean baseline after malformed input")
-        CozyVideo.verifyCredits(pkg.resolve("video.yaml")) shouldBe Vector.empty
+
+        When("Cozy verifies the restored record after malformed input")
+        val restoredmalformedfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
+
+        Then("verification accepts the restored record after malformed input")
+        restoredmalformedfindings shouldBe Vector.empty
 
         Given("a native final output with its manifest removed")
         Files.delete(finalmanifest)
@@ -666,25 +700,59 @@ final class CozyVideoProfileRenderSpec
 
         Then("verification reports the native project manifest path")
         missingfindings.mkString("\n") should include_text(s"missing project manifest: $finalmanifest")
-        Files.write(finalmanifest, originalmanifestbytes)
-        And("the exact native record bytes restore a clean baseline after removal")
-        CozyVideo.verifyCredits(pkg.resolve("video.yaml")) shouldBe Vector.empty
 
+        Given("the exact original native record bytes restored after removal")
+        Files.write(finalmanifest, originalmanifestbytes)
+
+        When("Cozy verifies the restored record after removal")
+        val restoredmanifestfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
+
+        Then("verification accepts the restored record after removal")
+        restoredmanifestfindings shouldBe Vector.empty
+
+        Given("the native credit JSON with only its locale changed from the selected Japanese set to English")
         val creditjsonpath = pkg.resolve("build/credits/credits.json")
         val originalcreditbytes = Files.readAllBytes(creditjsonpath)
-        Given("the native credit JSON with an incorrect digest")
         val incorrectcreditjson = parser.parse(new String(originalcreditbytes, StandardCharsets.UTF_8)).toOption.get.
-          mapObject(_.add("digest", Json.fromString("incorrect")))
+          mapObject(_.add("locale", Json.fromString("en")))
         Files.writeString(creditjsonpath, incorrectcreditjson.noSpaces, StandardCharsets.UTF_8)
 
         When("Cozy verifies the native credit projections")
-        val digestfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
+        val localefindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
 
-        Then("verification reports the shared credit digest mismatch")
-        digestfindings.mkString("\n") should include_text("credit digest mismatch")
+        Then("verification reports the actual credit JSON mismatch")
+        localefindings.mkString("\n") should include_text("credit JSON does not match the effective credit set")
+
+        Given("the exact original credit JSON bytes restored after locale tampering")
         Files.write(creditjsonpath, originalcreditbytes)
-        And("the exact original credit bytes restore a clean baseline before projection tampering")
-        CozyVideo.verifyCredits(pkg.resolve("video.yaml")) shouldBe Vector.empty
+
+        When("Cozy verifies the restored credit JSON")
+        val restoredcreditfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
+
+        Then("verification accepts the restored credit JSON")
+        restoredcreditfindings shouldBe Vector.empty
+
+        Vector("credits.json", "credits.md", "renderer-props.json").foreach { name =>
+          Given(s"the native credit projections with only $name removed")
+          val projectionpath = pkg.resolve("build/credits").resolve(name)
+          val originalprojectionbytes = Files.readAllBytes(projectionpath)
+          Files.delete(projectionpath)
+
+          When("Cozy verifies the missing credit projection")
+          val projectionfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
+
+          Then("verification reports the exact missing projection path")
+          projectionfindings.mkString("\n") should include_text(s"missing credit projection: $projectionpath")
+
+          Given(s"the exact original $name bytes restored")
+          Files.write(projectionpath, originalprojectionbytes)
+
+          When("Cozy verifies the restored credit projection")
+          val restoredfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
+
+          Then("verification accepts all restored projections")
+          restoredfindings shouldBe Vector.empty
+        }
 
         Given("the native renderer credit projection after the effective set was built")
         _write(pkg.resolve("build/credits/renderer-props.json"), "{}")
@@ -903,7 +971,20 @@ final class CozyVideoProfileRenderSpec
         turtle should include_text("visualEffectPrimitive")
         turtle should include_text("hasVisualAsset")
         turtle should include_text("provenance")
+        Vector("build/credits/credits.json", "build/credits/renderer-props.json").foreach { path =>
+          _json(pkg.resolve(path)).hcursor.downField("digest").focus shouldBe None
+        }
+        _json(pkg.resolve("rdf/manifest.json")).hcursor.downField("creditDigest").focus shouldBe None
+        Vector("rdf/video.ttl", "rdf/video.jsonld").foreach { path =>
+          val rdf = _read(pkg.resolve(path))
+          rdf should not(include_text("creditDigest"))
+          rdf should include_text("creditProfile")
+          rdf should include_text("material-publication")
+          rdf should include_text("hasCredit")
+          rdf should include_text("Guide material")
+        }
 
+        Given("the same profile-driven source package and in-process provider and render fixtures")
         When("the profile-driven source package is published")
         val result = CozyVideoPublisher.publish(
           CozyVideoPublisher.PublishVideoConfig(
@@ -917,7 +998,28 @@ final class CozyVideoProfileRenderSpec
           ProfileRenderRunner()
         )
 
-        Then("the publication workspace renders the same profile and assets")
+        Then("the written publication retains source paths and distributed artifact integrity without authored source hashes")
+        val publicationbundle = _json(result.publicationBundle)
+        val videoentries = publicationbundle.hcursor.get[Vector[Json]]("entries").toOption.get.filter { entry =>
+          entry.hcursor.get[String]("path").toOption.contains(s"metadata/videos/${result.video.name}/metadata.json")
+        }
+        videoentries.size shouldBe 1
+        val publishedvideo = videoentries.head.hcursor.downField("metadata").downField("video")
+        publishedvideo.get[String]("descriptorPath").toOption shouldBe Some(result.video.descriptorFile.getFileName.toString)
+        publishedvideo.get[String]("scriptPath").toOption shouldBe Some(result.video.scriptPath)
+        publishedvideo.get[String]("sourcePackage").toOption shouldBe Some("technology/tutorial.video")
+        publishedvideo.get[String]("articlePath").toOption shouldBe Some(result.video.articlePath)
+        publishedvideo.downField("descriptorSha256").focus shouldBe None
+        publishedvideo.downField("scriptSha256").focus shouldBe None
+        val publishedartifact = publishedvideo.downField("artifact")
+        publishedartifact.get[String]("warehousePath").toOption shouldBe Some(result.video.warehousePath)
+        publishedartifact.get[String]("publicPath").toOption shouldBe Some(result.video.repositoryPublicPath)
+        publishedartifact.get[Long]("size").toOption shouldBe Some(Files.size(result.warehouseArtifact))
+        publishedartifact.get[String]("sha256").toOption.get should fullyMatch regex "[0-9a-f]{64}"
+        Files.readAllBytes(result.warehouseArtifact).toVector shouldBe
+          Files.readAllBytes(result.workspaceRoot.resolve("build/final.mp4")).toVector
+
+        And("the publication workspace renders the same profile and assets")
         result.warehouseArtifact should be_regular_file
         val generated = _read(result.projectFile)
         generated should include_text("\"profile\" : \"explanation\"")
@@ -934,39 +1036,89 @@ final class CozyVideoProfileRenderSpec
         result.workspaceRoot.resolve("build/credits/credits.md") should be_regular_file
         result.workspaceRoot.resolve("build/credits/renderer-props.json") should be_regular_file
         val workspaceprops = _json(result.workspaceRoot.resolve("target/cozy-video/remotion/explanation/props.json"))
+        workspaceprops.hcursor.downField("credits").downField("digest").focus shouldBe None
+        Vector("build/credits/credits.json", "build/credits/renderer-props.json").foreach { path =>
+          _json(result.workspaceRoot.resolve(path)).hcursor.downField("digest").focus shouldBe None
+        }
+        _read(result.workspaceRoot.resolve("build/credits/credits.md")) should include_text("Guide material")
+        val publishedpartmanifest = _json(result.workspaceRoot.resolve("build/parts/explanation.manifest.json"))
+        publishedpartmanifest.hcursor.downField("creditDigest").focus shouldBe None
+        publishedpartmanifest.hcursor.downField("credits").downField("digest").focus shouldBe None
+        _json(result.workspaceRoot.resolve("rdf/manifest.json")).hcursor.downField("creditDigest").focus shouldBe None
+        _json(result.workspaceRoot.resolve("rdf/manifest.json")).hcursor.get[String]("creditProfile").toOption shouldBe
+          Some("material-publication")
+        Vector("rdf/video.ttl", "rdf/video.jsonld").foreach { path =>
+          val rdf = _read(result.workspaceRoot.resolve(path))
+          rdf should not(include_text("creditDigest"))
+          rdf should include_text("creditProfile")
+          rdf should include_text("material-publication")
+          rdf should include_text("hasCredit")
+          rdf should include_text("Guide material")
+          rdf should include_text("creditEvidence")
+        }
         _int(workspaceprops, "timing", "creditPageHoldFrames") shouldBe 0
         _int(workspaceprops, "timing", "finalPageStartFrame") shouldBe
           _int(workspaceprops, "timing", "openingFrames") + _int(workspaceprops, "timing", "contentFrames")
         result.workspaceRoot.resolve("target/cozy-video/remotion/explanation/public/assets/summary.svg") should be_regular_file
 
-        Then("the generated legacy project uses the publisher's build final output")
+        And("the generated legacy project uses the publisher's build final output")
         val generatedproject = result.projectFile
         _json(generatedproject).hcursor.get[String]("output").toOption shouldBe Some("build/final.mp4")
+
+        Given("the successful generated legacy project and its already rendered fake part outputs")
+        val legacyrunner = ProfileRenderRunner()
+
+        When("Cozy builds the generated legacy project once in final mode")
+        val legacybuild = CozyVideo.build(
+          CozyVideo.BuildConfig(generatedproject, dryRun = false, checkTools = false, mode = Some("final")),
+          CozyVideo.VideoToolRegistry(Vector.empty),
+          legacyrunner
+        )
+
+        Then("the actual build result retains the profile and credit file labels without a local digest")
+        legacybuild should include_text("creditProfile: material-publication")
+        legacybuild should include_text("credits:")
+        legacybuild should include_text("creditMarkdown:")
+        legacybuild should include_text("creditRendererProps:")
+        legacybuild should include_text("credits.json")
+        legacybuild should include_text("credits.md")
+        legacybuild should include_text("renderer-props.json")
+        legacybuild should not(include_text("creditDigest"))
+
+        Given("successful legacy publication artifacts and the generated build manifest")
         val legacymanifest = result.workspaceRoot.resolve("build/manifest.json")
-        Given("successful legacy publication artifacts")
+        val originallegacybytes = Files.readAllBytes(legacymanifest)
+        val originallegacy = parser.parse(new String(originallegacybytes, StandardCharsets.UTF_8)).toOption.get
+
         When("Cozy verifies the generated legacy project")
         val legacyfindings = CozyVideo.verifyCredits(generatedproject)
 
         Then("verification accepts the successful legacy publication")
         legacyfindings shouldBe Vector.empty
-        val originallegacybytes = Files.readAllBytes(legacymanifest)
-        val originallegacy = parser.parse(new String(originallegacybytes, StandardCharsets.UTF_8)).toOption.get
+        originallegacy.hcursor.downField("creditDigest").focus shouldBe None
+        originallegacy.hcursor.get[String]("creditProfile").toOption shouldBe Some("material-publication")
 
         Vector(
-          "removed" -> originallegacy.mapObject(_.remove("creditDigest")),
-          "incorrect" -> originallegacy.mapObject(_.add("creditDigest", Json.fromString("incorrect")))
+          "removed" -> originallegacy.mapObject(_.remove("creditProfile")),
+          "incorrect" -> originallegacy.mapObject(_.add("creditProfile", Json.fromString("incorrect")))
         ).foreach { case (mutation, manifest) =>
-          Given(s"the legacy publication manifest with its creditDigest $mutation")
+          Given(s"the legacy publication manifest with its creditProfile $mutation")
           Files.writeString(legacymanifest, manifest.noSpaces, StandardCharsets.UTF_8)
 
           When("Cozy verifies the generated legacy project")
           val findings = CozyVideo.verifyCredits(generatedproject)
 
-          Then("verification reports the existing project manifest credit digest mismatch")
-          findings.mkString("\n") should include_text("project manifest credit digest mismatch")
+          Then("verification reports the existing project manifest credit profile mismatch")
+          findings.mkString("\n") should include_text("project manifest credit profile mismatch")
+
+          Given("the exact original legacy manifest bytes restored after the profile mutation")
           Files.write(legacymanifest, originallegacybytes)
-          And("the exact original legacy manifest bytes restore a clean baseline")
-          CozyVideo.verifyCredits(generatedproject) shouldBe Vector.empty
+
+          When("Cozy verifies the restored generated legacy project")
+          val restoredfindings = CozyVideo.verifyCredits(generatedproject)
+
+          Then("verification accepts the restored legacy manifest")
+          restoredfindings shouldBe Vector.empty
         }
       }
     }

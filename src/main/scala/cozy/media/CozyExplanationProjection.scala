@@ -17,7 +17,7 @@ import CozyExplanationProjectionCodec._
 /*
  * @since   Aug. 28, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanationProjection {
@@ -35,14 +35,12 @@ private[cozy] object CozyExplanationProjection {
     identity: String
   )
   final case class VisualPageSetSelector(id: String)
-  final case class StoryboardSelector(identity: String)
   final case class ProjectionPresentation(
     visualPageSet: VisualPageSetSelector,
     stepMappings: Vector[PresentationStepMapping],
     identity: String
   )
   final case class ProjectionVideo(
-    storyboard: StoryboardSelector,
     stepMappings: Vector[VideoStepMapping],
     identity: String
   )
@@ -51,7 +49,6 @@ private[cozy] object CozyExplanationProjection {
     planIdentity: String,
     projectionMapIdentity: String,
     explanationCatalogIdentity: String,
-    storyboardIdentity: String,
     presentationMappingIdentity: String,
     videoMappingIdentity: String,
     identity: String
@@ -82,7 +79,6 @@ private[cozy] object CozyExplanationProjection {
     visualpageset: CozyVisualPage.ValidatedDocument,
     visualpagesetpath: Path,
     storyboard: CozyVideoImplementation.Storyboard,
-    storyboardidentity: String,
     storyboardpath: Path
   )
   private[media] final case class CommandConfig(
@@ -307,8 +303,7 @@ private[cozy] object CozyExplanationProjection {
     "version: 1",
     s"identity: ${validated.projection.identity}",
     s"projectionMapIdentity: ${validated.projection.projectionMapIdentity}",
-    s"visualPageSetId: ${validated.projection.presentation.visualPageSet.id}",
-    s"storyboardIdentity: ${validated.projection.video.storyboard.identity}"
+    s"visualPageSetId: ${validated.projection.presentation.visualPageSet.id}"
   ).mkString("\n")
 
   private def _projection_inspection(validated: ValidatedProjection): String =
@@ -406,7 +401,7 @@ private[cozy] object CozyExplanationProjection {
     val board = result.storyboard.getOrElse(_stale("$command.storyboard", "named Storyboard is missing"))
     if (board.schema != "cozy.video.storyboard.v2" || board.version != 2)
       _stale("$command.storyboard", "named Storyboard must be cozy.video.storyboard.v2")
-    val closure = MediaClosure(pages, visualpath, board, CozyVideoImplementation.storyboardIdentity(board), storyboardpath)
+    val closure = MediaClosure(pages, visualpath, board, storyboardpath)
     _validate_storyboard_visual_screens(closure, visualpath, _projection_input(presentationcatalog, "presentation-catalog"))
     closure
   }
@@ -528,7 +523,6 @@ private[cozy] object CozyExplanationProjection {
       projectionmap.presentation.identity
     )
     val video = ProjectionVideo(
-      StoryboardSelector(media.storyboardidentity),
       projectionmap.video.stepMappings,
       projectionmap.video.identity
     )
@@ -537,7 +531,6 @@ private[cozy] object CozyExplanationProjection {
       projectionmap.planIdentity,
       projectionmap.identity,
       map.plan.catalog.identity,
-      media.storyboardidentity,
       presentation.identity,
       video.identity,
       ""

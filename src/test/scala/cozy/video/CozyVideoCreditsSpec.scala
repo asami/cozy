@@ -2,16 +2,18 @@ package cozy.video
 
 import cozy.CozySpecVocabulary
 import cozy.config.CozyProjectContext
-import io.circe.Json
+import io.circe.{Json, parser}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 
 /*
  * @since   Jul. 20, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoCreditsSpec
@@ -502,22 +504,32 @@ final class CozyVideoCreditsSpec
         val markdown = _read(files.markdownFile)
         val renderer = _read(files.rendererPropsFile)
 
-        Then("all files carry the same selected credits and digest source of truth")
+        Then("all files carry the same selected attribution without a local management digest")
         files.jsonFile should be_regular_file
         files.markdownFile should be_regular_file
         files.rendererPropsFile should be_regular_file
-        json should include_text(effective.digest)
+        val creditjson = parser.parse(json).toOption.get
+        val rendererjson = parser.parse(renderer).toOption.get
+        creditjson.hcursor.downField("digest").focus shouldBe None
+        rendererjson.hcursor.downField("digest").focus shouldBe None
+        creditjson.hcursor.downField("profile").get[String]("id").toOption shouldBe Some("baseline")
+        creditjson.hcursor.get[String]("locale").toOption shouldBe Some("ja")
+        creditjson.hcursor.get[Vector[Json]]("credits").toOption.get.map(_.hcursor.get[String]("id").toOption.get) shouldBe
+          _expected_ids(false, true, "ja")
+        rendererjson.hcursor.get[String]("profile").toOption shouldBe Some("baseline")
+        rendererjson.hcursor.get[String]("locale").toOption shouldBe Some("ja")
         json should include_text("zundamon-image")
+        json should include_text("VOICEVOX:ずんだもん")
         markdown should include_text("ずんだもん立ち絵")
-        renderer should include_text(effective.digest)
+        markdown should include_text("VOICEVOX:ずんだもん")
         renderer should include_text("VOICEVOX:ずんだもん")
       }
     }
 
-    "produce a relocation-stable digest that includes presentation semantics" in {
-      _with_temp_dir("digest-a") { dira =>
-        _with_temp_dir("digest-b") { dirb =>
-          Given("identical effective credit semantics in two different workspaces")
+    "preserve relocation-independent presentation and workspace provenance" in {
+      _with_temp_dir("presentation-a") { dira =>
+        _with_temp_dir("presentation-b") { dirb =>
+          Given("identical selected credits in two workspaces with distinct profile and audio paths")
           _write_profile(dira, "baseline")
           _write_profile(dirb, "baseline")
           val settings = Some(CozyVideoCredits.Settings(Some("baseline"), Vector.empty, Vector.empty))
@@ -539,18 +551,41 @@ final class CozyVideoCreditsSpec
             Vector(dirb.resolve("different/audio/manifest.json") -> _audio_entries("ja", speakers))
           ).requireValid()
 
-          When("Cozy computes each effective digest")
-          val relocateddigest = effectiveb.digest
+          When("Cozy writes all publication and renderer projections in both workspaces")
+          val filesa = CozyVideoCredits.write(dira.resolve("build/credits"), effectivea)
+          val filesb = CozyVideoCredits.write(dirb.resolve("build/credits"), effectiveb)
+          val jsona = parser.parse(_read(filesa.jsonFile)).toOption.get
+          val jsonb = parser.parse(_read(filesb.jsonFile)).toOption.get
+          val renderera = parser.parse(_read(filesa.rendererPropsFile)).toOption.get
+          val rendererb = parser.parse(_read(filesb.rendererPropsFile)).toOption.get
 
-          Then("profile and manifest filesystem locations do not affect semantic identity")
-          relocateddigest shouldBe effectivea.digest
+          Then("renderer and Markdown presentation agree while canonical credits preserve each source path")
+          Vector(filesa, filesb).foreach { files =>
+            files.jsonFile should be_regular_file
+            files.markdownFile should be_regular_file
+            files.rendererPropsFile should be_regular_file
+          }
+          rendererb shouldBe renderera
+          _read(filesb.markdownFile) shouldBe _read(filesa.markdownFile)
+          Vector(
+            (jsona, dira.resolve("conf/cozy/video/credit-profiles/baseline.yaml"), dira.resolve("audio/manifest.json")),
+            (jsonb, dirb.resolve("conf/cozy/video/credit-profiles/baseline.yaml"), dirb.resolve("different/audio/manifest.json"))
+          ).foreach { case (json, profilepath, audiopath) =>
+            json.hcursor.downField("profile").get[String]("sourcePath").toOption shouldBe Some(profilepath.toString)
+            json.hcursor.downField("evidence").get[Vector[Json]]("audio").toOption.get.
+              map(_.hcursor.get[String]("manifestPath").toOption.get) shouldBe Vector(audiopath.toString)
+            json.hcursor.downField("digest").focus shouldBe None
+          }
+          renderera.hcursor.downField("digest").focus shouldBe None
+          rendererb.hcursor.downField("digest").focus shouldBe None
 
-          When("the profile changes the credit-page hold contract")
+          Given("only the second profile's credit-page hold changes from four to six seconds")
           _write_profile_at(
             dirb.resolve("conf/cozy"),
             "baseline",
             _profile_yaml("baseline").replace("hold-seconds: 4.0", "hold-seconds: 6.0")
           )
+          When("Cozy resolves the changed profile and writes its actual projections again")
           val changed = CozyVideoCredits.resolve(
             dirb,
             settings,
@@ -560,9 +595,93 @@ final class CozyVideoCreditsSpec
             Vector(dirb.resolve("different/audio/manifest.json") -> _audio_entries("ja", speakers))
           ).requireValid()
 
-          Then("the digest changes because renderer-visible presentation is part of the contract")
-          changed.digest should not be effectivea.digest
+          val changedfiles = CozyVideoCredits.write(dirb.resolve("build/credits"), changed)
+          val changedjson = parser.parse(_read(changedfiles.jsonFile)).toOption.get
+          val changedrenderer = parser.parse(_read(changedfiles.rendererPropsFile)).toOption.get
+
+          Then("the projections expose the new hold and preserve selected Japanese attribution and provenance")
+          changedrenderer.hcursor.get[Double]("holdSeconds").toOption shouldBe Some(6.0)
+          changedjson.hcursor.downField("profile").downField("presentation").get[Double]("holdSeconds").toOption shouldBe Some(6.0)
+          changedjson.hcursor.get[Vector[Json]]("credits").toOption.get.map(_.hcursor.get[String]("id").toOption.get) shouldBe
+            _expected_ids(false, true, "ja")
+          changedrenderer.hcursor.get[Vector[Json]]("items").toOption.get.map(_.hcursor.get[String]("id").toOption.get) shouldBe
+            _expected_ids(false, true, "ja")
+          changedjson.hcursor.get[String]("locale").toOption shouldBe Some("ja")
+          changedrenderer.hcursor.get[String]("locale").toOption shouldBe Some("ja")
+          changedrenderer.hcursor.get[String]("title").toOption shouldBe Some("使用素材・音声")
+          changedjson.hcursor.downField("profile").downField("presentation").get[String]("title").toOption shouldBe Some("使用素材・音声")
+          changedjson.hcursor.downField("profile").get[String]("sourcePath").toOption shouldBe
+            Some(dirb.resolve("conf/cozy/video/credit-profiles/baseline.yaml").toString)
+          changedjson.hcursor.downField("evidence").get[Vector[Json]]("audio").toOption.get.
+            map(_.hcursor.get[String]("manifestPath").toOption.get) shouldBe Vector(dirb.resolve("different/audio/manifest.json").toString)
+          _read(changedfiles.markdownFile) shouldBe _read(filesa.markdownFile)
+          changedjson.noSpaces should include_text("VOICEVOX:ずんだもん")
+          changedrenderer.noSpaces should include_text("ずんだもん立ち絵")
+          changedrenderer.noSpaces should include_text("VOICEVOX:ずんだもん")
+          changedjson.hcursor.downField("digest").focus shouldBe None
+          changedrenderer.hcursor.downField("digest").focus shouldBe None
         }
+      }
+    }
+
+    "preserve required attribution across finite hold times and standalone-page variations" in {
+      _with_temp_dir("presentation-property") { dir =>
+        Given("a Japanese Zundamon material and authoritative VOICEVOX fixture with valid presentation variations")
+        val speakers = Vector("zundamon")
+        val scripts = Vector(_script(speakers))
+        val assets = Vector(_zundamon_asset)
+        val audio = Vector(dir.resolve("audio/manifest.json") -> _audio_entries("ja", speakers))
+        val property = Prop.forAll(Gen.choose(0, 120), Gen.oneOf(false, true)) { (holdtenths: Int, enabled: Boolean) =>
+          Given("the baseline profile with the generated finite hold time and standalone-page setting")
+          val holdseconds = holdtenths / 10.0
+          _write_profile_at(dir.resolve("conf/cozy"), "baseline",
+            _profile_yaml("baseline").replace("hold-seconds: 4.0", s"hold-seconds: $holdseconds"))
+          val settings = CozyVideoCredits.Settings(Some("baseline"), Vector.empty, Vector.empty, presentationEnabled = enabled)
+
+          When("Cozy resolves the actual evidence and writes all three projections")
+          val effective = CozyVideoCredits.resolve(dir, Some(settings), Some("ja"), scripts, assets, audio).requireValid()
+          val files = CozyVideoCredits.write(dir.resolve("build/credits"), effective)
+          val json = parser.parse(_read(files.jsonFile)).toOption.get
+          val renderer = parser.parse(_read(files.rendererPropsFile)).toOption.get
+          val markdown = _read(files.markdownFile)
+
+          Then("presentation variations preserve required Japanese material and voice attribution without a digest")
+          files.jsonFile should be_regular_file
+          files.markdownFile should be_regular_file
+          files.rendererPropsFile should be_regular_file
+          json.hcursor.get[Vector[Json]]("credits").toOption.get.map(_.hcursor.get[String]("id").toOption.get) shouldBe
+            _expected_ids(false, true, "ja")
+          renderer.hcursor.get[Vector[Json]]("items").toOption.get.map(_.hcursor.get[String]("id").toOption.get) shouldBe
+            _expected_ids(false, true, "ja")
+          json.hcursor.get[String]("locale").toOption shouldBe Some("ja")
+          renderer.hcursor.get[String]("locale").toOption shouldBe Some("ja")
+          json.hcursor.downField("profile").get[String]("id").toOption shouldBe Some("baseline")
+          renderer.hcursor.get[String]("profile").toOption shouldBe Some("baseline")
+          renderer.hcursor.get[String]("title").toOption shouldBe Some("使用素材・音声")
+          json.hcursor.downField("profile").downField("presentation").get[String]("title").toOption shouldBe Some("使用素材・音声")
+          renderer.hcursor.get[Boolean]("enabled").toOption shouldBe Some(enabled)
+          renderer.hcursor.get[Double]("holdSeconds").toOption shouldBe Some(holdseconds)
+          json.hcursor.downField("profile").downField("presentation").get[Boolean]("enabled").toOption shouldBe Some(enabled)
+          json.hcursor.downField("profile").downField("presentation").get[Double]("holdSeconds").toOption shouldBe Some(holdseconds)
+          json.hcursor.downField("profile").get[String]("sourcePath").toOption shouldBe
+            Some(dir.resolve("conf/cozy/video/credit-profiles/baseline.yaml").toString)
+          json.hcursor.downField("evidence").get[Vector[Json]]("audio").toOption.get.
+            map(_.hcursor.get[String]("manifestPath").toOption.get) shouldBe Vector(dir.resolve("audio/manifest.json").toString)
+          json.noSpaces should include_text("ずんだもん立ち絵")
+          json.noSpaces should include_text("VOICEVOX:ずんだもん")
+          renderer.noSpaces should include_text("ずんだもん立ち絵")
+          renderer.noSpaces should include_text("VOICEVOX:ずんだもん")
+          markdown shouldBe "## 使用素材・音声\n\n- ずんだもん立ち絵 (https://seiga.nicovideo.jp/seiga/im10788496)\n- VOICEVOX\n- VOICEVOX:ずんだもん\n"
+          json.hcursor.downField("digest").focus shouldBe None
+          renderer.hcursor.downField("digest").focus shouldBe None
+          true
+        }
+
+        When("ScalaCheck exercises at least fifty presentation variations")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+
+        Then("every generated case preserves the attribution and projection contract")
+        check.passed shouldBe true
       }
     }
   }

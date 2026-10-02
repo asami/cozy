@@ -5,7 +5,6 @@ import io.circe.{Decoder, HCursor, Json}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
@@ -15,7 +14,8 @@ import org.goldenport.RAISE
  * Personal attribution policy belongs in discovered profiles, never here.
  *
  * @since   Jul. 20, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCredits {
@@ -241,15 +241,13 @@ private[cozy] object CozyVideoCredits {
         RAISE.invalidArgumentFault(errors.map(x => s"${x.code}: ${x.message}").mkString("Invalid video credits: ", "; ", ""))
       this
     }
-    lazy val digest: String = _sha256(_semantic_json(this).noSpaces)
   }
 
   final case class OutputFiles(
     directory: Path,
     jsonFile: Path,
     markdownFile: Path,
-    rendererPropsFile: Path,
-    digest: String
+    rendererPropsFile: Path
   )
 
   def resolve(
@@ -295,11 +293,11 @@ private[cozy] object CozyVideoCredits {
     Files.writeString(jsonfile, toJson(effective).spaces2 + "\n", StandardCharsets.UTF_8)
     Files.writeString(markdownfile, toMarkdown(effective), StandardCharsets.UTF_8)
     Files.writeString(rendererpropsfile, toRendererProps(effective).spaces2 + "\n", StandardCharsets.UTF_8)
-    OutputFiles(directory, jsonfile, markdownfile, rendererpropsfile, effective.digest)
+    OutputFiles(directory, jsonfile, markdownfile, rendererpropsfile)
   }
 
   def toJson(effective: EffectiveSet): Json =
-    _canonical_json(effective).deepMerge(Json.obj("digest" -> Json.fromString(effective.digest)))
+    _canonical_json(effective)
 
   def toMarkdown(effective: EffectiveSet): String = {
     val items = effective.publicationItems
@@ -321,7 +319,6 @@ private[cozy] object CozyVideoCredits {
     Json.obj(
       "schema" -> Json.fromString("cozy.video.credit-renderer-props.v1"),
       "profile" -> effective.profileId.map(Json.fromString).getOrElse(Json.Null),
-      "digest" -> Json.fromString(effective.digest),
       "locale" -> Json.fromString(effective.locale),
       "title" -> Json.fromString(effective.profile.map(_.profile.presentation.title(effective.locale)).getOrElse("Credits")),
       "holdSeconds" -> Json.fromDoubleOrNull(effective.holdSeconds),
@@ -652,36 +649,6 @@ private[cozy] object CozyVideoCredits {
       "diagnostics" -> _diagnostics_json(effective)
     )
 
-  // The digest identifies effective credit semantics, not the machine-specific workspace.
-  private def _semantic_json(effective: EffectiveSet): Json =
-    Json.obj(
-      "schema" -> Json.fromString(SCHEMA),
-      "profile" -> effective.profile.map { source =>
-        Json.obj(
-          "id" -> Json.fromString(source.profile.id),
-          "presentation" -> _presentation_json(effective)
-        )
-      }.getOrElse(Json.Null),
-      "locale" -> Json.fromString(effective.locale),
-      "evidence" -> Json.obj(
-        "characterIds" -> Json.fromValues(effective.evidence.characterIds.map(Json.fromString)),
-        "assetTags" -> Json.fromValues(effective.evidence.assetTags.map(Json.fromString)),
-        "assetLicenses" -> Json.fromValues(effective.evidence.assetLicenses.map(Json.fromString)),
-        "assetProvenance" -> Json.fromValues(effective.evidence.assetProvenance.map(Json.fromString)),
-        "audio" -> Json.fromValues(effective.evidence.audio.map { audio =>
-          Json.obj(
-            "provider" -> Json.fromString(audio.provider),
-            "voiceIdentity" -> audio.voiceIdentity.map(Json.fromString).getOrElse(Json.Null),
-            "voiceId" -> audio.voiceId.map(Json.fromString).getOrElse(Json.Null),
-            "modelIdentity" -> audio.modelIdentity.map(Json.fromString).getOrElse(Json.Null),
-            "speaker" -> audio.speaker.map(Json.fromString).getOrElse(Json.Null)
-          )
-        })
-      ),
-      "credits" -> _effective_credits_json(effective),
-      "diagnostics" -> _diagnostics_json(effective)
-    )
-
   private def _presentation_json(effective: EffectiveSet): Json =
     Json.obj(
       "title" -> Json.fromString(effective.profile.map(_.profile.presentation.title(effective.locale)).getOrElse("Credits")),
@@ -714,11 +681,6 @@ private[cozy] object CozyVideoCredits {
         "message" -> Json.fromString(diagnostic.message)
       )
     })
-
-  private def _sha256(value: String): String = {
-    val digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))
-    digest.map("%02x".format(_)).mkString
-  }
 
   private def _localized(values: Map[String, String], locale: String): Option[String] = {
     val normalized = locale.toLowerCase(java.util.Locale.ROOT)

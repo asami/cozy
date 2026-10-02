@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,7 +26,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoBuildReplay {
@@ -195,14 +195,12 @@ private[cozy] trait CozyVideoBuildReplay {
       "status" -> Json.fromString("validated"),
       "projectFile" -> Json.fromString(plan.projectFile.toString),
       "outputPath" -> Json.fromString(plan.outputPath.toString),
-      "finalVideoSha256" -> Json.fromString(_sha256(plan.outputPath)),
       "partOutputs" -> Json.fromValues(partoutputs.map(x => Json.fromString(x.toString))),
       "toolMode" -> Json.fromString(plan.execution.toolMode.label),
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
       "concatListPath" -> Json.fromString(concatlist.toString),
       "encoding" -> _encoding_json(plan.encoding),
       "creditProfile" -> plan.credits.profileId.map(Json.fromString).getOrElse(Json.Null),
-      "creditDigest" -> creditfiles.map(x => Json.fromString(x.digest)).getOrElse(Json.Null),
       "creditsPath" -> creditfiles.map(x => Json.fromString(x.jsonFile.toString)).getOrElse(Json.Null),
       "creditEvidence" -> Json.fromValues(plan.credits.items.flatMap(_.evidence).distinct.sorted.map(Json.fromString)),
       "creditTermsUrls" -> Json.fromValues(plan.credits.items.flatMap(_.item.termsUrl).distinct.sorted.map(Json.fromString)),
@@ -379,7 +377,6 @@ private[cozy] trait CozyVideoBuildReplay {
       "schema" -> Json.fromString("cozy.video.replay-manifest.v1"),
       "scriptFile" -> Json.fromString(scriptfile.toString),
       "sourceVideo" -> script.sourceVideo.map(Json.fromString).getOrElse(Json.Null),
-      "sourceSha256" -> script.sourceSha256.map(Json.fromString).getOrElse(Json.Null),
       "manualReview" -> Json.fromBoolean(script.manualReview),
       "outputVideo" -> output.map(path => Json.fromString(path.toString)).getOrElse(Json.Null),
       "toolMode" -> Json.fromString(execution.toolMode.label),

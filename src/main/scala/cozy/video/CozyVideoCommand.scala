@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -29,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 27, 2026
  *  version Sep. 29, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCommand {
@@ -361,17 +360,7 @@ private[cozy] trait CozyVideoCommand {
         val rendererpropsfile = directory.resolve("renderer-props.json")
         val missing = Vector(jsonfile, markdownfile, rendererpropsfile).filterNot(Files.isRegularFile(_)).map(x => s"missing credit projection: $x") ++
           (if (Files.isRegularFile(manifestpath)) Vector.empty
-           else if (nativestoryboard) Vector(s"missing project manifest: $manifestpath")
-           else Vector(s"missing project manifest with credit digest: $manifestpath"))
-        val digestfindings =
-          if (!Files.isRegularFile(jsonfile))
-            Vector.empty
-          else {
-            val actual = parser.parse(Files.readString(jsonfile, StandardCharsets.UTF_8)).toOption.
-              flatMap(_.hcursor.get[String]("digest").toOption)
-            if (actual.contains(plan.credits.digest)) Vector.empty
-            else Vector(s"credit digest mismatch: expected ${plan.credits.digest}, found ${actual.getOrElse("missing")}")
-          }
+           else Vector(s"missing project manifest: $manifestpath"))
         val projectionfindings = Vector(
           _credit_json_projection_finding(jsonfile, CozyVideoCredits.toJson(plan.credits), "credit JSON"),
           _credit_text_projection_finding(markdownfile, CozyVideoCredits.toMarkdown(plan.credits), "credit Markdown"),
@@ -396,14 +385,12 @@ private[cozy] trait CozyVideoCommand {
                   if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
                 ).flatten
             } else {
-              val digest = manifest.flatMap(_.hcursor.get[String]("creditDigest").toOption)
               Vector(
-                if (digest.contains(plan.credits.digest)) None else Some(s"project manifest credit digest mismatch: expected ${plan.credits.digest}, found ${digest.getOrElse("missing")}"),
                 if (profile == plan.credits.profileId) None else Some(s"project manifest credit profile mismatch: expected ${plan.credits.profileId.getOrElse("none")}, found ${profile.getOrElse("missing")}")
               ).flatten
             }
           }
-        missing ++ digestfindings ++ projectionfindings ++ manifestfindings
+        missing ++ projectionfindings ++ manifestfindings
       }
     diagnostics ++ artifactfindings
   }
@@ -569,7 +556,6 @@ private[cozy] trait CozyVideoCommand {
     Json.obj(
       "schema" -> Json.fromString("cozy.video.replay-script.v1"),
       "sourceVideo" -> Json.fromString(input.toString),
-      "sourceSha256" -> Json.fromString(_sha256(input)),
       "manualReview" -> Json.fromBoolean(manualreview),
       "sources" -> Json.obj(
         Vector(

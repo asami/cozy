@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -28,7 +27,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
@@ -43,7 +43,6 @@ private[cozy] trait CozyVideoReviewEvidence {
       RAISE.invalidArgumentFault(s"Final video for review evidence must not be a symbolic link: $finalvideo")
     if (!Files.isRegularFile(finalvideo, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"Missing final video for review evidence: $finalvideo")
-    val finalhash = _sha256(finalvideo)
     val savedir = config.saveDir.toAbsolutePath.normalize()
     if (savedir.getParent == null)
       RAISE.invalidArgumentFault("Review evidence --save target must not be the filesystem root.")
@@ -67,8 +66,7 @@ private[cozy] trait CozyVideoReviewEvidence {
     val manifest = savedir.resolve("review-manifest.json")
     if (Files.exists(manifest, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(manifest))
       RAISE.invalidArgumentFault(s"Review evidence manifest target must not be a symbolic link: $manifest")
-    val videomanifest = _review_validated_video_manifest(plan, finalvideo, finalhash)
-    val videomanifesthash = _sha256(videomanifest)
+    val videomanifest = _review_validated_video_manifest(plan, finalvideo)
     val dockermounts =
       if (plan.execution.toolMode == VideoToolMode.Docker)
         Some(ReviewEvidenceDockerMounts(
@@ -84,7 +82,7 @@ private[cozy] trait CozyVideoReviewEvidence {
     val topframes = Vector.newBuilder[Json]
     val partjson = parts.map { evidence =>
       val timing = _review_required_object(evidence.props, "timing", s"Remotion props for ${evidence.part.id}")
-      val partmanifest = _review_part_manifest_audio_binding(evidence.part, evidence.audiomanifestpath)
+      val partmanifest = _review_part_manifest_file(evidence.part)
       def _timing_int_(name: String): Int = _review_nonnegative_int(timing, name, s"Remotion timing for ${evidence.part.id}")
       val opening = _timing_int_("openingFrames")
       val summary = _timing_int_("summaryFrames")
@@ -218,15 +216,9 @@ private[cozy] trait CozyVideoReviewEvidence {
         "durationFrames" -> Json.fromInt(evidence.totalframes),
         "durationSeconds" -> Json.fromDoubleOrNull(_round3(evidence.totalframes.toDouble / evidence.fps)),
         "propsPath" -> Json.fromString(evidence.propspath.toString),
-        "propsSha256" -> Json.fromString(_sha256(evidence.propspath)),
         "audioManifestPath" -> evidence.audiomanifestpath.map(x => Json.fromString(x.toString)).getOrElse(Json.Null),
-        "audioManifestSha256" -> evidence.audiomanifestpath.map(x => Json.fromString(_sha256(x))).getOrElse(Json.Null),
-        "partManifest" -> partmanifest.map { case (path, binding) =>
-          Json.obj(
-            "path" -> Json.fromString(path.toString),
-            "sha256" -> Json.fromString(_sha256(path)),
-            "audioManifestSha256" -> binding.map(Json.fromString).getOrElse(Json.Null)
-          )
+        "partManifest" -> partmanifest.map { path =>
+          Json.obj("path" -> Json.fromString(path.toString))
         }.getOrElse(Json.Null),
         "scenes" -> Json.fromValues(scenejson)
       )
@@ -242,16 +234,13 @@ private[cozy] trait CozyVideoReviewEvidence {
       "schema" -> Json.fromString("cozy.video.review-evidence.v1"),
       "status" -> Json.fromString("validated"),
       "projectFile" -> Json.obj(
-        "path" -> Json.fromString(plan.projectFile.toString),
-        "sha256" -> Json.fromString(_sha256(plan.projectFile))
+        "path" -> Json.fromString(plan.projectFile.toString)
       ),
       "finalVideo" -> Json.obj(
-        "path" -> Json.fromString(finalvideo.toString),
-        "sha256" -> Json.fromString(finalhash)
+        "path" -> Json.fromString(finalvideo.toString)
       ),
       "videoManifest" -> Json.obj(
         "path" -> Json.fromString(videomanifest.toString),
-        "sha256" -> Json.fromString(videomanifesthash),
         "status" -> Json.fromString("validated")
       ),
       "renderer" -> Json.obj(
@@ -363,35 +352,18 @@ private[cozy] trait CozyVideoReviewEvidence {
         (Some(path), byid)
     }
 
-  private[video] def _review_part_manifest_audio_binding(
-    part: VideoPartPlan,
-    audiomanifestpath: Option[Path]
-  ): Option[(Path, Option[String])] = {
+  private[video] def _review_part_manifest_file(part: VideoPartPlan): Option[Path] = {
     val path = part.manifestPath.toAbsolutePath.normalize()
     if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS))
       None
     else {
       if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
         RAISE.invalidArgumentFault(s"Part manifest for review evidence must be a direct regular file: $path")
-      val json = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
+      parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(
         e => RAISE.invalidArgumentFault(s"Invalid part manifest for review evidence for part ${part.id}: ${e.getMessage}"),
         identity
       )
-      val binding = json.hcursor.downField("audioManifestSha256").focus match {
-        case None => None
-        case Some(value) if value.isNull => None
-        case Some(value) => Some(value.asString.map(_.trim).filter(_.nonEmpty).getOrElse(
-          RAISE.invalidArgumentFault(s"Invalid audioManifestSha256 in part manifest for review evidence for part ${part.id}.")
-        ))
-      }
-      audiomanifestpath.foreach { audiopath =>
-        binding.foreach { value =>
-          val actual = _sha256(audiopath)
-          if (value != actual)
-            RAISE.invalidArgumentFault(s"Part manifest audioManifestSha256 does not match the current audio manifest for part ${part.id}.")
-        }
-      }
-      Some(path -> binding)
+      Some(path)
     }
   }
 
@@ -474,14 +446,14 @@ private[cozy] trait CozyVideoReviewEvidence {
     rounded + transition.toLong
   }
 
-  private[video] def _review_validated_video_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
+  private[video] def _review_validated_video_manifest(plan: VideoPlan, finalvideo: Path): Path = {
     if (plan.project.parts.exists(_.storyboard.isDefined))
       _review_validated_storyboard_final_manifest(plan, finalvideo)
     else
-      _review_validated_legacy_video_manifest(plan, finalvideo, finalhash)
+      _review_validated_legacy_video_manifest(plan, finalvideo)
   }
 
-  private def _review_validated_legacy_video_manifest(plan: VideoPlan, finalvideo: Path, finalhash: String): Path = {
+  private def _review_validated_legacy_video_manifest(plan: VideoPlan, finalvideo: Path): Path = {
     val manifest = plan.manifestPath.toAbsolutePath.normalize()
     if (Files.isSymbolicLink(manifest) || !Files.isRegularFile(manifest, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"Missing validated project video manifest for review evidence: $manifest")
@@ -495,8 +467,6 @@ private[cozy] trait CozyVideoReviewEvidence {
     val manifestoutput = (if (output.isAbsolute) output else plan.projectRoot.resolve(output)).toAbsolutePath.normalize()
     if (manifestoutput != finalvideo)
       RAISE.invalidArgumentFault(s"Project video manifest outputPath does not match final video: $manifest")
-    if (_review_required_string(json, "finalVideoSha256", "project video manifest") != finalhash)
-      RAISE.invalidArgumentFault(s"Project video manifest finalVideoSha256 does not match final video: $manifest")
     val encoding = _review_required_object(json, "encoding", "project video manifest")
     _review_require_effective_encoding(encoding, "policy", plan.encoding, "project video manifest encoding")
     manifest
@@ -599,8 +569,7 @@ private[cozy] trait CozyVideoReviewEvidence {
       "sceneId" -> frame.sceneid.map(Json.fromString).getOrElse(Json.Null),
       "absoluteFrame" -> Json.fromInt(frame.absoluteframe),
       "absoluteSeconds" -> Json.fromDoubleOrNull(_round3(frame.absoluteframe.toDouble / frame.fps)),
-      "path" -> Json.fromString(_review_relative_path(savedir, target)),
-      "sha256" -> Json.fromString(_sha256(target))
+      "path" -> Json.fromString(_review_relative_path(savedir, target))
     )
   }
 

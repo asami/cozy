@@ -9,7 +9,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 26, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardBuildSpec
@@ -19,11 +19,11 @@ final class CozyVideoStoryboardBuildSpec
   "Cozy Video Storyboard planning" should {
     "preserve full-Storyboard planning when a Storyboard part has no section selector" in {
       _with_temp_dir("markdown") { root =>
-        Given("an approved Storyboard Markdown project with no legacy script source or section selector")
+        Given("a valid Storyboard Markdown project with no legacy script source or section selector")
         val storyboard = _storyboard()
         val source = root.resolve("storyboard.md")
         Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
-        val project = _write_project(root, "storyboard.md", CozyVideo.storyboardIdentity(storyboard))
+        val project = _write_project(root, "storyboard.md")
 
         When("public inspection and dry-run build plan the selected Storyboard")
         val inspection = CozyVideo.inspect(
@@ -50,7 +50,7 @@ final class CozyVideoStoryboardBuildSpec
 
     "plan exactly the scenes selected by a Storyboard section selector" in {
       _with_temp_dir("selected-section") { root =>
-        Given("an approved Storyboard part selecting its detail section")
+        Given("a valid Storyboard part selecting its detail section")
         val base = _storyboard()
         val storyboard = base.copy(
           scenes = base.scenes :+ base.scenes(1).copy(
@@ -64,7 +64,7 @@ final class CozyVideoStoryboardBuildSpec
         )
         val source = root.resolve("storyboard.md")
         Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
-        val project = _write_project(root, "storyboard.md", CozyVideo.storyboardIdentity(storyboard), Some("detail"))
+        val project = _write_project(root, "storyboard.md", Some("detail"))
 
         When("public planning projects the selected section")
         val inspection = CozyVideo.inspect(
@@ -86,7 +86,7 @@ final class CozyVideoStoryboardBuildSpec
 
     "project equivalent JSON and Markdown Storyboards into the same observable planning semantics" in {
       _with_temp_dir("equivalent") { root =>
-        Given("equivalent approved Markdown and JSON Storyboard projects")
+        Given("equivalent valid Markdown and JSON Storyboard projects")
         val storyboard = _storyboard()
         val markdownroot = root.resolve("markdown")
         val jsonroot = root.resolve("json")
@@ -96,8 +96,8 @@ final class CozyVideoStoryboardBuildSpec
         val json = jsonroot.resolve("storyboard.json")
         Files.writeString(markdown, CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
         Files.writeString(json, CozyVideo.canonicalStoryboardJson(storyboard), StandardCharsets.UTF_8)
-        val markdownproject = _write_project(markdownroot, "storyboard.md", CozyVideo.storyboardIdentity(storyboard))
-        val jsonproject = _write_project(jsonroot, "storyboard.json", CozyVideo.storyboardIdentity(storyboard))
+        val markdownproject = _write_project(markdownroot, "storyboard.md")
+        val jsonproject = _write_project(jsonroot, "storyboard.json")
 
         When("both sources are planned through the public video surface")
         val markdowninspection = CozyVideo.inspect(
@@ -171,31 +171,33 @@ final class CozyVideoStoryboardBuildSpec
 
     "reject invalid and unmatched Storyboard section selectors deterministically" in {
       _with_temp_dir("invalid-section") { root =>
-        Given("an approved Storyboard source")
+        Given("a valid Storyboard source")
         val storyboard = _storyboard()
         val source = root.resolve("storyboard.md")
         Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
 
-        When("a selector violates the stable section token grammar")
-        val invalid = _write_project(root, "storyboard.md", CozyVideo.storyboardIdentity(storyboard), Some("not a section"))
+        Given("a section selector that violates the stable token grammar")
+        val invalid = _write_project(root, "storyboard.md", Some("not a section"))
+        When("the inspector decodes that invalid selector")
         val invalidfailure = intercept[Exception] {
           CozyVideo.inspect(
             CozyVideo.InspectConfig(invalid, checkTools = false),
             CozyVideo.VideoToolRegistry(Vector.empty)
           )
         }
+        Then("the malformed selector fails during decoding without fallback")
+        invalidfailure.getMessage should include("storyboardSection must be a non-empty stable token")
 
-        And("a valid selector does not match any Storyboard scene")
-        val unmatched = _write_project(root, "storyboard.md", CozyVideo.storyboardIdentity(storyboard), Some("missing"))
+        Given("a valid section selector that matches no Storyboard scene")
+        val unmatched = _write_project(root, "storyboard.md", Some("missing"))
+        When("the inspector plans that unmatched selector")
         val unmatchedfailure = intercept[Exception] {
           CozyVideo.inspect(
             CozyVideo.InspectConfig(unmatched, checkTools = false),
             CozyVideo.VideoToolRegistry(Vector.empty)
           )
         }
-
-        Then("decoding and planning reject their respective selector failures without fallback")
-        invalidfailure.getMessage should include("storyboardSection must be a non-empty stable token")
+        Then("the unmatched section fails during planning without fallback")
         unmatchedfailure.getMessage should include("Storyboard section missing selects no scenes")
       }
     }
@@ -236,7 +238,7 @@ final class CozyVideoStoryboardBuildSpec
         val link = root.resolve("storyboard.md")
         Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
         Files.createSymbolicLink(link, source.getFileName)
-        val project = _write_project(root, "storyboard.md", CozyVideo.storyboardIdentity(storyboard))
+        val project = _write_project(root, "storyboard.md")
 
         When("the public inspector plans the Storyboard part")
         val failure = intercept[Exception] {
@@ -259,7 +261,7 @@ final class CozyVideoStoryboardBuildSpec
         Files.createDirectories(outside)
         Files.writeString(outside.resolve("storyboard.md"), CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
         Files.createSymbolicLink(root.resolve("sources"), outside)
-        val project = _write_project(root, "sources/storyboard.md", CozyVideo.storyboardIdentity(storyboard))
+        val project = _write_project(root, "sources/storyboard.md")
 
         When("the public inspector plans the Storyboard part")
         val failure = intercept[Exception] {
@@ -278,14 +280,13 @@ final class CozyVideoStoryboardBuildSpec
 
     "retain project narration configuration in the Storyboard projection" in {
       _with_temp_dir("project-narration") { root =>
-        Given("an approved Storyboard project with explicit project-level narration and character configuration")
+        Given("a valid Storyboard project with explicit project-level narration and character configuration")
         val storyboard = _storyboard()
         val source = root.resolve("storyboard.md")
         Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
         val project = _write_project(
           root,
           "storyboard.md",
-          CozyVideo.storyboardIdentity(storyboard),
           configuration = """  "narration": {"provider": "voicevox"},
                           |  "voice": {"fallbackSpeakerId": 7},
                           |  "voiceTextNormalization": {"dictionary": {"Cozy": "コージー"}},
@@ -308,7 +309,7 @@ final class CozyVideoStoryboardBuildSpec
 
     "retain ordered Storyboard pronunciation notes and reject conflicting duplicate readings" in {
       _with_temp_dir("ordered-pronunciations") { root =>
-        Given("an approved Storyboard with ordered duplicate-compatible notes and a conflicting variant")
+        Given("a valid Storyboard with ordered duplicate-compatible notes and a conflicting variant")
         val storyboard = _storyboard().copy(scenes = _storyboard().scenes.map { scene =>
           scene.copy(pronunciationNotes = Vector(
             CozyVideo.StoryboardPronunciationNote("Cozy", "コージー"),
@@ -318,24 +319,26 @@ final class CozyVideoStoryboardBuildSpec
         })
         val source = root.resolve("storyboard.md")
         Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(storyboard), StandardCharsets.UTF_8)
-        val project = _write_project(root, "storyboard.md", CozyVideo.storyboardIdentity(storyboard))
+        val project = _write_project(root, "storyboard.md")
         val conflicting = storyboard.copy(scenes = storyboard.scenes.updated(1, storyboard.scenes(1).copy(
           pronunciationNotes = Vector(CozyVideo.StoryboardPronunciationNote("Cozy", "こーずぃー"))
         )))
 
-        When("planning first projects the ordered notes and then loads the conflicting Storyboard")
+        When("planning projects the ordered compatible pronunciation notes")
         val script = CozyVideoImplementation._plan(project, None, None).parts.head.script.get
-        Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(conflicting), StandardCharsets.UTF_8)
-        val failure = intercept[Exception] {
-          CozyVideoImplementation._plan(project, None, None)
-        }
-
-        Then("the projection preserves source order while conflicting readings fail before rendering")
+        Then("the projection preserves source order and compatible dictionary readings")
         script.storyboardPronunciationNotes.map(note => note.surface -> note.reading) shouldBe Vector(
           "Cozy" -> "コージー", "Reimu" -> "れいむ", "Cozy" -> "コージー",
           "Cozy" -> "コージー", "Reimu" -> "れいむ", "Cozy" -> "コージー"
         )
         script.pronunciations shouldBe Map("Cozy" -> "コージー", "Reimu" -> "れいむ")
+        Given("the same declared source with a conflicting pronunciation reading")
+        Files.writeString(source, CozyVideo.canonicalStoryboardMarkdown(conflicting), StandardCharsets.UTF_8)
+        When("planning loads the changed Storyboard")
+        val failure = intercept[Exception] {
+          CozyVideoImplementation._plan(project, None, None)
+        }
+        Then("conflicting readings fail before rendering")
         failure.getMessage should include("Storyboard pronunciation surface has conflicting readings: Cozy")
       }
     }
@@ -415,15 +418,14 @@ final class CozyVideoStoryboardBuildSpec
       )
     )
 
-  private def _write_project(root: Path, source: String, identity: String, storyboardsection: Option[String] = None, configuration: String = ""): Path = {
+  private def _write_project(root: Path, source: String, storyboardsection: Option[String] = None, configuration: String = ""): Path = {
     Files.createDirectories(root)
     val project = root.resolve("video.json")
     val selector = storyboardsection.map(value => s""", "storyboardSection": "$value"""").getOrElse("")
     Files.writeString(
       project,
       s"""{
-         |$configuration  "storyboardReview": {"source": "$source", "approvedIdentity": "$identity"},
-         |  "parts": [
+         |$configuration  "parts": [
          |    {"id": "storyboard", "type": "storyboard", "storyboard": "$source"$selector}
          |  ]
          |}

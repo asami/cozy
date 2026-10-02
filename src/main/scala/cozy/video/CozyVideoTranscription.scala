@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,7 +26,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoTranscription {
@@ -245,7 +244,6 @@ private[cozy] trait CozyVideoTranscription {
     Json.obj(
       "schema" -> Json.fromString("cozy.video.transcription-manifest.v1"),
       "inputVideo" -> Json.fromString(input.toString),
-      "inputSha256" -> Json.fromString(_sha256(input)),
       "audioPath" -> Json.fromString(audio.toString),
       "transcriptPath" -> Json.fromString(transcript.toString),
       "captionsPath" -> Json.fromString(captions.toString),
@@ -261,20 +259,4 @@ private[cozy] trait CozyVideoTranscription {
       ))
     )
 
-  private[video] def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    try {
-      val buffer = new Array[Byte](8192)
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map("%02x".format(_)).mkString
-  }
 }

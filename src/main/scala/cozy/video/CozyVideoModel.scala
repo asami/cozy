@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -28,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 15, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[video] final case class VideoTiming(
@@ -666,7 +665,6 @@ private[cozy] object CozyVideoModel {
   final case class VideoReplayScript(
     schema: Option[String],
     sourceVideo: Option[String],
-    sourceSha256: Option[String],
     manualReview: Boolean,
     sources: Json,
     viewport: VideoReplayViewport,
@@ -678,12 +676,11 @@ private[cozy] object CozyVideoModel {
       for {
         schema <- c.downField("schema").as[Option[String]]
         sourcevideo <- c.downField("sourceVideo").as[Option[String]]
-        sourcesha256 <- c.downField("sourceSha256").as[Option[String]]
         manualreview <- c.downField("manualReview").as[Option[Boolean]]
         sources <- c.downField("sources").as[Option[Json]]
         viewport <- c.downField("viewport").as[Option[VideoReplayViewport]]
         steps <- c.downField("steps").as[Option[Vector[VideoReplayStep]]]
-      } yield VideoReplayScript(schema, sourcevideo, sourcesha256, manualreview.getOrElse(false), sources.getOrElse(Json.obj()), viewport.getOrElse(VideoReplayViewport.default), steps.getOrElse(Vector.empty))
+      } yield VideoReplayScript(schema, sourcevideo, manualreview.getOrElse(false), sources.getOrElse(Json.obj()), viewport.getOrElse(VideoReplayViewport.default), steps.getOrElse(Vector.empty))
   }
 
   sealed trait VideoArtifactStatus { def label: String }
@@ -924,8 +921,7 @@ private[cozy] object CozyVideoModel {
     tripleCount: Int,
     resourceCount: Int,
     encoding: ResolvedEncodingSettings,
-    creditProfile: Option[String],
-    creditDigest: Option[String]
+    creditProfile: Option[String]
   )
 
   final case class VideoDemoScriptResult(

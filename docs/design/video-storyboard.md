@@ -31,8 +31,9 @@ and future currentness contract are still assigned before Step acceptance.
 
 ### 2026-09-29 P710-02C native assembly amendment
 
-The native Storyboard branch now separates typed semantic Storyboard identity
-from generated local artifacts. It records only v2 descriptive handoffs,
+The native Storyboard branch separates typed Storyboard source content
+from generated local artifacts; S04 removes its general semantic identity API.
+It records only v2 descriptive handoffs,
 mode/setting projections, mode-local part artifacts, direct paths, and stored
 successful ffprobe summaries. Native currentness is declared-input `FileTime`
 policy plus independent direct-path and format checks, rather than canonical
@@ -54,9 +55,23 @@ an explicit-review historical contract; accepted source v1/v2 and historical
 review contracts are preserved. Implementation, executable validation, review,
 and Phase closure remain pending.
 
+## 2026-10-02 Phase 71.2 S04 typed-content amendment
+
+The approved [file-update boundary](../spec/file-update-management.md) and
+[Phase 71.2](../phase/phase-71.2.md) remove the general Storyboard semantic
+SHA API/helper and CLI emission, and the immediate Projection selector and
+receipt field. Typed content, canonical lossless serialization, declared safe
+inputs and actual media validity remain the boundaries. No replacement hash,
+canonical-content equality or currentness framework is introduced. This
+supersedes historical hash-purpose decisions only; the prior accepted
+validation evidence, ordinary scene/speaker/insert IDs, renderer/provider/mode
+ownership and separate distributed-resource integrity remain intact.
+S04 focused validation and independent review are pending; this amendment
+claims no Step, Phase or actual-private-driver acceptance.
+
 ## 1. Design intent
 
-Cozy needs one content identity across human review, external interchange,
+Cozy needs one typed content contract across human review, external interchange,
 optional visual inspection, confirmation rendering, and final rendering. The
 design therefore treats Storyboard content as a typed semantic value and treats
 Markdown, JSON, review evidence, build hand-offs, and caches as projections or
@@ -77,14 +92,14 @@ Cozy owns the following responsibilities for the Storyboard boundary:
 - the typed `Storyboard`, `Scene`, `Screen`, `ProductionInsert`, and
   `PronunciationNote` semantic model;
 - strict Markdown and JSON parsers and their source-location diagnostics;
-- normalization, canonical JSON serialization, and semantic identity;
-- schema/version, identity/order, speaker/role, timing, field, and safe
+- normalization and canonical lossless JSON serialization;
+- schema/version, stable scene ID/order, speaker/role, timing, field, and safe
   path/reference validation;
 - explicit legacy-dialogue adapter selection and migration diagnostics;
 - normalized content-review and optional visual-story review evidence;
 - explicit review input/format/reference validation without historical approval hashes;
 - independently selectable confirmation/final modes and their distinct lifecycle/output records;
-- artifact identity calculation, deterministic invalidation, and cache metadata;
+- declared-input FileTime generation decisions and valid mode-local artifact metadata;
   and
 - generated hand-off, manifest, evidence, and cache data under
   `target/cozy-video`.
@@ -110,7 +125,7 @@ generation, publication, and consumer/runtime acceptance. Cozy does not author
 or validate an external Dox/PPTX artifact in this Phase, mutate an external
 repository, or claim external runtime acceptance.
 
-## 3. Semantic pipeline and identity
+## 3. Typed semantic pipeline
 
 The architecture has one directional pipeline:
 
@@ -119,7 +134,7 @@ storyboard.md / storyboard.json
         -> strict parser
         -> typed Storyboard
         -> common validation
-        -> canonical normalization and identity
+        -> canonical lossless serialization
         -> optional explicit approval/review evidence
         -> independently selected confirmation or final build
         -> target/cozy-video derived artifacts and cache
@@ -128,13 +143,13 @@ storyboard.md / storyboard.json
 The Markdown parser and JSON parser MUST converge before any downstream
 behavior. No renderer, narration provider, review generator, or cache may
 branch on the source representation. A source path is provenance/diagnostic
-context only; it is not part of the Storyboard semantic identity.
+context only; it does not define authored Storyboard meaning.
 
-The canonical JSON field order, array order, normalized decimal timing, and
-UTF-8 encoding defined by the specification form the identity input. The
-`sha256:` identity therefore changes when any semantic field, scene order,
-pronunciation note, direction, or admitted reference changes, and remains
-unchanged when only Markdown formatting or JSON key order changes.
+Canonical JSON preserves the specified field order, array order, normalized
+decimal timing and UTF-8 encoding. Conversion preserves all typed fields,
+including narration, pronunciation notes, direction and literal references.
+Formatting and input key order normalize without altering those values;
+canonical bytes serve serialization, never product currentness.
 
 ## 4. Representation responsibilities
 
@@ -162,8 +177,8 @@ map in v1. Unknown keys are rejected because they cannot be preserved by the
 typed model.
 
 Markdown-to-JSON and JSON-to-Markdown conversion are both semantic and
-lossless. The canonical JSON identity is the common comparison point; a
-conversion MUST validate and normalize before writing output, and a failed
+lossless. Both representations preserve the same typed model and canonical
+JSON. A conversion MUST validate and normalize before writing output, and a failed
 conversion MUST NOT leave a claimed accepted Storyboard artifact.
 
 ## 5. Validation and safe input boundaries
@@ -248,7 +263,7 @@ dedicated `--from legacy-script` adapter mode). The adapter must produce a
 diagnostic mapping report for each source field, identify defaults and
 ambiguities, and reject values that cannot be represented losslessly. It must
 never silently treat `script.json` as `storyboard.json`, silently infer a
-Storyboard identity, or remove `parts[].script` as an incidental cleanup.
+Storyboard identifier, or remove `parts[].script` as an incidental cleanup.
 
 The new Storyboard scaffold therefore source-manages `storyboard.md` (and may
 exchange `storyboard.json`) without requiring a source `script.json`. Any
@@ -261,7 +276,7 @@ The later Cozy CLI uses the following responsibility split:
 
 ```text
 storyboard validate / inspect
-  -> parse + common validation + normalized identity
+  -> parse + common validation + schema/version and scene summaries
 
 storyboard convert
   -> explicit source adapter + validated lossless serialization
@@ -307,10 +322,10 @@ directory. Cozy validates the referenced VisualPageSet with precisely that
 catalog and resolves `pageId` exactly once. It never chooses catalog, binding,
 renderer, or a page by inference.
 
-The literal reference is Storyboard meaning and therefore participates in the
-Storyboard identity. Actual page/catalog/Binding inputs and asset observations
+The literal reference is typed Storyboard meaning and is preserved in
+canonical serialization. Actual page/catalog/Binding inputs and asset observations
 are resolved by the review operation; no copied semantic proof is required.
-Effective-renderer identities remain a separate unfinished layer. P36-04 neither creates a
+Historical effective-renderer digests are removed by the review amendment. P36-04 neither creates a
 renderer invocation nor advances receipt/review evidence responsibility.
 Planning carries the same closed reference as scene metadata while preserving
 narration, speaker, timing, silence, transition, confirmation/final, and
@@ -346,8 +361,8 @@ Explicit v2 validation resolves actual current PageSet/catalog/page/Binding
 and effective renderer selection; historical review data is structurally checked
 but is not required to equal current inputs. Review-local approval, source,
 self/evidence/handoff, visual-copy and renderer digests are removed in both v1
-and v2. No new equality/currentness framework replaces them. General Storyboard
-identity APIs and native confirmation/final assembly contracts remain separate.
+and v2. No new equality/currentness framework replaces them. S04 subsequently removes the general Storyboard identity APIs. Native
+confirmation/final assembly contracts retain their separate ownership.
 
 ## 13. P36-06 Cross-media Review consumption
 
@@ -370,7 +385,8 @@ responsibilities, not replacement proof gates.
 
 The legacy dialogue adapter remains separate from both Storyboard adapters.
 Phase 61 admits one legacy source-model field, `VideoScene.tailSilence`, without
-changing Storyboard v1/v2 strict schemas, canonical serialization, or identity.
+changing Storyboard v1/v2 strict schemas or canonical serialization. Its
+historical general identity API is subsequently removed by S04.
 The field is an optional finite nonnegative request in seconds. Omission and
 legacy `null` retain no explicit request and mean semantic zero; child omission
 inherits a parent request, while explicit child `0` overrides it. The optional
@@ -416,5 +432,6 @@ The selected tail still frame proves visual/timing state only, never audible
 listening acceptance. Independently configured five-second summary infographic
 and credits holds remain separate and acquire no duplicate final-tail interval.
 This fixture makes no external Article 9 project claim or external provider,
-publication, upload, or deployment call; Storyboard v1/v2, canonical identity,
-and their schemas remain unchanged.
+publication, upload, or deployment call; Storyboard v1/v2 typed fields,
+canonical serialization and schemas remain unchanged by that historical fixture.
+S04 subsequently removes the general identity API.

@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyVideoStoryboardBuildModeSpec {
@@ -69,28 +69,30 @@ final class CozyVideoStoryboardBuildModeSpec
       }
     }
 
-    "preserve Storyboard v1 and v2 identity while leaving generated legacy VideoScene tail silence unset" in {
+    "preserve Storyboard v1 and v2 typed fields and canonical serialization while leaving generated legacy VideoScene tail silence unset" in {
       Given("typed v1 and v2 Storyboards whose scene timing is converted for the legacy video renderer")
       val v1 = _storyboard()
       val v2 = v1.copy(schema = "cozy.video.storyboard.v2", version = 2)
-      val v1identity = CozyVideo.storyboardIdentity(v1)
-      val v2identity = CozyVideo.storyboardIdentity(v2)
+      val v1canonical = CozyVideo.canonicalStoryboardJson(v1)
+      val v2canonical = CozyVideo.canonicalStoryboardJson(v2)
 
       When("the Storyboard scenes are projected into VideoScene values")
       val v1scene = CozyVideoImplementation._storyboard_video_scene(v1.scenes.head)
       val v2scene = CozyVideoImplementation._storyboard_video_scene(v2.scenes.head)
 
-      Then("the source Storyboard schemas and identities remain unchanged, and effective tail timing is not invented in their legacy schema")
+      Then("the source Storyboard schemas and canonical typed fields remain unchanged, and effective tail timing is not invented in their legacy schema")
       v1.schema shouldBe "cozy.video.storyboard.v1"
       v1.version shouldBe 1
       v2.schema shouldBe "cozy.video.storyboard.v2"
       v2.version shouldBe 2
-      CozyVideo.storyboardIdentity(v1) shouldBe v1identity
-      CozyVideo.storyboardIdentity(v2) shouldBe v2identity
+      CozyVideo.canonicalStoryboardJson(v1) shouldBe v1canonical
+      CozyVideo.canonicalStoryboardJson(v2) shouldBe v2canonical
       v1scene.tailSilence shouldBe None
       v2scene.tailSilence shouldBe None
       v1scene.duration shouldBe Some(v1.scenes.head.duration.toDouble)
       v2scene.duration shouldBe Some(v2.scenes.head.duration.toDouble)
+      v1scene.leadSilence shouldBe Some(v1.scenes.head.leadSilence.toDouble)
+      v2scene.leadSilence shouldBe Some(v2.scenes.head.leadSilence.toDouble)
     }
 
     "write a generated handoff and separate confirmation records from an approved Markdown Storyboard" in {
@@ -165,7 +167,7 @@ final class CozyVideoStoryboardBuildModeSpec
           Files.isSameFile(Path.of(path), root.resolve("target/cozy-video/final/manifest.json"))
         } shouldBe Some(true)
         finalmanifest.hcursor.downField("output").downField("sha256").focus shouldBe None
-        manifest.hcursor.downField("finalVideo").get[String]("sha256").toOption.nonEmpty shouldBe true
+        manifest.hcursor.downField("finalVideo").focus shouldBe Some(Json.obj("path" -> Json.fromString(root.resolve("build/final.mp4").toAbsolutePath.normalize().toString)))
         Files.exists(root.resolve("build/manifest.json")) shouldBe false
       }
     }

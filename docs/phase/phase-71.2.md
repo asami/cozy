@@ -1,6 +1,6 @@
 # Phase 71.2: Video Hash Removal, Dialogue Continuity and Pronunciation
 
-status=planned
+status=in-progress
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -10,7 +10,7 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.1.md
 execution_priority=current_video_generation_blocker
 
-Status: planned; implementation not started
+Status: in progress; P710-03-V-S01 focused validation (3 suites, 138 tests) and independent Slice review accepted; P710-03-V-S02 focused validation (5 suites, 188 tests) and independent Slice review accepted; P710-03-V-S03 focused validation (6 suites, 219 tests) and independent Slice review accepted; P710-03-V-S04 accepted after focused validation (11 suites, 297 tests) and independent Slice review 8235032a-399d-4ff9-b456-3cf30d373f22 revision 1, persisted review ledger revision 5; P710-03-V-S05 implemented and focused validation passed (15 suites, 331 tests); independent Step acceptance review pending.
 Planned at: 2026-09-29
 Development item: DEV-034
 Primary owner: Cozy
@@ -79,6 +79,14 @@ Repository-full SBT validation alone is deferred to [Phase 71.4](phase-71.4.md)
 under the reciprocal final-only chain. At release record focused assurance and
 `repository_full_suite=deferred-not-run`; do not claim ordinary full-suite
 assurance.
+
+S05 removes only video descriptor/script digest emission and six unused video
+digest imports, with written publication-bundle and copied-byte specifications
+and a [purpose audit](../journal/2026/10/2026-10-02-phase-71.2-video-digest-boundary-audit.md).
+ProducerSource source/currentness remains Phase 71.3-owned; named publication
+artifact integrity remains unchanged. P710-03-V acceptance and exact Step
+commit, F01/F02 actual-driver evidence, full Phase review and release remain
+pending. No Step or Phase completion is claimed.
 
 The repository already has `build.sbt`, so `split_validation_bootstrap=none`.
 The first delivery's real media driver is product acceptance, not permission

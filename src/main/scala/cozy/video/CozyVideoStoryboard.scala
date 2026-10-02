@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 26, 2026
  *  version Aug. 27, 2026
  *  version Sep.  2, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoStoryboard {
@@ -96,7 +96,6 @@ private[cozy] object CozyVideoStoryboard {
     diagnostics: Vector[StoryboardDiagnostic]
   ) {
     def isValid: Boolean = storyboard.isDefined && diagnostics.isEmpty
-    def semanticIdentity: Option[String] = storyboard.filter(_ => diagnostics.isEmpty).map(storyboardIdentity)
   }
 
   final case class StoryboardValidateConfig(input: Path)
@@ -274,16 +273,12 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
     lines.mkString("\n") + "\n"
   }
 
-  def storyboardIdentity(storyboard: Storyboard): String =
-    "sha256:" + _canonical_sha256_hex(canonicalStoryboardJson(storyboard).getBytes(StandardCharsets.UTF_8))
-
   def storyboardValidate(config: StoryboardValidateConfig): String =
     _required_storyboard(config.input).storyboard.map { storyboard =>
       Vector(
         s"schema: ${storyboard.schema}",
         s"version: ${storyboard.version}",
-        s"scenes: ${storyboard.scenes.size}",
-        s"identity: ${storyboardIdentity(storyboard)}"
+        s"scenes: ${storyboard.scenes.size}"
       ).mkString("\n")
     }.getOrElse("")
 
@@ -292,8 +287,7 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
       val lines = ArrayBuffer[String](
         s"schema: ${storyboard.schema}",
         s"version: ${storyboard.version}",
-        s"scenes: ${storyboard.scenes.size}",
-        s"identity: ${storyboardIdentity(storyboard)}"
+        s"scenes: ${storyboard.scenes.size}"
       )
       storyboard.scenes.foreach { scene =>
         lines += s"scene ${scene.order}: id=${scene.id} section=${scene.section} speaker=${scene.speaker} role=${scene.role} duration=${_decimal_text(scene.duration)} leadSilence=${_decimal_text(scene.leadSilence)} transition=${scene.transition}"
@@ -317,8 +311,7 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
     Files.writeString(config.output, content, StandardCharsets.UTF_8)
     Vector(
       s"output: ${config.output}",
-      s"format: $format",
-      s"identity: ${storyboardIdentity(storyboard)}"
+      s"format: $format"
     ).mkString("\n")
   }
 
@@ -345,8 +338,7 @@ private[cozy] trait CozyVideoStoryboard extends CozyVideoStoryboardParsing {
     Files.writeString(config.output, canonicalStoryboardJson(migrated), StandardCharsets.UTF_8)
     Vector(
       s"output: ${config.output}",
-      s"schema: ${migrated.schema}",
-      s"identity: ${storyboardIdentity(migrated)}"
+      s"schema: ${migrated.schema}"
     ).mkString("\n")
   }
 

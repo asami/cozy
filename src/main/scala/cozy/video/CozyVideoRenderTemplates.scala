@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -28,7 +27,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -42,8 +42,7 @@ private[cozy] trait CozyVideoRenderTemplates {
     workdir: Path,
     characterdialogue: Boolean,
     template: Option[String],
-    templatedigest: Option[String],
-    templateresources: Option[Vector[(String, String)]],
+    templateresources: Option[Vector[String]],
     dialogueassets: CharacterDialogueAssets,
     recording: Option[String]
   ): Json = {
@@ -201,10 +200,9 @@ private[cozy] trait CozyVideoRenderTemplates {
       "characters" -> dialogueassets.characters,
       "sections" -> Json.fromValues(script.sections),
       "rendererTemplate" -> template.map(Json.fromString).getOrElse(Json.Null),
-      "rendererTemplateSha256" -> templatedigest.map(Json.fromString).getOrElse(Json.Null),
       "rendererTemplateResources" -> templateresources.map { resources =>
-        Json.fromValues(resources.map { case (name, sha256) =>
-          Json.obj("path" -> Json.fromString(name), "sha256" -> Json.fromString(sha256))
+        Json.fromValues(resources.map { name =>
+          Json.obj("path" -> Json.fromString(name))
         })
       }.getOrElse(Json.arr()),
       "recordingPath" -> recording.map(Json.fromString).getOrElse(Json.Null),

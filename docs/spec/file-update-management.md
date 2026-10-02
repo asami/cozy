@@ -48,6 +48,63 @@ outputs on failure. Audit removal of non-integrity hash code and emitted fields.
 Retained publication/distribution integrity checks must still detect actual
 artifact mismatches at that boundary and must not determine local freshness.
 
+## Character-dialogue template resources
+
+The character-dialogue renderer verifies the named distributed resources
+`DialogueVideo.jsx` and `DiagramLayout.js` against their fixed integrity
+contracts when loading them. Local workspace props and part-manifest metadata
+record the selected template ID and those ordered path-only resource entries,
+without local template digests. The selection/staging, declarative flow/axis,
+and missing/mismatched resource behaviors in
+[CozyVideoSpec](../../src/test/scala/cozy/video/CozyVideoSpec.scala) provide
+executable coverage for this boundary.
+
+## Video credits
+
+Video credits have no local credit digest computation, model, or field in
+credit projections, build/part/RDF records, or CLI output. Actual attribution,
+selected profile, provenance, obligations, required-artifact checks, and native
+validated-final-record semantics remain. The actual output and failure
+behaviors are specified by
+[CozyVideoCreditsSpec](../../src/test/scala/cozy/video/CozyVideoCreditsSpec.scala)
+and [CozyVideoProfileRenderSpec](../../src/test/scala/cozy/video/CozyVideoProfileRenderSpec.scala).
+
+## Video production and review metadata
+
+Local final-video, audio, input, replay and review digest computations, models,
+fields and comparisons are removed. Production and review records retain real
+paths, source/step/provider IDs, attribution, actual transcript, scene, timing,
+encoding and extracted-frame evidence. Direct-path and artifact checks and
+existing failure diagnostics remain; no replacement freshness or identity token
+is introduced. Actual production/review outputs, real timing and record failures,
+and harmless JSON formatting/key-order behavior are specified by
+[CozyVideoSpec](../../src/test/scala/cozy/video/CozyVideoSpec.scala).
+This bounded metadata contract does not claim complete P710-03-V, Phase closure
+or actual-driver assurance.
+
+## Video publication source metadata
+
+Video publication metadata omits authored `descriptorSha256` and
+`scriptSha256`; descriptor/script paths, source package, article path, roles
+and publication coordinates remain. Main MP4 and named sidecar publication
+checksums, and transient staged/installed byte checks, protect only the
+distributed artifacts selected by the publication operation.
+
+The frozen P71001-P02 division leaves `ProducerSource.sha256` planning
+source/currentness validation and local registry/WIP source snapshots as
+[Phase 71.3](../phase/phase-71.3.md) remaining work. They are not retained
+integrity exceptions or accepted by Phase 71.2. The written bundle and actual
+copied bytes are specified by
+[CozyVideoProfileRenderSpec](../../src/test/scala/cozy/video/CozyVideoProfileRenderSpec.scala);
+artifact reuse, difference, force and failure preservation by
+[CozyVideoPublisherAdmissionSpec](../../src/test/scala/cozy/video/CozyVideoPublisherAdmissionSpec.scala);
+and selected published-byte mismatch rejection by
+[CozyArticleMediaVideoEvidenceSpec](../../src/test/scala/cozy/publication/CozyArticleMediaVideoEvidenceSpec.scala).
+See the [frozen digest inventory](../design/phase-71-digest-purpose-inventory.md)
+and [video purpose audit](../journal/2026/10/2026-10-02-phase-71.2-video-digest-boundary-audit.md).
+This source-metadata change does not establish actual-driver, Step or Phase
+closure.
+
 ## Implementation ownership after the 2026-09-29 split
 
 The behavior above is unchanged by the planning split. Phase 71 owns the real

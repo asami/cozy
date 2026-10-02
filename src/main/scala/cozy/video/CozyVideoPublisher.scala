@@ -22,7 +22,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Jun. 19, 2026
  *  version Jul. 20, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -1115,9 +1116,7 @@ private[cozy] object CozyVideoPublisher {
         "articlePath" -> video.articlePath,
         "sourcePackage" -> _source_package_path(video.packageDir),
         "descriptorPath" -> video.descriptorFile.getFileName.toString,
-        "descriptorSha256" -> _sha256(video.descriptorFile),
         "scriptPath" -> video.scriptPath,
-        "scriptSha256" -> _sha256(video.script),
         "renderer" -> video.renderer,
         "toolMode" -> video.toolMode,
         "encoding" -> encoding,

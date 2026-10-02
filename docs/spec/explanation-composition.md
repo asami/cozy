@@ -93,7 +93,7 @@ rejected rather than silently deduplicated.
 ### 2.3 SHA-256 identities
 
 These canonical catalog, Composition, Plan, ProjectionMap, Projection, and
-receipt identity layers remain unfinished same-Phase migration obligations.
+receipt identity layers remain unfinished PHASE-71.3 migration obligations.
 DM12 removes source/asset material fields and computations only; their current
 contracts below are not permanent integrity exceptions or a completion claim.
 
@@ -107,8 +107,9 @@ DM14 removes P36 logical/full catalog proofs and catalog-selector digests.
 Selectors contain only ID/revision; current catalog definitions are loaded and
 validated directly. No entire catalog equality gate or substitute JSON proof
 is used. Remaining Explanation catalog, Composition, Plan, mappings,
-Projection/receipt, provenance, and Storyboard hashes are later unfinished
-same-Phase work, not exemptions or completion.
+Projection/receipt and provenance hashes are unfinished PHASE-71.3 work,
+not exemptions or completion. Phase 71.2 S04 removes the immediate Storyboard
+SHA API, Projection selector and receipt proof without a replacement.
 
 Catalog and Composition identity results are derived results and MUST NOT be
 serialized as an `identity` self field in their roots. The catalog root's
@@ -606,12 +607,10 @@ The canonical final Projection root has exactly this field order:
   "planIdentity":"sha256:<64-lowercase-hex>",
   "projectionMapIdentity":"sha256:<64-lowercase-hex>",
   "explanationCatalog":{
-    "id":"<catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "id":"<catalog-id>","revision":1
   },
   "presentationCatalog":{
-    "id":"<p36-catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "id":"<p36-catalog-id>","revision":1
   },
   "presentation":{
     "visualPageSet":{"id":"<set-id>"},
@@ -619,7 +618,6 @@ The canonical final Projection root has exactly this field order:
     "identity":"sha256:<64-lowercase-hex>"
   },
   "video":{
-    "storyboard":{"identity":"sha256:<64-lowercase-hex>"},
     "stepMappings":[],
     "identity":"sha256:<64-lowercase-hex>"
   },
@@ -628,7 +626,6 @@ The canonical final Projection root has exactly this field order:
     "planIdentity":"sha256:<64-lowercase-hex>",
     "projectionMapIdentity":"sha256:<64-lowercase-hex>",
     "explanationCatalogIdentity":"sha256:<64-lowercase-hex>",
-    "storyboardIdentity":"sha256:<64-lowercase-hex>",
     "presentationMappingIdentity":"sha256:<64-lowercase-hex>",
     "videoMappingIdentity":"sha256:<64-lowercase-hex>",
     "identity":"sha256:<64-lowercase-hex>"
@@ -647,10 +644,13 @@ three interrupted replacement names `presentationLogicalCatalog`,
 for any JSON value before restricted AST conversion. They are not re-emitted
 or replaced by complete JSON, canonical strings, fingerprints, or other IDs.
 
-The existing Storyboard-v2 root has no separately modeled stable `id`. Its
-canonical `storyboardIdentity` is therefore the only Storyboard descriptor
-recorded by a P37 Projection and its receipt. P37 MUST NOT derive an ID from a
-file path, filename, scene, or any other substitute value.
+The Storyboard is an explicitly named direct input, validated against its
+actual v2 schema, scene IDs and visual-page screens. No Storyboard selector
+or hash is persisted in video or receipt. P37 MUST NOT derive an ID from a
+file path, filename, scene or substitute value. Removed `video.storyboard`
+and `receipt.storyboardIdentity` keys are unknown fields and MUST be rejected
+by strict parsing; authors regenerate the canonical records. There is no
+compatibility or obsolete-hash ignore branch for these removed fields.
 
 ### 7.2 Project behavior and media agreement
 
@@ -698,9 +698,11 @@ Projection/receipt. Page and scene cardinalities remain independent.
 
 The receipt identity is calculated from all receipt fields except its own
 identity. Remaining Composition, Plan, ProjectionMap, Explanation catalog,
-Storyboard, mapping, and receipt currentness comparisons are unfinished later
-same-Phase mechanisms. VisualPage/catalog proof changes are not independent
-vetoes. Actual malformed inputs, unresolved page/scene mappings, or missing
+mapping and receipt currentness comparisons are unfinished PHASE-71.3
+mechanisms. VisualPage/catalog proof changes are not independent vetoes.
+Storyboard narration, caption, direction or formatting changes alone MUST NOT
+veto an otherwise valid actual media mapping; canonical source equality is
+not a currentness requirement. Actual malformed inputs, unresolved page/scene mappings, or missing
 required files still fail. A receipt is not
 semantic, visual, audiovisual, publication, deployment, or consumer approval.
 

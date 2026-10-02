@@ -18,7 +18,7 @@ import io.circe.parser.parse
 /*
  * @since   Aug. 28, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyExplanationProjectionSpec {
@@ -138,14 +138,16 @@ final class CozyExplanationProjectionSpec
         )
         val verified = CozyExplanation.execute(_verify_command(fixture, output))
 
-        Then("the final Projection has no Storyboard id, copies both independent mappings exactly, binds receipt identities, and verifies currentness only")
+        Then("the final Projection copies both independent mappings exactly, binds the remaining receipt identities, and validates actual named media")
         projected should include_text("cozy.explanation-projection.v1")
-        verified should include_text("storyboardIdentity:")
+        verified should include_text("schema: cozy.explanation-projection.v1")
         validated.projection.presentation.stepMappings shouldBe fixture.projectionmap.presentation.stepMappings
         validated.projection.video.stepMappings shouldBe fixture.projectionmap.video.stepMappings
         validated.projection.presentation.identity shouldBe fixture.projectionmap.presentation.identity
         validated.projection.video.identity shouldBe fixture.projectionmap.video.identity
-        validated.projection.video.storyboard.identity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
+        val generated = parse(Files.readString(output, StandardCharsets.UTF_8)).toOption.get
+        generated.hcursor.downField("video").focus.get.asObject.get.keys.toVector shouldBe Vector("stepMappings", "identity")
+        generated.hcursor.downField("receipt").downField("storyboardIdentity").focus shouldBe None
         validated.projection.presentation.visualPageSet shouldBe CozyExplanationProjection.VisualPageSetSelector(fixture.pages.id)
         validated.canonicalJson should not include ("\"storyboard\":{\"id\"")
         fixture.pages.pages.size should be > fixture.storyboard.scenes.size
@@ -203,24 +205,152 @@ final class CozyExplanationProjectionSpec
           CozyExplanationProjection.VideoStepMapping("mechanism-step", Vector("scene-mechanism"))
         )
         projected should include_text("cozy.explanation-projection.v1")
-        verified should include_text("storyboardIdentity:")
+        verified should include_text("schema: cozy.explanation-projection.v1")
         validated.projection.presentation.stepMappings shouldBe fixture.projectionmap.presentation.stepMappings
         validated.projection.video.stepMappings shouldBe fixture.projectionmap.video.stepMappings
         validated.projection.presentation.identity shouldBe fixture.projectionmap.presentation.identity
         validated.projection.video.identity shouldBe fixture.projectionmap.video.identity
         validated.projection.presentation.visualPageSet.id shouldBe "product-mechanism-pages"
-        validated.projection.video.storyboard.identity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
+        val generated = parse(Files.readString(output, StandardCharsets.UTF_8)).toOption.get
+        generated.hcursor.downField("video").focus.get.asObject.get.keys.toVector shouldBe Vector("stepMappings", "identity")
+        generated.hcursor.downField("receipt").downField("storyboardIdentity").focus shouldBe None
         validated.projection.presentation.visualPageSet shouldBe CozyExplanationProjection.VisualPageSetSelector(fixture.pages.id)
-        validated.projection.receipt.storyboardIdentity shouldBe CozyVideoImplementation.storyboardIdentity(fixture.storyboard)
         validated.canonicalJson should not include ("inferred")
         validated.canonicalJson should not include ("approval")
         validated.canonicalJson should not include ("render")
       }
     }
 
+    "verify changed narration caption and direction while rejecting an unresolved mapped screen without replacing files" in {
+      _with_work("storyboard-meaning") { root =>
+        Given("valid explicitly named pages and Storyboard scenes with a selected Projection output")
+        val fixture = _fixture(root)
+        val output = root.resolve("projection.json")
+        When("the actual media closure is projected and load-validated")
+        val projected = CozyExplanation.execute(_project_command(fixture, output))
+        val original = CozyExplanationProjection.loadProjection(
+          output, fixture.compositionfile, fixture.planfile, fixture.mapfile, fixture.catalogfile,
+          fixture.presentationcatalogfile, fixture.visualpagesetfile, fixture.storyboardfile, fixture.bindings
+        )
+        Then("the saved Projection preserves the authored mappings")
+        projected should include_text("cozy.explanation-projection.v1")
+        original.projection.video.stepMappings shouldBe fixture.projectionmap.video.stepMappings
+        val outputbytes = Files.readAllBytes(output).toVector
+
+        Given("real narration caption and direction changes with the same scene IDs screens and timing")
+        val changed = fixture.storyboard.copy(scenes = fixture.storyboard.scenes.map(scene =>
+          scene.copy(narration = "Revised narration: " + scene.narration, caption = "Revised caption", direction = "Hold this visual")
+        ))
+        _write(fixture.storyboardfile, CozyVideoImplementation.canonicalStoryboardJson(changed))
+        val changedbytes = Files.readAllBytes(fixture.storyboardfile).toVector
+        When("verification reads the changed named Storyboard and existing Projection")
+        val verified = CozyExplanation.execute(_verify_command(fixture, output))
+        Then("valid actual media mappings still verify and the saved output and source bytes remain untouched")
+        verified should include_text("schema: cozy.explanation-projection.v1")
+        Files.readAllBytes(output).toVector shouldBe outputbytes
+        Files.readAllBytes(fixture.storyboardfile).toVector shouldBe changedbytes
+
+        Given("the mapped first scene now references an unresolved pageId")
+        val invalid = changed.copy(scenes = changed.scenes.updated(0, changed.scenes.head.copy(
+          screen = CozyVideoImplementation.StoryboardVisualPageScreen("visual-pages.json", "presentation-catalog.json", "missing-page")
+        )))
+        _write(fixture.storyboardfile, CozyVideoImplementation.canonicalStoryboardJson(invalid))
+        val invalidbytes = Files.readAllBytes(fixture.storyboardfile).toVector
+        When("verification resolves the invalid screen against the actual named pages")
+        val failure = _failure(CozyExplanation.execute(_verify_command(fixture, output)))
+        Then("the unresolved screen fails closed before any saved output or source replacement")
+        failure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        failure.getMessage should include_text("VISUAL_PAGE_SCREEN_PAGE_NOT_FOUND")
+        Files.readAllBytes(output).toVector shouldBe outputbytes
+        Files.readAllBytes(fixture.storyboardfile).toVector shouldBe invalidbytes
+      }
+    }
+
+    "verify at least fifty actual Storyboard formatting and root-key variations without rewriting the saved Projection" in {
+      _with_work("storyboard-format") { root =>
+        Given("one actual named-media closure and a selected saved Projection")
+        val fixture = _fixture(root)
+        val output = root.resolve("projection.json")
+        When("the real Projection command writes the selected output")
+        val projected = CozyExplanation.execute(_project_command(fixture, output))
+        Then("the output is a valid Projection with the authored mappings")
+        projected should include_text("cozy.explanation-projection.v1")
+        val saved = CozyExplanationProjection.loadProjection(
+          output, fixture.compositionfile, fixture.planfile, fixture.mapfile, fixture.catalogfile,
+          fixture.presentationcatalogfile, fixture.visualpagesetfile, fixture.storyboardfile, fixture.bindings
+        )
+        saved.projection.video.stepMappings shouldBe fixture.projectionmap.video.stepMappings
+        val outputbytes = Files.readAllBytes(output).toVector
+        val canonical = parse(CozyVideoImplementation.canonicalStoryboardJson(fixture.storyboard)).toOption.get
+        val property = Prop.forAll(Gen.choose(0, 3), Gen.oneOf(false, true)) { (format, reverse) =>
+          Given("the same actual typed Storyboard with generated whitespace and optional reversed root keys")
+          val reordered = if (reverse) canonical.mapObject(fields => io.circe.JsonObject.fromIterable(fields.toVector.reverse)) else canonical
+          val source = format match {
+            case 0 => reordered.noSpaces
+            case 1 => reordered.spaces2
+            case 2 => reordered.noSpaces + "\n"
+            case 3 => reordered.spaces2 + "\n"
+          }
+          _write(fixture.storyboardfile, source)
+          When("real verification reads that serialized named Storyboard")
+          val verified = CozyExplanation.execute(_verify_command(fixture, output))
+          val actual = CozyVideoImplementation.loadStoryboard(fixture.storyboardfile)
+          Then("the valid v2 fields and current mappings verify while exact saved bytes are preserved")
+          actual.isValid shouldBe true
+          actual.storyboard shouldBe Some(fixture.storyboard)
+          actual.storyboard.get.schema shouldBe "cozy.video.storyboard.v2"
+          verified should include_text("schema: cozy.explanation-projection.v1")
+          Files.readAllBytes(output).toVector shouldBe outputbytes
+          Files.readString(fixture.storyboardfile, StandardCharsets.UTF_8) shouldBe source
+          true
+        }
+        When("ScalaCheck exercises at least fifty actual named-source variations")
+        val checked = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+        Then("every formatting variation verifies through the public operation")
+        checked.passed shouldBe true
+        checked.succeeded should be >= 50
+      }
+    }
+
+    "reject removed Storyboard selector and receipt keys in actual Projection inputs without changing the selected output" in {
+      _with_work("storyboard-shape") { root =>
+        Given("an actual valid generated Projection with no removed Storyboard selector or receipt proof")
+        val fixture = _fixture(root)
+        val output = root.resolve("projection.json")
+        When("the named-media command projects and verifies the selected output")
+        val projected = CozyExplanation.execute(_project_command(fixture, output))
+        val verified = CozyExplanation.execute(_verify_command(fixture, output))
+        val original = Files.readAllBytes(output).toVector
+        val generated = parse(Files.readString(output, StandardCharsets.UTF_8)).toOption.get
+        Then("the canonical video contains exactly the mapping and its remaining identity and the receipt has no Storyboard proof")
+        projected should include_text("cozy.explanation-projection.v1")
+        verified should include_text("cozy.explanation-projection.v1")
+        generated.hcursor.downField("video").focus.get.asObject.get.keys.toVector shouldBe Vector("stepMappings", "identity")
+        generated.hcursor.downField("receipt").downField("storyboardIdentity").focus shouldBe None
+
+        Vector("video" -> "storyboard", "receipt" -> "storyboardIdentity").foreach { case (section, key) =>
+          Given(s"an authored Projection input with the removed $section.$key field")
+          val obsolete = generated.mapObject(fields => fields.add(section, fields(section).get.mapObject(_.add(key, Json.fromString("obsolete")))))
+          val input = _write(root.resolve(s"obsolete-$section.json"), obsolete.noSpaces)
+          val inputbytes = Files.readAllBytes(input).toVector
+          When("the actual Projection parser and loader encounter the removed field")
+          val parsefailure = _failure(CozyExplanationProjection.parseProjectionJson(obsolete.noSpaces))
+          val loadfailure = _failure(CozyExplanationProjection.loadProjection(
+            input, fixture.compositionfile, fixture.planfile, fixture.mapfile, fixture.catalogfile,
+            fixture.presentationcatalogfile, fixture.visualpagesetfile, fixture.storyboardfile, fixture.bindings
+          ))
+          Then("strict closed-field parsing rejects the obsolete key and preserves both files")
+          parsefailure.getMessage should include_text("EXPLANATION_UNKNOWN_FIELD")
+          loadfailure.getMessage should include_text("EXPLANATION_UNKNOWN_FIELD")
+          Files.readAllBytes(output).toVector shouldBe original
+          Files.readAllBytes(input).toVector shouldBe inputbytes
+        }
+      }
+    }
+
     "fail closed for stale selectors mappings PageSet linkage Storyboard screens and changed receipts" in {
       _with_work("projection-stale") { root =>
-        Given("one valid Projection closure plus selector mapping page and Storyboard integrity variants")
+        Given("one valid Projection closure plus selector mapping page and actual Storyboard input variants")
         val fixture = _fixture(root)
         val stalecomposition = "sha256:" + Vector.fill(64)("0").mkString
         val selectorvariant = _with_map_identity(fixture.projectionmap.copy(compositionIdentity = stalecomposition))
@@ -281,25 +411,70 @@ final class CozyExplanationProjectionSpec
         val unsafefailure = _failure(CozyExplanationProjection.loadProjectionMap(
           unsafefile, fixture.compositionfile, fixture.planfile, fixture.catalogfile, fixture.presentationcatalogfile, fixture.bindings
         ))
+        Given("actual same-ID P36 source bytes that differ from the explicit binding")
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(sourcevariant))
+        When("projection resolves the changed source declarations")
         val sourcefailure = _failure(CozyExplanation.execute(_project_command(fixture, sourceoutput)))
+        Then("the invalid actual media fails closed before output replacement")
+        sourcefailure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        Given("actual same-ID P36 asset bytes that differ from the explicit binding")
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(assetvariant))
+        When("projection resolves the changed asset declarations")
         val assetfailure = _failure(CozyExplanation.execute(_project_command(fixture, assetoutput)))
+        Then("the invalid actual media fails closed before output replacement")
+        assetfailure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        Given("a changed mapped page logical claim")
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(changedpages))
+        When("projection compares that page with the authored Plan")
         val pagefailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("page-failure.json"))))
+        Then("the invalid actual media fails closed before output replacement")
+        pagefailure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        Given("the valid named pages restored for the Storyboard screen variants")
         _write(fixture.visualpagesetfile, CozyVisualPage.canonicalJson(fixture.pages))
+        Given("a mapped scene using a text screen")
         _write(fixture.storyboardfile, CozyVideoImplementation.canonicalStoryboardJson(nonvisual))
+        When("projection resolves the mapped scene screen")
         val screenfailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("screen-failure.json"))))
+        Then("the invalid actual media fails closed before output replacement")
+        screenfailure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        Given("a named Storyboard using the wrong schema version")
         _write(fixture.storyboardfile, CozyVideoImplementation.canonicalStoryboardJson(nonv2))
+        When("projection loads the named source through the strict reader")
         val versionfailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("version-failure.json"))))
+        Then("the invalid actual media fails closed before output replacement")
+        versionfailure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        Given("a mapped screen naming a different actual PageSet path")
         _write(fixture.storyboardfile, CozyVideoImplementation.canonicalStoryboardJson(mismatchedliteral))
+        When("projection checks the literal screen source against the named media")
         val literalfailure = _failure(CozyExplanation.execute(_project_command(fixture, root.resolve("literal-failure.json"))))
+        Then("the invalid actual media fails closed before output replacement")
+        literalfailure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        Given("the original valid named media restored after the rejected variants")
         _write(fixture.storyboardfile, CozyVideoImplementation.canonicalStoryboardJson(fixture.storyboard))
         val output = root.resolve("projection.json")
-        CozyExplanation.execute(_project_command(fixture, output))
-        val changedstoryboard = fixture.storyboard.copy(scenes = fixture.storyboard.scenes.updated(0, fixture.storyboard.scenes.head.copy(narration = "Changed current input")))
-        _write(fixture.storyboardfile, CozyVideoImplementation.canonicalStoryboardJson(changedstoryboard))
+        When("the valid closure is projected to the selected output and loaded")
+        val projected = CozyExplanation.execute(_project_command(fixture, output))
+        val original = CozyExplanationProjection.loadProjection(
+          output, fixture.compositionfile, fixture.planfile, fixture.mapfile, fixture.catalogfile,
+          fixture.presentationcatalogfile, fixture.visualpagesetfile, fixture.storyboardfile, fixture.bindings
+        )
+        Then("the saved Projection preserves the valid video mapping")
+        projected should include_text("cozy.explanation-projection.v1")
+        original.projection.video.stepMappings shouldBe fixture.projectionmap.video.stepMappings
+
+        Given("a changed remaining videoMappingIdentity receipt proof with only the root identity recomputed")
+        val changedreceipt = original.projection.copy(receipt = original.projection.receipt.copy(videoMappingIdentity = stalecomposition))
+        val tampered = changedreceipt.copy(identity = CozyExplanationProjection.projectionIdentity(changedreceipt))
+        val tamperedbytes = CozyExplanationProjection.canonicalProjectionJson(tampered)
+        _write(output, tamperedbytes)
+        val sourcebytes = Files.readAllBytes(fixture.storyboardfile).toVector
+        When("verification compares that receipt with the actual current mapping")
         val receiptfailure = _failure(CozyExplanation.execute(_verify_command(fixture, output)))
+        Then("remaining receipt tampering fails without replacing either saved output or source")
+        receiptfailure.getMessage should include_text("EXPLANATION_PROJECTION_STALE")
+        receiptfailure.getMessage should include_text("Projection does not exactly preserve")
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe tamperedbytes
+        Files.readAllBytes(fixture.storyboardfile).toVector shouldBe sourcebytes
 
         Then("all stale or integrity closures report EXPLANATION_PROJECTION_STALE with a path and reason while unsafe authored targets are rejected before projection")
         Vector(selectorfailure, missingfailure, reorderedfailure, sourcefailure, assetfailure, pagefailure, screenfailure, versionfailure, literalfailure, receiptfailure).foreach { failure =>

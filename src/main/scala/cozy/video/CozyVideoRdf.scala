@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,14 +26,15 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 19, 2026
+ *  version Aug. 19, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRdf {
   self: CozyVideoTypes with CozyVideoRuntime with CozyVideoCommand with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoBuildReplay with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
   private[video] def _write_video_rdf(config: RdfConfig, plan: VideoPlan): VideoRdfResult = {
     plan.credits.requireValid()
-    val creditfiles = _write_credit_outputs(plan)
+    _write_credit_outputs(plan)
     Files.createDirectories(config.saveDir)
     val graph = _video_rdf_graph(plan)
     val turtle = RdfRenderer.toTurtle(graph, _video_rdf_context)
@@ -53,8 +53,7 @@ private[cozy] trait CozyVideoRdf {
       graph.triples.size,
       graph.triples.map(_.subject).distinct.size,
       plan.encoding,
-      plan.credits.profileId,
-      creditfiles.map(_.digest)
+      plan.credits.profileId
     )
     Files.writeString(manifestfile, _video_rdf_manifest(result).spaces2, StandardCharsets.UTF_8)
     result
@@ -68,7 +67,6 @@ private[cozy] trait CozyVideoRdf {
       "jsonLdFile" -> Json.fromString(result.jsonLdFile.toString),
       "encoding" -> _encoding_json(result.encoding),
       "creditProfile" -> result.creditProfile.map(Json.fromString).getOrElse(Json.Null),
-      "creditDigest" -> result.creditDigest.map(Json.fromString).getOrElse(Json.Null),
       "tripleCount" -> Json.fromInt(result.tripleCount),
       "resourceCount" -> Json.fromInt(result.resourceCount)
     )
@@ -157,8 +155,7 @@ private[cozy] trait CozyVideoRdf {
   private[video] def _video_credit_rdf_triples(projectid: String, plan: VideoPlan): Vector[Rdf.Triple] = {
     val profile = plan.credits.profileId.toVector.flatMap { id =>
       Vector(
-        _rdf_literal(projectid, _cv("creditProfile"), id),
-        _rdf_literal(projectid, _cv("creditDigest"), plan.credits.digest)
+        _rdf_literal(projectid, _cv("creditProfile"), id)
       )
     }
     val items = plan.credits.rdfItems.flatMap { resolved =>
@@ -191,7 +188,6 @@ private[cozy] trait CozyVideoRdf {
         _rdf_literal(replayid, _cv("manualReview"), script.manualReview.toString, Some(_xsd_namespace + "boolean")),
         _rdf_literal(replayid, _cv("stepCount"), script.steps.size.toString, Some(_xsd_namespace + "integer"))
       ) ++ script.sourceVideo.map(x => _rdf_literal(replayid, _cv("sourceVideo"), x)).toVector ++
-        script.sourceSha256.map(x => _rdf_literal(replayid, _cv("sourceSha256"), x)).toVector ++
         _artifact_link_triples(replayid, _video_rdf_resource("artifact", "replay-manifest"), "replay-manifest", manifestpath, _rdf_file_status(manifestpath), "replay.playwright") ++
         manifest.toVector.flatMap(json => _json_field_triples(replayid, json, Vector("toolMode", "dockerImage", "outputVideo"), _cv))
     val steptriples = script.steps.zipWithIndex.flatMap {
