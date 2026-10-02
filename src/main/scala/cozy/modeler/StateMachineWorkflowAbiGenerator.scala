@@ -5,7 +5,7 @@ import org.goldenport.realm.Realm
 
 /*
  * @since   Sep. 17, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Emits the additive StateMachine/Workflow schema and direct bootstrap metadata. */
@@ -16,29 +16,33 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   val policyBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v2"
   val lifecycleSchemaVersion: String = "cozy.cml.statemachine-workflow-abi.v3"
   val lifecycleBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v3"
+  val executionSafetySchemaVersion: String = "cozy.cml.statemachine-workflow-abi.v4"
+  val executionSafetyBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v4"
   val metadataPath: String = "target/cozy/statemachine-workflow-abi.json"
 
   private val _root = "target/scala-3.3.8/src_managed/main/scala/domain/statemachine/workflow"
 
   def generate(workflows: Vector[WorkflowDefinition]): Realm = {
-    val lifecyclebearing = _has_lifecycle(workflows)
+    val safetybearing = _has_execution_safety(workflows)
+    val lifecyclebearing = safetybearing || _has_lifecycle(workflows)
     val policybearing = lifecyclebearing || _has_policies(workflows)
     val builder = Realm.Builder()
-    builder.set(s"${_root}/StateMachineWorkflowAbi.scala", _abi_source(policybearing, lifecyclebearing))
-    builder.set(s"${_root}/StateMachineWorkflowComponentFactoryBootstrap.scala", _bootstrap_source(workflows, policybearing, lifecyclebearing))
+    builder.set(s"${_root}/StateMachineWorkflowAbi.scala", _abi_source(policybearing, lifecyclebearing, safetybearing))
+    builder.set(s"${_root}/StateMachineWorkflowComponentFactoryBootstrap.scala", _bootstrap_source(workflows, policybearing, lifecyclebearing, safetybearing))
     workflows.zipWithIndex.foreach { case (workflow, index) =>
       val objectname = _object_name(workflow, index)
-      builder.set(s"${_root}/$objectname.scala", _workflow_source(workflow, objectname, policybearing, lifecyclebearing))
+      builder.set(s"${_root}/$objectname.scala", _workflow_source(workflow, objectname, policybearing, lifecyclebearing, safetybearing))
     }
     builder.build()
   }
 
   def canonicalJson(workflows: Vector[WorkflowDefinition]): String = {
-    val lifecyclebearing = _has_lifecycle(workflows)
+    val safetybearing = _has_execution_safety(workflows)
+    val lifecyclebearing = safetybearing || _has_lifecycle(workflows)
     val policybearing = lifecyclebearing || _has_policies(workflows)
     _json_object(Vector(
-      "schemaVersion" -> _json_string(_schema_version(policybearing, lifecyclebearing)),
-      "workflows" -> _json_array(workflows.map(_workflow_json(_, policybearing, lifecyclebearing)))
+      "schemaVersion" -> _json_string(_schema_version(policybearing, lifecyclebearing, safetybearing)),
+      "workflows" -> _json_array(workflows.map(_workflow_json(_, policybearing, lifecyclebearing, safetybearing)))
     ))
   }
 
@@ -48,10 +52,13 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   private def _has_lifecycle(workflows: Vector[WorkflowDefinition]): Boolean =
     workflows.exists(x => x.lifecyclePolicy.nonEmpty || x.waits.nonEmpty)
 
-  private def _schema_version(policybearing: Boolean, lifecyclebearing: Boolean): String =
-    if (lifecyclebearing) lifecycleSchemaVersion else if (policybearing) policySchemaVersion else schemaVersion
+  private def _has_execution_safety(workflows: Vector[WorkflowDefinition]): Boolean =
+    workflows.exists(x => x.failurePolicies.nonEmpty || x.executionSafetyPolicy.nonEmpty)
 
-  private def _abi_source(policybearing: Boolean, lifecyclebearing: Boolean): String = {
+  private def _schema_version(policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String =
+    if (safetybearing) executionSafetySchemaVersion else if (lifecyclebearing) lifecycleSchemaVersion else if (policybearing) policySchemaVersion else schemaVersion
+
+  private def _abi_source(policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String = {
     val declarations = if (policybearing)
       """  sealed trait InvocationTarget { def identity: String }
         |  object InvocationTarget {
@@ -80,10 +87,26 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
         |  final case class WaitDeclaration(identity: String, state: String, stateIdentity: String, trigger: WaitTrigger, source: SourceIdentity)
         |""".stripMargin else ""
     val lifecyclefields = if (lifecyclebearing) ", lifecyclePolicy: Option[LifecyclePolicy] = None, waits: Vector[WaitDeclaration] = Vector.empty" else ""
+    val safetydeclarations = if (safetybearing)
+      """  sealed trait FailureClassification { def canonicalValue: String }
+        |  object FailureClassification {
+        |    case object Retryable extends FailureClassification { val canonicalValue: String = "RETRYABLE" }
+        |    case object Permanent extends FailureClassification { val canonicalValue: String = "PERMANENT" }
+        |  }
+        |  final case class FailureRule(identity: String, classification: FailureClassification, source: SourceIdentity)
+        |  final case class FailurePolicy(identity: String, target: InvocationTarget, actionIdentity: String, defaultClassification: FailureClassification, rules: Vector[FailureRule], source: SourceIdentity)
+        |  sealed trait DuplicateProtection { def canonicalValue: String }
+        |  object DuplicateProtection {
+        |    case object NotRequired extends DuplicateProtection { val canonicalValue: String = "NOT_REQUIRED" }
+        |    final case class Required(idempotencyKeyRef: String) extends DuplicateProtection { val canonicalValue: String = "REQUIRED" }
+        |  }
+        |  final case class ExecutionSafetyPolicy(logicalExecutionIdentityRef: String, duplicateProtection: DuplicateProtection, source: SourceIdentity)
+        |""".stripMargin else ""
+    val safetyfields = if (safetybearing) ", failurePolicies: Vector[FailurePolicy] = Vector.empty, executionSafetyPolicy: Option[ExecutionSafetyPolicy] = None" else ""
     s"""package domain.statemachine.workflow
        |
        |object StateMachineWorkflowAbi {
-       |  val VERSION: String = ${_quote(_schema_version(policybearing, lifecyclebearing))}
+       |  val VERSION: String = ${_quote(_schema_version(policybearing, lifecyclebearing, safetybearing))}
        |
        |  final case class SourceIdentity(line: Option[Int])
        |  final case class WorkflowSourceCorrelation(root: SourceIdentity, definition: SourceIdentity)
@@ -129,13 +152,13 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
        |    final case class Failed(failure: StateMachineOperationFailure) extends ActionExecution
        |  }
        |  final case class WorkflowRequiredOperationDescriptor(identity: StateMachineRequiredOperationIdentity, actionIdentity: String, operation: StateMachineOperationIdentity, inputType: Option[StateMachineInputTypeReference], resultType: Option[StateMachineResultTypeReference], capabilitySource: SourceIdentity, actionSource: SourceIdentity)
-       |${declarations}${lifecycledeclarations}  final case class WorkflowDescriptor(schemaVersion: String, identity: String, version: String, source: WorkflowSourceCorrelation, states: Vector[State], actions: Vector[Action], requiredOperations: Vector[WorkflowRequiredOperationDescriptor]$policyfield$lifecyclefields)
+       |${declarations}${lifecycledeclarations}${safetydeclarations}  final case class WorkflowDescriptor(schemaVersion: String, identity: String, version: String, source: WorkflowSourceCorrelation, states: Vector[State], actions: Vector[Action], requiredOperations: Vector[WorkflowRequiredOperationDescriptor]$policyfield$lifecyclefields$safetyfields)
        |  final case class ComponentFactoryMetadata(workflow: WorkflowDescriptor)
        |}
        |""".stripMargin
   }
 
-  private def _bootstrap_source(workflows: Vector[WorkflowDefinition], policybearing: Boolean, lifecyclebearing: Boolean): String = {
+  private def _bootstrap_source(workflows: Vector[WorkflowDefinition], policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String = {
     val references = workflows.zipWithIndex.map { case (workflow, index) =>
       s"${_object_name(workflow, index)}.componentFactoryMetadata"
     }
@@ -143,7 +166,7 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     s"""package domain.statemachine.workflow
        |
        |object StateMachineWorkflowComponentFactoryBootstrap {
-       |  val schemaVersion: String = ${_quote(if (lifecyclebearing) lifecycleBootstrapSchemaVersion else if (policybearing) policyBootstrapSchemaVersion else bootstrapSchemaVersion)}
+       |  val schemaVersion: String = ${_quote(if (safetybearing) executionSafetyBootstrapSchemaVersion else if (lifecyclebearing) lifecycleBootstrapSchemaVersion else if (policybearing) policyBootstrapSchemaVersion else bootstrapSchemaVersion)}
        |  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = $metadata
        |}
        |""".stripMargin
@@ -153,31 +176,53 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     workflow: WorkflowDefinition,
     objectname: String,
     policybearing: Boolean,
-    lifecyclebearing: Boolean
+    lifecyclebearing: Boolean,
+    safetybearing: Boolean
   ): String =
     s"""package domain.statemachine.workflow
        |
        |object $objectname {
-       |  val workflow: StateMachineWorkflowAbi.WorkflowDescriptor = ${_workflow_descriptor(workflow, policybearing, lifecyclebearing)}
+       |  val workflow: StateMachineWorkflowAbi.WorkflowDescriptor = ${_workflow_descriptor(workflow, policybearing, lifecyclebearing, safetybearing)}
        |  val componentFactoryMetadata: StateMachineWorkflowAbi.ComponentFactoryMetadata = StateMachineWorkflowAbi.ComponentFactoryMetadata(workflow)
        |}
        |""".stripMargin
 
-  private def _workflow_descriptor(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean): String = {
+  private def _workflow_descriptor(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String = {
     val policies = if (policybearing)
       s",\n  invocationPolicies = ${_vector(value.invocationPolicies.map(_invocation_policy))}" else ""
     val lifecycle = if (lifecyclebearing)
       s",\n  lifecyclePolicy = ${_option(value.lifecyclePolicy.map(_lifecycle_policy))},\n  waits = ${_vector(value.waits.map(_wait_declaration))}" else ""
+    val safety = if (safetybearing)
+      s",\n  failurePolicies = ${_vector(value.failurePolicies.map(_failure_policy))},\n  executionSafetyPolicy = ${_option(value.executionSafetyPolicy.map(_execution_safety_policy))}" else ""
     s"""StateMachineWorkflowAbi.WorkflowDescriptor(
-       |  schemaVersion = ${_quote(_schema_version(policybearing, lifecyclebearing))},
+       |  schemaVersion = ${_quote(_schema_version(policybearing, lifecyclebearing, safetybearing))},
        |  identity = ${_quote(value.identity)},
        |  version = ${_quote(value.version)},
        |  source = ${_workflow_source_correlation(value.source)},
        |  states = ${_vector(value.compositeStateMachine.states.map(_state))},
        |  actions = ${_vector(value.compositeStateMachine.actions.map(_action))},
-       |  requiredOperations = ${_vector(value.requiredOperations.map(_required_spi))}$policies$lifecycle
+       |  requiredOperations = ${_vector(value.requiredOperations.map(_required_spi))}$policies$lifecycle$safety
        |)""".stripMargin
   }
+
+  private def _failure_classification(value: WorkflowFailureClassification): String = value match {
+    case WorkflowFailureClassification.Retryable => "StateMachineWorkflowAbi.FailureClassification.Retryable"
+    case WorkflowFailureClassification.Permanent => "StateMachineWorkflowAbi.FailureClassification.Permanent"
+  }
+
+  private def _failure_rule(value: WorkflowFailureRule): String =
+    s"StateMachineWorkflowAbi.FailureRule(${_quote(value.identity)}, ${_failure_classification(value.classification)}, ${_workflow_source(value.source)})"
+
+  private def _failure_policy(value: WorkflowFailurePolicy): String =
+    s"StateMachineWorkflowAbi.FailurePolicy(${_quote(value.identity)}, ${_invocation_target(value.target)}, ${_quote(value.actionIdentity)}, ${_failure_classification(value.defaultClassification)}, ${_vector(value.rules.map(_failure_rule))}, ${_workflow_source(value.source)})"
+
+  private def _duplicate_protection(value: WorkflowDuplicateProtection): String = value match {
+    case WorkflowDuplicateProtection.NotRequired => "StateMachineWorkflowAbi.DuplicateProtection.NotRequired"
+    case WorkflowDuplicateProtection.Required(key) => s"StateMachineWorkflowAbi.DuplicateProtection.Required(${_quote(key)})"
+  }
+
+  private def _execution_safety_policy(value: WorkflowExecutionSafetyPolicy): String =
+    s"StateMachineWorkflowAbi.ExecutionSafetyPolicy(${_quote(value.logicalExecutionIdentityRef)}, ${_duplicate_protection(value.duplicateProtection)}, ${_workflow_source(value.source)})"
 
   private def _invocation_policy(value: WorkflowInvocationPolicy): String =
     s"StateMachineWorkflowAbi.InvocationPolicy(${_quote(value.identity)}, ${_invocation_target(value.target)}, ${_quote(value.actionIdentity)}, ${_option(value.retry.map(_retry_policy))}, ${_option(value.executionTimeoutMillis.map(x => s"${x}L"))}, ${_workflow_source(value.source)})"
@@ -235,7 +280,7 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   private def _source(value: CompositeStateMachineSourceIdentity): String =
     s"StateMachineWorkflowAbi.SourceIdentity(${_option(value.line.map(_.toString))})"
 
-  private def _workflow_json(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean): String =
+  private def _workflow_json(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String =
     _json_object(Vector(
       "identity" -> _json_string(value.identity),
       "version" -> _json_string(value.version),
@@ -247,7 +292,47 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
       ++ (if (lifecyclebearing) Vector(
         "lifecyclePolicy" -> _json_option(value.lifecyclePolicy.map(_lifecycle_policy_json)),
         "waits" -> _json_array(value.waits.map(_wait_declaration_json))
+      ) else Vector.empty)
+      ++ (if (safetybearing) Vector(
+        "failurePolicies" -> _json_array(value.failurePolicies.map(_failure_policy_json)),
+        "executionSafetyPolicy" -> _json_option(value.executionSafetyPolicy.map(_execution_safety_policy_json))
       ) else Vector.empty))
+
+  private def _failure_policy_json(value: WorkflowFailurePolicy): String =
+    _json_object(Vector(
+      "identity" -> _json_string(value.identity),
+      "target" -> _json_object(Vector(
+        "kind" -> _json_string(value.target match {
+          case _: WorkflowInvocationTarget.Action => "ACTION"
+          case _: WorkflowInvocationTarget.Participant => "PARTICIPANT"
+        }),
+        "identity" -> _json_string(value.target.identity)
+      )),
+      "actionIdentity" -> _json_string(value.actionIdentity),
+      "defaultClassification" -> _json_string(value.defaultClassification.canonicalValue),
+      "rules" -> _json_array(value.rules.map(_failure_rule_json)),
+      "source" -> _workflow_source_json(value.source)
+    ))
+
+  private def _failure_rule_json(value: WorkflowFailureRule): String =
+    _json_object(Vector(
+      "identity" -> _json_string(value.identity),
+      "classification" -> _json_string(value.classification.canonicalValue),
+      "source" -> _workflow_source_json(value.source)
+    ))
+
+  private def _execution_safety_policy_json(value: WorkflowExecutionSafetyPolicy): String =
+    _json_object(Vector(
+      "logicalExecutionIdentityRef" -> _json_string(value.logicalExecutionIdentityRef),
+      "duplicateProtection" -> _json_object(Vector(
+        "kind" -> _json_string(value.duplicateProtection.canonicalValue),
+        "idempotencyKeyRef" -> (value.duplicateProtection match {
+          case WorkflowDuplicateProtection.NotRequired => "null"
+          case WorkflowDuplicateProtection.Required(key) => _json_string(key)
+        })
+      )),
+      "source" -> _workflow_source_json(value.source)
+    ))
 
   private def _lifecycle_policy_json(value: WorkflowLifecyclePolicy): String =
     _json_object(Vector(
