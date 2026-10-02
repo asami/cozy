@@ -69,10 +69,10 @@ Phase status index (individual Phase/checklist files are authoritative):
   The sole comprehensive review passed; final Cozy validation/local release
   evidence is recorded in the [checklist](phase-67-checklist.md). CNCF Phase 82 separately
   owns receiver integration and scheduling/lifecycle runtime behavior.
-  [Phase 68](phase-68.md) is active for failure/execution-safety; S68.1/S68.2 are accepted.
-  Its [CNCF83 handoff](phase-68-cncf-handoff.md) is authored; S68.3 static verification,
-  review and native Step commit remain pending. Sole full Phase review, final full
-  suite and release remain pending in the [checklist](phase-68-checklist.md).
+  [Phase 68](phase-68.md) is COMPLETE for failure/execution-safety; all three Steps and
+  its [CNCF83 handoff](phase-68-cncf-handoff.md) are accepted. The sole full Phase
+  review and final Cozy validation passed; the containing local release completes
+  closure as recorded in the [checklist](phase-68-checklist.md). CNCF83 owns runtime enforcement.
   [Phase 69](phase-69.md) remains planned for semantic iteration.
   Cozy owns source semantics and generated ABI; CNCF owns runtime execution.
 - Deferred producer follow-up: [Phase 70](phase-70.md) specifies a future

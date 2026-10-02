@@ -1845,10 +1845,10 @@ its [CNCF82 handoff](../phase/phase-67-cncf-handoff.md) is accepted through S67.
 The sole comprehensive review passed; final Cozy validation/local release
 evidence is recorded in the [checklist](../phase/phase-67-checklist.md). CNCF Phase 82
 separately owns receiver integration and scheduling/lifecycle runtime behavior.
-[Phase 68](../phase/phase-68.md) is active for failure/execution-safety metadata;
-S68.1/S68.2 are accepted. Its [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) is
-authored; S68.3 static verification, review and native Step commit remain pending.
-Sole full Phase review, final full suite and release remain pending in the
+[Phase 68](../phase/phase-68.md) is COMPLETE for failure/execution-safety metadata;
+all three Steps and its [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) are
+accepted. Sole full Phase review and final Cozy validation passed; the containing
+local release completes closure as recorded in the
 [checklist](../phase/phase-68-checklist.md). Phase 69 remains planned for goal-oriented
 iteration semantics. Cozy owns syntax, model validation, lowering, and
 generated ABI; CNCF owns runtime scheduling, execution, and enforcement.

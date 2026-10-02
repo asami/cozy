@@ -1,7 +1,7 @@
 # Workflow Failure and Execution Safety ABI Lowering
 
 Semantic role: Stable Semantics (frozen design).
-Current status: S68.1 SOURCE accepted after source353/353, P68-S681-REVIEW-001 revision1 PASS and native commit 0a8062750a390343f7339fa4a1af8c02a6e4a8fd; S68.2 ABI accepted after producer92/92, actual Scala3.3.8 normal/value/mixed 4/4/10 compilation, P68-S682-REVIEW-001 revision1 PASS and native commit 3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4. S68.3 [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) authored; parent static verification, medium Step review and native Step commit pending. PHASE-68 remains active; sole full Phase review, final full suite and release pending.
+Current status: COMPLETE at the Cozy producer boundary. All three Steps and the sole comprehensive P68-FULL-REVIEW-001 revision1 for P68-PLAN-E1 passed, with zero CPB/HYG/DEV. P68-FINAL-VAL-001 passed: 2,587 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 182 suites, 0 aborted; SBT/wrapper exit0 and `lock=released`. The local release commit containing this record completes ordinary Phase68 closure. CNCF83 owns receiver integration and runtime enforcement.
 Owner: Cozy Workflow ABI lowering, Phase68 parent.
 Update rule: synchronize lowering with the normative ABI/source contracts and executable specification; acceptance follows parent-owned native evidence.
 Phase: [68](../phase/phase-68.md), S68.2 ABI.
@@ -112,7 +112,7 @@ with native .class/.tasty outputs for all eighteen sources and three separate
 analyses. Both records report SBT/wrapper exit0 and `lock=released`.
 P68-S682-REVIEW-001 revision1 PASS and native Step commit
 `3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4` record S68.2 acceptance; S68.3 parent
-static verification, review and native Step commit remain pending.
+static verification, independent review and native Step commit are accepted; the final full suite passed and the containing local release commit closes the Phase.
 
 ## Receiver responsibility
 
@@ -126,4 +126,4 @@ logical identity/key through retry/redelivery and distinct new executions,
 correlate physical attempts, persist histories and integrate the receiver.
 Those runtime mechanisms are recipient work, not Cozy completion gates. S68.3
 has authored the [same-Phase handoff](../phase/phase-68-cncf-handoff.md); parent
-static verification, review and native Step commit remain pending.
+static verification, independent review and native Step commit are accepted; the final full suite passed and the containing local release commit closes the Phase.

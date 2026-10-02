@@ -1,7 +1,7 @@
 # Phase 68: CNCF83 Failure Policy and Execution-Safety Handoff
 
 Semantic role: Engineering handoff (non-normative)
-Current status: S68.1 SOURCE and S68.2 ABI accepted. S68.3 handoff authored; parent static verification, medium Step review and native Step commit pending. PHASE-68 remains active; exactly one later full Phase review, final Cozy full suite and local release remain pending. CNCF83 receiver/runtime work remains separately owned and unaccepted here.
+Current status: COMPLETE at the Cozy producer boundary. All three Steps and the sole comprehensive P68-FULL-REVIEW-001 revision1 for P68-PLAN-E1 passed, with zero CPB/HYG/DEV. P68-FINAL-VAL-001 passed: 2,587 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 182 suites, 0 aborted; SBT/wrapper exit0 and `lock=released`. The local release commit containing this record completes ordinary Phase68 closure. CNCF83 owns receiver integration and runtime enforcement.
 Owner: Cozy owns source declarations, immutable IR and generated producer ABI; CNCF Phase83 owns receiver integration and runtime behavior.
 Update rule: retain the source and ABI contracts as authorities; update evidence/status only from actual parent-owned validation, review and native commits.
 Completion basis: three accepted Cozy producer Steps, exactly one comprehensive Phase review, final full Cozy suite and distinct local release commit. CNCF completion/full validation does not gate Cozy.
@@ -24,21 +24,27 @@ Navigation: [Phase 68](phase-68.md), [checklist](phase-68-checklist.md),
 [CNCF Phase83](../../../goldenport-cncf/docs/phase/phase-83.md),
 [current named receiver](../../../goldenport-cncf/src/main/scala/org/goldenport/cncf/workflow/WorkflowInvocationPolicyAbi.scala).
 
-## Accepted producer evidence and remaining gates
+## Accepted producer evidence and Phase closure
 
 | Step | Native local commit | Accepted native evidence |
 | --- | --- | --- |
 | S68.1 SOURCE | `0a8062750a390343f7339fa4a1af8c02a6e4a8fd` | P68-S681-VAL-005: source353/353 across six suites; P68-S681-REVIEW-001 revision1 PASS. |
 | S68.2 ABI | `3e2c7605f343e7eef75bf8166f98f1c6e0d89ac4` | P68-S682-VAL-002: producer92/92 across seven suites; P68-S682-VAL-003: actual generated Scala3.3.8 normal/value/mixed 4/4/10 compilation, all eighteen .class/.tasty outputs and three separate analyses; P68-S682-REVIEW-001 revision1 PASS. |
 
-Both Steps had zero CPB/HYG/DEV. Native validation reported SBT/wrapper exit0
+S68.3 HANDOFF is accepted at `0180e8fd4ad0979543f8cb872577ca286380fe21` after P68-S683-STATIC-VALIDATION-001 and P68-S683-REVIEW-001 revision1 PASS.
+
+Both producer Steps and handoff review had zero CPB/HYG/DEV. Native validation reported SBT/wrapper exit0
 and `lock=released`, with zero aborted suites and zero failed, canceled,
 ignored or pending tests. These accepted review/validation witnesses belong to
 the producer Steps. Reproduction instructions below are instructions only,
-not additional executed receipts or acceptance of this documentary tree.
-S68.3 static verification, fresh medium Step review and native Step commit are
-pending. The sole later full Phase review, final full suite and release are
-also pending; no handoff, Phase or CNCF runtime acceptance is claimed.
+not additional executed receipts. Actual final full validation is recorded separately below.
+S68.3 static verification and independent medium Step review passed; native
+Step commit `0180e8fd4ad0979543f8cb872577ca286380fe21` records handoff acceptance.
+The sole comprehensive review P68-FULL-REVIEW-001 revision1 passed. P68-FINAL-VAL-001 passed: 2,587 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 182 suites, 0 aborted; SBT/wrapper exit0 and `lock=released`.
+The nine cancellations retain the original four opt-in Docker Remotion and five
+CV/SP ownership scenarios; their specification bytes are unchanged. The
+containing distinct local release commit closes Cozy Phase68. CNCF runtime
+acceptance remains the recipient responsibility.
 
 The unchanged Cozy source build is version `0.3.3-SNAPSHOT`, SBT1.9.7 and
 Scala2.12.18; generated target Scala is3.3.8. Native tests/compilation used Amazon
