@@ -1,6 +1,6 @@
 # Phase 67: Retained Hygiene Follow-ups
 
-Current status: nonblocking accepted follow-ups retained for separately scoped maintenance after Phase 67; no maintenance implementation in S67.3.
+Current status: two nonblocking accepted follow-ups retained unchanged after the sole Phase 67 comprehensive review PASS; separately scoped maintenance remains open outside Cozy producer delivery.
 Owner: Cozy modeler and executable-specification maintenance owners.
 Update rule: preserve the accepted records below; add resolution evidence only through separately scoped maintenance and its acceptance.
 Updated: 2026-10-02

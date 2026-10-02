@@ -1,7 +1,7 @@
 # Workflow Scheduling and Lifecycle Source Lowering
 
 Semantic role: Design Notes (non-normative)
-Current status: accepted with the S67.1 local Step commit; source validation and independent review passed
+Current status: accepted by S67.1 local Step commit 10548ef5ad332327bf4f3f2105a2a8ba1bcbc61d; P67-S671-VAL-001 passed 291 tests, independent source review and comprehensive P67-FULL-REVIEW-001 passed
 Owner: Cozy Workflow source lowering, Phase 67 parent
 Update rule: update when source lowering changes, keeping the source contract authoritative; acceptance status requires parent evidence.
 Phase: [67](../phase/phase-67.md), S67.1

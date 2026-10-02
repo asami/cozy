@@ -63,9 +63,11 @@ Phase status index (individual Phase/checklist files are authoritative):
   COMPLETE at Cozy delivery of Retry / Timeout declarations, deterministic
   generated ABI and the CNCF handoff. CNCF owns connection and its remaining
   validation; historical S66.3 metadata receiver/fixture evidence is preserved.
-  [Phase 67](phase-67.md) is active with its source, producer and
-  [CNCF82 handoff](phase-67-cncf-handoff.md) accepted through S67.1-S67.3.
-  Comprehensive Phase review, final Cozy full validation and release remain pending. CNCF Phase 82 separately
+  [Phase 67](phase-67.md) is COMPLETE at Cozy producer delivery of Deadline,
+  Timer/Wait, Cancellation and durable suspension/resumption metadata, with
+  its [CNCF82 handoff](phase-67-cncf-handoff.md) accepted through S67.1-S67.3.
+  The sole comprehensive review passed; final Cozy validation/local release
+  evidence is recorded in the [checklist](phase-67-checklist.md). CNCF Phase 82 separately
   owns receiver integration and scheduling/lifecycle runtime behavior.
   [Phase 68](phase-68.md) and [Phase 69](phase-69.md) remain planned for
   failure/execution-safety and semantic iteration.

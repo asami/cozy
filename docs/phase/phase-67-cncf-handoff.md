@@ -1,7 +1,7 @@
 # Phase 67: CNCF82 Scheduling and Lifecycle Handoff
 
 Semantic role: Engineering handoff (non-normative)
-Current status: S67.1 source and S67.2 producer accepted; S67.3 independent medium review P67-S673-REVIEW-001 passed, and the local Step commit containing this handoff accepts S67.3. Final Phase closure remains pending.
+Current status: Cozy producer delivery COMPLETE through S67.1-S67.3 and handoff commit 72918083e7f6e7a165b5599a01d8bc459c339c0a; sole comprehensive review P67-FULL-REVIEW-001 PASS. Final repository validation/release evidence is recorded in the Phase 67 checklist. CNCF Phase 82 receiver/runtime work remains separately owned.
 Owner: Cozy owns the producer; CNCF Phase 82 owns receiver integration and runtime behavior.
 Update rule: keep the source and ABI contracts authoritative; update evidence and acceptance status only after the corresponding parent-owned review, validation and local commit.
 Updated: 2026-10-02
@@ -23,11 +23,12 @@ Navigation: [Phase 67](phase-67.md), [checklist](phase-67-checklist.md),
 These are existing accepted receipts. The instructions below supply reproduction,
 not an additional execution receipt. S67.3 independent medium Step review
 `P67-S673-REVIEW-001` passed with zero blockers and no new Hygiene or Development
-Candidate; the local Step commit containing this handoff records its acceptance.
-Exactly one comprehensive high Phase review for `P67-PLAN-E1`, final Cozy
-full-suite validation, coherent final status/journal projection and the manual
-local release commit remain pending.
-Phase 67 is active; no Phase release or artifact publication is claimed.
+Candidate; local Step commit `72918083e7f6e7a165b5599a01d8bc459c339c0a` records its acceptance.
+The sole comprehensive high Phase review `P67-FULL-REVIEW-001` for
+`P67-PLAN-E1` passed with zero current blockers and no new findings. Final Cozy
+full-suite and manual local release evidence is tracked in the
+[Phase 67 checklist](phase-67-checklist.md). CNCF82 receiver/runtime completion
+is outside this producer delivery boundary.
 CNCF runtime implementation and CNCF full-suite completion remain separately
 owned and are not Cozy acceptance gates.
 

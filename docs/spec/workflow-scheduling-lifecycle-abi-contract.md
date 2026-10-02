@@ -1,7 +1,7 @@
 # Workflow Scheduling and Lifecycle Generated ABI Contract
 
 Semantic role: Stable Semantics (normative)
-Current status: S67.2 producer accepted by the local Step commit containing this record; P67-S672-VAL-007 passed 195 tests, P67-S672-VAL-009 compiled ten Scala 3.3.8 sources, and independent review P67-S672-REVIEW-001 passed
+Current status: S67.2 producer accepted by local Step commit 43af3f1cfe3fd37ae922cfe984b94c8fd6147452; P67-S672-VAL-007 passed 195 tests, P67-S672-VAL-009 compiled ten Scala 3.3.8 sources, and independent review P67-S672-REVIEW-001 passed
 Owner: Cozy Workflow generated producer ABI, Phase 67 parent
 Update rule: update with the paired executable specification when accepted producer semantics change; acceptance status requires parent evidence.
 Phase: [67](../phase/phase-67.md), S67.2; [source contract](workflow-scheduling-lifecycle-source-contract.md), S67.1
@@ -137,7 +137,9 @@ ordered members `LegacyWorkflow`, `PolicyWorkflow`, `LifecycleEdgeWorkflow`,
 `WorkflowLifecycleAbiConsumerProbe.scala` beside those products is a typed
 test consumer, not a generated Cozy artifact. Parent-owned Scala 3.3.8
 compilation checks the actual emitted products, old constructor signatures,
-closed matches and typed Long/Signal access. No success is asserted here.
+closed matches and typed Long/Signal access. P67-S672-VAL-009 successfully
+compiled these ten actual sources with Scala 3.3.8; focused producer validation
+P67-S672-VAL-007 passed 195 tests and independent producer review passed.
 
 Workflow identity/version, root/definition location, State identity, wait
 identity and declaration location provide durable static correlation.

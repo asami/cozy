@@ -1839,9 +1839,11 @@ and passing normal Cozy full validation are recorded in the
 [Phase66 checklist](../phase/phase-66-checklist.md). Historical S66.3 pure
 receiver/fixture evidence is retained. CNCF owns the remaining connection
 and CNCF-wide validation; Phase81 after Phase80 owns execution enforcement.
-[Phase 67](../phase/phase-67.md) is active with its source, producer and
-[CNCF82 handoff](../phase/phase-67-cncf-handoff.md) accepted through S67.1-S67.3.
-Comprehensive Phase review, final Cozy full validation and release remain pending. CNCF Phase 82
+[Phase 67](../phase/phase-67.md) is COMPLETE at Cozy producer delivery of
+Deadline, Timer/Wait, Cancellation and durable suspension/resumption metadata;
+its [CNCF82 handoff](../phase/phase-67-cncf-handoff.md) is accepted through S67.1-S67.3.
+The sole comprehensive review passed; final Cozy validation/local release
+evidence is recorded in the [checklist](../phase/phase-67-checklist.md). CNCF Phase 82
 separately owns receiver integration and scheduling/lifecycle runtime behavior.
 Phase 68 remains planned for failure/execution-safety metadata, and Phase 69
 remains planned for goal-oriented iteration semantics. Cozy owns syntax, model validation, lowering, and

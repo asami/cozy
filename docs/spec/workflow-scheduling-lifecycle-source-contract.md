@@ -1,7 +1,7 @@
 # Workflow Scheduling and Lifecycle Source Contract
 
 Semantic role: Stable Semantics (normative)
-Current status: accepted with the S67.1 local Step commit; source validation and independent review passed
+Current status: accepted by S67.1 local Step commit 10548ef5ad332327bf4f3f2105a2a8ba1bcbc61d; P67-S671-VAL-001 passed 291 tests, independent source review and comprehensive P67-FULL-REVIEW-001 passed
 Owner: Cozy Workflow source contract, Phase 67 parent
 Update rule: update with the paired executable specification when accepted source semantics change; acceptance status requires parent evidence.
 Phase: [67](../phase/phase-67.md), S67.1
@@ -133,5 +133,6 @@ order/source correlation, aliases and lossless bounds, strict failures,
 uniqueness, reference validity, nesting, ownership and execution vocabulary.
 The paired
 [lowering design](../design/workflow-scheduling-lifecycle-source-lowering.md)
-documents the normalization boundary. Validation and independent acceptance
-are parent-owned and pending.
+documents the normalization boundary. Parent-owned source validation and
+independent acceptance passed under P67-S671-VAL-001 and P67-S671-REVIEW-001.
+The sole comprehensive Phase review P67-FULL-REVIEW-001 also passed.

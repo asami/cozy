@@ -1,7 +1,7 @@
 # Workflow Scheduling and Lifecycle ABI Lowering
 
 Semantic role: Design Notes (non-normative)
-Current status: S67.2 producer accepted by the local Step commit containing this record; P67-S672-VAL-007 passed 195 tests, P67-S672-VAL-009 compiled ten Scala 3.3.8 sources, and independent review P67-S672-REVIEW-001 passed
+Current status: S67.2 producer accepted by local Step commit 43af3f1cfe3fd37ae922cfe984b94c8fd6147452; P67-S672-VAL-007 passed 195 tests, P67-S672-VAL-009 compiled ten Scala 3.3.8 sources, and independent review P67-S672-REVIEW-001 passed
 Owner: Cozy Workflow producer lowering, Phase 67 parent
 Update rule: update when lowering changes, keeping the paired source and ABI contracts authoritative; acceptance status requires parent evidence.
 Phase: [67](../phase/phase-67.md), S67.2
@@ -103,8 +103,9 @@ WorkflowDescriptor clients, reads the three metadata fields, exhaustively
 matches Timer/Signal and Cooperative, and reads typed Long and signal data.
 It is a test consumer fixture authored by the specification, not a product of
 Cozy generation. The parent owns running specifications and the real Scala
-3.3.8 compiler against these actual files; this document records no successful
-validation or compilation receipt.
+3.3.8 compiler against these actual files. P67-S672-VAL-007 passed 195 tests;
+P67-S672-VAL-009 successfully compiled all ten sources. Independent producer
+review P67-S672-REVIEW-001 and comprehensive P67-FULL-REVIEW-001 passed.
 
 ## Static correlation and runtime ownership
 
