@@ -50,7 +50,9 @@ final case class WorkflowDefinition(
   compositeStateMachine: CompositeStateMachineDefinition,
   requiredOperations: Vector[WorkflowRequiredOperation],
   providedOperations: Vector[WorkflowProvidedOperation] = Vector.empty,
-  invocationPolicies: Vector[WorkflowInvocationPolicy] = Vector.empty
+  invocationPolicies: Vector[WorkflowInvocationPolicy] = Vector.empty,
+  lifecyclePolicy: Option[WorkflowLifecyclePolicy] = None,
+  waits: Vector[WorkflowWaitDeclaration] = Vector.empty
 )
 
 /** Explicit inbound operation declared by WORKFLOW CML, never inferred from an Action. */

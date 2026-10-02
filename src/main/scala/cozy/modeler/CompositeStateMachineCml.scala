@@ -29,12 +29,14 @@ private[modeler] object CompositeStateMachineCml {
 
   def definitions(model: KaleidoxModel): Vector[CompositeStateMachineDefinition] = {
     val roots = model.divisions.toVector.flatMap(_logical_section)
+    _validate_lifecycle_ownership(roots)
     val operations = _operation_contracts(model)
     roots.filter(_same_section_key(_, "COMPOSITE-STATEMACHINE")).flatMap(_normalize_definition_root(_, model, operations))
   }
 
   def workflowDefinitions(model: KaleidoxModel): Vector[WorkflowDefinition] = {
     val roots = model.divisions.toVector.flatMap(_logical_section)
+    _validate_lifecycle_ownership(roots)
     _workflow_definitions(roots, model, _operation_contracts(model))
   }
 
@@ -71,6 +73,14 @@ private[modeler] object CompositeStateMachineCml {
     val providedoperations = _children(definition, "OPERATION")
     val invocationpolicies = _children(definition, "INVOCATION-POLICY")
     _validate_workflow_structure(definition, name, composites, requiredoperations, providedoperations, invocationpolicies)
+    val lifecycles = _children(definition, "LIFECYCLE")
+    val waits = _children(definition, "WAIT")
+    if (composites.isEmpty && (lifecycles.nonEmpty || waits.nonEmpty))
+      RAISE.syntaxErrorFault(s"WORKFLOW '$name' requires a COMPOSITE-STATEMACHINE structural section for LIFECYCLE or WAIT.")
+    Vector("LIFECYCLE" -> lifecycles, "WAIT" -> waits).foreach { case (sectionname, sections) =>
+      if (sections.size > 1)
+        RAISE.syntaxErrorFault(s"WORKFLOW '$name' accepts at most one $sectionname section.")
+    }
     composites.headOption.map { composite =>
       val version = _workflow_version(definition, name)
       val statemachine = _normalize_definition(composite, model, operations, name)
@@ -84,6 +94,12 @@ private[modeler] object CompositeStateMachineCml {
         providedOperations = _provided_operations(providedoperations.headOption, name, operations),
         invocationPolicies = WorkflowInvocationPolicyCml.normalize(
           invocationpolicies.headOption, name, statemachine.actions, required, _direct_field_entries
+        ),
+        lifecyclePolicy = WorkflowLifecyclePolicyCml.normalizeLifecycle(
+          lifecycles.headOption, name, _direct_field_entries
+        ),
+        waits = WorkflowLifecyclePolicyCml.normalizeWaits(
+          waits.headOption, name, statemachine.states, _direct_field_entries
         )
       )
     }
@@ -242,6 +258,77 @@ private[modeler] object CompositeStateMachineCml {
   private val _invocation_policy_fields = Set(
     "PARTICIPANT", "MAXIMUM-ATTEMPTS", "FIXED-RETRY-DELAY-MILLIS", "EXECUTION-TIMEOUT-MILLIS"
   )
+
+  private val _lifecycle_sections = Set("LIFECYCLE", "WAIT")
+  private val _lifecycle_fields = Set("DEADLINE-MILLIS", "CANCELLATION", "DELAY-MILLIS")
+
+  private def _validate_lifecycle_ownership(roots: Vector[LogicalSection]): Unit =
+    roots.foreach { root =>
+      if (_lifecycle_sections.exists(_same_section_key(root, _)))
+        RAISE.syntaxErrorFault(s"${root.nameForModel} must be a direct Workflow definition section.")
+      else if (_same_section_key(root, "WORKFLOW")) {
+        _reject_lifecycle_fields(root)
+        root.blocks.sections.foreach { definition =>
+          val definitionshape = _children(definition, "COMPOSITE-STATEMACHINE").nonEmpty ||
+            _direct_field_entries(definition).exists { case (fieldname, _) => _same_key(fieldname, "VERSION") }
+          if (_lifecycle_sections.exists(_same_section_key(definition, _)) && !definitionshape)
+            RAISE.syntaxErrorFault("LIFECYCLE and WAIT must be direct Workflow definition sections, not Workflow root sections.")
+          _reject_lifecycle_fields(definition)
+          definition.blocks.sections.filterNot(section => _lifecycle_sections.exists(_same_section_key(section, _))).foreach {
+            section =>
+              if (_same_section_key(section, "COMPOSITE-STATEMACHINE"))
+                _validate_composite_lifecycle_ownership(section)
+              else if (Set("OPERATION", "REQUIRED-OPERATION", "INVOCATION-POLICY").exists(_same_section_key(section, _)))
+                _validate_lifecycle_identity_entries(section)
+              else
+                _reject_misplaced_lifecycle(section)
+          }
+        }
+      } else if (_same_section_key(root, "COMPOSITE-STATEMACHINE")) {
+        _reject_lifecycle_fields(root)
+        root.blocks.sections.foreach(_validate_composite_lifecycle_ownership)
+      } else {
+        _reject_lifecycle_fields_recursive(root)
+      }
+    }
+
+  private def _validate_composite_lifecycle_ownership(definition: LogicalSection): Unit = {
+    _reject_lifecycle_fields(definition)
+    val identitysections = Set("CONSTITUENT", "STATE", "DERIVATION", "INITIAL", "ACTION", "CONSTITUENT-ACTION", "DERIVED-ACTION")
+    definition.blocks.sections.foreach { section =>
+      if (identitysections.exists(_same_section_key(section, _)))
+        _validate_lifecycle_identity_entries(section)
+      else
+        _reject_misplaced_lifecycle(section)
+    }
+  }
+
+  private def _validate_lifecycle_identity_entries(section: LogicalSection): Unit = {
+    _reject_lifecycle_fields(section)
+    section.blocks.sections.foreach { entry =>
+      _reject_lifecycle_fields(entry)
+      entry.blocks.sections.foreach(_reject_misplaced_lifecycle)
+    }
+  }
+
+  private def _reject_lifecycle_fields_recursive(section: LogicalSection): Unit = {
+    _reject_lifecycle_fields(section)
+    section.blocks.sections.foreach(_reject_lifecycle_fields_recursive)
+  }
+
+  private def _reject_lifecycle_fields(section: LogicalSection): Unit =
+    _direct_field_entries(section).collectFirst {
+      case (fieldname, _) if _lifecycle_fields.exists(_same_key(fieldname, _)) => fieldname
+    }.foreach { fieldname =>
+      RAISE.syntaxErrorFault(s"Field '$fieldname' belongs in a Workflow LIFECYCLE section or WAIT entry.")
+    }
+
+  private def _reject_misplaced_lifecycle(section: LogicalSection): Unit = {
+    if (_lifecycle_sections.exists(_same_section_key(section, _)))
+      RAISE.syntaxErrorFault(s"${section.nameForModel} must be a direct Workflow definition section.")
+    _reject_lifecycle_fields(section)
+    section.blocks.sections.foreach(_reject_misplaced_lifecycle)
+  }
 
   private def _reject_invocation_policy_fields(section: LogicalSection, context: String, includetarget: Boolean): Unit = {
     val forbidden = if (includetarget) _invocation_policy_fields + "ACTION" else _invocation_policy_fields
