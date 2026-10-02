@@ -10,7 +10,7 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.1.md
 execution_priority=current_video_generation_blocker
 
-Status: in progress; P710-03-V-S01 focused validation (3 suites, 138 tests) and independent Slice review accepted; P710-03-V-S02 focused validation (5 suites, 188 tests) and independent Slice review accepted; P710-03-V-S03 focused validation (6 suites, 219 tests) and independent Slice review accepted; P710-03-V-S04 accepted after focused validation (11 suites, 297 tests) and independent Slice review 8235032a-399d-4ff9-b456-3cf30d373f22 revision 1, persisted review ledger revision 5; P710-03-V-S05 implemented and focused validation passed (15 suites, 331 tests); independent Step acceptance review pending.
+Status: in progress; P710-03-V-S01 focused validation (3 suites, 138 tests) and independent Slice review accepted; P710-03-V-S02 focused validation (5 suites, 188 tests) and independent Slice review accepted; P710-03-V-S03 focused validation (6 suites, 219 tests) and independent Slice review accepted; P710-03-V-S04 accepted after focused validation (11 suites, 297 tests) and independent Slice review 8235032a-399d-4ff9-b456-3cf30d373f22 revision 1, persisted review ledger revision 5; P710-03-V-S05 focused validation passed (15 suites, 331 tests); P710-03-V accepted with independent PASS Step review 2b86b3bc-da3b-42d7-a04e-fff37a230391 revision 1 and acceptance commit 00e73d99aaf486370032dc9036426a75559b303d. P710-F01 is in progress after faithful private input preparation and successful native inspect, synthesize, render, build and review-evidence (34 scenes, 41 evidence frames); parent observations cover all 17 exact final-MP4 boundaries, and P710-F01-S02 continuity specifications are authored. Fresh selected validation passed (5 suites, 170/170 tests: continuity 2/2 and four accumulator suites 168/168), including actual native rendering; failed, canceled, ignored, pending and aborted counts are zero, with no compiler warning lines. Native helper, SBT and wrapper exited 0 and the serial lock was released. Independent complete-F01 Step review and exact acceptance commit, F02 proof, full Phase review and release remain pending. P710-F02 and Closure remain open.
 Planned at: 2026-09-29
 Development item: DEV-034
 Primary owner: Cozy
@@ -84,9 +84,24 @@ S05 removes only video descriptor/script digest emission and six unused video
 digest imports, with written publication-bundle and copied-byte specifications
 and a [purpose audit](../journal/2026/10/2026-10-02-phase-71.2-video-digest-boundary-audit.md).
 ProducerSource source/currentness remains Phase 71.3-owned; named publication
-artifact integrity remains unchanged. P710-03-V acceptance and exact Step
-commit, F01/F02 actual-driver evidence, full Phase review and release remain
-pending. No Step or Phase completion is claimed.
+artifact integrity remains unchanged. P710-03-V is accepted by independent PASS
+Step review 2b86b3bc-da3b-42d7-a04e-fff37a230391 revision 1 and exact acceptance
+commit 00e73d99aaf486370032dc9036426a75559b303d. F01 private input preparation
+and successful native inspect, synthesize, render, build and review-evidence
+(34 scenes, 41 evidence frames) are recorded in the [dialogue-continuity baseline](../journal/2026/10/2026-10-02-phase-71.2-dialogue-continuity-baseline.md).
+Subsequent parent inspection covers all 17 exact previous-end/answer-first
+final-MP4 boundaries: heading, diagram/items and backdrop remain continuous,
+with no product correction selected. The earlier six sampled views remain
+historical evidence. P710-F01-S02 adds the [continuity contract](../spec/video-dialogue-continuity.md),
+[design](../design/video-dialogue-continuity.md) and [executable chapter](../../src/test/scala/cozy/video/CozyVideoDialogueContinuitySpec.scala).
+Fresh selected validation passed: 5 suites, 170/170 tests (continuity 2/2;
+four accumulator suites 168/168), including actual native rendering. Failed,
+canceled, ignored, pending and aborted counts are zero; no compiler warning
+lines were recorded. Native helper, SBT and wrapper exited 0 and the serial
+lock was released. Independent complete-F01 Step review and exact acceptance
+commit remain pending. F02 executable specifications, provider-payload, listening and
+pronunciation-only regeneration proof, its review/commit, full Phase review
+and the distinct release remain pending. Phase 71.2 remains IN_PROGRESS.
 
 The repository already has `build.sbt`, so `split_validation_bootstrap=none`.
 The first delivery's real media driver is product acceptance, not permission

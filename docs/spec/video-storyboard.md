@@ -334,6 +334,8 @@ ambiguous, and unmapped field. It MUST fail rather than silently claim a
 lossless Storyboard when a legacy value cannot be represented. No automatic
 filename convention or schema omission may silently select the adapter.
 
+Same-visual legacy dialogue is specified by the [Video Dialogue Continuity contract](video-dialogue-continuity.md).
+
 ## 8. Intended Cozy command contracts
 
 These command contracts define the later CLI surface; they do not claim that
