@@ -1,5 +1,7 @@
 # Phase 72: CML Failure Model
 
+Status: COMPLETE at the Cozy producer boundary.
+
 ## Goal
 
 Add CML authoring and generation support for Execution Model-derived Failure Models.
@@ -43,11 +45,13 @@ focused validation passed 105/105 tests across six suites; actual Scala 3.3.8
 normal/value/mixed generated-consumer groups (2/2/5 sources) compiled successfully.
 Independent protected ABI review is PASS with zero current blockers. Its parent
 manual local ABI Step commit is `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`,
-closing S72.2. S72.3 is IN_PROGRESS: the
-[CNCF91 and sm-workflow handoff](phase-72-cncf-handoff.md) is authored with
+closing S72.2. S72.3 is CLOSED at HANDOFF commit
+`783a48552de5fa6a4b34a8dfe9c1184f005de62f`: the
+[CNCF91 and sm-workflow handoff](phase-72-cncf-handoff.md) is accepted with
 the actual fixture oracle and recipient reproduction/acceptance instructions.
 Its parent static validation is accepted and independent selected Step review
-is PASS with zero blockers. The parent manual local Step commit remains pending;
+is PASS with zero blockers. The sole Phase-wide review is also PASS;
+Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72.
 receiver/runtime integration and workflow/AI wiring are
 recipient-owned prerequisites, not completed Cozy work.
 The parent admitted the four-route legacy baseline before ABI
@@ -71,3 +75,11 @@ and remains outside this Phase's implementation boundary.
 ## Completion
 
 Executable examples demonstrate that a CML component can select an Execution Model, refine failures at Component/Service/Operation scopes, and produce the expected effective failure contract.
+
+## Final validation and closure
+
+P72-FINAL-VAL-001 passed: 2,688 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 186 suites, 0 aborted; SBT/wrapper exit 0 and `lock=released`. Nine cancellations retain the existing four opt-in Docker Remotion integrations and five CV/SP ownership scenarios; the affected specifications are byte-identical to the original Phase 72 base.
+
+All three Steps have independent accepted reviews and parent manual local commits. The sole comprehensive high review P72-FULL-REVIEW-001 revision 1 for P72-PLAN-E1 passed with zero current blockers. This factual closure preserves its normative source/ABI contracts, executable examples and receiver obligations. All 1,557 declared tracked validation inputs and Gitlinks remain unchanged; the original native full-suite receipt is reused for these documentary result projections. Version 0.3.3-SNAPSHOT remains unchanged.
+
+The containing distinct parent manual local release commit synchronizes the Phase, checklist, Phase index, strategy, source/ABI status, recipient handoff and both exact accepted Hygiene records HYG-P72-S721-001 and HYG-P72-FULL-001. Those records remain OPEN for separate maintenance; no Development Candidate or empty journal is created. CNCF91 owns canonical recipient types, validation and runtime resolution; sm-workflow wiring depends on receiver acceptance. Cozy producer work is complete. No successor Phase is started.

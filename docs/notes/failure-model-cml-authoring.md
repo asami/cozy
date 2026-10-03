@@ -34,5 +34,7 @@ and public CLI reproduction instructions. CNCF owns canonical types, recipient
 validation and runtime resolution. sm-workflow guidance depends on that receiver
 acceptance and uses only the recipient-resolved contract at a named owner.
 Missing artifacts, schema or resolution are unmet prerequisites; raw deltas or
-execution names cannot fill them. HANDOFF acceptance and final Phase gates remain
-pending, and recipient/runtime/workflow wiring is not claimed complete.
+execution names cannot fill them. HANDOFF is accepted at commit
+`783a48552de5fa6a4b34a8dfe9c1184f005de62f`, with sole Phase-wide review PASS.
+Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72; recipient/runtime/
+workflow wiring is not claimed complete.

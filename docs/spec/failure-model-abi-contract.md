@@ -142,5 +142,6 @@ review passed with zero current blockers; parent manual local ABI commit
 `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843` closes S72.2.
 The authored [recipient handoff](../phase/phase-72-cncf-handoff.md) supplies
 reproduction paths, the fixture oracle and recipient acceptance prerequisites.
-HANDOFF and final Phase acceptance remain pending; canonical receiver/runtime
-resolution and workflow integration remain recipient-owned.
+HANDOFF is accepted at commit `783a48552de5fa6a4b34a8dfe9c1184f005de62f`
+and the sole Phase-wide review passed. Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72; canonical receiver/runtime resolution and workflow
+integration remain recipient-owned.

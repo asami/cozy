@@ -75,4 +75,5 @@ Independent protected ABI review passed with zero current blockers, followed by
 parent manual local ABI commit `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`.
 The authored [recipient handoff](../phase/phase-72-cncf-handoff.md) records
 reproduction, comparison evidence and CNCF91/sm-workflow prerequisites. HANDOFF
-acceptance, recipient integration and final Phase gates remain pending.
+is accepted at commit `783a48552de5fa6a4b34a8dfe9c1184f005de62f`; the sole
+Phase-wide review passed. Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72. Recipient integration remains recipient-owned.

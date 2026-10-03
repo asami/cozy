@@ -33,5 +33,7 @@ metadata into additive generation under the
 [ABI contract](../spec/failure-model-abi-contract.md); SOURCE itself changed no
 generator or runtime API. The authored
 [recipient handoff](../phase/phase-72-cncf-handoff.md) records the fixture oracle,
-accepted SOURCE/ABI commits and recipient prerequisites. HANDOFF acceptance and
-canonical receiver/runtime integration remain pending.
+accepted SOURCE/ABI commits and recipient prerequisites. HANDOFF is accepted at
+commit `783a48552de5fa6a4b34a8dfe9c1184f005de62f`, with sole Phase-wide review
+PASS. Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72. Canonical
+receiver/runtime integration remains recipient-owned.

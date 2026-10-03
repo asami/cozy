@@ -134,12 +134,14 @@ Phase status index (individual Phase/checklist files are authoritative):
   speculative metadata or hash gates.
   The unchanged former numeric successor is [Phase 72](phase-72.md), CML
   Failure Model; the split did not start or renumber it. Updated 2026-10-03:
-  Phase 72 is now in_progress, with SOURCE and ABI accepted at
+  Phase 72 is COMPLETE, with SOURCE and ABI accepted at
   `6c15b65cd83181fdf61aa8674c9a847f79751805` and
   `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`. Its
   [CNCF91/sm-workflow HANDOFF](phase-72-cncf-handoff.md) is authored with
   static validation accepted and independent Step review PASS; its manual
-  commit and [final Phase gates](phase-72-checklist.md) remain open.
+  HANDOFF commit `783a48552de5fa6a4b34a8dfe9c1184f005de62f` is accepted,
+  and the sole Phase-wide review and final full validation passed. The containing
+  local release closes the [checklist](phase-72-checklist.md).
   Receiver/runtime integration and workflow/AI wiring remain
   recipient-owned prerequisites.
 - Planned site-production contract after the Phase 74 collision was resolved:

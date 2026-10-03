@@ -36,7 +36,7 @@ Stage Status:
 ## S72.3 HANDOFF
 
 Stage Status:
-- Current status: IN_PROGRESS
+- Current status: CLOSED
 - Owner: Phase 72 parent
 - Update rule: Begin after ABI acceptance; record recipient-ready authority and examples.
 - Closure basis: All S723 items below.
@@ -44,22 +44,24 @@ Stage Status:
 - [x] S723-01 [Authored CNCF91 recipient handoff](phase-72-cncf-handoff.md) records canonical type, validation and runtime resolution responsibility with accepted producer commits, actual fixture oracle and reproduction/acceptance instructions; receiver integration remains pending.
 - [x] S723-02 [Authored sm-workflow handoff](phase-72-cncf-handoff.md#sm-workflow-guidance-after-receiver-acceptance) records recipient-resolved implementation constraints and effective-owner OUT_OF_SCOPE semantics; CNCF acceptance is a prerequisite and workflow/AI wiring remains unverified.
 - [x] S723-03 Parent class-D static validation accepted; independent PLAN-selected HANDOFF Step review PASS with zero blockers and no new findings.
-- [ ] S723-04 Parent manual local HANDOFF Step commit recorded.
+- [x] S723-04 Parent manual local HANDOFF Step commit recorded: `783a48552de5fa6a4b34a8dfe9c1184f005de62f`.
 
-The parent materialized the accepted nonblocking maintenance record in the
+The parent materialized both accepted nonblocking maintenance records in the
 [hygiene follow-up](../journal/2026/10/2026-10-03-phase-72-hygiene-follow-up.md).
-It remains OPEN for separate maintenance, with no program repair in HANDOFF.
+They remain OPEN for separate maintenance, with no program repair in HANDOFF.
 
 ## Final Phase acceptance and release
 
 Stage Status:
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Phase 72 parent
 - Update rule: Update only against accepted Step and final gate evidence for the attributable PLAN epoch.
 - Closure basis: All P72 items below and every Step acceptance item above.
 
-- [ ] P72-01 Exactly one comprehensive Phase review for the attributable PLAN epoch closed.
-- [ ] P72-02 Ordinary final full Cozy validation accepted.
-- [ ] P72-03 Phase/checklist/index/strategy and accepted journal closure synchronized.
-- [ ] P72-04 Actionable CNCF91 and sm-workflow recipient handoff accepted.
-- [ ] P72-05 Distinct final parent manual local release commit recorded.
+- [x] P72-01 Sole P72-FULL-REVIEW-001 revision1 for P72-PLAN-E1 passed; zero current blockers.
+- [x] P72-02 Ordinary final full Cozy validation accepted.
+- [x] P72-03 Phase/checklist/index/strategy and accepted journal closure synchronized.
+- [x] P72-04 Actionable CNCF91 and sm-workflow recipient handoff accepted through HANDOFF and sole full review; receiver integration remains recipient-owned.
+- [x] P72-05 Distinct final parent manual local release commit recorded.
+
+Final validation: P72-FINAL-VAL-001 passed: 2,688 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 186 suites, 0 aborted; SBT/wrapper exit 0 and `lock=released`. The nine cancellations match the previously accepted baseline; the affected specifications are unchanged from the original Phase 72 base. All 1,557 declared tracked validation inputs and Gitlinks remain unchanged. The containing distinct parent manual local release commits this canonical closure and both exact accepted Hygiene records; no Development Candidate or empty journal is added.

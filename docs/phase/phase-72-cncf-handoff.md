@@ -5,9 +5,9 @@
 This is the authored S72.3 HANDOFF for [Phase 72](phase-72.md). SOURCE is
 accepted at `6c15b65cd83181fdf61aa8674c9a847f79751805`; ABI is accepted at
 `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`. HANDOFF static validation is
-accepted and independent selected Step review is PASS with zero blockers. The
-parent manual local Step commit remains pending in the
-[checklist](phase-72-checklist.md). Final Phase gates remain open.
+accepted and independent selected Step review is PASS with zero blockers. Parent manual local HANDOFF commit
+`783a48552de5fa6a4b34a8dfe9c1184f005de62f` records acceptance. The sole
+Phase-wide review passed. Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72 in the [checklist](phase-72-checklist.md).
 
 ## Authority and ownership
 
@@ -18,7 +18,7 @@ and the chain Execution Model → Failure Model → Required Robustness → Mech
 
 | Owner | Responsibility | Acceptance boundary |
 |---|---|---|
-| Cozy / CML Phase 72 | Strict source admission; immutable source-correlated defaults and deltas; deterministic JSON/Scala development metadata and effective comparison oracle | SOURCE and ABI accepted; this HANDOFF authored, acceptance pending |
+| Cozy / CML Phase 72 | Strict source admission; immutable source-correlated defaults and deltas; deterministic JSON/Scala development metadata and effective comparison oracle | SOURCE, ABI and HANDOFF accepted; sole Phase-wide review PASS |
 | CNCF Phase 91 | Canonical `ExecutionModel`, `FailureModel`, `ResolvedFailureModel` types; recipient validation; runtime resolver and exposure to CAR/development consumers | Receiver construction, ingestion hookup and runtime integration remain recipient-owned and pending |
 | sm-workflow | Implementation guidance using only CNCF recipient-resolved effective contracts at the named owner | Depends on CNCF receiver acceptance; workflow/AI wiring is unverified |
 
@@ -174,3 +174,7 @@ The accepted nonblocking naming-maintenance record is preserved in the
 [Phase 72 hygiene follow-up](../journal/2026/10/2026-10-03-phase-72-hygiene-follow-up.md).
 It remains a separately authorized maintenance boundary and does not change
 Failure Model acceptance or authorize program edits in this HANDOFF.
+
+## Cozy producer closure
+
+P72-FINAL-VAL-001 passed: 2,688 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 186 suites, 0 aborted; SBT/wrapper exit 0 and `lock=released`. The containing distinct parent manual local release closes Cozy Phase 72 after accepted SOURCE, ABI and HANDOFF commits and its sole comprehensive Phase review. Existing cancellations retain the unchanged original specifications. CNCF91 receiver admission/runtime resolution and sm-workflow wiring remain recipient-owned prerequisites; the recipient acceptance checklist above remains unchecked.

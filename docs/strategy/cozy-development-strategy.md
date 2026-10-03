@@ -1641,7 +1641,7 @@ Primary references:
 
 ### Phase 72: CML Failure Model
 
-Status: in_progress (updated 2026-10-03); SOURCE and ABI accepted, HANDOFF pending.
+Status: COMPLETE (updated 2026-10-03); SOURCE, ABI and HANDOFF accepted; sole Phase-wide review and final full validation passed; the containing local release closes this Phase.
 
 Cozy admits explicit Execution Model defaults and Component/Service/Operation
 IN_SCOPE/OUT_OF_SCOPE deltas, preserving source identities and ordered effective
@@ -1656,8 +1656,10 @@ The [Phase](../phase/phase-72.md), [checklist](../phase/phase-72-checklist.md) a
 authored [recipient handoff](../phase/phase-72-cncf-handoff.md) record exact
 contracts, fixture comparisons, reproduction and recipient prerequisites.
 HANDOFF static validation is accepted and independent Step review is PASS with
-zero blockers. Its parent manual local commit, all final Phase gates and
-receiver/workflow integration remain pending. Existing
+zero blockers. Its parent manual local commit is
+`783a48552de5fa6a4b34a8dfe9c1184f005de62f`; the sole Phase-wide review passed.
+Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72. Receiver/workflow
+integration remains recipient-owned. Existing
 nonblocking maintenance stays in the separate
 [hygiene follow-up](../journal/2026/10/2026-10-03-phase-72-hygiene-follow-up.md).
 This status projection preserves the Phase 71/75 history and other priorities;

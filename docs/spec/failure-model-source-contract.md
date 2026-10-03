@@ -75,5 +75,6 @@ generation and library-target policy. SOURCE commit
 `6c15b65cd83181fdf61aa8674c9a847f79751805` and ABI commit
 `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843` are accepted. The authored
 [S72.3 recipient handoff](../phase/phase-72-cncf-handoff.md) gives the concrete
-fixture oracle and CNCF91/sm-workflow acceptance prerequisites; HANDOFF acceptance
-remains pending. These instructions do not change this normative source contract.
+fixture oracle and CNCF91/sm-workflow acceptance prerequisites; HANDOFF is accepted at commit
+`783a48552de5fa6a4b34a8dfe9c1184f005de62f`; the sole Phase-wide review passed.
+Final full validation passed; the containing distinct parent manual local release commit closes Cozy Phase 72. These instructions do not change this normative source contract.
