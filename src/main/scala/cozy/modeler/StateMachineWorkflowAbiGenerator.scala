@@ -18,31 +18,35 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   val lifecycleBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v3"
   val executionSafetySchemaVersion: String = "cozy.cml.statemachine-workflow-abi.v4"
   val executionSafetyBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v4"
+  val semanticOutcomeSchemaVersion: String = "cozy.cml.statemachine-workflow-abi.v5"
+  val semanticOutcomeBootstrapSchemaVersion: String = "cozy.cml.statemachine-workflow-bootstrap.v5"
   val metadataPath: String = "target/cozy/statemachine-workflow-abi.json"
 
   private val _root = "target/scala-3.3.8/src_managed/main/scala/domain/statemachine/workflow"
 
   def generate(workflows: Vector[WorkflowDefinition]): Realm = {
-    val safetybearing = _has_execution_safety(workflows)
+    val outcomebearing = _has_semantic_outcomes(workflows)
+    val safetybearing = outcomebearing || _has_execution_safety(workflows)
     val lifecyclebearing = safetybearing || _has_lifecycle(workflows)
     val policybearing = lifecyclebearing || _has_policies(workflows)
     val builder = Realm.Builder()
-    builder.set(s"${_root}/StateMachineWorkflowAbi.scala", _abi_source(policybearing, lifecyclebearing, safetybearing))
-    builder.set(s"${_root}/StateMachineWorkflowComponentFactoryBootstrap.scala", _bootstrap_source(workflows, policybearing, lifecyclebearing, safetybearing))
+    builder.set(s"${_root}/StateMachineWorkflowAbi.scala", _abi_source(policybearing, lifecyclebearing, safetybearing, outcomebearing))
+    builder.set(s"${_root}/StateMachineWorkflowComponentFactoryBootstrap.scala", _bootstrap_source(workflows, policybearing, lifecyclebearing, safetybearing, outcomebearing))
     workflows.zipWithIndex.foreach { case (workflow, index) =>
       val objectname = _object_name(workflow, index)
-      builder.set(s"${_root}/$objectname.scala", _workflow_source(workflow, objectname, policybearing, lifecyclebearing, safetybearing))
+      builder.set(s"${_root}/$objectname.scala", _workflow_source(workflow, objectname, policybearing, lifecyclebearing, safetybearing, outcomebearing))
     }
     builder.build()
   }
 
   def canonicalJson(workflows: Vector[WorkflowDefinition]): String = {
-    val safetybearing = _has_execution_safety(workflows)
+    val outcomebearing = _has_semantic_outcomes(workflows)
+    val safetybearing = outcomebearing || _has_execution_safety(workflows)
     val lifecyclebearing = safetybearing || _has_lifecycle(workflows)
     val policybearing = lifecyclebearing || _has_policies(workflows)
     _json_object(Vector(
-      "schemaVersion" -> _json_string(_schema_version(policybearing, lifecyclebearing, safetybearing)),
-      "workflows" -> _json_array(workflows.map(_workflow_json(_, policybearing, lifecyclebearing, safetybearing)))
+      "schemaVersion" -> _json_string(_schema_version(policybearing, lifecyclebearing, safetybearing, outcomebearing)),
+      "workflows" -> _json_array(workflows.map(_workflow_json(_, policybearing, lifecyclebearing, safetybearing, outcomebearing)))
     ))
   }
 
@@ -55,10 +59,13 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   private def _has_execution_safety(workflows: Vector[WorkflowDefinition]): Boolean =
     workflows.exists(x => x.failurePolicies.nonEmpty || x.executionSafetyPolicy.nonEmpty)
 
-  private def _schema_version(policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String =
-    if (safetybearing) executionSafetySchemaVersion else if (lifecyclebearing) lifecycleSchemaVersion else if (policybearing) policySchemaVersion else schemaVersion
+  private def _has_semantic_outcomes(workflows: Vector[WorkflowDefinition]): Boolean =
+    workflows.exists(_.semanticOutcomes.nonEmpty)
 
-  private def _abi_source(policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String = {
+  private def _schema_version(policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean, outcomebearing: Boolean): String =
+    if (outcomebearing) semanticOutcomeSchemaVersion else if (safetybearing) executionSafetySchemaVersion else if (lifecyclebearing) lifecycleSchemaVersion else if (policybearing) policySchemaVersion else schemaVersion
+
+  private def _abi_source(policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean, outcomebearing: Boolean): String = {
     val declarations = if (policybearing)
       """  sealed trait InvocationTarget { def identity: String }
         |  object InvocationTarget {
@@ -103,10 +110,20 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
         |  final case class ExecutionSafetyPolicy(logicalExecutionIdentityRef: String, duplicateProtection: DuplicateProtection, source: SourceIdentity)
         |""".stripMargin else ""
     val safetyfields = if (safetybearing) ", failurePolicies: Vector[FailurePolicy] = Vector.empty, executionSafetyPolicy: Option[ExecutionSafetyPolicy] = None" else ""
+    val outcomedeclarations = if (outcomebearing)
+      """  enum SemanticOutcome(val canonicalValue: String) {
+        |    case NeedsInput extends SemanticOutcome("NEEDS_INPUT")
+        |    case NeedsRevision extends SemanticOutcome("NEEDS_REVISION")
+        |    case Rejected extends SemanticOutcome("REJECTED")
+        |  }
+        |  final case class SemanticOutcomeTransition(role: String, stateMachine: String, from: String, to: String, on: String)
+        |  final case class SemanticOutcomeDeclaration(identity: String, target: InvocationTarget, actionIdentity: String, outcome: SemanticOutcome, transition: SemanticOutcomeTransition, source: SourceIdentity)
+        |""".stripMargin else ""
+    val outcomefield = if (outcomebearing) ", semanticOutcomes: Vector[SemanticOutcomeDeclaration] = Vector.empty" else ""
     s"""package domain.statemachine.workflow
        |
        |object StateMachineWorkflowAbi {
-       |  val VERSION: String = ${_quote(_schema_version(policybearing, lifecyclebearing, safetybearing))}
+       |  val VERSION: String = ${_quote(_schema_version(policybearing, lifecyclebearing, safetybearing, outcomebearing))}
        |
        |  final case class SourceIdentity(line: Option[Int])
        |  final case class WorkflowSourceCorrelation(root: SourceIdentity, definition: SourceIdentity)
@@ -152,13 +169,13 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
        |    final case class Failed(failure: StateMachineOperationFailure) extends ActionExecution
        |  }
        |  final case class WorkflowRequiredOperationDescriptor(identity: StateMachineRequiredOperationIdentity, actionIdentity: String, operation: StateMachineOperationIdentity, inputType: Option[StateMachineInputTypeReference], resultType: Option[StateMachineResultTypeReference], capabilitySource: SourceIdentity, actionSource: SourceIdentity)
-       |${declarations}${lifecycledeclarations}${safetydeclarations}  final case class WorkflowDescriptor(schemaVersion: String, identity: String, version: String, source: WorkflowSourceCorrelation, states: Vector[State], actions: Vector[Action], requiredOperations: Vector[WorkflowRequiredOperationDescriptor]$policyfield$lifecyclefields$safetyfields)
+       |${declarations}${lifecycledeclarations}${safetydeclarations}${outcomedeclarations}  final case class WorkflowDescriptor(schemaVersion: String, identity: String, version: String, source: WorkflowSourceCorrelation, states: Vector[State], actions: Vector[Action], requiredOperations: Vector[WorkflowRequiredOperationDescriptor]$policyfield$lifecyclefields$safetyfields$outcomefield)
        |  final case class ComponentFactoryMetadata(workflow: WorkflowDescriptor)
        |}
        |""".stripMargin
   }
 
-  private def _bootstrap_source(workflows: Vector[WorkflowDefinition], policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String = {
+  private def _bootstrap_source(workflows: Vector[WorkflowDefinition], policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean, outcomebearing: Boolean): String = {
     val references = workflows.zipWithIndex.map { case (workflow, index) =>
       s"${_object_name(workflow, index)}.componentFactoryMetadata"
     }
@@ -166,7 +183,7 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     s"""package domain.statemachine.workflow
        |
        |object StateMachineWorkflowComponentFactoryBootstrap {
-       |  val schemaVersion: String = ${_quote(if (safetybearing) executionSafetyBootstrapSchemaVersion else if (lifecyclebearing) lifecycleBootstrapSchemaVersion else if (policybearing) policyBootstrapSchemaVersion else bootstrapSchemaVersion)}
+       |  val schemaVersion: String = ${_quote(if (outcomebearing) semanticOutcomeBootstrapSchemaVersion else if (safetybearing) executionSafetyBootstrapSchemaVersion else if (lifecyclebearing) lifecycleBootstrapSchemaVersion else if (policybearing) policyBootstrapSchemaVersion else bootstrapSchemaVersion)}
        |  val componentFactoryMetadata: Vector[StateMachineWorkflowAbi.ComponentFactoryMetadata] = $metadata
        |}
        |""".stripMargin
@@ -177,33 +194,48 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
     objectname: String,
     policybearing: Boolean,
     lifecyclebearing: Boolean,
-    safetybearing: Boolean
+    safetybearing: Boolean,
+    outcomebearing: Boolean
   ): String =
     s"""package domain.statemachine.workflow
        |
        |object $objectname {
-       |  val workflow: StateMachineWorkflowAbi.WorkflowDescriptor = ${_workflow_descriptor(workflow, policybearing, lifecyclebearing, safetybearing)}
+       |  val workflow: StateMachineWorkflowAbi.WorkflowDescriptor = ${_workflow_descriptor(workflow, policybearing, lifecyclebearing, safetybearing, outcomebearing)}
        |  val componentFactoryMetadata: StateMachineWorkflowAbi.ComponentFactoryMetadata = StateMachineWorkflowAbi.ComponentFactoryMetadata(workflow)
        |}
        |""".stripMargin
 
-  private def _workflow_descriptor(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String = {
+  private def _workflow_descriptor(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean, outcomebearing: Boolean): String = {
     val policies = if (policybearing)
       s",\n  invocationPolicies = ${_vector(value.invocationPolicies.map(_invocation_policy))}" else ""
     val lifecycle = if (lifecyclebearing)
       s",\n  lifecyclePolicy = ${_option(value.lifecyclePolicy.map(_lifecycle_policy))},\n  waits = ${_vector(value.waits.map(_wait_declaration))}" else ""
     val safety = if (safetybearing)
       s",\n  failurePolicies = ${_vector(value.failurePolicies.map(_failure_policy))},\n  executionSafetyPolicy = ${_option(value.executionSafetyPolicy.map(_execution_safety_policy))}" else ""
+    val outcomes = if (outcomebearing)
+      s",\n  semanticOutcomes = ${_vector(value.semanticOutcomes.map(_semantic_outcome_declaration))}" else ""
     s"""StateMachineWorkflowAbi.WorkflowDescriptor(
-       |  schemaVersion = ${_quote(_schema_version(policybearing, lifecyclebearing, safetybearing))},
+       |  schemaVersion = ${_quote(_schema_version(policybearing, lifecyclebearing, safetybearing, outcomebearing))},
        |  identity = ${_quote(value.identity)},
        |  version = ${_quote(value.version)},
        |  source = ${_workflow_source_correlation(value.source)},
        |  states = ${_vector(value.compositeStateMachine.states.map(_state))},
        |  actions = ${_vector(value.compositeStateMachine.actions.map(_action))},
-       |  requiredOperations = ${_vector(value.requiredOperations.map(_required_spi))}$policies$lifecycle$safety
+       |  requiredOperations = ${_vector(value.requiredOperations.map(_required_spi))}$policies$lifecycle$safety$outcomes
        |)""".stripMargin
   }
+
+  private def _semantic_outcome(value: WorkflowSemanticOutcome): String = value match {
+    case WorkflowSemanticOutcome.NeedsInput => "StateMachineWorkflowAbi.SemanticOutcome.NeedsInput"
+    case WorkflowSemanticOutcome.NeedsRevision => "StateMachineWorkflowAbi.SemanticOutcome.NeedsRevision"
+    case WorkflowSemanticOutcome.Rejected => "StateMachineWorkflowAbi.SemanticOutcome.Rejected"
+  }
+
+  private def _semantic_outcome_transition(value: WorkflowSemanticOutcomeTransition): String =
+    s"StateMachineWorkflowAbi.SemanticOutcomeTransition(${_quote(value.role)}, ${_quote(value.stateMachine)}, ${_quote(value.from)}, ${_quote(value.to)}, ${_quote(value.on)})"
+
+  private def _semantic_outcome_declaration(value: WorkflowSemanticOutcomeDeclaration): String =
+    s"StateMachineWorkflowAbi.SemanticOutcomeDeclaration(${_quote(value.identity)}, ${_invocation_target(value.target)}, ${_quote(value.actionIdentity)}, ${_semantic_outcome(value.outcome)}, ${_semantic_outcome_transition(value.transition)}, ${_workflow_source(value.source)})"
 
   private def _failure_classification(value: WorkflowFailureClassification): String = value match {
     case WorkflowFailureClassification.Retryable => "StateMachineWorkflowAbi.FailureClassification.Retryable"
@@ -280,7 +312,7 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
   private def _source(value: CompositeStateMachineSourceIdentity): String =
     s"StateMachineWorkflowAbi.SourceIdentity(${_option(value.line.map(_.toString))})"
 
-  private def _workflow_json(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean): String =
+  private def _workflow_json(value: WorkflowDefinition, policybearing: Boolean, lifecyclebearing: Boolean, safetybearing: Boolean, outcomebearing: Boolean): String =
     _json_object(Vector(
       "identity" -> _json_string(value.identity),
       "version" -> _json_string(value.version),
@@ -296,7 +328,30 @@ private[modeler] object StateMachineWorkflowAbiGenerator {
       ++ (if (safetybearing) Vector(
         "failurePolicies" -> _json_array(value.failurePolicies.map(_failure_policy_json)),
         "executionSafetyPolicy" -> _json_option(value.executionSafetyPolicy.map(_execution_safety_policy_json))
-      ) else Vector.empty))
+      ) else Vector.empty)
+      ++ (if (outcomebearing) Vector("semanticOutcomes" -> _json_array(value.semanticOutcomes.map(_semantic_outcome_json))) else Vector.empty))
+
+  private def _semantic_outcome_json(value: WorkflowSemanticOutcomeDeclaration): String =
+    _json_object(Vector(
+      "identity" -> _json_string(value.identity),
+      "target" -> _json_object(Vector(
+        "kind" -> _json_string(value.target match {
+          case _: WorkflowInvocationTarget.Action => "ACTION"
+          case _: WorkflowInvocationTarget.Participant => "PARTICIPANT"
+        }),
+        "identity" -> _json_string(value.target.identity)
+      )),
+      "actionIdentity" -> _json_string(value.actionIdentity),
+      "outcome" -> _json_string(value.outcome.canonicalValue),
+      "transition" -> _json_object(Vector(
+        "role" -> _json_string(value.transition.role),
+        "stateMachine" -> _json_string(value.transition.stateMachine),
+        "from" -> _json_string(value.transition.from),
+        "to" -> _json_string(value.transition.to),
+        "on" -> _json_string(value.transition.on)
+      )),
+      "source" -> _workflow_source_json(value.source)
+    ))
 
   private def _failure_policy_json(value: WorkflowFailurePolicy): String =
     _json_object(Vector(

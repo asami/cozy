@@ -27,9 +27,13 @@ CNCF Phase 84 は receiver integration、runtime/history/diagnostics と enforce
   canonical ledgers and a distinct manual local release commit.
 
 The [canonical checklist](phase-69-checklist.md) is the closure authority.
-S69.1 artifacts are authored and pending parent focused validation, independent
-protected review and manual Step commit. ABI, handoff and final gates remain
-open. Source authoring does not promise generated v5 output.
+S69.1 SOURCE is CLOSED at manual local commit
+`8f066d2c475b4b2e58818ccde2dd8bded180e658`: P69-S691-VAL-001 passed the selected
+seven-suite accumulator with 389/389 tests, whole twelve-path authoring and
+mechanical preflight were reconciled, and P69-S691-REVIEW-001 revision 1 is PASS.
+S69.2 ABI is authored and IN_PROGRESS; its behavior validation, actual generated
+Scala3 compilation, independent review and manual Step commit remain pending.
+S69.3 HANDOFF and all final Phase gates remain OPEN.
 
 ## Minimum semantics and abstraction evaluation
 
@@ -71,15 +75,40 @@ prose, without provider execution grammar.
 Existing HYG-P67-S671-001 parser-size and HYG-P67-S671-002 follow-up debt remain
 separate; the cohesive invocation ownership extraction is not a Hygiene closure.
 
+## Generated ABI authoring
+
+The [normative v5 ABI contract](../spec/workflow-semantic-outcome-abi-contract.md)
+and [frozen ABI lowering design](../design/workflow-semantic-outcome-abi-lowering.md)
+describe one collection-selected schema, direct immutable declarations and
+unchanged absence output. The [generator](../../src/main/scala/cozy/modeler/StateMachineWorkflowAbiGenerator.scala)
+adds only v5 enum/declaration/transition types and the defaulted trailing outcome
+vector. JSON, every member and bootstrap select the same schema. Declared target
+spelling, canonical Action, original machine qualification, normalized edges,
+nullable source lines and opaque/scalar values are projected directly.
+
+The [ABI executable specification](../../src/test/scala/cozy/modeler/WorkflowSemanticOutcomeAbiGenerationSpec.scala)
+authors twelve semantic families, repeated actual public routes and typed probes
+for the normal/value/mixed compiler groups. The mixed collection is the exact
+ordered Legacy/Policy/Lifecycle/Safety/Review/OutcomeOnly/OutcomeEdge sequence.
+The [original v4 baseline](../../src/test/resources/modeler/workflow-semantic-outcome-v4-baseline/provenance.md)
+contains four immutable actual producer products captured before Phase69 edits;
+existing v1 pins and v2/v3 baseline expectations remain independent. Authored
+generation and compilation probes await parent execution and acceptance.
+
 ## Acceptance ownership
 
-The parent reconciles executable-spec authoring evidence and whole-file
-compliance before the seven-suite S69.1 focused accumulator (including Test/compile).
+The parent completed S69.1 executable-spec authoring reconciliation, whole-file
+compliance and the seven-suite focused accumulator including Test/compile.
+S69.2 requires reconciliation of all eleven ABI products, complete executable
+family inventory and four original byte vectors before its selected eight-suite
+behavior accumulator and actual normal/value/mixed Scala3.3.8 compilation.
 Source and ABI each require an independent protected focused gpt-6.1-sol/high
 review; handoff requires an independent medium review. Exactly one high full
 Phase review covers all accepted Steps in P69-PLAN-E1. Parent manual local
 commits remain distinct per Step and for release. Final normal full Cozy test
 and actual generated Scala 3 compilation are required, not inferred from source
 authoring. CNCF runtime completion is a receiver responsibility and not a Cozy
-producer Phase closure requirement. No validation, review or commit is claimed
-by this authored record.
+producer Phase closure requirement. S69.1 acceptance is recorded above;
+S69.2 validation/compile/review/commit and later Phase acceptance remain pending.
+P69-PLAN-E1 retains original base `de3b03530b163ede8c11440093b1a71c0a9fb034`
+and its single full Phase review allowance.

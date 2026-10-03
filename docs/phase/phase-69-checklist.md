@@ -16,9 +16,9 @@ P69-PLAN-E1 retains the original immutable base
 ## S69.1 SOURCE
 
 Stage Status:
-- Current status: IN_PROGRESS.
+- Current status: CLOSED.
 - Owner: Cozy source parent and admitted source implementation worker.
-- Update rule: synchronize only authored source artifacts now; parent owns focused validation, independent protected review and manual Step commit acceptance.
+- Update rule: preserve accepted source evidence; parent owns later ABI/handoff/final acceptance updates.
 - Closure basis: every S69.1 item below, including authoring reconciliation and acceptance evidence.
 
 - [x] [Normative source contract](../spec/workflow-semantic-outcome-source-contract.md) authored with exact NEEDS_INPUT/NEEDS_REVISION/REJECTED, closed fields and contextual ownership.
@@ -28,23 +28,25 @@ Stage Status:
 - [x] [Real typed review-loop fixture](../../src/test/resources/modeler/workflow-semantic-outcome.cml) authored with six actual edges, complete derivations, explicit initial state and independent retry/lifecycle/wait/failure/safety declarations.
 - [x] [Interface executable specification](../../src/test/scala/cozy/modeler/WorkflowSemanticOutcomeCmlSpec.scala) authored with adjacent Given/When/Then, real ModelBuilder/Modeler admission, actual graph/Entity reference cases and bounded alias property.
 - [x] Minimum abstraction decision recorded: ordinary graph revision/input backedges and terminal/escalation states suffice for supplied evidence; no Iteration type, counter/budget, termination/escalation policy or scheduler. Unavailable sm-workflow is a verification limitation; future evidence has separate scope.
-- [ ] Parent reconciles every scenario/table family's authoring evidence and affected-consumer symbols before validation.
-- [ ] Parent mechanical preflight: exact twelve-path inventory, diff check, actual Oct.3 headers/naming/grouping, cohesive CSM parser no longer than original 1,037 lines, working new links and truthful pending ledgers.
-- [ ] Registered serialized SBT focused accumulator passes with exit 0 and terminal lock=released: `--batch` and `testOnly cozy.modeler.WorkflowSemanticOutcomeCmlSpec cozy.modeler.WorkflowExecutionSafetyCmlSpec cozy.modeler.WorkflowLifecycleCmlSpec cozy.modeler.WorkflowRuntimeControlCmlSpec cozy.modeler.StateMachineApiSpiSpec cozy.modeler.WorkflowCmlSpec cozy.modeler.CompositeStateMachineCmlSpec`. This includes Test/compile; no redundant compile or Step full suite.
-- [ ] Fresh independent step-protected-focused gpt-6.1-sol/high source conformance review accepted.
-- [ ] Parent manual local S69.1 Step commit recorded from the accepted source accumulator.
+- [x] Parent reconciled every scenario/table family's authoring evidence and affected-consumer symbols before validation.
+- [x] Parent whole twelve-path authoring and mechanical preflight: inventory, diff check, actual Oct.3 headers/naming/grouping, cohesive CSM parser no longer than original 1,037 lines, working new links and truthful pending ledgers.
+- [x] P69-S691-VAL-001: actual 389/389 seven-suite registered serialized SBT focused accumulator passed with exit 0 and terminal lock=released: `--batch` and `testOnly cozy.modeler.WorkflowSemanticOutcomeCmlSpec cozy.modeler.WorkflowExecutionSafetyCmlSpec cozy.modeler.WorkflowLifecycleCmlSpec cozy.modeler.WorkflowRuntimeControlCmlSpec cozy.modeler.StateMachineApiSpiSpec cozy.modeler.WorkflowCmlSpec cozy.modeler.CompositeStateMachineCmlSpec`. This included Test/compile.
+- [x] P69-S691-REVIEW-001 revision 1: fresh independent step-protected-focused gpt-6.1-sol/high source conformance review PASS accepted.
+- [x] Parent manual local S69.1 Step commit `8f066d2c475b4b2e58818ccde2dd8bded180e658` recorded from the accepted source accumulator.
 
 ## S69.2 ABI
 
 Stage Status:
-- Current status: OPEN.
+- Current status: IN_PROGRESS.
 - Owner: Cozy generated Workflow ABI parent.
 - Update rule: enter only after accepted S69.1; check projection/compilation/review/commit gates from actual producer evidence.
 - Closure basis: every S69.2 item below; source acceptance alone supplies no generated v5 contract.
 
-- [ ] Additive semantic outcome ABI spec/design and generated JSON/Scala/bootstrap projection authored under a frozen ABI manifest.
-- [ ] Ordered canonical semantic outcomes, actual edge references and source correlation appear consistently in all generated representations.
-- [ ] Phase69 absence preserves legacy v1/v2/v3/v4 behavior and retained actual v4 baseline products.
+- [x] [Additive ABI contract](../spec/workflow-semantic-outcome-abi-contract.md), [paired lowering design](../design/workflow-semantic-outcome-abi-lowering.md) and [JSON/Scala/bootstrap generator](../../src/main/scala/cozy/modeler/StateMachineWorkflowAbiGenerator.scala) authored under P69-CONT-S692-IMPLEMENTATION-001 revision 1, preserving the original frozen S69.2 contract.
+- [x] Ordered immutable outcomes, actual edge references and source correlation projection authored with collection-selected v5 schema and defaulted trailing descriptor vector.
+- [x] Original absence branches retained and four immutable actual v4 [baseline resources/provenance](../../src/test/resources/modeler/workflow-semantic-outcome-v4-baseline/provenance.md) copied exactly; independent v1/v2/v3 expectations remain unchanged. Compatibility validation remains pending.
+- [x] [Interface ABI executable specification](../../src/test/scala/cozy/modeler/WorkflowSemanticOutcomeAbiGenerationSpec.scala) authored with all twelve semantic families, actual repeated public routes, meaningful opaque-value sampling and typed normal/value/seven-member mixed compiler-input materialization.
+- [ ] Parent reconciles all eleven products, complete semantic-family/GWT inventory, affected consumers, whole generator/spec conformance and four original baseline byte vectors before validation.
 - [ ] Generated ABI executable specifications and selected proportional focused validation pass, including the affected producer/consumer symbol map and compile coverage.
 - [ ] Actual generated Scala 3 normal/value/mixed consumer compilation passes through registered serialized SBT; generated source is not merely inspected as strings.
 - [ ] Fresh independent step-protected-focused gpt-6.1-sol/high ABI conformance review accepted.
