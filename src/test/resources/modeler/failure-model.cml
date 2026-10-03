@@ -1,0 +1,105 @@
+# EXECUTION-MODEL
+
+## LocalSingleWriter
+
+### FAILURE-MODEL
+
+#### malformed-input
+scope = IN_SCOPE
+
+#### concurrent-write
+scope = OUT_OF_SCOPE
+
+#### network-partition
+scope = OUT_OF_SCOPE
+
+# COMPONENT
+
+## LocalStore
+
+This fixture explicitly assumes one local user and one writer. No behavior is inferred from its Execution Model name.
+
+### PACKAGE
+localstore
+
+### EXECUTION-MODEL
+model = LocalSingleWriter
+
+### FAILURE-MODEL
+
+#### concurrent-write
+scope = IN_SCOPE
+
+# SERVICE
+
+## Store
+
+### FAILURE-MODEL
+
+#### concurrent-write
+scope = OUT_OF_SCOPE
+
+### OPERATION
+
+#### save
+
+##### TYPE
+COMMAND
+##### INPUT
+###### TYPE
+StoreCommand
+##### OUTPUT
+###### TYPE
+StoreResult
+##### FAILURE-MODEL
+###### network-partition
+scope = IN_SCOPE
+
+#### remove
+
+##### TYPE
+COMMAND
+##### INPUT
+###### TYPE
+StoreCommand
+##### OUTPUT
+###### TYPE
+StoreResult
+
+## Archive
+
+### OPERATION
+
+#### archive
+
+##### TYPE
+COMMAND
+##### INPUT
+###### TYPE
+StoreCommand
+##### OUTPUT
+###### TYPE
+StoreResult
+
+# COMMAND
+
+## StoreCommand
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------+------|--------------|
+| text | string | 1 |
+
+# VALUE
+
+## StoreResult
+
+### EXTENDS
+OperationResult
+
+### ATTRIBUTE
+
+| name | type | multiplicity |
+|------+------|--------------|
+| status | string | 1 |

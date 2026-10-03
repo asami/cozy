@@ -53,7 +53,8 @@ import scala.collection.mutable
  *  version May. 24, 2026
  *  version Jul. 31, 2026
  *  version Aug. 14, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -806,6 +807,7 @@ object Modeler {
       predefinedResultCatalog: PredefinedResultCatalog,
     componentStyleCatalog: ComponentStyleCatalog
   ): ModelBuilder = {
+      FailureModelCml.requireDefinitions(p)
       CompositeStateMachineCml.validate(p)
       val relationships = ModelerRelationshipCml.relationshipDefinitions(p)
       val operationbindings = ModelerRelationshipCml.operationBindings(p, relationships)
