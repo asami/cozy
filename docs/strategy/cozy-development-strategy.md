@@ -1849,10 +1849,11 @@ separately owns receiver integration and scheduling/lifecycle runtime behavior.
 all three Steps and its [CNCF83 handoff](../phase/phase-68-cncf-handoff.md) are
 accepted. Sole full Phase review and final Cozy validation passed; the containing
 local release completes closure as recorded in the
-[checklist](../phase/phase-68-checklist.md). [Phase 69](../phase/phase-69.md) is IN_PROGRESS for goal-oriented
-iteration semantics: SOURCE/ABI are accepted and the
-[CNCF84 handoff](../phase/phase-69-cncf-handoff.md) is authored; handoff acceptance
-and final gates remain open in the [checklist](../phase/phase-69-checklist.md). Cozy owns syntax, model validation, lowering, and
+[checklist](../phase/phase-68-checklist.md). [Phase 69](../phase/phase-69.md) is COMPLETE for goal-oriented
+iteration semantics: all three Steps and the
+[CNCF84 handoff](../phase/phase-69-cncf-handoff.md) are accepted. The sole full
+Phase review and final Cozy full suite passed; the containing local release closes
+the [checklist](../phase/phase-69-checklist.md). Cozy owns syntax, model validation, lowering, and
 generated ABI; CNCF owns runtime scheduling, execution, and enforcement.
 
 Phase 70 is a planned future generalized Composite StateMachine semantic

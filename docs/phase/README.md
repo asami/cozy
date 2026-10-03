@@ -73,10 +73,10 @@ Phase status index (individual Phase/checklist files are authoritative):
   its [CNCF83 handoff](phase-68-cncf-handoff.md) are accepted. The sole full Phase
   review and final Cozy validation passed; the containing local release completes
   closure as recorded in the [checklist](phase-68-checklist.md). CNCF83 owns runtime enforcement.
-  [Phase 69](phase-69.md) is IN_PROGRESS for semantic iteration: SOURCE/ABI
-  are accepted and the [CNCF84 handoff](phase-69-cncf-handoff.md) is authored;
-  handoff acceptance and final gates remain open in its
-  [checklist](phase-69-checklist.md).
+  [Phase 69](phase-69.md) is COMPLETE for semantic iteration: all three Steps
+  and the [CNCF84 handoff](phase-69-cncf-handoff.md) are accepted. The sole full
+  Phase review and final Cozy full suite passed; the containing local release
+  closes its [checklist](phase-69-checklist.md). CNCF84 owns receiver/runtime work.
   Cozy owns source semantics and generated ABI; CNCF owns runtime execution.
 - Deferred producer follow-up: [Phase 70](phase-70.md) specifies a future
   generalized Composite StateMachine semantic artifact with typed rules,

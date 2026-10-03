@@ -1,7 +1,7 @@
 # Workflow Semantic Outcome Generated ABI Contract
 
 Semantic role: Normative producer ABI contract.
-Current status: Accepted S69.2 ABI at 4f673a881f00d605fff6902e03499c7568a2a1e1; S69.3 handoff authored with static validation, independent medium review and manual Step commit pending; full Phase gates remain open.
+Current status: COMPLETE at the Cozy producer boundary. All three Steps and sole high P69-FULL-REVIEW-001 revision1 for P69-PLAN-E1 accepted, zero CPB/HYG/DEV. P69-FINAL-VAL-001 passed: 2,635 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 184 suites, 0 aborted; SBT/wrapper exit0 and `lock=released`. The distinct local release commit containing this record completes ordinary Phase69 closure. CNCF84 owns receiver integration, runtime execution/history and enforcement.
 Owner: Cozy generated Workflow ABI, Phase69 parent.
 Update rule: update together with the paired lowering design and executable specification; record acceptance only from parent evidence.
 Updated: 2026-10-03.
@@ -14,9 +14,9 @@ projects those declarations into deterministic Scala3 and canonical JSON
 through both existing `modeler-scala` and `modeler-scala-value` public routes.
 The [lowering design](../design/workflow-semantic-outcome-abi-lowering.md),
 [Phase69](../phase/phase-69.md) and [checklist](../phase/phase-69-checklist.md)
-record accepted SOURCE/ABI evidence and the authored
-[CNCF84 handoff](../phase/phase-69-cncf-handoff.md), whose acceptance and final
-Phase gates remain pending.
+record accepted SOURCE/ABI evidence and the accepted
+[CNCF84 handoff](../phase/phase-69-cncf-handoff.md). The sole full review passed;
+final full suite passed; the containing distinct local release completes closure.
 
 Selection applies to the entire declaration-ordered collection:
 
@@ -154,9 +154,10 @@ lock=released with normal shared caches. Four independent original v4 byte
 vectors and unchanged v1-v3 suites support compatibility.
 P69-S692-REVIEW-001 revision1 protected high review PASS and native Step commit
 `4f673a881f00d605fff6902e03499c7568a2a1e1` record ABI acceptance.
-The [CNCF84 handoff](../phase/phase-69-cncf-handoff.md) is authored; its static
-validation, medium independent review and manual Step commit remain pending,
-as do the sole full Phase review, ordinary full test and distinct release.
+The [CNCF84 handoff](../phase/phase-69-cncf-handoff.md) is accepted after static
+validation, independent medium review and manual Step commit
+`f9d1e5a766279b808ee95ce3409a5eda5dfd642f`. The sole full Phase review passed;
+final full suite passed; the containing distinct local release completes closure.
 Compilation demonstrates source compatibility, not receiver runtime acceptance.
 
 ## Receiver responsibilities and non-goals

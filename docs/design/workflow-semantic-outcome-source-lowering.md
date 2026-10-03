@@ -1,7 +1,7 @@
 # Workflow Semantic Outcome Source Lowering
 
 Semantic role: Stable Semantics (frozen design).
-Current status: Accepted S69.1 SOURCE and S69.2 ABI; S69.3 handoff authored, its static validation, independent medium review and manual Step commit pending; full Phase gates remain open.
+Current status: COMPLETE at the Cozy producer boundary. All three Steps and sole high P69-FULL-REVIEW-001 revision1 for P69-PLAN-E1 accepted, zero CPB/HYG/DEV. P69-FINAL-VAL-001 passed: 2,635 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 184 suites, 0 aborted; SBT/wrapper exit0 and `lock=released`. The distinct local release commit containing this record completes ordinary Phase69 closure. CNCF84 owns receiver integration, runtime execution/history and enforcement.
 Owner: Cozy Workflow source lowering, Phase 69 parent.
 Update rule: update together with the normative source contract and executable specification; record acceptance only from parent evidence.
 Updated: 2026-10-03.
@@ -105,7 +105,7 @@ normal/value/mixed sources4/4/10 with distinct class/tasty/analysis products;
 P69-S692-REVIEW-001 revision1 protected high review PASS. Both focused
 accumulators reported zero failed/aborted/canceled/ignored/pending and native
 exit0/lock=released. The [CNCF84 handoff](../phase/phase-69-cncf-handoff.md)
-is authored; its static validation, independent medium review and manual Step
-commit, sole full Phase review, ordinary final full test and distinct release
-remain pending. Accepted producer evidence does not prove receiver runtime
-execution or close Phase69.
+is accepted after static validation, independent medium review and manual
+Step commit `f9d1e5a766279b808ee95ce3409a5eda5dfd642f`. The sole full Phase
+review passed. Ordinary final full test passed; the containing distinct local release completes
+Cozy producer closure. Receiver runtime execution remains CNCF84-owned.

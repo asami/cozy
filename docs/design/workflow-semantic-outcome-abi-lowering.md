@@ -1,7 +1,7 @@
 # Workflow Semantic Outcome ABI Lowering
 
 Semantic role: Stable Semantics (frozen design).
-Current status: Accepted S69.2 ABI at 4f673a881f00d605fff6902e03499c7568a2a1e1; S69.3 handoff authored with static validation, independent medium review and manual Step commit pending; full Phase gates remain open.
+Current status: COMPLETE at the Cozy producer boundary. All three Steps and sole high P69-FULL-REVIEW-001 revision1 for P69-PLAN-E1 accepted, zero CPB/HYG/DEV. P69-FINAL-VAL-001 passed: 2,635 succeeded, 0 failed, 9 canceled, 0 ignored, 0 pending; 184 suites, 0 aborted; SBT/wrapper exit0 and `lock=released`. The distinct local release commit containing this record completes ordinary Phase69 closure. CNCF84 owns receiver integration, runtime execution/history and enforcement.
 Owner: Cozy generated Workflow ABI, Phase69 parent.
 Update rule: maintain with the normative ABI contract and executable specification; parent evidence alone changes acceptance status.
 Updated: 2026-10-03.
@@ -12,9 +12,9 @@ The [normative ABI contract](../spec/workflow-semantic-outcome-abi-contract.md)
 consumes the accepted [source contract](../spec/workflow-semantic-outcome-source-contract.md)
 and its [source lowering design](workflow-semantic-outcome-source-lowering.md).
 [Phase69](../phase/phase-69.md) and its [checklist](../phase/phase-69-checklist.md)
-record accepted S69.1 SOURCE and S69.2 ABI, with the
-[CNCF84 handoff](../phase/phase-69-cncf-handoff.md) authored and its acceptance
-and final Phase gates pending.
+record accepted S69.1 SOURCE, S69.2 ABI and the
+[CNCF84 handoff](../phase/phase-69-cncf-handoff.md). The sole full review passed;
+final full suite passed; the containing distinct local release completes closure.
 
 `StateMachineWorkflowAbiGenerator` remains the sole projection owner. One
 collection predicate tests nonempty `semanticOutcomes`. It selects v5 and enables
@@ -104,10 +104,10 @@ preflight, and P69-S691-REVIEW-001 revision 1 protected high PASS. S69.2 is
 accepted at `4f673a881f00d605fff6902e03499c7568a2a1e1` after the actual
 behavior/compiler evidence above and P69-S692-REVIEW-001 revision1 protected
 high PASS. Four original v4 byte vectors and unchanged v1-v3 suites support
-compatibility. The [S69.3 handoff](../phase/phase-69-cncf-handoff.md) is authored;
-static validation, independent medium review and its manual Step commit remain
-pending. All final Phase gates remain open, including the sole P69-PLAN-E1 full
-review, ordinary full test and distinct release.
+compatibility. The [S69.3 handoff](../phase/phase-69-cncf-handoff.md) is accepted
+after static validation, independent medium review and manual Step commit
+`f9d1e5a766279b808ee95ce3409a5eda5dfd642f`. The sole full Phase review passed;
+final full suite passed; the containing distinct local release completes closure.
 
 CNCF84 owns decoder/bootstrap integration, semantic result/event association,
 guards/current-state/concurrency, runtime history, diagnostics and enforcement.
