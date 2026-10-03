@@ -155,8 +155,14 @@ Phase status index (individual Phase/checklist files are authoritative):
   passed 102 focused tests and independent lightweight review. The sole full
   Phase review and accepted M0 cycle 1 have no remaining blockers. Ordinary
   full validation passed 2730 tests / 189 suites; this distinct parent manual
-  local release binds the final canonical closure. Following children remain PLANNED:
-  `phase-54.3.md` Workflow and StateMachine, `phase-54.4.md` Use Case and
+  local release binds the final canonical closure. [Phase 54.3](phase-54.3.md) Workflow and StateMachine is CLOSED with
+  all three Steps (`feb4ba8`, `4a57f37`, `2ef722d`), 141 focused tests, sole
+  full Phase review PASS and 2769 successful full tests / 192 suites
+  (9 pre-existing canceled cases). Its distinct parent manual local
+  release binds P543-CLOSURE-001 revision 1 and the
+  [dynamic handoff](../design/cml-dynamic-metadata-handoff.md). Following
+  children remain PLANNED and unstarted:
+  `phase-54.4.md` Use Case and
   Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
   traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
   semantic supplier for Textus CBD Support and does not implement its UI or

@@ -1,6 +1,6 @@
 # Phase 54.3: Dynamic Workflow and StateMachine Metadata
 
-Status: IN_PROGRESS
+Status: CLOSED
 
 Plan date: 2026-09-09
 Split from: [Phase 54](phase-54.md)
@@ -51,10 +51,10 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| MMD-543-01 | Publish Workflow identity, purpose, activities, control flow, branch/merge, participants, affected domain elements, and declared related operations/events/state effects. | supplier accepted; final Phase closure pending |
-| MMD-543-02 | Publish StateMachine, state, and transition identities with declared triggers, guards, actions, and owning/affected domain elements. | supplier accepted; final Phase closure pending |
-| MMD-543-03 | Preserve stable declared links among Workflow activities, StateMachine transitions, operations, events, and rules, including admitted operation/event cause and reaction links. | supplier and topology accepted; final Phase closure pending |
-| MMD-543-04 | Freeze dynamic fixtures and the Phase 54.4 cross-view handoff without defining runtime enforcement. | fixtures/handoff accepted; final Phase closure pending |
+| MMD-543-01 | Publish Workflow identity, purpose, activities, control flow, branch/merge, participants, affected domain elements, and declared related operations/events/state effects. | CLOSED |
+| MMD-543-02 | Publish StateMachine, state, and transition identities with declared triggers, guards, actions, and owning/affected domain elements. | CLOSED |
+| MMD-543-03 | Preserve stable declared links among Workflow activities, StateMachine transitions, operations, events, and rules, including admitted operation/event cause and reaction links. | CLOSED |
+| MMD-543-04 | Freeze dynamic fixtures and the Phase 54.4 cross-view handoff without defining runtime enforcement. | CLOSED |
 
 ## Current implementation boundary
 
@@ -84,7 +84,7 @@ the complete seven-path accumulator with zero current blockers. The parent
 records the manual local Step commit in its native audit:
 `4a57f37244be8f0bb5238bb92bb951ca615c8930`.
 
-S54.3.3 / DYNAMIC-FIXTURES-HANDOFF is authored under
+S54.3.3 / DYNAMIC-FIXTURES-HANDOFF is CLOSED under
 P543-S5433-IMPLEMENTATION-001 revision 1. Two fixed UTF-8 resources retain the
 accepted Classification prefix and add exact declared/absence facts: 42 records,
 three Terms and seventeen carriers, with 23 nodes and eight literal links.
@@ -95,9 +95,29 @@ The [handoff](../design/cml-dynamic-metadata-handoff.md) records exact internal
 supplier/reader/navigation APIs, synthetic caller provenance and the runnable
 nine-suite recipe. All 141 tests passed in nine selected focused/predecessor
 suites; P543-S5433-REVIEW-001 revision 1 independently accepted DF-01–09 with zero
-current blockers. The parent records the manual local Step commit in its native
-audit. Full Phase review, ordinary full validation, release
-commit and closure gates remain pending. Phase 54.4 remains unstarted.
+current blockers. The parent manual native Step commit is
+`2ef722dda75eaadf07b224b4e9548fc367025b06`; its audit is verified.
+Phase 54.4 remains unstarted.
+
+## Final acceptance and release
+
+S54.3.1, S54.3.2 and S54.3.3 are CLOSED at native parent manual commits
+`feb4ba862635a56fa0519ae75cef0bdd910739b2`,
+`4a57f37244be8f0bb5238bb92bb951ca615c8930` and
+`2ef722dda75eaadf07b224b4e9548fc367025b06`.
+The sole independent full Phase review P543-FULL-REVIEW-001 revision 1 is PASS
+with zero current blockers. Original typed review history remains in
+P543-REVIEW-LEDGER-001 revision 6; Phase repair cycles consumed: zero.
+Ordinary final `sbt --batch test` passed 2769 tests across 192 suites; failures and aborted suites were zero. The 9 pre-existing canceled cases retain their documented optional/deferred scope. SBT/wrapper exit 0 and `lock=released` were verified under P543-FINAL-FULL-VALIDATION-ADMISSION-001 revision 1.
+The distinct parent manual local release binds P543-CLOSURE-001 revision 1;
+its actual Git revision and committed-tree/clean-tree audit are recorded after
+successful commit in the private closure receipt. This committed closure
+projection becomes authoritative only on that verified release.
+HYG-P543-S5431-001 is persisted once in its
+[canonical follow-up](../journal/2026/10/2026-10-04-phase-54.3-hygiene-follow-up.md);
+it remains separate legacy projector maintenance. No Development Candidate
+exists and no empty candidate journal is created. Phase 54.4 remains PLANNED
+and unstarted; runtime and external consumer adoption retain their owners.
 
 ## Closure criteria
 

@@ -1,18 +1,27 @@
 # CML Dynamic Metadata Supplier Handoff
 
-Current status: S54.3.3 ACCEPTED after focused validation and independent Step
-review; manual Step commit audit pending. S54.3.1 and S54.3.2 are CLOSED.
+Current status: PHASE-54.3 CLOSED; all three Steps CLOSED.
 Owner: Cozy Dynamic metadata supplier; Phase 54.4 owns later Use Case/Actor adoption.
-Update rule: preserve the accepted foundation, Structure, Classification and
-Dynamic v1 contracts; consume explicit declared facts and gaps by qualified identity.
-Closure basis: all 141 tests passed in nine selected focused/predecessor suites;
-P543-S5433-REVIEW-001 revision 1 independently accepted DF-01–09 with zero blockers.
-The parent records the manual local Step commit in its native audit.
-S1 is CLOSED at `feb4ba862635a56fa0519ae75cef0bdd910739b2`;
-S2 is CLOSED at `4a57f37244be8f0bb5238bb92bb951ca615c8930`, with 132 successful
-tests in eight suites and independent P543-S5432-REVIEW-001 revision 1 PASS.
-The sole full Phase review, ordinary full test, release and final closure remain
-pending. Phase 54.4 is unstarted.
+Update rule: preserve the accepted foundation, Structure, Classification, Dynamic v1 and legacy ABI; use only declared facts and explicit gaps.
+
+Closure basis:
+S54.3.1, S54.3.2 and S54.3.3 are CLOSED at native parent manual commits
+`feb4ba862635a56fa0519ae75cef0bdd910739b2`,
+`4a57f37244be8f0bb5238bb92bb951ca615c8930` and
+`2ef722dda75eaadf07b224b4e9548fc367025b06`.
+The sole independent full Phase review P543-FULL-REVIEW-001 revision 1 is PASS
+with zero current blockers. Original typed review history remains in
+P543-REVIEW-LEDGER-001 revision 6; Phase repair cycles consumed: zero.
+Ordinary final `sbt --batch test` passed 2769 tests across 192 suites; failures and aborted suites were zero. The 9 pre-existing canceled cases retain their documented optional/deferred scope. SBT/wrapper exit 0 and `lock=released` were verified under P543-FINAL-FULL-VALIDATION-ADMISSION-001 revision 1.
+The distinct parent manual local release binds P543-CLOSURE-001 revision 1;
+its actual Git revision and committed-tree/clean-tree audit are recorded after
+successful commit in the private closure receipt. This committed closure
+projection becomes authoritative only on that verified release.
+HYG-P543-S5431-001 is persisted once in its
+[canonical follow-up](../journal/2026/10/2026-10-04-phase-54.3-hygiene-follow-up.md);
+it remains separate legacy projector maintenance. No Development Candidate
+exists and no empty candidate journal is created. Phase 54.4 remains PLANNED
+and unstarted; runtime and external consumer adoption retain their owners.
 
 ## Exact internal supplier and reader APIs
 
@@ -193,8 +202,8 @@ external acceptance. This authoring delivers no parser, projector, CLI, runtime,
 external dashboard/site acceptance or real-source/currentness claim.
 
 The [Phase](../phase/phase-54.3.md) and
-[checklist](../phase/phase-54.3-checklist.md) remain IN_PROGRESS. S1 and S2
-accepted history is retained; S3 is ACCEPTED with its manual commit audit and
-all final Phase gates pending. Original HYG-P543-S5431-001 remains the separately attributed legacy
-StateMachine projector follow-up, with canonical Hygiene projection required
-by the parent before final release bookkeeping; no projector edit occurs here.
+[checklist](../phase/phase-54.3-checklist.md) are CLOSED by the bound final
+supplier release. All three native Step audits are verified; actual full
+review and final validation evidence are recorded above. Original
+HYG-P543-S5431-001 remains separately attributed legacy StateMachine projector
+maintenance and is persisted in its canonical Hygiene journal.

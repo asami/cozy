@@ -1,20 +1,27 @@
 # CML Dynamic Metadata v1 Design
 
-Current status: S54.3.1 CLOSED at native commit
-`feb4ba862635a56fa0519ae75cef0bdd910739b2`; S54.3.2 topology CLOSED
-at `4a57f37244be8f0bb5238bb92bb951ca615c8930` after focused validation and
-independent Step review. S54.3.3 fixtures/handoff are ACCEPTED after focused
-validation and independent Step review; manual commit audit remains pending.
-Owner: Cozy Dynamic metadata supplier.
-Update rule: implement only the frozen PHASE-54.3 declared-fact boundary.
-Closure basis: accepted S1 DM-01–09 with retained 122-test evidence, protected
-Step review and parent M0 naming amendment. S2 passed all 132 tests in eight
-focused/predecessor suites; P543-S5432-REVIEW-001 revision 1 independently
-accepted DT-01–08 with zero current blockers. The parent records the manual
-local Step commit in its native audit. S3 passed all 141 tests in nine
-focused/predecessor suites; P543-S5433-REVIEW-001 revision 1 independently
-accepted DF-01–09 with zero current blockers. Its manual commit audit and final
-Phase review/test/release/closure remain pending.
+Current status: PHASE-54.3 CLOSED; all three Steps CLOSED.
+Owner: Cozy Dynamic metadata supplier; Phase 54.4 owns later Use Case/Actor adoption.
+Update rule: preserve the accepted foundation, Structure, Classification, Dynamic v1 and legacy ABI; use only declared facts and explicit gaps.
+
+Closure basis:
+S54.3.1, S54.3.2 and S54.3.3 are CLOSED at native parent manual commits
+`feb4ba862635a56fa0519ae75cef0bdd910739b2`,
+`4a57f37244be8f0bb5238bb92bb951ca615c8930` and
+`2ef722dda75eaadf07b224b4e9548fc367025b06`.
+The sole independent full Phase review P543-FULL-REVIEW-001 revision 1 is PASS
+with zero current blockers. Original typed review history remains in
+P543-REVIEW-LEDGER-001 revision 6; Phase repair cycles consumed: zero.
+Ordinary final `sbt --batch test` passed 2769 tests across 192 suites; failures and aborted suites were zero. The 9 pre-existing canceled cases retain their documented optional/deferred scope. SBT/wrapper exit 0 and `lock=released` were verified under P543-FINAL-FULL-VALIDATION-ADMISSION-001 revision 1.
+The distinct parent manual local release binds P543-CLOSURE-001 revision 1;
+its actual Git revision and committed-tree/clean-tree audit are recorded after
+successful commit in the private closure receipt. This committed closure
+projection becomes authoritative only on that verified release.
+HYG-P543-S5431-001 is persisted once in its
+[canonical follow-up](../journal/2026/10/2026-10-04-phase-54.3-hygiene-follow-up.md);
+it remains separate legacy projector maintenance. No Development Candidate
+exists and no empty candidate journal is created. Phase 54.4 remains PLANNED
+and unstarted; runtime and external consumer adoption retain their owners.
 
 The [specification](../spec/cml-dynamic-metadata.md) fixes the complete additive
 child. Catalog remains truth; Dynamic declarations supply explicit additional
