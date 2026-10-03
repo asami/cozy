@@ -1,9 +1,9 @@
 # CML Classification Metadata Supplier Handoff
 
-Current status: S54.2.3 focused validation and independent review PASS; parent manual Step commit pending.
+Current status: S54.2.3 CLOSED at `036a553`; Phase 54.2 CLOSED by this distinct local release.
 Owner: Cozy Classification supplier; later dynamic/usecase integration belongs to Phase 54.3/54.4.
 Update rule: preserve the accepted Phase 54 foundation, Phase 54.1 Structure and frozen Classification v1 contracts; adopt the fixture semantics without name reconstruction.
-Closure basis: FM-01–09 executable evidence, parent six-suite focused validation, independent lightweight PASS and parent manual Step commit. Phase full review, final ordinary full validation and distinct release remain pending.
+Closure basis: FM-01–09 executable evidence, parent six-suite focused validation, independent lightweight PASS and parent manual Step commit. The sole full Phase review and accepted M0 cycle 1 have no remaining blockers; final ordinary full validation passed 2730 tests across 189 suites, and this distinct local release binds closure.
 
 ## Exact supplier and receiver boundary
 
@@ -125,8 +125,10 @@ tests and independent review/M0 closure. S54.2.2 is CLOSED at
 `1294676e5adc868670a8f72f5aa4338f60d4a33b` with 93 focused tests, independent
 lightweight PASS and factual M0 document proof. Both prior manual Step commits
 have verified retained native receipts. S54.2.3 has its own accepted 102-test
-focused validation and independent lightweight PASS; its manual Step commit
-and the separate Phase full review/full test/release remain pending.
+focused validation and independent lightweight PASS, with verified parent manual
+Step commit `036a55377ea2eee04b2f95989d47c8e92f3a2b50`. The sole full Phase
+review retained two authoring findings, resolved by accepted M0 cycle 1.
+Final full test passed 2730 tests across 189 suites with SBT/wrapper exit 0 and the lock released. This distinct parent manual release binds closure.
 
 [Phase 54.3](../phase/phase-54.3.md) owns future Workflow/StateMachine integration;
 [Phase 54.4](../phase/phase-54.4.md) owns future Use Case/Actor integration and
@@ -135,5 +137,5 @@ Textus CBD Support owns Dashboard presentation/navigation and external consumer
 acceptance. This supplier authoring claims no CML parser/name projector/CLI,
 external site or runtime delivery, currentness verification, or external dashboard
 acceptance. The containing [Phase](../phase/phase-54.2.md) and
-[checklist](../phase/phase-54.2-checklist.md) remain IN_PROGRESS until their
-separate acceptance, full review/full test and release requirements close.
+[checklist](../phase/phase-54.2-checklist.md) are CLOSED by this release. Their
+status becomes authoritative only after the native commit and final audit succeed.

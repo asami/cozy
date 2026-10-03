@@ -150,11 +150,12 @@ Phase status index (individual Phase/checklist files are authoritative):
 - CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
   publication. `phase-54.md` and `phase-54.1.md` are CLOSED;
-  [Phase 54.2](phase-54.2.md) Classification is IN_PROGRESS with S54.2.1
-  and S54.2.2 CLOSED and S54.2.3 fixtures/[handoff](../design/cml-classification-metadata-handoff.md)
-  validated by 102 focused tests and independent lightweight PASS; manual Step
-  commit pending. Phase full review, ordinary
-  full validation and distinct release remain pending. Following children remain PLANNED:
+  [Phase 54.2](phase-54.2.md) Classification is CLOSED with all three Steps
+  CLOSED (`3cc21f3`, `1294676`, `036a553`). S54.2.3 fixtures/[handoff](../design/cml-classification-metadata-handoff.md)
+  passed 102 focused tests and independent lightweight review. The sole full
+  Phase review and accepted M0 cycle 1 have no remaining blockers. Ordinary
+  full validation passed 2730 tests / 189 suites; this distinct parent manual
+  local release binds the final canonical closure. Following children remain PLANNED:
   `phase-54.3.md` Workflow and StateMachine, `phase-54.4.md` Use Case and
   Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
   traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy

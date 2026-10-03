@@ -1,6 +1,6 @@
 # CML Classification Metadata v1 Specification
 
-Current status: S54.2.1 CLOSED at `3cc21f3`; S54.2.2 CLOSED at `1294676`; S54.2.3 validation and independent review PASS; manual Step commit pending.
+Current status: S54.2.1 CLOSED at `3cc21f3`; S54.2.2 CLOSED at `1294676`; S54.2.3 CLOSED at `036a553`; Phase 54.2 CLOSED by this distinct local release.
 Owner: Cozy Classification supplier.
 Update rule: change only under the Phase 54.2 frozen contract; core v1 and
 accepted Structure remain unchanged.
@@ -232,5 +232,7 @@ output; only the separately accepted Structure baseline supplies its prefix orac
 
 The [supplier handoff](../design/cml-classification-metadata-handoff.md) records
 exact APIs and a runnable six-suite recipe. S54.2.3 passed 102 focused tests across
-six suites and independent lightweight Step review; manual Step commit remains
-pending. Phase full review, ordinary full validation and distinct release remain pending.
+six suites and independent lightweight Step review; its parent manual Step commit is
+`036a55377ea2eee04b2f95989d47c8e92f3a2b50`. The sole full Phase review is retained
+as FINDINGS, with both authoring blockers resolved by accepted M0 cycle 1.
+Ordinary full validation passed 2730 tests across 189 suites; this distinct parent manual release binds the accepted closure.

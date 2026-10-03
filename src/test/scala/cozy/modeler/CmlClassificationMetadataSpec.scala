@@ -320,16 +320,20 @@ final class CmlClassificationMetadataSpec extends AnyWordSpec with Matchers with
       val original = graph.catalog.elements
       When("both graphs are rendered parsed admitted and rendered again")
       val consumed = Vector(graph, empty).map(value => _graph_result(CmlClassificationMetadata.read(Json.parse(CmlClassificationMetadata.canonicalJson(value)))))
+      val rendered = consumed.zip(Vector(graph, empty)).map { case (actual, expected) =>
+        (CmlClassificationMetadata.canonicalJson(actual), CmlClassificationMetadata.canonicalJson(expected))
+      }
+      val emptyjson = CmlClassificationMetadata.toJson(empty)
       Then("canonical rendering is stable and peer facts and original catalog remain exact")
-      consumed.zip(Vector(graph, empty)).foreach { case (actual, expected) =>
-        CmlClassificationMetadata.canonicalJson(actual) shouldBe CmlClassificationMetadata.canonicalJson(expected)
+      consumed.zip(Vector(graph, empty)).zip(rendered).foreach { case ((actual, expected), (actualtext, expectedtext)) =>
+        actualtext shouldBe expectedtext
         actual.envelope.extensions.value("org.example.peer") shouldBe _peer
         actual.catalog.elements shouldBe expected.catalog.elements
       }
       graph.catalog.elements shouldBe original
       consumed(1).traits shouldBe Vector.empty
       consumed(1).powertypeClassifications shouldBe Vector.empty
-      (_child(CmlClassificationMetadata.toJson(empty)) \ "schemaVersion").as[String] shouldBe schemaVersion
+      (_child(emptyjson) \ "schemaVersion").as[String] shouldBe schemaVersion
     }
 
     "CL-07 reject own namespace conflicts and check child version before unknown fields" in {
@@ -447,12 +451,13 @@ final class CmlClassificationMetadataSpec extends AnyWordSpec with Matchers with
       When("canonical JSON is parsed and strictly read")
       val text = CmlClassificationMetadata.canonicalJson(graph)
       val consumed = _graph_result(CmlClassificationMetadata.read(Json.parse(text)))
+      val receivedtext = CmlClassificationMetadata.canonicalJson(consumed)
       Then("escaped text represents the exact admitted source identity and absence facts")
       consumed.catalog.elements shouldBe graph.catalog.elements
       consumed.catalog.terms shouldBe graph.catalog.terms
       consumed.powertypes shouldBe graph.powertypes
       consumed.generalizations shouldBe graph.generalizations
-      CmlClassificationMetadata.canonicalJson(consumed) shouldBe text
+      receivedtext shouldBe text
       text.contains("\\\"") shouldBe true
       text.contains("\\\\") shouldBe true
     }
@@ -475,6 +480,7 @@ final class CmlClassificationMetadataSpec extends AnyWordSpec with Matchers with
         boundary <- Gen.oneOf(Local, External)
       } yield (authority + suffix, reason, detail, coreorder, traitorder, powertypeorder, generalizationorder, realizationorder, dimensionorder, boundary)
       val property = Prop.forAll(generator) { case (authority, reason, detail, coreorder, traitorder, powertypeorder, generalizationorder, realizationorder, dimensionorder, boundary) =>
+        Given("one generated qualified identity, absence assignment and independent core and carrier orders")
         val base = _graph(authority, detail)
         val traitrecord = _record("trait", "trait-2", authority)
         val generalizationrecord = _record("generalization", "generalization-2", authority)
@@ -489,19 +495,26 @@ final class CmlClassificationMetadataSpec extends AnyWordSpec with Matchers with
         val realizations = realizationorder.map(base.traitRealizations :+ TraitRealizationProjection(realizationrecord,
           Absent(reason, detail), Present(_reference("trait-2", Local, authority))))
         val dimensions = dimensionorder.map(base.powertypeClassifications)
+        When("the generated graph is built rendered parsed strictly read and rendered and read again")
         val graph = _graph_result(CmlClassificationMetadata.build(catalog, traits, powertypes, generalizations,
           realizations, dimensions, Json.obj("org.example.peer" -> _peer)))
         val text = CmlClassificationMetadata.canonicalJson(graph)
-        CmlClassificationMetadata.read(Json.parse(text)) match {
+        val observed = CmlClassificationMetadata.read(Json.parse(text)).map { consumed =>
+          val canonical = CmlClassificationMetadata.canonicalJson(consumed)
+          val received = CmlClassificationMetadata.read(CmlClassificationMetadata.toJson(consumed))
+          (consumed, canonical, received)
+        }
+        Then("the generated case retains every admitted fact and its canonical read and render observations")
+        observed match {
           case Left(_) => false
-          case Right(consumed) => consumed.catalog.elements == catalog.elements && consumed.catalog.terms == catalog.terms &&
+          case Right((consumed, canonical, received)) => consumed.catalog.elements == catalog.elements && consumed.catalog.terms == catalog.terms &&
             consumed.catalog.elements.map(_.source) == catalog.elements.map(_.source) &&
             consumed.catalog.elements.map(_.references) == catalog.elements.map(_.references) &&
             consumed.traits == traits && consumed.powertypes == powertypes && consumed.generalizations == generalizations &&
             consumed.traitRealizations == realizations && consumed.powertypeClassifications == dimensions &&
             consumed.envelope.extensions.value("org.example.peer") == _peer &&
-            CmlClassificationMetadata.canonicalJson(consumed) == text &&
-            CmlClassificationMetadata.read(CmlClassificationMetadata.toJson(consumed)).isRight
+            canonical == text &&
+            received.isRight
         }
       }
       When("ScalaCheck runs one hundred successful cases without implication or discarded inputs")
