@@ -73,10 +73,13 @@ preserved authored declarations and corrected mora prefix without an internal
 pause. The parent inspected the target and combined WAVs as positive,
 non-silent 24000 Hz mono 16-bit PCM. See the
 [actual-results journal](../journal/2026/10/2026-10-03-phase-71.2-compound-narration.md).
-The actual user confirmed acceptable compound reading without unnatural dotted
-breaks on 2026-10-03. This corrected pass uses the authored dictionary mapping,
+The actual user's 2026-10-03 clarification confirms that U+30FB (`・`) was not
+pronounced in the corrected target WAV and that this satisfies the requirement
+to omit its pronunciation. It resolves the earlier ambiguous message without
+extending it to a broader listening verdict. This corrected pass uses the authored dictionary mapping,
 preserves display text and does not enable global middle-dot removal.
-Independent F02 review and exact acceptance commit remain pending;
-F02 is not yet accepted. Accepted F01 evidence
-and artifacts remain intact; Phase 71.2 stays IN_PROGRESS and repository-full
-validation is deferred-not-run to PHASE-71.4.
+Independent PASS complete-F02 Step review
+`68b2ef62-714e-435a-8987-541059fc3dd1` revision 1 and exact acceptance commit
+`2c5e9402096528dc1ecd6558470e59ee7363016d` bind F02 acceptance; F02 is CLOSED
+with its three checklist items checked. Accepted F01 evidence and artifacts
+remain intact. Phase 71.2 is CLOSED by the distinct local release containing the [normal closure record](../journal/2026/10/2026-10-03-phase-71.2-normal-closure.md). The sole independent full Phase review and its accepted M0 clarification amendment leave zero current blockers. Repository-full validation remains deferred-not-run to PHASE-71.4; no successor execution is claimed.

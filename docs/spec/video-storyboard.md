@@ -74,8 +74,9 @@ Actual planning and source preservation are specified by
 and [CozyVideoStoryboardBuildModeSpec](../../src/test/scala/cozy/video/CozyVideoStoryboardBuildModeSpec.scala).
 The immediate named-media consumer is specified by
 [CozyExplanationProjectionSpec](../../src/test/scala/cozy/media/CozyExplanationProjectionSpec.scala).
-S04 validation and independent review remain pending; Step, Phase and actual
-driver acceptance are not established by these edits.
+S04 validation and independent review were subsequently accepted. The complete
+hash-removal Step passed 331 focused tests in 15 suites and independent Step
+review, with exact acceptance commit `00e73d9`. Phase 71.2 is CLOSED by the distinct local release containing the [normal closure record](../journal/2026/10/2026-10-03-phase-71.2-normal-closure.md). The sole independent full Phase review and its accepted M0 clarification amendment leave zero current blockers. Repository-full validation remains deferred-not-run to PHASE-71.4; no successor execution is claimed.
 
 ## 1. Scope and typed semantics
 

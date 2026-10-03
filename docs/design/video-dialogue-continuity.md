@@ -53,5 +53,4 @@ no production renderer correction. F01 is closed after fresh selected validation
 (5 suites, 170/170 tests), independent PASS complete-Step review
 `22242814-2c16-418b-837d-39d24901e5ba` revision 1 and exact local acceptance
 commit `6511b6ef7ec3991aa6bb3c233d2ac90bab59c410`. F02 owns actual compound-term payload, listening and pronunciation-only
-regeneration. Phase 71.2 remains IN_PROGRESS and full-suite validation remains
-deferred-not-run to PHASE-71.4.
+regeneration; its exact Step acceptance commit is `2c5e940`. Phase 71.2 is CLOSED by the distinct local release containing the [normal closure record](../journal/2026/10/2026-10-03-phase-71.2-normal-closure.md). The sole independent full Phase review and its accepted M0 clarification amendment leave zero current blockers. Repository-full validation remains deferred-not-run to PHASE-71.4; no successor execution is claimed.

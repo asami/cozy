@@ -1,6 +1,6 @@
 # Video Compound Narration Specification
 
-Status: NORMATIVE description of existing speech semantics; PHASE-71.2 P710-F02 acceptance remains pending.
+Status: NORMATIVE description of existing speech semantics; PHASE-71.2 P710-F02 is accepted and CLOSED.
 
 The executable chapter is [CozyVideoCompoundNarrationSpec](../../src/test/scala/cozy/video/CozyVideoCompoundNarrationSpec.scala),
 “An author preserving compound terms on screen should supply their intended
@@ -88,12 +88,14 @@ and regenerated audio after the dictionary-only edit. Its corrected target
 query contains the required nine moras with `pauseBeforePrefixEnd=false`.
 The [implementation journal](../journal/2026/10/2026-10-03-phase-71.2-compound-narration.md)
 records the actual observations, parent WAV inspection and the actual user's
-2026-10-03 listening confirmation: the corrected compound reading is acceptable
-without unnatural dotted breaks. The corrected pass restores the authored
+2026-10-03 clarification: U+30FB (`・`) was not pronounced in the corrected
+target WAV, which satisfies the requirement to omit its pronunciation. This
+clarification resolves the earlier ambiguous message without extending it to
+a broader listening verdict. The corrected pass restores the authored
 dictionary mapping; global middle-dot removal is not enabled, and display text
 is preserved.
 
-F02 acceptance still requires independent Step review and an exact
-local acceptance commit. Phase 71.2 remains IN_PROGRESS;
-full Phase review and its distinct release remain pending. Repository-full
-validation remains deferred-not-run to PHASE-71.4.
+Independent PASS complete-F02 Step review
+`68b2ef62-714e-435a-8987-541059fc3dd1` revision 1 and exact local acceptance
+commit `2c5e9402096528dc1ecd6558470e59ee7363016d` bind F02 acceptance and
+close its three checklist items. Phase 71.2 is CLOSED by the distinct local release containing the [normal closure record](../journal/2026/10/2026-10-03-phase-71.2-normal-closure.md). The sole independent full Phase review and its accepted M0 clarification amendment leave zero current blockers. Repository-full validation remains deferred-not-run to PHASE-71.4; no successor execution is claimed.
