@@ -1,10 +1,10 @@
 # CML Classification Metadata v1 Specification
 
-Current status: S54.2.1 validation and independent acceptance closed; manual Step commit pending.
+Current status: S54.2.1 CLOSED at `3cc21f3`; S54.2.2 validation and independent review PASS; manual Step commit pending.
 Owner: Cozy Classification supplier.
 Update rule: change only under the Phase 54.2 frozen contract; core v1 and
 accepted Structure remain unchanged.
-Closure basis: CL-01–09 executable behavior, parent focused validation and
+Closure basis: CL-01–09 and TP-01–08 executable behavior, parent focused validation and
 independent acceptance review, followed by the parent manual Step commit.
 
 `cozy.cml.classification.v1` is an additive extension at
@@ -102,7 +102,7 @@ InvalidClassificationSemantics, PublicationFailure, ExtensionConflict,
 UnknownNode and UnknownDimension. PublicationFailure retains the original
 typed publication diagnostic. Paths are fixed logical schema coordinates and
 details never echo hostile values, unknown keys or filesystem paths.
-UnknownNode/UnknownDimension are reserved for S54.2.2 queries.
+UnknownNode/UnknownDimension are the S54.2.2 query diagnostics.
 
 ## Executable and later-Step evidence
 
@@ -113,7 +113,74 @@ null-safe admission; CL-06 independent dimensions; CL-07 publication/peers and
 version precedence; CL-08 recursive strict shapes/escaping; CL-09 active
 non-discarded property permutations and canonical round trips.
 
-S54.2.2 plans an integrated immutable topology over these declarations with
-exact qualified node/dimension queries and explicit unresolved/absent facts;
-it is not implemented in S54.2.1. S54.2.3 owns declared/absence receiver
+## Internal integrated topology
+
+`private[cozy] object CmlClassificationTopology` consumes only an admitted
+Classification Graph. `build(graph: CmlClassificationMetadata.Graph)` returns
+`Either[Vector[ClassificationDiagnostic], Topology]`. `Topology` is a final
+class with constructor `private[CmlClassificationTopology]`, exposing original
+`graph`, `nodes: Vector[ElementRecord]` and `links: Vector[TopologyLink]`.
+`TopologyLink(element: ElementRecord, kind: LinkKind, source:
+Presence[ModelReference], target: Presence[ModelReference])` retains complete
+records and authored endpoints. `LinkKind` is sealed, with Generalization,
+TraitRealization and PowertypeClassification case objects in the topology object.
+
+Nodes retain catalog order for entity, value, aggregate, trait, powertype and
+powertype-kind, including anonymous occurrences. Terms and all other core
+kinds do not become nodes. Links retain catalog relation declaration order
+across all three kinds: subtype -> supertype, subject -> traitTarget and
+subject -> powertype. Members remain payload references, with no membership
+edges. Per-carrier order never groups or sorts the published links. Equal
+anonymous full records bind to successive carrier occurrences, preserving
+multiplicity and distinct payloads without synthetic identities.
+
+| Query on Topology | Result |
+| --- | --- |
+| node(id: ModelElementId) | Either[ClassificationDiagnostic, ElementRecord] |
+| outgoing(id: ModelElementId) | Either[ClassificationDiagnostic, Vector[TopologyLink]] |
+| incoming(id: ModelElementId) | Either[ClassificationDiagnostic, Vector[TopologyLink]] |
+| dimensions(id: ModelElementId) | Either[ClassificationDiagnostic, Vector[PowertypeClassificationProjection]] |
+| dimension(id: ModelElementId) | Either[ClassificationDiagnostic, PowertypeClassificationProjection] |
+
+Indexes use exact full present ModelElementId pairs, without trimming,
+case-folding, delimiter parsing or name reconstruction. Node queries address
+only supported local catalog nodes; Local endpoints alone populate incoming,
+outgoing and subject dimensions indexes. External equal pairs and unresolved
+external references remain in links, never local indexes. An opposite Local
+endpoint still indexes a partial edge. Absent endpoints retain all four reason
+and detail values. Known nodes with no matching local facts return Right(empty).
+Cycles, self-links and duplicate declarations stay literal. dimensions follows
+catalog link order; dimension addresses each relation's own present identity.
+Different targets and different relation IDs for equal subject/target pairs
+remain independent. Anonymous nodes and dimensions remain in vectors/links,
+without guessed map entries. Core Term identity collisions do not create nodes.
+
+Null graph returns Left(Vector(InvalidShape, path `graph`, detail
+`An admitted Classification graph is required.`)). Null identity or component,
+empty component, Unicode leading/trailing whitespace (isWhitespace or
+isSpaceChar codepoint checks), or any ISO control yields InvalidShape before
+lookup. Diagnostic publication is always None. Node, outgoing, incoming and
+dimensions share path `node.identity`: malformed detail is
+`The Classification query identity is invalid.`; unknown/unaddressable/non-node
+identities yield UnknownNode with detail
+`The Classification node identity is unknown or unaddressable.`.
+dimension uses path `dimension.identity`, the same malformed detail, and
+UnknownDimension for unknown/non-dimension identities with detail
+`The Classification dimension identity is unknown or unaddressable.`.
+No supplied identity or path is echoed.
+
+The topology leaves Graph, core facts, schema and canonical envelope unchanged.
+It adds no JSON, admission bypass, transitive closure, runtime policy or view
+rendering. The executable
+[`CmlClassificationTopologySpec`](../../src/test/scala/cozy/modeler/CmlClassificationTopologySpec.scala)
+authors TP-01 node/link facts and mixed order; TP-02 exact node-family queries
+and unknowns; TP-03 independent dimension identities; TP-04 external/absence,
+partial/cyclic/duplicate facts and Local isolation; TP-05 anonymous occurrence
+binding; TP-06 empty, deterministic and malformed behavior; TP-07 unchanged
+strict-read round trip; TP-08 active ScalaCheck with at least 100 successful
+cases and zero discards over qualified identities, presence/boundaries and
+independent carrier/catalog permutations.
+
+S54.2.2 supplies this internal topology: 93 focused tests across five suites passed
+and independent lightweight Step review is PASS. Manual Step commit remains pending. S54.2.3 owns declared/absence receiver
 fixtures and the Phase 54.3/54.4 supplier handoff; those remain pending.

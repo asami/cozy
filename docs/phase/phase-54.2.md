@@ -1,6 +1,6 @@
 # Phase 54.2: Faithful Classification Metadata
 
-Status: IN_PROGRESS (S54.2.1 authored; validation and acceptance pending)
+Status: IN_PROGRESS (S54.2.1 CLOSED; S54.2.2 validation/review PASS, manual commit pending)
 
 Plan date: 2026-09-09
 Split from: [Phase 54](phase-54.md)
@@ -49,9 +49,9 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| MMD-542-01 | Publish generalization, trait, and powertype as distinct metadata constructs with stable identities. | S54.2.1 authored; acceptance pending |
-| MMD-542-02 | Publish cross-references sufficient to project one integrated Classification topology without name-based reconstruction. | S54.2.1 references authored; S54.2.2 topology pending |
-| MMD-542-03 | Preserve multiple independent powertype dimensions without conflation. | S54.2.1 authored; S54.2.2 queries pending |
+| MMD-542-01 | Publish generalization, trait, and powertype as distinct metadata constructs with stable identities. | S54.2.1 CLOSED at `3cc21f3` |
+| MMD-542-02 | Publish cross-references sufficient to project one integrated Classification topology without name-based reconstruction. | S54.2.1 CLOSED; S54.2.2 topology validation/review PASS, manual commit pending |
+| MMD-542-03 | Preserve multiple independent powertype dimensions without conflation. | S54.2.1 CLOSED; S54.2.2 queries validation/review PASS, manual commit pending |
 | MMD-542-04 | Freeze Classification fixtures and the later-child handoff. | planned |
 
 ## Execution Steps
@@ -62,8 +62,8 @@ gpt-6.1-sol/high profile and the frozen PHASE-54.2 plan epoch.
 
 | Stage | Current status | Owner | Update rule | Closure basis |
 | --- | --- | --- | --- | --- |
-| S54.2.1 / CLASSIFICATION | 81 focused tests passed; independent review and M0 authoring closure accepted; manual commit pending | Cozy Classification supplier; parent owns acceptance | Preserve semantic-metadata.v1 and Structure; change only the complete frozen Classification schema | Focused Classification plus predecessor accumulator, independent focused review, parent manual Step commit |
-| S54.2.2 / TOPOLOGY | Pending | Cozy Classification topology supplier | Consume admitted declarations and exact qualified IDs; preserve anonymous, external and absent facts | Integrated node/edge/dimension query specifications, focused validation/review, parent manual Step commit |
+| S54.2.1 / CLASSIFICATION | CLOSED at `3cc21f3`; 81 focused tests and independent review/M0 closure accepted | Cozy Classification supplier; parent owns acceptance | Preserve semantic-metadata.v1 and Structure; change only the complete frozen Classification schema | Focused Classification plus predecessor accumulator, independent focused review, parent manual Step commit |
+| S54.2.2 / TOPOLOGY | 93 focused tests passed; independent lightweight review PASS; manual commit pending | Cozy Classification topology supplier | Consume admitted declarations and exact qualified IDs; preserve anonymous, external and absent facts | Integrated node/edge/dimension query specifications, focused validation/review, parent manual Step commit |
 | S54.2.3 / FIXTURE-HANDOFF | Pending | Cozy receiver-fixture and handoff supplier | Supply deterministic declared/absence envelopes and actionable Phase54.3/54.4 handoff without consumer wiring claims | JSON-only resource specifications, focused validation/review, parent manual Step commit |
 | Phase acceptance and release | Pending | Parent | Exactly one comprehensive Phase review per attributable PLAN epoch; final ordinary full Cozy test and separate manual release commit | Three accepted Steps, sole comprehensive review, final full validation, canonical checklist/index/strategy/journal closure and native completion audit |
 
@@ -72,10 +72,9 @@ The [Classification specification](../spec/cml-classification-metadata.md),
 [executable CL-01–09](../../src/test/scala/cozy/modeler/CmlClassificationMetadataSpec.scala)
 are accepted S54.2.1 supplier evidence: 81 focused tests passed and the
 independent review finding was closed by an exact M0 authoring amendment. The
-manual Step commit remains pending. S54.2.1 completes the internal typed producer and
+parent manual Step commit is verified as `3cc21f3fa99b7909400e24d2fbceca4db9460a63`. S54.2.1 completes the internal typed producer and
 strict JSON child schema; CML/CLI producers, external consumers, topology and
-receiver resources are not claimed as delivered by this Step. Topology and
-fixture/handoff source authoring belong to their pending Steps.
+receiver resources are not claimed as delivered by this Step. S54.2.2 topology and TP-01–08 passed 93 focused tests across five suites and independent lightweight Step review; manual commit remains pending. S54.2.3 fixture/handoff remains pending.
 
 ## Closure criteria
 
