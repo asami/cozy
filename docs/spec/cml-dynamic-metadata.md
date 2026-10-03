@@ -1,12 +1,17 @@
 # CML Dynamic Metadata v1 Specification
 
-Current status: S54.3.1 IN_PROGRESS; authored boundary awaits parent validation,
-independent acceptance review and manual Step commit.
+Current status: S54.3.1 CLOSED at native commit
+`feb4ba862635a56fa0519ae75cef0bdd910739b2`; S54.3.2 topology ACCEPTED
+after focused validation and independent Step review.
 Owner: Cozy Dynamic metadata supplier.
 Update rule: change only under the PHASE-54.3 frozen contract; preserve the
 accepted foundation, Structure, Classification and legacy ABI.
-Closure basis: DM-01–09 executable behavior is authored; no validation, review
-or commit receipt is claimed here. Topology, fixtures and handoff remain later Steps.
+Closure basis: S1 retained all 122 focused/predecessor tests, protected Step
+review and the parent M0 naming amendment. S2 passed all 132 tests in eight
+focused/predecessor suites; P543-S5432-REVIEW-001 revision 1 independently
+accepted DT-01–08 with zero current blockers. The parent records the manual
+local Step commit in its native audit. S3 fixtures, handoff and full Phase
+closure remain pending; Phase 54.4 is unstarted.
 
 ## Boundary and API
 
@@ -110,8 +115,67 @@ InvalidCoreBinding, DuplicateProjection, MissingProjection,
 InvalidDynamicSemantics, PublicationFailure, ExtensionConflict, UnknownNode and
 UnknownProjection. Only PublicationFailure retains the original typed
 PublicationDiagnostic. Paths/details use safe fixed schema coordinates and
-never echo hostile values, keys or filesystem paths. Unknown query kinds are
-reserved for the later topology Step.
+never echo hostile values, keys or filesystem paths. Topology uses UnknownNode
+and UnknownProjection for well-formed unaddressable query identities.
+
+## Literal topology API
+
+`private[cozy] CmlDynamicTopology.build(graph: CmlDynamicMetadata.Graph)` returns
+`Either[Vector[DynamicDiagnostic], Topology]`. The immutable Topology constructor
+is private to CmlDynamicTopology and exposes the original `graph`,
+`nodes: Vector[ElementRecord]` and `links: Vector[TopologyLink]`.
+TopologyLink contains the complete `element: ElementRecord`, `kind: LinkKind`,
+`source: Presence[ModelReference]` and `target: Presence[ModelReference]`.
+LinkKind is the closed set Flow, Transition, Cause and Reaction.
+
+The exact fifteen node kinds are entity, value, aggregate, trait, powertype,
+powertype-kind, workflow, workflow-activity, state-machine, state, operation,
+command, event, rule and action. Nodes retain Catalog declaration order and
+complete core facts. Workflow-flow, transition, causal-link and every other
+core kind are excluded from nodes.
+
+Flow links use FlowProjection.source/target; Transition links use
+TransitionProjection.fromState/toState. CausalLinkProjection.source/target
+produce Cause or Reaction according to their declared kind. Links follow
+Catalog declaration order across all three carrier families. Equal complete
+anonymous ElementRecord occurrences consume one carrier occurrence each, in
+that family's authored carrier order. No grouping sort, deduplication or
+synthetic identity changes order or multiplicity. Original Graph carrier arrays
+remain independently preserved.
+
+`node(id: ModelElementId): Either[DynamicDiagnostic, ElementRecord]`,
+`outgoing(id)` and `incoming(id): Either[DynamicDiagnostic, Vector[TopologyLink]]`
+use the full present qualified pair. Incoming/outgoing first validate node(id).
+Only present Local endpoints populate their respective index, including partial
+links with an absent or External opposite endpoint. External equal qualified
+pairs do not index. The complete opposite Presence remains in the returned
+link. Known nodes with no relevant Local endpoint return Right(Vector.empty).
+
+Each typed lookup takes ModelElementId and returns
+`Either[DynamicDiagnostic, <family>Projection]`: `workflow`, `activity`, `flow`,
+`stateMachine`, `state`, `transition` and `causalLink`. Present projection IDs
+are family-addressable even when their records are excluded from nodes.
+Consumers follow retained direct context references through these APIs or
+Catalog.element. Context lists, expression references, state effects and
+membership declarations produce no additional edges.
+
+Anonymous nodes and projections remain observable through nodes, links and the
+original Graph, with no addressability through names, Terms, source, path,
+ordinal or manufactured identity. Query IDs must have nonnull, nonempty
+components without Unicode edge whitespace or ISO controls; case, Unicode and
+delimiters are never normalized.
+
+| Condition | Kind / path | Fixed detail |
+| --- | --- | --- |
+| Null graph | InvalidShape / graph | An admitted Dynamic graph is required. |
+| Malformed node/incoming/outgoing ID | InvalidShape / node.identity | The Dynamic query identity is invalid. |
+| Unknown or non-node ID | UnknownNode / node.identity | The Dynamic node identity is unknown or unaddressable. |
+| Malformed typed lookup ID | InvalidShape / queryName.identity | The Dynamic query identity is invalid. |
+| Unknown or wrong-family typed lookup ID | UnknownProjection / queryName.identity | The Dynamic projection identity is unknown or unaddressable. |
+
+Every topology diagnostic has publication None, safe fixed coordinates and
+exact punctuation without echoing input. No Graph, JSON, core, codec, ABI,
+parser, consumer or runtime contract is changed.
 
 ## Literal semantics and evidence
 
@@ -129,6 +193,18 @@ sets, DM-05 absence/null/literal behavior, DM-06 control roles and literal causa
 facts, DM-07 base-first publication/version precedence, DM-08 recursive strict
 shapes and safe diagnostics, and DM-09 active 100-success/zero-discard properties
 with independent Catalog/carrier permutations and expected facts.
+
+[CmlDynamicTopologySpec](../../src/test/scala/cozy/modeler/CmlDynamicTopologySpec.scala)
+authors DT-01 complete fifteen-node/four-link Catalog ordering; DT-02 seven
+qualified family lookups and anonymous/wrong-family rejection; DT-03 Local-only
+partial endpoint indexing and direct context preservation; DT-04 literal
+duplicates, self-links, cycles and cause/reaction declarations; DT-05 equal
+anonymous occurrence payload order and multiplicity; DT-06 exact null/malformed,
+unknown, empty and isolated diagnostics; DT-07 full supplier round trips with
+admitted predecessors and opaque peers; and DT-08 active ScalaCheck with at
+least 100 successes and zero discards over independent Catalog/carrier
+permutations, qualified identities, boundaries and Presence. Oracles are
+independently authored complete typed facts; interpretation is under When.
 
 Existing WORKFLOW and Composite StateMachine IR remain partial sources. This
 boundary adds no parser integration, projector, CLI, writer, automatic export,

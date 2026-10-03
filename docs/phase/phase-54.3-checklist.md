@@ -7,13 +7,20 @@ Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 
 ## Step evidence
 
-- S54.3.1 / DYNAMIC-PRODUCER: ACCEPTED; complete five-module supplier and
+- S54.3.1 / DYNAMIC-PRODUCER: CLOSED; complete five-module supplier and
   DM-01–09 scenarios authored under P543-S5431-IMPLEMENTATION-001 revision 1.
   All 122 tests passed across seven focused/predecessor suites. Independent
   protected Step review and the parent M0 naming amendment are accepted;
-  post-repair `Test/compile` passed. The manual local commit is recorded in the
-  parent's native Step audit. Phase requirement closure remains pending.
-- S54.3.2: topology incomplete.
+  post-repair `Test/compile` passed. Parent manual native commit:
+  `feb4ba862635a56fa0519ae75cef0bdd910739b2`. Phase requirement closure remains pending.
+- S54.3.2 / DYNAMIC-NAVIGATION: ACCEPTED under
+  P543-S5432-IMPLEMENTATION-001 revision 1; exact fifteen-node/four-link topology,
+  Catalog occurrence order, Local-only partial indexes and all seven typed
+  lookups. All 132 tests passed in eight selected focused/predecessor suites,
+  including DT-01–08 and the active 100-success/zero-discard property.
+  Independent lightweight Step review P543-S5432-REVIEW-001 revision 1 is PASS
+  with zero current blockers. The parent records the manual local commit in
+  its native Step audit; final Phase requirement closure remains pending.
 - S54.3.3: deterministic fixtures, fixture specification and handoff incomplete.
 - Full Phase review, ordinary full validation and final release/closure pending.
   Phase 54.4 remains unstarted. Unchecked requirement items below retain their
