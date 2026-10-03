@@ -4,7 +4,7 @@ import org.goldenport.RAISE
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 sealed trait ModelGenerationTarget
@@ -39,7 +39,8 @@ object ModelGenerationTarget {
   def requireLibraryModel(
     builder: Modeler.ModelBuilder,
     compositeStateMachines: Vector[CompositeStateMachineDefinition],
-    workflows: Vector[WorkflowDefinition]
+    workflows: Vector[WorkflowDefinition],
+    failureModels: Vector[ComponentFailureModel] = Vector.empty
   ): Unit = {
     def _category_(predicate: Boolean, name: String): Option[String] =
       if (predicate) Some(name) else None
@@ -50,7 +51,8 @@ object ModelGenerationTarget {
       _category_(!builder.event.isEmpty, "event/reception/routing/subscription"),
       _category_(!builder.actor.isEmpty, "actor"),
       _category_(compositeStateMachines.nonEmpty, "composite-state-machine/action"),
-      _category_(workflows.nonEmpty, "workflow/provided-operation/candidate-admission")
+      _category_(workflows.nonEmpty, "workflow/provided-operation/candidate-admission"),
+      _category_(failureModels.nonEmpty, "failure-model")
     ).flatten)
   }
 
@@ -68,14 +70,16 @@ object ModelGenerationTarget {
     requireLibraryModel(
       builder,
       CompositeStateMachineCml.definitions(model),
-      CompositeStateMachineCml.workflowDefinitions(model)
+      CompositeStateMachineCml.workflowDefinitions(model),
+      FailureModelCml.requireDefinitions(model)
     )
   }
 
   def requireLibraryGeneratorInput(
     model: org.simplemodeling.model.SimpleModel,
     compositeStateMachines: Vector[CompositeStateMachineDefinition],
-    workflows: Vector[WorkflowDefinition]
+    workflows: Vector[WorkflowDefinition],
+    failureModels: Vector[ComponentFailureModel] = Vector.empty
   ): Unit = {
     def _category_(predicate: Boolean, name: String): Option[String] =
       if (predicate) Some(name) else None
@@ -83,7 +87,8 @@ object ModelGenerationTarget {
       _category_(model.elements.exists(_.isInstanceOf[org.simplemodeling.model.MEntity]), "entity"),
       _category_(model.elements.exists(_.isInstanceOf[org.simplemodeling.model.MComponent]), "component"),
       _category_(compositeStateMachines.nonEmpty, "composite-state-machine/action"),
-      _category_(workflows.nonEmpty, "workflow/provided-operation/candidate-admission")
+      _category_(workflows.nonEmpty, "workflow/provided-operation/candidate-admission"),
+      _category_(failureModels.nonEmpty, "failure-model")
     ).flatten)
   }
 

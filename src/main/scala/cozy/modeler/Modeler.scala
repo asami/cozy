@@ -408,6 +408,13 @@ class Modeler(
     case m => RAISE.noReachDefect
   }
 
+  private def _failure_model_definitions(
+    p: IModel
+  ): Vector[ComponentFailureModel] = p match {
+    case m: KaleidoxModel => FailureModelCml.requireDefinitions(m)
+    case _ => RAISE.noReachDefect
+  }
+
   private def _make_model(p: KaleidoxModel): SimpleModel = {
     ModelBuilder(p, predefinedResultCatalog, componentStyleCatalog).build()
   }
@@ -442,8 +449,9 @@ class Modeler(
     val env = c.executionContext.environment
     val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val workflows = _workflow_definitions(smodel.model)
+    val failuremodels = _failure_model_definitions(smodel.model)
     val model = _make_model(smodel.model)
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget)
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, failuremodels)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)
@@ -455,14 +463,15 @@ class Modeler(
     val env = c.executionContext.environment
     val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val workflows = _workflow_definitions(smodel.model)
+    val failuremodels = _failure_model_definitions(smodel.model)
     val builder = smodel.model match {
       case m: KaleidoxModel => ModelBuilder(m, predefinedResultCatalog, componentStyleCatalog)
       case _ => RAISE.noReachDefect
     }
     if (generationTarget == ModelGenerationTarget.Library)
-      ModelGenerationTarget.requireLibraryModel(builder, compositestatemachines, workflows)
+      ModelGenerationTarget.requireLibraryModel(builder, compositestatemachines, workflows, failuremodels)
     val model = builder.buildValue()
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget)
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, failuremodels)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)

@@ -7,7 +7,7 @@ commits. No stage closure is implied by the presence of source files.
 ## S72.1 SOURCE
 
 Stage Status:
-- Current status: IN_PROGRESS
+- Current status: CLOSED
 - Owner: Phase 72 parent with bounded SOURCE implementation editor
 - Update rule: Record artifact presence when authored; record acceptance only from parent evidence.
 - Closure basis: All S721 items below.
@@ -17,20 +17,20 @@ Stage Status:
 - [x] S721-03 Real local single-user/single-writer fixture and Given/When/Then plus ScalaCheck executable scenarios authored in `failure-model.cml` and `FailureModelCmlSpec.scala`.
 - [x] S721-04 Selected focused SOURCE validation accepted by parent: three suites, 97/97 tests; SBT and wrapper exit 0, serial lock released.
 - [x] S721-05 Independent PLAN-selected SOURCE acceptance review closed: initial protected review followed by independent focused repair closure; CPB-P72-S721-001 and CPB-P72-S721-002 resolved, no new blockers.
-- [ ] S721-06 Parent manual local SOURCE Step commit recorded.
+- [x] S721-06 Parent manual local SOURCE Step commit recorded: `6c15b65cd83181fdf61aa8674c9a847f79751805`; ABI baseline receipt ties successful terminal four-route generation and released serial lock to this accepted SOURCE commit.
 
 ## S72.2 ABI
 
 Stage Status:
-- Current status: OPEN
+- Current status: IN_PROGRESS
 - Owner: Phase 72 parent
 - Update rule: Begin after SOURCE acceptance; record generated-contract and consumer evidence.
 - Closure basis: All S722 items below.
 
-- [ ] S722-01 Additive ordered source-correlated generated Failure Model metadata authored.
-- [ ] S722-02 No-declaration compatibility and explicit library-target policy specified and implemented.
-- [ ] S722-03 Focused validation and genuine generated-consumer compilation accepted.
-- [ ] S722-04 Independent PLAN-selected ABI acceptance review closed.
+- [x] S722-01 Additive ordered source-correlated generated Failure Model metadata authored in `FailureModelAbiGenerator.scala`; exact contract/design in `docs/spec/failure-model-abi-contract.md` and `docs/design/failure-model-abi-lowering.md`; real normal/value/mixed Given/When/Then scenarios and typed consumer materialization authored in `FailureModelAbiGenerationSpec.scala`.
+- [x] S722-02 No-declaration compatibility and explicit library-target policy specified and implemented with trailing defaulted callers; independent parent-owned `failure-model-legacy-baseline.json` admitted before ABI editing from SOURCE commit `6c15b65cd83181fdf61aa8674c9a847f79751805`, four routes/80 files. Full-byte comparison, library rejection, old callers, escaping/optional provenance and seeded 100-sample executable scenarios authored; acceptance remains pending below.
+- [x] S722-03 Focused validation accepted: six suites, 105/105 tests; real Scala 3.3.8 generated-consumer groups normal/value/mixed (2/2/5 sources) compiled successfully; SBT and wrapper exit 0, serial locks released.
+- [x] S722-04 Independent PLAN-selected protected ABI acceptance review PASS; complete producer/caller/generated-output boundary accepted with zero current blockers.
 - [ ] S722-05 Parent manual local ABI Step commit recorded.
 
 ## S72.3 HANDOFF

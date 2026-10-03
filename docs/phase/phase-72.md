@@ -32,6 +32,18 @@ original completion criterion below remains the Phase contract.
 
 The SOURCE [spec](../spec/failure-model-source-contract.md) and
 [design](../design/failure-model-source-lowering.md) fix authoring and lowering.
+S72.1 is CLOSED on parent manual local SOURCE commit
+`6c15b65cd83181fdf61aa8674c9a847f79751805`, following accepted focused validation
+and independent repair closure. The ABI
+[spec](../spec/failure-model-abi-contract.md) and
+[design](../design/failure-model-abi-lowering.md) record the authored additive
+`cozy.failure-model.v1` sidecar/self-contained Scala metadata, trailing defaulted
+callers, explicit library rejection and generated-consumer scenarios. S72.2
+focused validation passed 105/105 tests across six suites; actual Scala 3.3.8
+normal/value/mixed generated-consumer groups (2/2/5 sources) compiled successfully.
+Independent protected ABI review is PASS with zero current blockers. Its parent
+manual local Step commit remains pending. The parent admitted the four-route legacy baseline before ABI
+editing; its read-only fixture retains all 80 original generated files.
 Cozy's effective contract is development metadata for comparison. CNCF owns the
 canonical runtime ResolvedFailureModel and recipient validation; sm-workflow
 consumes that resolved result. Execution Model names imply no failure defaults,

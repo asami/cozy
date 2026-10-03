@@ -13,7 +13,8 @@ import org.goldenport.realm.Realm
 /*
  * @since   May.  5, 2025
  *  version Jul. 12, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class ScalaGenerator(
@@ -21,7 +22,8 @@ class ScalaGenerator(
   model: SimpleModel,
   compositeStateMachines: Vector[CompositeStateMachineDefinition] = Vector.empty,
   workflows: Vector[WorkflowDefinition] = Vector.empty,
-  generationTarget: ModelGenerationTarget = ModelGenerationTarget.Cncf
+  generationTarget: ModelGenerationTarget = ModelGenerationTarget.Cncf,
+  failureModels: Vector[ComponentFailureModel] = Vector.empty
 ) {
   private val _transformer = {
     val config = Config.create(environment)
@@ -33,7 +35,7 @@ class ScalaGenerator(
   def generate(p: MPackage): STree = {
     generationTarget match {
       case ModelGenerationTarget.Library =>
-        ModelGenerationTarget.requireLibraryGeneratorInput(model, compositeStateMachines, workflows)
+        ModelGenerationTarget.requireLibraryGeneratorInput(model, compositeStateMachines, workflows, failureModels)
         STree(_transformer.transform(model).realm)
       case ModelGenerationTarget.Cncf =>
         _generate_cncf(_transformer.transform(model).realm)
@@ -67,6 +69,8 @@ class ScalaGenerator(
       case Left(message) => org.goldenport.RAISE.invalidArgumentFault(message)
     }
     val builder = Realm.Builder()
+    if (failureModels.nonEmpty)
+      builder.set(FailureModelAbiGenerator.metadataPath, FailureModelAbiGenerator.canonicalJson(failureModels))
     builder.set(CompositeStateMachineProjectionMetadata.metadataPath, projectionmetadata)
     builder.set(CompositeStateMachineActionProducerMetadata.metadataPath, actionproducermetadatajson)
     builder.set(CompositeStateMachineActionProgram.metadataPath, actionprogramjson)
@@ -79,6 +83,7 @@ class ScalaGenerator(
       builder.set("target/cozy/component-api-model.json", metadata.toCanonicalJson)
     val generatedrealm = realm + compositestatemachines + actionproducermetadata + actionprogram + statemachineworkflowabi + builder.build()
     val withcandidateadmission = candidateadmissionproducerabi.fold(generatedrealm)(generatedrealm + _)
-    STree(providedapiabi.fold(withcandidateadmission)(withcandidateadmission + _))
+    val withprovidedapi = providedapiabi.fold(withcandidateadmission)(withcandidateadmission + _)
+    STree(if (failureModels.isEmpty) withprovidedapi else withprovidedapi + FailureModelAbiGenerator.generate(failureModels))
   }
 }
