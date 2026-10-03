@@ -1,9 +1,9 @@
 # CML Classification Metadata v1 Design
 
-Current status: S54.2.1 CLOSED at `3cc21f3`; S54.2.2 validation and independent review PASS; manual Step commit pending.
+Current status: S54.2.1 CLOSED at `3cc21f3`; S54.2.2 CLOSED at `1294676`; S54.2.3 validation and independent review PASS; manual Step commit pending.
 Owner: Cozy Classification supplier.
 Update rule: implement only the parent-frozen schema and admitted facts.
-Closure basis: executable CL-01–09 and TP-01–08, parent validation/review and manual commit.
+Closure basis: executable CL-01–09, TP-01–08 and FM-01–09, parent validation/review and manual commit.
 
 The [specification](../spec/cml-classification-metadata.md) fixes one internal
 typed producer and one versioned JSON receiver over the unchanged foundation.
@@ -87,12 +87,61 @@ expected vectors, malformed rejection, deterministic rebuild and strict-read
 round trip, plus active non-discarded 100-case properties.
 
 S54.2.2 validation passed all 93 focused tests across five suites and its
-independent lightweight Step review is PASS; manual Step commit remains pending. Its consumer adds no schema,
+independent lightweight Step review is PASS; parent manual Step commit is verified at `1294676e5adc868670a8f72f5aa4338f60d4a33b` with factual M0 document proof. Its consumer adds no schema,
 topology JSON, transitive closure, producer/CLI or external wiring.
 
 ## Later consumer evidence
 
  S54.2.3 owns deterministic declared and absence
-resources plus an actionable Phase 54.3/54.4 handoff. S54.2.3 remains pending;
-this design records the settled dependency contract without claiming their
-implementation, validation, acceptance or external integration.
+resources plus an actionable Phase 54.3/54.4 handoff. Their authoring follows the settled contract below; focused validation and independent review passed, and the manual Step commit remains pending.
+
+## S54.2.3 frozen fixture contract
+
+The [declared](../../src/test/resources/cozy/modeler/classification-metadata-v1-declared.json)
+and [absence](../../src/test/resources/cozy/modeler/classification-metadata-v1-absence.json)
+fixtures each retain the accepted Structure declared resource's six-record prefix,
+original Term, Structure namespace and opaque peer unchanged. They add sixteen
+Classification core records (two traits, two powertypes, four powertype-kind nodes,
+three generalizations, two trait realizations and three dimensions), one distinct
+Term and the Classification child. Total: 22 core records, two Terms; projection
+counts: 2/2/3/2/3. All new names are `共有`. Source authority is
+`classification.example`, path `src/main/cml/classification-handoff.cml`, digest
+64 lowercase `a` characters, and explicit lines 7–22. This is caller-admitted
+synthetic source attribution, not verification of a real CML file or currentness.
+
+Declared order entity has generalizations to local order aggregate and unresolved
+External(external.example, entity:base), realizes both traits, and has three
+independent dimensions: status, category, status-secondary. Status dimensions
+share subject/target but retain distinct relation IDs. The audited trait
+generalizes to labeled. Powertype members retain explicit ordered local kind
+references. Core semantic references remain explicit NotDeclared facts without
+fabricated BoK identities. The additional opaque peer is
+`org.example.classification-handoff`, with producer `synthetic-caller`, ordered
+dimensions `[status,category,status-secondary]` and `absence: null`.
+
+In absence mode only the first trait's own identity changes to
+Absent(NotRepresented, `No stable trait identity is represented.`). All endpoints
+and members are explicit absence. Carrier ordinal cycles NotDeclared,
+NotRepresented, Unsupported, NotApplicable; opposite endpoints use ordinal+1.
+Details respectively are `No Classification reference is declared.`,
+`The Classification reference is not represented.`,
+`The Classification reference is unsupported.`,
+`The Classification reference is not applicable.`. The anonymous trait remains
+visible among eleven nodes, but its matching Term never provides a model lookup.
+All eight links remain literal; known nodes have empty Local indexes and all
+three dimension own IDs remain addressable.
+
+[`CmlClassificationMetadataFixtureSpec`](../../src/test/scala/cozy/modeler/CmlClassificationMetadataFixtureSpec.scala)
+authors FM-01/03 full literal catalog/projection and wire oracles, FM-02/04 full
+node/link/query oracles, FM-05 unchanged Structure cohabitation, FM-06 recursive
+shape/version failures, FM-07 forged binding failures, FM-08 Local semantics
+failures and FM-09 100 successful zero-discard property cases over both modes,
+independent catalog/carrier permutations and recursive object-key reconstruction.
+Every real read/build/render/parse/query/property action belongs under When.
+The independent Classification expectations never decode their own fixture or
+output; only the separately accepted Structure baseline supplies its prefix oracle.
+
+The [supplier handoff](../design/cml-classification-metadata-handoff.md) records
+exact APIs and a runnable six-suite recipe. S54.2.3 passed 102 focused tests across
+six suites and independent lightweight Step review; manual Step commit remains
+pending. Phase full review, ordinary full validation and distinct release remain pending.

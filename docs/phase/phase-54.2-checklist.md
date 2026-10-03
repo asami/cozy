@@ -1,6 +1,6 @@
 # Phase 54.2 Checklist: Faithful Classification Metadata
 
-Status: IN_PROGRESS (S54.2.1 CLOSED; S54.2.2 validation/review PASS, manual commit pending)
+Status: IN_PROGRESS (S54.2.1 CLOSED; S54.2.2 CLOSED; S54.2.3 validation/review PASS, manual commit pending)
 phase=[Phase 54.2](phase-54.2.md)
 
 Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
@@ -10,8 +10,8 @@ Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 | Stage | Current status | Owner | Update rule | Closure basis |
 | --- | --- | --- | --- | --- |
 | S54.2.1 / CLASSIFICATION | CLOSED at `3cc21f3`; 81 focused tests and independent review/M0 closure accepted | Cozy Classification supplier; parent accepts | Frozen complete schema and CL-01–09; unchanged foundation/Structure | Focused accumulator, independent acceptance review, parent manual Step commit |
-| S54.2.2 / TOPOLOGY | 93 focused tests passed; independent lightweight review PASS; manual commit pending | Cozy topology supplier | Exact admitted node and dimension identities; no name reconstruction | Executable topology queries, focused validation/review and manual Step commit |
-| S54.2.3 / FIXTURE-HANDOFF | Pending | Cozy fixture/handoff supplier | Deterministic declared/absence resources and later-child handoff | JSON-only fixtures, focused validation/review and manual Step commit |
+| S54.2.2 / TOPOLOGY | CLOSED at `1294676`; 93 focused tests and independent lightweight PASS/M0 document proof accepted | Cozy topology supplier | Exact admitted node and dimension identities; no name reconstruction | Executable topology queries, focused validation/review and manual Step commit |
+| S54.2.3 / FIXTURE-HANDOFF | 102 focused tests passed; independent lightweight review PASS; manual commit pending | Cozy fixture/handoff supplier | Deterministic declared/absence resources and later-child handoff | JSON-only fixtures, focused validation/review and manual Step commit |
 | Phase closure | Pending | Parent | One comprehensive review per PLAN epoch, final ordinary full validation and distinct release commit | Accepted Steps, canonical document/journal closure and native completion audit |
 
 - [x] Author S54.2.1 [specification](../spec/cml-classification-metadata.md), [design](../design/cml-classification-metadata.md), typed facade/validation/codec and CL-01–09 executable behavior.
@@ -21,13 +21,16 @@ Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
 - [x] Author S54.2.2 topology contract, immutable consumer and TP-01–08 executable specifications.
 - [x] Validate S54.2.2 with Topology, Classification and three predecessor suites: 93 tests across five suites passed; SBT and wrapper exit 0, serial lock released.
 - [x] Complete independent lightweight S54.2.2 Step review: PASS, no Current Phase Blockers.
-- [ ] Complete parent manual S54.2.2 topology Step commit.
-- [ ] Author, validate, review and manually commit S54.2.3 receiver fixtures and handoff.
+- [x] Complete parent manual S54.2.2 topology Step commit: `1294676e5adc868670a8f72f5aa4338f60d4a33b` (verified native receipt; 93 focused tests, independent lightweight PASS and factual M0 document proof).
+- [x] Author S54.2.3 [declared](../../src/test/resources/cozy/modeler/classification-metadata-v1-declared.json) and [absence](../../src/test/resources/cozy/modeler/classification-metadata-v1-absence.json) resources, FM-01–09 [FixtureSpec](../../src/test/scala/cozy/modeler/CmlClassificationMetadataFixtureSpec.scala) and [supplier handoff](../design/cml-classification-metadata-handoff.md).
+- [x] Validate S54.2.3 with the parent-selected six-suite focused accumulator: 102 tests passed, zero failures/cancellations/aborted suites; SBT/wrapper exit 0 and serial lock released.
+- [x] Complete independent lightweight S54.2.3 review: PASS, no Current Phase Blockers.
+- [ ] Complete parent manual S54.2.3 fixture/handoff Step commit.
 - [ ] Complete the sole comprehensive Phase review for the attributable epoch.
 - [ ] Pass final ordinary full Cozy validation and close canonical Phase/checklist/index/strategy and exact accepted journal records.
 - [ ] Complete separate parent manual release commit and native clean/preserved-tree audit.
 
-Checked S54.2.1 items refer to retained 81-test validation, independent review/M0 closure and verified native manual-commit receipt P542-S5421-PARENT-MANUAL-COMMIT-RECEIPT-001. S54.2.2 validation and independent review are accepted; its manual Step commit, later Steps and Phase closure remain pending.
+Checked S54.2.1 items refer to retained 81-test validation, independent review/M0 closure and verified native manual-commit receipt P542-S5421-PARENT-MANUAL-COMMIT-RECEIPT-001. S54.2.2 is CLOSED with verified native receipt P542-S5422-PARENT-MANUAL-COMMIT-RECEIPT-001 at `1294676e5adc868670a8f72f5aa4338f60d4a33b`. S54.2.3 authoring, 102-test focused validation and independent lightweight PASS are accepted. Its manual Step commit and Phase full review/full validation/distinct release remain pending. The initial failed validation and one exact pre-review oracle repair remain in the retained evidence.
 
 ## MMD-542-01: Distinct classification semantics
 
@@ -46,3 +49,5 @@ Checked S54.2.1 items refer to retained 81-test validation, independent review/M
 
 - [ ] Freeze Classification fixtures and the Phase 54.3/54.4 handoff.
 - [ ] Complete focused validation, review, release closure, and reproducible evidence for this child only.
+
+S54.2.3 supplier fixtures use caller-admitted synthetic source evidence; no real CML file/currentness, CLI, external dashboard acceptance or runtime delivery is claimed. Phase 54.3/54.4 retain future dynamic/usecase integration ownership and remain unstarted. See the [fixture contract](../spec/cml-classification-metadata.md#s5423-frozen-fixture-contract) and [handoff](../design/cml-classification-metadata-handoff.md).

@@ -149,8 +149,12 @@ Phase status index (individual Phase/checklist files are authoritative):
   number; GitHub's closed UI Phase 74 remains unchanged.
 - CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
-  publication. `phase-54.1.md` is CLOSED for Structure; following children
-  remain PLANNED: `phase-54.2.md` Classification,
+  publication. `phase-54.md` and `phase-54.1.md` are CLOSED;
+  [Phase 54.2](phase-54.2.md) Classification is IN_PROGRESS with S54.2.1
+  and S54.2.2 CLOSED and S54.2.3 fixtures/[handoff](../design/cml-classification-metadata-handoff.md)
+  validated by 102 focused tests and independent lightweight PASS; manual Step
+  commit pending. Phase full review, ordinary
+  full validation and distinct release remain pending. Following children remain PLANNED:
   `phase-54.3.md` Workflow and StateMachine, `phase-54.4.md` Use Case and
   Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
   traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy

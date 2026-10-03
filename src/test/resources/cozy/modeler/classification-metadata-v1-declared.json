@@ -1,0 +1,1535 @@
+{
+  "schemaVersion": "cozy.cml.semantic-metadata.v1",
+  "elements": [
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "entity:order"
+        }
+      },
+      "kind": "entity",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 1
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "value:amount"
+        }
+      },
+      "kind": "value",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 2
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "aggregate:order"
+        }
+      },
+      "kind": "aggregate",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 3
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "composition:line"
+        }
+      },
+      "kind": "composition",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 4
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "aggregation:tag"
+        }
+      },
+      "kind": "aggregation",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 5
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "association:partner"
+        }
+      },
+      "kind": "association",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 6
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait:audited"
+        }
+      },
+      "kind": "trait",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 7
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait:labeled"
+        }
+      },
+      "kind": "trait",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 8
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "powertype:status"
+        }
+      },
+      "kind": "powertype",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 9
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "powertype:category"
+        }
+      },
+      "kind": "powertype",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 10
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:status-open"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 11
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:status-closed"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 12
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:category-retail"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 13
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:category-wholesale"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 14
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "generalization:order-aggregate"
+        }
+      },
+      "kind": "generalization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 15
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "generalization:order-external"
+        }
+      },
+      "kind": "generalization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 16
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "generalization:trait"
+        }
+      },
+      "kind": "generalization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 17
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait-realization:order-audited"
+        }
+      },
+      "kind": "trait-realization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 18
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait-realization:order-labeled"
+        }
+      },
+      "kind": "trait-realization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 19
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "dimension:status"
+        }
+      },
+      "kind": "powertype-classification",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 20
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "dimension:category"
+        }
+      },
+      "kind": "powertype-classification",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 21
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "dimension:status-secondary"
+        }
+      },
+      "kind": "powertype-classification",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 22
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    }
+  ],
+  "terms": [
+    {
+      "identity": {
+        "vocabularyId": "structure.example",
+        "termId": "entity:order"
+      },
+      "source": {
+        "authorityId": "structure.example",
+        "path": "glossary/structure.dox",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "line": null
+      }
+    },
+    {
+      "identity": {
+        "vocabularyId": "classification.example",
+        "termId": "trait:audited"
+      },
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 7
+      }
+    }
+  ],
+  "extensions": {
+    "org.example.structure-handoff": {
+      "opaque": [
+        null,
+        true,
+        {
+          "retained": "opaque"
+        }
+      ]
+    },
+    "cozy.cml.structure": {
+      "schemaVersion": "cozy.cml.structure.v1",
+      "elements": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              }
+            },
+            "kind": "entity",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 1
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "entity",
+          "aggregateBoundary": {
+            "status": "present",
+            "value": {
+              "aggregate": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "membership": {
+                "status": "present",
+                "value": "member:主"
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "value:amount"
+              }
+            },
+            "kind": "value",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 2
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "value",
+          "aggregateBoundary": {
+            "status": "absent",
+            "reason": "not-applicable",
+            "detail": "Value membership is not applicable."
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "aggregate:order"
+              }
+            },
+            "kind": "aggregate",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 3
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "aggregate",
+          "aggregateBoundary": {
+            "status": "present",
+            "value": {
+              "aggregate": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "membership": {
+                "status": "present",
+                "value": "root:宣言"
+              }
+            }
+          }
+        }
+      ],
+      "relations": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "composition:line"
+              }
+            },
+            "kind": "composition",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 4
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "composition",
+          "sourceEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Owner"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 1,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": true
+            }
+          },
+          "targetEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "部品"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 0,
+                "upper": null
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": false
+            }
+          },
+          "semantics": {
+            "ownership": {
+              "status": "present",
+              "value": "owner:宣言"
+            },
+            "independentExistence": {
+              "status": "present",
+              "value": false
+            },
+            "createPolicy": {
+              "status": "present",
+              "value": "CreateDeclared"
+            },
+            "deletePolicy": {
+              "status": "present",
+              "value": "DeleteDeclared"
+            },
+            "reassignment": {
+              "status": "present",
+              "value": false
+            },
+            "reparenting": {
+              "status": "present",
+              "value": true
+            },
+            "lifecyclePropagation": {
+              "status": "present",
+              "value": [
+                "create",
+                "delete",
+                "create"
+              ]
+            },
+            "aggregateBoundary": {
+              "status": "present",
+              "value": {
+                "aggregate": {
+                  "status": "present",
+                  "value": {
+                    "identity": {
+                      "modelId": "structure.example",
+                      "elementId": "aggregate:order"
+                    },
+                    "boundary": "local"
+                  }
+                },
+                "membership": {
+                  "status": "present",
+                  "value": "member:主"
+                }
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "aggregation:tag"
+              }
+            },
+            "kind": "aggregation",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 5
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "aggregation",
+          "sourceEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "member"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 0,
+                "upper": null
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": false
+            }
+          },
+          "targetEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "value:amount"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Amount"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 1,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": true
+            }
+          },
+          "semantics": {
+            "ownership": {
+              "status": "present",
+              "value": "shared:宣言"
+            },
+            "independentExistence": {
+              "status": "present",
+              "value": true
+            },
+            "createPolicy": {
+              "status": "present",
+              "value": "CreateShared"
+            },
+            "deletePolicy": {
+              "status": "present",
+              "value": "KeepShared"
+            },
+            "reassignment": {
+              "status": "present",
+              "value": true
+            },
+            "reparenting": {
+              "status": "present",
+              "value": false
+            },
+            "lifecyclePropagation": {
+              "status": "present",
+              "value": []
+            },
+            "aggregateBoundary": {
+              "status": "present",
+              "value": {
+                "aggregate": {
+                  "status": "absent",
+                  "reason": "not-represented",
+                  "detail": "No aggregate is represented."
+                },
+                "membership": {
+                  "status": "present",
+                  "value": "member:値"
+                }
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "association:partner"
+              }
+            },
+            "kind": "association",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 6
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "association",
+          "sourceEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "value:amount"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Amount"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 1,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": true
+            }
+          },
+          "targetEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "partner.example",
+                  "elementId": "entity:partner"
+                },
+                "boundary": "external"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Partner"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 0,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": false
+            }
+          },
+          "semantics": {
+            "ownership": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No ownership is declared."
+            },
+            "independentExistence": {
+              "status": "present",
+              "value": true
+            },
+            "createPolicy": {
+              "status": "absent",
+              "reason": "unsupported",
+              "detail": "Create policy unsupported."
+            },
+            "deletePolicy": {
+              "status": "absent",
+              "reason": "not-applicable",
+              "detail": "Delete policy not applicable."
+            },
+            "reassignment": {
+              "status": "present",
+              "value": false
+            },
+            "reparenting": {
+              "status": "absent",
+              "reason": "not-represented",
+              "detail": "Reparenting not represented."
+            },
+            "lifecyclePropagation": {
+              "status": "present",
+              "value": [
+                "参照",
+                "Link"
+              ]
+            },
+            "aggregateBoundary": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No aggregate boundary is declared."
+            }
+          }
+        }
+      ]
+    },
+    "cozy.cml.classification": {
+      "schemaVersion": "cozy.cml.classification.v1",
+      "traits": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait:audited"
+              }
+            },
+            "kind": "trait",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 7
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait:labeled"
+              }
+            },
+            "kind": "trait",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 8
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          }
+        }
+      ],
+      "powertypes": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "powertype:status"
+              }
+            },
+            "kind": "powertype",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 9
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "members": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:status-open"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:status-closed"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "powertype:category"
+              }
+            },
+            "kind": "powertype",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 10
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "members": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:category-retail"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:category-wholesale"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        }
+      ],
+      "generalizations": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "generalization:order-aggregate"
+              }
+            },
+            "kind": "generalization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 15
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subtype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "supertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "aggregate:order"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "generalization:order-external"
+              }
+            },
+            "kind": "generalization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 16
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subtype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "supertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "external.example",
+                "elementId": "entity:base"
+              },
+              "boundary": "external"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "generalization:trait"
+              }
+            },
+            "kind": "generalization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 17
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subtype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:audited"
+              },
+              "boundary": "local"
+            }
+          },
+          "supertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:labeled"
+              },
+              "boundary": "local"
+            }
+          }
+        }
+      ],
+      "traitRealizations": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait-realization:order-audited"
+              }
+            },
+            "kind": "trait-realization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 18
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "traitTarget": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:audited"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait-realization:order-labeled"
+              }
+            },
+            "kind": "trait-realization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 19
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "traitTarget": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:labeled"
+              },
+              "boundary": "local"
+            }
+          }
+        }
+      ],
+      "powertypeClassifications": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "dimension:status"
+              }
+            },
+            "kind": "powertype-classification",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 20
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "powertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "powertype:status"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "dimension:category"
+              }
+            },
+            "kind": "powertype-classification",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 21
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "powertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "powertype:category"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "dimension:status-secondary"
+              }
+            },
+            "kind": "powertype-classification",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 22
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "powertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "powertype:status"
+              },
+              "boundary": "local"
+            }
+          }
+        }
+      ]
+    },
+    "org.example.classification-handoff": {
+      "producer": "synthetic-caller",
+      "dimensions": [
+        "status",
+        "category",
+        "status-secondary"
+      ],
+      "absence": null
+    }
+  }
+}
