@@ -67,8 +67,12 @@ metadata. Mixed output retains the original single Domain component and old
 Workflow v5 products. The source-derived declarations are written only under
 `target/test-generated`; no new durable source fixture is introduced.
 
-The parent separately validates behavior, freezes actual 2/2/5 source inventories
-and runs sequential Scala 3.3.8 compilation with distinct class and incremental
-analysis directories. Compilation cannot be inferred from authored probes or
-JSON/string expectations. Independent ABI acceptance review and the parent
-manual local Step commit follow those evidence gates.
+The parent accepted 105/105 behavior tests across six suites, froze actual 2/2/5
+source inventories and completed sequential Scala 3.3.8 compilation with distinct
+class and incremental analysis directories, successful SBT/wrapper exits and
+released serial locks. Compilation acceptance rests on those actual runs.
+Independent protected ABI review passed with zero current blockers, followed by
+parent manual local ABI commit `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`.
+The authored [recipient handoff](../phase/phase-72-cncf-handoff.md) records
+reproduction, comparison evidence and CNCF91/sm-workflow prerequisites. HANDOFF
+acceptance, recipient integration and final Phase gates remain pending.

@@ -1639,6 +1639,30 @@ Primary references:
 - `docs/phase/phase-33-checklist.md`
 - `docs/journal/2026/08/entity-revision-generator-downstream-acceptance-transfer-2026-08-03.md`
 
+### Phase 72: CML Failure Model
+
+Status: in_progress (updated 2026-10-03); SOURCE and ABI accepted, HANDOFF pending.
+
+Cozy admits explicit Execution Model defaults and Component/Service/Operation
+IN_SCOPE/OUT_OF_SCOPE deltas, preserving source identities and ordered effective
+development metadata. SOURCE commit `6c15b65cd83181fdf61aa8674c9a847f79751805`
+and ABI commit `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843` are accepted, with
+105/105 focused tests and actual Scala 3.3.8 normal/value/mixed consumer
+compilation (2/2/5 sources). CNCF91 owns canonical types, validation and runtime
+resolution; sm-workflow depends on receiver acceptance and uses only resolved
+effective owner contracts. Execution names choose no failures or mechanisms.
+
+The [Phase](../phase/phase-72.md), [checklist](../phase/phase-72-checklist.md) and
+authored [recipient handoff](../phase/phase-72-cncf-handoff.md) record exact
+contracts, fixture comparisons, reproduction and recipient prerequisites.
+HANDOFF static validation is accepted and independent Step review is PASS with
+zero blockers. Its parent manual local commit, all final Phase gates and
+receiver/workflow integration remain pending. Existing
+nonblocking maintenance stays in the separate
+[hygiene follow-up](../journal/2026/10/2026-10-03-phase-72-hygiene-follow-up.md).
+This status projection preserves the Phase 71/75 history and other priorities;
+it selects no successor and records no final release.
+
 ### Future Follow-up: Explicit Component Root Generation
 
 Status: planned, low priority.

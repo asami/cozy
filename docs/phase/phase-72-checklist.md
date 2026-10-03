@@ -22,29 +22,33 @@ Stage Status:
 ## S72.2 ABI
 
 Stage Status:
-- Current status: IN_PROGRESS
+- Current status: CLOSED
 - Owner: Phase 72 parent
 - Update rule: Begin after SOURCE acceptance; record generated-contract and consumer evidence.
 - Closure basis: All S722 items below.
 
 - [x] S722-01 Additive ordered source-correlated generated Failure Model metadata authored in `FailureModelAbiGenerator.scala`; exact contract/design in `docs/spec/failure-model-abi-contract.md` and `docs/design/failure-model-abi-lowering.md`; real normal/value/mixed Given/When/Then scenarios and typed consumer materialization authored in `FailureModelAbiGenerationSpec.scala`.
-- [x] S722-02 No-declaration compatibility and explicit library-target policy specified and implemented with trailing defaulted callers; independent parent-owned `failure-model-legacy-baseline.json` admitted before ABI editing from SOURCE commit `6c15b65cd83181fdf61aa8674c9a847f79751805`, four routes/80 files. Full-byte comparison, library rejection, old callers, escaping/optional provenance and seeded 100-sample executable scenarios authored; acceptance remains pending below.
+- [x] S722-02 No-declaration compatibility and explicit library-target policy specified and implemented with trailing defaulted callers; independent parent-owned `failure-model-legacy-baseline.json` admitted before ABI editing from SOURCE commit `6c15b65cd83181fdf61aa8674c9a847f79751805`, four routes/80 files. Full-byte comparison, library rejection, old callers, escaping/optional provenance and seeded 100-sample executable scenarios accepted through the validation/review evidence below.
 - [x] S722-03 Focused validation accepted: six suites, 105/105 tests; real Scala 3.3.8 generated-consumer groups normal/value/mixed (2/2/5 sources) compiled successfully; SBT and wrapper exit 0, serial locks released.
 - [x] S722-04 Independent PLAN-selected protected ABI acceptance review PASS; complete producer/caller/generated-output boundary accepted with zero current blockers.
-- [ ] S722-05 Parent manual local ABI Step commit recorded.
+- [x] S722-05 Parent manual local ABI Step commit recorded: `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`.
 
 ## S72.3 HANDOFF
 
 Stage Status:
-- Current status: OPEN
+- Current status: IN_PROGRESS
 - Owner: Phase 72 parent
 - Update rule: Begin after ABI acceptance; record recipient-ready authority and examples.
 - Closure basis: All S723 items below.
 
-- [ ] S723-01 CNCF91 recipient handoff records canonical type, validation and runtime resolution responsibility with producer comparison evidence.
-- [ ] S723-02 sm-workflow handoff records recipient-resolved implementation constraints and authored OUT_OF_SCOPE semantics.
-- [ ] S723-03 Focused handoff validation and independent selected acceptance closed.
+- [x] S723-01 [Authored CNCF91 recipient handoff](phase-72-cncf-handoff.md) records canonical type, validation and runtime resolution responsibility with accepted producer commits, actual fixture oracle and reproduction/acceptance instructions; receiver integration remains pending.
+- [x] S723-02 [Authored sm-workflow handoff](phase-72-cncf-handoff.md#sm-workflow-guidance-after-receiver-acceptance) records recipient-resolved implementation constraints and effective-owner OUT_OF_SCOPE semantics; CNCF acceptance is a prerequisite and workflow/AI wiring remains unverified.
+- [x] S723-03 Parent class-D static validation accepted; independent PLAN-selected HANDOFF Step review PASS with zero blockers and no new findings.
 - [ ] S723-04 Parent manual local HANDOFF Step commit recorded.
+
+The parent materialized the accepted nonblocking maintenance record in the
+[hygiene follow-up](../journal/2026/10/2026-10-03-phase-72-hygiene-follow-up.md).
+It remains OPEN for separate maintenance, with no program repair in HANDOFF.
 
 ## Final Phase acceptance and release
 

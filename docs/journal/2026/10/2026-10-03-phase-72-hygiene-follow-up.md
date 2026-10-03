@@ -1,0 +1,5 @@
+<!-- cncf-phase-finding:HYG-P72-S721-001:begin -->
+HYG-P72-S721-001 — Existing Modeler naming debt. Modeler.scala:214 binds the method-local pattern variable resourceId, contrary to the shared flatcase rule for local variables. The identical binding exists at original base f0da9e9c0157a99ac665093422b784d6238f69a9:213; S72.1 did not introduce it. This is nonblocking maintenance with no observed behavioral impact. Owner: Cozy. Follow-up boundary: a separately authorized local naming-maintenance task that renames this binding and its interpolation only, preserving ResourceIdGuard behavior and all public parameter labels. No repair is admitted into the S72.1 semantic fix scope.
+
+Status: OPEN. Discovery: S72.1 REVIEW, 2026-10-03. Repository: Cozy; path: src/main/scala/cozy/modeler/Modeler.scala; symbol: ResourceIdGuard local pattern binding. Category: naming maintenance. Priority/risk: P3, no observed behavioral impact. Outside Phase72: unchanged pre-existing local spelling, unrelated to authored Failure Model acceptance. Proposed group: separate naming-maintenance task. Scheduling/task/commit reference: none.
+<!-- cncf-phase-finding:HYG-P72-S721-001:end -->

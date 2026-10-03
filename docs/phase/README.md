@@ -133,7 +133,15 @@ Phase status index (individual Phase/checklist files are authoritative):
   sequence; file updates use declared inputs and modification times, not
   speculative metadata or hash gates.
   The unchanged former numeric successor is [Phase 72](phase-72.md), CML
-  Failure Model; it is not started or renumbered by this split.
+  Failure Model; the split did not start or renumber it. Updated 2026-10-03:
+  Phase 72 is now in_progress, with SOURCE and ABI accepted at
+  `6c15b65cd83181fdf61aa8674c9a847f79751805` and
+  `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`. Its
+  [CNCF91/sm-workflow HANDOFF](phase-72-cncf-handoff.md) is authored with
+  static validation accepted and independent Step review PASS; its manual
+  commit and [final Phase gates](phase-72-checklist.md) remain open.
+  Receiver/runtime integration and workflow/AI wiring remain
+  recipient-owned prerequisites.
 - Planned site-production contract after the Phase 74 collision was resolved:
   [Phase 75](phase-75.md) retains the local planned scope under a distinct
   number; GitHub's closed UI Phase 74 remains unchanged.

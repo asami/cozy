@@ -28,5 +28,10 @@ default positions and appending origin chains. Validation belongs to normalizati
 the projector may reject an invalid caller invariant by DbC.
 
 Cozy's effective metadata remains development metadata. CNCF Phase 91 defines
-and validates its canonical ResolvedFailureModel. The next ABI Step passes this
-metadata into generation; this SOURCE Step changes no generator or runtime API.
+and validates its canonical ResolvedFailureModel. Accepted S72.2 passes this
+metadata into additive generation under the
+[ABI contract](../spec/failure-model-abi-contract.md); SOURCE itself changed no
+generator or runtime API. The authored
+[recipient handoff](../phase/phase-72-cncf-handoff.md) records the fixture oracle,
+accepted SOURCE/ABI commits and recipient prerequisites. HANDOFF acceptance and
+canonical receiver/runtime integration remain pending.

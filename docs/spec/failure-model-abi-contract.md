@@ -135,4 +135,12 @@ Nil, in one sequential registered serialized SBT invocation. Each group uses
 `target/phase72-generated-compile/<group>/classes` and a separate
 `target/phase72-generated-compile/<group>/inc_compile.zip`. Source materialization,
 JSON properties and string expectations are not compilation acceptance.
-Validation, independent review and the ABI commit remain parent-owned pending gates.
+The parent accepted six-suite focused validation with 105/105 tests and actual
+Scala 3.3.8 compilation of the normal/value/mixed 2/2/5 source groups, with
+successful SBT/wrapper exits and released serial locks. Independent protected ABI
+review passed with zero current blockers; parent manual local ABI commit
+`1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843` closes S72.2.
+The authored [recipient handoff](../phase/phase-72-cncf-handoff.md) supplies
+reproduction paths, the fixture oracle and recipient acceptance prerequisites.
+HANDOFF and final Phase acceptance remain pending; canonical receiver/runtime
+resolution and workflow integration remain recipient-owned.

@@ -70,4 +70,10 @@ than concatenating identities. The pure projection is an executable comparison
 oracle for recipient construction, with no runtime guarantees, retry, locking,
 rollback, durability, hash or distributed semantics.
 
-S72.2 owns generated ABI and library-target policy. S72.3 owns recipient handoff.
+S72.2's accepted [generated ABI contract](failure-model-abi-contract.md) owns
+generation and library-target policy. SOURCE commit
+`6c15b65cd83181fdf61aa8674c9a847f79751805` and ABI commit
+`1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843` are accepted. The authored
+[S72.3 recipient handoff](../phase/phase-72-cncf-handoff.md) gives the concrete
+fixture oracle and CNCF91/sm-workflow acceptance prerequisites; HANDOFF acceptance
+remains pending. These instructions do not change this normative source contract.
