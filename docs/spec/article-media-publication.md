@@ -251,6 +251,36 @@ only, `repositoryPath` does not mean artifact-repository-relative and
 The strict SmartDox record remains free of these values and is correlated by
 the ordinary role-update semantics; no `SiteRoleUpdate` exception is defined.
 
+WIP production admission requires the actual selected production JSON object,
+normalized category/article identity, exact locale, completed render, and
+technical-and-visual QA, together with the required production and resolved
+output paths. It explicitly adopts the valid supplied MP4 without a local
+`render.sha256` gate; ordinary JSON loading ignores extra properties without
+dedicated hash compatibility processing. Ordinary local `FileEvidence` observes
+normalized lexical/real paths, size, actual `FileTime` modification time, and
+fileKey, with direct regular non-symlink checks and coherent two-read
+bytes/attributes. Exact descriptor and selected production JSON bytes are
+transient observations for revalidation during that operation, including
+formatting rewrites that preserve size, time, and file identity. They supply
+no persistent identity or freshness token and no PDF digest. The explicit
+source and optional installed artifact digests apply only to the selected MP4
+and its canonical integrity record, staged copy, backup, installation, and
+restoration. Full MP4 bytes are not retained across the command.
+
+The existing locked WIP transaction preserves registry-last replacement,
+verified copy/backup/restore bytes, and operation cleanup. On rollback, complete
+original registry equality includes actual bundle bytes. Unchanged root,
+source, production, context, candidate, variant, and integrity evidence remains
+mandatory, as does before/restored optional destination digest equality.
+Restoration recomputes ordinary direct-path planning and accepts the actual
+destination inode and modification time installed by atomic backup restoration;
+it does not fabricate the old fileKey. This restoration-only predicate does not
+relax strict pre-mutation plan revalidation or installed-artifact admission.
+A successful rollback reports the original application failure; invalid
+restoration remains a distinct rollback failure. PDF receipt and selected
+review-state currentness, reuse-only roles, and WIP production isolation remain
+unchanged.
+
 ### Video-publication Mapping
 
 For `video-publication`, the selected evidence is exactly
@@ -289,15 +319,31 @@ version from `cozy bok publish-media --version`, `cozy bok update-publication
 mutation because `cozy.media.v1` has no version field. `buildManifest` is the
 explicitly resolved
 `target/cozy-media/manifest.json` produced for that descriptor, not discovered
-by scanning; the selected entry must match `resourceId` and provide its
-lowercase SHA-256. That entry SHA, the published destination file bytes SHA,
-and the integrity-record `sha256` must be equal; a missing value or mismatch
-fails. `publicPath` is the selected explicit publication-profile destination
+by scanning. Its JSON object, schema, knowledge identity, resource objects,
+unique selected `resourceId`, and exact selected build path must match the
+descriptor. The actual `CozyMedia.build` receipt is admitted through
+`CozyMediaReceipt.requireCurrent` with the selected profile: actual declared
+producer inputs, file existence, independent validity, and modification times
+determine currentness. For a copy resource, a newer declared copy source fails
+with the actual source, output, and next build operation; a newer knowledge
+document alone does not invalidate unchanged copy-source/output evidence. The
+selected manifest entry supplies no local SHA, freshness hash, or approval
+identity.
+
+Preparation checks the actual direct regular operation source PNG against
+`PreparedPublication.sourceSha256` and uses that verified value in the named
+artifact-integrity record. Completion checks the installed destination PNG
+against that prepared integrity SHA before exposing the strict role. Projection
+first admits the semantic current manifest, then compares the actual selected
+build PNG bytes with the actual published destination bytes and records their
+matching SHA-256. Actual build/published PNG disagreement fails. These checks
+protect publication artifact integrity and do not determine local currentness
+or approval. `publicPath` is the selected explicit publication-profile destination
 normalized as a site-visible path. `repositoryPath` is that destination
 relative to the configured artifact repository root. The selected Phase 26
 profile root must be that configured repository and containment must hold.
 Infographic `publicationState` derives from the explicit publish result,
-existence, hash, and containment.
+existence, actual artifact integrity, and containment.
 
 ## Correlation and Operations
 
@@ -343,13 +389,14 @@ validated output is idempotent and receives no byte replacement, although its
 registry may be refreshed. A differing SHA fails without `--force`; with
 `--force` it is replaced only by a staged same-filesystem atomic move after
 complete preflight. `--force` never bypasses schema, identity, uniqueness,
-containment, manifest/SHA, ownership, or snapshot checks. This specifies safe
+containment, semantic manifest attribution/currentness, actual artifact
+integrity, ownership, or snapshot checks. This specifies safe
 staged/replace behavior and does not claim multi-file artifact atomicity.
 
 Each operation then replaces only `(articleIdentity, locale, role)`, preserves
 unaffected roles/locales for that article and every unrelated/generic entry,
 reconstructs the complete canonical strict article record, revalidates the
-complete bundle-digest snapshot, and atomically replaces the owner bundle.
+complete transient bundle-byte snapshot, and atomically replaces the owner bundle.
 Malformed, duplicate, conflicting, or changed snapshot state fails before
 mutation. An operation must not lose a concurrent update. One-stop
 `cozy bok publish --dry-run` executes the identical non-mutating enumeration and
@@ -364,56 +411,60 @@ Ordinary `cozy bok build` accepts exactly the canonical strategy values `draft`,
 value fails before registry load, path construction, or an external command.
 Build loads only configured registry bundles and the configured repository root.
 It holds the same real-publication-root lock as producers from complete snapshot
-load and digest capture through policy evaluation, effective-context
-materialization, source-digest revalidation, and immutable snapshot installation.
-Build materializes the effective context in a unique sibling work directory and
-computes `contextDigest` as exactly 64 lowercase hexadecimal SHA-256 over the
-canonical strategy and the complete effective publication context. Define
-`U64(n)` as exactly eight octets containing the non-negative integer `n` in
-unsigned 64-bit big-endian/network byte order; every length below counts
-octets, never characters. The canonical strategy and every normalized
-publication-root-relative bundle filename (using `/` separators) are encoded
-as their exact UTF-8 octets. Bundle files are sorted by unsigned lexicographic
-comparison of their UTF-8 filename octets. The SHA-256 input is exactly:
+load through policy evaluation, effective-context materialization, source-byte
+revalidation, and immutable snapshot installation. The registry observation is
+an in-memory map from admitted bundle name to the exact immutable bytes read
+and parsed by this operation. Projections preserve that observation; planned
+metadata does not manufacture persisted proof. Complete-map comparison includes
+an initially empty registry, bundle additions/removals, same-size rewrites with
+preserved modification times, and whitespace-only rewrites. The observation is
+never serialized or used as approval, freshness, equivalence, or cache evidence.
+Optional empty expectations at existing upsert/replace interfaces still mean no
+caller-supplied expectation; those operations capture their own actual snapshot.
+Strict locked snapshot validation compares even empty maps.
 
-```
-U64(strategyByteLength) || strategyBytes || U64(fileCount) ||
-for each sorted file:
-  U64(filenameByteLength) || filenameBytes ||
-  U64(contentByteLength) || exactFileBytes
-```
+Each invocation, including empty and byte-identical repeated inputs, builds a
+fresh context in a unique `.work-` directory beneath
+`target/cozy-bok/article-media/<canonical-strategy>/snapshots`. The completed
+sibling is named `snapshot-` followed by that work directory's unique suffix,
+with the effective metadata in its direct `publication` directory. These names
+allocate filesystem paths only; their suffixes carry no semantic identity,
+freshness, approval, equivalence, or cache-key meaning and are never serialized
+into product metadata.
 
-There are no delimiters, terminators, platform newline conversions, text
-re-encodings, filesystem metadata, directory entries, or absolute paths in
-this input; `fileCount` counts framed regular bundle files. `contextDigest` is
-the lowercase hexadecimal SHA-256 result over exactly that octet sequence.
-Preview omissions are included because the effective output is hashed.
+Build compares each configured source bundle's bytes with its original
+observation before copying. It preserves unaffected generic/legacy entries,
+omits exactly policy-selected Preview strict roles, and removes empty strict
+variants/entries. After those transformations, it captures the complete direct
+filename-to-immutable-byte map and requires exactly the original admitted
+filenames and direct regular files. It revalidates the original registry map
+under the lock, compares the effective bytes again, requires an absent final
+target, and atomically installs this operation's completed directory. A target
+collision or unsupported/failed atomic move fails without reusing, replacing,
+or removing another context. Installed directories, filenames, and bytes are
+verified before the consumer. Failure cleans only this operation's work or its
+newly installed failed directory.
 
-The final context path is exactly
-`target/cozy-bok/article-media/<canonical-strategy>/snapshots/<contextDigest>/publication`.
-The context copies all unaffected generic/legacy entries, rewrites strict
-article entries to omit exactly Preview-policy omitted roles, and removes empty
-variants/entries. Build verifies the source digest again before atomically
-installing the completed snapshot directory. If the digest path already exists,
-it verifies the complete relative-file set and bytes against `contextDigest` and
-reuses that directory without mutation; a mismatch fails deterministically.
-Concurrent producer/build work therefore serializes. The shared registry lock
-is released only after the immutable snapshot is fully installed. Every pinned
-SmartDox, Dox, Antora, and site consumer receives that exact digest-addressed
-path as `-publication`, with configured `-publication.repository` behavior
-unchanged. The build invocation leases the snapshot for all consumers and does
-not replace or remove it while any consumer runs. Installed snapshots remain a
-target cache; any future cleanup is separately coordinated and may remove only
-snapshots without an active lease, and this specification defines no cleanup
-CLI.
+The shared lock is released only after installation. Every pinned SmartDox,
+Dox, Antora, and site consumer receives the fresh `-publication` path, with
+configured `-publication.repository` behavior unchanged. The invocation leases
+its context across consumers and releases the lease in `finally`, including
+consumer failure. A producer update and later materialization cannot alter an
+earlier consumer's installed bytes. Earlier contexts, even edited or containing
+extra files, are never consulted when admitting a new context and remain
+untouched. There is no context cache, persistent index, content addressing, or
+old-context cleanup operation.
 
-The digest-addressed snapshot solves publication-context handoff lifetime only;
-artifact and repository admission remain protected and validated by the existing
-producer and policy contracts. Production policy failure occurs before any
-external build command. Build performs no renderer, transcoder, media
-publication, target discovery, generated-site scan, arbitrary repository scan,
-descriptor enumeration, or locale fallback. Media-free registry/build behavior
-remains unchanged apart from this deterministic snapshot handoff path.
+Phase 71.3 supersedes the former registry digest observation, context digest
+framing/reuse guarantees, and local infographic manifest SHA requirement;
+accepted provider schemas remain unchanged.
+Artifact and repository admission retain their existing producer and policy
+contracts, including actual published-byte mismatch rejection. Production
+rejects missing, invalid, or unavailable required published artifacts before
+any consumer. Build does not render, transcode, publish, discover media, scan
+generated-site/arbitrary repository paths, enumerate descriptors, or perform
+locale fallback. Media-free behavior retains the same policy and handoff
+semantics with a fresh context path.
 
 Pinned SmartDox owns exact-locale article and global/category Notice projection;
 Cozy acceptance observes it without reimplementation. The stage workflow puts
@@ -465,16 +516,24 @@ Executable specifications added during implementation must demonstrate:
 - absent/equal/differing destination SHA behavior, `--force` staged replacement,
   non-mutating one-stop dry-run, and a failed publication that leaves registry
   state unchanged;
+- actual hash-free infographic build receipt admission through projection and
+  prepare/complete, newer declared copy-input rejection before artifact or
+  registry mutation with actionable source/output/build diagnostics, generated
+  knowledge-only timestamp changes with unchanged copy PNG integrity, and
+  actual build/published PNG mismatch rejection;
 - descriptor/registered-metadata-only production with no scan or heavy build
   work, plus canonical strategy/alias selection, unsupported-strategy rejection,
-  locked snapshot/digest consistency, content-addressed immutable snapshot
-  installation and reuse, and immutable effective-context handoff; concurrent
-  same-strategy builds must show that build A keeps consuming its installed
-  snapshot while build B publishes a different effective state at a different
-  digest path, and same-content reuse must show no mutation;
-- at least one fixed golden framing vector and expected `contextDigest` whose
-  exact octet sequence is exercised by both the producer and verifier, in
-  addition to the concurrent-build and same-content-reuse evidence above;
+  complete transient byte-observation consistency and fresh immutable context
+  installation; concurrent builds must show that an earlier consumer retains
+  its installed bytes while a later consumer obtains updated source bytes;
+- distinct same-content and empty contexts with equal effective bytes, released
+  leases, and unchanged earlier bytes/attributes; earlier edited/extra-file
+  contexts are ignored and preserved;
+- complete bundle-set addition/removal and initially empty snapshot conflicts,
+  same-size timestamp-preserved source races, and equivalent JSON formatting
+  rewrites that reject before mutation/install/consumer invocation;
+- generated valid configured-bundle write orders preserve exact filenames and
+  copied bytes under independently reset property trials;
 - every policy-matrix outcome, including preview diagnostics and production
   staging failures; and
 - preserved `.video`/`VideoPublication` compatibility plus unchanged

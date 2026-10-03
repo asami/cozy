@@ -74,7 +74,7 @@ replaces the declared output only then. The existing receipt-v2 automatic
 source evidence therefore includes the selected infographic authority without
 a receipt schema change. Failure, invalid output, or an article/infographic
 input race preserves the previous output and creates no fresh receipt. Its
-resource entry continues to hold the accepted output hash. An absolute output
+resource entry records the accepted relative output path and receipt evidence. An absolute output
 is rejected during descriptor path resolution; an output whose normalized
 effective destination traverses or otherwise escapes the descriptor root is
 rejected with the stable Article PDF output-escapes-descriptor-root diagnostic;
@@ -117,32 +117,52 @@ metadata. Paths remain descriptor-relative; input evidence has only `id`, `role`
 `path`, `normalization`. `structured-document` still validates supported syntax,
 but neither normalization mode computes a content identity.
 
-There is no receipt input-set digest. Generation reuse uses existing declared
-input files and their modification times through `CozyFileUpdatePolicy`, not
-earlier receipt/model equality. Unknown/newer inputs conservatively select the
-real producer. Active build/publication commands observe file paths and FileTime
-in memory to reject input races; those observations are not serialized proofs.
-An explicit prebuilt accepts its valid supplied output even when copying preserved
-mtime. Unrelated resource sources are not inferred as generation dependencies.
+Generation reuse uses producer input files and their actual FileTime through
+`CozyFileUpdatePolicy`. A `copy` consumes only its direct resolved source.
+A `prebuilt` consumes that source and, for a site-video resource, its explicitly
+named `articleMedia.production` file; their times and the output time must not
+exceed `acceptedAt`. Knowledge, unrelated sources, receipt declarations,
+profiles and site configuration remain package-wide informative evidence and
+current-command validation inputs, rather than copy/prebuilt conversion inputs.
+Other producers retain their existing input selection in this Slice.
+Active build/publication commands validate every declared input and observe
+paths and FileTime in memory before and after work to reject input races.
+Those observations are not serialized as another dependency model.
 
-Receipt-v2 no longer emits or requires `inputSetSha256` or per-input `sha256`.
-Historical properties with those names are ignored without hash parsing, comparison
-or re-emission. Producer metadata remains informative, not a historical content gate.
-The unchanged outer output/artifact SHA fields protect the actual distribution
-candidate during verify/publication, never local reuse. Prepared publication also
-retains actual source/destination/temporary-copy integrity and safe atomic install;
-its descriptor/input-set digests are removed in favor of active-command observations.
+Every newly accepted entry in `target/cozy-media/manifest.json` has `id`,
+relative `path`, a `cozy.media.receipt.v2` receipt and optional presentation
+`artifacts`. The manifest remains `cozy.media.v1`. The receipt has sorted input
+metadata, producer metadata, the build operation with selected target/profile,
+UTC ISO-8601 `acceptedAt`, and `{status:"valid",findings:[]}` verification.
+Stored manifests, entries, receipts and input evidence load their known typed
+fields directly, ignoring arbitrary extra stored properties without parsing or
+re-emitting them. Descriptor configuration remains closed and strict. Known
+schemas, types, IDs, ordering, verification, UTC timestamps and paths remain
+validated. No accepted primary-output digest is emitted or compared.
 
-Every newly accepted resource entry in `target/cozy-media/manifest.json` retains the legacy `schema`, `knowledge`, and resource `id`/`path`/`sha256` fields, and adds a `receipt` with schema `cozy.media.receipt.v2`, sorted non-hash `inputs`, `producer`, operation `{name:"cozy media build"}` plus selected target/effective profile when present, UTC ISO-8601 `acceptedAt`, and `{status:"valid",findings:[]}` verification. The output SHA-256 remains the exact accepted output-file digest. Cozy prepares selected review states and this receipt before any acceptance write, installs states first, and makes the receipt the final visibility record; in-process failure restores prior bytes/existence. Dry run and failing work do not expose a fresh receipt.
+`current` is a read-only producer-freshness Boolean. `evidenceCurrent` requires
+matching knowledge/resource/output identity, a valid receipt, the selected
+automatic source/project path mappings and the paired site context/path mappings
+when required by the accepted receipt. It does not compare whole historical
+input sets. `currentnessFailure` combines those gates and reports the concrete
+reason, media receipt currentness stage, ID, actual failing input/output or
+manifest path, producer kind, and `cozy media build <descriptor> --target <id>`.
+Verification and receipt preflight use that diagnostic through `requireCurrent`.
+PDF output headers are validated for generated PDFs and document resources with
+`article_pdf` or `summary_slides_pdf` roles, including copy outputs.
+A valid byte rewrite with deliberately preserved timestamps has no promise of
+digest detection.
 
-Local generation freshness and distribution integrity are separate boundaries.
-Generation selects reuse from declared-file existence and modification times;
-verify/publication additionally require accepted output/artifact integrity.
-A target build replaces only selected manifest entries and preserves unselected
-entries without re-accepting them. Active-command input observations are captured
-again after selected work; a change rejects acceptance. Review/artifact and
-independent video hash layers outside this receipt migration remain separate
-obligations; this contract does not imply Phase/Step acceptance.
+Acceptance prepares review states and receipts before writing, installs states
+first and makes the receipt the final visibility record. In-process failure
+restores prior bytes/existence; dry run and failed work expose no fresh receipt.
+Target builds preserve unselected entries without reaccepting them. Explicit
+prebuilt build adopts valid output even when the read-only plan reports current.
+Real source-to-staged-to-destination publication byte integrity, safe paths and
+atomic installation remain required. Presentation subordinate `Artifact`
+records contain only `id`, `role`, and `path`. Current artifact evidence compares
+these typed ordered records with the actual structurally verified generation;
+it uses no persisted output or source content identity.
 
 ### PDF review currentness state
 
@@ -155,41 +175,36 @@ receipt through the existing rollback-safe receipt transaction. An absent state
 target is created only when the candidate has at least one current qualifying
 PDF resource; an existing target must be a direct regular non-symlink file.
 
-Its exact ordered object is `schema`, `knowledge`, and `resources`. Resources
-are ordered by `(role,id)` and each is exactly `id`, `role`, `language`,
-`publicPath`, `mediaType`, `output`, and `sha256`; a
-direct `build: summary-slides-pdf` `summary_slides_pdf` entry additionally has
-`rendererManifestSha256`. Entries
-are projections only of current `kind: document` resources whose
-`articleMedia.role` is exactly `article_pdf` or `summary_slides_pdf`; `language`
-is the exact `ja` or `en` locale, `mediaType` is exactly `application/pdf`, and
-all paths are descriptor-relative forward-slash spellings. The state binds the
-knowledge identity, accepted resource output path/hash, and public path without
-serializing a source-machine path. Historical resource `inputSetSha256`
-properties are ignored; no input-set digest is emitted or compared.
+The saved object has `schema`, `knowledge`, and `resources`, ordered by
+`(role,id)`. Each resource saves only `id`, `role`, `language`, `publicPath`,
+`mediaType` and relative `output`. Known typed fields load directly with valid
+schema/knowledge, role and locale enums, `application/pdf`, safe paths and unique
+IDs; arbitrary extra stored properties are ignored. No whole-JSON comparison or
+state/output/renderer digest is used.
 
-For a direct `build: summary-slides-pdf` summary-slides entry Cozy first
-requires its current dependency receipts and the existing
-`CozyMediaSummarySlidesPdf.verifyStructural` proof. Its renderer-manifest byte
-SHA-256 is then bound in this state; page count, source page order, and asset
-evidence remain exclusively validated by that structural proof. A prebuilt
-`summary_slides_pdf` instead retains ordinary receipt-derived role, path, hash,
-and currentness evidence without a `rendererManifestSha256` field or direct
-summary dependency/structural verification. Exact reconstruction rejects a
-missing, malformed, stale, altered, or unexpected state entry, changed
-output/locale/public path/media type/receipt, or changed direct-summary renderer
-evidence. A stale retained summary is omitted by a target article-PDF refresh
-rather than blessed, and a later valid summary refresh may restore both roles.
+`requireCurrent(plan, resources)` checks only the selected qualifying PDFs.
+It requires their ordinary receipt currentness, a valid direct state file and
+matching knowledge, then matches each selected ID's known metadata to the
+resolved resource and accepted entry. A stale unselected Japanese PDF cannot
+veto unchanged selected English verification or publication preparation.
+`current(plan)` checks all qualifying PDFs through the same logic and does not
+gate a smaller selection. Missing or altered selected metadata reports PDF
+review currentness, resource ID, actual state/output path, producer kind and the
+next build operation.
 
-This state adds PDF review/currentness only; `CozyMediaReceipt.current` remains
-the authoritative receipt-currentness check. Normal `cozy media verify` and
-publication preflight require the state only when their selected resources are
-qualifying PDFs. `cozy media slide build` remains presentation-only and neither
-writes nor requires it. The state is not a receipt and does not change the
-`cozy.media.v1`, `cozy.media.receipt.v2`, `cozy.media.review-state.v1`, or
-`cozy.media.cross-review.v1` shapes. It performs no registration, publishing,
-SmartDox action, PPTX exposure, semantic approval, visual approval, or
-audiovisual approval.
+Direct `summary-slides-pdf` resources require current dependency receipts and
+the nonhash page count/order/image/renderer structural verifier specified below.
+This direct renderer subsystem is migrated under S07.
+Prebuilt summaries require their ordinary receipt and known state metadata;
+they do not opt into direct structural verification. Candidate acceptance uses
+the merged manifest without requiring prior on-disk receipts or freshness
+against just-generated outputs. A stale unselected direct summary is omitted
+from a target article refresh rather than accepted again.
+
+Normal verify and publication preflight require this state only for selected
+qualifying PDFs. Presentation-only slide build remains independent. The state
+performs no registration, publication or semantic/visual/audiovisual approval;
+existing presentation/video review and cross-review schemas are unchanged.
 
 `prebuilt` uses explicit adoption of its current regular-file output, retaining
 the consumer's existing safe in-root symlink support. A prior
@@ -208,10 +223,9 @@ resolve external entities. This generic adoption does not change the separate
 Phase 26 PNG-only publication contract. A video requires a direct
 non-symlink MP4 path and direct `articleMedia.production` JSON with matching
 article identity and language, completed render and passed technical-and-visual
-QA. When production declares a render SHA-256, it must match the current
-output. That optional digest connects a current external QA
-result to the actual video; it is not an old-receipt comparison. Updated valid
-production metadata is allowed. No previous/current receipt equality, duplicated
+QA. These known identity/status/QA fields are loaded directly; arbitrary extra
+production properties do not veto adoption. Updated valid production metadata
+is allowed. Real distribution byte integrity remains a separate consumer contract. No previous/current receipt equality, duplicated
 production-metadata equality, or unchanged `final-summary-slides-pdf` proof is
 required for adoption. Historical source-authority/video-manifest proof fields
 are not adoption prerequisites. Missing or malformed required inputs, invalid paths or
@@ -249,7 +263,25 @@ presentation:
 
 The slide semantic source is YAML or JSON with schema `cozy.slide-ir.v1`. Its exact top-level keys are `schema`, `knowledge`, `language`, and `slides`; slide keys are `id`, `title`, `layout`, and `elements`; element keys are `role` plus exactly one of `text` or `asset`. Layouts are `title`, `section`, `content`, `comparison`, `figure`, and `summary`. Roles are `title`, `subtitle`, `body`, `bullet`, `figure`, `caption`, `source`, `footer`, and `logo`. `figure`/`logo` use only assets; all other roles use only text. Slide IDs match `[a-z0-9][a-z0-9._-]*`, are unique, and each slide has exactly one title element equal to its title. Inputs reject empty or untrimmed identities, coordinates, unknown fields, missing assets, and `TODO`, `TBD`, `PLACEHOLDER`, `FIXME`, or `{{...}}` text. The IR knowledge/language match the descriptor knowledge/presentation language and it must reference the configured infographic.
 
-The renderer writes `cozy.presentation.render.v1` with exact top-level `schema`, `target`, `profile`, `renderer`, `pptx`, `slides`, and `montage`. The profile is exactly `business`. Each slide's assets require only ordered unique `{id}` values; ordinary extra asset fields are ignored, including malformed obsolete metadata, while wrong, missing, ill-typed, duplicate, or reordered IDs reject. All serialized artifact paths are descriptor-relative forward-slash paths. Historical `slideIrSha256`/`templateSha256` values are ignored without parsing or calculation. Cozy checks actual output integrity; securely parses `[Content_Types].xml`, `ppt/presentation.xml`, presentation and per-slide relationships; derives relationship-ordered contiguous slide parts; and binds each slide's embedded media to that slide's safe direct selected asset files. Actual bytes must agree as a multiset, with equal cardinality and one-for-one byte consumption preserving duplicate-content multiplicity; media or ZIP order is not authority. All existing relationship, slide-order, XML, linkage, and packaging gates remain. It rejects hostile XML, an exit failure, incomplete output, malformed manifest, input race, path traversal, overlap, or any missing/extra/duplicate evidence.
+The renderer writes `cozy.presentation.render.v1` with required top-level
+`schema,target,profile,renderer,pptx,slides,montage`. The profile is exactly
+`business`; renderer requires `name,version`; PPTX and montage require `path`;
+each slide requires `id,title,path,assets`, with ordered unique `{id}` assets.
+Readers select the known fields positively at every level and ignore arbitrary
+unspecified metadata, without a named historical-field mask. Missing, ill-typed,
+wrong, duplicate, or reordered authority IDs still reject. All serialized paths
+are descriptor-relative forward-slash paths. No Presentation input, template,
+output, slide, montage, article-PDF, infographic, renderer or review digest is
+calculated or required. Cozy checks actual output integrity; securely parses
+`[Content_Types].xml`, `ppt/presentation.xml`, presentation and per-slide
+relationships; derives relationship-ordered contiguous slide parts; and binds
+each slide's embedded media to safe direct selected asset files. Actual bytes
+must agree as a multiset, with equal cardinality and one-for-one byte consumption
+preserving duplicate-content multiplicity; media or ZIP order is not authority.
+These transient structural checks preserve every existing relationship,
+slide-order, XML, linkage and packaging gate. Hostile XML, renderer failure,
+incomplete output, malformed required evidence, input race, unsafe paths and
+overlap still reject. Authored IR and descriptor configuration stay closed.
 
 ### Summary-slides PDF
 
@@ -266,38 +298,85 @@ presentation renderer/template with a staged `--pdf` path, validates the PDF
 header and actual PDFBox page count, and atomically installs the primary PDF
 only after renderer evidence and input-race checks pass.
 
-Slide-IR renderer evidence is ordered as
-`schema,target,profile,renderer,pdf,slides,montage[,pptx]`
-under `cozy.summary-slides.render.v1`; Visual Page evidence is ordered as
-`schema,target,profile,renderer,pdf,slides,montage[,pptx]`
-under `cozy.summary-slides.render.v2`. Historical `slideIrSha256` and
-`templateSha256` are ignored in both contracts without hash processing.
-Obsolete `visualPageSetSha256`,
-`catalogSha256`, `visualPageSet`, `catalog`, and `binding` properties are
-filtered before ordered-field validation. They may be missing or hold any JSON
-value and are neither interpreted nor compared with current semantic inputs.
-Actual current PageSet/catalog/Binding loading remains required for rendering. `pdf` is exactly `{sha256,pageCount}`
-without a path. Slide-IR slide entries are exactly
-`{id,title,path,sha256,pdfSha256,assets}`; Visual Page slide entries are exactly
-`{id,path,sha256,pdfSha256,assets}`; every asset requires only `{id}` in
-ordered unique authority-ID order. Ordinary extra asset fields are ignored;
-wrong, missing, ill-typed, duplicate, or reordered IDs reject. The montage is
-exactly `{path,sha256,pdfSha256}`. An explicitly requested PPTX
-is only `{path,sha256}` in renderer evidence and is an internal sidecar, never
-a public resource or registration target. Visual Page assets resolve safely
-from the actual PageSet parent and their media types and actual bytes must
-agree with the selected safe media resources; legacy selected resources likewise
-remain safe direct files. PDF header/page count, PNG, path, staging, and
-input-race gates remain. A material disagreement fails before replacing prior
-PDF/receipt bytes. Building either the prebuilt or
-direct route does not imply BoK publication or SmartDox registration; `cozy
-media publish` and later registration operations remain separate consumers.
+Both renderer schemas require the relative root field order
+`schema,target,profile,renderer,pdf,slides,montage[,pptx]`:
+`cozy.summary-slides.render.v1` for Slide-IR and
+`cozy.summary-slides.render.v2` for Visual Page. Readers positively select
+required known fields and ignore arbitrary extra object metadata at every
+level, without a named legacy mask or content identity. Missing, null or
+ill-typed required fields reject. Renderer `name,version` must exactly match
+the current profile. `pdf` requires only a positive integer `pageCount`, with
+no required path, and must agree with both the actual PDFBox page count and
+the current authority's page count. Slide-IR slides require
+`id,title,path,assets`; Visual Page slides require `id,path,assets`. Slide/page
+IDs must follow the unique authority order; v1 titles must match. Each asset
+requires a typed exact `id` in unique authority order. The montage requires
+`path`. A configured PPTX requires `path`; an unconfigured `pptx` field is
+forbidden even though arbitrary other metadata is ignored. Authored
+`summarySlidesPdf` configuration retains its closed grammar.
 
-`target/cozy-media/manifest.json` retains its `cozy.media.v1` top-level shape. A resource may add `artifacts`, whose records are exactly `id`, `role`, `path`, `sha256`, and optional `sourceSha256`. Presentation evidence includes slide PNGs, montage, renderer manifest, and the Cozy review manifest; slide/montage source hashes are the PPTX SHA-256. Legacy resources omit `artifacts` rather than writing an empty field.
+Actual current Slide-IR/PageSet/catalog/Binding loading remains required.
+The primary output must be a direct regular PDF with a PDF header and a
+successful PDFBox parse. Slide images must be safe direct regular files below
+the configured image directory with the existing PNG signature, and the
+montage must use its configured safe direct PNG path. The optional PPTX is an
+internal direct-file sidecar at the configured path; this contract adds no
+OOXML or render-equivalence promise and no public resource or registration
+identity. Visual Page assets resolve safely from the actual PageSet parent;
+media types and raw asset bytes must agree with the selected declared safe
+resources. This is current structural QA and no persisted material identity.
+Input/output collisions, unsafe descriptor-relative spellings, missing direct
+inputs and symlink paths continue to reject.
 
-After renderer verification Cozy deterministically writes `cozy.media.presentation-review.v1` before receipt acceptance. Its material assets are ID-sorted `{id}` values; no material hash is reconstructed. Source and template entries carry path metadata only; historical nested `sha256` properties are ignored. Other fields are reconstructed from current trusted descriptor, IR, renderer, artifacts, article PDF, and infographic identities and compared during verification. It proves structural/cross-artifact freshness only; AI/Codex remains responsible for semantic comparison and Cozy never self-approves semantic alignment. `cozy.media.presentation-review.scaffold.v1` is a scaffold-only exact marker with `schema`, `target`, `knowledge`, `language`, and `status:not-rendered`; it carries no acceptance evidence and is replaced by this verified manifest before receipt acceptance.
+Rendering compares sorted operation-local Path/FileTime observations over
+its exact current input set before and after the renderer, and also retains
+the current receipt-input FileTime comparison. These observations are
+transient; no timestamps, byte fingerprints or hashes are serialized as
+renderer identity. Changed observed times or missing/unsafe inputs reject
+before installation. Valid edits preserving timestamps are admissible and
+have no historical-content-detection guarantee; malformed PDFs, wrong actual
+page counts and invalid required current structure still reject at that time.
 
-`review/state.yaml` uses `cozy.media.review-state.v1` and exact keys `schema`, `current`, `last_aligned`, `selected_authority`, and `sync`. Snapshots contain only UTC ISO-8601 `acceptedAt`. Historical `inputSetSha256`, `reviewManifestSha256`, and `artifactSetSha256` properties are ignored regardless of their values and are never re-emitted. A successful presentation build refreshes `current` with the verified review manifest's modification time (the last-written generation boundary); it preserves `last_aligned` and `selected_authority`. Alignment remains valid only when the generation is no newer than the explicit alignment time. Unchanged reuse preserves alignment; regeneration after alignment becomes stale even when bytes are identical. `cozy media review align` records the current human/AI decision time and selected authority. Ordinary media verification and slide verification require an aligned state and a review manifest no newer than `current`. Actual output integrity and structural verification remain separate; no aggregate content identity is calculated for alignment.
+The staged primary is installed by same-parent ATOMIC_MOVE only after all
+checks succeed. Modeled pre-install failures preserve the actual prior primary
+PDF bytes and receipt and clean the staged primary. Renderer manifests, PNGs,
+montage and optional PPTX remain direct outputs: an invoked renderer's failure
+has no sidecar atomicity or rollback guarantee. Building either the prebuilt
+or direct route does not imply BoK publication or SmartDox registration.
+
+The SummarySlidesPdf renderer subsystem is migrated under S07. ProducerSource
+and BoK metadata, generated rsync, final named-integrity audit, EnglishPDF and
+complete isolated-site proofs remain separately unfinished. This migration
+claims no Phase inventory, Step or Phase closure, or integrity exemption.
+
+`target/cozy-media/manifest.json` retains its `cozy.media.v1` top-level shape.
+A resource may add `artifacts`, whose emitted records contain exactly
+`id,role,path`. Ordinary readers require these typed fields and ignore arbitrary
+extras. Presentation evidence includes slide PNGs, montage, renderer manifest
+and the Cozy review manifest. Non-Presentation resources omit `artifacts` rather
+than writing an empty field. Safe paths, unique identities and roles, ordered
+artifact correspondence, producer/dependency admission and actual modification
+time/generation-companion currentness remain required.
+
+After renderer verification Cozy deterministically writes
+`cozy.media.presentation-review.v1` before receipt acceptance. Its required
+fields are `schema,target,knowledge,language,renderer,slideIr,template,pptx,
+slides,assets,montage,articlePdf,infographic,verification`. `slideIr`, `template`
+and `pptx` contain `{path}`; slides contain `{id,title,path}`; material assets
+are ID-sorted `{id}`; montage contains `{id,role,path}`; article PDF and
+infographic contain `{id}`. Renderer retains `name,version` and verification
+retains `status:valid,findings:[]`. Verification reconstructs those required
+semantics recursively, selecting only known fields from stored objects and
+preserving array order. Wrong titles, paths, assets, renderer or status reject
+even at an unchanged modification time. Arbitrary extras are ignored at every
+object without parsing or re-emitting them. No historical byte identity replaces
+removed hashes. AI/Codex remains responsible for semantic comparison; Cozy never
+self-approves alignment. The scaffold-only
+`cozy.media.presentation-review.scaffold.v1` marker retains its closed
+`schema,target,knowledge,language,status:not-rendered` grammar and is replaced
+by verified evidence before receipt acceptance.
+
+`review/state.yaml` uses `cozy.media.review-state.v1` and exact keys `schema`, `current`, `last_aligned`, `selected_authority`, and `sync`. Snapshots require only UTC ISO-8601 `acceptedAt`; arbitrary snapshot extras are ignored and never re-emitted. The top-level state grammar stays closed. A successful presentation build refreshes `current` with the verified review manifest's modification time (the last-written generation boundary); it preserves `last_aligned` and `selected_authority`. Alignment remains valid only when the generation is no newer than the explicit alignment time. Unchanged reuse preserves alignment; regeneration after alignment becomes stale even when bytes are identical. `cozy media review align` records the current human/AI decision time and selected authority. Ordinary media verification and slide verification require an aligned state and a review manifest no newer than `current`. Actual output integrity and structural verification remain separate; no aggregate content identity is calculated for alignment.
 
 ### Visual Page coexistence boundary
 
@@ -348,24 +427,37 @@ exact existing template/renderer object. Its fixed renderer argv is the legacy
 fixed argv with `--slide-ir <source>` replaced by `--visual-page-set <source>
 --catalog <catalog> --binding <binding>`.
 
-The renderer manifest is `cozy.presentation.render.v2` with ordered fields
-`schema,target,profile,renderer,pptx,slides,montage`, after
-ignoring the same obsolete input/proof properties as summary-PDF v2. They may
-hold any JSON value and do not independently veto processing. Actual named
+The renderer manifest is `cozy.presentation.render.v2` with required relative
+field order `schema,target,profile,renderer,pptx,slides,montage`. Renderer is
+`{name,version}`, PPTX and montage are `{path}`, slides require ordered
+`id,path,assets`, and assets require `{id}`. Positive selection of known fields
+ignores arbitrary extras at all those levels. Actual named
 PageSet/catalog/Binding validity, required page IDs/order/assets, output paths,
 PPTX relationship/media structure, PNG validity, and current declared-byte
-agreement remain. Invalid actual input or failed generation preserves prior
-primary output.
+agreement remain. Renderer files are direct outputs; this contract promises no
+new atomic transaction for those primary files. Invalid required renderer
+evidence rejects before replacing accepted review/receipt records; acceptance
+installation preserves prior receipt and review-state bytes on its modeled
+failure paths.
 
 The deterministic `cozy.media.presentation-review.v2` wrappers for
-`visualPageSet`, `catalog`, and `binding` contain exactly `{path}`, not
-hashes or copied values. Private evidence contains only `(id,assets)` pages
+`visualPageSet`, `catalog`, `binding`, `template`, and `pptx` contain `{path}`.
+Its required root fields are `schema,target,knowledge,language,renderer,
+visualPageSet,catalog,binding,template,pptx,slides,assets,montage,articlePdf,
+infographic,verification` in their existing relative order. Slides are
+`{id,path}`; assets are `{id,path,mediaType}`; the other records use the same
+nonhash grammar as v1. Recursive positive known-field projection verifies
+actual required values and array order, including nested paths and media types.
+Private evidence contains only `(id,assets)` pages
 and `(reviewPath,pages)`. No complete semantic JSON replacement gate exists.
 Renderer argv is unchanged and external renderer implementation/acceptance is
-not claimed. Existing receipt input-set, template/output/local-artifact hashes,
-review-manifest reconstruction of remaining fields, and review-state currentness
-remain unfinished later same-Phase mechanisms, not integrity exemptions or
-closure claims. Actual descriptor/source/catalog/Binding files remain required.
+not claimed. Artifact/review readers emit no hashes or complete semantic copies.
+Timestamp-preserved valid edits are admissible and are not promised historical
+content detection. Actual descriptor/source/catalog/Binding files remain
+required. The SummarySlidesPdf renderer subsystem is migrated under S07.
+Publisher/rsync, the final named-integrity audit,
+English-PDF and complete isolated-site drivers remain pending; this contract
+claims no Step or Phase closure.
 
 ### Cross-media review
 
@@ -398,12 +490,12 @@ schema,target,slides,visualPages,verification
 ```
 
 Slides contain `{id}`; visual pages contain
-`{sceneId,pageId,assets}` with `{id,mediaType}` assets. DM14 deletes root
-PageSet/catalog/Binding proofs and per-page logical/visual proofs. Legacy removed
-hash or replacement-value properties are ignored for any JSON value and are not
-emitted. This includes historical `presentationReviewIdentity`,
-`storyboardEvidenceIdentity`, `storyboardHandoffIdentity`, `storyboardIdentity`,
-and per-slide `sha256`. CrossReview computes no digest and performs no duplicate
+`{sceneId,pageId,assets}` with `{id,mediaType}` assets. Ordinary readers select
+known fields at Presentation wrappers/slides, Storyboard evidence/handoff and
+visual-page entries, and aggregate root/slide/page/asset/verification objects.
+Unspecified properties of any JSON type are ignored generically, preserving
+existing relative known-key order. Generated output is deterministic and omits
+hashes and copied PageSet/catalog/Binding proofs. CrossReview computes no digest and performs no duplicate
 Storyboard identity check; the video-owned review-input API validates actual inputs
 and record structure without digest-based approval or historical whole-payload
 gates. Current per-side page IDs, declared ordered unique asset IDs/media types,

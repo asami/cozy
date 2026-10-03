@@ -6,13 +6,14 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.nio.file.attribute.FileTime
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 30, 2026
  *  version Sep.  2, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -57,7 +58,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
       }
     }
 
-    "refresh a summary-slides state with both PDF roles and a verified renderer-manifest identity" in {
+    "refresh both PDF role records while retaining direct summary structural verification" in {
       _with_temp_dir("summary") { root =>
         Given("an accepted article PDF and infographic with a direct summary-slides PDF target")
         val descriptor = _write_summary_fixture(root)
@@ -67,15 +68,16 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         When("the structurally verified summary target is accepted")
         CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(root))
         val state = Files.readString(root.resolve("target/cozy-media/pdf-review-state.json"), StandardCharsets.UTF_8)
-        val renderer = _sha256(root.resolve("target/summary-renderer.json"))
+        val verified = CozyMedia.verify(CozyMedia.CommandConfig(descriptor, target = Some("summary")))
 
-        Then("the state contains both deterministic PDF roles and binds only the renderer-manifest identity while structural verification remains authoritative")
+        Then("the state contains both deterministic PDF roles while the direct renderer structural proof remains authoritative")
         before should include("\"role\" : \"article_pdf\"")
         before should not include "summary_slides_pdf"
         state should include("\"role\" : \"article_pdf\"")
         state should include("\"role\" : \"summary_slides_pdf\"")
-        state should include(renderer)
-        CozyMedia.verify(CozyMedia.CommandConfig(descriptor, target = Some("summary"))) should include("status: valid")
+        state should not include "sha256"
+        state should not include "rendererManifestSha256"
+        verified should include("status: valid")
       }
     }
 
@@ -97,11 +99,11 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
 
     "reject nonexact PDF state after output, locale, public-path, receipt, or renderer evidence changes" in {
       val changes = Vector[(Path => Unit, String)](
-      ((root: Path) => { Files.write(root.resolve("article.pdf"), "changed-output".getBytes(StandardCharsets.UTF_8)); () }) -> "missing or stale cozy.media.receipt.v2 evidence",
-        ((root: Path) => _replace(root.resolve("media.json"), "\"language\": \"en\"", "\"language\": \"ja\"")) -> "language differs",
-        ((root: Path) => _replace(root.resolve("media.json"), "/articles/example/article.pdf", "/articles/example/renamed.pdf")) -> "missing or stale cozy.media.receipt.v2 evidence",
-        ((root: Path) => _replace(root.resolve("target/cozy-media/manifest.json"), "\"status\" : \"valid\"", "\"status\" : \"invalid\"")) -> "missing or stale cozy.media.receipt.v2 evidence",
-      ((root: Path) => { Files.write(root.resolve("target/summary-renderer.json"), "changed-renderer".getBytes(StandardCharsets.UTF_8)); () }) -> "pdf-review-state.v1 evidence"
+      ((root: Path) => { Files.write(root.resolve("article.pdf"), "changed-output".getBytes(StandardCharsets.UTF_8)); () }) -> "media receipt currentness",
+        ((root: Path) => _replace(root.resolve("media.json"), "\"language\": \"en\"", "\"language\": \"ja\"")) -> "summary-slides pdf slide-ir knowledge or language differs",
+        ((root: Path) => _replace(root.resolve("media.json"), "/articles/example/article.pdf", "/articles/example/renamed.pdf")) -> "metadata differs",
+        ((root: Path) => _replace(root.resolve("target/cozy-media/manifest.json"), "\"status\" : \"valid\"", "\"status\" : \"invalid\"")) -> "media receipt currentness",
+      ((root: Path) => { Files.write(root.resolve("target/summary-renderer.json"), "changed-renderer".getBytes(StandardCharsets.UTF_8)); () }) -> "pdf review currentness"
       )
       changes.zipWithIndex.foreach { case ((change, expectedfailure), index) =>
         _with_temp_dir("stale-" + index) { root =>
@@ -114,9 +116,52 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
           change(root)
           val failure = intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
 
-          Then("exact reconstruction rejects the stale public-PDF currentness assertion")
+          Then("known-field metadata and direct producer/renderer checks reject stale public-PDF evidence")
           failure.getMessage.toLowerCase(java.util.Locale.ROOT) should include(expectedfailure)
         }
+      }
+    }
+
+    "verify and prepare only the selected English PDF when a sibling PDF is stale" in {
+      _with_temp_dir("selected-English") { root =>
+        Given("accepted English and Japanese article PDFs with a package review state containing both")
+        val descriptor = _write_public_article_fixture(root)
+        _write_pdf(root.resolve("article-ja.pdf"), 1, "Japanese article")
+        val json = io.circe.parser.parse(Files.readString(descriptor)).fold(error => throw error, identity)
+        val sibling = io.circe.Json.obj(
+          "id" -> io.circe.Json.fromString("article-ja"), "kind" -> io.circe.Json.fromString("document"),
+          "language" -> io.circe.Json.fromString("ja"), "source" -> io.circe.Json.fromString("article-ja.pdf"), "build" -> io.circe.Json.fromString("prebuilt"),
+          "articleMedia" -> io.circe.Json.obj("role" -> io.circe.Json.fromString("article_pdf"), "publicPath" -> io.circe.Json.fromString("/ja/example/article.pdf"), "mediaType" -> io.circe.Json.fromString("application/pdf")))
+        _write(descriptor, json.mapObject(fields => fields.add("resources", io.circe.Json.fromValues(fields("resources").get.asArray.get :+ sibling))).noSpaces)
+        Files.createDirectories(root.resolve("publication"))
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+        val statepath = root.resolve("target/cozy-media/pdf-review-state.json")
+        val state = io.circe.parser.parse(Files.readString(statepath)).fold(error => throw error, identity)
+        val extras = state.mapObject(fields => fields.add("arbitrary", io.circe.Json.Null).add("resources", io.circe.Json.fromValues(fields("resources").get.asArray.get.map(
+          _.mapObject(_.add("sha256", io.circe.Json.arr(io.circe.Json.fromBoolean(false))).add("unknown", io.circe.Json.obj()))))))
+        _write(statepath, extras.noSpaces)
+        val paths = Vector(root.resolve("article.pdf"), statepath, root.resolve("target/cozy-media/manifest.json"))
+        val accepted = paths.map(path => Files.readAllBytes(path).toVector -> Files.getLastModifiedTime(path))
+
+        When("only the Japanese prebuilt PDF becomes newer than its accepted receipt")
+        Files.setLastModifiedTime(root.resolve("article-ja.pdf"), FileTime.fromMillis(4102444800000L))
+        val config = CozyMedia.CommandConfig(descriptor, target = Some("article-pdf"))
+        val verified = CozyMedia.verify(config)
+        val prepared = CozyMedia.preparePublication(config.copy(profile = Some("site")), force = true)
+        val plan = CozyMedia.resolvePlan(config)
+        val allcurrent = CozyMediaPdfReviewState.current(plan)
+        val stale = intercept[RuntimeException](CozyMedia.verify(config.copy(target = Some("article-ja"))))
+
+        Then("the unchanged selected English PDF succeeds with known-field state loading while selecting the stale sibling fails")
+        verified should include("status: valid")
+        prepared.map(_.resource.id) shouldBe Vector("article-pdf")
+        allcurrent shouldBe false
+        stale.getMessage should include("article-ja")
+        stale.getMessage should include(root.resolve("article-ja.pdf").toString)
+        stale.getMessage should include("producer prebuilt")
+        stale.getMessage should include(s"cozy media build $descriptor --target article-ja")
+        paths.map(path => Files.readAllBytes(path).toVector -> Files.getLastModifiedTime(path)) shouldBe accepted
+        Files.exists(root.resolve("publication/articles/example/article.pdf")) shouldBe false
       }
     }
 
@@ -164,16 +209,18 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         val missingreceipt = intercept[RuntimeException](CozyMedia.preparePublication(config, force = true))
 
         Then("the selected public PDF is rejected for absent receipt evidence")
-        missingreceipt.getMessage should include("Media publication receipt pre-commit validation failed: article-pdf")
+        missingreceipt.getMessage should include("Media receipt currentness failed for resource article-pdf")
 
+        Given("the same valid external article PDF remains available for acceptance")
         When("the selected article-PDF target is built and its PDF review state is removed")
         CozyMedia.build(config.copy(target = Some("article-pdf")))
         Files.delete(root.resolve("target/cozy-media/pdf-review-state.json"))
         val missingreviewstate = intercept[RuntimeException](CozyMedia.preparePublication(config, force = true))
 
         Then("the selected public PDF is rejected for absent review-state evidence")
-        missingreviewstate.getMessage should include("Selected public PDF resources lack current cozy.media.pdf-review-state.v1 evidence: article-pdf")
+        missingreviewstate.getMessage should include("PDF review currentness failed for resource article-pdf")
 
+        Given("the selected PDF still has valid ordinary receipt evidence but no review state")
         When("the selected article-PDF target is rebuilt")
         CozyMedia.build(config.copy(target = Some("article-pdf")))
         val prepared = CozyMedia.preparePublication(config, force = true)

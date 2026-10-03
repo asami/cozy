@@ -18,7 +18,8 @@ import scala.util.Try
 /*
  * @since   Jun. 23, 2026
  *  version Jun. 24, 2026
- * @version Aug. 11, 2026
+ *  version Aug. 11, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBokProjectPublisher {
@@ -380,7 +381,6 @@ private[cozy] object CozyBokProjectPublisher {
         "publicationPath" -> project.publicationpath,
         "sourcePackage" -> _project_relative_path(config.bokprojectdir, project.packagedir),
         "descriptorPath" -> project.descriptorfile.getFileName.toString,
-        "descriptorSha256" -> _sha256(project.descriptorfile),
         "project" -> Json.obj(
           "mode" -> project.projectmode,
           "ref" -> Json.toJson(project.projectref.getOrElse(""))

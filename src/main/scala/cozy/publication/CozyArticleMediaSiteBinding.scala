@@ -2,9 +2,8 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import cozy.media.CozyMedia
 import cozy.media.CozyMediaPdfReviewState
 import cozy.media.CozyMediaReceipt
@@ -16,7 +15,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteBinding {
@@ -48,8 +48,8 @@ private[cozy] object CozyArticleMediaSiteBinding {
   final case class FileEvidence(
     path: Path,
     identity: Path,
-    sha256: String,
     size: Long,
+    modifiedTime: FileTime,
     fileKey: AnyRef
   )
 
@@ -306,10 +306,8 @@ private[cozy] object CozyArticleMediaSiteBinding {
       _invalid(s"Article-media site binding PDF output must be defined: $resourceid")
     )
     val evidence = _file_snapshot(output, s"${role.serializedName} output for $resourceid")
-    if (!evidence.bytes.take(5).sameElements("%PDF-".getBytes(StandardCharsets.US_ASCII).toVector))
-      _invalid(s"Article-media site binding PDF output must have a %PDF- header: $resourceid")
-    CozyMediaReceipt.requireSiteRegistrationCurrent(mediaplan, resolved)
-    CozyMediaPdfReviewState.requireSiteRegistrationCurrent(mediaplan, Vector(resolved))
+    CozyMediaReceipt.requireCurrent(mediaplan, resolved)
+    CozyMediaPdfReviewState.requireCurrent(mediaplan, Vector(resolved))
     val pdf = PdfDocumentReference(publicpath, "application/pdf", articlemedia.label)
     val variant = role match {
       case Role.ArticlePdf => CozyArticleMediaPublication.Variant(locale = locale, articlePdf = Some(pdf))
@@ -451,18 +449,29 @@ private[cozy] object CozyArticleMediaSiteBinding {
   private def _file_snapshot(path: Path, label: String): FileSnapshot = {
     val file = _direct_regular_file_identity(path, label)
     val before = _file_attributes(file.lexical, label)
-    val bytes = try Files.readAllBytes(file.lexical) catch {
-      case NonFatal(e) => _invalid(s"Article-media site binding $label cannot be read: ${e.getMessage}")
-    }
+    val firstbytes = _read_file_bytes(file.lexical, label)
+    val middle = _file_attributes(file.lexical, label)
+    val secondbytes = _read_file_bytes(file.lexical, label)
     val after = _file_attributes(file.lexical, label)
-    if (file.fileKey != before.fileKey() || before.fileKey() != after.fileKey() ||
-      before.size() != after.size() || bytes.length.toLong != before.size())
-      _invalid(s"Article-media site binding $label changed while being read")
+    if (file.fileKey != before.fileKey() || !_same_file_attributes(before, middle) ||
+      !_same_file_attributes(before, after) || firstbytes.length.toLong != before.size() ||
+      secondbytes.length.toLong != before.size() || !firstbytes.sameElements(secondbytes))
+      _invalid(s"Article-media site binding $label changed while being read: ${file.lexical}")
     FileSnapshot(
-      FileEvidence(file.lexical, file.identity, _sha256(bytes), bytes.length.toLong, file.fileKey),
-      bytes.toVector
+      FileEvidence(file.lexical, file.identity, before.size(), before.lastModifiedTime(), file.fileKey),
+      firstbytes.toVector
     )
   }
+
+  private def _read_file_bytes(path: Path, label: String): Array[Byte] =
+    try Files.readAllBytes(path) catch {
+      case NonFatal(e) => _invalid(s"Article-media site binding $label cannot be read: $path: ${e.getMessage}")
+    }
+
+  private def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
+    before.fileKey() == after.fileKey() &&
+      before.size() == after.size() &&
+      before.lastModifiedTime() == after.lastModifiedTime()
 
   private def _direct_regular_file_identity(path: Path, label: String): FileIdentity = {
     val lexical = _normalized_host_path(path, label)
@@ -506,12 +515,6 @@ private[cozy] object CozyArticleMediaSiteBinding {
     if (path == null)
       _invalid(s"Article-media site binding $label path must be defined")
     path.toAbsolutePath.normalize()
-  }
-
-  private def _sha256(bytes: Array[Byte]): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(bytes)
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
   }
 
   private def _invalid(message: String): Nothing =

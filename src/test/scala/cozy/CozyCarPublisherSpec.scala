@@ -28,7 +28,8 @@ import cozy.modeler.GenerationProvenance
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -1057,9 +1058,12 @@ class CozyCarPublisherSpec
          |""".stripMargin
     )
     _write(warehouse.resolve("repository/catalog/car/sample-component.cml"), "# legacy component\n")
+    val sararchive = _write(warehouse.resolve("repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar"), "legacy-sar")
+    val sardigest = cozy.archive.RepositoryArtifactPublisher.sha256(sararchive)
+    _write(sararchive.resolveSibling(sararchive.getFileName.toString + ".sha256"), sardigest + "\n")
     _write(
       warehouse.resolve("repository/catalog/sar/sample-server.yaml"),
-      """schemaVersion: 1
+      s"""schemaVersion: 1
         |kind: sar
         |artifactId: sample-server
         |status: active
@@ -1069,9 +1073,10 @@ class CozyCarPublisherSpec
         |    channel: stable
         |    status: active
         |    file: repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar
+        |    checksum:
+        |      sha256: $sardigest
         |""".stripMargin
     )
-    _write(warehouse.resolve("repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar"), "legacy-sar")
     _write(
       warehouse.resolve("repository/catalog/index.json"),
       """{"schemaVersion":"cncf.component-repository-index.v1","generatedAt":"2026-08-01T00:00:00Z","artifacts":[{"kind":"car","artifactId":"sample-component","catalog":"car/sample-component.yaml","status":"active","recommended":"0.0.9","latestStable":"0.0.9"},{"kind":"sar","artifactId":"sample-server","catalog":"sar/sample-server.yaml","status":"active"}]}"""

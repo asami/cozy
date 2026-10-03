@@ -1,6 +1,6 @@
 # Phase 71.3: Local Site and PDF Currentness with Purpose-Bound Integrity
 
-status=planned
+status=in-progress
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -10,13 +10,15 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.2.md
 execution_priority=current_video_generation_blocker
 
-Status: planned; implementation not started
+Status: in progress; P710-03-SITE implementation and focused specifications validated; Step acceptance pending
 Planned at: 2026-09-29
 Development item: DEV-034
 Primary owner: Cozy
 Split from [Phase 71](phase-71.md).
 Predecessor: [Phase 71.2](phase-71.2.md).
 Successor: [Phase 71.4](phase-71.4.md).
+
+Implementation progress: the local site/PDF/prebuilt adapters and selected publication-integrity purposes have focused implementation evidence recorded in the [implementation journal](../journal/2026/10/2026-10-04-phase-71.3-site-adapter-implementation.md). Actual isolated complete-site and English-PDF driver proof remain in P710-04-SITE; Step acceptance and commit remain pending.
 
 ## Goal
 
@@ -75,7 +77,8 @@ settled document/media and site/PDF work is assigned to Terra/high successors.
 Every owned Step/Slice needs executable focused validation and appropriate
 compile/consumer coverage, independent acceptance review, exact Step commits,
 closure journals/ledger, mandatory full Phase review and a distinct release
-commit. No item is implemented or accepted by this planning split.
+commit. The planning split itself did not implement or accept an item; the
+focused implementation progress above does not establish Step or Phase acceptance.
 
 Repository-full SBT validation alone is deferred to [Phase 71.4](phase-71.4.md)
 under the reciprocal final-only chain. At release record focused assurance and

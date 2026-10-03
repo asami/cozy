@@ -15,7 +15,8 @@ import scala.collection.JavaConverters._
  * @since   Aug. 26, 2026
  *  version Aug. 28, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardReviewSpec
@@ -25,7 +26,7 @@ final class CozyVideoStoryboardReviewSpec
   import CozyVideoStoryboardReviewSpec.VisualPageMaterial
 
   "Cozy Video Storyboard review evidence" should {
-    "load absent or arbitrary historical approval and evidence hashes without parsing or re-emitting them" in {
+    "load absent historical approvals and arbitrary generated metadata without parsing or re-emitting it" in {
       _with_temp_dir("historical-review-hashes") { root =>
         Given("a declared v2 review with current safe material and historical hash properties")
         val storyboard = _v2_storyboard()
@@ -65,10 +66,11 @@ final class CozyVideoStoryboardReviewSpec
                   page.add("visualPageIdentity", old).add("assets", page("assets").get.mapArray(_.map(_.mapObject(_.add("sha256", old)))))
                 })))
             }
-            Files.writeString(generated.evidencePath, _historical_(evidence).noSpaces, StandardCharsets.UTF_8)
-            Files.writeString(generated.handoffPath, _historical_(handoff).noSpaces, StandardCharsets.UTF_8)
+            Files.writeString(generated.evidencePath, _add_metadata(_historical_(evidence), "annotation", old).noSpaces, StandardCharsets.UTF_8)
+            val annotatedhandoff = _add_metadata(_historical_(handoff), "annotation", old).mapObject(_.add("scenes", Json.True))
+            Files.writeString(generated.handoffPath, annotatedhandoff.noSpaces, StandardCharsets.UTF_8)
           }
-          When("the explicit review validator receives absent or arbitrary historical digest properties")
+          When("public review currentness reads arbitrary extras at every generated object and an unknown handoff collection")
           val current = CozyVideo.storyboardReviewCurrent(project)
 
           Then("valid direct files and references remain usable without old proof gates")
@@ -78,7 +80,7 @@ final class CozyVideoStoryboardReviewSpec
       }
     }
 
-    "reject malformed non-hash review entries without comparing historical content" in {
+    "reject missing ill-typed reordered duplicated or invalid known review entries despite arbitrary extras" in {
       _with_temp_dir("review-entry-structure") { root =>
         Given("a valid v2 review package with current source, binding and renderer")
         val storyboard = _v2_storyboard()
@@ -86,8 +88,11 @@ final class CozyVideoStoryboardReviewSpec
         val material = _write_visual_page_material(root)
         val project = _write_v2_project(root, source, storyboard, material.binding, "obsolete")
         val generated = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, root.resolve("target/cozy-video/v2-review")))
-        val evidence = parser.parse(Files.readString(generated.evidencePath, StandardCharsets.UTF_8)).toOption.get
-        val handoff = parser.parse(Files.readString(generated.handoffPath, StandardCharsets.UTF_8)).toOption.get
+        val evidence = _add_metadata(parser.parse(Files.readString(generated.evidencePath, StandardCharsets.UTF_8)).toOption.get, "annotation", Json.True)
+        val handoff = _add_metadata(parser.parse(Files.readString(generated.handoffPath, StandardCharsets.UTF_8)).toOption.get, "annotation", Json.obj())
+        def _rows_with_(name: String, update: Json => Json): Json = evidence.hcursor.downField(name).focus.get.mapArray(_.map(update))
+        def _configuration_with_(update: Json => Json): Json = _rows_with_("effectiveRenderers", _.mapObject(fields => fields.add("configuration", update(fields("configuration").get))))
+        val configurationnames = Vector("engine", "strategy", "policy", "fps", "width", "height", "crf", "x264Preset", "effectProfile")
         val invalidrows = Vector(
           "scenes" -> Json.arr(Json.Null),
           "scenes" -> Json.arr(),
@@ -97,8 +102,22 @@ final class CozyVideoStoryboardReviewSpec
           "effectiveRenderers" -> evidence.hcursor.downField("effectiveRenderers").focus.get.mapArray(rows => rows ++ rows),
           "visualPages" -> evidence.hcursor.downField("visualPages").focus.get.mapArray(rows => rows ++ rows),
           "visualPages" -> evidence.hcursor.downField("visualPages").focus.get.mapArray(_.map(_.mapObject(_.add("kind", Json.fromString("unknown"))))),
-          "visualPages" -> evidence.hcursor.downField("visualPages").focus.get.mapArray(_.map(_.mapObject(page => page.add("assets", page("assets").get.mapArray(rows => rows ++ rows)))))
-        )
+          "visualPages" -> evidence.hcursor.downField("visualPages").focus.get.mapArray(_.map(_.mapObject(page => page.add("assets", page("assets").get.mapArray(rows => rows ++ rows))))),
+          "scenes" -> _rows_with_("scenes", _.mapObject(_.remove("caption"))),
+          "scenes" -> _rows_with_("scenes", _.mapObject(_.add("duration", Json.fromString("1")))),
+          "scenes" -> _rows_with_("scenes", _.mapObject(fields => fields.add("screen", fields("screen").get.mapObject(_.remove("pageId"))))),
+          "scenes" -> _rows_with_("scenes", _.mapObject(fields => fields.add("screen", fields("screen").get.mapObject(_.add("kind", Json.fromString("invalid")))))),
+          "effectiveRenderers" -> _rows_with_("effectiveRenderers", _.mapObject(_.add("partId", Json.fromString("")))),
+          "visualInputs" -> Json.arr(Json.obj("reference" -> Json.fromString("same"), "source" -> Json.fromString("assets/diagram.svg"), "path" -> Json.fromString("../escape.svg"))),
+          "visualInputs" -> Json.arr(Json.obj("reference" -> Json.fromString("same"), "source" -> Json.fromString("assets/diagram.svg"), "path" -> Json.fromString("visual-inputs/diagram.svg")), Json.obj("reference" -> Json.fromString("same"), "source" -> Json.fromString("assets/diagram.svg"), "path" -> Json.fromString("visual-inputs/diagram.svg"))),
+          "visualPages" -> _rows_with_("visualPages", page => Json.fromFields(page.asObject.get.toVector.reverse)),
+          "visualPages" -> _rows_with_("visualPages", _.mapObject(fields => fields.add("assets", fields("assets").get.mapArray(_.map(asset => Json.fromFields(asset.asObject.get.toVector.reverse)))))),
+          "visualPages" -> _rows_with_("visualPages", _.mapObject(fields => fields.add("assets", fields("assets").get.mapArray(_.map(_.mapObject(_.remove("modifiedAt"))))))),
+          "visualPages" -> _rows_with_("visualPages", _.mapObject(fields => fields.add("assets", fields("assets").get.mapArray(_.map(_.mapObject(_.add("mediaType", Json.True)))))))
+        ) ++ configurationnames.map(name => "effectiveRenderers" -> _configuration_with_(_.mapObject(_.remove(name)))) ++
+          Vector("fps" -> Json.fromInt(0), "width" -> Json.fromInt(-1), "height" -> Json.True, "crf" -> Json.fromInt(-1), "policy" -> Json.fromString("unknown"), "x264Preset" -> Json.fromString("unknown"), "engine" -> Json.True).map { case (name, invalid) =>
+            "effectiveRenderers" -> _configuration_with_(_.mapObject(_.add(name, invalid)))
+          }
 
         When("explicit review receives malformed scene, input, renderer or page entries")
         val failures = Vector(generated.evidencePath -> evidence, generated.handoffPath -> handoff).flatMap { case (path, document) =>
@@ -111,7 +130,39 @@ final class CozyVideoStoryboardReviewSpec
         }
 
         Then("each invalid non-hash structure is rejected independently of historical identities")
+        failures.size should be >= invalidrows.size
         failures.foreach(_.getMessage should include("STORYBOARD_REVIEW_"))
+
+        Given("required root fields are missing or wrong, a known key is duplicated, or an actual current file is absent or unsafe")
+        val original = evidence.noSpaces
+        val malformed = Vector(
+          evidence.mapObject(_.remove("source")).noSpaces,
+          evidence.mapObject(_.add("status", Json.fromString("invalid"))).noSpaces,
+          original.replace("\"schema\":", "\"schema\":\"duplicate\",\"schema\":")
+        )
+        When("public currentness reads those malformed documents")
+        val rootfailures = malformed.map { document =>
+          Files.writeString(generated.evidencePath, document, StandardCharsets.UTF_8)
+          intercept[Exception](CozyVideo.storyboardReviewCurrent(project))
+        }
+        Files.writeString(generated.evidencePath, original, StandardCharsets.UTF_8)
+        val asset = root.resolve("assets/diagram.svg")
+        val bytes = Files.readAllBytes(asset)
+        val modified = Files.getLastModifiedTime(asset)
+        Files.delete(asset)
+        val missing = intercept[Exception](CozyVideo.storyboardReviewCurrent(project))
+        Files.createSymbolicLink(asset, source)
+        val unsafe = intercept[Exception](CozyVideo.storyboardReviewCurrent(project))
+        Files.delete(asset)
+        Files.write(asset, bytes)
+        Files.setLastModifiedTime(asset, modified)
+
+        Then("missing known fields duplicate JSON and current file safety remain real rejection boundaries")
+        rootfailures should have size malformed.size
+        rootfailures.foreach(_.getMessage should include("STORYBOARD_REVIEW_"))
+        rootfailures.last.getMessage.toLowerCase(java.util.Locale.ROOT) should include("duplicate")
+        missing.getMessage should not be empty
+        unsafe.getMessage should not be empty
       }
     }
 
@@ -291,15 +342,23 @@ final class CozyVideoStoryboardReviewSpec
         Then("obsolete approval properties do not become processing gates")
         Files.isRegularFile(generated.evidencePath) shouldBe true
 
-        Given("historical visual input identities and an arbitrary visual-story approval value")
-        val historical = parser.parse(originalevidence).toOption.get.mapObject(fields => fields.add("visualInputs", fields("visualInputs").get.mapArray(_.map(_.mapObject(_.add("identity", Json.arr(Json.True)))))))
+        Given("arbitrary v1 root scene screen and visual-input metadata and an arbitrary visual-story approval value")
+        val historical = _add_metadata(parser.parse(originalevidence).toOption.get, "annotation", Json.arr(Json.True)).mapObject(fields => fields.add("visualInputs", fields("visualInputs").get.mapArray(_.map(_.mapObject(_.add("identity", Json.arr(Json.True)))))))
         Files.writeString(generated.evidencePath, historical.noSpaces, StandardCharsets.UTF_8)
         val declaration = parser.parse(Files.readString(project, StandardCharsets.UTF_8)).toOption.get.mapObject(fields => fields.add("storyboardReview", fields("storyboardReview").get.mapObject(review => review.add("visualStory", review("visualStory").get.mapObject(_.add("approvedEvidenceIdentity", Json.obj()))))))
         Files.writeString(project, declaration.noSpaces, StandardCharsets.UTF_8)
-        When("explicit review consumes those obsolete values")
+        When("the existing v1 explicit review-validation route consumes arbitrary generated metadata")
         CozyVideoImplementation._validate_storyboard_review_current(CozyVideoImplementation._plan(project, None, None))
         Then("the saved package remains usable without parsing hashes")
         Files.isRegularFile(generated.evidencePath) shouldBe true
+
+        Given("v1 evidence omitting its visualInputs when the visualStory route requires them")
+        Files.writeString(generated.evidencePath, historical.mapObject(_.remove("visualInputs")).noSpaces, StandardCharsets.UTF_8)
+        When("the same explicit v1 validator interprets the missing conditional field")
+        val missinginputs = intercept[Exception](CozyVideoImplementation._validate_storyboard_review_current(CozyVideoImplementation._plan(project, None, None)))
+        Then("extras do not make the conditional visual input collection optional")
+        missinginputs.getMessage should include("STORYBOARD_REVIEW_EVIDENCE_MALFORMED")
+        Files.writeString(generated.evidencePath, historical.noSpaces, StandardCharsets.UTF_8)
 
         Given("a visual copy whose parent directory has been replaced by a symlink")
         val copiedparent = save.resolve("visual-inputs/assets")
@@ -529,6 +588,12 @@ final class CozyVideoStoryboardReviewSpec
       }
     }
   }
+
+  private def _add_metadata(value: Json, name: String, extra: Json): Json =
+    value.asObject match {
+      case Some(fields) => Json.fromFields(fields.toVector.map { case (field, item) => field -> _add_metadata(item, name, extra) } :+ (name -> extra))
+      case None => value.asArray.map(items => Json.fromValues(items.map(item => _add_metadata(item, name, extra)))).getOrElse(value)
+    }
 
   private def _storyboard(caption: String, diagramrefs: Vector[String] = Vector.empty): CozyVideo.Storyboard =
     CozyVideo.Storyboard(

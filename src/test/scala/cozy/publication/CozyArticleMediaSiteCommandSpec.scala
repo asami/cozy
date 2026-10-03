@@ -3,6 +3,7 @@ package cozy.publication
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets
+import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import cozy.media.CozyMedia
@@ -17,7 +18,7 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
  *  version Sep. 22, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteCommandPart5Fixture {
@@ -429,43 +430,59 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
       }
 
       "refuse missing or stale PDF evidence before registry mutation" in {
-        Given("PDF evidence cases with missing review state, revalidation drift, or an incompatible resource role")
-        val missing = _with_part5_pdf_fixture("pdf-missing-evidence") { fixture =>
+        _with_part5_pdf_fixture("pdf-missing-evidence") { fixture =>
+          Given("accepted PDF receipts with their PDF review state removed")
           val before = _registry_tree(fixture.registryroot)
-          Files.delete(fixture.root.resolve("target/cozy-media/pdf-review-state.json"))
+          val state = fixture.root.resolve("target/cozy-media/pdf-review-state.json")
+          Files.delete(state)
+
           When("the site command evaluates the missing PDF review-state evidence")
           val error = _failure(CozyArticleMediaSiteCommand.execute(_config(fixture)))
-          (error, _registry_tree(fixture.registryroot), before)
+
+          Then("ordinary PDF currentness identifies the selected English resource and preserves the registry")
+          error.getMessage should include("PDF review currentness")
+          error.getMessage should include("part-5-article-pdf-en")
+          error.getMessage should include(state.toString)
+          error.getMessage should include("producer prebuilt")
+          error.getMessage should include(s"cozy media build ${fixture.descriptor} --target part-5-article-pdf-en")
+          _registry_tree(fixture.registryroot) shouldBe before
         }
-        val drift = _with_part5_pdf_fixture("pdf-revalidation-drift") { fixture =>
+        _with_part5_pdf_fixture("pdf-revalidation-drift") { fixture =>
+          Given("accepted PDFs whose Japanese article output changes at final revalidation")
           val before = _registry_bundles(fixture.registryroot)
+          val pdf = fixture.root.resolve("target/article-ja.pdf")
+
           When("the site command evaluates the changed PDF output during revalidation")
           val error = _failure(CozyArticleMediaSiteCommand.execute(
             _config(fixture),
-            () => _write(fixture.root.resolve("target/article-ja.pdf"), "%PDF-1.7\nchanged")
+            () => _write(pdf, "%PDF-1.7\nchanged")
           ))
-          (error, _registry_bundles(fixture.registryroot), before)
+
+          Then("ordinary receipt currentness identifies the Japanese output and preserves every registry bundle")
+          error.getMessage should include("Media receipt currentness")
+          error.getMessage should include("part-5-article-pdf-ja")
+          error.getMessage should include(pdf.toString)
+          error.getMessage should include("producer prebuilt")
+          error.getMessage should include(s"cozy media build ${fixture.descriptor} --target part-5-article-pdf-ja")
+          _registry_bundles(fixture.registryroot) shouldBe before
         }
-        val incompatible = _with_part5_fixture(
+        _with_part5_fixture(
           "pdf-command-role-incompatible",
           _part5_pdf_yaml().replace(
             "  - id: part-5-article-pdf-ja\n    kind: document",
             "  - id: part-5-article-pdf-ja\n    kind: infographic"
           )
         ) { fixture =>
+          Given("an article PDF resource declared with the incompatible infographic kind")
           val before = _registry_tree(fixture.registryroot)
+
           When("the site command evaluates the incompatible PDF resource role")
           val error = _failure(CozyArticleMediaSiteCommand.execute(_config(fixture)))
-          (error, _registry_tree(fixture.registryroot), before)
-        }
 
-        Then("all PDF currentness and role failures leave the registry unchanged")
-        missing._1.getMessage should include("Site-registration PDF review-state preflight")
-        missing._2 shouldBe missing._3
-        drift._1.getMessage should include("Site-registration PDF")
-        drift._2 shouldBe drift._3
-        incompatible._1.getMessage should include("requires kind document")
-        incompatible._2 shouldBe incompatible._3
+          Then("the document-kind requirement rejects registration and preserves the registry")
+          error.getMessage should include("requires kind document")
+          _registry_tree(fixture.registryroot) shouldBe before
+        }
       }
 
       "register site-aware PDF receipts only for the current paired site context" in {
@@ -475,6 +492,7 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
         )
         sources.foreach { case (name, routes) =>
           _with_site_context_pdf_fixture(name, routes._1) { fixture =>
+            Given(s"a $name authoring descriptor whose PDF receipt was built with one paired site context")
             val siteconfig = fixture.root.resolve("site.conf")
             val context = CozyMedia.CommandConfig(
               fixture.descriptor,
@@ -498,50 +516,63 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
             val pdfbytes = Files.readAllBytes(pdf).toVector
             val receipt = fixture.root.resolve("target/cozy-media/manifest.json")
             val receiptbytes = Files.readAllBytes(receipt).toVector
+            val state = fixture.root.resolve("target/cozy-media/pdf-review-state.json")
+            val statebytes = Files.readAllBytes(state).toVector
 
-            Given(s"a $name authoring descriptor whose PDF receipt was built with one paired site context")
+            When("the accepted PDF is registered with its paired site context")
             val currentoutput = CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2)))
             val currenttree = _registry_tree(fixture.registryroot)
 
+            Then("initial registration accepts the declared article PDF")
+            currentoutput should include("article-pdf: locale=ja, role=article_pdf")
+
+            Given("the same accepted prebuilt PDF and canonical registry bytes")
             When("the site configuration base URL changes without rebuilding the accepted PDF")
             _write(siteconfig, "site.base-url = https://changed.example.test\n")
-            val staleconfig = _failure(CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2))))
+            Files.setLastModifiedTime(siteconfig, FileTime.fromMillis(4102444800000L))
+            val configoutput = CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2)))
 
-            Then("direct registration rejects the stale context before replacing the registry or descriptor")
-            staleconfig.getMessage should include("Site-registration PDF preflight")
+            Then("configuration content and newer mtime preserve prebuilt acceptance and every accepted artifact byte")
+            configoutput should include("article-pdf: locale=ja, role=article_pdf")
             _registry_tree(fixture.registryroot) shouldBe currenttree
             Files.readAllBytes(fixture.descriptor).toVector shouldBe descriptorbytes
             Files.readAllBytes(pdf).toVector shouldBe pdfbytes
             Files.readAllBytes(receipt).toVector shouldBe receiptbytes
+            Files.readAllBytes(state).toVector shouldBe statebytes
 
-            When("the receipt is rebuilt with the same paired context")
-            _write(siteconfig, "site.base-url = https://example.test\n")
-            CozyMedia.build(context)
-            val routereceiptbytes = Files.readAllBytes(receipt).toVector
-            CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2)))
-
-            And("the document source route changes without rebuilding the accepted PDF")
+            Given("a newly declared document source route without rebuilt PDF evidence")
             _write(fixture.root.resolve(routes._2), s"${name} route")
             val descriptorafterconfig = Files.readString(fixture.descriptor, StandardCharsets.UTF_8)
             _write(fixture.descriptor, descriptorafterconfig.replace(routes._1, routes._2))
             val routetree = _registry_tree(fixture.registryroot)
+
+            When("registration checks the changed document source route")
             val staleroute = _failure(CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2))))
 
-            Then("the changed route is stale until the original descriptor is rebuilt with that same context")
-            staleroute.getMessage should include("Site-registration PDF preflight")
+            Then("ordinary receipt currentness rejects the actual new route and preserves registry, PDF and receipt bytes")
+            staleroute.getMessage should include("Media receipt currentness")
+            staleroute.getMessage should include("article-pdf")
+            staleroute.getMessage should include(fixture.root.resolve(routes._2).toString)
+            staleroute.getMessage should include("producer prebuilt")
+            staleroute.getMessage should include(s"cozy media build ${fixture.descriptor} --target article-pdf")
             _registry_tree(fixture.registryroot) shouldBe routetree
             Files.readAllBytes(pdf).toVector shouldBe pdfbytes
-            Files.readAllBytes(receipt).toVector shouldBe routereceiptbytes
+            Files.readAllBytes(receipt).toVector shouldBe receiptbytes
+
+            Given("a regenerated PDF under the same newly declared document route")
             _write(pdf, s"%PDF-1.7\n${name} regenerated article")
             val regeneratedpdfbytes = Files.readAllBytes(pdf).toVector
+
+            When("the route is rebuilt and registered with the same paired context")
             CozyMedia.build(context)
             val regenerateddescriptorbytes = Files.readAllBytes(fixture.descriptor).toVector
             CozyArticleMediaSiteCommand.execute(CozyArticleMediaSiteCommand.Config.create(args.drop(2)))
             val strict = _strict(CozyArticleMediaRegistry.load(fixture.registryroot), "development-process/domain-modeling")
+
+            Then("registration succeeds with strict PDF media type and preserves the regenerated descriptor and output")
             (((strict \ "variants").as[JsObject] \ "ja" \ "article_pdf" \ "media_type").as[String]) shouldBe "application/pdf"
             Files.readAllBytes(fixture.descriptor).toVector shouldBe regenerateddescriptorbytes
             Files.readAllBytes(pdf).toVector shouldBe regeneratedpdfbytes
-            currentoutput should include("article-pdf: locale=ja, role=article_pdf")
           }
         }
       }

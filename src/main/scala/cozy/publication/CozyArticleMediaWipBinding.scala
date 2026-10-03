@@ -2,7 +2,7 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.nio.file.{Files, LinkOption, Path}
 import java.security.MessageDigest
 import cozy.media.CozyMedia
@@ -16,7 +16,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 12, 2026
  *  version Aug. 30, 2026
- * @version Sep.  8, 2026
+ *  version Sep.  8, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaWipBinding {
@@ -38,8 +39,8 @@ private[cozy] object CozyArticleMediaWipBinding {
   final case class FileEvidence(
     path: Path,
     identity: Path,
-    sha256: String,
     size: Long,
+    modifiedTime: FileTime,
     fileKey: AnyRef
   )
 
@@ -51,7 +52,10 @@ private[cozy] object CozyArticleMediaWipBinding {
     production: FileEvidence,
     destination: Path,
     destinationParent: DirectoryEvidence,
-    installedDestination: Option[FileEvidence]
+    installedDestination: Option[FileEvidence],
+    productionBytes: Vector[Byte],
+    sourceArtifactSha256: String,
+    installedArtifactSha256: Option[String]
   ) extends Evidence
 
   final case class Candidate(
@@ -149,13 +153,13 @@ private[cozy] object CozyArticleMediaWipBinding {
       candidate.evidence match {
         case x: VideoEvidence if registry.videoStates.get(candidate.key).contains(CozyArticleMediaRegistry.WipVideoState.Fresh) && x.installedDestination.nonEmpty =>
           val admitted = admittedinstalled.get(x.destination)
-          if (admitted != Some(x.source.sha256) || x.installedDestination.map(_.sha256) != admitted)
+          if (admitted != Some(x.sourceArtifactSha256) || x.installedArtifactSha256 != admitted)
             _invalid(s"Article-media WIP fresh destination must be absent: ${candidate.resourceId}")
         case x: VideoEvidence if registry.videoStates.get(candidate.key).contains(CozyArticleMediaRegistry.WipVideoState.ExactRepeat) =>
-          val installed = x.installedDestination.getOrElse(
+          x.installedDestination.getOrElse(
             _invalid(s"Article-media WIP repeat destination is missing: ${candidate.resourceId}")
           )
-          if (installed.sha256 != x.source.sha256)
+          if (x.installedArtifactSha256 != Some(x.sourceArtifactSha256))
             _invalid(s"Article-media WIP repeat destination digest differs: ${candidate.resourceId}")
         case _ =>
       }
@@ -194,11 +198,32 @@ private[cozy] object CozyArticleMediaWipBinding {
     val admitted = value.candidates.collect {
       case candidate if candidate.evidence.isInstanceOf[VideoEvidence] =>
         val evidence = candidate.evidence.asInstanceOf[VideoEvidence]
-        evidence.destination -> evidence.source.sha256
+        evidence.destination -> evidence.sourceArtifactSha256
     }.toMap
     val recomputed = _plan(value.config, admitted)
     if (_stable_plan(recomputed) != _stable_plan(value))
       _invalid("Article-media WIP binding evidence has changed after installation")
+    recomputed
+  }
+
+  private[publication] def revalidateRestored(value: Plan): Plan = {
+    if (value == null || value.config == null)
+      _invalid("Article-media WIP binding plan must be defined")
+    val recomputed = plan(value.config)
+    if (_stable_plan(recomputed) != _stable_plan(value) || recomputed.registry != value.registry)
+      _invalid("Article-media WIP binding evidence has changed after restoration")
+    val before = value.candidates.collect {
+      case candidate if candidate.evidence.isInstanceOf[VideoEvidence] =>
+        val evidence = candidate.evidence.asInstanceOf[VideoEvidence]
+        evidence.destination -> evidence.installedArtifactSha256
+    }
+    val restored = recomputed.candidates.collect {
+      case candidate if candidate.evidence.isInstanceOf[VideoEvidence] =>
+        val evidence = candidate.evidence.asInstanceOf[VideoEvidence]
+        evidence.destination -> evidence.installedArtifactSha256
+    }
+    if (restored != before)
+      _invalid("Article-media WIP restored destination digest differs")
     recomputed
   }
 
@@ -219,7 +244,7 @@ private[cozy] object CozyArticleMediaWipBinding {
       value.websiteRoot,
       value.candidates.map { candidate =>
         val evidence = candidate.evidence match {
-          case x: VideoEvidence => (x.source, x.production, x.destination, x.destinationParent)
+          case x: VideoEvidence => (x.source, x.production, x.productionBytes, x.sourceArtifactSha256, x.destination, x.destinationParent)
           case x => x
         }
         (candidate.resourceId, candidate.locale, candidate.role, candidate.variant, candidate.integrity, evidence)
@@ -323,7 +348,8 @@ private[cozy] object CozyArticleMediaWipBinding {
           _invalid(s"Article-media WIP binding video production must be defined: $resourceid")
         ), s"Article-media WIP binding video production for $resourceid")
         val production = _root_file_snapshot(descriptorroot, productionrelative, s"video production for $resourceid")
-        _validate_production(production.bytes, articleidentity, locale, resourceid, source.evidence.sha256)
+        _validate_production(production.bytes, articleidentity, locale, resourceid)
+        val sourcedigest = _sha256(source.bytes.toArray)
         val descriptorrelative = _project_relative(projectroot, descriptorfile, "descriptor")
         val productionprojectrelative = _project_relative(projectroot, production.evidence.path, s"video production for $resourceid")
         val destinationrelative = _video_destination(articleidentity, locale)
@@ -341,16 +367,17 @@ private[cozy] object CozyArticleMediaWipBinding {
           articleIdentity = articleidentity,
           locale = locale,
           role = CozyArticleMediaIntegrity.Role.Video,
-          artifact = CozyArticleMediaIntegrity.Artifact(resourceid, source.evidence.sha256),
+          artifact = CozyArticleMediaIntegrity.Artifact(resourceid, sourcedigest),
           publicPath = contenturl,
           repositoryPath = destinationrelative,
           mediaType = "video/mp4",
-          sha256 = source.evidence.sha256,
+          sha256 = sourcedigest,
           provenance = CozyArticleMediaIntegrity.WipSiteVideo(descriptorrelative, resourceid, productionprojectrelative),
           publicationState = CozyArticleMediaIntegrity.PublicationState.Published
         ))
         CandidateDraft(articleidentity, resourceid, locale, CozyArticleMediaRegistry.StrictRole.Video, variant, Some(integrity),
-          VideoEvidence(source.evidence, production.evidence, destination, parent, installed.map(_.evidence)))
+          VideoEvidence(source.evidence, production.evidence, destination, parent, installed.map(_.evidence),
+            production.bytes, sourcedigest, installed.map(snapshot => _sha256(snapshot.bytes.toArray))))
       case "article_pdf" =>
         _pdf_candidate(resolved, mediaplan, articleidentity, locale, resourceid, CozyArticleMediaRegistry.StrictRole.ArticlePdf)
       case "summary_slides_pdf" =>
@@ -434,8 +461,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     bytes: Vector[Byte],
     articleidentity: String,
     locale: String,
-    resourceid: String,
-    sourcedigest: String
+    resourceid: String
   ): Unit = {
     val root = try Json.parse(new String(bytes.toArray, StandardCharsets.UTF_8)).asOpt[JsObject] catch {
       case NonFatal(_) => None
@@ -453,12 +479,6 @@ private[cozy] object CozyArticleMediaWipBinding {
     val qa = _required_json_object(render, "qa", resourceid)
     if (_required_json_string(qa, "status", resourceid) != "technical-and-visual-qa-passed")
       _invalid(s"Article-media WIP binding video render QA status is invalid: $resourceid")
-    val digest = render.value.get("sha256") match {
-      case Some(JsString(value)) if value.matches("[0-9a-f]{64}") => value
-      case _ => _invalid(s"Article-media WIP binding video render sha256 must be exact lowercase SHA-256: $resourceid")
-    }
-    if (digest != sourcedigest)
-      _invalid(s"Article-media WIP binding video render sha256 differs from output: $resourceid")
   }
 
   private def _normalized_variant(
@@ -535,7 +555,7 @@ private[cozy] object CozyArticleMediaWipBinding {
       !_same_file_attributes(before, after) || firstbytes.length.toLong != before.size() ||
       secondbytes.length.toLong != before.size() || !firstbytes.sameElements(secondbytes))
       _invalid(s"Article-media WIP binding $label changed while being read")
-    FileSnapshot(FileEvidence(file.path, file.identity, _sha256(firstbytes), firstbytes.length.toLong, file.fileKey), firstbytes.toVector)
+    FileSnapshot(FileEvidence(file.path, file.identity, before.size(), before.lastModifiedTime(), file.fileKey), firstbytes.toVector)
   }
 
   private def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
@@ -550,7 +570,7 @@ private[cozy] object CozyArticleMediaWipBinding {
     }
     if (identity != lexical)
       _invalid(s"Article-media WIP binding $label must not use a lexical or symlink alias: $lexical")
-    FileEvidence(lexical, identity, "", attributes.size(), attributes.fileKey())
+    FileEvidence(lexical, identity, attributes.size(), attributes.lastModifiedTime(), attributes.fileKey())
   }
 
   private def _file_attributes(path: Path, label: String): BasicFileAttributes = {

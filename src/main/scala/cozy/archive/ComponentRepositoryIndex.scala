@@ -12,7 +12,8 @@ import com.fasterxml.jackson.core.{JsonFactory, JsonParseException, JsonParser =
  * Cozy producer/validator for the CNCF Component Repository index contract.
  *
  * @since   Jul. 21, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 final case class ComponentRepositoryIndexEntry(
@@ -118,6 +119,9 @@ object ComponentRepositoryIndex {
     normalized.artifacts.foreach { entry =>
       val path = catalogroot.resolve(entry.catalog).normalize()
       _require(path.startsWith(catalogroot.normalize()), s"Component repository catalog escapes index directory: ${entry.catalog}")
+      if (entry.kind == "sar")
+        _require(!candidateFiles.get(path.toAbsolutePath.normalize()).contains(None),
+          s"component.repository.integrity.mismatch source=index kind=sar artifact=${entry.artifactId} field=catalog actual=intended-absence")
       val candidate = candidateFiles.get(path.toAbsolutePath.normalize()).flatten
       val catalogpath = candidate.getOrElse(path)
       _require(candidate.isDefined || Files.isRegularFile(path), s"Component repository catalog is missing: ${entry.catalog}")
@@ -127,6 +131,7 @@ object ComponentRepositoryIndex {
       _require(catalog.kind == entry.kind, s"Component repository catalog kind mismatch: ${entry.kind}:${entry.artifactId}")
       _require(catalog.artifactId == entry.artifactId, s"Component repository catalog identity mismatch: ${entry.kind}:${entry.artifactId}")
       if (entry.kind == "car") _validate_car_entry(entry, catalog, catalogroot, candidateFiles)
+      else _validate_sar_entry(entry, catalog, catalogroot, candidateFiles)
       _require(catalog.status.getOrElse("active") == entry.status, s"Component repository catalog status mismatch: ${entry.kind}:${entry.artifactId}")
       _require(catalog.recommended == entry.recommended, s"Component repository recommended selector is stale: ${entry.kind}:${entry.artifactId}")
       _require(catalog.latestStable == entry.latestStable, s"Component repository latestStable selector is stale: ${entry.kind}:${entry.artifactId}")
@@ -312,6 +317,46 @@ object ComponentRepositoryIndex {
       val record = if (candidatesidecar.isDefined) new String(Files.readAllBytes(candidatesidecar.get), StandardCharsets.UTF_8)
         else if (Files.isRegularFile(sidecar)) new String(Files.readAllBytes(sidecar), StandardCharsets.UTF_8) else "missing"
       _require(record == digest + "\n", s"component.repository.integrity.mismatch source=index field=sha256-sidecar expected=$digest actual=${record.trim}")
+    }
+  }
+
+  private def _validate_sar_entry(
+    entry: ComponentRepositoryIndexEntry,
+    catalog: RepositoryArtifactCatalog,
+    catalogroot: Path,
+    candidatefiles: Map[Path, Option[Path]]
+  ): Unit = {
+    val warehouse = Option(catalogroot.getParent).flatMap(parent => Option(parent.getParent)).getOrElse(
+      throw new IllegalArgumentException(s"component.repository.integrity.mismatch source=index kind=sar artifact=${entry.artifactId} field=warehouse actual=missing")
+    ).toAbsolutePath.normalize()
+    val artifactroot = warehouse.resolve("repository/sar").resolve(entry.artifactId).normalize()
+    catalog.versions.foreach { release =>
+      val context = s"component.repository.integrity.mismatch source=index kind=sar artifact=${entry.artifactId} version=${release.version}"
+      val version = release.version
+      _require(version.nonEmpty && version != "." && version != ".." && !version.contains('/') && !version.contains('\\'),
+        s"$context field=version expected=single-path-segment actual=$version")
+      val expectedfile = s"repository/sar/${entry.artifactId}/$version/${entry.artifactId}-$version.sar"
+      _require(release.file.contains(expectedfile), s"$context field=file expected=$expectedfile actual=${release.file.getOrElse("missing")}")
+      val archive = warehouse.resolve(expectedfile).normalize()
+      _require(archive.startsWith(artifactroot), s"$context field=file expected=$artifactroot actual=$archive")
+      val archivepath = candidatefiles.get(archive) match {
+        case None => archive
+        case Some(Some(candidate)) => candidate
+        case Some(None) => throw new IllegalArgumentException(s"$context field=archive actual=intended-absence")
+      }
+      _require(Files.isRegularFile(archivepath), s"$context field=archive expected=regular-file actual=$archivepath")
+      val digest = RepositoryArtifactPublisher.sha256(archivepath)
+      _require(release.checksumSha256.contains(digest),
+        s"$context field=checksum.sha256 expected=$digest actual=${release.checksumSha256.getOrElse("missing")}")
+      val sidecar = archive.resolveSibling(archive.getFileName.toString + ".sha256")
+      val sidecarpath = candidatefiles.get(sidecar) match {
+        case None => sidecar
+        case Some(Some(candidate)) => candidate
+        case Some(None) => throw new IllegalArgumentException(s"$context field=sha256-sidecar actual=intended-absence")
+      }
+      _require(Files.isRegularFile(sidecarpath), s"$context field=sha256-sidecar expected=regular-file actual=$sidecarpath")
+      val record = new String(Files.readAllBytes(sidecarpath), StandardCharsets.UTF_8)
+      _require(record == digest + "\n", s"$context field=sha256-sidecar expected=$digest actual=${record.trim}")
     }
   }
 }

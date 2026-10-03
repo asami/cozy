@@ -3,6 +3,7 @@ package cozy
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.security.MessageDigest
 import java.util.zip.ZipFile
 
 import scala.collection.JavaConverters._
@@ -12,11 +13,13 @@ import cozy.archive.ComponentRepositoryIndex
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 
 /*
  * @since   May. 20, 2026
  *  version Jul. 21, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -89,10 +92,94 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       publiccatalog.latestStable shouldBe Some("0.1.0")
       publiccatalog.versions.head.runtime shouldBe empty
       publiccatalog.versions.head.file shouldBe Some("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
-      publiccatalog.versions.head.checksumSha256 should not be empty
+      val digest = _sha256(Files.readAllBytes(target))
+      publiccatalog.versions.head.checksumSha256 shouldBe Some(digest)
+      Files.readString(target.resolveSibling(target.getFileName.toString + ".sha256")) shouldBe digest + "\n"
       val index = ComponentRepositoryIndex.load(warehouse.resolve("repository/catalog/index.json"))
       index.artifacts.map(_.identity) shouldBe Vector(("sar", "", "sample-application"))
       index.artifacts.head.catalog shouldBe "sar/sample-application.yaml"
+    }
+  }
+
+  "prove public SAR byte admission" which {
+    "publishes varied actual payloads with exact schema1 checksums and sidecars" in {
+      Given("a generator of varied SAR payloads and public publication scenarios")
+      val payloads: Gen[Array[Byte]] = Gen.choose(1, 200).flatMap(size => Gen.listOfN(size, Gen.choose(-128, 127))).map { values =>
+        ("SAR-\u65e5\u672c\u8a9e-".getBytes(StandardCharsets.UTF_8).toVector ++ values.map(_.toByte)).toArray
+      }
+      val property = Prop.forAll(payloads) { payload =>
+        _with_temp_dir("sar-public-byte-property") { dir =>
+          Given("a SAR project and a varied actual payload containing non-ASCII bytes")
+          val project = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          _write_project_yaml(project, "sample-application")
+          val input = dir.resolve("input/sample.sar")
+          Files.createDirectories(input.getParent)
+          Files.write(input, payload)
+          When("the public SAR publisher installs the release")
+          CozySarPublisher.publish(List(project.toString, "--warehouse", warehouse.toString,
+            "--name", "sample-application", "--version", "0.1.0", "--sar", input.toString))
+          val archive = warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
+          val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/sar/sample-application.yaml"))
+          val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
+          val admitted = ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath)
+          Then("catalog SHA and exact sidecar match installed bytes while the input and SAR schema are preserved")
+          val digest = _sha256(Files.readAllBytes(archive))
+          Files.readAllBytes(archive).toVector shouldBe payload.toVector
+          Files.readAllBytes(input).toVector shouldBe payload.toVector
+          catalog.versions.head.checksumSha256 shouldBe Some(digest)
+          Files.readString(archive.resolveSibling(archive.getFileName.toString + ".sha256")) shouldBe digest + "\n"
+          catalog.schemaVersion shouldBe "1"
+          catalog.namespace shouldBe empty
+          catalog.id shouldBe empty
+          catalog.versions.head.integrityKey shouldBe empty
+          admitted.artifacts.map(_.identity) shouldBe Vector(("sar", "", "sample-application"))
+          admitted.artifacts.head.namespace shouldBe empty
+          admitted.artifacts.head.id shouldBe empty
+          true
+        }
+      }
+      When("ScalaCheck exercises at least fifty successful public publication trials")
+      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+      Then("every trial satisfies actual-byte checksum and sidecar admission")
+      result.passed shouldBe true
+    }
+
+    "rejects republishing after same-size same-time installed SAR tampering before any publication changes" in {
+      _with_temp_dir("sar-public-republish-tamper") { dir =>
+        Given("a published SAR release and captured source and public repository records")
+        val project = dir.resolve("project")
+        val warehouse = dir.resolve("warehouse")
+        _write_project_yaml(project, "sample-application")
+        val input = _write(dir.resolve("input/sample.sar"), "sar-body")
+        val args = List(project.toString, "--warehouse", warehouse.toString, "--name", "sample-application",
+          "--version", "0.1.0", "--sar", input.toString)
+        CozySarPublisher.publish(args)
+        val archive = warehouse.resolve("repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar")
+        val originaltime = Files.getLastModifiedTime(archive)
+        val originalsize = Files.size(archive)
+        val paths = Vector(project.resolve("src/main/catalog/sar/sample-application.yaml"),
+          warehouse.resolve("repository/catalog/sar/sample-application.yaml"), warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH),
+          archive.resolveSibling(archive.getFileName.toString + ".sha256"),
+          warehouse.resolve("repository/sar/sample-application/maven-metadata.xml"))
+        val originals = paths.map(path => path -> Files.readAllBytes(path).toVector).toMap
+        When("installed bytes change with equal size and time and a new SAR publication is requested")
+        Files.write(archive, "SAR-BODY".getBytes(StandardCharsets.UTF_8))
+        Files.setLastModifiedTime(archive, originaltime)
+        val error = intercept[IllegalArgumentException] {
+          CozySarPublisher.publish(args.updated(args.indexOf("0.1.0"), "0.2.0"))
+        }
+        Then("actual-byte admission rejects before changing records or creating the new destination")
+        error.getMessage should include("component.repository.integrity.mismatch")
+        error.getMessage should include("kind=sar")
+        error.getMessage should include("field=checksum.sha256")
+        Files.size(archive) shouldBe originalsize
+        Files.getLastModifiedTime(archive) shouldBe originaltime
+        Files.readString(archive) shouldBe "SAR-BODY"
+        Files.readString(input) shouldBe "sar-body"
+        paths.foreach(path => Files.readAllBytes(path).toVector shouldBe originals(path))
+        Files.exists(warehouse.resolve("repository/sar/sample-application/0.2.0")) shouldBe false
+      }
     }
   }
 
@@ -196,9 +283,10 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "snapshot-sar-body")
       _write_project_yaml(projectdir, "sample-application")
+      val releasedigest = _materialize_release(warehouse, "0.1.0", "retained-release")
       _write(
         projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
-        """schemaVersion: 1
+        s"""schemaVersion: 1
           |kind: sar
           |artifactId: sample-application
           |recommended: 0.1.0
@@ -211,6 +299,8 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
           |    channel: stable
           |    status: active
           |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
+          |    checksum:
+          |      sha256: $releasedigest
           |  - version: 0.1.1-SNAPSHOT
           |    channel: snapshot
           |    status: active
@@ -246,9 +336,11 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "new-sar-body")
       _write_project_yaml(projectdir, "sample-application")
+      val historydigest = _materialize_release(warehouse, "0.0.9", "deprecated-release")
+      val currentdigest = _materialize_release(warehouse, "0.1.0", "current-release")
       _write(
         projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
-        """schemaVersion: 1
+        s"""schemaVersion: 1
           |kind: sar
           |artifactId: sample-application
           |recommended: 0.0.9
@@ -261,12 +353,14 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
           |    channel: stable
           |    status: deprecated
           |    file: repository/sar/sample-application/0.0.9/sample-application-0.0.9.sar
+          |    checksum:
+          |      sha256: $historydigest
           |  - version: 0.1.0
           |    channel: stable
           |    status: active
           |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
           |    checksum:
-          |      sha256: old
+          |      sha256: $currentdigest
           |""".stripMargin
       )
 
@@ -283,7 +377,7 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val catalog = RepositoryArtifactCatalog.load(projectdir.resolve("src/main/catalog/sar/sample-application.yaml"))
       catalog.versions.map(_.version) shouldBe Vector("0.0.9", "0.1.0")
       catalog.versions.find(_.version == "0.0.9").flatMap(_.status) shouldBe Some("deprecated")
-      catalog.versions.find(_.version == "0.1.0").flatMap(_.checksumSha256) should not be Some("old")
+      catalog.versions.find(_.version == "0.1.0").flatMap(_.checksumSha256) shouldBe Some(_sha256(Files.readAllBytes(sar)))
       catalog.recommended shouldBe Some("0.1.0")
       catalog.latestStable shouldBe Some("0.1.0")
       catalog.aliases shouldBe Vector("sample-old")
@@ -302,9 +396,11 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
       val warehouse = dir.resolve("warehouse")
       val sar = _write(dir.resolve("input/sample.sar"), "new-sar-body")
       _write_project_yaml(projectdir, "sample-application")
+      val historydigest = _materialize_release(warehouse, "0.0.9", "deprecated-release")
+      val currentdigest = _materialize_release(warehouse, "0.1.0", "current-release")
       _write(
         projectdir.resolve("src/main/catalog/sar/sample-application.yaml"),
-        """schemaVersion: 1
+        s"""schemaVersion: 1
           |kind: sar
           |artifactId: sample-application
           |recommended: 0.0.9
@@ -316,12 +412,14 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
           |    channel: stable
           |    status: deprecated
           |    file: repository/sar/sample-application/0.0.9/sample-application-0.0.9.sar
+          |    checksum:
+          |      sha256: $historydigest
           |  - version: 0.1.0
           |    channel: stable
           |    status: active
           |    file: repository/sar/sample-application/0.1.0/sample-application-0.1.0.sar
           |    checksum:
-          |      sha256: old
+          |      sha256: $currentdigest
           |""".stripMargin
       )
 
@@ -374,7 +472,17 @@ class CozySarPublisherSpec extends AnyWordSpec with Matchers with GivenWhenThen 
     }
   }
 
-  private def _with_temp_dir(prefix: String)(body: Path => Unit): Unit = {
+  private def _sha256(bytes: Array[Byte]): String =
+    MessageDigest.getInstance("SHA-256").digest(bytes).map(value => "%02x".format(value & 0xff)).mkString
+
+  private def _materialize_release(warehouse: Path, version: String, text: String): String = {
+    val archive = _write(warehouse.resolve(s"repository/sar/sample-application/$version/sample-application-$version.sar"), text)
+    val digest = _sha256(Files.readAllBytes(archive))
+    _write(archive.resolveSibling(archive.getFileName.toString + ".sha256"), digest + "\n")
+    digest
+  }
+
+  private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
     val workroot = Path.of("target/cozy-test/work/cozy-sar-publisher-spec").toAbsolutePath.normalize()
     Files.createDirectories(workroot)
     val dir = Files.createTempDirectory(workroot, s"$prefix-")

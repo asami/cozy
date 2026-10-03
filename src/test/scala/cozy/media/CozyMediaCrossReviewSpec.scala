@@ -7,7 +7,8 @@ import java.awt.{Color, Font, RenderingHints}
 import java.awt.image.BufferedImage
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.attribute.FileTime
+import org.scalacheck.{Gen, Prop, Test}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import javax.imageio.ImageIO
 import org.scalatest.GivenWhenThen
@@ -18,7 +19,8 @@ import scala.collection.JavaConverters._
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -131,6 +133,166 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         review.hcursor.downField("verification").get[String]("visualApproval").toOption shouldBe Some("not-recorded")
         review.hcursor.downField("verification").get[String]("audiovisualApproval").toOption shouldBe Some("not-recorded")
         rendererinvoked shouldBe false
+      }
+    }
+
+    "generated evidence metadata" which {
+      "accept arbitrary nested JSON through fifty independent public CrossReview builds and verifications" in {
+        Given("arbitrary metadata names, scalar and nested values, and insertion positions outside the known evidence grammar")
+        val metadata = for {
+          token <- Gen.listOfN(8, Gen.alphaChar).map(_.mkString)
+          number <- Gen.choose(-10000, 10000)
+          extra <- Gen.oneOf(Json.Null, Json.True, Json.fromInt(number), Json.fromString(token), Json.arr(Json.fromInt(number), Json.obj("detail" -> Json.Null)), Json.obj("detail" -> Json.arr(Json.fromString(token))))
+          prepend <- Gen.oneOf(false, true)
+        } yield ("annotation-" + token, extra, prepend)
+        val property = Prop.forAll(metadata) { case (name, extra, prepend) =>
+          _with_temp_dir("arbitrary-evidence") { root =>
+            Given("independent real Presentation files and a Storyboard with a declared copied visual input for this trial")
+            val media = _write_media_fixture(root)
+            val initial = _storyboard()
+            val storyboard = initial.copy(scenes = initial.scenes.map(_.copy(diagramRefs = Vector("assets/infographic.png"))))
+            val source = _write_storyboard(root, storyboard)
+            val project = _write_project(root, source, storyboard, "obsolete")
+            val declaration = _json(project).mapObject(fields => fields.add("storyboardReview", fields("storyboardReview").get.mapObject(_.add("visualStory", Json.obj(
+              "evidenceDirectory" -> Json.fromString("target/cozy-video/v2-review"),
+              "inputRefs" -> Json.arr(Json.fromString("assets/infographic.png"))
+            )))))
+            _write(project, declaration.noSpaces)
+            val output = root.resolve("target/cozy-media/cross-review.json")
+            val buildconfig = CozyMediaCrossReview.BuildConfig(media, "slides", project, "target/cozy-media/cross-review.json")
+            val verifyconfig = CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json")
+
+            When("public producers generate nonhash artifacts and review records")
+            CozyMedia.build(CozyMedia.CommandConfig(media), _presentation_runner(root, () => ()))
+            val generated = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, root.resolve("target/cozy-video/v2-review")))
+
+            Then("both v2 documents contain actual copied inputs, pages and all renderer fields without hashes")
+            Vector(generated.evidencePath, generated.handoffPath).foreach { path =>
+              val document = _json(path)
+              document.hcursor.downField("visualInputs").focus.get.asArray.get should have size 1
+              document.hcursor.downField("effectiveRenderers").downArray.downField("configuration").focus.get.asObject.get.keys.toSet shouldBe
+                Set("engine", "strategy", "policy", "fps", "width", "height", "crf", "x264Preset", "effectProfile")
+              document.noSpaces.toLowerCase(java.util.Locale.ROOT) should not include "sha256"
+            }
+
+            Given("extras at document, scene/screen, copied-input, page/asset and effective-renderer/configuration levels")
+            Vector(generated.evidencePath, generated.handoffPath, root.resolve("review/manifest.json")).foreach { path =>
+              val annotated = _add_metadata(_json(path), name, extra, prepend)
+              val document = if (path == generated.handoffPath) annotated.mapObject(_.add("scenes", Json.obj("not-a-known-handoff-collection" -> extra))) else annotated
+              _rewrite_json(path, document)
+            }
+
+            When("public currentness and CrossReview build and verify read the annotated evidence")
+            val current = CozyVideo.storyboardReviewCurrent(project)
+            val built = CozyMediaCrossReview.build(buildconfig)
+            val canonical = _json(output)
+            val plainverified = CozyMediaCrossReview.verify(verifyconfig)
+            _rewrite_json(output, _add_metadata(canonical, name, extra, prepend))
+            val annotatedverified = CozyMediaCrossReview.verify(verifyconfig)
+
+            Then("arbitrary extras never acquire semantic authority and aggregate approvals remain unrecorded")
+            current.evidencePath shouldBe generated.evidencePath
+            built should include("status: valid")
+            plainverified should include("status: valid")
+            annotatedverified should include("status: valid")
+            canonical.noSpaces should not include name
+            canonical.noSpaces.toLowerCase(java.util.Locale.ROOT) should not include "sha256"
+            Vector("semanticApproval", "visualApproval", "audiovisualApproval").foreach { field =>
+              canonical.hcursor.downField("verification").get[String](field).toOption shouldBe Some("not-recorded")
+            }
+          }
+          true
+        }
+        When("ScalaCheck interprets at least fifty independently reset public producer-consumer trials")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+        Then("each generated variation satisfies every public behavior assertion")
+        withClue(s"ScalaCheck status=${result.status}, succeeded=${result.succeeded}") { result.passed shouldBe true }
+      }
+
+      "reject missing invalid and reordered known fields and missing or unsafe actual files without replacing prior aggregates" in {
+        _with_temp_dir("required-evidence") { root =>
+          Given("a current real Presentation, generated v2 evidence/handoff and an accepted CrossReview aggregate")
+          val media = _write_media_fixture(root)
+          CozyMedia.build(CozyMedia.CommandConfig(media), _presentation_runner(root, () => ()))
+          val storyboard = _storyboard()
+          val source = _write_storyboard(root, storyboard)
+          val project = _write_project(root, source, storyboard, "obsolete")
+          val generated = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, root.resolve("target/cozy-video/v2-review")))
+          val output = root.resolve("target/cozy-media/cross-review.json")
+          val buildconfig = CozyMediaCrossReview.BuildConfig(media, "slides", project, "target/cozy-media/cross-review.json")
+          val verifyconfig = CozyMediaCrossReview.VerifyConfig(media, "slides", project, "target/cozy-media/cross-review.json")
+          CozyMediaCrossReview.build(buildconfig)
+          val prior = Files.readAllBytes(output).toVector
+          val evidence = _add_metadata(_json(generated.evidencePath), "annotation", Json.True, false)
+          val handoff = _add_metadata(_json(generated.handoffPath), "annotation", Json.Null, true)
+          def _page_with_(document: Json, update: Json => Json): Json = document.mapObject(fields =>
+            fields.add("visualPages", fields("visualPages").get.mapArray(_.map(update))))
+          val variants = Vector(
+            generated.evidencePath -> evidence.mapObject(_.remove("source")),
+            generated.evidencePath -> evidence.mapObject(_.add("scenes", Json.True)),
+            generated.handoffPath -> handoff.mapObject(_.remove("effectiveRenderers")),
+            generated.handoffPath -> handoff.mapObject(_.add("status", Json.fromString("invalid"))),
+            generated.evidencePath -> _page_with_(evidence, _.mapObject(_.remove("pageId"))),
+            generated.evidencePath -> _page_with_(evidence, _.mapObject(_.add("kind", Json.fromString("unknown")))),
+            generated.evidencePath -> _page_with_(evidence, page => Json.fromFields(page.asObject.get.toVector.reverse)),
+            generated.handoffPath -> _page_with_(handoff, _.mapObject(fields => fields.add("assets", fields("assets").get.mapArray(_.map(asset => Json.fromFields(asset.asObject.get.toVector.reverse))))))
+          )
+
+          When("public CrossReview build and verify receive each malformed known semantic field despite ordinary metadata")
+          val failures = variants.map { case (path, document) =>
+            val original = Files.readString(path, StandardCharsets.UTF_8)
+            _rewrite_json(path, document)
+            val rejected = Vector(intercept[RuntimeException](CozyMediaCrossReview.build(buildconfig)), intercept[RuntimeException](CozyMediaCrossReview.verify(verifyconfig)))
+            _write(path, original)
+            (rejected, Files.readAllBytes(output).toVector)
+          }
+
+          Then("required values types and existing relative key order still reject through the upstream public currentness API")
+          failures.flatMap(_._1) should have size (variants.size * 2)
+          failures.flatMap(_._1).foreach(_.getMessage should include("STORYBOARD_REVIEW_"))
+          failures.foreach(_._2 shouldBe prior)
+
+          Given("a selected actual material file that is first absent and then aliased by a symbolic link")
+          val material = root.resolve("assets/infographic.png")
+          val bytes = Files.readAllBytes(material)
+          val modified = Files.getLastModifiedTime(material)
+          Files.delete(material)
+
+          When("CrossReview reads missing and unsafe current material files")
+          val missing = intercept[RuntimeException](CozyMediaCrossReview.build(buildconfig))
+          _write(root.resolve("replacement.png"), "replacement")
+          Files.createSymbolicLink(material, root.resolve("replacement.png"))
+          val unsafe = intercept[RuntimeException](CozyMediaCrossReview.build(buildconfig))
+          Files.delete(material)
+          Files.write(material, bytes)
+          Files.setLastModifiedTime(material, modified)
+
+          Then("actual material safety rejects and the previously accepted aggregate survives both failures")
+          missing.getMessage should not be empty
+          unsafe.getMessage should not be empty
+          Files.readAllBytes(output).toVector shouldBe prior
+
+          Given("stored aggregate variants omitting required fields or altering known types order IDs and approval status")
+          val record = _add_metadata(_json(output), "annotation", Json.obj(), false)
+          val invalidrecords = Vector(
+            record.mapObject(_.remove("target")),
+            record.mapObject(_.add("slides", Json.arr(Json.obj("id" -> Json.True)))),
+            record.mapObject(_.add("visualPages", Json.arr())),
+            Json.fromFields(record.asObject.get.toVector.reverse),
+            record.mapObject(fields => fields.add("visualPages", fields("visualPages").get.mapArray(_.map(_.mapObject(page => page.add("assets", page("assets").get.mapArray(_.map(_.mapObject(_.add("mediaType", Json.True)))))))))),
+            record.mapObject(fields => fields.add("verification", fields("verification").get.mapObject(_.add("semanticApproval", Json.fromString("approved")))))
+          )
+          When("public verification reads each malformed saved aggregate")
+          val recordfailures = invalidrecords.map { invalid =>
+            _write(output, invalid.noSpaces)
+            intercept[RuntimeException](CozyMediaCrossReview.verify(verifyconfig))
+          }
+          Files.write(output, prior.toArray)
+
+          Then("aggregate metadata cannot replace required structure or grant approval")
+          recordfailures should have size invalidrecords.size
+          recordfailures.foreach(_.getMessage should include("Cross-media Review"))
+        }
       }
     }
 
@@ -365,9 +527,8 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         _write_pptx(pptx, "Overview", root.resolve("assets/infographic.png"))
         _write_png(images.resolve("overview.png"))
         _write_png(montage)
-        val pptxhash = _sha256(pptx)
         _write(manifest,
-          s"""{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[{"id":"overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pptxSha256":"$pptxhash","assets":[{"id":"infographic"}]}],"montage":{"path":"target/rendered/montage.png","sha256":"${_sha256(montage)}","pptxSha256":"$pptxhash"}}"""
+          """{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"pptx":{"path":"target/rendered/article.pptx"},"slides":[{"id":"overview","path":"target/slides/overview.png","assets":[{"id":"infographic"}]}],"montage":{"path":"target/rendered/montage.png"}}"""
         )
         0
       }
@@ -524,7 +685,22 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
     Files.writeString(path, value, StandardCharsets.UTF_8)
   }
 
-  private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
+  private def _json(path: Path): Json =
+    parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(error => throw error, identity)
+
+  private def _rewrite_json(path: Path, value: Json): Unit = {
+    val modified = Files.getLastModifiedTime(path)
+    _write(path, value.noSpaces)
+    Files.setLastModifiedTime(path, modified)
+  }
+
+  private def _add_metadata(value: Json, name: String, extra: Json, prepend: Boolean): Json =
+    value.asObject match {
+      case Some(fields) =>
+        val known = fields.toVector.map { case (field, item) => field -> _add_metadata(item, name, extra, prepend) }
+        Json.fromFields(if (prepend) (name -> extra) +: known else known :+ (name -> extra))
+      case None => value.asArray.map(items => Json.fromValues(items.map(item => _add_metadata(item, name, extra, prepend)))).getOrElse(value)
+    }
 
   private def _with_temp_dir[A](name: String)(body: Path => A): A = {
     val root = Files.createTempDirectory("cozy-media-cross-review-" + name + "-").toRealPath()

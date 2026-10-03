@@ -217,7 +217,17 @@ ignores arbitrary old approval properties. The generator validates current
 inputs, copies admitted visual files and writes deterministic review/handoff
 data without hash calculation. Explicit review validation checks required
 non-hash structure and actual inputs/copies, not historical whole-payload,
-renderer, source, material, or approval equality. Result/current APIs expose
+renderer, source, material, or approval equality. Ordinary generated-evidence
+readers select known fields positively and ignore arbitrary unspecified JSON
+metadata at root, scenes/screens, visual inputs, visual pages/assets and
+effective renderers/configurations. They retain required fields/types, nonempty
+scenes, safe references, unique IDs, existing page/asset relative key order and
+VideoRenderer decoding/domain checks. All nine configuration fields remain
+required even where their existing values may be null. Unknown root collections
+are excluded before row validation, so handoff extras cannot become evidence
+rows. This is a generated-data reader boundary: authored Storyboard/Scene/Screen,
+configuration parsers, review declarations, source/copy admission, result/current
+APIs and approval ownership do not change. Result/current APIs expose
 locations only. This supersedes the prior hash-based P30-02 review contract;
 it does not alter independent confirmation or audiovisual review authority.
 
@@ -353,8 +363,9 @@ Evidence and handoff v2 entries are exactly
 `sceneId,kind,source,catalog,pageId,assets`. Assets retain
 `{id,path,mediaType,modifiedAt}` observations from safe current direct files.
 The four VisualPage digest fields and complete Binding copy are deleted
-without substitute JSON/fingerprint proof. Legacy removed properties are ignored
-for any JSON value; actual named set/catalog/page/Binding validation is separate
+without substitute JSON/fingerprint proof. Positive known-field selection ignores
+arbitrary extras generically at page/asset objects while preserving required
+relative field order, strings and unique IDs; actual named set/catalog/page/Binding validation is separate
 from historical evidence, and old asset observations are not currentness gates.
 
 Explicit v2 validation resolves actual current PageSet/catalog/page/Binding
@@ -372,7 +383,11 @@ independent roots. It does not compare full catalog/page/Binding copies.
 Presentation provenance wrappers are `{path}`; aggregate pages are
 `{sceneId,pageId,assets}` and omit all removed proof properties.
 
-Saved verification checks operational structure, uniqueness, and reference
+CrossReview continues through public `storyboardReviewCurrent`; its ordinary
+readers select known Presentation wrapper/slide, Storyboard root/page and
+aggregate root/slide/page/asset/verification fields, retaining required relative
+order where already enforced and ignoring every unspecified property. Generated
+records remain deterministic and omit hashes. Saved verification checks operational structure, uniqueness, and reference
 resolution, not reconstructed whole-value equality. Build constructs once and
 may atomically replace a safe direct regular aggregate, never actual inputs or
 participating review evidence. Invalid input and generation failure preserve
@@ -380,6 +395,19 @@ prior bytes. Approval states remain `not-recorded`; no renderer, publication,
 deployment, or semantic/visual/audiovisual acceptance occurs. Media receipt
 admission and non-review artifact integrity remain separate
 responsibilities, not replacement proof gates.
+
+Presentation receipt artifacts are `id,role,path`; deterministic review wrappers
+carry paths and actual required slide/page/asset/renderer/status values are
+reconstructed recursively. Review-state snapshots require only UTC ISO-8601
+`acceptedAt` with generic extras ignored and the top-level lifecycle grammar
+closed. The current review modification time is the generation boundary;
+unchanged reuse preserves alignment, and a newer generation requires explicit
+realignment even for identical bytes. Structurally valid timestamp-preserved
+edits have no historical-content-detection promise; safe files, actual OOXML/PNG
+and cross-root selected material-byte QA remain. Presentation renderer files are
+direct outputs; no new primary-output transaction is claimed. SummarySlidesPdf
+S07, Publisher/rsync, final named-integrity audit, English-PDF and complete
+isolated-site drivers remain pending. This amendment claims no Step/Phase closure.
 
 ## 14. Phase 61 legacy authoring compatibility boundary
 

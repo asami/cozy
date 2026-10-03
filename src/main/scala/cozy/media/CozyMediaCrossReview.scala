@@ -15,7 +15,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaCrossReview {
@@ -150,17 +151,17 @@ private[cozy] object CozyMediaCrossReview {
 
   private def _presentation_slides(value: Json): Vector[Slide] = {
     val objectvalue = _object(value, "Presentation VisualPage review manifest")
-    _exact_ordered_keys(objectvalue.remove("inputSetSha256"), Vector("schema", "target", "knowledge", "language", "renderer", "visualPageSet", "catalog", "binding", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification"), "Presentation VisualPage review manifest")
+    _known_ordered_keys(objectvalue, Vector("schema", "target", "knowledge", "language", "renderer", "visualPageSet", "catalog", "binding", "template", "pptx", "slides", "assets", "montage", "articlePdf", "infographic", "verification"), "Presentation VisualPage review manifest")
     if (_string(objectvalue, "schema", "Presentation VisualPage review manifest") != _presentation_review_schema)
       _invalid("Cross-media Review requires a presentation-review.v2 manifest")
     Vector("visualPageSet", "catalog", "binding").foreach { name =>
-      val wrapper = _object(objectvalue(name).getOrElse(_invalid(s"Presentation review $name is missing")), s"Presentation review $name").filterKeys(key => key != "value" && key != "sha256")
-      _exact_ordered_keys(wrapper, Vector("path"), s"Presentation review $name")
+      val wrapper = _object(objectvalue(name).getOrElse(_invalid(s"Presentation review $name is missing")), s"Presentation review $name")
+      _known_ordered_keys(wrapper, Vector("path"), s"Presentation review $name")
       _string(wrapper, "path", s"Presentation review $name")
     }
     objectvalue("slides").flatMap(_.asArray).getOrElse(_invalid("Presentation review slides must be an array")).toVector.map { value =>
       val slide = _object(value, "Presentation review slide")
-      _exact_ordered_keys(slide.remove("sha256"), Vector("id", "path"), "Presentation review slide")
+      _known_ordered_keys(slide, Vector("id", "path"), "Presentation review slide")
       Slide(_string(slide, "id", "Presentation review slide"))
     }
   }
@@ -170,14 +171,14 @@ private[cozy] object CozyMediaCrossReview {
     current: CozyVideo.StoryboardReviewCurrent
   ): Vector[VisualPage] = {
     val objectvalue = _object(value, "Storyboard v2 review evidence")
-    _exact_ordered_keys(objectvalue.remove("storyboardIdentity").remove("identity").remove("evidenceIdentity").remove("visualInputIdentities"), Vector("schema", "status", "source", "scenes", "visualInputs", "visualPages", "effectiveRenderers"), "Storyboard v2 review evidence")
+    _known_ordered_keys(objectvalue, Vector("schema", "status", "source", "scenes", "visualInputs", "visualPages", "effectiveRenderers"), "Storyboard v2 review evidence")
     if (_string(objectvalue, "schema", "Storyboard v2 review evidence") != _storyboard_evidence_schema)
       _invalid("Cross-media Review requires Storyboard v2 review evidence")
     val root = current.projectFile.toAbsolutePath.normalize().getParent
     val source = _material_path(root, _string(objectvalue, "source", "Storyboard v2 review evidence"), "Storyboard source")
     objectvalue("visualPages").flatMap(_.asArray).getOrElse(_invalid("Storyboard v2 visualPages must be an array")).toVector.map { value =>
-      val page = _without_visual_page_proofs(_object(value, "Storyboard v2 visual page"))
-      _exact_ordered_keys(page, Vector("sceneId", "kind", "source", "catalog", "pageId", "assets"), "Storyboard v2 visual page")
+      val page = _object(value, "Storyboard v2 visual page")
+      _known_ordered_keys(page, Vector("sceneId", "kind", "source", "catalog", "pageId", "assets"), "Storyboard v2 visual page")
       if (_string(page, "kind", "Storyboard v2 visual page") != "visual-page")
         _invalid("Storyboard v2 Cross-media Review only accepts visual-page screens")
       val pageset = _material_path(source.getParent, _string(page, "source", "Storyboard v2 visual page"), "Storyboard VisualPageSet source")
@@ -205,7 +206,7 @@ private[cozy] object CozyMediaCrossReview {
 
   private def _validate_handoff(value: Json): Unit = {
     val objectvalue = _object(value, "Storyboard v2 review handoff")
-    _exact_ordered_keys(objectvalue.remove("evidenceIdentity").remove("storyboardIdentity").remove("identity").remove("visualInputIdentities"), Vector("schema", "status", "evidencePath", "visualInputs", "visualPages", "effectiveRenderers"), "Storyboard v2 review handoff")
+    _known_ordered_keys(objectvalue, Vector("schema", "status", "evidencePath", "visualInputs", "visualPages", "effectiveRenderers"), "Storyboard v2 review handoff")
     if (_string(objectvalue, "schema", "Storyboard v2 review handoff") != _storyboard_handoff_schema)
       _invalid("Cross-media Review requires Storyboard v2 review handoff")
   }
@@ -222,31 +223,28 @@ private[cozy] object CozyMediaCrossReview {
       case fault: CozyVisualPage.VisualPageFault => _invalid(s"$label is invalid: ${fault.reason}")
     }
 
-  private def _without_visual_page_proofs(value: JsonObject): JsonObject =
-    value.filterKeys(name => !Set("visualPageSetIdentity", "catalogIdentity", "logicalIdentity", "visualPageIdentity", "bindingIdentity", "visualPageSet", "catalogValue", "logical", "visualPage", "binding").contains(name))
-
   private def _validate_record(value: Json, current: Json): Unit = {
-    val record = _without_visual_page_proofs(_object(value, "Cross-media Review")).filterKeys(name => !Set("catalog", "presentationReviewIdentity", "storyboardEvidenceIdentity", "storyboardHandoffIdentity", "storyboardIdentity").contains(name))
-    _exact_ordered_keys(record, Vector("schema", "target", "slides", "visualPages", "verification"), "Cross-media Review")
+    val record = _object(value, "Cross-media Review")
+    _known_ordered_keys(record, Vector("schema", "target", "slides", "visualPages", "verification"), "Cross-media Review")
     if (_string(record, "schema", "Cross-media Review") != _schema || record("target") != current.hcursor.downField("target").focus)
       _invalid("Cross-media Review schema or target is invalid")
     val slides = record("slides").flatMap(_.asArray).getOrElse(_invalid("Cross-media Review slides must be an array")).map { value =>
       val slide = _object(value, "Cross-media Review slide")
-      _exact_ordered_keys(slide.remove("sha256"), Vector("id"), "Cross-media Review slide")
+      _known_ordered_keys(slide, Vector("id"), "Cross-media Review slide")
       _string(slide, "id", "Cross-media Review slide")
     }
     val currentids = current.hcursor.downField("slides").focus.flatMap(_.asArray).get.map(_.hcursor.get[String]("id").toOption.get).toSet
     if (slides.distinct.size != slides.size || slides.exists(id => !currentids.contains(id)))
       _invalid("Cross-media Review slide references must be unique and resolve")
     val scenes = record("visualPages").flatMap(_.asArray).getOrElse(_invalid("Cross-media Review visualPages must be an array")).map { value =>
-      val page = _without_visual_page_proofs(_object(value, "Cross-media Review visual page"))
-      _exact_ordered_keys(page, Vector("sceneId", "pageId", "assets"), "Cross-media Review visual page")
+      val page = _object(value, "Cross-media Review visual page")
+      _known_ordered_keys(page, Vector("sceneId", "pageId", "assets"), "Cross-media Review visual page")
       val pageid = _string(page, "pageId", "Cross-media Review visual page")
       if (!currentids.contains(pageid)) _invalid("Cross-media Review pageId does not resolve")
       val currentassets = current.hcursor.downField("visualPages").focus.flatMap(_.asArray).get.filter(_.hcursor.get[String]("pageId").toOption.contains(pageid)).flatMap(_.hcursor.downField("assets").focus.flatMap(_.asArray).toVector.flatten).flatMap(_.hcursor.get[String]("id").toOption).toSet
       val assets = page("assets").flatMap(_.asArray).getOrElse(_invalid("Cross-media Review assets must be an array")).map { value =>
         val asset = _object(value, "Cross-media Review asset")
-        _exact_ordered_keys(asset, Vector("id", "mediaType"), "Cross-media Review asset")
+        _known_ordered_keys(asset, Vector("id", "mediaType"), "Cross-media Review asset")
         _string(asset, "mediaType", "Cross-media Review asset")
         _string(asset, "id", "Cross-media Review asset")
       }
@@ -257,7 +255,7 @@ private[cozy] object CozyMediaCrossReview {
     if (scenes.isEmpty || scenes.distinct.size != scenes.size || scenes.exists(id => !currentsequences.contains(id)))
       _invalid("Cross-media Review scene references must be unique and resolve")
     val verification = _object(record("verification").getOrElse(_invalid("Cross-media Review verification is missing")), "Cross-media Review verification")
-    _exact_ordered_keys(verification, Vector("status", "semanticApproval", "visualApproval", "audiovisualApproval"), "Cross-media Review verification")
+    _known_ordered_keys(verification, Vector("status", "semanticApproval", "visualApproval", "audiovisualApproval"), "Cross-media Review verification")
     if (_string(verification, "status", "Cross-media Review verification") != "valid" || Vector("semanticApproval", "visualApproval", "audiovisualApproval").exists(name => _string(verification, name, "Cross-media Review verification") != "not-recorded"))
       _invalid("Cross-media Review verification values are invalid")
   }
@@ -333,7 +331,8 @@ private[cozy] object CozyMediaCrossReview {
 
   private def _relative(root: Path, path: Path): String = root.relativize(path).toString.replace('\\', '/')
   private def _object(value: Json, label: String): JsonObject = value.asObject.getOrElse(_invalid(s"$label must be an object"))
-  private def _exact_ordered_keys(value: JsonObject, expected: Vector[String], label: String): Unit = if (value.keys.toVector != expected) _invalid(s"$label requires exactly ordered fields: ${expected.mkString(", ")}")
+  // Only known semantic names participate; unspecified metadata cannot alter their relative order.
+  private def _known_ordered_keys(value: JsonObject, expected: Vector[String], label: String): Unit = if (value.keys.filter(expected.contains).toVector != expected) _invalid(s"$label requires ordered fields: ${expected.mkString(", ")}")
   private def _string(value: JsonObject, field: String, label: String): String = value(field).flatMap(_.asString).filter(value => value.nonEmpty && value == value.trim).getOrElse(_invalid(s"$label.$field must be a non-empty exact string"))
   private def _identity(value: String, label: String): Unit = if (value == null || value.isEmpty || value != value.trim) _invalid(s"$label must be a non-empty exact string")
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)

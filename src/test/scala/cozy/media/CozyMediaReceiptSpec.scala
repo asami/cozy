@@ -3,18 +3,18 @@ package cozy.media
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.nio.file.attribute.FileTime
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import io.circe.parser.parse
+import org.scalacheck.{Gen, Prop, Test}
 
 /*
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
  *  version Sep. 22, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -61,10 +61,11 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         val json = parse(manifest).fold(error => throw error, identity)
         val resource = json.hcursor.downField("resources").downArray
 
-        Then("legacy fields and complete receipt evidence coexist without machine paths")
+        Then("known manifest fields and complete receipt evidence coexist without machine paths or output digests")
         json.hcursor.get[String]("schema").toOption shouldBe Some("cozy.media.v1")
         json.hcursor.get[String]("knowledge").toOption shouldBe Some("development-process/example")
         resource.get[String]("id").toOption shouldBe Some("example")
+        resource.downField("sha256").focus shouldBe None
         resource.downField("receipt").get[String]("schema").toOption shouldBe Some("cozy.media.receipt.v2")
         resource.downField("receipt").downField("verification").get[String]("status").toOption shouldBe Some("valid")
         resource.downField("receipt").downField("inputSetSha256").focus shouldBe None
@@ -74,9 +75,9 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       }
     }
 
-    "ignore historical input hash properties without weakening output integrity" in {
+    "load known stored evidence fields and ignore arbitrary extra properties" in {
       _with_temp_dir("historical-input-hashes") { root =>
-        Given("an accepted copy resource carrying historical input hash properties")
+        Given("an accepted copy resource carrying arbitrary extra stored properties")
         _write(root.resolve("knowledge/article.dox"), "knowledge")
         _write(root.resolve("source.txt"), "source")
         val descriptor = root.resolve("media.json")
@@ -87,7 +88,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         val historical = json.mapObject { fields =>
           fields.add("resources", io.circe.Json.fromValues(fields("resources").get.asArray.get.map { resource =>
             resource.mapObject { entry =>
-              entry.add("receipt", entry("receipt").get.mapObject { receipt =>
+              entry.add("extra", io.circe.Json.arr()).add("sha256", io.circe.Json.Null).add("receipt", entry("receipt").get.mapObject { receipt =>
                 receipt.add("inputSetSha256", io.circe.Json.fromBoolean(false)).add(
                   "inputs", io.circe.Json.fromValues(receipt("inputs").get.asArray.get.map(
                     _.mapObject(_.add("sha256", io.circe.Json.Null))
@@ -100,22 +101,38 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         _write(manifestpath, historical.noSpaces)
 
         When("the accepted receipt is read and verified")
-        CozyMediaReceipt.manifest(manifestpath).isDefined shouldBe true
-        CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
+        val loaded = CozyMediaReceipt.manifest(manifestpath)
+        val verified = CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
 
         Then("removed historical properties do not prevent verification")
+        loaded.isDefined shouldBe true
+        verified should include("status: valid")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("example: current")
 
-        When("the accepted output bytes are modified")
+        Given("the accepted output timestamp is preserved during a valid byte rewrite")
+        val output = root.resolve("target/cozy-media/example.txt")
+        val outputtime = Files.getLastModifiedTime(output)
+        When("the accepted output bytes are modified with their original timestamp")
         _write(root.resolve("target/cozy-media/example.txt"), "tampered")
+        Files.setLastModifiedTime(output, outputtime)
+        val rewritten = CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
 
-        Then("local reuse remains timestamp-based but verification rejects the changed artifact")
+        Then("timestamp currentness makes no digest-detection promise")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("example: current")
-        intercept[Exception](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
+        rewritten should include("status: valid")
+
+        Given("the valid rewritten output and known receipt fields remain available")
+        When("the resource is accepted again")
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+        val saved = Files.readString(manifestpath)
+        Then("only known stored fields are emitted")
+        saved should not include "inputSetSha256"
+        saved should not include "sha256"
+        saved should not include "extra"
       }
     }
 
-    "use declared input timestamps rather than content identities for freshness" in {
+    "use the direct copy source while validating package-wide inputs during commands" in {
       _with_temp_dir("identity") { root =>
         Given("an accepted package with a structured slide IR input")
         _write(root.resolve("knowledge/article.dox"), "knowledge")
@@ -130,18 +147,34 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         _write(root.resolve("slides/ir.json"), "{ \"a\" : 1, \"b\" : 2 }")
         Files.setLastModifiedTime(root.resolve("slides/ir.json"), FileTime.fromMillis(outputtime.toMillis + 1000))
 
-        Then("the newer declared input selects regeneration even when its JSON meaning is unchanged")
-        CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("example: build")
+        Then("a newer package-only input does not select copy regeneration")
+        CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("example: current")
 
-        When("a source byte changes but its mtime is restored")
+        When("the actual copy source becomes newer than its output")
+        Files.setLastModifiedTime(root.resolve("source.txt"), FileTime.fromMillis(outputtime.toMillis + 2000))
+        val newer = CozyMedia.plan(CozyMedia.CommandConfig(descriptor))
+        Then("the actual conversion input selects regeneration")
+        newer should include("example: build")
+
+        Given("the direct source timestamp is restored to its accepted range")
+        When("a source byte changes but its timestamp remains earlier than the output")
         val source = root.resolve("source.txt")
-        val mtime = Files.getLastModifiedTime(source)
         _write(source, "changed-source")
-        Files.setLastModifiedTime(source, FileTime.fromMillis(mtime.toMillis))
+        Files.setLastModifiedTime(source, FileTime.fromMillis(outputtime.toMillis - 1000))
         Files.setLastModifiedTime(root.resolve("slides/ir.json"), FileTime.fromMillis(outputtime.toMillis - 1000))
 
         Then("planning does not recreate a content-proof gate for a timestamp-preserved input")
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("example: current")
+
+        Given("the previous output and receipt remain accepted before a malformed package-only declaration")
+        val paths = Vector(root.resolve("target/cozy-media/example.txt"), root.resolve("target/cozy-media/manifest.json"))
+        val accepted = paths.map(_snapshot)
+        _write(root.resolve("slides/ir.json"), "{malformed")
+        When("a build captures every declared structured-document input")
+        val invalid = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor)))
+        Then("current-command syntax validation rejects that declaration without changing previous acceptance")
+        invalid.getMessage should include("structured-document input is invalid")
+        paths.map(_snapshot) shouldBe accepted
       }
     }
 
@@ -228,16 +261,17 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
         val resource = _manifest_resource_json(root.resolve("target/cozy-media/manifest.json"), "article-pdf-ja")
 
-        Then("the existing manifest and receipt schemas remain unchanged while storing the PDF hash")
-        resource.asObject.map(_.keys.toSet) shouldBe Some(Set("id", "path", "sha256", "receipt"))
+        Then("the existing manifest and receipt schemas persist known acceptance fields")
+        resource.asObject.map(_.keys.toSet) shouldBe Some(Set("id", "path", "receipt"))
         resource.hcursor.downField("receipt").get[String]("schema").toOption shouldBe Some("cozy.media.receipt.v2")
 
+        Given("the PDF receipt still describes the accepted output path")
         When("the accepted output bytes change")
-        _write(root.resolve("target/cozy-media/article-ja.pdf"), "%PDF-1.7\nchanged")
+        _write(root.resolve("target/cozy-media/article-ja.pdf"), "malformed PDF")
+        val rejected = intercept[Exception](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
 
-        Then("planning uses timestamps while verify rejects changed accepted output bytes")
-        CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-pdf-ja: current")
-        intercept[Exception](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
+        Then("actual PDF format validation rejects the malformed output")
+        rejected.getMessage should include("PDF header")
       }
     }
 
@@ -252,6 +286,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         CozyMedia.build(CozyMedia.CommandConfig(descriptor))
         val manifest = root.resolve("target/cozy-media/manifest.json")
         val before = _manifest_resource_json(manifest, "prebuilt")
+        Files.setLastModifiedTime(root.resolve("prebuilt.txt"), FileTime.fromMillis(4102444800000L))
         _write(root.resolve("knowledge/article.dox"), "knowledge-changed")
         _write(root.resolve("source.txt"), "source-rebuilt")
 
@@ -353,15 +388,15 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         val output = root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4")
         _write(output, "accepted-video")
         val sourceproduction = root.resolve("registration-v2/video/ja/source-production.json")
-        _write(sourceproduction, _site_video_production(_sha256(output)))
+        _write(sourceproduction, _site_video_production())
         val production = root.resolve("registration-v2/video/ja/production.json")
         _write(production, Files.readString(sourceproduction, StandardCharsets.UTF_8))
         val descriptor = root.resolve("registration-v2/media.json")
         _write(descriptor, _site_video_prebuilt_descriptor)
         CozyMedia.build(CozyMedia.CommandConfig(descriptor))
-        val outputsha = _sha256(output)
-        val sourceproductionsha = _sha256(sourceproduction)
-        val productionsha = _sha256(production)
+        val outputsha = _snapshot(output)
+        val sourceproductionsha = _snapshot(sourceproduction)
+        val productionsha = _snapshot(production)
 
         When("only the bilingual article source changes")
         _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese and English article")
@@ -369,9 +404,9 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
 
         Then("Cozy refreshes the receipt without requiring video regeneration or manual approval transfer")
         result should include("article-video-ja: adopted prebuilt")
-        _sha256(output) shouldBe outputsha
-        _sha256(sourceproduction) shouldBe sourceproductionsha
-        _sha256(production) shouldBe productionsha
+        _snapshot(output) shouldBe outputsha
+        _snapshot(sourceproduction) shouldBe sourceproductionsha
+        _snapshot(production) shouldBe productionsha
         CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-video-ja: current")
       }
     }
@@ -394,13 +429,13 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         _write_png(infographic)
         _write(packageRoot.resolve("policy.txt"), "accepted-policy")
         val sourceproduction = packageRoot.resolve("video/ja/source-production.json")
-        _write(sourceproduction, _site_video_production(_sha256(video)))
+        _write(sourceproduction, _site_video_production())
         _write(packageRoot.resolve("video/ja/production.json"), Files.readString(sourceproduction, StandardCharsets.UTF_8))
         val descriptor = packageRoot.resolve("media.json")
         _write(descriptor, _site_article_media_prebuilt_descriptor)
         val config = CozyMedia.CommandConfig(descriptor, profile = Some("site"), siteRoot = Some(site), siteConfig = Some(siteconfig))
         CozyMedia.build(config)
-        val accepted = Vector(video, summary, infographic).map(_sha256)
+        val accepted = Vector(video, summary, infographic).map(_snapshot)
 
         When("only the selected article source and its site document route content change")
         _write(packageRoot.resolve("knowledge/index.dox"), "Japanese article revised")
@@ -410,7 +445,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         result should include("article-video-ja: adopted prebuilt")
         result should include("summary-slides-ja: adopted prebuilt")
         result should include("infographic-ja: adopted prebuilt")
-        Vector(video, summary, infographic).map(_sha256) shouldBe accepted
+        Vector(video, summary, infographic).map(_snapshot) shouldBe accepted
         val plan = CozyMedia.plan(config)
         plan should include("article-video-ja: current")
         plan should include("summary-slides-ja: current")
@@ -423,9 +458,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         "other-evidence" -> { root => _write(root.resolve("registration-v2/policy.txt"), "changed-policy") },
         "summary-authority" -> { root => _write(root.resolve("registration-v2/summary/summary-authority.pdf"), "%PDF-1.7\nchanged-authority") },
         "video-production" -> { root =>
-          val production = _site_video_production(
-            _sha256(root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4")),
-            sourceauthority = "updated-authority"
+          val production = _site_video_production(sourceauthority = "updated-authority"
           )
           _write(root.resolve("registration-v2/video/ja/source-production.json"), production)
           _write(root.resolve("registration-v2/video/ja/production.json"), production)
@@ -442,13 +475,13 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
           _write_png(root.resolve("registration-v2/infographic/summary-ja.png"))
           _write(root.resolve("registration-v2/policy.txt"), "accepted-policy")
           val sourceproduction = root.resolve("registration-v2/video/ja/source-production.json")
-          _write(sourceproduction, _site_video_production(_sha256(video)))
+          _write(sourceproduction, _site_video_production())
           _write(root.resolve("registration-v2/video/ja/production.json"), Files.readString(sourceproduction, StandardCharsets.UTF_8))
           val descriptor = root.resolve("registration-v2/media.json")
           _write(descriptor, _site_article_media_prebuilt_descriptor)
           CozyMedia.build(CozyMedia.CommandConfig(descriptor))
           val outputs = Vector(video, root.resolve("registration-v2/summary/summary-ja.pdf"), root.resolve("registration-v2/infographic/summary-ja.png"))
-          val accepted = outputs.map(path => (_sha256(path), Files.getLastModifiedTime(path)))
+          val accepted = outputs.map(path => (_snapshot(path), Files.getLastModifiedTime(path)))
           _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese article revised")
           change(root)
 
@@ -456,7 +489,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
           val result = CozyMedia.build(CozyMedia.CommandConfig(descriptor))
 
           Then("valid current inputs replace old receipt evidence without altering the media")
-          outputs.map(path => (_sha256(path), Files.getLastModifiedTime(path))) shouldBe accepted
+          outputs.map(path => (_snapshot(path), Files.getLastModifiedTime(path))) shouldBe accepted
           CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("article-video-ja: current")
           result
         }
@@ -470,17 +503,14 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       val failures = Vector(
         "missing" -> { (root: Path) => Files.delete(root.resolve("registration-v2/video/ja/production.json")) },
         "corrupt" -> { (root: Path) => _write(root.resolve("registration-v2/video/ja/production.json"), "{") },
-        "sha-mismatch" -> { (root: Path) => _write(root.resolve("registration-v2/video/ja/production.json"), _site_video_production("0" * 64)) },
+        "identity-mismatch" -> { (root: Path) => _write(root.resolve("registration-v2/video/ja/production.json"), _site_video_production().replace("domain-modeling", "other-article")) },
+        "status-failed" -> { (root: Path) => _write(root.resolve("registration-v2/video/ja/production.json"), _site_video_production().replace("completed", "pending")) },
         "qa-failed" -> { (root: Path) =>
-          val production = _site_video_production(
-            _sha256(root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4"))
-          ).replace("technical-and-visual-qa-passed", "failed")
+          val production = _site_video_production().replace("technical-and-visual-qa-passed", "failed")
           _write(root.resolve("registration-v2/video/ja/production.json"), production)
         },
         "language-mismatch" -> { (root: Path) =>
-          val production = _site_video_production(
-            _sha256(root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4"))
-          ).replace("\"language\": \"ja\"", "\"language\": \"en\"")
+          val production = _site_video_production().replace("\"language\": \"ja\"", "\"language\": \"en\"")
           _write(root.resolve("registration-v2/video/ja/source-production.json"), production)
           _write(root.resolve("registration-v2/video/ja/production.json"), production)
         }
@@ -492,7 +522,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
           val output = root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4")
           _write(output, "accepted-video")
           val sourceproduction = root.resolve("registration-v2/video/ja/source-production.json")
-          _write(sourceproduction, _site_video_production(_sha256(output)))
+          _write(sourceproduction, _site_video_production())
           _write(root.resolve("registration-v2/video/ja/production.json"), Files.readString(sourceproduction, StandardCharsets.UTF_8))
           val descriptor = root.resolve("registration-v2/media.json")
           _write(descriptor, _site_video_prebuilt_descriptor)
@@ -514,7 +544,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         }
       }
 
-      failures should have size 5
+      failures should have size 6
       failures.foreach(_.getMessage should not be empty)
       failures.exists(_.getMessage.contains("Media site-video production")) shouldBe true
     }
@@ -525,15 +555,20 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         _write(root.resolve("registration-v2/knowledge/index.dox"), "Japanese article")
         _write(root.resolve("conf/cozy/config.yaml"), _site_profile)
         _write(root.resolve("registration-v2/target/media/development-process/domain-modeling/ja/final.mp4"), "accepted-video")
-        val production = """{"category":"development-process","article":"domain-modeling","language":"ja","render":{"status":"completed","qa":{"status":"technical-and-visual-qa-passed"}}}"""
+        val production = """{"category":"development-process","article":"domain-modeling","language":"ja","arbitrary":{"unexpected":true},"render":{"status":"completed","sha256":[false],"qa":{"status":"technical-and-visual-qa-passed"}}}"""
         _write(root.resolve("registration-v2/video/ja/source-production.json"), production)
         _write(root.resolve("registration-v2/video/ja/production.json"), production)
         val descriptor = root.resolve("registration-v2/media.json")
         _write(descriptor, _site_video_prebuilt_descriptor)
 
-        When("the video is explicitly adopted and adopted again after an article change")
-        CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+        When("the video with arbitrary extra production properties is explicitly adopted")
+        val initial = CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+        Then("known identity/status/QA fields admit the first adoption")
+        initial should include("article-video-ja: adopted prebuilt")
+
+        Given("the accepted direct video and production remain unchanged during an article revision")
         _write(root.resolve("registration-v2/knowledge/index.dox"), "Revised article")
+        When("the video is explicitly adopted again after that article change")
         val result = CozyMedia.build(CozyMedia.CommandConfig(descriptor))
 
         Then("current operational evidence is sufficient without rebuilding historical proof fields")
@@ -612,7 +647,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
           _write(packageroot.resolve("summary/summary-authority.pdf"), "%PDF-1.7\naccepted-summary")
           _write_png(packageroot.resolve("infographic/summary-ja.png"))
           _write(packageroot.resolve("policy.txt"), "accepted-policy")
-          val production = _site_video_production(_sha256(video))
+          val production = _site_video_production()
           _write(packageroot.resolve("video/ja/source-production.json"), production)
           _write(packageroot.resolve("video/ja/production.json"), production)
           val invalidoutput = packageroot.resolve(if (role == "summary") "summary/summary-ja.pdf" else "infographic/summary-ja.png")
@@ -670,6 +705,172 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
     }
     }
   }
+
+  "Application-modeling selected English PDF" should {
+    "ordinary receipt and selected PDF review currentness" which {
+      "reuse the unchanged English copy after package-only article and production changes" in {
+        _with_temp_dir("application-modeling-unchanged") { root =>
+          Given("the actual English copy route accepted beside a Japanese PDF and prebuilt summary, with global package declarations")
+          val descriptor = _write_application_fixture(root)
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+          val config = CozyMedia.CommandConfig(descriptor, target = Some("publication-article-en"))
+          val paths = Vector("article/article-en.pdf", "publication/article-en.pdf", "publication/article-ja.pdf", "summary/summary-ja.pdf", "target/cozy-media/manifest.json", "target/cozy-media/pdf-review-state.json").map(root.resolve(_))
+          val accepted = paths.map(_snapshot)
+          val newer = FileTime.fromMillis(4102444800000L)
+
+          When("only index.dox and unrelated production metadata are revised with explicit newer timestamps")
+          _write(root.resolve("index.dox"), "Updated application-modeling article")
+          _write(root.resolve("video/en/production.json"), "{\"status\":\"updated\"}")
+          Vector("index.dox", "video/en/production.json").foreach(path => Files.setLastModifiedTime(root.resolve(path), newer))
+          val verified = CozyMedia.verify(config)
+          val prepared = CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org")), force = true)
+
+          Then("ordinary selected verification and publication preparation reuse the English PDF without adoption or receipt transfer")
+          verified should include("status: valid")
+          prepared.map(_.resource.id) shouldBe Vector("publication-article-en")
+          CozyMedia.plan(config) should include("publication-article-en: current")
+          CozyMedia.plan(CozyMedia.CommandConfig(descriptor)) should include("summary-ja: current")
+          paths.map(_snapshot) shouldBe accepted
+          Files.readString(root.resolve("website/src/main/doxsite/development-process/images/application-modeling/article-en.pdf")) shouldBe "previous destination"
+        }
+      }
+
+      "reject every positive direct-source FileTime advance with actionable copy diagnostics" in {
+        val property = Prop.forAll(Gen.choose(1L, 100000L)) { offset =>
+          _with_temp_dir("application-modeling-newer") { root =>
+            Given("the real English PDF copy route with accepted output, receipt, state and destination")
+            val descriptor = _write_application_fixture(root)
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+            val source = root.resolve("article/article-en.pdf")
+            val output = root.resolve("publication/article-en.pdf")
+            Files.setLastModifiedTime(output, FileTime.fromMillis(2000000))
+            val paths = Vector(output, root.resolve("target/cozy-media/manifest.json"), root.resolve("target/cozy-media/pdf-review-state.json"), root.resolve("website/src/main/doxsite/development-process/images/application-modeling/article-en.pdf"))
+            val accepted = paths.map(_snapshot)
+            val config = CozyMedia.CommandConfig(descriptor, target = Some("publication-article-en"))
+
+            When("the actual English copy source becomes newer than its output by a positive offset")
+            Files.setLastModifiedTime(source, FileTime.fromMillis(Files.getLastModifiedTime(output).toMillis + offset))
+            val planned = CozyMedia.plan(config)
+            val verification = intercept[RuntimeException](CozyMedia.verify(config))
+            val preflight = intercept[RuntimeException](CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org")), force = true))
+
+            Then("Build is selected and both gates explain the actual source and the next copy operation without mutation")
+            planned should include("publication-article-en: build")
+            Vector(verification, preflight).foreach { error =>
+              error.getMessage should include("Media receipt currentness")
+              error.getMessage should include("publication-article-en")
+              error.getMessage should include(source.toString)
+              error.getMessage should include("producer copy")
+              error.getMessage should include(s"cozy media build $descriptor --target publication-article-en")
+            }
+            paths.map(_snapshot) shouldBe accepted
+            true
+          }
+        }
+        Given("positive FileTime offsets and the unchanged real English PDF copy route proof")
+        When("standalone ScalaCheck evaluates the property across 100 successful trials")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
+        Then("every generated positive offset satisfies the unchanged copy diagnostics and preservation assertions")
+        result.passed shouldBe true
+      }
+
+      "reject missing source, invalid PDF and changed known acceptance metadata without further mutation" in {
+        val changes = Vector[(String, Path => Unit)](
+          "source" -> (root => { Files.delete(root.resolve("article/article-en.pdf")); () }),
+          "format" -> (root => _write(root.resolve("publication/article-en.pdf"), "malformed PDF")),
+          "verification" -> (root => _replace_text(root.resolve("target/cozy-media/manifest.json"), "\"status\" : \"valid\"", "\"status\" : \"invalid\"")),
+          "declaration" -> (root => {
+            _write(root.resolve("article/replacement-en.pdf"), "%PDF-1.7\nreplacement")
+            Files.setLastModifiedTime(root.resolve("article/replacement-en.pdf"), FileTime.fromMillis(1000000))
+            _replace_text(root.resolve("media-publication.json"), "\"source\": \"article/article-en.pdf\"", "\"source\": \"article/replacement-en.pdf\"")
+          }),
+          "role" -> (root => _change_selected_state(root, "role", "summary_slides_pdf")),
+          "language" -> (root => _change_selected_state(root, "language", "ja")),
+          "publicPath" -> (root => _change_selected_state(root, "publicPath", "/en/development-process/application-modeling/_images/other.pdf")),
+          "output" -> (root => _change_selected_state(root, "output", "publication/other-en.pdf"))
+        )
+        changes.foreach { case (name, change) =>
+          _with_temp_dir("application-modeling-failure-" + name) { root =>
+            Given("accepted English PDF evidence followed by one concrete source, format, receipt or selected-state defect")
+            val descriptor = _write_application_fixture(root)
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor))
+            change(root)
+            val paths = Vector("publication/article-en.pdf", "target/cozy-media/manifest.json", "target/cozy-media/pdf-review-state.json", "website/src/main/doxsite/development-process/images/application-modeling/article-en.pdf").map(root.resolve(_))
+            val before = paths.map(_snapshot)
+            val config = CozyMedia.CommandConfig(descriptor, target = Some("publication-article-en"))
+
+            When("selected verification and publication preparation consume the defective evidence")
+            val verification = intercept[RuntimeException](CozyMedia.verify(config))
+            val preflight = intercept[RuntimeException](CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org")), force = true))
+
+            Then("both gates reject with the selected resource, producer and rebuild operation while preserving existing files")
+            Vector(verification, preflight).foreach { error =>
+              error.getMessage should include("currentness")
+              error.getMessage should include("publication-article-en")
+              error.getMessage should include("producer copy")
+              error.getMessage should include(s"cozy media build $descriptor --target publication-article-en")
+              if (Set("role", "language", "publicPath", "output").contains(name))
+                error.getMessage should include(root.resolve("target/cozy-media/pdf-review-state.json").toString)
+              else if (name == "source") error.getMessage should include(root.resolve("article/article-en.pdf").toString)
+              else if (name == "format") error.getMessage should include("PDF header")
+              else error.getMessage should include(root.resolve("target/cozy-media/manifest.json").toString)
+            }
+            paths.map(_snapshot) shouldBe before
+          }
+        }
+      }
+    }
+  }
+
+  private def _write_application_fixture(root: Path): Path = {
+    val inputs = Vector("index.dox", "article/article-en.pdf", "article/article-ja.pdf", "summary/summary-ja.pdf", "content-core.json", "video/en/production.json", "video/en/static-qa.json")
+    inputs.foreach { path =>
+      _write(root.resolve(path), if (path.endsWith(".pdf")) "%PDF-1.7\nlocally authored PDF" else if (path.endsWith(".json")) "{}" else "Application-modeling knowledge")
+      Files.setLastModifiedTime(root.resolve(path), FileTime.fromMillis(1000000))
+    }
+    val descriptor = root.resolve("media-publication.json")
+    _write(descriptor,
+      """{
+        |  "schema": "cozy.media.v1",
+        |  "knowledge": {"id": "development-process/application-modeling", "source": "index.dox"},
+        |  "profiles": {"simplemodeling-org": {"root": "website"}},
+        |  "receipt": {"inputs": [
+        |    {"id":"article-en","role":"article","path":"article/article-en.pdf","normalization":"bytes"},
+        |    {"id":"content-core","role":"content-core","path":"content-core.json","normalization":"structured-document"},
+        |    {"id":"video-production","role":"video-production","path":"video/en/production.json","normalization":"structured-document"},
+        |    {"id":"static-qa","role":"static-qa","path":"video/en/static-qa.json","normalization":"structured-document"}
+        |  ]},
+        |  "resources": [{
+        |    "id": "publication-article-en", "kind": "document", "language": "en", "source": "article/article-en.pdf",
+        |    "output": "publication/article-en.pdf", "build": "copy",
+        |    "publications": {"simplemodeling-org": "src/main/doxsite/development-process/images/application-modeling/article-en.pdf"},
+        |    "articleMedia": {"role":"article_pdf","publicPath":"/en/development-process/application-modeling/_images/article-en.pdf","mediaType":"application/pdf","label":"Article PDF"}
+        |  }, {
+        |    "id":"publication-article-ja","kind":"document","language":"ja","source":"article/article-ja.pdf","output":"publication/article-ja.pdf","build":"copy",
+        |    "articleMedia":{"role":"article_pdf","publicPath":"/ja/development-process/application-modeling/_images/article-ja.pdf","mediaType":"application/pdf"}
+        |  }, {
+        |    "id":"summary-ja","kind":"document","language":"ja","source":"summary/summary-ja.pdf","build":"prebuilt",
+        |    "articleMedia":{"role":"summary_slides_pdf","publicPath":"/ja/development-process/application-modeling/_images/summary-ja.pdf","mediaType":"application/pdf"}
+        |  }]
+        |}
+        |""".stripMargin)
+    Files.setLastModifiedTime(descriptor, FileTime.fromMillis(1000000))
+    _write(root.resolve("website/src/main/doxsite/development-process/images/application-modeling/article-en.pdf"), "previous destination")
+    descriptor
+  }
+
+  private def _change_selected_state(root: Path, field: String, value: String): Unit = {
+    val path = root.resolve("target/cozy-media/pdf-review-state.json")
+    val json = parse(Files.readString(path)).fold(error => throw error, identity)
+    val changed = json.mapObject(fields => fields.add("resources", io.circe.Json.fromValues(fields("resources").get.asArray.get.map { resource =>
+      if (resource.hcursor.get[String]("id").toOption.contains("publication-article-en")) resource.mapObject(_.add(field, io.circe.Json.fromString(value)))
+      else resource
+    })))
+    _write(path, changed.noSpaces)
+  }
+
+  private def _replace_text(path: Path, before: String, after: String): Unit =
+    _write(path, Files.readString(path).replace(before, after))
 
   private def _manifest_resource_json(manifest: Path, id: String): io.circe.Json = {
     val resources = parse(Files.readString(manifest, StandardCharsets.UTF_8)).fold(error => throw error, identity).hcursor
@@ -761,16 +962,14 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       |      site-kind: smartdox
       |""".stripMargin
 
-  private def _site_video_production(sha256: String, sourceauthority: String = "accepted-authority"): String =
+  private def _site_video_production(sourceauthority: String = "accepted-authority"): String =
     s"""{
        |  "category": "development-process",
        |  "article": "domain-modeling",
        |  "language": "ja",
        |  "render": {
        |    "status": "completed",
-       |    "sha256": "$sha256",
        |    "sourceAuthority": "$sourceauthority",
-       |    "videoManifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
        |    "qa": {"status": "technical-and-visual-qa-passed"}
        |  }
        |}
@@ -819,8 +1018,8 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
        |      site-kind: smartdox
        |""".stripMargin
 
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(x => f"${x & 0xff}%02x").mkString
+  private def _snapshot(path: Path): (Vector[Byte], FileTime) =
+    Files.readAllBytes(path).toVector -> Files.getLastModifiedTime(path)
 
   private def _with_temp_dir[A](name: String)(f: Path => A): A = {
     val work = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/cozy-media-receipt-spec")

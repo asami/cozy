@@ -24,7 +24,7 @@ private object CozyArticleMediaWipTransactionFixture {
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaWipTransactionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -72,6 +72,11 @@ final class CozyArticleMediaWipTransactionSpec extends AnyWordSpec with Matchers
             "metadata/article-media/development-process/example.json",
             "metadata/article-media-integrity/development-process/example/ja/video.json"
           )
+          val integrity = snapshot.entries.find(_.path ==
+            "metadata/article-media-integrity/development-process/example/ja/video.json").get.metadata
+          (integrity \ "sha256").as[String] shouldBe _sha256(destination)
+          (integrity \ "artifact" \ "version").as[String] shouldBe _sha256(destination)
+          (integrity \ "provenance" \ "kind").as[String] shouldBe "wip-site-video"
           events.take(2).map(_._1) shouldBe Vector("acquire", "acquire")
           events.takeRight(2).map(_._1) shouldBe Vector("release", "release")
           events.take(2).map(_._2.toString) shouldBe events.take(2).map(_._2.toString).sorted
@@ -100,6 +105,35 @@ final class CozyArticleMediaWipTransactionSpec extends AnyWordSpec with Matchers
     }
 
     "rollback every mutation" which {
+      "reject same-size installed MP4 tampering with preserved mtime and remove all fresh operation artifacts" in {
+        Given("a fresh plan and a hook that changes installed bytes without changing size or modification time")
+        _with_fixture("installed-tampering") { fixture =>
+          val plan = _plan(fixture)
+          val before = _tree(fixture.publication)
+          val sourcebytes = Files.readAllBytes(fixture.sourceja).toVector
+          val destination = fixture.website.resolve("ja/development-process/videos/example.mp4")
+
+          When("installed MP4 bytes are tampered with after the atomic move")
+          val error = intercept[IllegalArgumentException](CozyArticleMediaWipTransaction.execute(plan, dryRun = false,
+            CozyArticleMediaWipTransaction.Hooks(afterinstall = path => {
+              val modifiedtime = Files.getLastModifiedTime(path)
+              val bytes = Files.readAllBytes(path)
+              bytes(0) = (bytes(0) ^ 1).toByte
+              Files.write(path, bytes)
+              Files.setLastModifiedTime(path, modifiedtime)
+            })))
+
+          Then("actual transfer integrity rejects the destination and rollback preserves the exact original registry")
+          error.getMessage should include("fresh destination must be absent")
+          _tree(fixture.publication).filterNot { case (name, _) =>
+            name.endsWith(".cozy-article-media-wip.lock") || name.endsWith(".cozy-publication-registry.lock")
+          } shouldBe before
+          Files.readAllBytes(fixture.sourceja).toVector shouldBe sourcebytes
+          Files.exists(destination, LinkOption.NOFOLLOW_LINKS) shouldBe false
+          _temporary_names(fixture.website) shouldBe empty
+        }
+      }
+
       "remove a fresh destination when execution fails after install and before registry replacement" in {
         Given("a fresh plan and a hook that fails after the first atomic install")
         _with_fixture("install-failure") { fixture =>
@@ -133,6 +167,37 @@ final class CozyArticleMediaWipTransactionSpec extends AnyWordSpec with Matchers
           error.getMessage shouldBe "registry failure"
           Files.exists(fixture.publication.resolve("article-media.json"), LinkOption.NOFOLLOW_LINKS) shouldBe false
           Files.exists(fixture.website.resolve("ja/development-process/videos/example.mp4"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+          _temporary_names(fixture.website) shouldBe empty
+        }
+      }
+
+      "restore exact-repeat registry and MP4 bytes after registry replacement while reporting the application failure" in {
+        Given("an installed exact WIP repeat with prior registry bytes and published MP4 integrity")
+        _with_fixture("repeat-registry-failure") { fixture =>
+          CozyArticleMediaWipTransaction.execute(_plan(fixture), dryRun = false)
+          val repeat = _plan(fixture)
+          val before = _tree(fixture.publication)
+          val destination = fixture.website.resolve("ja/development-process/videos/example.mp4")
+          val destinationbytes = Files.readAllBytes(destination).toVector
+          val integritybefore = CozyArticleMediaRegistry.load(fixture.publication).entries.find(_.path ==
+            "metadata/article-media-integrity/development-process/example/ja/video.json").get.metadata
+          val application = new IllegalStateException("repeat registry failure")
+
+          When("the exact repeat fails after the owner registry bundle has been replaced")
+          val error = intercept[IllegalStateException](CozyArticleMediaWipTransaction.execute(repeat, dryRun = false,
+            CozyArticleMediaWipTransaction.Hooks(afterregistryreplace = () => throw application)))
+
+          Then("verified atomic backup restoration preserves all prior bytes and reports the original application exception")
+          error shouldBe application
+          error.getMessage shouldBe "repeat registry failure"
+          _tree(fixture.publication) shouldBe before
+          Files.readAllBytes(destination).toVector shouldBe destinationbytes
+          _sha256(destination) shouldBe _sha256(fixture.sourceja)
+          val integrity = CozyArticleMediaRegistry.load(fixture.publication).entries.find(_.path ==
+            "metadata/article-media-integrity/development-process/example/ja/video.json").get.metadata
+          integrity shouldBe integritybefore
+          (integrity \ "sha256").as[String] shouldBe _sha256(destination)
+          (integrity \ "artifact" \ "version").as[String] shouldBe _sha256(destination)
           _temporary_names(fixture.website) shouldBe empty
         }
       }
@@ -183,7 +248,7 @@ final class CozyArticleMediaWipTransactionSpec extends AnyWordSpec with Matchers
       _write(config, _project_config)
       _write(descriptor, _media_yaml)
       _write(sourceja, "ja source")
-      _write(productionja, _production(_sha256(sourceja)))
+      _write(productionja, _production)
       Files.createDirectories(project.resolve("profile"))
       Files.createDirectories(website.resolve("ja/development-process/videos"))
       f(CozyArticleMediaWipTransactionFixture.Data(container, project, descriptor, config, publication, website, sourceja, productionja))
@@ -224,14 +289,13 @@ final class CozyArticleMediaWipTransactionSpec extends AnyWordSpec with Matchers
       |      production: video/ja/production.json
       |""".stripMargin
 
-  private def _production(sha256: String): String =
-    s"""{
+  private def _production: String =
+    """{
        |  "category": "development-process",
        |  "article": "example",
        |  "language": "ja",
        |  "render": {
        |    "status": "completed",
-       |    "sha256": "$sha256",
        |    "qa": {"status": "technical-and-visual-qa-passed"}
        |  }
        |}

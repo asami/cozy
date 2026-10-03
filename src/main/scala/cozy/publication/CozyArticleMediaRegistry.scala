@@ -3,7 +3,6 @@ package cozy.publication
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.Try
 import org.goldenport.RAISE
@@ -12,7 +11,8 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaRegistry {
@@ -20,7 +20,7 @@ private[cozy] object CozyArticleMediaRegistry {
     filename: String,
     name: String,
     entries: Vector[Entry],
-    rawdigest: String
+    rawbytes: Vector[Byte]
   )
 
   private final case class ReadOnlyRoot(
@@ -42,7 +42,7 @@ private[cozy] object CozyArticleMediaRegistry {
 
   final case class Snapshot(
     entries: Vector[Entry],
-    bundleDigests: Map[String, String] = Map.empty
+    bundleContents: Map[String, Vector[Byte]] = Map.empty
   )
 
   /* Read-only, canonical view for a consumer that has already obtained a
@@ -195,7 +195,7 @@ private[cozy] object CozyArticleMediaRegistry {
       val updates = _normalize_role_updates(roleUpdates)
       val plans = _plan_role_updates(_initial_snapshot, updates)
       _validate_plans(_initial_snapshot, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
     }
 
     /* Validate the metadata-owner projection while the transaction owns the
@@ -209,7 +209,7 @@ private[cozy] object CozyArticleMediaRegistry {
         _invalid("Article-media registry transaction permits one merge commit")
       val publications = _normalize_metadata_publications(metadataPublications)
       val projected = _project_metadata_publications(_initial_snapshot, publications)
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       projected
     }
 
@@ -221,7 +221,7 @@ private[cozy] object CozyArticleMediaRegistry {
       val updates = _normalize_role_updates(roleUpdates)
       val plans = _plan_role_updates(_initial_snapshot, updates)
       _validate_plans(_initial_snapshot, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
       plans.foreach { plan =>
         _capability.replaceMetadata(
@@ -257,10 +257,10 @@ private[cozy] object CozyArticleMediaRegistry {
       val updates = _normalize_site_role_updates(roleUpdates)
       val plans = _plan_site_role_updates(_initial_snapshot, updates)
       _validate_plans(_initial_snapshot, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       beforeReplace()
       _capability.validateRootEvidence()
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
       plans.foreach { plan =>
         _capability.replaceMetadata(
@@ -306,13 +306,13 @@ private[cozy] object CozyArticleMediaRegistry {
         }
       }.sortBy(_.path)
       val removals = plan.articles.filter(article => integrityarticles.contains(article.articleIdentity)).flatMap(article => _integrity_entries_for_identity(_initial_snapshot, article.articleIdentity).map(_.path)).distinct.sorted
-      val createarticlemedia = owner == "article-media" && !_initial_snapshot.bundleDigests.contains(owner)
+      val createarticlemedia = owner == "article-media" && !_initial_snapshot.bundleContents.contains(owner)
       _validate_plans(_initial_snapshot, Vector(OwnerPlan(owner, entries, removals, createarticlemedia)))
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       val originalbytes = _capability.bundleBytes(owner)
       beforeReplace()
       _capability.validateRootEvidence()
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
       var replaced = false
       try {
@@ -335,7 +335,7 @@ private[cozy] object CozyArticleMediaRegistry {
         merged
       } catch {
         case application: Throwable if replaced =>
-          try _capability.restoreBundle(owner, originalbytes, _initial_snapshot.bundleDigests)
+          try _capability.restoreBundle(owner, originalbytes, _initial_snapshot.bundleContents)
           catch {
             case rollback: Throwable =>
               val failure = new IllegalArgumentException(
@@ -374,12 +374,12 @@ private[cozy] object CozyArticleMediaRegistry {
       val updates = _normalize_role_updates(roleUpdates(projected))
       val plans = _plan_role_updates(projected, updates)
       _validate_plans(projected, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       admitArtifacts()
-      _capability.validateSnapshot(_initial_snapshot.bundleDigests)
+      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
       publications.foreach { publication =>
-        if (_initial_snapshot.bundleDigests.contains(publication.name))
+        if (_initial_snapshot.bundleContents.contains(publication.name))
           _capability.replaceMetadata(
             publication.name,
             publication.entries,
@@ -638,7 +638,7 @@ private[cozy] object CozyArticleMediaRegistry {
       _validate_duplicates(entries)
       Snapshot(
         entries.sortBy(x => (x.path, x.bundleName)),
-        bundles.map(x => x.name -> x.rawdigest).toMap
+        bundles.map(x => x.name -> x.rawbytes).toMap
       )
     } finally {
       stream.close()
@@ -646,7 +646,7 @@ private[cozy] object CozyArticleMediaRegistry {
   }
 
   private[publication] def canonicalProjection(snapshot: Snapshot): CanonicalProjection = {
-    if (snapshot == null || snapshot.entries == null || snapshot.bundleDigests == null)
+    if (snapshot == null || snapshot.entries == null || snapshot.bundleContents == null)
       _invalid("Article-media registry snapshot must be defined")
     if (snapshot.entries.exists(_ == null))
       _invalid("Article-media registry snapshot entry must be defined")
@@ -667,16 +667,16 @@ private[cozy] object CozyArticleMediaRegistry {
     bundleName: String,
     publicationResult: CozyArticleMediaPublication.Result,
     integrityResults: Vector[CozyArticleMediaIntegrity.Result],
-    expectedBundleDigests: Map[String, String] = Map.empty
+    expectedBundleContents: Map[String, Vector[Byte]] = Map.empty
   ): UpsertResult = {
     _validate_root(root)
-    if (expectedBundleDigests == null)
-      _invalid("Publication bundle expected configured digests must be defined")
+    if (expectedBundleContents == null)
+      _invalid("Publication bundle expected configured bytes must be defined")
     val name = _validate_bundle_name(bundleName)
     val bundlepath = root.resolve(s"$name.json")
     _validate_target_bundle(bundlepath, name)
     val snapshot = load(root)
-    if (expectedBundleDigests.nonEmpty && expectedBundleDigests != snapshot.bundleDigests)
+    if (expectedBundleContents.nonEmpty && expectedBundleContents != snapshot.bundleContents)
       _invalid("Publication bundle stale configured snapshot")
     val publication = _publication_entry(publicationResult)
     val integrities = _integrity_entries(publicationResult, integrityResults)
@@ -684,8 +684,8 @@ private[cozy] object CozyArticleMediaRegistry {
     _validate_requested_duplicates(requested)
     _validate_requested_owners(snapshot, name, requested)
     _validate_article_owners(snapshot, name, publication.path)
-    snapshot.bundleDigests.getOrElse(name,
-      _invalid(s"Publication bundle digest is missing from configured snapshot: $name")
+    snapshot.bundleContents.getOrElse(name,
+      _invalid(s"Publication bundle bytes are missing from configured snapshot: $name")
     )
     val articleidentity = publication.path.stripPrefix("metadata/article-media/").stripSuffix(".json")
     val staleintegritypaths = _integrity_entries_for_identity(snapshot, articleidentity).map(_.path)
@@ -694,7 +694,7 @@ private[cozy] object CozyArticleMediaRegistry {
       name,
       requested.map(x => x.path -> x.metadata),
       staleintegritypaths,
-      snapshot.bundleDigests
+      snapshot.bundleContents
     )
     UpsertResult(bundlepath, requested.map(_.path), load(root))
   }
@@ -772,7 +772,7 @@ private[cozy] object CozyArticleMediaRegistry {
     val names = publications.map(_.name).toSet
     val projected = snapshot.entries.filterNot(x => names.contains(x.bundleName)) ++ replacements
     _validate_duplicates(projected)
-    Snapshot(projected.sortBy(x => (x.path, x.bundleName)), snapshot.bundleDigests)
+    Snapshot(projected.sortBy(x => (x.path, x.bundleName)), snapshot.bundleContents)
   }
 
   private def _normalize_role_updates(roleupdates: Vector[RoleUpdate]): Vector[NormalizedRoleUpdate] = {
@@ -1015,7 +1015,7 @@ private[cozy] object CozyArticleMediaRegistry {
         owner = owner,
         entries = entries,
         removeprefixes = if (integrityupdates) _integrity_entries_for_identity(snapshot, identity).map(_.path) else Vector.empty,
-        createarticlemedia = owner == "article-media" && !snapshot.bundleDigests.contains("article-media")
+        createarticlemedia = owner == "article-media" && !snapshot.bundleContents.contains("article-media")
       )
     }
     plans.groupBy(_._1).toVector.sortBy(_._1).map { case (owner, values) =>
@@ -1042,7 +1042,7 @@ private[cozy] object CozyArticleMediaRegistry {
         owner = owner,
         entries = Vector(_publication_entry(strict)),
         removeprefixes = Vector.empty,
-        createarticlemedia = owner == "article-media" && !snapshot.bundleDigests.contains("article-media")
+        createarticlemedia = owner == "article-media" && !snapshot.bundleContents.contains("article-media")
       )
     }
     plans.groupBy(_.owner).toVector.sortBy(_._1).map { case (owner, values) =>
@@ -1078,7 +1078,7 @@ private[cozy] object CozyArticleMediaRegistry {
         owner = owner,
         entries = entries,
         removeprefixes = if (integrityupdates) _integrity_entries_for_identity(snapshot, identity).map(_.path) else Vector.empty,
-        createarticlemedia = owner == "article-media" && !snapshot.bundleDigests.contains("article-media")
+        createarticlemedia = owner == "article-media" && !snapshot.bundleContents.contains("article-media")
       )))
       WipArticlePlan(identity, owner, strict, integrities)
     }
@@ -1305,7 +1305,7 @@ private[cozy] object CozyArticleMediaRegistry {
       case Some(JsArray(values)) => values.toVector
       case _ => _invalid(s"Configured publication bundle entries must be an array: $name")
     }
-    Bundle(filename, name, entries.map(_entry(name, _)), _sha256(bytes))
+    Bundle(filename, name, entries.map(_entry(name, _)), bytes.toVector)
   }
 
   private def _bundle_name(bundle: JsObject, filename: String): String = {
@@ -1674,9 +1674,6 @@ private[cozy] object CozyArticleMediaRegistry {
     snapshot.entries.filter(_.path.startsWith("metadata/article-media-integrity/")).filter { entry =>
       _integrity_result(entry.metadata).record.articleIdentity == identity
     }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(x => f"${x & 0xff}%02x").mkString
 
   private def _invalid(message: String): Nothing =
     RAISE.invalidArgumentFault(message)

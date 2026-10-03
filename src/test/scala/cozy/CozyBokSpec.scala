@@ -16,7 +16,8 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -170,16 +171,37 @@ class CozyBokSpec
           stageproto should include(
             "REPOSITORY_SOURCE_DIR=${REPOSITORY_SOURCE_DIR:-repository}"
           )
-          stageproto should include("rsync -av --checksum --delete")
+          And("the staging prototype uses ordinary rsync selection and preserves its path and deletion guards")
+          stageproto should not include ("--checksum")
+          stageproto should include("set -eu")
+          stageproto should include("""PROJECT_DIR=$(cd "$(dirname "$0")/.." && pwd)""")
+          stageproto should include("""cd "$PROJECT_DIR"""")
+          stageproto should include("WEBSITE_BUILD_DIR=${WEBSITE_SOURCE_DIR:-website.d}")
+          stageproto should include("WEBSITE_STAGING_DIR=${WEBSITE_STAGING_DIR:-../")
+          stageproto should include("""if [ ! -d "$WEBSITE_BUILD_DIR" ]; then""")
+          stageproto should include("Website build directory is missing: $WEBSITE_BUILD_DIR")
+          stageproto should include("Run: cozy bok build")
+          stageproto should include("exit 2")
+          stageproto should include("""mkdir -p "$WEBSITE_STAGING_DIR"""")
+          stageproto should include(
+            """rsync -av --delete --exclude '/.git' --exclude '/repository' "$WEBSITE_BUILD_DIR"/ "$WEBSITE_STAGING_DIR"/"""
+          )
           stageproto should include("--exclude '/.git'")
           stageproto should include("--exclude '/repository'")
           stageproto should include(
-            """rsync -av --checksum "$WEBSITE_BUILD_DIR/repository"/ "$WEBSITE_STAGING_DIR/repository"/"""
+            """rsync -av "$WEBSITE_BUILD_DIR/repository"/ "$WEBSITE_STAGING_DIR/repository"/"""
           )
           stageproto should include(
-            """rsync -av --checksum "$REPOSITORY_SOURCE_DIR"/ "$WEBSITE_STAGING_DIR/repository"/"""
+            """rsync -av "$REPOSITORY_SOURCE_DIR"/ "$WEBSITE_STAGING_DIR/repository"/"""
           )
-          stageproto should not include ("""rsync -av --checksum --delete "$REPOSITORY_SOURCE_DIR"/""")
+          stageproto should not include ("""rsync -av --delete "$WEBSITE_BUILD_DIR/repository"/""")
+          stageproto should not include ("""rsync -av --delete "$REPOSITORY_SOURCE_DIR"/""")
+          stageproto should include("""if [ -d "$WEBSITE_BUILD_DIR/repository" ]; then""")
+          stageproto should include("""if [ -d "$REPOSITORY_SOURCE_DIR" ]; then""")
+          stageproto should include("""mkdir -p "$WEBSITE_STAGING_DIR/repository"""")
+          stageproto should include("Repository source directory is not present; skipping artifact repository staging: $REPOSITORY_SOURCE_DIR")
+          stageproto should include("""if [ -d "$WEBSITE_STAGING_DIR/.git" ] || [ -f "$WEBSITE_STAGING_DIR/.git" ]; then""")
+          stageproto should include("""git -C "$WEBSITE_STAGING_DIR" status --short""")
           val uploadproto = _read(dir.resolve("etc/website-upload.sh.proto"))
           uploadproto should include(
             "WEBSITE_SOURCE_DIR=${WEBSITE_SOURCE_DIR:-website.d}"
@@ -2416,7 +2438,7 @@ class CozyBokSpec
             .toAbsolutePath
             .normalize()
           publicationpath.getParent.getParent shouldBe snapshotroot
-          publicationpath.getParent.getFileName.toString.matches("[0-9a-f]{64}") shouldBe true
+          publicationpath.getParent.getFileName.toString should startWith("snapshot-")
           publicationpath.getFileName.toString shouldBe "publication"
           Files.isDirectory(publicationpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
           Files.isSymbolicLink(publicationpath) shouldBe false
@@ -2505,7 +2527,7 @@ class CozyBokSpec
           CozyBok.build(config, runner)
 
           Then(
-            "SmartDox receives the digest-addressed production snapshot, repository, and RDF missing policy values"
+            "SmartDox receives the operation-scoped production snapshot, repository, and RDF missing policy values"
           )
           val sitecommand =
             runner.commands.find(_.take(2) == Vector("dox", "site")).get
@@ -2518,7 +2540,7 @@ class CozyBokSpec
             .toAbsolutePath
             .normalize()
           publicationpath.getParent.getParent shouldBe snapshotroot
-          publicationpath.getParent.getFileName.toString.matches("[0-9a-f]{64}") shouldBe true
+          publicationpath.getParent.getFileName.toString should startWith("snapshot-")
           publicationpath.getFileName.toString shouldBe "publication"
           Files.isDirectory(publicationpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
           Files.isSymbolicLink(publicationpath) shouldBe false

@@ -274,12 +274,12 @@ exact-language match and a present output. Output resolution uses the existing
 Cozy media output contract; it MUST NOT invent a `production.json` artifact
 path. The resolved output is a normalized direct regular, non-symlink MP4.
 Its production JSON remains the identity, language, render, and QA authority:
-`render.status` is `completed`, `render.qa.status` is
-`technical-and-visual-qa-passed`, and its `render.sha256` equals the source
-MP4 SHA-256. `render.sha256` is required to be a JSON string matching exactly
-`[0-9a-f]{64}`: no null, whitespace, prefix, uppercase character, alternate
-length, or other interpretation is accepted. WIP does not require or serialize YouTube; listening review is
-evidence-only and non-gating.
+`render.status` is `completed` and `render.qa.status` is
+`technical-and-visual-qa-passed`. WIP explicitly adopts the selected supplied
+MP4; production JSON has no local render-digest admission gate. Ordinary JSON
+loading ignores extra properties without dedicated legacy hash processing.
+WIP does not require or serialize YouTube; listening review is evidence-only
+and non-gating.
 
 ### Phase 40 PDF WIP registration
 
@@ -292,7 +292,19 @@ source only for a `prebuilt` resource. That direct regular non-symlink output
 must have current `cozy.media.receipt.v2` and
 `cozy.media.pdf-review-state.v1` evidence from the Phase 40 acceptance
 boundary. The WIP binding revalidates those exact conditions under the existing
-two-root and registry locks before replacement.
+two-root and registry locks before replacement. The WIP path uses ordinary
+receipt and selected-PDF review-state currentness without a site-only fallback.
+Copy consumes its direct source; prebuilt consumes its direct source and any
+explicitly named site-video production file. Package knowledge and unrelated
+inputs remain current-command validation/race inputs, not copy/prebuilt
+conversion inputs. Known state/receipt fields load directly and arbitrary stored
+extras are ignored. Only selected PDF metadata is compared with its resolved
+resource and accepted entry; stale unselected PDFs cannot veto unchanged English
+selection. Failures name the stage, resource, actual source/output/state or
+manifest path, producer and next target build. No accepted-output/state digest
+is used, and valid timestamp-preserved rewrites have no digest-detection promise.
+Presentation artifacts and renderer hashes remain unfinished S03 work. Real
+distribution byte integrity, locking and rollback remain unchanged.
 
 The resulting strict variant maps `article_pdf` only to `articlePdf` and
 `summary_slides_pdf` only to `summarySlidesPdf`, retaining exactly the public
@@ -371,7 +383,18 @@ Preflight MUST capture coherent evidence for descriptor and project
 configuration/profile, resource mapping, infographic destination, PDF output
 and current Phase 40 receipt/review-state evidence, production JSON, source
 MP4, publication-registry snapshot/root, website root, and every video
-destination. Under both root locks and the registry lock, it revalidates all
+destination. Ordinary local file observations are normalized lexical and real
+paths, size, actual `FileTime` modification time, and stable fileKey, with
+direct regular non-symlink checks and coherent two-read bytes/attributes.
+The plan also retains the exact transient descriptor bytes and selected
+production JSON bytes for same-operation revalidation. Even an equivalent
+production JSON rewrite with unchanged size, modification time, and fileKey
+invalidates that operation's byte observation. No generic file snapshot hash,
+PDF hash, persisted observation identity, or command-wide MP4 byte retention
+is introduced. Explicit `sourceArtifactSha256` and optional
+`installedArtifactSha256` protect only the actual selected MP4 publication
+record and its named copy, backup, installation, and restoration operations.
+Under both root locks and the registry lock, it revalidates all
 evidence, builds the canonical correlated strict-plus-integrity plan, creates
 same-filesystem sibling temps only for video candidates, copies, fsyncs, and
 verifies their digests, then creates verified sibling backups only for
@@ -386,8 +409,15 @@ On failure after any mutation, if registry replacement occurred, rollback first
 atomically restores its exact original owner-bundle bytes (or removes a newly
 created canonical bundle), then restores pre-existing destinations and removes
 new destinations in reverse install order, then removes temps and backups. It
-revalidates original registry, root, destination bytes, and identities before
-reporting failure. A rollback failure is distinct and never reported as
+revalidates the complete original registry (including its actual bundle bytes),
+unchanged root/source/production/context and candidate evidence, and each
+original/restored optional destination artifact digest before reporting failure.
+The restoration-only predicate recomputes ordinary planning and admits the
+actual direct destination identity and modification time after an atomic
+backup move; it does not require that backup inode to equal the former
+destination fileKey. Strict pre-mutation revalidation still requires the
+original full plan, and installed-byte validation remains strict. Successful
+rollback reports the original application failure. A rollback failure is distinct and never reported as
 success; no application exception may return success with partial state.
 
 ### Root and path safety
@@ -400,7 +430,7 @@ root being an ancestor or descendant of the other. A website root may be a
 descendant of the project root, while an external direct publication root may
 be admitted only when all direct-entry, canonical, non-symlink, and containment
 checks pass. Also reject symlink ancestors or destinations, path escape,
-non-regular inputs, stale SHA, identity drift, and cross-filesystem non-atomic
+non-regular inputs, selected MP4 artifact-integrity mismatch, identity drift, and cross-filesystem non-atomic
 staging. The command performs no network/upload/publish/deploy/site-build
 operation.
 

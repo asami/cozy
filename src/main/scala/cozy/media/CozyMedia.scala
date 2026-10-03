@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
  *  version Sep. 14, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -853,6 +853,9 @@ private[cozy] object CozyMedia {
     resolved.action match {
       case Action.MissingSource =>
         RAISE.invalidArgumentFault(s"Missing media source for ${resolved.resource.id}")
+      case Action.Current if resolved.resource.build == "prebuilt" =>
+        CozyMediaReceipt.prebuiltAcceptanceAllowed(plan, resolved)
+        s"${resolved.resource.id}: adopted prebuilt ${resolved.source.get}"
       case Action.Current =>
         s"${resolved.resource.id}: current"
       case Action.AdoptPrebuilt =>
@@ -916,7 +919,7 @@ private[cozy] object CozyMedia {
         }
       }
       val receiptfindings =
-        if (requirereceipt && (!CozyMediaReceipt.current(plan, resolved) || !CozyMediaReceipt.integrityCurrent(plan, resolved))) Vector(s"${resource.id}: missing or stale cozy.media.receipt.v2 evidence")
+        if (requirereceipt) CozyMediaReceipt.currentnessFailure(plan, resolved).toVector
         else Vector.empty
       val pdfreviewstatefindings =
         if (requirereceipt) try {

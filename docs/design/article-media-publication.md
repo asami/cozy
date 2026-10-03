@@ -141,7 +141,7 @@ fail. `cozy bok build` uses the existing registry loader to enumerate configured
 publication entries only.
 
 Producer registration is a role-local exact-key merge, not a replacement of an
-article or a bundle. Under the existing digest and lock protocol, an operation
+article or a bundle. Under the existing complete byte-observation and lock protocol, an operation
 holds the same real-publication-root lock from complete snapshot/preflight
 through artifact publication and atomic registry replacement. All recognized
 strict and integrity entries for one normalized article identity are one
@@ -174,7 +174,7 @@ For the existing `video-publication` and `media-package` producers, the
 operation then replaces only its `(articleIdentity, locale, role)`,
 preserves all unrelated/generic entries and all other article roles/locales,
 reconstructs the complete strict SmartDox article record, revalidates the
-complete bundle-digest snapshot, and atomically replaces the owner bundle.
+complete transient bundle-byte snapshot, and atomically replaces the owner bundle.
 Malformed, duplicate, conflicting, or changed snapshot state fails before
 mutation; a producer never loses a concurrent update.
 
@@ -197,63 +197,81 @@ must have a selected publication-profile destination. There is no filename,
 directory, or SmartDox-discovery inference. Strict `alt` remains omitted unless
 the existing media schema represents it explicitly.
 
+Infographic evidence separates semantic build admission from publication
+artifact integrity. The explicit descriptor's `target/cozy-media/manifest.json`
+must attribute the schema, knowledge identity, unique selected resource, and
+exact build path. Its actual build receipt is admitted through
+`CozyMediaReceipt.requireCurrent` with the selected profile. Currentness follows
+actual declared producer inputs, existence, independent validity, and
+modification times; a copy resource depends on its declared copy source and
+output, so changing only knowledge age does not invalidate that PNG. A truly
+newer declared source fails with its real source/output and next build operation.
+The selected entry has no local SHA or replacement freshness/approval identity.
+
+The prepared form verifies the actual direct regular operation source PNG
+against `PreparedPublication.sourceSha256` and uses that verified SHA in
+`cozy.article-media-integrity.v1`. Completion verifies installed destination
+bytes against the prepared integrity value before exposing the strict role.
+Projection admits the semantic current manifest and compares actual selected
+build PNG bytes with actual published destination bytes, using their matching
+SHA-256 in the integrity record. A real build/published byte mismatch remains
+an integrity failure. This purpose does not extend those digests into local
+currentness or approval. Explicit version, profile/destination mapping,
+provenance, path containment, PNG validity, preflight ordering, force rules,
+and atomic artifact/registry publication retain their existing responsibilities.
+
 Ordinary `cozy bok build` reads only configured registry bundles and the
 configured repository root. Canonical build strategies are exactly `draft`,
 `work-in-progress`, `production-preview`, and `production`; CLI `wip` and
 `preview` normalize before policy selection. The first three select Preview and
 `production` selects Production. Any other strategy fails before registry load,
 path construction, or an external command. Under the same real-publication-root
-lock used by producers, build holds one complete snapshot from load/digest
-capture through policy evaluation, effective-context materialization,
-source-digest revalidation, and immutable snapshot installation. It materializes
-the effective context in a unique sibling work directory and computes an exact
-lowercase-hexadecimal `contextDigest` over the canonical strategy and the
-complete effective publication context. Define `U64(n)` as exactly eight
-octets containing the non-negative integer `n` in unsigned 64-bit
-big-endian/network byte order; every length below counts octets, never
-characters. Encode the canonical strategy and every normalized
-publication-root-relative bundle filename (using `/` separators) as their
-exact UTF-8 octets. Sort bundle files by unsigned lexicographic comparison of
-their UTF-8 filename octets. The SHA-256 input is exactly
+lock used by producers, build holds one complete transient observation from
+actual bundle reads through policy evaluation, source-byte revalidation, and
+immutable context installation. The registry retains exact immutable bytes
+keyed by admitted bundle name. Complete-map comparison preserves set changes,
+empty-registry conflicts, and raw-byte changes even when decoded metadata,
+file size, and modification times are unchanged. Projections retain the original
+observation; this is operation-local transaction state, never persisted
+approval/currentness evidence or a replacement identity token.
 
-```
-U64(strategyByteLength) || strategyBytes || U64(fileCount) ||
-for each sorted file:
-  U64(filenameByteLength) || filenameBytes ||
-  U64(contentByteLength) || exactFileBytes
-```
+Each invocation uses a fresh unique `.work-` directory under
+`target/cozy-bok/article-media/{canonical-strategy}/snapshots`, including empty
+and byte-identical inputs. Its final sibling is `snapshot-` plus the work
+allocation's unique suffix. These paths allocate directories; they carry no
+freshness, approval, equivalence, persistence, or cache-key semantics and are
+never serialized into product metadata.
 
-There are no delimiters, terminators, platform newline conversions, text
-re-encodings, filesystem metadata, directory entries, or absolute paths in
-this input; `fileCount` counts framed regular bundle files. The
-`contextDigest` is the lowercase hexadecimal SHA-256 result over exactly that
-octet sequence. Preview omissions are therefore part of the digest. The final
-context path is exactly
-`target/cozy-bok/article-media/{canonical-strategy}/snapshots/{contextDigest}/publication`.
+Before copying, actual source bundle bytes must equal the captured registry
+observation. The effective context preserves generic/legacy entries, removes
+exactly policy-omitted strict roles, and removes empty strict variants/entries.
+After policy transformation, the complete direct filename-to-immutable-byte map
+is captured with exactly the admitted filenames. Under the existing shared
+lock, build revalidates the original registry bytes, compares effective bytes
+again, and atomically moves the completed work directory to an absent target.
+Target collisions and unsupported/failed atomic moves fail without touching an
+earlier context. Installed direct directories, file set, and bytes are verified
+before any consumer. Failure cleanup owns only the operation's work or newly
+installed failed directory.
 
-The effective context preserves unaffected generic/legacy entries, removes
-exactly Preview-policy-omitted strict roles, and removes empty strict
-variants/entries. The computed digest is verified again before installation;
-the work directory is atomically installed as the final snapshot directory.
-An already-installed digest path is never mutated or replaced: build verifies
-its complete relative-file set and bytes against `contextDigest` and reuses it,
-or fails deterministically on mismatch. Concurrent producer/build work
-serializes under the shared lock. The lock is released only after the immutable
-snapshot is fully installed. Every pinned SmartDox, Dox, Antora, and site
-consumer receives that exact digest-addressed `-publication` path, together
-with the configured `-publication.repository` value. The build invocation
-leases that snapshot for all of its consumers; no build operation replaces or
-removes it while a consumer runs. Installed snapshots remain a target cache.
-Any future cleanup is a separately coordinated operation that may remove only
-snapshots without an active lease; Phase 26 defines no cleanup CLI.
+The registry lock is released after installation. Every pinned SmartDox, Dox,
+Antora, and site consumer receives that fresh `-publication` path with the
+configured `-publication.repository` value. Lease accounting spans the consumer
+and releases in `finally`. Earlier consumers retain their installed bytes when
+later producer operations and builds run. Older contexts are never inspected
+to admit a new invocation, even if edited or containing extra files; they
+remain untouched. There is no content-addressed reuse, context cache, persistent
+index, or cleanup of old contexts.
 
-Production policy failure occurs before an external build command. The
-digest-addressed snapshot solves only the publication-context handoff lifetime;
-artifact and repository admission remain protected and validated by the
-existing producer and policy contracts. Build never renders, transcodes,
-publishes media, enumerates descriptors, scans target/generated-site/arbitrary-
-repository paths, or applies locale fallback. Media-free behavior is unchanged
-apart from the deterministic snapshot handoff path.
+Phase 71.3 replaces these specific local registry/context digest mechanisms
+and the local infographic manifest SHA requirement without reopening accepted
+provider schemas. Published artifact integrity,
+version/provenance, strict PDF roles, policy omissions/diagnostics, and repository
+path admission remain. Production policy rejects genuinely missing, invalid,
+or unavailable required published artifacts before invoking any consumer.
+Build does not render, transcode, publish or discover media, enumerate
+descriptors, scan generated-site/arbitrary repository paths, or apply locale
+fallback. Media-free behavior retains its policy with a fresh immutable handoff.
 
 ## Invariants and Boundaries
 
@@ -285,11 +303,10 @@ apart from the deterministic snapshot handoff path.
   keeps website output at the staging root and repository artifacts at
   `<staging-root>/repository`, so registered public paths and staged bytes
   resolve below one public URL root and their SHA-256 values must match.
-- A same-strategy concurrent build that has installed and leased its snapshot
-  consumes only that digest-addressed snapshot even when another build publishes
-  a different effective state at another digest path. Identical effective
-  content reuses the existing digest path without mutation; a different byte
-  set never replaces it.
+- A same-strategy concurrent build consumes its own installed and leased context
+  even when another build publishes a different effective state. Identical
+  effective content also allocates a distinct context; earlier contexts remain
+  untouched, and no later build consults or replaces them.
 - Phase 26 composes the Phase 9 video registry, Phase 10 build boundary, and
   Phase 19 media descriptor boundary without reopening those closed phases.
 

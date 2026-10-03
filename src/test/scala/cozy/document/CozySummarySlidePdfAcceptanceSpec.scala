@@ -3,7 +3,6 @@ package cozy.document
 import cozy.media.{CozyMedia, CozyMediaReceipt, CozyVisualPage, CozyVisualPageBinding}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import org.apache.pdfbox.pdmodel.{PDDocument, PDPage}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -14,7 +13,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 14, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozySummarySlidePdfAcceptanceSpec {
@@ -47,7 +46,7 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         val binding = CozyVisualPageBinding.load(fixture.binding, visual)
         val receipt = CozyMediaReceipt.manifest(fixture.receipt).flatMap(_.resources.find(_.id == "summary-slides-pdf")).flatMap(_.receipt).getOrElse(fail("summary-slides receipt is required"))
 
-        Then("the emitted PDF has the complete ordered page set and exact source and Summary provenance")
+        Then("the emitted PDF has nonhash renderer evidence, the complete ordered page set and exact source and Summary provenance")
         _page_count(fixture.pdf) shouldBe 4
         visual.document.pages.map(_.id) shouldBe Vector(
           "overview-domain-to-application",
@@ -78,6 +77,7 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         binding.id shouldBe "business-binding"
         binding.profile shouldBe "business"
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"pageCount\":4")
+        Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should not include "sha256"
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-realization-to-foundation\"")
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-conclusion-to-realization\"")
         Files.readString(fixture.renderermanifest, StandardCharsets.UTF_8) should include("\"overview-application-modeling-standalone\"")
@@ -95,7 +95,7 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
 
     "produce deterministic PageSet, PDF, and renderer evidence for unchanged authorities" in {
       _with_work("cozy-summary-slide-pdf-deterministic") { root =>
-        Given("one accepted static Article 9 projection and its Phase 40-compatible fake renderer")
+        Given("one accepted static Article 9 projection and its nonhash v2 renderer with deterministic actual PDF material")
         val fixture = _copy_fixture(root)
         _accept_prebuilt_dependencies(fixture)
         val runner = _renderer(root)
@@ -340,7 +340,6 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         val pageset = Path.of(command(command.indexOf("--visual-page-set") + 1))
         val catalog = Path.of(command(command.indexOf("--catalog") + 1))
         val binding = Path.of(command(command.indexOf("--binding") + 1))
-        val template = Path.of(command(command.indexOf("--template") + 1))
         val pdf = Path.of(command(command.indexOf("--pdf") + 1))
         val images = Path.of(command(command.indexOf("--slide-images") + 1))
         val montage = Path.of(command(command.indexOf("--montage") + 1))
@@ -357,14 +356,13 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
         Files.write(pdf, currentpdf)
         pages.foreach(page => _write_png(images.resolve(page.id + ".png")))
         _write_png(montage)
-        val pdfhash = _sha256(pdf)
         val slides = pages.map { page =>
           val assets = page.assets.map(asset => s"""{"id":"${asset.id}"}""").mkString(",")
-          s"""{"id":"${page.id}","path":"target/slides/${page.id}.png","sha256":"${_sha256(images.resolve(page.id + ".png"))}","pdfSha256":"$pdfhash","assets":[$assets]}"""
+          s"""{"id":"${page.id}","path":"target/slides/${page.id}.png","assets":[$assets]}"""
         }.mkString(",")
         _write(
           manifest,
-          s"""{"schema":"cozy.summary-slides.render.v2","target":"summary-slides-pdf","profile":"business","renderer":{"name":"cozy-renderer","version":"1"},"templateSha256":"${_sha256(template)}","pdf":{"sha256":"$pdfhash","pageCount":${pages.size}},"slides":[$slides],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
+          s"""{"schema":"cozy.summary-slides.render.v2","target":"summary-slides-pdf","profile":"business","renderer":{"name":"cozy-renderer","version":"1"},"pdf":{"pageCount":${pages.size}},"slides":[$slides],"montage":{"path":"target/montage.png"}}"""
         )
         0
       }
@@ -423,7 +421,6 @@ final class CozySummarySlidePdfAcceptanceSpec extends AnyWordSpec with Matchers 
     ()
   }
 
-  private def _sha256(path: Path): String = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
   private def _write(path: Path, value: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))

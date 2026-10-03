@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.channels.FileChannel
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{AtomicMoveNotSupportedException, FileAlreadyExistsException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -21,7 +20,8 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
  *  version Jun. 19, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -66,7 +66,7 @@ private[cozy] object CozyPublicationCompiler {
     cncfDependency: Boolean,
     sbtCozyPlugin: Boolean
   )
-  final case class SourceFile(path: String, size: Long, sha256: String)
+  final case class SourceFile(path: String, size: Long)
   final case class ArtifactFile(
     layer: String,
     artifactType: String,
@@ -121,7 +121,10 @@ private[cozy] object CozyPublicationCompiler {
     fileKey: AnyRef
   )
 
-  def publish(args: List[String]): Unit = {
+  def publish(args: List[String]): Unit =
+    publishBeforeRegistry(args, _ => ())
+
+  private[cozy] def publishBeforeRegistry(args: List[String], beforeRegistry: Path => Unit): Unit = {
     val projectdir = _project_dir(args)
     if (!Files.isDirectory(projectdir))
       RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectdir}")
@@ -131,7 +134,7 @@ private[cozy] object CozyPublicationCompiler {
     val config = CozyProjectYamlConfig.loadOperationDefaults(projectdir)
     val savedir = _publication_output(projectdir, args, config)
     val publication = _compile(projectdir, savedir, args, config)
-    _write(publication, savedir, projectdir)
+    _write(publication, savedir, projectdir, beforeRegistry)
   }
 
   private def _compile(projectdir: Path, savedir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Publication = {
@@ -266,14 +269,14 @@ private[cozy] object CozyPublicationCompiler {
     name: String,
     entries: Vector[(String, JsValue)],
     removePrefixes: Vector[String],
-    expectedBundleDigests: Map[String, String] = Map.empty
+    expectedBundleContents: Map[String, Vector[Byte]] = Map.empty
   ): Unit =
     PublicationRegistry.replaceMetadata(
       root,
       name,
       entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
       removePrefixes,
-      expectedBundleDigests
+      expectedBundleContents
     )
 
   /*
@@ -286,12 +289,12 @@ private[cozy] object CozyPublicationCompiler {
   private[publication] sealed trait RegistryLockCapability {
     private[publication] def realRoot: Path
     private[publication] def validateRootEvidence(): Unit
-    private[publication] def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit
+    private[publication] def validateSnapshot(expectedBundleContents: Map[String, Vector[Byte]]): Unit
     private[publication] def replaceMetadata(
       name: String,
       entries: Vector[(String, JsValue)],
       removePrefixes: Vector[String],
-      expectedBundleDigests: Map[String, String],
+      expectedBundleContents: Map[String, Vector[Byte]],
       createArticleMedia: Boolean
     ): Unit
     private[publication] def publishMetadata(publication: MetadataPublication): Unit
@@ -299,7 +302,7 @@ private[cozy] object CozyPublicationCompiler {
     private[publication] def restoreBundle(
       name: String,
       bytes: Option[Vector[Byte]],
-      expectedBundleDigests: Map[String, String]
+      expectedBundleContents: Map[String, Vector[Byte]]
     ): Unit
   }
 
@@ -320,16 +323,16 @@ private[cozy] object CozyPublicationCompiler {
       _site_root_evidence.foreach(PublicationRegistry.validateSiteRootEvidence)
     }
 
-    override def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit = {
+    override def validateSnapshot(expectedBundleContents: Map[String, Vector[Byte]]): Unit = {
       _require_owner()
-      PublicationRegistry.validateRegistrySnapshotLocked(_real_root, expectedBundleDigests)
+      PublicationRegistry.validateRegistrySnapshotLocked(_real_root, expectedBundleContents)
     }
 
     override def replaceMetadata(
       name: String,
       entries: Vector[(String, JsValue)],
       removePrefixes: Vector[String],
-      expectedBundleDigests: Map[String, String],
+      expectedBundleContents: Map[String, Vector[Byte]],
       createArticleMedia: Boolean
     ): Unit = {
       _require_owner()
@@ -338,7 +341,7 @@ private[cozy] object CozyPublicationCompiler {
         name,
         entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
         removePrefixes,
-        expectedBundleDigests,
+        expectedBundleContents,
         createArticleMedia
       )
     }
@@ -356,10 +359,10 @@ private[cozy] object CozyPublicationCompiler {
     override def restoreBundle(
       name: String,
       bytes: Option[Vector[Byte]],
-      expectedBundleDigests: Map[String, String]
+      expectedBundleContents: Map[String, Vector[Byte]]
     ): Unit = {
       _require_owner()
-      PublicationRegistry.restoreBundleLocked(_real_root, name, bytes, expectedBundleDigests)
+      PublicationRegistry.restoreBundleLocked(_real_root, name, bytes, expectedBundleContents)
     }
 
     private[CozyPublicationCompiler] def _close(): Unit = {
@@ -433,7 +436,7 @@ private[cozy] object CozyPublicationCompiler {
     MetadataPublication(name, publicationpath, projectdir, entries)
   }
 
-  private def _write(publication: Publication, savedir: Path, projectdir: Path): Unit = {
+  private def _write(publication: Publication, savedir: Path, projectdir: Path, beforeregistry: Path => Unit): Unit = {
     val name = publication.project.name
     _delete_legacy_placeholder(savedir.resolve(s"repository/artifacts/${name}"))
     _delete_legacy_placeholder(savedir.resolve(s"maven/artifacts/${name}"))
@@ -441,6 +444,7 @@ private[cozy] object CozyPublicationCompiler {
     val staging = Files.createTempDirectory("cozy-publication-")
     try {
       _write_publication_files(publication, staging)
+      beforeregistry(staging)
       PublicationRegistry.publish(savedir, publication, projectdir, staging)
     } finally {
       _delete_directory(staging)
@@ -967,14 +971,12 @@ private[cozy] object CozyPublicationCompiler {
   private def _source_file_yaml(p: SourceFile): String =
     s"""  - path: ${_yaml_string(p.path)}
        |    size: ${p.size}
-       |    sha256: ${_yaml_string(p.sha256)}
        |""".stripMargin
 
   private def _source_file_json(p: SourceFile): JsValue =
     Json.obj(
       "path" -> p.path,
-      "size" -> p.size,
-      "sha256" -> p.sha256
+      "size" -> p.size
     )
 
   private def _project_json(p: ProjectMetadata): JsValue =
@@ -1048,7 +1050,7 @@ private[cozy] object CozyPublicationCompiler {
       stream.iterator().asScala.toVector.collect {
         case p if Files.isRegularFile(p) && !_excluded(projectdir, p, save, excludes) =>
           val rel = projectdir.relativize(p).toString.replace('\\', '/')
-          SourceFile(rel, Files.size(p), _sha256(p))
+          SourceFile(rel, Files.size(p))
       }.sortBy(_.path)
     } finally {
       stream.close()
@@ -1114,23 +1116,6 @@ private[cozy] object CozyPublicationCompiler {
     val excludedbyname = normalizedexcludes.exists(x => !x.contains("/") && segments.contains(x))
     val excludedbypath = normalizedexcludes.exists(x => x.contains("/") && (rel == x || rel.startsWith(x + "/")))
     excludedbyname || excludedbypath || abs.startsWith(savedir)
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => f"${b & 0xff}%02x").mkString
   }
 
   private def _delete_directory(path: Path): Unit =
@@ -1450,9 +1435,9 @@ private[cozy] object CozyPublicationCompiler {
       name: String,
       entries: Vector[PublicationBundleEntry],
       removePrefixes: Vector[String],
-      expectedBundleDigests: Map[String, String]
+      expectedBundleContents: Map[String, Vector[Byte]]
     ): Unit =
-      _replace_metadata(root, name, entries, removePrefixes, expectedBundleDigests)
+      _replace_metadata(root, name, entries, removePrefixes, expectedBundleContents)
 
     def remove(root: Path, name: String): Unit = {
       _with_registry_lock(root) { realroot =>
@@ -1537,10 +1522,10 @@ private[cozy] object CozyPublicationCompiler {
       name: String,
       entries: Vector[PublicationBundleEntry],
       removeprefixes: Vector[String],
-      expectedbundledigests: Map[String, String]
+      expectedbundlecontents: Map[String, Vector[Byte]]
     ): Unit =
       _with_registry_lock(root) { realroot =>
-        _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundledigests, createarticlemedia = false)
+        _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundlecontents, createarticlemedia = false)
       }
 
     def replaceMetadataLocked(
@@ -1548,10 +1533,10 @@ private[cozy] object CozyPublicationCompiler {
       name: String,
       entries: Vector[PublicationBundleEntry],
       removeprefixes: Vector[String],
-      expectedbundledigests: Map[String, String],
+      expectedBundleContents: Map[String, Vector[Byte]],
       createarticlemedia: Boolean
     ): Unit =
-      _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundledigests, createarticlemedia)
+      _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedBundleContents, createarticlemedia)
 
     def bundleBytesLocked(realroot: Path, name: String): Option[Vector[Byte]] = {
       val target = _locked_target(realroot, name, requireexisting = false)
@@ -1562,25 +1547,25 @@ private[cozy] object CozyPublicationCompiler {
       realroot: Path,
       name: String,
       bytes: Option[Vector[Byte]],
-      expectedbundledigests: Map[String, String]
+      expectedBundleContents: Map[String, Vector[Byte]]
     ): Unit = {
-      if (bytes == null || expectedbundledigests == null)
+      if (bytes == null || expectedBundleContents == null)
         RAISE.invalidArgumentFault("Publication bundle rollback inputs must be defined")
       val target = _locked_target(realroot, name, requireexisting = false)
       bytes match {
         case Some(value) => _write_exact_bundle(target, value.toArray)
         case None => Files.deleteIfExists(target)
       }
-      validateRegistrySnapshotLocked(realroot, expectedbundledigests)
+      validateRegistrySnapshotLocked(realroot, expectedBundleContents)
     }
 
-    def validateRegistrySnapshotLocked(realroot: Path, expectedbundledigests: Map[String, String]): Unit = {
-      if (realroot == null || !Files.isDirectory(realroot) || expectedbundledigests == null)
+    def validateRegistrySnapshotLocked(realroot: Path, expectedBundleContents: Map[String, Vector[Byte]]): Unit = {
+      if (realroot == null || !Files.isDirectory(realroot) || expectedBundleContents == null)
         RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
       if (realroot.toAbsolutePath.normalize() != realroot || realroot.toRealPath() != realroot)
         RAISE.invalidArgumentFault(s"Publication registry replacement requires a canonical real root: $realroot")
-      val actual = CozyArticleMediaRegistry.load(realroot).bundleDigests
-      if (actual != expectedbundledigests)
+      val actual = CozyArticleMediaRegistry.load(realroot).bundleContents
+      if (actual != expectedBundleContents)
         RAISE.invalidArgumentFault("Publication bundle stale configured snapshot")
     }
 
@@ -1589,17 +1574,16 @@ private[cozy] object CozyPublicationCompiler {
       name: String,
       entries: Vector[PublicationBundleEntry],
       removeprefixes: Vector[String],
-      expectedbundledigests: Map[String, String],
+      expectedbundlecontents: Map[String, Vector[Byte]],
       createarticlemedia: Boolean
     ): Unit = {
-      if (realroot == null || !Files.isDirectory(realroot) || entries == null || removeprefixes == null || expectedbundledigests == null)
+      if (realroot == null || !Files.isDirectory(realroot) || entries == null || removeprefixes == null || expectedbundlecontents == null)
         RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
       if (realroot.toAbsolutePath.normalize() != realroot || realroot.toRealPath() != realroot)
         RAISE.invalidArgumentFault(s"Publication registry replacement requires a canonical real root: $realroot")
       if (createarticlemedia && name != "article-media")
         RAISE.invalidArgumentFault("Publication metadata creation is limited to article-media")
       val target = _locked_target(realroot, name, requireexisting = !createarticlemedia)
-      _validate_expected_bundle_digests(realroot, expectedbundledigests)
       val old = _load_bundle(target, name).getOrElse {
         if (createarticlemedia)
           PublicationBundle("article-media", None, "", ".", None, Vector.empty)
@@ -1609,6 +1593,7 @@ private[cozy] object CozyPublicationCompiler {
       val validatedentries = entries.map(_validate_entry)
       val replacepaths = validatedentries.map(_.path).toSet
       val removals = removeprefixes.map(_validate_metadata_removal).distinct
+      _validate_expected_bundle_contents(realroot, expectedbundlecontents)
       val bundle = old.copy(
         entries = (old.entries.filterNot { entry =>
           replacepaths.contains(entry.path) || removals.exists { removal =>
@@ -1736,13 +1721,14 @@ private[cozy] object CozyPublicationCompiler {
       target
     }
 
-    private def _validate_expected_bundle_digests(realroot: Path, expectedbundledigests: Map[String, String]): Unit =
-      if (expectedbundledigests.nonEmpty) {
-        expectedbundledigests.keys.foreach(_validate_bundle_name)
-        val actual = CozyArticleMediaRegistry.load(realroot).bundleDigests
-        if (actual != expectedbundledigests)
+    private def _validate_expected_bundle_contents(realroot: Path, expectedbundlecontents: Map[String, Vector[Byte]]): Unit = {
+      val actual = CozyArticleMediaRegistry.load(realroot).bundleContents
+      if (expectedbundlecontents.nonEmpty) {
+        expectedbundlecontents.keys.foreach(_validate_bundle_name)
+        if (actual != expectedbundlecontents)
           RAISE.invalidArgumentFault("Publication bundle stale configured snapshot")
       }
+    }
 
     private def _validate_metadata_removal(value: String): MetadataRemoval = {
       val raw = Option(value).getOrElse(RAISE.invalidArgumentFault("Publication bundle metadata removal must be defined"))

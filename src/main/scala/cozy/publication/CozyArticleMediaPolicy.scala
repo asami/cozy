@@ -8,7 +8,8 @@ import org.smartdox.metadata.PublishMetadata
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaPolicy {
@@ -146,15 +147,15 @@ private[cozy] object CozyArticleMediaPolicy {
       _invalid("Article-media policy publication result must be defined")
     val artifactroot = _artifact_root(artifactRepositoryRoot)
     val snapshot = CozyArticleMediaRegistry.load(publicationRoot)
-    snapshot.bundleDigests.getOrElse(bundleName,
-      _invalid(s"Article-media policy configured bundle digest is missing: $bundleName")
+    snapshot.bundleContents.getOrElse(bundleName,
+      _invalid(s"Article-media policy configured bundle bytes are missing: $bundleName")
     )
     val videos = _video_evidence(videoRegistrations, snapshot, artifactroot)
     val infographics = _infographic_evidence(infographicInputs, artifactroot)
     val integrities = (videos.map(_.integrity) ++ infographics.map(_.integrity)).sortBy(x => _key(_integrity_key(x)))
     _reject_duplicate_integrities(integrities)
     _preflight_publication(publicationResult, integrities)
-    val upsert = CozyArticleMediaRegistry.upsert(publicationRoot, bundleName, publicationResult, integrities, snapshot.bundleDigests)
+    val upsert = CozyArticleMediaRegistry.upsert(publicationRoot, bundleName, publicationResult, integrities, snapshot.bundleContents)
     RegistrationResult(videos, infographics, upsert)
   }
 

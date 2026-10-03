@@ -13,7 +13,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 25, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReviewState {
@@ -126,8 +127,7 @@ private[cozy] object CozyMediaReviewState {
   }
 
   private def _snapshot(value: Json): Snapshot = {
-    val objectvalue = _object(value, "Media review snapshot")
-    _exact_keys(objectvalue.remove("inputSetSha256").remove("reviewManifestSha256").remove("artifactSetSha256"), Set("acceptedAt"), "Media review snapshot")
+    val objectvalue = _object(value, "Media review snapshot").filterKeys(Set("acceptedAt").contains)
     val accepted = _string(objectvalue, "acceptedAt", "Media review snapshot")
     try Instant.parse(accepted) catch { case NonFatal(_) => _invalid("Media review acceptedAt must be UTC ISO-8601") }
     if (!accepted.endsWith("Z")) _invalid("Media review acceptedAt must be UTC ISO-8601")

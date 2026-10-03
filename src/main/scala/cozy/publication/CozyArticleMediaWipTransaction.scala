@@ -13,7 +13,7 @@ import org.goldenport.RAISE
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaWipTransaction {
@@ -131,13 +131,13 @@ private[cozy] object CozyArticleMediaWipTransaction {
             val temporary = Files.createTempFile(evidence.destinationParent.path, s".$name.", ".cozy-wip.tmp")
             temporaries += temporary
             _copy_force(evidence.source, temporary)
-            if (_sha256(temporary) != evidence.source.sha256)
+            if (_sha256(temporary) != evidence.sourceArtifactSha256)
               _invalid(s"Article-media WIP staged digest differs: ${candidate.resourceId}")
             val backup = evidence.installedDestination.map { original =>
               val path = Files.createTempFile(evidence.destinationParent.path, s".$name.", ".cozy-wip.backup")
               temporaries += path
               _copy_force(original, path)
-              if (_sha256(path) != original.sha256)
+              if (Some(_sha256(path)) != evidence.installedArtifactSha256)
                 _invalid(s"Article-media WIP backup digest differs: ${candidate.resourceId}")
               path
             }
@@ -181,8 +181,7 @@ private[cozy] object CozyArticleMediaWipTransaction {
       value.backup match {
         case Some(backup) =>
           Files.move(backup, value.evidence.destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-          val expected = value.evidence.installedDestination.get
-          if (_sha256(value.evidence.destination) != expected.sha256)
+          if (Some(_sha256(value.evidence.destination)) != value.evidence.installedArtifactSha256)
             _invalid(s"Article-media WIP restored destination digest differs: ${value.evidence.destination}")
         case None =>
           Files.deleteIfExists(value.evidence.destination)
@@ -192,7 +191,7 @@ private[cozy] object CozyArticleMediaWipTransaction {
     }
     _validate_directory(plan.publicationRoot, "publication root")
     _validate_directory(plan.websiteRoot, "website root")
-    CozyArticleMediaWipBinding.revalidate(plan)
+    CozyArticleMediaWipBinding.revalidateRestored(plan)
   }
 
   private def _cleanup(values: Vector[Prepared]): Unit =
@@ -204,7 +203,7 @@ private[cozy] object CozyArticleMediaWipTransaction {
   private def _validate_installed(value: Prepared): Unit = {
     val destination = value.evidence.destination
     if (Files.isSymbolicLink(destination) || !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS) ||
-      destination.toRealPath() != destination || _sha256(destination) != value.evidence.source.sha256)
+      destination.toRealPath() != destination || _sha256(destination) != value.evidence.sourceArtifactSha256)
       _invalid(s"Article-media WIP installed destination is invalid: $destination")
   }
 

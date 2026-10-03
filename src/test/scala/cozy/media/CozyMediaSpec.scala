@@ -13,7 +13,8 @@ import org.goldenport.io.InputSource
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSpec
@@ -403,8 +404,14 @@ final class CozyMediaSpec
 
           Then("planning reports delegation and receiptless verification and publication are rejected")
           plan should include_text("article-video-ja: delegate-video")
-          verificationerror.getMessage should include_text("missing or stale cozy.media.receipt.v2 evidence")
-          publicationerror.getMessage should include_text("missing or stale cozy.media.receipt.v2 evidence")
+          verificationerror.getMessage should include_text("Media receipt currentness failed for resource")
+          publicationerror.getMessage should include_text("Media receipt currentness failed for resource")
+          Vector(verificationerror, publicationerror).foreach { error =>
+            error.getMessage should include_text("article-video-ja")
+            error.getMessage should include_text("producer video-project")
+            error.getMessage should include_text(dir.resolve("target/cozy-media/manifest.json").toString)
+            error.getMessage should include_text(s"cozy media build $descriptor --target article-video-ja")
+          }
           dir.resolve("publication/example/ja/final.mp4") should not(be_regular_file)
         }
       }

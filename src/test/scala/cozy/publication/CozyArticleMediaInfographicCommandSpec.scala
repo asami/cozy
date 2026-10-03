@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.nio.file.attribute.FileTime
 import java.security.MessageDigest
 import javax.imageio.ImageIO
 import scala.collection.JavaConverters._
@@ -17,7 +18,8 @@ import play.api.libs.json.{JsArray, JsObject, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 25, 2026
+ *  version Aug. 25, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -41,16 +43,36 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
     }
 
     "publish one exact descriptor as strict and integrity evidence" in {
-      Given("one cozy.media.v1 detailed-infographic resource with its exact manifest and repository profile")
+      Given("one detailed-infographic resource with an actual CozyMedia.build receipt and its exact repository profile")
       _with_root { root =>
-        _media(root, "one", "development-process/example", "ja", "images/example.png", _png(0xff3366cc))
+        val fixture = _media(root, "one", "development-process/example", "ja", "images/example.png", _png(0xff3366cc))
 
         When("the typed command prepares, commits, and merges the resource")
         val result = CozyArticleMediaInfographicCommand.publish(_config(root))
 
-        Then("the PNG and strict/integrity registry records share the exact resolved public path")
+        Then("the hash-free receipt admits copied PNG bytes and matching strict/integrity registry records")
         result.map(_.roleUpdate.integrity.record.artifact.identity) shouldBe Vector("one")
-        Files.isRegularFile(root.resolve("repository/images/example.png")) shouldBe true
+        val destination = root.resolve("repository/images/example.png")
+        Files.isRegularFile(destination) shouldBe true
+        _sha256(destination) shouldBe _sha256(fixture.output)
+        result.head.result.integrity.record.sha256 shouldBe _sha256(destination)
+        result.head.roleUpdate.variant.infographic.map(_.publicPath.toString) shouldBe Some("/images/example.png")
+        val receipts = (Json.parse(Files.readString(fixture.manifest)) \ "resources").as[JsArray].value
+        receipts.foreach { entry =>
+          (entry \ "sha256").toOption shouldBe None
+          (entry \ "receipt" \ "inputs").as[JsArray].value.foreach { input =>
+            (input \ "sha256").toOption shouldBe None
+          }
+        }
+        val entries = (Json.parse(Files.readString(root.resolve("src/main/publication/article-media.json"))) \ "entries").as[JsArray].value
+        val strict = entries.find(entry => (entry \ "path").as[String] == "metadata/article-media/development-process/example.json").get \ "metadata"
+        val integrity = entries.find(entry => (entry \ "path").as[String] == "metadata/article-media-integrity/development-process/example/ja/infographic.json").get \ "metadata"
+        (strict \ "variants" \ "ja" \ "infographic" \ "public_path").as[String] shouldBe "/images/example.png"
+        (integrity \ "publicPath").as[String] shouldBe "/images/example.png"
+        (integrity \ "sha256").as[String] shouldBe _sha256(destination)
+        (integrity \ "artifact" \ "identity").as[String] shouldBe "one"
+        (integrity \ "artifact" \ "version").as[String] shouldBe "1.0.0"
+        (integrity \ "publicationState").as[String] shouldBe "published"
         _entry_paths(root.resolve("src/main/publication/article-media.json")) shouldBe Vector(
           "metadata/article-media-integrity/development-process/example/ja/infographic.json",
           "metadata/article-media/development-process/example.json"
@@ -255,30 +277,27 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
       }
     }
 
-    "reject a stale build-manifest SHA before artifact or registry mutation" in {
-      Given("a selected descriptor whose manifest SHA differs from its output bytes")
+    "reject a newer declared copy input before artifact or registry mutation" in {
+      Given("a successfully built resource whose declared input.svg is changed and made newer than its accepted output")
       _with_root { root =>
         val fixture = _media(root, "stale", "development-process/stale", "ja", "images/stale.png", _png(0xff3366cc))
-        val manifestjson = Json.parse(Files.readString(fixture.manifest, StandardCharsets.UTF_8)).as[JsObject]
-        val resource = (manifestjson \ "resources").as[JsArray].value.find(entry => (entry \ "id").as[String] == "stale").get.as[JsObject]
-        val receiptinputs = resource \ "receipt" \ "inputs"
-        val stale = manifestjson + ("resources" -> JsArray(
-          (manifestjson \ "resources").as[JsArray].value.map { entry =>
-            val value = entry.as[JsObject]
-            if ((value \ "id").as[String] == "stale") value + ("sha256" -> Json.toJson("0" * 64)) else value
-          }
-        ))
-        Files.write(fixture.manifest, Json.stringify(stale).getBytes(StandardCharsets.UTF_8))
-        val mutatedresource = (Json.parse(Files.readString(fixture.manifest, StandardCharsets.UTF_8)) \ "resources").as[JsArray].value.find(entry => (entry \ "id").as[String] == "stale").get
-        (mutatedresource \ "sha256").as[String] shouldBe "0" * 64
-        (mutatedresource \ "receipt" \ "inputs") shouldBe receiptinputs
+        val source = root.resolve("src/main/doxsite/stale/input.svg")
+        val outputbytes = Files.readAllBytes(fixture.output).toVector
+        _write_bundle(root.resolve("src/main/publication"), "generic", "metadata/generic.json")
+        val before = _registry_tree(root.resolve("src/main/publication"))
+        _write_bytes(source, _png(0xffcc6633))
+        Files.setLastModifiedTime(source, FileTime.fromMillis(Files.getLastModifiedTime(fixture.output).toMillis + 2000L))
 
-        When("prepared evidence compares the exact manifest and source SHA values")
+        When("prepared evidence admits the actual producer inputs before artifact installation")
         val error = intercept[IllegalArgumentException](CozyArticleMediaInfographicCommand.publish(_config(root)))
 
-        Then("the stale SHA leaves destination and article-media bundle absent")
+        Then("currentness failure names the real input, output, and next operation while preserving all registry bytes")
         error.getMessage should include("build manifest receipt is not current")
-        error.getMessage should include("cozy.media.receipt.v2")
+        error.getMessage should include(source.toString)
+        error.getMessage should include(fixture.output.toString)
+        error.getMessage should include(s"next operation: cozy media build ${root.resolve("src/main/doxsite/stale/media.json")} --target stale")
+        Files.readAllBytes(fixture.output).toVector shouldBe outputbytes
+        _registry_tree(root.resolve("src/main/publication")) shouldBe before
         Files.exists(root.resolve("repository/images/stale.png")) shouldBe false
         Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
       }
@@ -557,8 +576,8 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
     (json \ "entries").as[JsArray].value.toVector.map(x => (x \ "path").as[String]).sorted
   }
 
-  private def _registry_tree(root: Path): Vector[(String, String)] =
-    _json_children(root).map(path => path.getFileName.toString -> _sha256(path))
+  private def _registry_tree(root: Path): Vector[(String, Vector[Byte])] =
+    _json_children(root).map(path => path.getFileName.toString -> Files.readAllBytes(path).toVector)
 
   private def _json_children(path: Path): Vector[Path] =
     if (!Files.isDirectory(path)) Vector.empty else _direct_children(path).filter(_.getFileName.toString.endsWith(".json"))

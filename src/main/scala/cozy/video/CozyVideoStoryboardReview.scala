@@ -16,7 +16,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ *  version Oct.  1, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoStoryboardReview {
@@ -655,14 +656,14 @@ private[cozy] trait CozyVideoStoryboardReview {
       _review_failure(s"STORYBOARD_REVIEW_${label}_SCHEMA_INVALID", "review document schema is not supported")
     if (value.hcursor.get[String]("status").toOption != Some("validated"))
       _review_failure(s"STORYBOARD_REVIEW_${label}_STATUS_INVALID", "review document status is not validated")
-    val fields = value.asObject.get.filterKeys(name => !Set("identity", "storyboardIdentity", "evidenceIdentity", "visualInputIdentities").contains(name))
     val evidence = label == "EVIDENCE"
     val v2 = schema.endsWith(".v2")
     val required = Set("schema") ++ (if (evidence || v2) Set("status") else Set.empty[String]) ++
       (if (evidence) Set("source", "scenes") else Set("evidencePath")) ++
       (if (v2) Set("visualInputs", "visualPages", "effectiveRenderers") else Set.empty[String])
     val allowed = required ++ (if (evidence && !v2) Set("visualInputs") else Set.empty[String])
-    if (!required.subsetOf(fields.keys.toSet) || !fields.keys.toSet.subsetOf(allowed))
+    val fields = _known_review_fields(value.asObject.get, allowed)
+    if (!required.subsetOf(fields.keys.toSet))
       _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", "review document required fields are missing or unknown")
     val reference = if (evidence) "source" else "evidencePath"
     if (!fields(reference).flatMap(_.asString).exists(text => text.nonEmpty && text == text.trim))
@@ -671,14 +672,17 @@ private[cozy] trait CozyVideoStoryboardReview {
       if (fields(name).flatMap(_.asArray).isEmpty)
         _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", s"$name must be an array")
     }
-    _validate_review_rows(value, v2, label)
+    _validate_review_rows(Json.fromJsonObject(fields), v2, label)
   }
+
+  private def _known_review_fields(fields: io.circe.JsonObject, names: Set[String]): io.circe.JsonObject =
+    fields.filterKeys(names.contains)
 
   private def _validate_review_rows(value: Json, v2: Boolean, label: String): Unit = {
     def _invalid_(message: String): Nothing = _review_failure(s"STORYBOARD_REVIEW_${label}_MALFORMED", message)
     def _rows_(name: String): Vector[Json] = value.hcursor.downField(name).focus.flatMap(_.asArray).toVector.flatten
     def _fields_(row: Json, names: Set[String]): io.circe.JsonObject = {
-      val fields = row.asObject.getOrElse(_invalid_("review entry must be an object")).remove("identity")
+      val fields = _known_review_fields(row.asObject.getOrElse(_invalid_("review entry must be an object")), names)
       if (fields.keys.toSet != names) _invalid_(s"review entry requires fields: ${names.toVector.sorted.mkString(", ")}")
       fields
     }
@@ -718,8 +722,8 @@ private[cozy] trait CozyVideoStoryboardReview {
       val fields = _fields_(row, Set("partId", "configuration"))
       val configuration = fields("configuration").get
       val names = Set("engine", "strategy", "policy", "fps", "width", "height", "crf", "x264Preset", "effectProfile")
-      _fields_(configuration, names)
-      if (configuration.as[VideoRenderer].isLeft) _invalid_("renderer configuration is invalid")
+      val knownconfiguration = Json.fromJsonObject(_fields_(configuration, names))
+      if (knownconfiguration.as[VideoRenderer].isLeft) _invalid_("renderer configuration is invalid")
       _reference_(fields, "partId")
     }
     _unique_(parts, "renderer part IDs")
@@ -733,18 +737,17 @@ private[cozy] trait CozyVideoStoryboardReview {
   private def _visual_page_references(value: Json): Vector[Json] = {
     def _invalid_(message: String): Nothing = _review_failure("STORYBOARD_REVIEW_VISUAL_PAGE_PROOF_INVALID", message)
     def _exact_string_(value: Option[Json]): Boolean = value.flatMap(_.asString).exists(text => text.nonEmpty && text == text.trim)
-    val removed = Set("visualPageSetIdentity", "catalogIdentity", "logicalIdentity", "visualPageIdentity", "bindingIdentity", "visualPageSet", "catalogValue", "logical", "visualPage", "binding")
     val references = value.hcursor.downField("visualPages").focus.flatMap(_.asArray).getOrElse(_invalid_("visualPages must be an array")).toVector.map { page =>
-      val fields = page.asObject.map(_.filterKeys(name => !removed.contains(name))).getOrElse(_invalid_("visualPages entry must be an object"))
       val names = Vector("sceneId", "kind", "source", "catalog", "pageId", "assets")
+      val fields = _known_review_fields(page.asObject.getOrElse(_invalid_("visualPages entry must be an object")), names.toSet)
       if (fields.keys.toVector != names || !names.dropRight(1).forall(name => _exact_string_(fields(name))))
         _invalid_("visualPages entry requires exact sceneId,kind,source,catalog,pageId strings and assets")
       if (fields("kind").flatMap(_.asString) != Some("visual-page"))
         _invalid_("visualPages kind must be visual-page")
       val assets = fields("assets").flatMap(_.asArray).getOrElse(_invalid_("visualPages.assets must be an array"))
       assets.foreach { asset =>
-        val assetfields = asset.asObject.getOrElse(_invalid_("visualPages asset must be an object")).remove("sha256")
         val assetnames = Vector("id", "path", "mediaType", "modifiedAt")
+        val assetfields = _known_review_fields(asset.asObject.getOrElse(_invalid_("visualPages asset must be an object")), assetnames.toSet)
         if (assetfields.keys.toVector != assetnames || !assetnames.forall(name => _exact_string_(assetfields(name))))
           _invalid_("visualPages asset requires id,path,mediaType,modifiedAt strings")
       }

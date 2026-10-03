@@ -138,34 +138,55 @@ ownership conflict, or concurrent snapshot change fails without mutation.
 
 Complete candidate preflight records an internal evidence snapshot that is
 never serialized to the provider-neutral SmartDox record. The snapshot includes
-the exact descriptor file identity and content digest, its parsed top-level and
-resource `articleMedia` declarations, the selected publication-profile
+the descriptor's normalized and real path, fileKey, size, modification time,
+exact bytes and parsed top-level and resource `articleMedia` declarations, the selected publication-profile
 definition and resolved real root, the selected resource publication mapping
 and resolved normalized destination, and, for each selected candidate, the
 following evidence:
 
-- an infographic destination's direct-file real identity and SHA-256 (and its
-  deterministic size when available); or
-- a video's production direct-file identity and SHA-256, together with its
+- an infographic destination's normalized and real path, fileKey, size, and
+  modification time; or
+- a video's production normalized and real path, fileKey, size, and
+  modification time, together with its
   parsed required fields and validated URL; or
 - a PDF candidate's resolved direct output (or source for a prebuilt
-  resource), with direct-file identity, deterministic size, and SHA-256,
+  resource), with normalized and real path, fileKey, size, and modification time,
   together with current `cozy.media.receipt.v2` and
   `cozy.media.pdf-review-state.v1` evidence.
 
 Under the same real-publication-root transaction/lock, after registry snapshot
 revalidation and immediately before atomic registry replacement, the command
-re-reads, re-resolves, re-hashes, and re-parses every selected candidate from
+re-reads, re-resolves, and re-parses every selected candidate from
 its original admitted paths and compares the result with its preflight
 snapshot. It re-reads descriptor, profile, and resource declarations, and
 rechecks no symlink traversal, direct-regular-file status, root containment,
 and every semantic validation rule. Any descriptor, profile,
-resource mapping, `publicPath`/`production` metadata, destination bytes or path
-identity, status, URL, disappearance, symlink substitution, or other
+resource mapping, `publicPath`/`production` metadata, descriptor bytes, fileKey,
+size, modification time, path identity, status, URL, disappearance, symlink substitution, or other
 validation drift aborts before mutation. All candidates must pass this final
-revalidation; no partial write is allowed. Internal evidence hashes and path
+revalidation; no partial write is allowed. Internal file metadata and path
 identities never appear in the SmartDox record, and strict-only registration
 still creates no Cozy-integrity entry.
+
+Each direct-file snapshot reads attributes before, between, and after two
+transient byte reads. All observations must agree on fileKey, size, and
+modification time, both read lengths must match the observed size, and the two
+byte arrays must agree directly. This checks consistency during a read; it
+does not store a payload fingerprint. Normal freshness uses existence,
+modification time, and declared inputs. Revalidation does not promise to detect
+every same-size payload rewrite whose modification time is deliberately restored.
+PDF selection calls ordinary receipt and PDF review-state `requireCurrent`
+APIs. Copy/prebuilt freshness uses direct source (and explicitly named site-video
+production where applicable), rather than knowledge or package-wide inputs.
+The selected PDF state checks known typed metadata only; stale unselected PDFs
+cannot veto the selected PDF. Stored extras are ignored generically. No site-only
+retained-output/state fallback or accepted-output/state digest is used.
+Failures name the currentness stage, resource ID, actual input/output/state or
+manifest path, producer and the next target build. Valid timestamp-preserved
+rewrites have no digest-detection promise. Current-command input validation and
+race checks are retained; presentation artifacts/renderer hashes remain
+unfinished S03 work. Distribution source/staged/destination byte integrity is
+unchanged.
 
 ### Infographic
 
@@ -202,7 +223,7 @@ For an `article_pdf` or `summary_slides_pdf` candidate:
 The emitted PDF reference contains exactly `public_path`, `media_type`, and
 optional `label`. It contains no Cozy path, hash, receipt, renderer, or
 integrity fields. The output evidence is internal to the immutable plan and is
-re-read, re-resolved, re-hashed, and currentness-checked during final
+re-read, re-resolved, checked for matching file metadata, and currentness-checked during final
 revalidation under the publication-root lock. Registration does not generate,
 copy, or publish the PDF, and does not change the Phase 40 renderer, receipt,
 or review-state semantics.

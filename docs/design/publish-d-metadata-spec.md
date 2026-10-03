@@ -794,7 +794,14 @@ source-manifest
 Purpose:
 
 - records source files included in the project knowledge extraction scope
-- provides deterministic checksums for future change detection and knowledge refresh
+- records deterministic project-relative paths and actual file sizes
+
+Phase 71.3 removes the local source-manifest SHA computation and field. This
+inventory is not freshness or approval evidence and has no replacement identity
+or compatibility checksum field. Source-manifest opt-in/out, exclusions, project
+coordinates, public metadata, and deterministic ordering remain unchanged.
+Maven/release and actual distributed-artifact checksums retain their separate
+byte-integrity purpose; accepted provider schemas are not reopened.
 
 Each file entry contains:
 
@@ -802,7 +809,6 @@ Each file entry contains:
 |-------|---------|
 | `path` | Project-relative source path using `/`. |
 | `size` | File size in bytes. |
-| `sha256` | SHA-256 checksum in lowercase hex. |
 
 YAML shape:
 
@@ -810,7 +816,6 @@ YAML shape:
 files:
   - path: "build.sbt"
     size: 1234
-    sha256: "..."
 ```
 
 JSON shape:
@@ -820,8 +825,7 @@ JSON shape:
   "files": [
     {
       "path": "build.sbt",
-      "size": 1234,
-      "sha256": "..."
+      "size": 1234
     }
   ]
 }
@@ -873,8 +877,9 @@ maven-repository
 Generation is deterministic for the same input tree and options:
 
 - output file paths are derived from `project.name`
-- source manifest entries are sorted by relative path
-- file checksums are SHA-256
+- source manifest entries contain only relative paths and actual byte sizes,
+  sorted by relative path
+- actual Maven/release artifact integrity checksums are SHA-256
 - generated YAML/JSON pairs carry equivalent core fields
 
 ---

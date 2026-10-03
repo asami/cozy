@@ -395,8 +395,10 @@ approval. External reviewers retain that responsibility.
 
 Saved scene, visual-input, and renderer entries retain their required non-hash
 field types. Scene arrays are nonempty; visual-input references, renderer part
-IDs, visual-page scene IDs, and per-page asset IDs must be unique. Removed
-entry-level `identity` and asset `sha256` values are ignored. Visual-copy safety
+IDs, visual-page scene IDs, and per-page asset IDs must be unique. Generated
+evidence readers positively select their known semantic fields at every object
+and ignore unspecified properties of any JSON type. They use no named
+historical-field exclusion mask. Visual-copy safety
 includes every parent component below the evidence directory. These checks do
 not compare historical scene content or renderer settings with current values.
 
@@ -423,8 +425,9 @@ page, binding, renderer, path, or identity. Generated evidence and handoff
 Assets retain ordered `{id,path,mediaType,modifiedAt}` declarations/observations,
 with full `FileTime.toString` precision. Current referenced safe files are
 resolved directly. DM14 deletes the four VisualPage digests and copied Binding
-proof; old hash/replacement-value properties may have any JSON value and are
-ignored, not interpreted or emitted. An old VisualPage/assets/Binding snapshot
+proof; ordinary readers select only `sceneId,kind,source,catalog,pageId,assets`
+and `id,path,mediaType,modifiedAt` respectively, retaining their required relative
+key order and exact string types while ignoring arbitrary extras. An old VisualPage/assets/Binding snapshot
 is not required to equal current inputs.
 
 DM14 removes the review-local Storyboard/approval/evidence/handoff digests,
@@ -443,10 +446,37 @@ uses its own declared safe Storyboard source under the Phase 71 boundary.
 The v2 evidence fields are `schema,status,source,scenes,visualInputs,
 visualPages,effectiveRenderers`. Handoff fields are
 `schema,status,evidencePath,visualInputs,visualPages,effectiveRenderers`.
-Historical root `identity,storyboardIdentity,evidenceIdentity`, visual-input
-identities and effective-renderer identities are ignored without digest parsing.
-Generated records omit all of them. VisualPage operational entries remain
+Root reading selects the semantic names for the schema/label: v1 evidence
+requires schema/status/source/scenes with optional visualInputs; v2 evidence and
+handoff require their listed fields. An unspecified root collection, including
+`scenes` on a handoff, is ignored and is not passed into row validation. Missing
+required collections still reject. No top-level key-order constraint is added.
+Scene rows require section/speaker/role/narration/caption/transition/direction
+strings, numeric duration/leadSilence, and the existing discriminated screen
+fields: v1 heading/content; v2 text kind/heading/content or visual-page
+kind/source/catalog/pageId. Visual inputs require safe relative reference/source/
+path strings and unique references. Effective renderers require unique nonempty
+partId and configuration with every existing field present: engine, strategy,
+policy, fps, width, height, crf, x264Preset, effectProfile. Positive projection
+precedes the unchanged VideoRenderer decoding and domain checks, including its
+existing null/value types. Extras do not make a configuration field optional.
+Arbitrary extras are ignored at all these generated row/configuration levels.
+Generated records remain deterministic and omit hashes; authored Storyboard,
+Scene/Screen and configuration parsing, review declarations and approval
+ownership are unchanged. VisualPage operational entries remain
 structurally validated, but are not compared as historical currentness proofs.
+
+The public CrossReview consumer still invokes `storyboardReviewCurrent`, resolves
+actual live selected assets, compares material bytes across roots, protects all
+participating inputs and atomically preserves its prior aggregate on failure.
+Its generated root/slides/pages/assets/verification and Presentation
+wrappers/slides use the same ordinary positive known-field principle while
+retaining their existing required relative order and `not-recorded` approval
+values. Timestamp-preserved valid Presentation edits are not promised historical
+content detection; actual path/PNG/PPTX/OOXML/material QA remains. This direct
+reader amendment adds no feature or Phase closure. SummarySlidesPdf S07,
+Publisher/rsync, final named-integrity audit, English-PDF and complete isolated-site
+drivers remain pending.
 
 ### 9.2 P30-03 Storyboard build and confirmation contract
 

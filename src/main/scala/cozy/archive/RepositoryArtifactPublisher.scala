@@ -20,7 +20,8 @@ import scala.util.control.NonFatal
  * @since   May. 20, 2026
  *  version Jun. 23, 2026
  *  version Jul. 21, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object RepositoryArtifactPublisher {
@@ -103,7 +104,7 @@ private[cozy] object RepositoryArtifactPublisher {
       val updatedindex = ComponentRepositoryIndex.update(existingindex, catalog, generatedat)
       val writes = scala.collection.mutable.LinkedHashMap.empty[Path, Option[Path]]
       writes += target -> Some(archivecandidate)
-      policy.coordinate.foreach { _ =>
+      if (policy.coordinate.isDefined || policy.kind == "sar") {
         writes += target.resolveSibling(target.getFileName.toString + ".sha256") ->
           Some(_stage_(_stage_text(target.resolveSibling(target.getFileName.toString + ".sha256"), sha256(archivecandidate) + "\n")))
       }

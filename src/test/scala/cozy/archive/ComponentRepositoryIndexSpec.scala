@@ -11,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 21, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -100,6 +101,208 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
         Then("both parser failures retain the stable production diagnostic")
         rooterror.getMessage should include("Invalid component repository index JSON")
         entryerror.getMessage should include("Invalid component repository index JSON")
+      }
+    }
+
+    "admit SAR distribution bytes" which {
+      "accepts schema1 records without CAR coordinates or integrity keys" in {
+        _with_temp_dir("sar-schema1") { dir =>
+          Given("a schema1 SAR catalog, its actual release bytes and exact SHA sidecar")
+          val catalog = _sar_fixture(dir)
+          val index = _sar_index(catalog)
+          When("the distribution index admits the release")
+          val admitted = ComponentRepositoryIndex.validateCatalogs(index, dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+          Then("SAR identity and schema remain unchanged")
+          admitted shouldBe index
+          catalog.schemaVersion shouldBe "1"
+          catalog.namespace shouldBe empty
+          catalog.id shouldBe empty
+          catalog.versions.head.integrityKey shouldBe empty
+        }
+      }
+
+      "rejects archive tampering that preserves size and modification time" in {
+        _with_temp_dir("sar-tampered") { dir =>
+          Given("an installed SAR and its original checksum records")
+          val catalog = _sar_fixture(dir)
+          val archive = dir.resolve(catalog.versions.head.file.get)
+          val originaltime = Files.getLastModifiedTime(archive)
+          val originalsize = Files.size(archive)
+          When("actual archive bytes change while size and time remain equal and admission is requested")
+          Files.write(archive, "SAR-BODY".getBytes(StandardCharsets.UTF_8))
+          Files.setLastModifiedTime(archive, originaltime)
+          val error = intercept[IllegalArgumentException] {
+            ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+          }
+          Then("actual-byte disagreement rejects with the SAR checksum diagnostic")
+          Files.size(archive) shouldBe originalsize
+          Files.getLastModifiedTime(archive) shouldBe originaltime
+          error.getMessage should include("component.repository.integrity.mismatch")
+          error.getMessage should include("kind=sar")
+          error.getMessage should include("field=checksum.sha256")
+        }
+      }
+
+      "rejects a missing archive and missing or wrong sidecars" in {
+        Vector("archive", "missing-sidecar", "wrong-sidecar").foreach { defect =>
+          _with_temp_dir("sar-missing-record") { dir =>
+            Given(s"an installed SAR with $defect")
+            val catalog = _sar_fixture(dir)
+            val archive = dir.resolve(catalog.versions.head.file.get)
+            val sidecar = archive.resolveSibling(archive.getFileName.toString + ".sha256")
+            defect match {
+              case "archive" => Files.delete(archive)
+              case "missing-sidecar" => Files.delete(sidecar)
+              case _ => _write(sidecar, "0" * 64 + "\n")
+            }
+            When("the installed distribution is admitted")
+            val error = intercept[IllegalArgumentException] {
+              ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+            }
+            Then("the missing or mismatched record is rejected for the named SAR")
+            error.getMessage should include("component.repository.integrity.mismatch")
+            error.getMessage should include("kind=sar artifact=sample-app")
+            error.getMessage should include(if (defect == "archive") "field=archive" else "field=sha256-sidecar")
+          }
+        }
+      }
+
+      "rejects missing invalid and wrong catalog checksums" in {
+        Vector(None, Some("invalid"), Some("0" * 64)).foreach { checksum =>
+          _with_temp_dir("sar-catalog-checksum") { dir =>
+            Given("actual SAR bytes with an incomplete or disagreeing catalog checksum")
+            val original = _sar_fixture(dir)
+            val catalog = original.copy(versions = original.versions.map(_.copy(checksumSha256 = checksum)))
+            _write(dir.resolve("repository/catalog/sar/sample-app.yaml"), catalog.toYaml)
+            When("the distribution index admits the catalog")
+            val error = intercept[IllegalArgumentException] {
+              ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+            }
+            Then("checksum admission rejects rather than skipping incomplete releases")
+            error.getMessage should include("kind=sar")
+            error.getMessage should include("field=checksum.sha256")
+          }
+        }
+      }
+
+      "rejects unsafe versions and noncanonical archive paths" in {
+        val cases = Vector(".", "..", "nested/version", "nested\\version").map { version =>
+          version -> s"repository/sar/sample-app/$version/sample-app-$version.sar"
+        } ++ Vector(
+          "1.0.0" -> "../sample-app-1.0.0.sar",
+          "1.0.0" -> "repository/sar/other/1.0.0/sample-app-1.0.0.sar",
+          "1.0.0" -> "repository/sar/sample-app/1.0.0/wrong.sar"
+        )
+        cases.foreach { case (version, file) =>
+          _with_temp_dir("sar-unsafe-path") { dir =>
+            Given("a schema1 SAR catalog naming an unsafe version or wrong file path")
+            val original = _sar_fixture(dir)
+            val catalog = original.copy(recommended = Some(version), latestStable = Some(version),
+              versions = original.versions.map(_.copy(version = version, file = Some(file))))
+            _write(dir.resolve("repository/catalog/sar/sample-app.yaml"), catalog.toYaml)
+            When("the distribution is admitted")
+            val error = intercept[IllegalArgumentException] {
+              ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+            }
+            Then("the canonical SAR path contract rejects before reading another archive")
+            error.getMessage should include("kind=sar")
+            error.getMessage should include(if (version == "1.0.0") "field=file" else "field=version")
+          }
+        }
+      }
+
+      "admits prospective archive and sidecar bytes and rejects their disagreement" in {
+        _with_temp_dir("sar-candidates") { dir =>
+          Given("installed SAR records and matching prospective archive, sidecar and catalog siblings")
+          val original = _sar_fixture(dir)
+          val archive = dir.resolve(original.versions.head.file.get)
+          val sidecar = archive.resolveSibling(archive.getFileName.toString + ".sha256")
+          val catalogpath = dir.resolve("repository/catalog/sar/sample-app.yaml")
+          val candidatearchive = _write(dir.resolve("candidate/archive.sar"), "candidate-\u65e5\u672c\u8a9e")
+          val digest = _sha256(Files.readAllBytes(candidatearchive))
+          val catalog = original.copy(versions = original.versions.map(_.copy(checksumSha256 = Some(digest))))
+          val candidatecatalog = _write(dir.resolve("candidate/sample-app.yaml"), catalog.toYaml)
+          val candidatesidecar = _write(dir.resolve("candidate/archive.sar.sha256"), digest + "\n")
+          val overlay = Map(archive -> Some(candidatearchive), sidecar -> Some(candidatesidecar), catalogpath -> Some(candidatecatalog))
+          When("prospective admission uses all prepared bytes")
+          val admitted = ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH), overlay)
+          Then("matching candidates are admitted without changing installed records")
+          admitted shouldBe _sar_index(catalog)
+          Files.readString(archive) shouldBe "sar-body"
+          RepositoryArtifactCatalog.load(catalogpath) shouldBe original
+
+          When("a prospective sidecar disagrees with its archive")
+          _write(candidatesidecar, "0" * 64 + "\n")
+          val sidecarerror = intercept[IllegalArgumentException] {
+            ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH), overlay)
+          }
+          Then("candidate sidecar disagreement rejects")
+          sidecarerror.getMessage should include("field=sha256-sidecar")
+
+          When("prospective archive bytes disagree with the catalog checksum")
+          _write(candidatearchive, "different-candidate")
+          val archiveerror = intercept[IllegalArgumentException] {
+            ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH), overlay)
+          }
+          Then("candidate archive disagreement rejects")
+          archiveerror.getMessage should include("field=checksum.sha256")
+        }
+      }
+
+      "rejects explicit candidate absence for archive sidecar and catalog" in {
+        _with_temp_dir("sar-candidate-absence") { dir =>
+          Given("valid installed SAR records that would otherwise provide fallback bytes")
+          val catalog = _sar_fixture(dir)
+          val archive = dir.resolve(catalog.versions.head.file.get)
+          val paths = Vector(archive, archive.resolveSibling(archive.getFileName.toString + ".sha256"),
+            dir.resolve("repository/catalog/sar/sample-app.yaml"))
+          paths.foreach { path =>
+            When("a prospective transaction explicitly removes a required SAR record")
+            val error = intercept[IllegalArgumentException] {
+              ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH), Map(path -> None))
+            }
+            Then("intended absence rejects without falling back to installed bytes")
+            error.getMessage should include("kind=sar")
+            error.getMessage should include("actual=intended-absence")
+          }
+        }
+      }
+
+      "restores installed publication bytes after a SAR sidecar forward-install failure" in {
+        _with_temp_dir("sar-sidecar-rollback") { dir =>
+          Given("an installed public SAR release and captured catalog, index, archive and sidecar bytes")
+          val project = dir.resolve("project")
+          val warehouse = dir.resolve("warehouse")
+          _write(project.resolve("project.yaml"), "project:\n  name: sample-app\npackaging:\n  kind: sar\n")
+          val input = _write(dir.resolve("input.sar"), "first-sar-body")
+          _publish_sar(project, warehouse, input)
+          val archive = warehouse.resolve("repository/sar/sample-app/1.0.0/sample-app-1.0.0.sar")
+          val sidecar = archive.resolveSibling(archive.getFileName.toString + ".sha256")
+          val paths = Vector(archive, sidecar, project.resolve("src/main/catalog/sar/sample-app.yaml"),
+            warehouse.resolve("repository/catalog/sar/sample-app.yaml"), warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH),
+            warehouse.resolve("repository/sar/sample-app/maven-metadata.xml"))
+          val originals = paths.map(path => path -> Files.readAllBytes(path).toVector).toMap
+          _write(input, "replacement-sar-body")
+          When("republishing fails while installing the prepared SAR sidecar")
+          val previousfault = RepositoryArtifactPublisher._publication_move_fault
+          val error = try {
+            RepositoryArtifactPublisher._publication_move_fault = Some { destination =>
+              if (destination == sidecar) throw new IllegalStateException("SAR sidecar forward-install failure")
+            }
+            intercept[IllegalStateException](_publish_sar(project, warehouse, input))
+          } finally RepositoryArtifactPublisher._publication_move_fault = previousfault
+          Then("all prior visible records are restored and prepared and rollback artifacts are removed")
+          error.getMessage shouldBe "SAR sidecar forward-install failure"
+          paths.foreach(path => Files.readAllBytes(path).toVector shouldBe originals(path))
+          val stream = Files.walk(dir)
+          val remaining = try stream.iterator().asScala.filter(_ != dir).map(_.getFileName.toString).toVector finally stream.close()
+          remaining.filter(name => name.contains("-prepare-") || name.contains("-rollback-")) shouldBe empty
+          val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
+          When("the restored distribution is admitted again")
+          val admitted = ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath)
+          Then("the restored SAR records remain admissible")
+          admitted.artifacts.head.kind shouldBe "sar"
+        }
       }
     }
 
@@ -316,6 +519,22 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
 
   private def _sha256(bytes: Array[Byte]): String =
     MessageDigest.getInstance("SHA-256").digest(bytes).map(value => "%02x".format(value & 0xff)).mkString
+
+  private def _sar_fixture(root: Path): RepositoryArtifactCatalog = {
+    val archive = _write(root.resolve("repository/sar/sample-app/1.0.0/sample-app-1.0.0.sar"), "sar-body")
+    val digest = _sha256(Files.readAllBytes(archive))
+    _write(archive.resolveSibling(archive.getFileName.toString + ".sha256"), digest + "\n")
+    val catalog = _catalog("sar", "sample-app", Vector(_version("sar", "sample-app").copy(checksumSha256 = Some(digest))))
+    _write(root.resolve("repository/catalog/sar/sample-app.yaml"), catalog.toYaml)
+    catalog
+  }
+
+  private def _sar_index(catalog: RepositoryArtifactCatalog): ComponentRepositoryIndex =
+    ComponentRepositoryIndex.update(None, catalog, Instant.parse("2026-10-04T00:00:00Z"))
+
+  private def _publish_sar(project: Path, warehouse: Path, archive: Path): Unit =
+    CozySarPublisher.publish(List(project.toString, "--warehouse", warehouse.toString, "--name", "sample-app",
+      "--version", "1.0.0", "--sar", archive.toString, "--published-at", "2026-10-04T00:00:00Z"))
 
   private def _write(path: Path, text: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))

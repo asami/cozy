@@ -14,6 +14,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
 import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
+import java.nio.file.attribute.FileTime
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -23,7 +24,7 @@ import scala.util.control.NonFatal
  * @since   Jun. 19, 2026
  *  version Jul. 20, 2026
  *  version Aug. 19, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -203,15 +204,15 @@ private[cozy] object CozyVideoPublisher {
     forceRequested: Boolean
   )
 
-  /* Immutable, canonical evidence for every package-owned input that the
-   * publisher copies into a workspace or interprets while assembling the
-   * project.  The explicit state also makes an optional semantic asset's
-   * absent/present transition observable without discovering outside the
-   * resolved package root. */
+  /* Ordered unique path/state/FileTime observations of the resolved producer
+   * inputs, used only within this publication operation before/after rendering.
+   * Optional presence changes are observable; directory times are not compared.
+   * These values are never serialized or approval evidence, and valid byte
+   * changes preserving file times have no historical detection guarantee. */
   final case class ProducerSource(
     path: String,
     state: String,
-    sha256: Option[String]
+    modifiedTime: Option[FileTime]
   )
 
   final case class ProducerSourceEvidence(sources: Vector[ProducerSource])
@@ -522,7 +523,7 @@ private[cozy] object CozyVideoPublisher {
     val resolved = candidate.toRealPath()
     if (!resolved.startsWith(root))
       RAISE.invalidArgumentFault(s"Video $label source real path escapes its package: $value")
-    ProducerSource(root.relativize(candidate).toString.replace('\\', '/'), "file", Some(_sha256(candidate)))
+    ProducerSource(root.relativize(candidate).toString.replace('\\', '/'), "file", Some(Files.getLastModifiedTime(candidate, LinkOption.NOFOLLOW_LINKS)))
   }
 
   private def _semantic_producer_source(root: Path, id: String, entry: CozyVideoAssets.Entry): ProducerSource = {

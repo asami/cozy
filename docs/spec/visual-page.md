@@ -323,10 +323,10 @@ selected output bytes and reports; a valid label change reaches the selected
 output without identity rebinding. Optional PNG presence follows command
 selection only.
 
-Direct Preview provenance and DM12 material-field removal do not complete the
-remaining core, catalog, binding, renderer, receipt, and output identity
-migrations. These remain unfinished same-Phase obligations, not permanent
-integrity exemptions. This section does not claim
+Direct Preview provenance and DM12 material-field removal alone do not complete
+the subsequent core/catalog/binding and Presentation/receipt migrations. Their
+current contracts are specified below, including the migrated SummarySlidesPdf
+renderer subsystem. Publisher/rsync and the final named-integrity audit remain pending. This section does not claim
 full inventory removal, timestamp currentness/adoption, Step or Phase completion,
 or downstream consumer acceptance.
 
@@ -448,22 +448,67 @@ file. The `source` must parse as exactly
  `cozy.presentation.render.v2`. Actual current PageSet, catalog, and Binding
 loading remains required for rendering; historical copies do not.
 
-After ignoring obsolete `visualPageSetSha256`, `catalogSha256`,
-`visualPageSet`, `catalog`, and `binding` properties, v2 renderer fields are
-exactly ordered `schema,target,profile,renderer,templateSha256,pptx,slides,montage`.
-Those five obsolete properties may be absent or hold any JSON value; no proof
-type, digest, or full-value equality is required or re-emitted. Page-ordered
-slides retain `id,path,sha256,pptxSha256,assets` with ordered unique asset IDs.
+The v2 renderer's required relative field order is
+`schema,target,profile,renderer,pptx,slides,montage`. Renderer requires
+`name,version`; PPTX and montage require `path`; page-ordered slides require
+relative order `id,path,assets` with ordered unique `{id}` assets. Ordinary
+generated-evidence readers positively select those known fields and ignore
+arbitrary extra metadata at every object level. No template/output/slide/montage
+hash, copied semantic value or replacement content proof is required or emitted.
 Actual paths, PPTX relationship/media structure, PDF/PNG formats, required
 outputs, and current declared asset-byte agreement remain validated.
 
-Presentation review's `visualPageSet`, `catalog`, and `binding` wrappers
-are exactly `{path}`. No PageSet/catalog/logical/page/Binding snapshot is
+Presentation review's `visualPageSet`, `catalog`, `binding`, `template` and
+`pptx` wrappers are `{path}`; slides are `{id,path}`, assets are
+`{id,path,mediaType}`, montage is `{id,role,path}`, article PDF and infographic
+are `{id}`. Root schema/target/knowledge/language, renderer `name,version`, and
+verification `status:valid,findings:[]` remain required. Recursive positive
+known-field projection verifies those current required semantics and array
+order while ignoring arbitrary nested extras. Missing or wrong paths, page
+IDs, assets, media types or status reject. No PageSet/catalog/logical/page/Binding snapshot is
 copied into VisualPage evidence. Renderer argv is unchanged, and external
-renderer implementation or acceptance is not claimed. Existing template,
-output, input-set, receipt, review-state, and other artifact hashes/currentness
-checks are unfinished later same-Phase work, not integrity exemptions or
-Phase completion. Failed generation preserves the previous successful output.
+renderer implementation or acceptance is not claimed. Presentation receipt
+artifacts contain only `id,role,path`; review-state snapshots contain only UTC
+ISO-8601 `acceptedAt`, with generic extras ignored and the root state grammar
+closed. Ordinary dependency/modification-time and generation-companion checks
+remain. Unchanged reuse preserves explicit alignment; a newer review generation
+requires realignment even with identical bytes. Structurally valid edits at
+preserved timestamps have no historical-content-detection guarantee. Actual
+PNG/PPTX/OOXML and one-for-one selected-asset byte checks still reject invalid
+same-time edits. Renderer files remain direct outputs; no atomic primary-output
+transaction is added. Accepted receipt/review-state and CrossReview failure
+preservation remain as owned by their existing installations. The SummarySlidesPdf
+renderer subsystem is migrated under S07; publication/site follow-ups remain
+pending without a Phase closure claim.
+
+The direct SummarySlidesPdf v1/v2 readers require relative root order
+`schema,target,profile,renderer,pdf,slides,montage[,pptx]` and positively select
+known fields at every object, ignoring arbitrary extra metadata. Renderer
+`name,version` are exact profile identities; `pdf.pageCount` is a positive
+integer agreeing with both current authority and actual PDFBox pages, with no
+required PDF path. Ordered unique slide/page IDs and asset IDs remain required;
+v1 additionally requires the matching title. Both routes require slide paths
+and montage `path`; configured PPTX requires `path`, while an unconfigured
+`pptx` field rejects. Missing/null/wrong known fields and unsafe paths reject.
+The authored configuration grammar is unchanged.
+
+The actual direct PDF must have its PDF header and parse in PDFBox. Slide and
+montage files retain their PNG-signature and safe direct-file floor. Visual
+Page declared asset media types and raw bytes must agree with current selected
+resources. The optional PPTX retains only its configured direct-file sidecar
+floor, with no new OOXML or render-equivalence promise. Sorted operation-local
+input Path/FileTime observations and current receipt-input FileTime observations
+are compared across rendering and never persisted as identity. A changed
+observed time or missing/unsafe input rejects before primary installation;
+valid timestamp-preserved changes have no historical-content-detection promise,
+while actual invalid PDF/page-count/required structure still rejects.
+
+Same-parent staged ATOMIC_MOVE preserves prior primary PDF bytes and receipt
+on modeled pre-install failure and cleans the staged primary. Renderer
+sidecars remain direct outputs with no atomicity or rollback promise after an
+invoked renderer fails. This subsystem migration does not claim Phase inventory,
+Step/Phase closure, EnglishPDF or isolated-site proof. ProducerSource/BoK
+metadata, generated rsync and the final named-integrity audit remain unfinished.
 
 The existing slide-IR source and `--slide-ir` route remain separate. DM12 also
 requires only ordered unique asset IDs from `cozy.presentation.render.v1`,
@@ -496,14 +541,18 @@ resolved identity inference are prohibited.
 A v2 Storyboard identity contains the screen reference. Generated v2
 `visualPages` entries are exactly `sceneId,kind,source,catalog,pageId,assets`;
 assets retain `{id,path,mediaType,modifiedAt}` observations. DM14 deletes the
-four VisualPage digests and copied Binding proof, ignores legacy removed proof
-properties, and does not compare old VisualPage/assets/Binding snapshots with
+four VisualPage digests and copied Binding proof. Ordinary evidence readers
+select only known root fields, scenes/screens, visual inputs, effective
+renderers/configurations and visual pages/assets, ignoring every unspecified
+property without a named legacy mask. Required fields/types, renderer decoding,
+existing relative page/asset key order, unique IDs and direct-file safety remain.
+These generated objects do not widen authored Storyboard or configuration
+grammar, and do not compare old VisualPage/assets/Binding snapshots with
 current values. Actual current referenced PageSet/catalog/page/Binding and safe
 files are validated separately. Narration, timing, and audiovisual authority
-are unchanged. Storyboard/approval/evidence self-identities, optional
-visual-input hashes, effective-renderer identities, and independent v1 video
-contracts remain unfinished later obligations; their presence does not make
-the removed proof gates required.
+are unchanged. Storyboard/approval/evidence self-identities, optional visual-input
+hashes and effective-renderer identities are removed under the Storyboard review
+contract. Independent confirmation/runtime/publication ownership is unchanged.
 
 v1 remains exactly as accepted. Only explicit
 `cozy video storyboard migrate --from v1 --to v2 --screen text <input> --save

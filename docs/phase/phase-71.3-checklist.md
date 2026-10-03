@@ -1,25 +1,24 @@
 # Phase 71.3 Checklist
 
-Phase status: PLANNED
-Updated: 2026-09-29
+Phase status: IN-PROGRESS
+Updated: 2026-10-04
 Ledger for: [Phase 71.3](phase-71.3.md)
 Primary owner: Cozy
 Repository-full validation: aggregate-deferred to PHASE-71.4
 
-Implementation not started. These are the only OPEN obligations owned by this
-Phase; the original P710-03/P710-04 labels are partitioned, not additional work.
-No child execution or acceptance is implied by applying the planning split.
+P710-03-SITE implementation and focused specifications have validated evidence
+in the [implementation journal](../journal/2026/10/2026-10-04-phase-71.3-site-adapter-implementation.md), including original S10 193/193 across thirteen suite instances and the separate SAR repair 91/91 across seven suites with fifty observed public property trials. BEHAVIOR and SPEC record that focused owned adapter/integrity evidence; they do not establish the P710-04 actual complete-site/PDF driver proof. Step acceptance and commit remain pending. The original P710-03/P710-04 labels remain partitioned, not additional work.
 
 ## P710-03-SITE: Site/PDF/prebuilt and publication-integrity adapter correction
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN-PROGRESS
 - Owner: Cozy
 - Update rule: close only against the following checklist and accepted executable evidence
 
-- [ ] P710-03-SITE-BEHAVIOR: The corresponding owned scope in Phase 71.3 satisfies its observable behavior and produces the declared frozen handoff; record actual driver/output evidence where required, not a configuration-only claim.
-- [ ] P710-03-SITE-SPEC: Affected subsystem specification and Given/When/Then executable specifications, including changed consumers and relevant failure behavior, are reconciled and focused validation succeeds.
+- [x] P710-03-SITE-BEHAVIOR: The corresponding owned scope in Phase 71.3 satisfies its observable behavior and produces the declared frozen handoff; record actual driver/output evidence where required, not a configuration-only claim.
+- [x] P710-03-SITE-SPEC: Affected subsystem specification and Given/When/Then executable specifications, including changed consumers and relevant failure behavior, are reconciled and focused validation succeeds.
 - [ ] P710-03-SITE-ACCEPT: Independent Step acceptance review and the exact Step acceptance commit bind this owned result without claiming successor implementation.
 
 ## P710-04-SITE: Complete local site and unchanged English PDF acceptance

@@ -15,7 +15,8 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -460,14 +461,14 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       }
 
       "reject a stale expected configured snapshot without rewriting the bundle" in {
-        Given("a configured target bundle whose bytes change after a digest snapshot")
+        Given("a configured target bundle whose bytes change after a byte snapshot")
         _with_root { root =>
           _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 1))))
-          val stale = CozyArticleMediaRegistry.load(root).bundleDigests("publication")
+          val stale = CozyArticleMediaRegistry.load(root).bundleContents("publication")
           _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 2))))
           val before = _bundle_bytes(root.resolve("publication.json"))
 
-          When("article media is upserted against the stale expected digest")
+          When("article media is upserted against the stale expected bytes")
           val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.upsert(root, "publication", _strict(), Vector.empty, Map("publication" -> stale)))
 
           Then("the stale configured snapshot is rejected before mutation")
@@ -713,7 +714,7 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         _with_root { root =>
           _write_bundle(root, "alpha", Vector.empty)
           _write_bundle(root, "beta", Vector(_entry("metadata/video/evidence.json", Json.obj("revision" -> 1))))
-          val expected = CozyArticleMediaRegistry.load(root).bundleDigests
+          val expected = CozyArticleMediaRegistry.load(root).bundleContents
           _write_bundle(root, "beta", Vector(_entry("metadata/video/evidence.json", Json.obj("revision" -> 2))))
           val before = _bundle_bytes(root.resolve("alpha.json"))
 
@@ -1298,7 +1299,7 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         }
       }
 
-      "reject a full digest changed during an injected callback preflight before mutation" in {
+      "reject complete observed bytes changed during an injected callback preflight before mutation" in {
         Given("a captured complete snapshot and an independently changed configured bundle")
         _with_root { root =>
           _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 1))))
@@ -1306,7 +1307,7 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
 
           When("a callback changes the configured evidence bytes before its first merge")
           val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root) { transaction =>
-            transaction.snapshot.bundleDigests should contain key "evidence"
+            transaction.snapshot.bundleContents should contain key "evidence"
             _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 2))))
             transaction.merge(Vector(_infographic_role_update()))
           })
@@ -1316,6 +1317,83 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
           _bundle_bytes(root.resolve("evidence.json")) should not be before
           Files.exists(root.resolve("article-media.json")) shouldBe false
         }
+      }
+
+      "reject complete bundle-set and raw-byte conflicts before a locked merge" in {
+        Given("independently reset locked snapshots covering additions, removals, an empty registry, equal-size rewrites, and formatting-only changes")
+        Vector("addition", "removal", "initially-empty", "same-size-mtime", "whitespace-only").foreach { mode =>
+          _with_root { root =>
+            if (mode != "initially-empty")
+              _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 1))))
+            val evidence = root.resolve("evidence.json")
+            val original = if (Files.exists(evidence)) Some(Files.readAllBytes(evidence).toVector) else None
+            val originaltime = if (Files.exists(evidence)) Some(Files.getLastModifiedTime(evidence)) else None
+            var observed = Map.empty[String, Vector[Byte]]
+
+            When(s"the locked $mode observation changes before the first merge")
+            val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root) { transaction =>
+              mode match {
+                case "addition" => _write_bundle(root, "added", Vector.empty)
+                case "removal" => Files.delete(evidence)
+                case "initially-empty" => _write_bundle(root, "evidence", Vector.empty)
+                case "same-size-mtime" =>
+                  _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 2))))
+                  Files.setLastModifiedTime(evidence, originaltime.get)
+                case "whitespace-only" =>
+                  Files.write(evidence, (new String(original.get.toArray, StandardCharsets.UTF_8) + " \n").getBytes(StandardCharsets.UTF_8))
+                case _ => fail("Invalid snapshot defect fixture")
+              }
+              observed = CozyArticleMediaRegistry.load(root).bundleContents
+              transaction.merge(Vector(_infographic_role_update()))
+            })
+
+            Then("the complete byte observation rejects the conflict without creating or rewriting any owner bundle")
+            error.getMessage should include("stale configured snapshot")
+            Files.exists(root.resolve("article-media.json")) shouldBe false
+            CozyArticleMediaRegistry.load(root).bundleContents shouldBe observed
+            if (mode == "same-size-mtime") {
+              Files.size(evidence) shouldBe original.get.size.toLong
+              Files.getLastModifiedTime(evidence) shouldBe originaltime.get
+            }
+            if (mode == "whitespace-only")
+              Json.parse(observed("evidence").toArray) shouldBe Json.parse(original.get.toArray)
+          }
+        }
+      }
+
+      "reject generated equivalent JSON formatting and key-order rewrites as raw-byte conflicts" in {
+        Given("generated whitespace and top-level field orders with independently reset valid bundle snapshots")
+        val variations = for {
+          spaces <- Gen.choose(1, 8)
+          reverse <- Gen.oneOf(true, false)
+        } yield (spaces, reverse)
+        val property = Prop.forAll(variations) { variation =>
+          _with_root { root =>
+            _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 1))))
+            val evidence = root.resolve("evidence.json")
+            val original = Files.readAllBytes(evidence).toVector
+            val decoded = Json.parse(original.toArray).as[JsObject]
+            val fields = if (variation._2) decoded.fields.reverse else decoded.fields
+            val changed = (" " * variation._1 + Json.stringify(JsObject(fields)) + "\n").getBytes(StandardCharsets.UTF_8).toVector
+
+            When("equivalent JSON bytes replace the observed bundle inside its locked operation")
+            val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root) { transaction =>
+              Files.write(evidence, changed.toArray)
+              transaction.merge(Vector(_infographic_role_update()))
+            })
+
+            Then("semantic equality cannot authorize a changed raw-byte observation")
+            error.getMessage.contains("stale configured snapshot") &&
+              Json.parse(changed.toArray) == decoded && changed != original &&
+              Files.readAllBytes(evidence).toVector == changed && !Files.exists(root.resolve("article-media.json"))
+          }
+        }
+
+        When("ScalaCheck exercises at least fifty independently reset formatting variations")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+
+        Then("every actual-byte rewrite conflicts before mutation")
+        result.passed shouldBe true
       }
 
       "serialize concurrent same-article role updates without losing either role" in {

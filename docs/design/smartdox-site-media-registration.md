@@ -92,10 +92,21 @@ bundle entries, and existing Cozy integrity entries. It performs complete reques
 candidate preflight before mutation, holds the lock from snapshot through
 atomic bundle replacement, and revalidates the registry snapshot and every
 selected candidate's original evidence immediately before replacement. Any
-descriptor/profile/resource mapping or media path, identity, bytes, or parsed
-metadata drift aborts before mutation; all candidates pass together, with no
-partial registration. Internal evidence hashes and path identities remain
+descriptor/profile/resource mapping, descriptor bytes, or media normalized/real
+path, fileKey, size, modification time, or parsed declarations/status/URL drift
+aborts before mutation; all candidates pass together, with no
+partial registration. Internal file metadata and path identities remain
 transactional and are never emitted in the provider-neutral SmartDox record.
+
+The immutable local plan retains the descriptor's exact bytes and interpreted
+metadata, plus each admitted file's normalized/real path, fileKey, size, and
+modification time. Direct-file snapshots compare attributes before, between,
+and after two transient reads, check both lengths, and compare the read arrays
+directly. This consistency check introduces no stored fingerprint. Registration
+re-resolves and reparses the admitted paths under the same lock. Normal
+freshness uses existence, modification time, and declared inputs; detection of
+every same-size payload rewrite with deliberately restored modification time
+is not part of this contract.
 
 Site-local infographics, watch-only external videos, and the two accepted PDF
 references are strict SmartDox input. They create no
@@ -129,11 +140,23 @@ pending; it is evidence only and is never serialized as accepted listening.
 An `article_pdf` or `summary_slides_pdf` is eligible only from the resolved
 Cozy resource's direct output (or source for a prebuilt resource), after
 reusing the current Phase 40 receipt-v2 and PDF review-state APIs. The binding
-captures that direct output's identity, size, and SHA-256 in its immutable
+captures that direct output's normalized/real path, fileKey, size, and
+modification time in its immutable
 plan. Revalidation rereads the same resolved output and requires both current
 Phase 40 evidence documents again under the publication-root lock immediately
 before replacement. Registration consumes no renderer, receipt, or review
-state fields beyond this currentness gate.
+state fields beyond this currentness gate. Both normal and WIP paths consume
+ordinary receipt and selected-PDF review-state APIs with no fallback methods.
+Copy/prebuilt producer inputs are direct source and explicitly named site-video
+production, while full declaration validation and operation-race snapshots
+remain required. Known stored fields load directly; arbitrary extra properties
+are ignored. Selected known PDF metadata is compared against the declaration
+and accepted entry, and unrelated PDF staleness does not veto that selection.
+No accepted primary-output/state digest is compared; timestamp-preserved valid
+rewrites have no digest-detection promise. Currentness diagnostics identify the
+resource, actual failing path, producer and next target build. Presentation
+artifact/renderer hashes remain unfinished S03 work. Existing distribution
+integrity, registry locks and rollback behavior remain unchanged.
 
 ## Lifecycle and Exclusions
 

@@ -21,7 +21,8 @@ private object CozyArticleMediaBuildContextFixture {
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -55,40 +56,28 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
       }
     }
 
-    "frame the effective publication with the specified digest" which {
-      "use the same producer and verifier digest seam for the fixed golden bytes" in {
-        Given("a direct publication containing a.json=A and b.json=BC")
-        _with_fixture { fixture =>
-          val publication = Files.createDirectories(fixture.root.resolve("golden"))
-          Files.write(publication.resolve("a.json"), "A".getBytes(StandardCharsets.UTF_8))
-          Files.write(publication.resolve("b.json"), "BC".getBytes(StandardCharsets.UTF_8))
-
-          When("the canonical draft digest is framed from the direct publication files")
-          val digest = CozyArticleMediaBuildContext.contextDigest("draft", publication)
-
-          Then("the exact U64 framing golden vector is produced")
-          digest shouldBe "9b72e396d80c9ab436735bb4d0b8d2372200f40ef99c5d8762236b00bd6b017e"
-        }
-      }
-
-      "remain independent of direct file enumeration order" in {
-        Given("generated write orderings of the same direct bundle bytes")
-        val orders = Gen.oneOf(Vector(Vector("a.json", "b.json"), Vector("b.json", "a.json")))
+    "copy complete configured bundle observations" which {
+      "remain independent of direct bundle write order" in {
+        Given("generated write orderings of two valid configured bundles and independently reset roots")
+        val orders = Gen.oneOf(Vector(Vector("alpha", "beta"), Vector("beta", "alpha")))
         val property = Prop.forAll(orders) { order =>
           _with_fixture { fixture =>
-            val publication = Files.createDirectories(fixture.root.resolve("order"))
             order.foreach { name =>
-              val bytes = if (name == "a.json") "A" else "BC"
-              Files.write(publication.resolve(name), bytes.getBytes(StandardCharsets.UTF_8))
+              _write_bundle(fixture.publication, name, Vector(_entry(s"metadata/catalog/$name.json", Json.obj("kind" -> name))))
             }
-            CozyArticleMediaBuildContext.contextDigest("draft", publication) == "9b72e396d80c9ab436735bb4d0b8d2372200f40ef99c5d8762236b00bd6b017e"
+            val expected = order.map(name => s"$name.json" -> Files.readAllBytes(fixture.publication.resolve(s"$name.json")).toVector).toMap
+            When("a context is materialized from each configured write ordering")
+            val context = CozyArticleMediaBuildContext.withContext(fixture.project, fixture.publication, fixture.repository, "draft")(context => context)
+            Then("the exact admitted filenames and bytes are copied and the lease is released")
+            _direct_children(context.publicationPath).map(path => path.getFileName.toString -> Files.readAllBytes(path).toVector).toMap == expected &&
+              CozyArticleMediaBuildContext.activeLeaseCount(context.publicationPath) == 0
           }
         }
 
-        When("ScalaCheck exercises both write orderings")
-        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+        When("ScalaCheck exercises at least fifty independently reset bundle orderings")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
 
-        Then("the digest remains the canonical framed identity")
+        Then("every ordering retains the complete actual source bytes")
         result.passed shouldBe true
       }
     }
@@ -251,7 +240,7 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
         }
       }
 
-      "materialize and reuse an empty configured registry without creating repository state" in {
+      "allocate distinct empty configured contexts without creating repository state" in {
         Given("absent publication and repository roots with no configured registry bundles")
         _with_fixture { fixture =>
           When("an empty draft context is materialized twice")
@@ -269,19 +258,19 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
             CozyArticleMediaBuildContext.activeLeaseCount(context.publicationPath) shouldBe 1
             context
           }
-          val secondattributes = Files.readAttributes(second.publicationPath, classOf[BasicFileAttributes])
+          val retainedattributes = Files.readAttributes(first.publicationPath, classOf[BasicFileAttributes])
 
-          Then("both leases release while the empty digest snapshot is reused unchanged")
-          CozyArticleMediaRegistry.load(fixture.publication).bundleDigests shouldBe empty
+          Then("distinct empty contexts release both leases and preserve the earlier directory attributes")
+          CozyArticleMediaRegistry.load(fixture.publication).bundleContents shouldBe empty
           _direct_children(fixture.publication).map(_.getFileName.toString).filter(_.endsWith(".json")) shouldBe empty
           Files.exists(fixture.repository, LinkOption.NOFOLLOW_LINKS) shouldBe false
-          first.contextDigest shouldBe second.contextDigest
-          first.publicationPath shouldBe second.publicationPath
+          first.publicationPath should not be second.publicationPath
           firstchildren shouldBe empty
           _direct_children(second.publicationPath).map(_.getFileName.toString) shouldBe firstchildren
-          secondattributes.fileKey shouldBe firstattributes.fileKey
-          secondattributes.lastModifiedTime shouldBe firstattributes.lastModifiedTime
+          retainedattributes.fileKey shouldBe firstattributes.fileKey
+          retainedattributes.lastModifiedTime shouldBe firstattributes.lastModifiedTime
           CozyArticleMediaBuildContext.activeLeaseCount(first.publicationPath) shouldBe 0
+          CozyArticleMediaBuildContext.activeLeaseCount(second.publicationPath) shouldBe 0
         }
       }
 
@@ -351,7 +340,7 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
             fixture.project, fixture.publication, fixture.repository, "production"
           )(context => context))
 
-          Then("no digest-addressed production snapshot is installed")
+          Then("no production context is installed")
           error.getMessage should include("requires published Cozy integrity")
           val snapshots = fixture.project.resolve("target/cozy-bok/article-media/production/snapshots")
           _direct_children(snapshots) shouldBe empty
@@ -410,7 +399,7 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
         }
       }
 
-      "reuse an existing snapshot without changing its bytes, attributes, or active lease lifetime" in {
+      "allocate fresh same-content contexts while preserving earlier bytes, attributes, and lease lifetime" in {
         Given("one external watch-only context built twice from unchanged source bytes")
         _with_fixture { fixture =>
           val strict = CozyArticleMediaPublication.produce("development-process/example", Vector(
@@ -430,15 +419,16 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
           When("the same strategy and source invoke a second consumer")
           val second = CozyArticleMediaBuildContext.withContext(fixture.project, fixture.publication, fixture.repository, "draft")(context => context)
 
-          Then("the exact installed identity is reused and the lease is released after each callback")
-          second.contextDigest shouldBe first.contextDigest
-          second.publicationPath shouldBe first.publicationPath
+          Then("a distinct context has equal bytes while the earlier file is unchanged and both leases release")
+          second.publicationPath should not be first.publicationPath
           Files.readAllBytes(second.publicationPath.resolve("publication.json")).toVector shouldBe bytes.toVector
-          val reloaded = Files.readAttributes(second.publicationPath.resolve("publication.json"), classOf[BasicFileAttributes])
+          Files.readAllBytes(first.publicationPath.resolve("publication.json")).toVector shouldBe bytes.toVector
+          val reloaded = Files.readAttributes(first.publicationPath.resolve("publication.json"), classOf[BasicFileAttributes])
           reloaded.lastModifiedTime shouldBe attributes.lastModifiedTime
           reloaded.fileKey shouldBe attributes.fileKey
           _direct_children(second.publicationPath).map(_.getFileName.toString).sorted shouldBe paths
           CozyArticleMediaBuildContext.activeLeaseCount(first.publicationPath) shouldBe 0
+          CozyArticleMediaBuildContext.activeLeaseCount(second.publicationPath) shouldBe 0
           Files.exists(first.publicationPath, LinkOption.NOFOLLOW_LINKS) shouldBe true
         }
       }
@@ -448,17 +438,22 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
         _with_watch_only_fixture { fixture =>
           val context = CozyArticleMediaBuildContext.withContext(fixture.project, fixture.publication, fixture.repository, "draft")(context => context)
           val bytes = Files.readAllBytes(context.publicationPath.resolve("publication.json"))
+          var failedpath = Option.empty[Path]
 
           When("a consumer observes its lease and fails")
           val error = intercept[IllegalStateException](CozyArticleMediaBuildContext.withContext(
             fixture.project, fixture.publication, fixture.repository, "draft"
           ) { active =>
+            failedpath = Some(active.publicationPath)
             CozyArticleMediaBuildContext.activeLeaseCount(active.publicationPath) shouldBe 1
             throw new IllegalStateException("consumer failure")
           })
 
           Then("the lease is released and the immutable installed bytes remain")
           error.getMessage shouldBe "consumer failure"
+          failedpath shouldBe defined
+          CozyArticleMediaBuildContext.activeLeaseCount(failedpath.get) shouldBe 0
+          Files.readAllBytes(failedpath.get.resolve("publication.json")).toVector shouldBe bytes.toVector
           CozyArticleMediaBuildContext.activeLeaseCount(context.publicationPath) shouldBe 0
           Files.readAllBytes(context.publicationPath.resolve("publication.json")).toVector shouldBe bytes.toVector
         }
@@ -467,54 +462,58 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
       "reject stale source bytes at the locked source-revalidation boundary" in {
         Given("effective work bytes and a seam that changes the configured source bundle")
         _with_watch_only_fixture { fixture =>
-          val originaldigest = CozyArticleMediaBuildContext.contextDigest("draft", fixture.publication)
           val source = fixture.publication.resolve("publication.json")
+          val originaltime = Files.getLastModifiedTime(source)
+          val originalsize = Files.size(source)
           var called = false
 
-          When("the seam writes a different valid source bundle immediately before revalidation")
+          When("the seam rewrites equal-size valid source bytes and preserves their modification time before revalidation")
           val error = intercept[IllegalArgumentException](CozyArticleMediaBuildContext.withContextBeforeSourceRevalidation(
             fixture.project, fixture.publication, fixture.repository, "draft"
-          )(() => _write_watch_only_bundle(fixture.publication, revision = 2)) { _ => called = true })
+          )(() => {
+            _write_watch_only_bundle(fixture.publication, revision = 2)
+            Files.setLastModifiedTime(source, originaltime)
+          }) { _ => called = true })
 
           Then("the stale snapshot prevents install and callback while the changed source remains authoritative")
           error.getMessage should include("stale configured snapshot")
           called shouldBe false
-          Files.exists(fixture.project.resolve(s"target/cozy-bok/article-media/draft/snapshots/$originaldigest"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-          _direct_children(fixture.project.resolve("target/cozy-bok/article-media/draft/snapshots")).map(_.getFileName.toString).filter(_.startsWith(".work-")) shouldBe empty
+          _direct_children(fixture.project.resolve("target/cozy-bok/article-media/draft/snapshots")) shouldBe empty
+          Files.size(source) shouldBe originalsize
+          Files.getLastModifiedTime(source) shouldBe originaltime
           new String(Files.readAllBytes(source), StandardCharsets.UTF_8) should include("\"revision\":2")
         }
       }
 
-      "reject pre-existing digest snapshots with mismatched bytes or file sets without mutation" in {
-        Given("one valid installed watch-only snapshot")
-        val observations = Vector("bytes", "file-set").map { mode =>
+      "ignore and preserve earlier edited or extra-file contexts on a fresh invocation" in {
+        Given("a valid configured watch-only bundle and an earlier context altered after its consumer finishes")
+        Vector("bytes", "file-set").foreach { mode =>
           _with_watch_only_fixture { fixture =>
+            val sourcebytes = Files.readAllBytes(fixture.publication.resolve("publication.json")).toVector
             val initial = CozyArticleMediaBuildContext.withContext(fixture.project, fixture.publication, fixture.repository, "draft")(context => context)
             val installed = initial.publicationPath.resolve("publication.json")
             if (mode == "bytes") Files.write(installed, "mismatched".getBytes(StandardCharsets.UTF_8))
             else Files.write(initial.publicationPath.resolve("extra.json"), "extra".getBytes(StandardCharsets.UTF_8))
-            val before = _direct_children(initial.publicationPath).map(_.getFileName.toString).sorted
-            var called = false
-            val error = intercept[IllegalArgumentException](CozyArticleMediaBuildContext.withContext(
-              fixture.project, fixture.publication, fixture.repository, "draft"
-            ) { _ => called = true })
-            (mode, error.getMessage, called, before, _direct_children(initial.publicationPath).map(_.getFileName.toString).sorted)
+            val before = _direct_children(initial.publicationPath).map(path => path.getFileName.toString -> Files.readAllBytes(path).toVector).toMap
+            val attributes = Files.readAttributes(installed, classOf[BasicFileAttributes])
+
+            When(s"a fresh same-source consumer follows the earlier $mode alteration")
+            val fresh = CozyArticleMediaBuildContext.withContext(fixture.project, fixture.publication, fixture.repository, "draft")(context => context)
+
+            Then("the consumer receives original source bytes in a distinct context and the earlier context is untouched")
+            fresh.publicationPath should not be initial.publicationPath
+            _direct_children(fresh.publicationPath).map(_.getFileName.toString) shouldBe Vector("publication.json")
+            Files.readAllBytes(fresh.publicationPath.resolve("publication.json")).toVector shouldBe sourcebytes
+            _direct_children(initial.publicationPath).map(path => path.getFileName.toString -> Files.readAllBytes(path).toVector).toMap shouldBe before
+            val retainedattributes = Files.readAttributes(installed, classOf[BasicFileAttributes])
+            retainedattributes.fileKey shouldBe attributes.fileKey
+            retainedattributes.lastModifiedTime shouldBe attributes.lastModifiedTime
+            CozyArticleMediaBuildContext.activeLeaseCount(fresh.publicationPath) shouldBe 0
           }
-        }
-
-        When("same-source materialization encounters each persisted mismatch")
-        val mismatches = observations
-
-        Then("both reject deterministically without replacing, removing, or consuming the installed snapshot")
-        mismatches.map(_._1) shouldBe Vector("bytes", "file-set")
-        mismatches.foreach { mismatch =>
-          mismatch._2 should include("snapshot")
-          mismatch._3 shouldBe false
-          mismatch._5 shouldBe mismatch._4
         }
       }
 
-      "keep an earlier leased snapshot immutable while a producer update gives a second consumer a new identity" in {
+      "keep an earlier leased context immutable while a producer update gives a second consumer fresh bytes" in {
         Given("consumer A holding a first snapshot and a producer-compatible registry update")
         _with_watch_only_fixture { fixture =>
           val entered = new CountDownLatch(1)
@@ -542,7 +541,7 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
               "publication",
               Vector("metadata/catalog/ordinary.json" -> Json.obj("revision" -> 2)),
               Vector.empty,
-              before.bundleDigests
+              before.bundleContents
             )
             val second = CozyArticleMediaBuildContext.withContext(
               fixture.project, fixture.publication, fixture.repository, "draft"
@@ -551,9 +550,11 @@ final class CozyArticleMediaBuildContextSpec extends AnyWordSpec with Matchers w
             release.countDown()
             val first = firstfuture.get(10, TimeUnit.SECONDS)
 
-            Then("B has a different immutable digest while A read its original bytes and both snapshots remain")
-            first.contextDigest should not be second.contextDigest
+            Then("B has a distinct context with updated bytes while A retains its original bytes and both leases release")
             first.publicationPath should not be second.publicationPath
+            val installed = Json.parse(new String(Files.readAllBytes(second.publicationPath.resolve("publication.json")), StandardCharsets.UTF_8))
+            val ordinary = (installed \ "entries").as[Vector[JsObject]].find(x => (x \ "path").as[String] == "metadata/catalog/ordinary.json").get
+            (ordinary \ "metadata" \ "revision").as[Int] shouldBe 2
             observed.get should not be null
             new String(observed.get.toArray, StandardCharsets.UTF_8) should include("\"revision\":1")
             Files.exists(first.publicationPath, LinkOption.NOFOLLOW_LINKS) shouldBe true

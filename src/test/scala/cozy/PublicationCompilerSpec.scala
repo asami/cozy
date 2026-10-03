@@ -15,7 +15,8 @@ import play.api.libs.json.Json
  *  version May. 16, 2026
  *  version Jun. 10, 2026
  *  version Jul. 15, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Oct.  3, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -103,10 +104,33 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     Files.createDirectories(out1.resolve("repository/artifacts"))
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.json"), """{"artifact":{"status":"placeholder"}}""", StandardCharsets.UTF_8)
     Files.writeString(out1.resolve("repository/artifacts/sample-publication.yaml"), "artifact:\n  status: placeholder\n", StandardCharsets.UTF_8)
+    var staged = Vector.empty[play.api.libs.json.JsValue]
+    var stagingpaths = Vector.empty[Path]
+    def _observe_staging_(staging: Path): Unit = {
+      val jsonpath = staging.resolve("metadata/source-manifest/sample-publication.json")
+      val yamlpath = staging.resolve("metadata/source-manifest/sample-publication.yaml")
+      val json = Json.parse(Files.readString(jsonpath, StandardCharsets.UTF_8))
+      val yaml = Json.parse(cozy.config.CozyProjectYamlConfig.load(yamlpath).json.get.noSpaces)
+
+      Then("actual staged JSON and YAML describe identical ordered source paths and sizes without local SHA fields")
+      (yaml \ "files") shouldBe (json \ "files")
+      (yaml \ "project" \ "organization").as[String] shouldBe "org.example"
+      (yaml \ "project" \ "version").as[String] shouldBe "0.1.0"
+      val sourcefiles = (json \ "files").as[Vector[play.api.libs.json.JsObject]]
+      sourcefiles.map(x => (x \ "path").as[String]) shouldBe Vector("build.sbt", "project/build.properties", "src/main/scala/Main.scala")
+      sourcefiles.foreach { file =>
+        file.keys shouldBe Set("path", "size")
+        (file \ "size").as[Long] shouldBe Files.size(project.resolve((file \ "path").as[String]))
+      }
+      (json \ "project" \ "organization").as[String] shouldBe "org.example"
+      (json \ "project" \ "version").as[String] shouldBe "0.1.0"
+      staged = staged :+ json
+      stagingpaths = stagingpaths :+ staging
+    }
 
       When("publish-project compiles the project publication twice")
-    Cozy.main(Array("publish-project", project.toString, "--save", out1.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
-    Cozy.main(Array("publish-project", project.toString, "--save", out2.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"))
+    cozy.publication.CozyPublicationCompiler.publishBeforeRegistry(List(project.toString, "--save", out1.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"), _observe_staging_)
+    cozy.publication.CozyPublicationCompiler.publishBeforeRegistry(List(project.toString, "--save", out2.toString, "--kind", "sample-single", "--name", "sample-publication", "--title", "Sample Publication"), _observe_staging_)
 
     val expected = Vector(
       "metadata/catalog/projects/sample-publication.json",
@@ -149,10 +173,18 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     (projectjson \ "project" \ "sbtVersion").as[String] shouldBe "1.11.7"
 
     val manifestjson = _entry(out1, "metadata/source-manifest/sample-publication.json")
-    val paths = (manifestjson \ "files").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "path").as[String])
-    paths.contains("build.sbt") shouldBe true
-    paths.contains("project/build.properties") shouldBe true
-    paths.contains("src/main/scala/Main.scala") shouldBe true
+    staged shouldBe Vector(manifestjson, manifestjson)
+    stagingpaths.size shouldBe 2
+    stagingpaths.foreach(path => Files.exists(path) shouldBe false)
+    val files = (manifestjson \ "files").as[Vector[play.api.libs.json.JsObject]]
+    val paths = files.map(x => (x \ "path").as[String])
+    paths shouldBe Vector("build.sbt", "project/build.properties", "src/main/scala/Main.scala")
+    files.foreach { file =>
+      file.keys shouldBe Set("path", "size")
+      (file \ "size").as[Long] shouldBe Files.size(project.resolve((file \ "path").as[String]))
+    }
+    (manifestjson \ "project" \ "organization").as[String] shouldBe "org.example"
+    (manifestjson \ "project" \ "version").as[String] shouldBe "0.1.0"
     paths.exists(_.startsWith("target/")) shouldBe false
   }
     "publish-project rejects colliding sample slugs" in {
