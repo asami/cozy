@@ -1,6 +1,6 @@
 # Phase 54.3: Dynamic Workflow and StateMachine Metadata
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 Plan date: 2026-09-09
 Split from: [Phase 54](phase-54.md)
@@ -51,10 +51,29 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| MMD-543-01 | Publish Workflow identity, purpose, activities, control flow, branch/merge, participants, affected domain elements, and declared related operations/events/state effects. | planned |
-| MMD-543-02 | Publish StateMachine, state, and transition identities with declared triggers, guards, actions, and owning/affected domain elements. | planned |
-| MMD-543-03 | Preserve stable declared links among Workflow activities, StateMachine transitions, operations, events, and rules, including admitted operation/event cause and reaction links. | planned |
+| MMD-543-01 | Publish Workflow identity, purpose, activities, control flow, branch/merge, participants, affected domain elements, and declared related operations/events/state effects. | supplier accepted; final Phase closure pending |
+| MMD-543-02 | Publish StateMachine, state, and transition identities with declared triggers, guards, actions, and owning/affected domain elements. | supplier accepted; final Phase closure pending |
+| MMD-543-03 | Preserve stable declared links among Workflow activities, StateMachine transitions, operations, events, and rules, including admitted operation/event cause and reaction links. | supplier accepted; topology pending |
 | MMD-543-04 | Freeze dynamic fixtures and the Phase 54.4 cross-view handoff without defining runtime enforcement. | planned |
+
+## Current implementation boundary
+
+S54.3.1 / DYNAMIC-PRODUCER is ACCEPTED under
+P543-S5431-IMPLEMENTATION-001 revision 1. The complete additive
+`cozy.cml.dynamic.v1` supplier, five cohesive modules and DM-01–09 executable
+specification are authored. The [specification](../spec/cml-dynamic-metadata.md)
+and [design](../design/cml-dynamic-metadata.md) freeze exact qualified identities,
+full-record multiset binding, explicit gaps, strict child admission and literal
+declared links. Seven focused/predecessor suites passed all 122 tests. The
+independent protected Step review accepted DM-01–09 behavior and identified one
+private-helper naming defect. The exact sixteen-name repair and direct calls
+passed `Test/compile`; parent M0 amendment resolved that defect in the original
+Step review chain. The parent records the manual local Step commit in its native
+commit audit. This acceptance covers the supplier only.
+
+S54.3.2 topology and S54.3.3 deterministic resources/fixture specification and
+handoff remain incomplete. The full Phase review, ordinary full validation,
+release commit and closure gates remain pending. Phase 54.4 remains unstarted.
 
 ## Closure criteria
 

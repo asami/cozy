@@ -19,5 +19,6 @@ Not allowed:
 Specifications define what implementation must satisfy.
 
 - [Document Project Goal-Driven Generation Specification](document-project-goal-driven-generation.md)
+- [CML Dynamic Metadata v1 Specification](cml-dynamic-metadata.md)
 
 See /Users/asami/src/dev2025/cozy/ai/directive/core/document-lifecycle.md.
