@@ -1,16 +1,20 @@
 # CML Dynamic Metadata v1 Design
 
 Current status: S54.3.1 CLOSED at native commit
-`feb4ba862635a56fa0519ae75cef0bdd910739b2`; S54.3.2 topology ACCEPTED
-after focused validation and independent Step review.
+`feb4ba862635a56fa0519ae75cef0bdd910739b2`; S54.3.2 topology CLOSED
+at `4a57f37244be8f0bb5238bb92bb951ca615c8930` after focused validation and
+independent Step review. S54.3.3 fixtures/handoff are ACCEPTED after focused
+validation and independent Step review; manual commit audit remains pending.
 Owner: Cozy Dynamic metadata supplier.
 Update rule: implement only the frozen PHASE-54.3 declared-fact boundary.
 Closure basis: accepted S1 DM-01–09 with retained 122-test evidence, protected
 Step review and parent M0 naming amendment. S2 passed all 132 tests in eight
 focused/predecessor suites; P543-S5432-REVIEW-001 revision 1 independently
 accepted DT-01–08 with zero current blockers. The parent records the manual
-local Step commit in its native audit. S3 fixtures/handoff and final Phase
-closure remain pending.
+local Step commit in its native audit. S3 passed all 141 tests in nine
+focused/predecessor suites; P543-S5433-REVIEW-001 revision 1 independently
+accepted DF-01–09 with zero current blockers. Its manual commit audit and final
+Phase review/test/release/closure remain pending.
 
 The [specification](../spec/cml-dynamic-metadata.md) fixes the complete additive
 child. Catalog remains truth; Dynamic declarations supply explicit additional
@@ -97,5 +101,39 @@ checks; all supplier/build/read/render/query calls are under When.
 
 Cozy owns this admitted metadata supplier and literal topology. CNCF owns runtime
 realization and Textus CBD Support owns views/navigation. S54.3.2 navigation is
-accepted. S54.3.3 deterministic fixtures and handoff remain pending; Phase 54.4
-is unstarted.
+accepted and CLOSED. S54.3.3 deterministic fixtures and handoff are ACCEPTED
+after focused validation and independent Step review. Phase 54.4 is unstarted.
+
+## Fixed fixture and successor handoff boundary
+
+The [supplier handoff](cml-dynamic-metadata-handoff.md) binds the exact internal
+`private[cozy]` Catalog, Dynamic build/read/render and seven-family navigation APIs
+to two fixed UTF-8 declared/absence resources. Each retains the accepted
+Classification 22-record/two-Term prefix, complete predecessor children and
+opaque peers, then adds twenty independently authored Dynamic records, one
+separate Term and seventeen carriers. Synthetic caller admission supplies
+source authority/path/digest/lines; fixture evidence claims neither a real source
+file nor parser/currentness evidence.
+
+The cohesive FixtureSpec authors DF-01–09 against actual bytes, independent
+complete typed expected facts and a prefix-only read oracle. Its full wire,
+source, absence, 23-node/eight-link topology and seven-family query expectations
+remain independent of supplier/query output. Recursive negative cases retain
+accepted exact safe diagnostics. Active ScalaCheck requests at least 100
+successes and zero discards; every plan exercises both modes, independently
+permutes 42 Catalog records and seven carrier vectors, reconstructs recursive
+object keys and verifies complete facts and Catalog order. Every interpreting
+prerequisite occurs under When.
+
+Declared activity control roles, Transition expression/reference facts and
+Cause/Reaction edges stay literal. Context/membership/state effects produce no
+new edges; absence mode retains anonymous Workflow and its independent Term
+without fallback identity. All three opaque peers survive intact.
+
+The handoff records the exact runnable nine-suite focused recipe: all 141 tests
+passed, and P543-S5433-REVIEW-001 revision 1 accepted the Step with zero blockers.
+The parent records the manual commit in its native audit. Phase 54.4
+consumes explicit declarations and gaps and remains unstarted. Phase 54.6 causal
+traversal follows admitted edges only. Cozy supplier, CNCF runtime and Textus
+CBD Support view/acceptance responsibilities remain distinct. Full Phase
+review/test/release/closure remains pending.

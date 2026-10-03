@@ -20,5 +20,6 @@ Design documents define stable intent, but they are not the work ledger.
 
 - [Document Project Goal-Driven Generation Design](document-project-goal-driven-generation.md)
 - [CML Dynamic Metadata v1 Design](cml-dynamic-metadata.md)
+- [CML Dynamic Metadata Supplier Handoff](cml-dynamic-metadata-handoff.md)
 
 See /Users/asami/src/dev2025/cozy/ai/directive/core/document-lifecycle.md.

@@ -54,7 +54,7 @@ Phase Plan Gate: PROCEED
 | MMD-543-01 | Publish Workflow identity, purpose, activities, control flow, branch/merge, participants, affected domain elements, and declared related operations/events/state effects. | supplier accepted; final Phase closure pending |
 | MMD-543-02 | Publish StateMachine, state, and transition identities with declared triggers, guards, actions, and owning/affected domain elements. | supplier accepted; final Phase closure pending |
 | MMD-543-03 | Preserve stable declared links among Workflow activities, StateMachine transitions, operations, events, and rules, including admitted operation/event cause and reaction links. | supplier and topology accepted; final Phase closure pending |
-| MMD-543-04 | Freeze dynamic fixtures and the Phase 54.4 cross-view handoff without defining runtime enforcement. | planned |
+| MMD-543-04 | Freeze dynamic fixtures and the Phase 54.4 cross-view handoff without defining runtime enforcement. | fixtures/handoff accepted; final Phase closure pending |
 
 ## Current implementation boundary
 
@@ -71,7 +71,7 @@ passed `Test/compile`; parent M0 amendment resolved that defect in the original
 Step review chain. The parent manual native Step commit is
 `feb4ba862635a56fa0519ae75cef0bdd910739b2`. This acceptance covers the supplier only.
 
-S54.3.2 / DYNAMIC-NAVIGATION is ACCEPTED under
+S54.3.2 / DYNAMIC-NAVIGATION is CLOSED under
 P543-S5432-IMPLEMENTATION-001 revision 1. CmlDynamicTopology retains the original
 Graph, exact fifteen node kinds, four literal link kinds, occurrence-aware
 Catalog ordering, Local-only partial endpoint indexes and seven exact projection
@@ -81,11 +81,23 @@ supplier/predecessor round trips and an active property requesting at least
 focused/predecessor suites, with SBT/wrapper exit 0 and the shared lock released.
 Independent lightweight Step review P543-S5432-REVIEW-001 revision 1 accepted
 the complete seven-path accumulator with zero current blockers. The parent
-records the manual local Step commit in its native audit.
+records the manual local Step commit in its native audit:
+`4a57f37244be8f0bb5238bb92bb951ca615c8930`.
 
-S54.3.3 deterministic resources/fixture specification and handoff remain
-incomplete. The full Phase review, ordinary full validation,
-release commit and closure gates remain pending. Phase 54.4 remains unstarted.
+S54.3.3 / DYNAMIC-FIXTURES-HANDOFF is authored under
+P543-S5433-IMPLEMENTATION-001 revision 1. Two fixed UTF-8 resources retain the
+accepted Classification prefix and add exact declared/absence facts: 42 records,
+three Terms and seventeen carriers, with 23 nodes and eight literal links.
+DF-01–09 author independent expected data, full wire/source/absence/query facts,
+safe negative diagnostics and an active 100-success/zero-discard property over
+both modes, Catalog/carrier permutations and object-key reconstruction.
+The [handoff](../design/cml-dynamic-metadata-handoff.md) records exact internal
+supplier/reader/navigation APIs, synthetic caller provenance and the runnable
+nine-suite recipe. All 141 tests passed in nine selected focused/predecessor
+suites; P543-S5433-REVIEW-001 revision 1 independently accepted DF-01–09 with zero
+current blockers. The parent records the manual local Step commit in its native
+audit. Full Phase review, ordinary full validation, release
+commit and closure gates remain pending. Phase 54.4 remains unstarted.
 
 ## Closure criteria
 

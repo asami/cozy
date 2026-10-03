@@ -13,15 +13,25 @@ Planning rule: approximate-six-hour packing target; preferred 4–8 h band.
   protected Step review and the parent M0 naming amendment are accepted;
   post-repair `Test/compile` passed. Parent manual native commit:
   `feb4ba862635a56fa0519ae75cef0bdd910739b2`. Phase requirement closure remains pending.
-- S54.3.2 / DYNAMIC-NAVIGATION: ACCEPTED under
+- S54.3.2 / DYNAMIC-NAVIGATION: CLOSED under
   P543-S5432-IMPLEMENTATION-001 revision 1; exact fifteen-node/four-link topology,
   Catalog occurrence order, Local-only partial indexes and all seven typed
   lookups. All 132 tests passed in eight selected focused/predecessor suites,
   including DT-01–08 and the active 100-success/zero-discard property.
   Independent lightweight Step review P543-S5432-REVIEW-001 revision 1 is PASS
   with zero current blockers. The parent records the manual local commit in
-  its native Step audit; final Phase requirement closure remains pending.
-- S54.3.3: deterministic fixtures, fixture specification and handoff incomplete.
+  its native Step audit at `4a57f37244be8f0bb5238bb92bb951ca615c8930`;
+  final Phase requirement closure remains pending.
+- S54.3.3 / DYNAMIC-FIXTURES-HANDOFF: ACCEPTED under
+  P543-S5433-IMPLEMENTATION-001 revision 1. Two fixed 42-record/three-Term
+  resources, seventeen carriers, DF-01–09 independent literal expected facts
+  and active 100-success/zero-discard property, plus the
+  [internal API and fixture handoff](../design/cml-dynamic-metadata-handoff.md).
+  Exact nine-suite focused recipe is recorded there: all 141 tests passed,
+  including the active property; SBT/wrapper exit 0 and lock released.
+  P543-S5433-REVIEW-001 revision 1 independently accepted the complete Step
+  with zero blockers. The parent records its manual local commit in the native
+  audit; full Phase requirement closure remains pending.
 - Full Phase review, ordinary full validation and final release/closure pending.
   Phase 54.4 remains unstarted. Unchecked requirement items below retain their
   original acceptance meaning.

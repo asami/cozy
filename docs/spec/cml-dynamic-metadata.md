@@ -1,8 +1,10 @@
 # CML Dynamic Metadata v1 Specification
 
 Current status: S54.3.1 CLOSED at native commit
-`feb4ba862635a56fa0519ae75cef0bdd910739b2`; S54.3.2 topology ACCEPTED
-after focused validation and independent Step review.
+`feb4ba862635a56fa0519ae75cef0bdd910739b2`; S54.3.2 topology CLOSED
+at `4a57f37244be8f0bb5238bb92bb951ca615c8930` after focused validation and
+independent Step review. S54.3.3 fixtures/handoff are ACCEPTED after focused
+validation and independent Step review; manual commit audit remains pending.
 Owner: Cozy Dynamic metadata supplier.
 Update rule: change only under the PHASE-54.3 frozen contract; preserve the
 accepted foundation, Structure, Classification and legacy ABI.
@@ -10,8 +12,11 @@ Closure basis: S1 retained all 122 focused/predecessor tests, protected Step
 review and the parent M0 naming amendment. S2 passed all 132 tests in eight
 focused/predecessor suites; P543-S5432-REVIEW-001 revision 1 independently
 accepted DT-01–08 with zero current blockers. The parent records the manual
-local Step commit in its native audit. S3 fixtures, handoff and full Phase
-closure remain pending; Phase 54.4 is unstarted.
+local Step commit in its native audit. S3 passed all 141 tests in nine
+focused/predecessor suites; P543-S5433-REVIEW-001 revision 1 independently
+accepted DF-01–09 with zero current blockers. The parent records the manual
+local Step commit in its native audit. Full Phase review, ordinary full test,
+release and closure remain pending; Phase 54.4 is unstarted.
 
 ## Boundary and API
 
@@ -209,3 +214,118 @@ independently authored complete typed facts; interpretation is under When.
 Existing WORKFLOW and Composite StateMachine IR remain partial sources. This
 boundary adds no parser integration, projector, CLI, writer, automatic export,
 runtime, external consumer acceptance or successor work.
+
+## S54.3.3 frozen fixture contract
+
+The fixed UTF-8 [declared](../../src/test/resources/cozy/modeler/dynamic-metadata-v1-declared.json)
+and [absence](../../src/test/resources/cozy/modeler/dynamic-metadata-v1-absence.json)
+resources preserve the accepted Classification declared first 22 core records,
+first two Terms, full Structure/Classification children and both opaque peers.
+They add twenty independent Dynamic core records, one separate Term and seventeen
+complete projection carriers. Totals are 42 records / three Terms; carrier arrays
+are exactly 1 / 5 / 5 / 1 / 2 / 1 / 2 in the seven-family order above.
+
+New model authority is `dynamic.example`, names are `共有`, source path is
+`src/main/cml/dynamic-handoff.cml`, sha256 is 64 lowercase `b` characters and
+lines 23–42 correspond respectively to this exact Catalog order:
+
+| Core kind | Qualified element component / source line |
+| --- | --- |
+| workflow | workflow:fulfillment / 23 |
+| workflow-activity | activity:review / 24; activity:branch / 25; activity:accept / 26; activity:reject / 27; activity:merge / 28 |
+| workflow-flow | flow:review-branch / 29; flow:branch-accept / 30; flow:branch-reject / 31; flow:accept-merge / 32; flow:reject-merge / 33 |
+| state-machine | machine:order / 34 |
+| state | state:pending / 35; state:done / 36 |
+| transition | transition:complete / 37 |
+| operation | operation:complete / 38 |
+| event | event:completed / 39 |
+| rule | rule:complete / 40 |
+| causal-link | cause:completed / 41; reaction:completed / 42 |
+
+New core references are Absent(NotDeclared, `No semantic references are declared.`).
+The new Term is TermId(dynamic.example, workflow:fulfillment) with source line 23,
+independent of model identity. These are synthetic caller-admitted provenance,
+with no real file, parser or currentness claim. Unqualified references below
+mean Local(dynamic.example, component).
+
+Declared Workflow purpose is `Complete the declared order flow.`. Activities
+and Flows are Present vectors in the listed order. Participants are Present
+[External(external.example, actor:reviewer)]; affectedElements are Present
+[Local(structure.example, entity:order), Local(structure.example, aggregate:order)].
+Workflow stateMachines, operations, events and rules are respectively
+[machine:order], [operation:complete], [event:completed], [rule:complete];
+stateEffects are [state:done, transition:complete]. All are Present vectors.
+
+Every Activity declares workflow:fulfillment and the same participant/affected
+vectors. Roles in activity order are Action, Branch, Action, Action, Merge.
+Operations/events/rules/stateEffects are Present(empty) except accept declares
+[operation:complete], [event:completed], [state:done] and branch declares
+[rule:complete]. Flow endpoints are review→branch, branch→accept, branch→reject,
+accept→merge, reject→merge; every Flow declares workflow:fulfillment.
+Branch-accept/reject guard text is respectively `approved` / `!approved`, each
+with Present [rule:complete] references. Other guards are Absent(NotApplicable,
+`The flow has no declared guard.`).
+
+Machine owner is Local(structure.example, aggregate:order), affectedElements
+is the same pair, states are [state:pending, state:done], transitions are
+[transition:complete], workflows are [workflow:fulfillment]. Both States declare
+machine:order with Present(empty) entry/exit actions. Transition complete declares
+machine:order, from pending to done, triggers [DeclaredExpression(`completed`,
+Present [event:completed])], guard DeclaredExpression(`approved`, Present
+[rule:complete]), actions [DeclaredExpression(`complete()`, Present
+[operation:complete])], activities [activity:accept], workflows
+[workflow:fulfillment], the same affected pair and stateEffects [state:done].
+Every listed Transition field is Present.
+
+Cause is operation:complete→event:completed with Absent(NotApplicable,
+`The cause has no declared rule.`). Reaction is event:completed→activity:accept
+with Present rule:complete. Both retain the same affectedElements. The literal
+cycle through activity operation context requires no policy, reciprocal
+membership constraint or inferred causal edge.
+
+Absence mode changes only the new Workflow core identity to
+Absent(NotRepresented, `No stable Workflow identity is represented.`). All
+projection Presence fields are Absent; projection ordinal 0–16 follows seven
+array order, field ordinal is zero-based excluding element and direct causal
+kind, and reason index is `(projectionOrdinal + fieldOrdinal) % 4`:
+
+| Index | Reason | Exact detail |
+| --- | --- | --- |
+| 0 | NotDeclared | No Dynamic fact is declared. |
+| 1 | NotRepresented | The Dynamic fact is not represented. |
+| 2 | Unsupported | The Dynamic fact is unsupported. |
+| 3 | NotApplicable | The Dynamic fact is not applicable. |
+
+Core sources/other identities, matching separate Term, predecessor prefix and
+Cause/Reaction kinds remain unchanged. There are no present links to anonymous
+Workflow. Both topologies retain exactly 23 full nodes (11 prefix + 12 new) and
+eight links (five Flow, one Transition, Cause then Reaction) in Catalog order.
+In absence mode endpoints remain complete absent values and indexes are empty.
+Six addressable projection families return their exact complete absent payloads;
+Workflow lookup is UnknownProjection at workflow.identity, node lookup is
+UnknownNode at node.identity, and the separate Term remains resolvable.
+
+The third opaque peer `org.example.dynamic-handoff` is exactly
+`{producer:synthetic-caller,declaredFlowOrder:[review-branch,branch-accept,branch-reject,accept-merge,reject-merge],absence:null}`.
+All three peers survive without assigned opaque semantics.
+
+[CmlDynamicMetadataFixtureSpec](../../src/test/scala/cozy/modeler/CmlDynamicMetadataFixtureSpec.scala)
+authors DF-01 complete independent record/carrier/source/canonical wire equality,
+DF-02 ordered topology/all-seven queries, DF-03 complete absence-cycle equality,
+DF-04 anonymous model/separate Term isolation, DF-05 unchanged prefix/children/peers,
+DF-06 exact recursive shape/version rejections, DF-07 embedded/factory full-core
+binding, DF-08 Local kind/dangling rejection and External isolation, and DF-09
+active ScalaCheck at least 100 successes / zero discards with both modes per plan,
+independent 42-record/seven-carrier permutations and recursive key reconstruction.
+All interpreting prerequisites and actual UTF-8 JSON reading occur beneath When;
+new expected facts are literal typed data with only the unchanged accepted
+Classification prefix permitted as a read oracle. Array order and multiplicity
+are preserved; Catalog fixes topology order. All 141 selected tests in nine
+suites passed, with at least 100 successes and zero discards in the active
+property. P543-S5433-REVIEW-001 revision 1 accepted this Step with zero blockers.
+
+The [handoff](../design/cml-dynamic-metadata-handoff.md) records the exact internal
+supplier, reader and navigation APIs and actionable nine-suite focused recipe.
+Phase 54.4 consumes declared facts and explicit gaps, remains unstarted, and
+Phase 54.6 follows only admitted edges. No runtime or external consumer acceptance
+is claimed; final full Phase gates remain pending.
