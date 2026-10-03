@@ -3,7 +3,7 @@
 Semantic role: Canonical Phase/Step closure ledger.
 Current status: IN_PROGRESS.
 Owner: Cozy Phase 69 parent.
-Update rule: check artifacts only when present; check acceptance gates only from parent validation, fresh independent review and manual local commit evidence. Preserve unchecked ABI/handoff/final gates until accepted.
+Update rule: check artifacts only when present; check acceptance gates only from parent validation, fresh independent review and manual local commit evidence. Preserve accepted SOURCE/ABI evidence and unchecked handoff/final acceptance gates until accepted.
 Closure basis: all three Step ledgers and the final ledger below; authoring is not acceptance.
 Updated: 2026-10-03.
 
@@ -37,33 +37,33 @@ Stage Status:
 ## S69.2 ABI
 
 Stage Status:
-- Current status: IN_PROGRESS.
+- Current status: CLOSED.
 - Owner: Cozy generated Workflow ABI parent.
 - Update rule: enter only after accepted S69.1; check projection/compilation/review/commit gates from actual producer evidence.
 - Closure basis: every S69.2 item below; source acceptance alone supplies no generated v5 contract.
 
 - [x] [Additive ABI contract](../spec/workflow-semantic-outcome-abi-contract.md), [paired lowering design](../design/workflow-semantic-outcome-abi-lowering.md) and [JSON/Scala/bootstrap generator](../../src/main/scala/cozy/modeler/StateMachineWorkflowAbiGenerator.scala) authored under P69-CONT-S692-IMPLEMENTATION-001 revision 1, preserving the original frozen S69.2 contract.
 - [x] Ordered immutable outcomes, actual edge references and source correlation projection authored with collection-selected v5 schema and defaulted trailing descriptor vector.
-- [x] Original absence branches retained and four immutable actual v4 [baseline resources/provenance](../../src/test/resources/modeler/workflow-semantic-outcome-v4-baseline/provenance.md) copied exactly; independent v1/v2/v3 expectations remain unchanged. Compatibility validation remains pending.
+- [x] Original absence branches retained and four immutable actual v4 [baseline resources/provenance](../../src/test/resources/modeler/workflow-semantic-outcome-v4-baseline/provenance.md) copied exactly; independent v1/v2/v3 expectations remain unchanged. Compatibility validation passed in P69-S692-VAL-001.
 - [x] [Interface ABI executable specification](../../src/test/scala/cozy/modeler/WorkflowSemanticOutcomeAbiGenerationSpec.scala) authored with all twelve semantic families, actual repeated public routes, meaningful opaque-value sampling and typed normal/value/seven-member mixed compiler-input materialization.
-- [ ] Parent reconciles all eleven products, complete semantic-family/GWT inventory, affected consumers, whole generator/spec conformance and four original baseline byte vectors before validation.
-- [ ] Generated ABI executable specifications and selected proportional focused validation pass, including the affected producer/consumer symbol map and compile coverage.
-- [ ] Actual generated Scala 3 normal/value/mixed consumer compilation passes through registered serialized SBT; generated source is not merely inspected as strings.
-- [ ] Fresh independent step-protected-focused gpt-6.1-sol/high ABI conformance review accepted.
-- [ ] Parent manual local S69.2 Step commit recorded from the accepted ABI accumulator.
+- [x] Parent reconciled all eleven products, complete semantic-family/GWT inventory, affected consumers, whole generator/spec conformance and four original baseline byte vectors before validation.
+- [x] Generated ABI executable specifications and selected proportional focused validation passed: P69-S692-VAL-001, 101/101 across eight suites, zero failed/aborted/canceled/ignored/pending, native Scala2.12.18 Test/compile, affected producer/consumer symbol map and compile coverage, SBT/wrapper exit0 and lock=released.
+- [x] Actual generated Scala 3 normal/value/mixed consumer compilation passed through registered serialized SBT: P69-S692-VAL-002, Scala3.3.8 sources4/4/10 sequentially in one invocation with distinct .class/.tasty outputs and three separate classes/inc_compile.zip analyses, native SBT/wrapper exit0 and lock=released; generated source was not merely inspected as strings.
+- [x] Fresh independent step-protected-focused gpt-6.1-sol/high ABI conformance review P69-S692-REVIEW-001 revision1 PASS accepted.
+- [x] Parent manual local S69.2 Step commit `4f673a881f00d605fff6902e03499c7568a2a1e1` recorded from the accepted ABI accumulator.
 
 ## S69.3 HANDOFF
 
 Stage Status:
-- Current status: OPEN.
+- Current status: IN_PROGRESS.
 - Owner: Cozy producer handoff parent; CNCF84 receives runtime responsibilities.
 - Update rule: update after accepted ABI with actionable producer evidence and receiver ownership; no runtime implementation claim from Cozy.
 - Closure basis: every S69.3 item below, including independent handoff review and manual Step commit.
 
-- [ ] Actionable CNCF84 handoff authored with source/generated symbols, exact producer examples and receiver integration obligations.
-- [ ] Runtime result mapping/event admission, guards/current-state/concurrency, execution history and diagnostics are explicitly CNCF84-owned.
-- [ ] Retry/failure/lifecycle/wait, ActionExecution/CandidateAdmission and UnitOfWork boundaries are explicit; semantic rejection has no implicit technical classification or terminality.
-- [ ] Handoff states the evidence-backed no-Iteration/no-termination/escalation-extension decision and route for future concrete evidence.
+- [x] [Actionable CNCF84 handoff](phase-69-cncf-handoff.md) authored with source/generated symbols, exact producer examples and receiver integration obligations.
+- [x] Runtime result mapping/event admission, guards/current-state/concurrency, execution history and diagnostics are explicitly CNCF84-owned.
+- [x] Retry/failure/lifecycle/wait, ActionExecution/CandidateAdmission and UnitOfWork boundaries are explicit; semantic rejection has no implicit technical classification or terminality.
+- [x] Handoff states the evidence-backed no-Iteration/no-termination/escalation-extension decision and route for future concrete evidence.
 - [ ] Selected focused handoff static/link/ownership validation passes against actual accepted producer artifacts.
 - [ ] Fresh independent gpt-6.1-sol/medium handoff review accepted.
 - [ ] Parent manual local S69.3 Step commit recorded.

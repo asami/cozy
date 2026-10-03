@@ -31,9 +31,13 @@ S69.1 SOURCE is CLOSED at manual local commit
 `8f066d2c475b4b2e58818ccde2dd8bded180e658`: P69-S691-VAL-001 passed the selected
 seven-suite accumulator with 389/389 tests, whole twelve-path authoring and
 mechanical preflight were reconciled, and P69-S691-REVIEW-001 revision 1 is PASS.
-S69.2 ABI is authored and IN_PROGRESS; its behavior validation, actual generated
-Scala3 compilation, independent review and manual Step commit remain pending.
-S69.3 HANDOFF and all final Phase gates remain OPEN.
+S69.2 ABI is CLOSED at manual local commit
+`4f673a881f00d605fff6902e03499c7568a2a1e1`: P69-S692-VAL-001 passed
+101/101 across eight suites, P69-S692-VAL-002 compiled actual Scala3.3.8
+normal/value/mixed sources4/4/10, and P69-S692-REVIEW-001 revision1 is PASS.
+The [S69.3 CNCF84 handoff](phase-69-cncf-handoff.md) is authored and IN_PROGRESS;
+parent static validation, independent medium review and manual Step commit
+remain pending. All final Phase gates remain OPEN.
 
 ## Minimum semantics and abstraction evaluation
 
@@ -75,7 +79,7 @@ prose, without provider execution grammar.
 Existing HYG-P67-S671-001 parser-size and HYG-P67-S671-002 follow-up debt remain
 separate; the cohesive invocation ownership extraction is not a Hygiene closure.
 
-## Generated ABI authoring
+## Accepted generated ABI
 
 The [normative v5 ABI contract](../spec/workflow-semantic-outcome-abi-contract.md)
 and [frozen ABI lowering design](../design/workflow-semantic-outcome-abi-lowering.md)
@@ -92,23 +96,25 @@ for the normal/value/mixed compiler groups. The mixed collection is the exact
 ordered Legacy/Policy/Lifecycle/Safety/Review/OutcomeOnly/OutcomeEdge sequence.
 The [original v4 baseline](../../src/test/resources/modeler/workflow-semantic-outcome-v4-baseline/provenance.md)
 contains four immutable actual producer products captured before Phase69 edits;
-existing v1 pins and v2/v3 baseline expectations remain independent. Authored
-generation and compilation probes await parent execution and acceptance.
+existing v1 pins and v2/v3 baseline expectations remain independent. Behavior
+and actual generated compilation are accepted in S69.2. Detailed product paths,
+complete JSON evidence, portable reproduction and recipient obligations are in
+the [CNCF84 handoff](phase-69-cncf-handoff.md).
 
 ## Acceptance ownership
 
 The parent completed S69.1 executable-spec authoring reconciliation, whole-file
 compliance and the seven-suite focused accumulator including Test/compile.
-S69.2 requires reconciliation of all eleven ABI products, complete executable
-family inventory and four original byte vectors before its selected eight-suite
+S69.2 completed reconciliation of all eleven ABI products, complete executable
+family inventory and four original byte vectors, its selected eight-suite
 behavior accumulator and actual normal/value/mixed Scala3.3.8 compilation.
-Source and ABI each require an independent protected focused gpt-6.1-sol/high
-review; handoff requires an independent medium review. Exactly one high full
+Source and ABI each passed an independent protected focused gpt-6.1-sol/high
+review; authored handoff still requires its independent medium review. Exactly one high full
 Phase review covers all accepted Steps in P69-PLAN-E1. Parent manual local
 commits remain distinct per Step and for release. Final normal full Cozy test
 and actual generated Scala 3 compilation are required, not inferred from source
 authoring. CNCF runtime completion is a receiver responsibility and not a Cozy
-producer Phase closure requirement. S69.1 acceptance is recorded above;
-S69.2 validation/compile/review/commit and later Phase acceptance remain pending.
+producer Phase closure requirement. S69.1/S69.2 acceptance is recorded above;
+S69.3 static validation/review/commit and later Phase acceptance remain pending.
 P69-PLAN-E1 retains original base `de3b03530b163ede8c11440093b1a71c0a9fb034`
 and its single full Phase review allowance.

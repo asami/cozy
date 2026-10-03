@@ -1,7 +1,7 @@
 # Workflow Semantic Outcome Generated ABI Contract
 
 Semantic role: Normative producer ABI contract.
-Current status: Authored S69.2; parent behavior validation, actual generated Scala3 compilation, independent protected review and manual Step commit pending.
+Current status: Accepted S69.2 ABI at 4f673a881f00d605fff6902e03499c7568a2a1e1; S69.3 handoff authored with static validation, independent medium review and manual Step commit pending; full Phase gates remain open.
 Owner: Cozy generated Workflow ABI, Phase69 parent.
 Update rule: update together with the paired lowering design and executable specification; record acceptance only from parent evidence.
 Updated: 2026-10-03.
@@ -14,7 +14,9 @@ projects those declarations into deterministic Scala3 and canonical JSON
 through both existing `modeler-scala` and `modeler-scala-value` public routes.
 The [lowering design](../design/workflow-semantic-outcome-abi-lowering.md),
 [Phase69](../phase/phase-69.md) and [checklist](../phase/phase-69-checklist.md)
-record the producer boundary and pending ABI acceptance.
+record accepted SOURCE/ABI evidence and the authored
+[CNCF84 handoff](../phase/phase-69-cncf-handoff.md), whose acceptance and final
+Phase gates remain pending.
 
 Selection applies to the entire declaration-ordered collection:
 
@@ -141,11 +143,21 @@ real admitted CML and OutcomeEdge uses a bounded immutable copy of accepted IR.
 Each group saves its canonical JSON at the standard `target/cozy` location.
 Typed probes use actual descriptors/bootstrap, old and new constructors,
 all three enum alternatives, both target alternatives and every transition/source
-field. The parent owns the selected eight-suite behavior accumulator and one
-Scala3.3.8 compilation invocation across the three groups sequentially, with
-separate `target/phase69-generated-compile/{normal,value,mixed}/` classes and
-analysis files, normal shared caches and the registered serialized SBT runner.
-Authored probes and expected output are not compiler or acceptance evidence.
+field. Parent-admitted P69-S692-VAL-001 passed 101/101 across eight suites,
+zero failed/aborted/canceled/ignored/pending, including native Scala2.12.18
+Test/compile. P69-S692-VAL-002 compiled actual Scala3.3.8 normal/value/mixed
+sources4/4/10 sequentially in one registered serialized invocation, with
+distinct .class/.tasty outputs and separate
+`target/phase69-generated-compile/{normal,value,mixed}/` classes and
+inc_compile.zip analyses. Both records report native SBT/wrapper exit0 and
+lock=released with normal shared caches. Four independent original v4 byte
+vectors and unchanged v1-v3 suites support compatibility.
+P69-S692-REVIEW-001 revision1 protected high review PASS and native Step commit
+`4f673a881f00d605fff6902e03499c7568a2a1e1` record ABI acceptance.
+The [CNCF84 handoff](../phase/phase-69-cncf-handoff.md) is authored; its static
+validation, medium independent review and manual Step commit remain pending,
+as do the sole full Phase review, ordinary full test and distinct release.
+Compilation demonstrates source compatibility, not receiver runtime acceptance.
 
 ## Receiver responsibilities and non-goals
 

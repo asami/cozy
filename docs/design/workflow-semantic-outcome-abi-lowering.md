@@ -1,7 +1,7 @@
 # Workflow Semantic Outcome ABI Lowering
 
 Semantic role: Stable Semantics (frozen design).
-Current status: Authored S69.2; behavior validation, actual generated Scala3 compilation, independent protected review and manual Step commit pending.
+Current status: Accepted S69.2 ABI at 4f673a881f00d605fff6902e03499c7568a2a1e1; S69.3 handoff authored with static validation, independent medium review and manual Step commit pending; full Phase gates remain open.
 Owner: Cozy generated Workflow ABI, Phase69 parent.
 Update rule: maintain with the normative ABI contract and executable specification; parent evidence alone changes acceptance status.
 Updated: 2026-10-03.
@@ -12,7 +12,9 @@ The [normative ABI contract](../spec/workflow-semantic-outcome-abi-contract.md)
 consumes the accepted [source contract](../spec/workflow-semantic-outcome-source-contract.md)
 and its [source lowering design](workflow-semantic-outcome-source-lowering.md).
 [Phase69](../phase/phase-69.md) and its [checklist](../phase/phase-69-checklist.md)
-distinguish accepted S69.1 source from pending S69.2 ABI and open S69.3 handoff.
+record accepted S69.1 SOURCE and S69.2 ABI, with the
+[CNCF84 handoff](../phase/phase-69-cncf-handoff.md) authored and its acceptance
+and final Phase gates pending.
 
 `StateMachineWorkflowAbiGenerator` remains the sole projection owner. One
 collection predicate tests nonempty `semanticOutcomes`. It selects v5 and enables
@@ -84,26 +86,33 @@ reader, ordered descriptors and bootstrap metadata.
 The standard Scala directory suffix under each
 `target/test-generated/workflow-semantic-outcome-{normal,value,compile}/` group
 contains respectively four, four and ten compiler sources. Each canonical JSON
-uses the group's standard target/cozy location. The parent first runs the selected
-eight-suite behavior accumulator including Test/compile, then a single actual
-Scala3.3.8 invocation with sequential normal/value/mixed compilation and separate
-class/analysis directories under target/phase69-generated-compile. Matching
-scala3-library_3, dependencyOverrides Nil, normal shared caches and registered
-serialization are frozen. No handwritten substitute ABI supplies compilation.
+uses the group's standard target/cozy location. P69-S692-VAL-001 passed
+101/101 across eight suites including native Scala2.12.18 Test/compile, with
+zero failed/aborted/canceled/ignored/pending. P69-S692-VAL-002 compiled these
+actual Scala3.3.8 normal/value/mixed sources4/4/10 sequentially in one invocation,
+with distinct .class/.tasty products and three separate class/analysis directories
+under target/phase69-generated-compile. Matching scala3-library_3,
+dependencyOverrides Nil, normal shared caches and registered serialization
+were used; both records report native SBT/wrapper exit0 and lock=released.
+No handwritten substitute ABI supplies compilation.
 
 ## Ownership and acceptance
 
 S69.1 is accepted at `8f066d2c475b4b2e58818ccde2dd8bded180e658` with actual
 389/389 seven-suite validation P69-S691-VAL-001, whole twelve-path authoring and
-preflight, and P69-S691-REVIEW-001 revision 1 PASS. S69.2 authoring supplies
-products/specification; actual behavior validation, generated compilation,
-independent protected high review and manual commit remain pending. S69.3 and
-all final Phase gates remain open, including the sole P69-PLAN-E1 full review.
+preflight, and P69-S691-REVIEW-001 revision 1 protected high PASS. S69.2 is
+accepted at `4f673a881f00d605fff6902e03499c7568a2a1e1` after the actual
+behavior/compiler evidence above and P69-S692-REVIEW-001 revision1 protected
+high PASS. Four original v4 byte vectors and unchanged v1-v3 suites support
+compatibility. The [S69.3 handoff](../phase/phase-69-cncf-handoff.md) is authored;
+static validation, independent medium review and its manual Step commit remain
+pending. All final Phase gates remain open, including the sole P69-PLAN-E1 full
+review, ordinary full test and distinct release.
 
 CNCF84 owns decoder/bootstrap integration, semantic result/event association,
 guards/current-state/concurrency, runtime history, diagnostics and enforcement.
 No runtime result, event or transition execution is inferred by Cozy. Rejected
 is terminal only through the authored graph. Supplied evidence needs no new
 Iteration, counter/budget, termination/escalation policy or scheduler. Existing
-Phase67 Hygiene remains separately unresolved. Producer authoring and baseline
-provenance neither close acceptance gates nor promise receiver completion.
+Phase67 Hygiene remains separately unresolved. Producer Step acceptance
+neither closes final Phase gates nor promises receiver completion.

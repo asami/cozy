@@ -1,7 +1,7 @@
 # Workflow Semantic Outcome Source Lowering
 
 Semantic role: Stable Semantics (frozen design).
-Current status: Authored; pending parent validation, independent protected S69.1 review and manual Step commit. ABI, handoff and full Phase gates remain pending.
+Current status: Accepted S69.1 SOURCE and S69.2 ABI; S69.3 handoff authored, its static validation, independent medium review and manual Step commit pending; full Phase gates remain open.
 Owner: Cozy Workflow source lowering, Phase 69 parent.
 Update rule: update together with the normative source contract and executable specification; record acceptance only from parent evidence.
 Updated: 2026-10-03.
@@ -94,8 +94,18 @@ finding. Future evidence has separate ownership; unknown extensions fail closed.
 The [interface executable specification](../../src/test/scala/cozy/modeler/WorkflowSemanticOutcomeCmlSpec.scala)
 admits real source including Entity-contained StateMachines, malformed/owned
 positions and bounded generated aliases, with adjacent Given/When/Then clauses.
-The parent owns the seven-suite focused accumulator, mechanical checks and
-independent protected high source review. [Phase 69](../phase/phase-69.md) and
-its [checklist](../phase/phase-69-checklist.md) retain unchecked validation,
-reviews, manual commits, S69.2 ABI, S69.3 handoff and final gates. Source
-authoring neither promises generated v5 output nor closes the producer Phase.
+[Phase 69](../phase/phase-69.md) and its
+[checklist](../phase/phase-69-checklist.md) record accepted producer evidence. S69.1 SOURCE is accepted at
+`8f066d2c475b4b2e58818ccde2dd8bded180e658`: P69-S691-VAL-001 passed
+389/389 across seven suites including native Scala2.12.18 Test/compile;
+P69-S691-REVIEW-001 revision1 protected high review PASS. S69.2 ABI is accepted
+at `4f673a881f00d605fff6902e03499c7568a2a1e1`: P69-S692-VAL-001 passed
+101/101 across eight suites; P69-S692-VAL-002 compiled actual Scala3.3.8
+normal/value/mixed sources4/4/10 with distinct class/tasty/analysis products;
+P69-S692-REVIEW-001 revision1 protected high review PASS. Both focused
+accumulators reported zero failed/aborted/canceled/ignored/pending and native
+exit0/lock=released. The [CNCF84 handoff](../phase/phase-69-cncf-handoff.md)
+is authored; its static validation, independent medium review and manual Step
+commit, sole full Phase review, ordinary final full test and distinct release
+remain pending. Accepted producer evidence does not prove receiver runtime
+execution or close Phase69.
