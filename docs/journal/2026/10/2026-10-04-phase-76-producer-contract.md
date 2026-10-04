@@ -178,3 +178,99 @@ LUI-ACCEPT-01, generated consumer acceptance, repository full tests, public
 publication and either Phase closure are not claimed. This documentary
 acceptance projection preserves the normative contracts and prior journal
 entries; it supplies no whole-Phase acceptance or release evidence.
+
+## 2026-10-04 — P76-03A source generation authoring
+
+P76-02's accepted local Step commit is now
+`d9e106ca7d154402487274e189063f4276d0d94a`, following the retained 190/190
+focused tests and independent PASS recorded above. Earlier PREPARED/PENDING
+entries remain their chronological snapshots. Cozy remains on
+`codex/phase-76-logical-ui-producer`; the CNCF source head remains
+`fed26152045b1326e87de8a6929dc84e2fc05b18` and the quote prerequisite head is
+`e2119e3b6e69d4564ee8a3c5a280be4753654fa0`.
+
+Frozen manifest `phase96-cozy76-p76-03a-implementation-manifest-001` revision 1
+authors the separate renderer, bounded preflight in both ordinary Modeler
+routes, appended defaulted optional Realm integration and structured library
+source/direct-generator guards. Whole-vector producer projection precedes
+Realm construction; generated definitions/provider refer only to the public
+CNCF ABI. Diagnostic code/path/reason remains typed Conclusion data. Ordinary
+Scala literals preserve declared strings and vector order without generated
+time or machine-path metadata.
+
+The [generation specification](../../../../src/test/scala/cozy/modeler/LogicalUiAbiGenerationSpec.scala)
+authors adjacent Given/When/Then scenarios for pure renderer and both ordinary
+in-process Modeler routes, exact ESS2-01 artifacts, all closed roles/kinds,
+multiple explicit owners, repeatable UTF-8 bytes, safe decoded literals,
+whole-vector/late rejection, typed failures, absent behavior and library/null
+guards. Three ScalaCheck properties request at least 100 successful cases.
+The [definitions golden](../../../../src/test/resources/logicalui/golden/DomainLogicalUiDefinitions.scala.txt)
+and [provider golden](../../../../src/test/resources/logicalui/golden/DomainLogicalUiMetadataProvider.scala.txt)
+are expectations, not actual producer handoff files or CNCF compilation proof.
+The ordinary [ESS2-01 CML](../../../../src/test/resources/logicalui/ess2-01.cml)
+is reused without modification.
+
+P76-03 is IN_PROGRESS with all four obligations unchecked; P76-01/02 remain
+CLOSED, eight obligations accepted and sixteen unchecked overall. P76-04..06
+remain OPEN and Phase 76 remains IN_PROGRESS. Parent focused validation,
+fresh independent Step review/acceptance and P76-03 commit are pending.
+This entry claims no new test PASS, CLI generation, runtime activation,
+LUI-GEN-01, LUI-ACCEPT-01, consumer acceptance, full Phase validation,
+publication or Phase closure. Phase 74 authority, Phase 51 PLANNED and the
+original CNCF/Cozy Goals and historical ledgers remain retained.
+
+## 2026-10-04 — P76-03A focused validation and independent Step acceptance
+
+Parent representative request
+`phase96-cozy76-p76-03a-representative-request-003` r1 and result
+`phase96-cozy76-p76-03a-representative-result-003` r1 passed 56/56 tests across
+one suite. Accumulator request
+`phase96-cozy76-p76-03a-accumulator-request-001` r1 and result
+`phase96-cozy76-p76-03a-accumulator-result-001` r1 passed 266/266 tests across
+eight suites. Both use common subject `phase96-cozy76-p76-03a-subject-001` r3;
+both actual typed readers accepted the terminal results. Total focused
+evidence is 56 + 266 = 322/322 PASS across nine suites, including three active
+ScalaCheck properties with at least 100 successful cases in the generation
+specification. Both commands completed with SBT/wrapper exit 0 and serial
+lock release. This entry records existing parent results.
+
+Independent Step review `phase96-cozy76-p76-03a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB, zero DEV
+and three nonblocking Hygiene items:
+
+- `HYG-COZY76-P7603-MODELER-LOCAL-NAMING-001`;
+- `HYG-COZY76-P7603-MODELER-RESPONSIBILITY-001`;
+- `HYG-COZY76-P7603-README-CLI-PROJECTION-001`.
+
+Original CNCF primary typed ledger `phase96-review-ledger-001` r14 records
+these items and attributes the Step review to Cozy PHASE-76/P76-03/P76-03A.
+Their dedicated Hygiene journal materialization remains later work; this
+entry performs no cleanup. The original CNCF Goal, binding, bases, PLAN epoch,
+review history and coordinated repository additions remain retained. Historic
+separate Cozy ledger `phase76-review-ledger-001` r3 remains read-only under its
+original blocked Goal.
+
+The two actual prevalidation repairs remain retained:
+`phase96-cozy76-p76-03a-import-fix-001` resolved the admitted import ambiguity,
+and `phase96-cozy76-p76-03a-literal-fix-001` repaired fixture serialization
+without changing decoded expectations or product grammar. Cumulative P76-03
+repair cycles remain 2 and consecutive non-converging repairs remain 0. This
+deterministic documentary projection neither increments nor resets those
+counts and creates no new repair cycle or full Phase review.
+
+Under `phase96-cozy76-p76-03-acceptance-handoff-001` r1, all four P76-03
+source-contract criteria are accepted: renderer/public provider source shape,
+both ordinary in-process routes, optional Realm integration and library
+guards. The [current checklist](../../../phase/phase-76-checklist.md) records
+P76-01..03 CLOSED with 12/24 obligations accepted and 12 unchecked;
+P76-04..06 remain OPEN and Phase 76 remains IN_PROGRESS. P76-01 retains local
+commit `0224d56cd5a1a94ab110b7e776e6922264eb7950` and P76-02 retains
+`d9e106ca7d154402487274e189063f4276d0d94a`. The local P76-03 Step acceptance
+commit is PREPARED/PENDING, not executed.
+
+This is source/provider acceptance only. Actual twice-generated ordinary CLI
+LUI-GEN-01 remains P76-04; Scala 3 compilation, ComponentFactory discovery/
+admission, bootstrap and equivalent Display projection of those same generated
+files through LUI-ACCEPT-01 remain P76-05/P96-03C. Full-suite validation,
+publication, push, full Phase acceptance/release and either Phase closure
+remain pending. Phase 74 authority and Phase 51 PLANNED are preserved.

@@ -7,9 +7,18 @@ retained independent Step review PASS, committed locally as
 verification and fresh independent Step review are accepted; the
 [pure producer](../../src/test/scala/cozy/modeler/LogicalUiProducerSpec.scala) and
 [ordinary CML](../../src/test/scala/cozy/modeler/LogicalUiCmlSpec.scala) specifications
-passed parent focused validation. Actual Scala 3 generation/wiring, generated
-consumer acceptance and whole-Phase verification remain pending. The local
-P76-02 Step acceptance commit is PREPARED/PENDING, not executed.
+passed parent focused validation. The local
+P76-02 Step acceptance commit is
+`d9e106ca7d154402487274e189063f4276d0d94a`. P76-03A source generation and
+ordinary in-process wiring are accepted after 322/322 focused tests across
+nine suites, including three ScalaCheck properties with at least 100 successful
+cases, and independent Step review `phase96-cozy76-p76-03a-step-review-001`
+r1 PASS by `/root/phase96_cozy76_p76_03a_step_review_001`, attributed in
+original CNCF primary ledger `phase96-review-ledger-001` r14. The local
+P76-03 Step acceptance commit is PREPARED/PENDING, not executed. Actual
+twice-generated ordinary CLI LUI-GEN-01, same-generated Scala 3 consumer
+compilation/factory/bootstrap/Display LUI-ACCEPT-01 and whole-Phase
+verification/release remain pending.
 
 The [producer specification](../spec/logical-ui-generated-producer.md) fixes
 behavior. [Phase 74 spec](../spec/logical-ui-runtime-contract.md),
@@ -58,11 +67,23 @@ failXxx utility supplies this boundary.
 Modeler.generateScala and Modeler.generateScalaValue both extract and validate
 before building output for the CNCF target. Parsing, validation, projection and
 rendering live in separate responsibility files; Modeler adds only bounded
-plumbing. ScalaGenerator accepts an optional trailing producer argument with
-empty default, retaining existing callers and absent-input output. Merge
+plumbing. ScalaGenerator appends `logicalUi: Option[Realm] = None` after
+`generationTarget`, retaining existing callers and absent-input output. Merge
 Logical UI Realm artifacts only for CNCF. ModelGenerationTarget's library
 boundary rejects present Logical UI definitions before output; absence retains
 ordinary library behavior.
+
+The separate [LogicalUiScalaGenerator](../../src/main/scala/cozy/modeler/LogicalUiScalaGenerator.scala)
+consumes the complete admitted projection before creating a Realm. Modeler
+preflights both routes before ModelBuilder and retains only an optional Realm;
+invalid source becomes an `SError` with typed Diagnostic data in an
+invalid-argument Conclusion. The source-preflight exception interface uses
+the same Conclusion through `RAISEC`. Null Option/Realm shape is structured;
+library rejects any present Realm, including empty, before transformation.
+The CNCF Realm fold follows all existing generator folds so their artifacts
+remain in the complete output. No new parser or alternate validation boundary
+is introduced. Keeping the renderer separate and two-route plumbing bounded
+preserves the existing Modeler responsibilities without a mechanical split.
 
 The renderer emits the component's package plus `.logicalui`, a public
 `<ComponentStem>LogicalUiDefinitions` object with immutable definitions vector,

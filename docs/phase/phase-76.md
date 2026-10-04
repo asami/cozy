@@ -41,14 +41,27 @@ P76-01's documentary contract is accepted after retained independent Step
 review PASS, P76-01 CLOSED, and local Step commit
 `0224d56cd5a1a94ab110b7e776e6922264eb7950`. P76-02's four pure-producer
 obligations are accepted after 190 focused tests and fresh independent Step
-review PASS: P76-02 CLOSED, 8/24 obligations accepted and 16 unchecked.
-Its local Step acceptance commit is PREPARED/PENDING, not executed.
-P76-03..06 remain OPEN. The received
+review PASS: P76-02 CLOSED.
+Its local Step acceptance commit is
+`d9e106ca7d154402487274e189063f4276d0d94a`.
+P76-03's four source-generation obligations are accepted after 56 + 266 =
+322/322 focused tests across nine suites, including three ScalaCheck
+properties with at least 100 successful cases. Independent Step review
+`phase96-cozy76-p76-03a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_03a_step_review_001` is PASS, attributed to Cozy
+P76-03 in original CNCF primary ledger `phase96-review-ledger-001` r14.
+P76-03 is CLOSED with 12/24 obligations accepted and 12 unchecked;
+P76-04..06 remain OPEN. The local P76-03 Step acceptance commit is
+PREPARED/PENDING, not executed. The received
 fixed LUI-ABI-01 source contract is transcribed in the
 [producer spec](../spec/logical-ui-generated-producer.md) and
 [design](../design/logical-ui-generated-producer.md). Pure-producer executable
-verification and independent Step review are accepted; actual Scala 3 rendering,
-generation/wiring and generated consumer acceptance remain pending; Phase 76
+verification and independent Step review are accepted, as are P76-03A's
+renderer, both ordinary in-process routes, optional Realm integration and
+library guards under the source/provider contract only. Actual twice-generated
+CLI LUI-GEN-01 (P76-04), same-generated Scala 3 compilation/factory/bootstrap/
+Display LUI-ACCEPT-01 (P76-05/P96-03C), full Phase acceptance and release
+remain pending; Phase 76
 remains IN_PROGRESS.
 The [contract journal](../journal/2026/10/2026-10-04-phase-76-producer-contract.md)
 records source coordinates, existing consumer focused evidence and documentary
@@ -159,9 +172,27 @@ cases. Fresh independent Step review
 `/root/phase96_cozy76_p76_02a_step_review_001` is PASS with zero CPB/HYG/DEV
 findings, explicitly attributed to Cozy P76-02 in original CNCF ledger
 `phase96-review-ledger-001` r12. All four P76-02 pure criteria are accepted;
-actual rendering/generation, generated consumer acceptance and whole-Phase
+actual rendering/generation acceptance, generated consumer acceptance and whole-Phase
 verification remain pending. The local P76-02 Step acceptance commit is
-PREPARED/PENDING, not executed.
+`d9e106ca7d154402487274e189063f4276d0d94a`.
+
+P76-03A authors the bounded [LogicalUiScalaGenerator](../../src/main/scala/cozy/modeler/LogicalUiScalaGenerator.scala)
+renderer and optional Realm integration in both ordinary Modeler routes. The
+[generation specification](../../src/test/scala/cozy/modeler/LogicalUiAbiGenerationSpec.scala)
+and two source goldens describe deterministic public-ABI output, atomic typed
+failures, literal encoding, absence compatibility and library pre-output rejection.
+Parent representative validation passed 56/56 tests across one suite and
+accumulator validation passed 266/266 across eight suites: 322/322 across
+nine suites, including three ScalaCheck properties with at least 100 successful
+cases. Independent Step review `phase96-cozy76-p76-03a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
+three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
+primary ledger `phase96-review-ledger-001` r14. P76-03's four source-contract
+criteria are accepted; 12/24 obligations are accepted and 12 unchecked.
+The local P76-03 Step acceptance commit is PREPARED/PENDING, not executed.
+Goldens are expectations. Actual twice-generated CLI LUI-GEN-01 (P76-04),
+same-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
+(P76-05/P96-03C), full Phase acceptance and release remain pending.
 
 ## Acceptance criteria
 

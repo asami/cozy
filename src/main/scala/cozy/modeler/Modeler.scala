@@ -5,6 +5,7 @@ import org.simplemodeling.model.domain._
 import org.simplemodeling.SimpleModeler.generator.scala.Generator.{State => GState, _}
 import org.smartdox.{Description, Dox}
 import org.goldenport.RAISE
+import org.goldenport.context.Conclusion
 import org.goldenport.collection.VectorMap
 import org.goldenport.values.Designation
 import org.goldenport.values.PathName
@@ -53,7 +54,8 @@ import scala.collection.mutable
  *  version May. 24, 2026
  *  version Jul. 31, 2026
  *  version Aug. 14, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class Modeler(
@@ -438,11 +440,22 @@ class Modeler(
   }
 
   private def _make_scala(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val logicalui = smodel.model match {
+      case source: KaleidoxModel => LogicalUiScalaGenerator.fromModel(source) match {
+        case Left(diagnostic) => return SError(LogicalUiScalaGenerator.conclusion(diagnostic))
+        case Right(realm) => realm
+      }
+      case _ => RAISE.noReachDefect
+    }
+    if (generationTarget == ModelGenerationTarget.Library && logicalui.nonEmpty)
+      return SError(Conclusion.invalidArgumentFault(
+        "LIBRARY_GENERATION_UNSUPPORTED_RUNTIME: category=logical-ui is a CNCF runtime feature. Use --generation-target cncf."
+      ))
     val env = c.executionContext.environment
     val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val workflows = _workflow_definitions(smodel.model)
     val model = _make_model(smodel.model)
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget)
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, logicalUi = logicalui)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)
@@ -451,6 +464,17 @@ class Modeler(
   }
 
   private def _make_scala_value(c: Context, smodel: SModel, pkg: String): SExpr = {
+    val logicalui = smodel.model match {
+      case source: KaleidoxModel => LogicalUiScalaGenerator.fromModel(source) match {
+        case Left(diagnostic) => return SError(LogicalUiScalaGenerator.conclusion(diagnostic))
+        case Right(realm) => realm
+      }
+      case _ => RAISE.noReachDefect
+    }
+    if (generationTarget == ModelGenerationTarget.Library && logicalui.nonEmpty)
+      return SError(Conclusion.invalidArgumentFault(
+        "LIBRARY_GENERATION_UNSUPPORTED_RUNTIME: category=logical-ui is a CNCF runtime feature. Use --generation-target cncf."
+      ))
     val env = c.executionContext.environment
     val compositestatemachines = _composite_state_machine_definitions(smodel.model)
     val workflows = _workflow_definitions(smodel.model)
@@ -461,7 +485,7 @@ class Modeler(
     if (generationTarget == ModelGenerationTarget.Library)
       ModelGenerationTarget.requireLibraryModel(builder, compositestatemachines, workflows)
     val model = builder.buildValue()
-    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget)
+    val g = new ScalaGenerator(env, model, compositestatemachines, workflows, generationTarget, logicalUi = logicalui)
     val targetpkg = _resolve_generate_package(model, pkg)
     model.getPackage(targetpkg).orElse(Some(model.root)) match {
       case Some(s) => g.generate(s)

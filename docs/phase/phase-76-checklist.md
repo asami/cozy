@@ -10,11 +10,24 @@ planning_source=c6b108b8f301d4b1928e3f7f1b43d3e17f8e3739
 This ledger preserves the GitHub Phase 76 plan and all 24 obligations/owners.
 P76-01's four documentary obligations are accepted after retained independent
 Step review PASS. P76-02's four pure-producer obligations are accepted after
-focused validation and fresh independent Step review PASS: 8/24 obligations
-accepted, 16 unchecked. P76-02 is CLOSED and P76-03..06 remain OPEN;
+focused validation and fresh independent Step review PASS. P76-03's four
+source-generation obligations are accepted after 56 + 266 = 322/322 focused
+tests across nine suites, three ScalaCheck properties with at least 100
+successful cases and independent Step review
+`phase96-cozy76-p76-03a-step-review-001` r1 PASS by
+`/root/phase96_cozy76_p76_03a_step_review_001`, attributed to Cozy P76-03 in
+original CNCF primary ledger `phase96-review-ledger-001` r14: 12/24 obligations
+accepted, 12 unchecked. P76-01..03 are CLOSED and P76-04..06 remain OPEN;
 Phase 76 remains IN_PROGRESS. The local P76-01 Step commit is
 `0224d56cd5a1a94ab110b7e776e6922264eb7950`.
-The local P76-02 Step acceptance commit is PREPARED/PENDING, not executed.
+The local P76-02 Step acceptance commit is
+`d9e106ca7d154402487274e189063f4276d0d94a`.
+The local P76-03 Step acceptance commit is PREPARED/PENDING, not executed.
+P76-03 acceptance covers the renderer, both ordinary in-process routes,
+optional Realm integration and library guards under the source/provider
+contract only. Actual twice-generated CLI LUI-GEN-01 (P76-04), the same
+generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
+(P76-05/P96-03C), full Phase acceptance and release remain pending.
 Phase 74 remains the semantic
 authority; CNCF Phase 96 owns the Scala 3 consumer ABI and runtime admission.
 The [producer ABI proposal](../notes/logical-ui-cncf-producer-abi-proposal.md)
@@ -73,7 +86,7 @@ pending; documentary acceptance does not establish those results.
 Stage Status:
 
 - Current status: CLOSED
-- Current step: P76-02A pure producer accepted after 190 focused tests and fresh independent Step review PASS; local Step acceptance commit PREPARED/PENDING, not executed
+- Current step: P76-02A pure producer accepted after 190 focused tests and fresh independent Step review PASS; local Step acceptance commit d9e106ca7d154402487274e189063f4276d0d94a
 - Owner: Cozy Logical UI producer owners
 - Update rule: Advance only from explicit pure projection and validation evidence; the checklist below is the closure basis.
 
@@ -97,14 +110,35 @@ consumer acceptance and full Phase acceptance remain pending.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
+- Current step: P76-03A renderer, both ordinary in-process routes, optional Realm integration and library guards accepted after 322/322 focused tests and independent Step review PASS; local Step acceptance commit PREPARED/PENDING, not executed
 - Owner: Cozy source-generation owners
 - Update rule: Advance only from generated source and provider specifications against the admitted ABI; the checklist below is the closure basis.
 
-- [ ] Existing generator utilities emit Scala 3 public-ABI definitions and bounded provider/bootstrap metadata in the source shape fixed by LUI-ABI-01, discoverable through CNCF ComponentFactory.
-- [ ] Generated source contains no Cozy runtime, Flutter/TFAF, runtime endpoint URL, widget, callback, datastore or client-navigation dependency, and no consumer implementation classes outside the public ABI.
-- [ ] Golden fixtures preserve the expected-generated shape, exact stable identities, ordering and provenance; repeated generation is byte-equivalent UTF-8 LF with final newline and no generated-time headers.
-- [ ] Generator specifications exercise valid and invalid inputs, naming/escaping and provider identity so correctness is not inferred from a hand-written fixture alone.
+Accepted source implementation: [LogicalUiScalaGenerator](../../src/main/scala/cozy/modeler/LogicalUiScalaGenerator.scala),
+bounded ordinary Modeler preflight and trailing optional Realm integration.
+The [generation specification](../../src/test/scala/cozy/modeler/LogicalUiAbiGenerationSpec.scala)
+uses adjacent Given/When/Then and three ScalaCheck properties with at least
+100 successful cases;
+[definitions](../../src/test/resources/logicalui/golden/DomainLogicalUiDefinitions.scala.txt)
+and [provider](../../src/test/resources/logicalui/golden/DomainLogicalUiMetadataProvider.scala.txt)
+goldens are source expectations. Representative validation passed 56/56 tests
+across one suite; accumulator validation passed 266/266 across eight suites:
+322/322 across nine suites. Independent Step review
+`phase96-cozy76-p76-03a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
+three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
+primary ledger `phase96-review-ledger-001` r14. All four source-contract
+criteria below are accepted, with 12/24 accepted and 12 unchecked overall.
+The local P76-03 Step acceptance commit is PREPARED/PENDING, not executed.
+Actual twice-generated CLI LUI-GEN-01 (P76-04), same-generated Scala 3
+compilation/factory/bootstrap/Display LUI-ACCEPT-01 (P76-05/P96-03C), full
+Phase acceptance and release evidence remain pending.
+
+- [x] Existing generator utilities emit Scala 3 public-ABI definitions and bounded provider/bootstrap metadata in the source shape fixed by LUI-ABI-01, discoverable through CNCF ComponentFactory.
+- [x] Generated source contains no Cozy runtime, Flutter/TFAF, runtime endpoint URL, widget, callback, datastore or client-navigation dependency, and no consumer implementation classes outside the public ABI.
+- [x] Golden fixtures preserve the expected-generated shape, exact stable identities, ordering and provenance; repeated generation is byte-equivalent UTF-8 LF with final newline and no generated-time headers.
+- [x] Generator specifications exercise valid and invalid inputs, naming/escaping and provider identity so correctness is not inferred from a hand-written fixture alone.
 
 ## P76-04: Producer regression and generated handoff
 

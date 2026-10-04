@@ -8,9 +8,18 @@ implementation. P76-01 documentary obligations are accepted at local Step commit
 verification and fresh independent Step review are accepted; its
 [pure producer specification](../../src/test/scala/cozy/modeler/LogicalUiProducerSpec.scala)
 and [ordinary CML specification](../../src/test/scala/cozy/modeler/LogicalUiCmlSpec.scala)
-passed parent focused validation. Actual Scala 3 generation/wiring, generated
-consumer acceptance and whole-Phase verification remain pending. The local
-P76-02 Step acceptance commit is PREPARED/PENDING, not executed.
+passed parent focused validation. The local
+P76-02 Step acceptance commit is
+`d9e106ca7d154402487274e189063f4276d0d94a`. P76-03A source generation and
+ordinary in-process wiring are accepted after 322/322 focused tests across
+nine suites, including three ScalaCheck properties with at least 100 successful
+cases, and independent Step review `phase96-cozy76-p76-03a-step-review-001`
+r1 PASS by `/root/phase96_cozy76_p76_03a_step_review_001`, attributed in
+original CNCF primary ledger `phase96-review-ledger-001` r14. The local
+P76-03 Step acceptance commit is PREPARED/PENDING, not executed. Actual
+twice-generated ordinary CLI LUI-GEN-01, same-generated Scala 3 consumer
+compilation/factory/bootstrap/Display LUI-ACCEPT-01 and whole-Phase
+verification/release remain pending.
 
 ## Authority and supported boundary
 
@@ -243,10 +252,31 @@ target, extract and validate definitions from source component declarations
 before building generated STree. Absent Logical UI preserves both routes'
 existing output. `--generation-target library` rejects a present Logical UI
 runtime definition before output, preserving ordinary library behavior when
-absent. `ScalaGenerator` gains an optional trailing producer argument with
-empty default; deterministic Realm artifacts merge only in the CNCF target.
+absent. `ScalaGenerator` appends `logicalUi: Option[Realm] = None` after
+`generationTarget`, preserving existing constructor arguments and defaults;
+deterministic Realm artifacts merge only in the CNCF target.
 Keep Modeler plumbing small; parsing, validation, projection and rendering
 reside in separate files.
+
+[LogicalUiScalaGenerator](../../src/main/scala/cozy/modeler/LogicalUiScalaGenerator.scala)
+reuses complete `LogicalUiCncfAbiProjection` admission before constructing a
+Realm. Its ordinary-model entry returns `Right(None)` on absence, a present
+Realm for admitted roots, or the unchanged first typed Diagnostic on failure.
+Both Modeler routes preflight this source before ModelBuilder/ScalaGenerator
+and return `SError` carrying
+`Conclusion.invalidArgumentFault("<code>: path=<path>; reason=<reason>").withData(diagnostic)`.
+Library source preflight performs ordinary Model.load and the same source
+admission before ModelBuilder and existing category checks, using `RAISEC`
+where its exception-required interface retains the structured Conclusion.
+
+The optional-input guard rejects a null Option or `Some(null)` with structured
+invalid-argument text `logicalUi must be a non-null Option containing a non-null Realm.`.
+Library first applies that guard, admits None, and rejects every valid Some,
+including an empty Realm, with
+`LIBRARY_GENERATION_UNSUPPORTED_RUNTIME: category=logical-ui is a CNCF runtime feature. Use --generation-target cncf.`.
+Neither library entry silently drops admitted Logical UI. CNCF folds a present
+Realm into the complete existing output after Workflow/ProvidedApi/candidate
+admission generation; None retains existing artifacts.
 
 Emit into the existing component package plus `.logicalui`:
 
@@ -336,3 +366,20 @@ and target-neutral compile-time semantics. Do not start Phase 51 or claim
 executed Flutter generator/widget tests. Producer and consumer receipts,
 independent review, Step commits and final release proof remain separate from
 this documentary scope.
+
+The authored [LogicalUiAbiGenerationSpec](../../src/test/scala/cozy/modeler/LogicalUiAbiGenerationSpec.scala)
+now covers pure renderer and both ordinary in-process Modeler routes, exact
+two-file goldens, all closed role/kind references, ownership/order/literal
+properties, atomic rejection, typed Modeler/Conclusion data, source preflight,
+direct generator library/null guards and absent-input compatibility. Each
+created scenario places Given/When/Then at its behavior boundaries; three
+ScalaCheck properties require at least 100 successful cases. Parent
+representative validation passed 56/56 tests across one suite and accumulator
+validation passed 266/266 across eight suites: 322/322 across nine suites.
+Independent Step review `phase96-cozy76-p76-03a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_03a_step_review_001` is PASS, attributed in original
+CNCF primary ledger `phase96-review-ledger-001` r14. This accepts the P76-03
+source/provider contract and ordinary in-process wiring. The local Step
+acceptance commit is PREPARED/PENDING, not executed. Actual twice-generated
+ordinary CLI LUI-GEN-01, same-generated Scala 3 compilation/factory/bootstrap/
+Display LUI-ACCEPT-01 and whole-Phase verification/release remain pending.
