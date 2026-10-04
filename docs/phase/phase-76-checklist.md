@@ -19,8 +19,8 @@ successful cases and independent Step review
 original CNCF primary ledger `phase96-review-ledger-001` r14. P76-04's four
 producer-regression/generated-handoff obligations are also accepted after the
 original independent Step review and accepted parent coordinate M0 amendment:
-16/24 obligations accepted, 8 unchecked. P76-01..04 are CLOSED and
-P76-05/06 remain OPEN;
+20/24 obligations accepted, 4 unchecked after P76-05 independent acceptance.
+P76-01..05 are CLOSED and P76-06 remains OPEN;
 Phase 76 remains IN_PROGRESS. The local P76-01 Step commit is
 `0224d56cd5a1a94ab110b7e776e6922264eb7950`.
 The local P76-02 Step acceptance commit is
@@ -37,9 +37,17 @@ and shared lock released. Independent review
 `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` is resolved by accepted parent M0
 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1, recorded
 in original CNCF ledger `phase96-review-ledger-001` r17. The local P76-04
-Step commit is PREPARED/PENDING, not executed. Same-generated Scala 3 compilation/factory/
-bootstrap/Display LUI-ACCEPT-01 (P76-05/P96-03C), full Phase acceptance and
-release remain pending.
+Step commit is `ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`. CNCF P96-03's
+same-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
+proof is accepted at local commit `bef59e729834addd3ac00c1930034bb23a8b428f`.
+The [reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md)
+maps the four unchanged P76-05 criteria. Own independent Step review
+`phase96-cozy76-p76-05a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_05a_step_review_001` is PASS with all four MET and
+zero new CPB/HYG/DEV, recorded in original CNCF ledger
+`phase96-review-ledger-001` r21. All four boxes are checked; the local P76-05
+Step commit is PREPARED/PENDING, not executed. Full Phase
+validation/review, acceptance and release remain pending.
 Phase 74 remains the semantic
 authority; CNCF Phase 96 owns the Scala 3 consumer ABI and runtime admission.
 The [producer ABI proposal](../notes/logical-ui-cncf-producer-abi-proposal.md)
@@ -141,16 +149,20 @@ across one suite; accumulator validation passed 266/266 across eight suites:
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
 three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
 primary ledger `phase96-review-ledger-001` r14. All four source-contract
-criteria below are accepted, with current totals of 16/24 accepted and
-8 unchecked overall after P76-04 acceptance.
+criteria below are accepted, with current totals of 20/24 accepted and
+4 unchecked overall after P76-05 independent acceptance.
 The local P76-03 Step acceptance commit is
 `8a4c1794b7ad4557af5b4260d1233acd07520c6e`.
 P76-04 now records actual twice-generated CLI LUI-GEN-01 delivery and 254/254
 focused tests across six suites. P76-04 is accepted by the retained independent
 Step review FINDINGS plus accepted coordinate M0 amendment r1 in original CNCF
-ledger r17; its local Step commit is PREPARED/PENDING, not executed.
-Same-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
-(P76-05/P96-03C), full Phase acceptance and release remain pending.
+ledger r17; its local Step commit is
+`ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`.
+CNCF's same-generated LUI-ACCEPT-01 proof is accepted at local Step commit
+`bef59e729834addd3ac00c1930034bb23a8b428f`; P76-05's four unchanged criteria
+are independently accepted with its local Step commit PREPARED/PENDING,
+not executed. P76-06 remains OPEN. Full
+Phase validation/review, acceptance and release remain pending.
 
 - [x] Existing generator utilities emit Scala 3 public-ABI definitions and bounded provider/bootstrap metadata in the source shape fixed by LUI-ABI-01, discoverable through CNCF ComponentFactory.
 - [x] Generated source contains no Cozy runtime, Flutter/TFAF, runtime endpoint URL, widget, callback, datastore or client-navigation dependency, and no consumer implementation classes outside the public ABI.
@@ -162,7 +174,7 @@ Same-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
 Stage Status:
 
 - Current status: CLOSED
-- Current step: P76-04A actual generated LUI-GEN-01 and producer regression accepted by original independent Step review plus parent coordinate M0 amendment; local Step commit PREPARED/PENDING, not executed
+- Current step: P76-04A actual generated LUI-GEN-01 and producer regression accepted by original independent Step review plus parent coordinate M0 amendment; local Step commit ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3
 - Owner: Cozy producer validation owners
 - Update rule: Advance only from reproducible generation and affected regression evidence; the checklist below is the closure basis.
 
@@ -174,17 +186,20 @@ accumulator passed 254/254 tests with no failures or aborts. The second CLI
 invocation reported a Logback JoranException, disclosed in the journal.
 Delivered [definitions](../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiDefinitions.scala.txt)
 and [provider](../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiMetadataProvider.scala.txt)
-are producer output for pending CNCF same-source acceptance. Independent
+are producer output consumed by accepted CNCF same-source proof. Independent
 Step review `phase96-cozy76-p76-04a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_04a_step_review_001` retains original FINDINGS, with
 sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` resolved by accepted parent
 M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1 in
 original CNCF ledger `phase96-review-ledger-001` r17. Under
-`phase96-cozy76-p76-04-acceptance-handoff-001` r1, all four criteria below
-are accepted, bringing current totals to 16/24 accepted and 8 unchecked.
-Local Step commit is PREPARED/PENDING, not executed. Same-generated Scala 3
-compilation/factory/bootstrap/Display LUI-ACCEPT-01 (P76-05/P96-03C), full
-Phase validation/review/acceptance and release remain pending.
+`phase96-cozy76-p76-04-acceptance-handoff-001` r2, all four criteria below
+are accepted; current totals are 20/24 accepted and 4 unchecked after P76-05
+independent acceptance.
+Local Step commit is `ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`.
+CNCF P96-03's same-generated LUI-ACCEPT-01 proof is accepted at local commit
+`bef59e729834addd3ac00c1930034bb23a8b428f`; P76-05 own independent Step
+acceptance is PASS, with its local commit PREPARED/PENDING, not executed.
+P76-06 and full Phase validation/review/acceptance/release remain pending.
 
 - [x] Focused executable specifications and affected compilation pass for semantic mapping, validation and source/provider generation, with commands, revisions and results recorded.
 - [x] Existing target-neutral compile-time Logical UI semantics and Phase 74 semantic fixtures remain unchanged, with affected Logical UI/runtime regression evidence; preserve Phase 51 PLANNED Flutter Target Projection without starting it or claiming Flutter source/suite execution.
@@ -195,14 +210,39 @@ Phase validation/review/acceptance and release remain pending.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
+- Current step: P76-05A four unchanged criteria accepted after own independent Step review PASS; local Step commit PREPARED/PENDING, not executed
 - Owner: CNCF consumer acceptance and Cozy integration owners
 - Update rule: Advance only from evidence for the same actual generated fixture; the checklist below is the closure basis.
 
-- [ ] CNCF P96-03 compiles the LUI-GEN-01 Scala 3 fixture against the agreed ABI without depending on `cozy_2.12`; the actual consumer project/fixture and command/result are recorded.
-- [ ] ComponentFactory discovers and admits the generated provider and definitions, and focused evidence covers the agreed invalid/duplicate/incompatible admission diagnostics.
-- [ ] The generated fixture produces the same reference List/Detail Display Projection as the LUI-ABI-01 hand-written fixture, preserving semantics, values, identities and ordering.
-- [ ] LUI-ACCEPT-01 binds exact producer, consumer and fixture revisions/identities and focused results; both ledgers reference this receipt, not a whole-Phase closure assumption or producer-only text comparison.
+The non-normative [LUI-ACCEPT-01 reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md)
+binds producer delivery commit `ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`
+and consumer accepted commit `bef59e729834addd3ac00c1930034bb23a8b428f`.
+The [CNCF consumer ledger](../../../cloud-native-component-framework-phase96/docs/phase/phase-96-checklist.md#p96-03-componentfactory-admission-and-display-projection)
+already accepts its P96-03 criterion 7 and references the durable consumer journal.
+Representative and accumulator results total 140/140 focused tests across
+16 completed suites with SBT/wrapper exit 0 and both shared locks released.
+
+| Unchanged source criterion | Receipt evidence |
+| --- | --- |
+| Scala 3 compilation without `cozy_2.12` | Unmodified delivered Test sources, successful Compile/Test and inspected Test/fullClasspath |
+| ComponentFactory discovery/admission and negative diagnostics | GC1/GC4 normal bootstrap; GC5 ABI/duplicate/revision/target diagnostics; GC6 atomic binding rejection; ABI regression specs |
+| Equivalent reference List/Detail Projection | GC2 structural model equality with separate provenance; GC3 exact Unicode/order/empty/context; GCP1 minimum 100 successful cases and zero discards |
+| Exact reciprocal revision/fixture/result binding | LUI-ACCEPT-01 receipt, committed producer/consumer identities and both ledger references |
+
+Own independent Step review `phase96-cozy76-p76-05a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_05a_step_review_001` is PASS: all four unchanged
+criteria MET, zero new CPB/HYG/DEV, admitted in original CNCF ledger
+`phase96-review-ledger-001` r21. All four boxes below are checked and form
+the P76-05 closure basis. Totals are 20 checked / 4 unchecked; P76-01..05
+CLOSED, P76-06 OPEN and Phase 76 IN_PROGRESS. The local P76-05 Step commit
+is PREPARED/PENDING, not executed. Full Phase validation/review/release and
+both Phase closures remain pending.
+
+- [x] CNCF P96-03 compiles the LUI-GEN-01 Scala 3 fixture against the agreed ABI without depending on `cozy_2.12`; the actual consumer project/fixture and command/result are recorded.
+- [x] ComponentFactory discovers and admits the generated provider and definitions, and focused evidence covers the agreed invalid/duplicate/incompatible admission diagnostics.
+- [x] The generated fixture produces the same reference List/Detail Display Projection as the LUI-ABI-01 hand-written fixture, preserving semantics, values, identities and ordering.
+- [x] LUI-ACCEPT-01 binds exact producer, consumer and fixture revisions/identities and focused results; both ledgers reference this receipt, not a whole-Phase closure assumption or producer-only text comparison.
 
 ## P76-06: Compatibility, handoff and Phase closure
 

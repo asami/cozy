@@ -21,15 +21,25 @@ P76-03 Step acceptance commit is
 records actual twice-generated CLI LUI-GEN-01 delivery and 254/254 focused
 producer/runtime tests across six suites, with SBT/wrapper exit 0 and shared
 lock released. P76-04 producer generation handoff is accepted under
-`phase96-cozy76-p76-04-acceptance-handoff-001` r1. Independent Step review
+`phase96-cozy76-p76-04-acceptance-handoff-001` r2. Independent Step review
 `phase96-cozy76-p76-04a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_04a_step_review_001` retains original FINDINGS;
 its sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` is resolved by accepted
 parent M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1,
 recorded in original CNCF ledger `phase96-review-ledger-001` r17. The local
-P76-04 Step commit is PREPARED/PENDING, not executed. Same-generated Scala 3
-consumer compilation/factory/bootstrap/Display LUI-ACCEPT-01 and whole-Phase
-verification/release remain pending.
+P76-04 Step commit is `ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`.
+CNCF P96-03 accepted same-generated Scala 3 compilation, normal
+ComponentFactory admission/bootstrap and equivalent List/Detail models at
+local Step commit `bef59e729834addd3ac00c1930034bb23a8b428f`, after 140/140
+focused tests across 16 suites with both serial locks released. The
+[LUI-ACCEPT-01 reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md)
+records that evidence. Own P76-05 independent Step review
+`phase96-cozy76-p76-05a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_05a_step_review_001` is PASS with all four criteria
+MET and zero new CPB/HYG/DEV, recorded in original CNCF ledger
+`phase96-review-ledger-001` r21. P76-05 is CLOSED on its unchanged checklist
+criteria; its local Step commit is PREPARED/PENDING, not executed. P76-06,
+whole-Phase validation/review, release and both Phase closures remain pending.
 
 The [producer specification](../spec/logical-ui-generated-producer.md) fixes
 behavior. [Phase 74 spec](../spec/logical-ui-runtime-contract.md),
@@ -145,5 +155,8 @@ required.
 Phase 51 remains PLANNED with no Flutter source/suites in this checkout.
 Preserve its plan and existing compile-time target-neutral semantics; use
 existing Logical UI/runtime regression proof without claiming Flutter execution.
-Implementation, consumer acceptance and release work remain owned by the later
-[Phase 76 stages](../phase/phase-76-checklist.md).
+Accepted implementation and CNCF consumer proof are recorded by the
+[Phase 76 stages](../phase/phase-76-checklist.md); the reciprocal P76-05 Step
+has its own independent PASS and four accepted unchanged criteria. Its local
+Step commit is PREPARED/PENDING, not executed; P76-06, full Phase
+validation/review/release and both Phase closures remain pending.

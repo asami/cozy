@@ -50,8 +50,8 @@ properties with at least 100 successful cases. Independent Step review
 `phase96-cozy76-p76-03a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS, attributed to Cozy
 P76-03 in original CNCF primary ledger `phase96-review-ledger-001` r14.
-P76-01..04 are CLOSED with 16/24 obligations accepted and 8 unchecked;
-P76-05/06 remain OPEN. The local P76-03 Step acceptance commit is
+P76-01..05 are CLOSED with 20/24 obligations accepted and 4 unchecked;
+P76-06 remains OPEN. The local P76-03 Step acceptance commit is
 `8a4c1794b7ad4557af5b4260d1233acd07520c6e`. The received
 fixed LUI-ABI-01 source contract is transcribed in the
 [producer spec](../spec/logical-ui-generated-producer.md) and
@@ -66,11 +66,22 @@ Independent Step review `phase96-cozy76-p76-04a-step-review-001` r1 by
 result; its sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` is resolved by
 accepted parent M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001`
 r1 in original CNCF ledger `phase96-review-ledger-001` r17. All four P76-04
-criteria are accepted under `phase96-cozy76-p76-04-acceptance-handoff-001` r1;
-the local P76-04 Step commit is PREPARED/PENDING, not executed.
-Same-generated Scala 3 compilation/factory/bootstrap/Display
-LUI-ACCEPT-01 (P76-05/P96-03C), full Phase acceptance and release remain
-pending; Phase 76 remains IN_PROGRESS.
+criteria are accepted under `phase96-cozy76-p76-04-acceptance-handoff-001` r2;
+the local P76-04 Step commit is
+`ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`.
+CNCF P96-03 accepted same-generated Scala 3 compilation, ComponentFactory
+admission/bootstrap and equivalent List/Detail Display models at local Step
+commit `bef59e729834addd3ac00c1930034bb23a8b428f`, with 7 + 133 = 140/140
+focused tests across 16 suites and both serial locks released. The
+[LUI-ACCEPT-01 reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md)
+maps this proof to all four unchanged P76-05 criteria. Own independent Step
+review `phase96-cozy76-p76-05a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_05a_step_review_001` is PASS with all four MET and
+zero new CPB/HYG/DEV, recorded in original CNCF ledger
+`phase96-review-ledger-001` r21. All four P76-05 boxes are checked;
+its local Step commit is PREPARED/PENDING, not executed. Full Phase
+validation/review, release and both Phase
+closures remain pending; Phase 76 remains IN_PROGRESS.
 The [contract journal](../journal/2026/10/2026-10-04-phase-76-producer-contract.md)
 records source coordinates, existing consumer focused evidence and documentary
 acceptance. The [generated handoff journal](../journal/2026/10/2026-10-04-phase-76-generated-handoff.md)
@@ -200,8 +211,8 @@ cases. Independent Step review `phase96-cozy76-p76-03a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
 three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
 primary ledger `phase96-review-ledger-001` r14. P76-03's four source-contract
-criteria are accepted; current totals are 16/24 accepted and 8 unchecked
-after P76-04 acceptance.
+criteria are accepted; current totals are 20/24 accepted and 4 unchecked
+after P76-05 independent acceptance.
 The local P76-03 Step acceptance commit is
 `8a4c1794b7ad4557af5b4260d1233acd07520c6e`.
 Goldens are expectations. P76-04 supplies actual twice-generated CLI files
@@ -212,9 +223,15 @@ and [provider](../../src/test/resources/logicalui/generated/ess2-01/DomainLogica
 are delivered for CNCF consumption. P76-04's four criteria are accepted by
 the original independent Step review FINDINGS plus accepted parent coordinate
 M0 amendment r1, recorded in original CNCF ledger r17 as described above.
-The local P76-04 Step commit is PREPARED/PENDING, not executed;
-same-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
-(P76-05/P96-03C), full Phase acceptance and release remain pending.
+The local P76-04 Step commit is
+`ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`. CNCF's accepted same-source
+LUI-ACCEPT-01 proof is committed as
+`bef59e729834addd3ac00c1930034bb23a8b428f` and mapped in the
+[reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md).
+P76-05 is CLOSED on its four unchanged checklist criteria after its own
+independent Step review PASS recorded above; its local Step commit is
+PREPARED/PENDING, not executed. P76-06 remains OPEN; full Phase
+validation/review, acceptance, release and both Phase closures remain pending.
 
 ## Acceptance criteria
 

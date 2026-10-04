@@ -6,8 +6,15 @@ Manifest: `phase96-cozy76-p76-04a-implementation-manifest-001` revision 1.
 Current status: P76-04 producer handoff accepted by original independent Step
 review FINDINGS plus accepted parent coordinate M0 amendment r1, recorded in
 original CNCF ledger `phase96-review-ledger-001` r17; local Step commit
-PREPARED/PENDING, not executed. Same-generated CNCF consumer acceptance and
-full Phase validation/review/release remain pending.
+`ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3` is executed. Same-generated
+CNCF consumer proof is independently accepted and locally committed as
+`bef59e729834addd3ac00c1930034bb23a8b428f`. The
+[LUI-ACCEPT-01 reciprocal receipt](2026-10-04-phase-76-consumer-acceptance.md)
+records own P76-05 independent Step review PASS with all four unchanged
+criteria accepted: P76-05 CLOSED, local Step commit PREPARED/PENDING,
+not executed. P76-01..05 are CLOSED, 20/24 checked and 4 unchecked;
+P76-06 remains OPEN and Phase 76 IN_PROGRESS. Full Phase
+validation/review/release and both Phase closures remain pending.
 The preparation sections below retain their initial unexecuted historical state;
 the later evidence-delivery entry records the actual results.
 
@@ -268,3 +275,54 @@ execution claim. Same-generated CNCF Scala 3 compilation, ComponentFactory
 admission/bootstrap and Display LUI-ACCEPT-01 (P76-05/P96-03C), final
 reciprocal/full validation, full Phase review/acceptance and release remain
 pending.
+
+## 2026-10-04 — Committed delivery and reciprocal LUI-ACCEPT-01 receipt
+
+P76-04 local Step commit `ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`
+records the accepted producer delivery under
+`phase96-cozy76-p76-04-acceptance-handoff-001` r2. The generation-source
+HEAD `8a4c1794b7ad4557af5b4260d1233acd07520c6e` and its execution-time
+delta above remain historical source context, distinct from delivery commit.
+Original independent producer review FINDINGS and accepted coordinate M0
+remain unchanged; the second-run Logback observation remains unresolved.
+
+CNCF P96-03 independent review `phase96-p96-03-step-review-001` r1 is PASS,
+with accepted parent M0 `phase96-p96-03-step-commit-m0-001` r1 and local
+Step commit `bef59e729834addd3ac00c1930034bb23a8b428f`. Consumer handoff
+`phase96-p96-03-acceptance-handoff-001` r2 binds that accepted commit to
+the tested HEAD `fed26152045b1326e87de8a6929dc84e2fc05b18` plus its
+disclosed 28-path accumulator, unchanged delivery sources, fixed ABI and
+140/140 focused tests across 16 suites; both requests terminated with
+SBT/wrapper exit 0 and released shared lock.
+
+The non-normative [Cozy reciprocal receipt](2026-10-04-phase-76-consumer-acceptance.md)
+links the durable CNCF consumer proof and maps the four unchanged P76-05
+criteria. P76-05 is IN_PROGRESS with all four boxes unchecked pending its own
+independent Step acceptance and commit. The current ledger remains 16/24,
+P76-01..04 CLOSED, P76-06 OPEN and Phase76 IN_PROGRESS. No new validation,
+regeneration, logger repair or full Phase closure is claimed by this entry;
+all preceding preparation, execution and acceptance entries retain their
+original chronological statements.
+
+## 2026-10-04 — P76-05A own independent Step acceptance
+
+Own independent Step review `phase96-cozy76-p76-05a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_05a_step_review_001` is PASS, with all four unchanged
+P76-05 criteria MET and zero new CPB/HYG/DEV. Actual source
+`phase96-cozy76-p76-05a-step-review-source-001` r1 retains the sealed reviewer
+result; the parent admitted it in original CNCF ledger
+`phase96-review-ledger-001` r21. This acceptance references the same generated
+source, diagnostics, model/provenance correspondence and retained 140/140
+focused consumer tests across 16 suites, with SBT/wrapper exit 0 and both
+shared locks released. No new validation was executed by this documentary edit.
+
+The [current checklist](../../../phase/phase-76-checklist.md) checks all four
+unchanged P76-05 criteria as its closure basis: P76-01..05 CLOSED, 20/24
+checked and 4 unchecked, P76-06 OPEN and Phase 76 IN_PROGRESS. The local
+P76-05 Step commit is PREPARED/PENDING, not executed. P76-06, full Phase
+validation/review/release and both Phase closures remain pending. Original
+producer FINDINGS, accepted coordinate M0, generation history and unresolved
+Logback observation are retained; existing Hygiene remains separate follow-up.
+Original Goal/binding/bases/PLAN epoch and repair history are unchanged;
+P76-05 repair/non-convergence remain zero, neither incremented nor reset by
+this documentary projection.
