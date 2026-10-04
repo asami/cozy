@@ -1,0 +1,4410 @@
+{
+  "schemaVersion": "cozy.cml.semantic-metadata.v1",
+  "elements": [
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "entity:order"
+        }
+      },
+      "kind": "entity",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 1
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "value:amount"
+        }
+      },
+      "kind": "value",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 2
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "aggregate:order"
+        }
+      },
+      "kind": "aggregate",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 3
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "composition:line"
+        }
+      },
+      "kind": "composition",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 4
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "aggregation:tag"
+        }
+      },
+      "kind": "aggregation",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 5
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "structure.example",
+          "elementId": "association:partner"
+        }
+      },
+      "kind": "association",
+      "name": "共有",
+      "source": {
+        "authorityId": "structure.example",
+        "path": "src/main/cml/structure-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 6
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait:audited"
+        }
+      },
+      "kind": "trait",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 7
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait:labeled"
+        }
+      },
+      "kind": "trait",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 8
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "powertype:status"
+        }
+      },
+      "kind": "powertype",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 9
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "powertype:category"
+        }
+      },
+      "kind": "powertype",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 10
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:status-open"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 11
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:status-closed"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 12
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:category-retail"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 13
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "kind:category-wholesale"
+        }
+      },
+      "kind": "powertype-kind",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 14
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "generalization:order-aggregate"
+        }
+      },
+      "kind": "generalization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 15
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "generalization:order-external"
+        }
+      },
+      "kind": "generalization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 16
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "generalization:trait"
+        }
+      },
+      "kind": "generalization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 17
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait-realization:order-audited"
+        }
+      },
+      "kind": "trait-realization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 18
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "trait-realization:order-labeled"
+        }
+      },
+      "kind": "trait-realization",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 19
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "dimension:status"
+        }
+      },
+      "kind": "powertype-classification",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 20
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "dimension:category"
+        }
+      },
+      "kind": "powertype-classification",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 21
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "classification.example",
+          "elementId": "dimension:status-secondary"
+        }
+      },
+      "kind": "powertype-classification",
+      "name": "共有",
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 22
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "workflow:fulfillment"
+        }
+      },
+      "kind": "workflow",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 23
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "activity:review"
+        }
+      },
+      "kind": "workflow-activity",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 24
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "activity:branch"
+        }
+      },
+      "kind": "workflow-activity",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 25
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "activity:accept"
+        }
+      },
+      "kind": "workflow-activity",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 26
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "activity:reject"
+        }
+      },
+      "kind": "workflow-activity",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 27
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "activity:merge"
+        }
+      },
+      "kind": "workflow-activity",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 28
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "flow:review-branch"
+        }
+      },
+      "kind": "workflow-flow",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 29
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "flow:branch-accept"
+        }
+      },
+      "kind": "workflow-flow",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 30
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "flow:branch-reject"
+        }
+      },
+      "kind": "workflow-flow",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 31
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "flow:accept-merge"
+        }
+      },
+      "kind": "workflow-flow",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 32
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "flow:reject-merge"
+        }
+      },
+      "kind": "workflow-flow",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 33
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "machine:order"
+        }
+      },
+      "kind": "state-machine",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 34
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "state:pending"
+        }
+      },
+      "kind": "state",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 35
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "state:done"
+        }
+      },
+      "kind": "state",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 36
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "transition:complete"
+        }
+      },
+      "kind": "transition",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 37
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "operation:complete"
+        }
+      },
+      "kind": "operation",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 38
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "event:completed"
+        }
+      },
+      "kind": "event",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 39
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "rule:complete"
+        }
+      },
+      "kind": "rule",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 40
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "cause:completed"
+        }
+      },
+      "kind": "causal-link",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 41
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "dynamic.example",
+          "elementId": "reaction:completed"
+        }
+      },
+      "kind": "causal-link",
+      "name": "共有",
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 42
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "usecase.example",
+          "elementId": "actor:requester"
+        }
+      },
+      "kind": "actor",
+      "name": "共有",
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 43
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "usecase.example",
+          "elementId": "actor:auditor"
+        }
+      },
+      "kind": "actor",
+      "name": "共有",
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 44
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "usecase.example",
+          "elementId": "use-case:complete-order"
+        }
+      },
+      "kind": "use-case",
+      "name": "共有",
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 45
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "usecase.example",
+          "elementId": "use-case:observe-order"
+        }
+      },
+      "kind": "use-case",
+      "name": "共有",
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 46
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "usecase.example",
+          "elementId": "component:partner"
+        }
+      },
+      "kind": "component",
+      "name": "共有",
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 47
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "usecase.example",
+          "elementId": "service:fulfillment"
+        }
+      },
+      "kind": "service",
+      "name": "共有",
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 48
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    },
+    {
+      "identity": {
+        "status": "present",
+        "value": {
+          "modelId": "usecase.example",
+          "elementId": "external-system:payment"
+        }
+      },
+      "kind": "external-system",
+      "name": "共有",
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 49
+      },
+      "references": {
+        "status": "absent",
+        "reason": "not-declared",
+        "detail": "No semantic references are declared."
+      }
+    }
+  ],
+  "terms": [
+    {
+      "identity": {
+        "vocabularyId": "structure.example",
+        "termId": "entity:order"
+      },
+      "source": {
+        "authorityId": "structure.example",
+        "path": "glossary/structure.dox",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "line": null
+      }
+    },
+    {
+      "identity": {
+        "vocabularyId": "classification.example",
+        "termId": "trait:audited"
+      },
+      "source": {
+        "authorityId": "classification.example",
+        "path": "src/main/cml/classification-handoff.cml",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "line": 7
+      }
+    },
+    {
+      "identity": {
+        "vocabularyId": "dynamic.example",
+        "termId": "workflow:fulfillment"
+      },
+      "source": {
+        "authorityId": "dynamic.example",
+        "path": "src/main/cml/dynamic-handoff.cml",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "line": 23
+      }
+    },
+    {
+      "identity": {
+        "vocabularyId": "usecase.example",
+        "termId": "use-case:complete-order"
+      },
+      "source": {
+        "authorityId": "usecase.example",
+        "path": "src/main/cml/use-case-handoff.cml",
+        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "line": 45
+      }
+    }
+  ],
+  "extensions": {
+    "org.example.structure-handoff": {
+      "opaque": [
+        null,
+        true,
+        {
+          "retained": "opaque"
+        }
+      ]
+    },
+    "cozy.cml.structure": {
+      "schemaVersion": "cozy.cml.structure.v1",
+      "elements": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              }
+            },
+            "kind": "entity",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 1
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "entity",
+          "aggregateBoundary": {
+            "status": "present",
+            "value": {
+              "aggregate": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "membership": {
+                "status": "present",
+                "value": "member:主"
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "value:amount"
+              }
+            },
+            "kind": "value",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 2
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "value",
+          "aggregateBoundary": {
+            "status": "absent",
+            "reason": "not-applicable",
+            "detail": "Value membership is not applicable."
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "aggregate:order"
+              }
+            },
+            "kind": "aggregate",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 3
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "aggregate",
+          "aggregateBoundary": {
+            "status": "present",
+            "value": {
+              "aggregate": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "membership": {
+                "status": "present",
+                "value": "root:宣言"
+              }
+            }
+          }
+        }
+      ],
+      "relations": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "composition:line"
+              }
+            },
+            "kind": "composition",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 4
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "composition",
+          "sourceEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Owner"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 1,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": true
+            }
+          },
+          "targetEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "部品"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 0,
+                "upper": null
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": false
+            }
+          },
+          "semantics": {
+            "ownership": {
+              "status": "present",
+              "value": "owner:宣言"
+            },
+            "independentExistence": {
+              "status": "present",
+              "value": false
+            },
+            "createPolicy": {
+              "status": "present",
+              "value": "CreateDeclared"
+            },
+            "deletePolicy": {
+              "status": "present",
+              "value": "DeleteDeclared"
+            },
+            "reassignment": {
+              "status": "present",
+              "value": false
+            },
+            "reparenting": {
+              "status": "present",
+              "value": true
+            },
+            "lifecyclePropagation": {
+              "status": "present",
+              "value": [
+                "create",
+                "delete",
+                "create"
+              ]
+            },
+            "aggregateBoundary": {
+              "status": "present",
+              "value": {
+                "aggregate": {
+                  "status": "present",
+                  "value": {
+                    "identity": {
+                      "modelId": "structure.example",
+                      "elementId": "aggregate:order"
+                    },
+                    "boundary": "local"
+                  }
+                },
+                "membership": {
+                  "status": "present",
+                  "value": "member:主"
+                }
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "aggregation:tag"
+              }
+            },
+            "kind": "aggregation",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 5
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "aggregation",
+          "sourceEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "member"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 0,
+                "upper": null
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": false
+            }
+          },
+          "targetEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "value:amount"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Amount"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 1,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": true
+            }
+          },
+          "semantics": {
+            "ownership": {
+              "status": "present",
+              "value": "shared:宣言"
+            },
+            "independentExistence": {
+              "status": "present",
+              "value": true
+            },
+            "createPolicy": {
+              "status": "present",
+              "value": "CreateShared"
+            },
+            "deletePolicy": {
+              "status": "present",
+              "value": "KeepShared"
+            },
+            "reassignment": {
+              "status": "present",
+              "value": true
+            },
+            "reparenting": {
+              "status": "present",
+              "value": false
+            },
+            "lifecyclePropagation": {
+              "status": "present",
+              "value": []
+            },
+            "aggregateBoundary": {
+              "status": "present",
+              "value": {
+                "aggregate": {
+                  "status": "absent",
+                  "reason": "not-represented",
+                  "detail": "No aggregate is represented."
+                },
+                "membership": {
+                  "status": "present",
+                  "value": "member:値"
+                }
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "association:partner"
+              }
+            },
+            "kind": "association",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 6
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "association",
+          "sourceEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "value:amount"
+                },
+                "boundary": "local"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Amount"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 1,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": true
+            }
+          },
+          "targetEndpoint": {
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "partner.example",
+                  "elementId": "entity:partner"
+                },
+                "boundary": "external"
+              }
+            },
+            "role": {
+              "status": "present",
+              "value": "Partner"
+            },
+            "cardinality": {
+              "status": "present",
+              "value": {
+                "lower": 0,
+                "upper": 1
+              }
+            },
+            "navigable": {
+              "status": "present",
+              "value": false
+            }
+          },
+          "semantics": {
+            "ownership": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No ownership is declared."
+            },
+            "independentExistence": {
+              "status": "present",
+              "value": true
+            },
+            "createPolicy": {
+              "status": "absent",
+              "reason": "unsupported",
+              "detail": "Create policy unsupported."
+            },
+            "deletePolicy": {
+              "status": "absent",
+              "reason": "not-applicable",
+              "detail": "Delete policy not applicable."
+            },
+            "reassignment": {
+              "status": "present",
+              "value": false
+            },
+            "reparenting": {
+              "status": "absent",
+              "reason": "not-represented",
+              "detail": "Reparenting not represented."
+            },
+            "lifecyclePropagation": {
+              "status": "present",
+              "value": [
+                "参照",
+                "Link"
+              ]
+            },
+            "aggregateBoundary": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No aggregate boundary is declared."
+            }
+          }
+        }
+      ]
+    },
+    "cozy.cml.classification": {
+      "schemaVersion": "cozy.cml.classification.v1",
+      "traits": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait:audited"
+              }
+            },
+            "kind": "trait",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 7
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait:labeled"
+              }
+            },
+            "kind": "trait",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 8
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          }
+        }
+      ],
+      "powertypes": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "powertype:status"
+              }
+            },
+            "kind": "powertype",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 9
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "members": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:status-open"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:status-closed"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "powertype:category"
+              }
+            },
+            "kind": "powertype",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 10
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "members": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:category-retail"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "classification.example",
+                  "elementId": "kind:category-wholesale"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        }
+      ],
+      "generalizations": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "generalization:order-aggregate"
+              }
+            },
+            "kind": "generalization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 15
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subtype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "supertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "aggregate:order"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "generalization:order-external"
+              }
+            },
+            "kind": "generalization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 16
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subtype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "supertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "external.example",
+                "elementId": "entity:base"
+              },
+              "boundary": "external"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "generalization:trait"
+              }
+            },
+            "kind": "generalization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 17
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subtype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:audited"
+              },
+              "boundary": "local"
+            }
+          },
+          "supertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:labeled"
+              },
+              "boundary": "local"
+            }
+          }
+        }
+      ],
+      "traitRealizations": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait-realization:order-audited"
+              }
+            },
+            "kind": "trait-realization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 18
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "traitTarget": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:audited"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "trait-realization:order-labeled"
+              }
+            },
+            "kind": "trait-realization",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 19
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "traitTarget": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "trait:labeled"
+              },
+              "boundary": "local"
+            }
+          }
+        }
+      ],
+      "powertypeClassifications": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "dimension:status"
+              }
+            },
+            "kind": "powertype-classification",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 20
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "powertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "powertype:status"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "dimension:category"
+              }
+            },
+            "kind": "powertype-classification",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 21
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "powertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "powertype:category"
+              },
+              "boundary": "local"
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "classification.example",
+                "elementId": "dimension:status-secondary"
+              }
+            },
+            "kind": "powertype-classification",
+            "name": "共有",
+            "source": {
+              "authorityId": "classification.example",
+              "path": "src/main/cml/classification-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 22
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "subject": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "powertype": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "classification.example",
+                "elementId": "powertype:status"
+              },
+              "boundary": "local"
+            }
+          }
+        }
+      ]
+    },
+    "org.example.classification-handoff": {
+      "producer": "synthetic-caller",
+      "dimensions": [
+        "status",
+        "category",
+        "status-secondary"
+      ],
+      "absence": null
+    },
+    "cozy.cml.dynamic": {
+      "schemaVersion": "cozy.cml.dynamic.v1",
+      "workflows": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              }
+            },
+            "kind": "workflow",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 23
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "purpose": {
+            "status": "present",
+            "value": "Complete the declared order flow."
+          },
+          "activities": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "activity:review"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "activity:branch"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "activity:accept"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "activity:reject"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "activity:merge"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "flows": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "flow:review-branch"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "flow:branch-accept"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "flow:branch-reject"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "flow:accept-merge"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "flow:reject-merge"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "participants": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "actor:reviewer"
+                },
+                "boundary": "external"
+              }
+            ]
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "stateMachines": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "machine:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "operation:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "events": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "event:completed"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "rules": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "rule:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "stateEffects": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "state:done"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "transition:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        }
+      ],
+      "activities": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:review"
+              }
+            },
+            "kind": "workflow-activity",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 24
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "activityKind": {
+            "status": "present",
+            "value": "action"
+          },
+          "participants": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "actor:reviewer"
+                },
+                "boundary": "external"
+              }
+            ]
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": []
+          },
+          "events": {
+            "status": "present",
+            "value": []
+          },
+          "rules": {
+            "status": "present",
+            "value": []
+          },
+          "stateEffects": {
+            "status": "present",
+            "value": []
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:branch"
+              }
+            },
+            "kind": "workflow-activity",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 25
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "activityKind": {
+            "status": "present",
+            "value": "branch"
+          },
+          "participants": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "actor:reviewer"
+                },
+                "boundary": "external"
+              }
+            ]
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": []
+          },
+          "events": {
+            "status": "present",
+            "value": []
+          },
+          "rules": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "rule:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "stateEffects": {
+            "status": "present",
+            "value": []
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:accept"
+              }
+            },
+            "kind": "workflow-activity",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 26
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "activityKind": {
+            "status": "present",
+            "value": "action"
+          },
+          "participants": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "actor:reviewer"
+                },
+                "boundary": "external"
+              }
+            ]
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "operation:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "events": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "event:completed"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "rules": {
+            "status": "present",
+            "value": []
+          },
+          "stateEffects": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "state:done"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:reject"
+              }
+            },
+            "kind": "workflow-activity",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 27
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "activityKind": {
+            "status": "present",
+            "value": "action"
+          },
+          "participants": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "actor:reviewer"
+                },
+                "boundary": "external"
+              }
+            ]
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": []
+          },
+          "events": {
+            "status": "present",
+            "value": []
+          },
+          "rules": {
+            "status": "present",
+            "value": []
+          },
+          "stateEffects": {
+            "status": "present",
+            "value": []
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:merge"
+              }
+            },
+            "kind": "workflow-activity",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 28
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "activityKind": {
+            "status": "present",
+            "value": "merge"
+          },
+          "participants": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "actor:reviewer"
+                },
+                "boundary": "external"
+              }
+            ]
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": []
+          },
+          "events": {
+            "status": "present",
+            "value": []
+          },
+          "rules": {
+            "status": "present",
+            "value": []
+          },
+          "stateEffects": {
+            "status": "present",
+            "value": []
+          }
+        }
+      ],
+      "flows": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "flow:review-branch"
+              }
+            },
+            "kind": "workflow-flow",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 29
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "source": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:review"
+              },
+              "boundary": "local"
+            }
+          },
+          "target": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:branch"
+              },
+              "boundary": "local"
+            }
+          },
+          "guard": {
+            "status": "absent",
+            "reason": "not-applicable",
+            "detail": "The flow has no declared guard."
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "flow:branch-accept"
+              }
+            },
+            "kind": "workflow-flow",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 30
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "source": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:branch"
+              },
+              "boundary": "local"
+            }
+          },
+          "target": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:accept"
+              },
+              "boundary": "local"
+            }
+          },
+          "guard": {
+            "status": "present",
+            "value": {
+              "text": "approved",
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "dynamic.example",
+                      "elementId": "rule:complete"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "flow:branch-reject"
+              }
+            },
+            "kind": "workflow-flow",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 31
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "source": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:branch"
+              },
+              "boundary": "local"
+            }
+          },
+          "target": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:reject"
+              },
+              "boundary": "local"
+            }
+          },
+          "guard": {
+            "status": "present",
+            "value": {
+              "text": "!approved",
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "dynamic.example",
+                      "elementId": "rule:complete"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "flow:accept-merge"
+              }
+            },
+            "kind": "workflow-flow",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 32
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "source": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:accept"
+              },
+              "boundary": "local"
+            }
+          },
+          "target": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:merge"
+              },
+              "boundary": "local"
+            }
+          },
+          "guard": {
+            "status": "absent",
+            "reason": "not-applicable",
+            "detail": "The flow has no declared guard."
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "flow:reject-merge"
+              }
+            },
+            "kind": "workflow-flow",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 33
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "workflow": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "workflow:fulfillment"
+              },
+              "boundary": "local"
+            }
+          },
+          "source": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:reject"
+              },
+              "boundary": "local"
+            }
+          },
+          "target": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:merge"
+              },
+              "boundary": "local"
+            }
+          },
+          "guard": {
+            "status": "absent",
+            "reason": "not-applicable",
+            "detail": "The flow has no declared guard."
+          }
+        }
+      ],
+      "stateMachines": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "machine:order"
+              }
+            },
+            "kind": "state-machine",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 34
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "owner": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "structure.example",
+                "elementId": "aggregate:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "states": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "state:pending"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "state:done"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "transitions": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "transition:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "workflows": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "workflow:fulfillment"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        }
+      ],
+      "states": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "state:pending"
+              }
+            },
+            "kind": "state",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 35
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "stateMachine": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "machine:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "entryActions": {
+            "status": "present",
+            "value": []
+          },
+          "exitActions": {
+            "status": "present",
+            "value": []
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "state:done"
+              }
+            },
+            "kind": "state",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 36
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "stateMachine": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "machine:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "entryActions": {
+            "status": "present",
+            "value": []
+          },
+          "exitActions": {
+            "status": "present",
+            "value": []
+          }
+        }
+      ],
+      "transitions": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "transition:complete"
+              }
+            },
+            "kind": "transition",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 37
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "stateMachine": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "machine:order"
+              },
+              "boundary": "local"
+            }
+          },
+          "fromState": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "state:pending"
+              },
+              "boundary": "local"
+            }
+          },
+          "toState": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "state:done"
+              },
+              "boundary": "local"
+            }
+          },
+          "triggers": {
+            "status": "present",
+            "value": [
+              {
+                "text": "completed",
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "identity": {
+                        "modelId": "dynamic.example",
+                        "elementId": "event:completed"
+                      },
+                      "boundary": "local"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "guard": {
+            "status": "present",
+            "value": {
+              "text": "approved",
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "dynamic.example",
+                      "elementId": "rule:complete"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            }
+          },
+          "actions": {
+            "status": "present",
+            "value": [
+              {
+                "text": "complete()",
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "identity": {
+                        "modelId": "dynamic.example",
+                        "elementId": "operation:complete"
+                      },
+                      "boundary": "local"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "activities": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "activity:accept"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "workflows": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "workflow:fulfillment"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "stateEffects": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "state:done"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        }
+      ],
+      "causalLinks": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "cause:completed"
+              }
+            },
+            "kind": "causal-link",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 41
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "cause",
+          "source": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "operation:complete"
+              },
+              "boundary": "local"
+            }
+          },
+          "target": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "event:completed"
+              },
+              "boundary": "local"
+            }
+          },
+          "rule": {
+            "status": "absent",
+            "reason": "not-applicable",
+            "detail": "The cause has no declared rule."
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "reaction:completed"
+              }
+            },
+            "kind": "causal-link",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 42
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "kind": "reaction",
+          "source": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "event:completed"
+              },
+              "boundary": "local"
+            }
+          },
+          "target": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "activity:accept"
+              },
+              "boundary": "local"
+            }
+          },
+          "rule": {
+            "status": "present",
+            "value": {
+              "identity": {
+                "modelId": "dynamic.example",
+                "elementId": "rule:complete"
+              },
+              "boundary": "local"
+            }
+          },
+          "affectedElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "org.example.dynamic-handoff": {
+      "producer": "synthetic-caller",
+      "declaredFlowOrder": [
+        "review-branch",
+        "branch-accept",
+        "branch-reject",
+        "accept-merge",
+        "reject-merge"
+      ],
+      "absence": null
+    },
+    "org.example.use-case-handoff": {
+      "producer": "synthetic-caller",
+      "declaredFlowOrder": [
+        "main",
+        "alternate",
+        "exception"
+      ],
+      "absence": null
+    },
+    "cozy.cml.use-case": {
+      "schemaVersion": "cozy.cml.use-case.v1",
+      "actors": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "usecase.example",
+                "elementId": "actor:requester"
+              }
+            },
+            "kind": "actor",
+            "name": "共有",
+            "source": {
+              "authorityId": "usecase.example",
+              "path": "src/main/cml/use-case-handoff.cml",
+              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "line": 43
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "actorKind": {
+            "status": "present",
+            "value": "human"
+          },
+          "summary": {
+            "status": "present",
+            "value": "Request an order."
+          },
+          "description": {
+            "status": "present",
+            "value": "Submit the declared order use case."
+          },
+          "useCases": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "usecase.example",
+                  "elementId": "use-case:complete-order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "workflows": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "workflow:fulfillment"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "operation:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "events": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "event:completed"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "domainElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "usecase.example",
+                "elementId": "actor:auditor"
+              }
+            },
+            "kind": "actor",
+            "name": "共有",
+            "source": {
+              "authorityId": "usecase.example",
+              "path": "src/main/cml/use-case-handoff.cml",
+              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "line": 44
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "actorKind": {
+            "status": "present",
+            "value": "system"
+          },
+          "summary": {
+            "status": "present",
+            "value": "Observe an order."
+          },
+          "description": {
+            "status": "present",
+            "value": "Observe the declared order use case."
+          },
+          "useCases": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "usecase.example",
+                  "elementId": "use-case:observe-order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "workflows": {
+            "status": "present",
+            "value": []
+          },
+          "operations": {
+            "status": "present",
+            "value": []
+          },
+          "events": {
+            "status": "present",
+            "value": []
+          },
+          "domainElements": {
+            "status": "present",
+            "value": []
+          }
+        }
+      ],
+      "useCases": [
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "usecase.example",
+                "elementId": "use-case:complete-order"
+              }
+            },
+            "kind": "use-case",
+            "name": "共有",
+            "source": {
+              "authorityId": "usecase.example",
+              "path": "src/main/cml/use-case-handoff.cml",
+              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "line": 45
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "declaredId": {
+            "status": "present",
+            "value": "UC-COMPLETE"
+          },
+          "summary": {
+            "status": "present",
+            "value": "Complete order."
+          },
+          "description": {
+            "status": "present",
+            "value": "Complete the declared order use case."
+          },
+          "goal": {
+            "status": "present",
+            "value": "Complete the declared order flow."
+          },
+          "trigger": {
+            "status": "present",
+            "value": {
+              "text": "Order submitted.",
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "dynamic.example",
+                      "elementId": "event:completed"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            }
+          },
+          "preconditions": {
+            "status": "present",
+            "value": [
+              {
+                "text": "Order is pending.",
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "identity": {
+                        "modelId": "dynamic.example",
+                        "elementId": "state:pending"
+                      },
+                      "boundary": "local"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "postconditions": {
+            "status": "present",
+            "value": [
+              {
+                "text": "Order is complete.",
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "identity": {
+                        "modelId": "dynamic.example",
+                        "elementId": "state:done"
+                      },
+                      "boundary": "local"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "priority": {
+            "status": "present",
+            "value": "high"
+          },
+          "lifecycleStatus": {
+            "status": "present",
+            "value": "approved"
+          },
+          "actorReferences": {
+            "status": "present",
+            "value": [
+              {
+                "role": "primary",
+                "target": {
+                  "identity": {
+                    "modelId": "usecase.example",
+                    "elementId": "actor:requester"
+                  },
+                  "boundary": "local"
+                }
+              },
+              {
+                "role": "secondary",
+                "target": {
+                  "identity": {
+                    "modelId": "usecase.example",
+                    "elementId": "actor:auditor"
+                  },
+                  "boundary": "local"
+                }
+              },
+              {
+                "role": "supporting",
+                "target": {
+                  "identity": {
+                    "modelId": "external.example",
+                    "elementId": "actor:payment"
+                  },
+                  "boundary": "external"
+                }
+              },
+              {
+                "role": "stakeholder",
+                "target": {
+                  "identity": {
+                    "modelId": "usecase.example",
+                    "elementId": "actor:requester"
+                  },
+                  "boundary": "local"
+                }
+              },
+              {
+                "role": "actor",
+                "target": {
+                  "identity": {
+                    "modelId": "usecase.example",
+                    "elementId": "actor:auditor"
+                  },
+                  "boundary": "local"
+                }
+              }
+            ]
+          },
+          "flows": {
+            "status": "present",
+            "value": [
+              {
+                "kind": "main",
+                "name": {
+                  "status": "present",
+                  "value": "main"
+                },
+                "summary": {
+                  "status": "present",
+                  "value": "Complete the order."
+                },
+                "description": {
+                  "status": "present",
+                  "value": "Submit and complete the declared order."
+                },
+                "condition": {
+                  "status": "absent",
+                  "reason": "not-applicable",
+                  "detail": "The main flow has no declared condition."
+                },
+                "steps": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "text": "Requester submits the order.",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "usecase.example",
+                              "elementId": "actor:requester"
+                            },
+                            "boundary": "local"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "text": "Complete the order.",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "dynamic.example",
+                              "elementId": "operation:complete"
+                            },
+                            "boundary": "local"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "alternates": {
+                  "status": "present",
+                  "value": []
+                },
+                "exceptions": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              {
+                "kind": "alternate",
+                "name": {
+                  "status": "present",
+                  "value": "alternate"
+                },
+                "summary": {
+                  "status": "present",
+                  "value": "Reject the order."
+                },
+                "description": {
+                  "status": "present",
+                  "value": "Reject and review the declared order."
+                },
+                "condition": {
+                  "status": "present",
+                  "value": {
+                    "text": "rejected",
+                    "references": {
+                      "status": "present",
+                      "value": [
+                        {
+                          "identity": {
+                            "modelId": "dynamic.example",
+                            "elementId": "rule:complete"
+                          },
+                          "boundary": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "steps": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "text": "Reject the order.",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "dynamic.example",
+                              "elementId": "activity:reject"
+                            },
+                            "boundary": "local"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "alternates": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "text": "Review the order again.",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "dynamic.example",
+                              "elementId": "activity:review"
+                            },
+                            "boundary": "local"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "exceptions": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              {
+                "kind": "exception",
+                "name": {
+                  "status": "present",
+                  "value": "exception"
+                },
+                "summary": {
+                  "status": "present",
+                  "value": "Handle payment failure."
+                },
+                "description": {
+                  "status": "present",
+                  "value": "Notify failure and keep the declared order pending."
+                },
+                "condition": {
+                  "status": "present",
+                  "value": {
+                    "text": "payment unavailable",
+                    "references": {
+                      "status": "present",
+                      "value": [
+                        {
+                          "identity": {
+                            "modelId": "external.example",
+                            "elementId": "event:unavailable"
+                          },
+                          "boundary": "external"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "steps": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "text": "Notify payment failure.",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "dynamic.example",
+                              "elementId": "event:completed"
+                            },
+                            "boundary": "local"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "alternates": {
+                  "status": "present",
+                  "value": []
+                },
+                "exceptions": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "text": "Keep the order pending.",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "dynamic.example",
+                              "elementId": "state:pending"
+                            },
+                            "boundary": "local"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "domainElements": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "entity:order"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "operations": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "operation:complete"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "events": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "event:completed"
+                },
+                "boundary": "local"
+              }
+            ]
+          },
+          "collaborators": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "usecase.example",
+                  "elementId": "component:partner"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "usecase.example",
+                  "elementId": "service:fulfillment"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "usecase.example",
+                  "elementId": "external-system:payment"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "component:partner"
+                },
+                "boundary": "external"
+              }
+            ]
+          },
+          "realizingWorkflows": {
+            "status": "present",
+            "value": [
+              {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "workflow:fulfillment"
+                },
+                "boundary": "local"
+              },
+              {
+                "identity": {
+                  "modelId": "external.example",
+                  "elementId": "workflow:fulfillment"
+                },
+                "boundary": "external"
+              }
+            ]
+          }
+        },
+        {
+          "element": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "usecase.example",
+                "elementId": "use-case:observe-order"
+              }
+            },
+            "kind": "use-case",
+            "name": "共有",
+            "source": {
+              "authorityId": "usecase.example",
+              "path": "src/main/cml/use-case-handoff.cml",
+              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "line": 46
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          },
+          "declaredId": {
+            "status": "present",
+            "value": ""
+          },
+          "summary": {
+            "status": "present",
+            "value": ""
+          },
+          "description": {
+            "status": "present",
+            "value": ""
+          },
+          "goal": {
+            "status": "present",
+            "value": ""
+          },
+          "trigger": {
+            "status": "present",
+            "value": {
+              "text": "",
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            }
+          },
+          "preconditions": {
+            "status": "present",
+            "value": []
+          },
+          "postconditions": {
+            "status": "present",
+            "value": []
+          },
+          "priority": {
+            "status": "present",
+            "value": ""
+          },
+          "lifecycleStatus": {
+            "status": "present",
+            "value": ""
+          },
+          "actorReferences": {
+            "status": "present",
+            "value": []
+          },
+          "flows": {
+            "status": "present",
+            "value": []
+          },
+          "domainElements": {
+            "status": "present",
+            "value": []
+          },
+          "operations": {
+            "status": "present",
+            "value": []
+          },
+          "events": {
+            "status": "present",
+            "value": []
+          },
+          "collaborators": {
+            "status": "present",
+            "value": []
+          },
+          "realizingWorkflows": {
+            "status": "present",
+            "value": []
+          }
+        }
+      ]
+    }
+  }
+}

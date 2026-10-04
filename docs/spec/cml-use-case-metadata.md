@@ -1,6 +1,6 @@
 # CML Use Case Metadata v1 Specification
 
-Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A and S54.4.2 / S54.4.2A CLOSED; S54.4.3A planned.
+Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A, S54.4.2 / S54.4.2A and S54.4.3 / S54.4.3A CLOSED. Final Phase closure remains pending.
 Owner: Cozy Use Case metadata supplier; the Phase parent owns acceptance evidence and closure.
 Update rule: preserve the accepted foundation and peer contracts; update status only from actual validation, independent review and local commit evidence.
 
@@ -247,7 +247,7 @@ cases with zero discards. Both process exits were zero and the serial lock was
 released. Independent Step review passed with no findings. Its parent manual
 local acceptance commit binds six paths, as recorded in native Git history.
 
-S54.4.3 will author fixed resources and same-envelope cross-view consumer proof.
+S54.4.3 supplies accepted fixed resources and same-envelope cross-view consumer proof.
 Consumers separately admit [Dynamic](cml-dynamic-metadata.md),
 [Structure](cml-structure-metadata.md) and
 [Classification](cml-classification-metadata.md) peers before following their
@@ -256,6 +256,47 @@ realizing Workflow pair can be passed to `CmlDynamicTopology.workflow`.
 Navigation invents no reverse Actor membership, links, walks or peer admission.
 [Foundation](cml-semantic-foundation.md) and
 [publication](cml-semantic-metadata.md) contracts remain unchanged.
+
+## Fixed supplier resource contract
+
+The [declared resource](../../src/test/resources/cozy/modeler/use-case-metadata-v1-declared.json)
+and [absence resource](../../src/test/resources/cozy/modeler/use-case-metadata-v1-absence.json)
+retain all 42 complete records, three Terms and six extensions of the accepted
+declared Dynamic fixture in both modes. Seven complete `usecase.example` records
+are appended in order: requester Actor, auditor Actor, complete-order Use Case,
+observe-order Use Case, partner component, fulfillment service and payment
+external-system. Their name is `共有`, source path is
+`src/main/cml/use-case-handoff.cml`, authority is `usecase.example`, digest is
+64 literal lowercase `c` characters and lines are 43–49. Core references remain
+Absent(NotDeclared, "No semantic references are declared."). A separate
+TermId(usecase.example, use-case:complete-order) retains the complete source at
+line 45. Each file totals 49 core records/four Terms/two Actors/two Use Cases.
+
+The fourth opaque peer has producer `synthetic-caller`, declaredFlowOrder
+`[main,alternate,exception]` and absence `null`. The
+[supplier handoff](../design/cml-use-case-metadata-handoff.md) fixes every Actor,
+Use Case, role, expression and main/alternate/exception literal, including
+Present-empty observe-order. Absence changes only requester/complete-order
+identity to NotRepresented with detail
+`No stable Use Case or Actor identity is represented.` and replaces all eight
+Actor/16 Use Case fields with exact four-reason/detail cycles indexed by
+projection-plus-field ordinal. Anonymous records retain full embedded equality;
+Term identity remains independent and Dynamic fulfillment stays declared.
+
+[CmlUseCaseMetadataFixtureSpec](../../src/test/scala/cozy/modeler/CmlUseCaseMetadataFixtureSpec.scala)
+authors nine UF-01–09 scenarios with independent complete typed and recursive
+wire oracles, four separate peer admissions, source/core retention, full
+cross-view query facts, strict failure matrices and two-mode observable
+permutations. Its active property requires Passed, at least 100 successes and
+zero discards while reordering all three full-value sequences in each mode.
+S54.4.3 is CLOSED on 2026-10-04. Focused validation passed 181 tests in thirteen
+suites; fixture, navigation and Use Case metadata properties each passed 100
+generated cases with zero discards. Both resource modes run in every fixture
+sample. SBT and wrapper exited zero and the serial lock was released.
+Independent complete Step review passed with no blockers, Hygiene or
+Development Candidates. The parent manual local acceptance commit binds ten
+paths, as recorded in native Git history. Full Phase review, ordinary full
+validation and distinct local release remain pending.
 
 This supplier adds no CML parser/projector integration, CLI/HTTP/SPI/MCP,
 generated legacy sidecar, runtime, external UI/consumer acceptance, dependency

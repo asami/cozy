@@ -190,6 +190,14 @@ val model = CmlParser.parseFile("model.cml")
 val scalaSources = ScalaGenerator.generate(model)
 ```
 
+### Consume semantic metadata
+
+The [Use Case and Actor metadata handoff](docs/design/cml-use-case-metadata-handoff.md)
+provides fixed declared and explicit-absence JSON examples, qualified
+Actor → Use Case → Workflow navigation, independent Dynamic/static reader
+admission, and the developer validation recipe. Source attribution is synthetic
+caller data; External references remain opaque and unavailable facts stay explicit.
+
 ---
 
 ## Cozy in the SimpleModeling Workflow

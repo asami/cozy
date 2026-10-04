@@ -1,6 +1,6 @@
 # CML Use Case Metadata v1 Design
 
-Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A and S54.4.2 / S54.4.2A CLOSED; fixed-resource handoff planned.
+Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A, S54.4.2 / S54.4.2A and S54.4.3 / S54.4.3A CLOSED. Final Phase closure remains pending.
 Owner: Cozy Use Case metadata supplier; the Phase parent owns validation, review and closure.
 Update rule: preserve the frozen qualified identity and peer contracts; record acceptance only from actual evidence and keep later consumer work with its owner.
 
@@ -119,17 +119,57 @@ wrapper exited zero with the serial lock released. Independent Step review
 passed with no findings. Its parent manual local acceptance commit binds six
 paths, as recorded in native Git history.
 
-S54.4.3 will freeze declared and explicit-absence UTF-8 resources and prove
+S54.4.3 authors declared and explicit-absence UTF-8 resources and the proof of
 Actor → UseCase → Workflow → declared Dynamic activity/state/operation/event,
 plus static Entity/Aggregate resolution in independently admitted peers of the
 same envelope. External and absent values stop literal Local traversal. This
 uses the accepted [Dynamic handoff](cml-dynamic-metadata-handoff.md),
 [Structure handoff](cml-structure-metadata-handoff.md) and
 [Classification handoff](cml-classification-metadata-handoff.md). Resource and
-handoff Step remains planned. Consumers independently admit Dynamic and pass
+handoff Step is accepted by focused validation and independent review. Consumers independently admit Dynamic and pass
 the preserved Workflow pair to `CmlDynamicTopology.workflow`; Structure and
 Classification admission remain independent too. Navigation creates no links,
 reverse Actor membership, graph walks, peer admission or external resolution.
+
+## Fixed resource consumption
+
+The [supplier handoff](cml-use-case-metadata-handoff.md) records exact literals,
+identity/source authority, absence cycles and the reproducible consumer recipe.
+[Declared](../../src/test/resources/cozy/modeler/use-case-metadata-v1-declared.json)
+and [absence](../../src/test/resources/cozy/modeler/use-case-metadata-v1-absence.json)
+resources retain the complete declared Dynamic prefix in both modes. Seven
+new core records and a separate Term produce 49 core/four Terms, with two
+Actors/two Use Cases and four opaque handoff peers. All new source attribution
+is synthetic: usecase.example, source lines 43–49, the literal 64-character
+lowercase c digest and shared descriptive name 共有 do not establish identity.
+The separate Term at line 45 never becomes the same-component model identity.
+
+The declared requester reaches complete-order, its Local fulfillment Workflow,
+complete Dynamic carriers and independently admitted Structure Entity/Aggregate.
+Roles and main/alternate/exception expression references retain their ordered
+full targets; External workflow/payment pairs stop as opaque values. Explicit
+Present-empty observe-order remains distinct from absence. In absence mode only
+requester/complete-order identities become anonymous, every Actor/Use Case field
+uses the fixed four-reason/detail cycle, and the declared Dynamic Workflow stays
+addressable. No identity rescue or inferred outbound/reverse link is introduced.
+
+The [UF-01–09 fixture specification](../../src/test/scala/cozy/modeler/CmlUseCaseMetadataFixtureSpec.scala)
+independently authors full typed S3 facts and recursive wire constructors. It
+uses the unchanged accepted Dynamic prefix as the predecessor oracle, admits
+each peer from the same whole envelope and compares complete consumer values.
+Build/read/render/canonical reconsumption preserve caller core/carrier order;
+generated plans observably reorder Catalog/Actors/Use Cases separately in both
+modes without changing Terms or opaque arrays. Complete Dynamic nodes/links
+derive from the permuted independent Catalog and unchanged accepted endpoints.
+S54.4.3 is CLOSED on 2026-10-04. Focused validation passed 181 tests in thirteen
+suites; fixture, navigation and Use Case metadata properties each passed 100
+generated cases with zero discards, with both resource modes in every fixture
+sample. SBT and wrapper exited zero and the serial lock was released.
+Independent complete Step review passed with no blockers, Hygiene or
+Development Candidates. The parent manual local acceptance commit binds ten
+paths, as recorded in native Git history. Full Phase review, ordinary full
+validation and distinct local release remain pending; external product
+acceptance stays with its owner.
 
 Cozy owns the metadata supplier, CNCF owns runtime realization, and Textus CBD
 Support owns its views and external acceptance. No cross-repository producer
