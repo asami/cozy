@@ -3,9 +3,14 @@
 Document role: normative Phase 76 producer behavior contract, transcribed from
 parent-decided contract `phase76-cycle-plan-001` revision 1 for P76-01A.
 Status: documentary contract independently reviewed PASS and accepted for
-implementation. P76-01 documentary obligations are accepted; local Step commit
-pending. Executable implementation verification and generated consumer acceptance
-remain pending; this does not close the whole Phase.
+implementation. P76-01 documentary obligations are accepted at local Step commit
+`0224d56cd5a1a94ab110b7e776e6922264eb7950`. P76-02 pure-producer executable
+verification and fresh independent Step review are accepted; its
+[pure producer specification](../../src/test/scala/cozy/modeler/LogicalUiProducerSpec.scala)
+and [ordinary CML specification](../../src/test/scala/cozy/modeler/LogicalUiCmlSpec.scala)
+passed parent focused validation. Actual Scala 3 generation/wiring, generated
+consumer acceptance and whole-Phase verification remain pending. The local
+P76-02 Step acceptance commit is PREPARED/PENDING, not executed.
 
 ## Authority and supported boundary
 

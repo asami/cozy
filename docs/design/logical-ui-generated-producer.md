@@ -2,8 +2,14 @@
 
 Document role: stable Phase 76 design transcribed from parent-decided contract
 `phase76-cycle-plan-001` revision 1. Status: documentary design accepted after
-retained independent Step review PASS. Implementation verification and local
-Step commit remain pending.
+retained independent Step review PASS, committed locally as
+`0224d56cd5a1a94ab110b7e776e6922264eb7950`. P76-02 pure-producer executable
+verification and fresh independent Step review are accepted; the
+[pure producer](../../src/test/scala/cozy/modeler/LogicalUiProducerSpec.scala) and
+[ordinary CML](../../src/test/scala/cozy/modeler/LogicalUiCmlSpec.scala) specifications
+passed parent focused validation. Actual Scala 3 generation/wiring, generated
+consumer acceptance and whole-Phase verification remain pending. The local
+P76-02 Step acceptance commit is PREPARED/PENDING, not executed.
 
 The [producer specification](../spec/logical-ui-generated-producer.md) fixes
 behavior. [Phase 74 spec](../spec/logical-ui-runtime-contract.md),

@@ -38,12 +38,17 @@ CML / Cozy Logical UI semantic model
 
 The [Phase 76 checklist](phase-76-checklist.md) owns current progress.
 P76-01's documentary contract is accepted after retained independent Step
-review PASS: 4/24 obligations accepted, P76-01 CLOSED, and local Step commit
-pending. P76-02..06 remain OPEN with 20 obligations remaining. The received
+review PASS, P76-01 CLOSED, and local Step commit
+`0224d56cd5a1a94ab110b7e776e6922264eb7950`. P76-02's four pure-producer
+obligations are accepted after 190 focused tests and fresh independent Step
+review PASS: P76-02 CLOSED, 8/24 obligations accepted and 16 unchecked.
+Its local Step acceptance commit is PREPARED/PENDING, not executed.
+P76-03..06 remain OPEN. The received
 fixed LUI-ABI-01 source contract is transcribed in the
 [producer spec](../spec/logical-ui-generated-producer.md) and
-[design](../design/logical-ui-generated-producer.md). Implementation verification,
-actual generation and generated consumer acceptance remain pending; Phase 76
+[design](../design/logical-ui-generated-producer.md). Pure-producer executable
+verification and independent Step review are accepted; actual Scala 3 rendering,
+generation/wiring and generated consumer acceptance remain pending; Phase 76
 remains IN_PROGRESS.
 The [contract journal](../journal/2026/10/2026-10-04-phase-76-producer-contract.md)
 records source coordinates, existing consumer focused evidence and documentary
@@ -142,6 +147,21 @@ At minimum prove:
 
 The producer spec enumerates future Given/When/Then/PBT obligations. P76-01A
 authors no executable specification or fixture and runs no tests.
+
+P76-02A authors [LogicalUiProducerSpec](../../src/test/scala/cozy/modeler/LogicalUiProducerSpec.scala)
+and [LogicalUiCmlSpec](../../src/test/scala/cozy/modeler/LogicalUiCmlSpec.scala),
+including the ordinary [ESS2-01 input](../../src/test/resources/logicalui/ess2-01.cml).
+Parent representative validation passed 176/176 tests across two suites and
+accumulator validation passed 14/14 across two suites: 190/190 across four
+suites, including nine ScalaCheck properties with at least 100 successful
+cases. Fresh independent Step review
+`phase96-cozy76-p76-02a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_02a_step_review_001` is PASS with zero CPB/HYG/DEV
+findings, explicitly attributed to Cozy P76-02 in original CNCF ledger
+`phase96-review-ledger-001` r12. All four P76-02 pure criteria are accepted;
+actual rendering/generation, generated consumer acceptance and whole-Phase
+verification remain pending. The local P76-02 Step acceptance commit is
+PREPARED/PENDING, not executed.
 
 ## Acceptance criteria
 

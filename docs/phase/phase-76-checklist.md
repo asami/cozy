@@ -9,8 +9,12 @@ planning_source=c6b108b8f301d4b1928e3f7f1b43d3e17f8e3739
 
 This ledger preserves the GitHub Phase 76 plan and all 24 obligations/owners.
 P76-01's four documentary obligations are accepted after retained independent
-Step review PASS. P76-02..06 remain OPEN with 20 unchecked obligations;
-Phase 76 remains IN_PROGRESS and the local P76-01 Step commit is pending.
+Step review PASS. P76-02's four pure-producer obligations are accepted after
+focused validation and fresh independent Step review PASS: 8/24 obligations
+accepted, 16 unchecked. P76-02 is CLOSED and P76-03..06 remain OPEN;
+Phase 76 remains IN_PROGRESS. The local P76-01 Step commit is
+`0224d56cd5a1a94ab110b7e776e6922264eb7950`.
+The local P76-02 Step acceptance commit is PREPARED/PENDING, not executed.
 Phase 74 remains the semantic
 authority; CNCF Phase 96 owns the Scala 3 consumer ABI and runtime admission.
 The [producer ABI proposal](../notes/logical-ui-cncf-producer-abi-proposal.md)
@@ -45,7 +49,7 @@ remain separate; no additional full review is introduced by a handoff.
 Stage Status:
 
 - Current status: CLOSED
-- Current step: P76-01A documentary contract accepted; local Step commit pending
+- Current step: P76-01A documentary contract accepted at local commit 0224d56cd5a1a94ab110b7e776e6922264eb7950
 - Owner: Cozy producer and CNCF ABI contract owners
 - Update rule: Advance only from admitted consumer input and a reconciled mapping; the checklist below is the closure basis.
 
@@ -68,14 +72,26 @@ pending; documentary acceptance does not establish those results.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
+- Current step: P76-02A pure producer accepted after 190 focused tests and fresh independent Step review PASS; local Step acceptance commit PREPARED/PENDING, not executed
 - Owner: Cozy Logical UI producer owners
 - Update rule: Advance only from explicit pure projection and validation evidence; the checklist below is the closure basis.
 
-- [ ] The existing CML/modeler path produces a bounded normalized model and an explicit CNCF ABI projection; a second standalone generator is not introduced.
-- [ ] Immutable definition/configuration carries only the identity, order, roles, typed value/converter and action binding references admitted by LUI-ABI-01; entity constraints and mutation targets remain application/runtime-owned under the received fixed v1 source contract, and any static metadata extension requires explicit consumer admission without a second validation language. Runtime resource values/revisions, authorization and capability availability remain CNCF-owned.
-- [ ] Duplicate or malformed identities, unsupported vocabulary and invalid references fail with structured diagnostics before source emission, without partial generated output.
-- [ ] Pure Given/When/Then and property-based specifications prove Phase 74 reference mapping, stable identities, deterministic ordering and rejected input without changing the semantic authority.
+Accepted executable evidence: [LogicalUiProducerSpec](../../src/test/scala/cozy/modeler/LogicalUiProducerSpec.scala)
+and [LogicalUiCmlSpec](../../src/test/scala/cozy/modeler/LogicalUiCmlSpec.scala).
+Representative validation passed 176/176 tests across two suites; accumulator
+validation passed 14/14 across two suites, for 190/190 across four suites.
+Nine ScalaCheck properties require at least 100 successful cases. Fresh Step
+review `phase96-cozy76-p76-02a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_02a_step_review_001` is PASS with zero CPB/HYG/DEV
+findings, attributed explicitly to Cozy P76-02 in original CNCF ledger
+`phase96-review-ledger-001` r12. Actual rendering, generation, generated
+consumer acceptance and full Phase acceptance remain pending.
+
+- [x] The existing CML/modeler path produces a bounded normalized model and an explicit CNCF ABI projection; a second standalone generator is not introduced.
+- [x] Immutable definition/configuration carries only the identity, order, roles, typed value/converter and action binding references admitted by LUI-ABI-01; entity constraints and mutation targets remain application/runtime-owned under the received fixed v1 source contract, and any static metadata extension requires explicit consumer admission without a second validation language. Runtime resource values/revisions, authorization and capability availability remain CNCF-owned.
+- [x] Duplicate or malformed identities, unsupported vocabulary and invalid references fail with structured diagnostics before source emission, without partial generated output.
+- [x] Pure Given/When/Then and property-based specifications prove Phase 74 reference mapping, stable identities, deterministic ordering and rejected input without changing the semantic authority.
 
 ## P76-03: Deterministic Scala 3 source and provider generation
 
