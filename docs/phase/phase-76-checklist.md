@@ -19,8 +19,8 @@ successful cases and independent Step review
 original CNCF primary ledger `phase96-review-ledger-001` r14. P76-04's four
 producer-regression/generated-handoff obligations are also accepted after the
 original independent Step review and accepted parent coordinate M0 amendment:
-20/24 obligations accepted, 4 unchecked after P76-05 independent acceptance.
-P76-01..05 are CLOSED and P76-06 remains OPEN;
+22/24 obligations accepted, 2 unchecked after P76-06A independent documentary acceptance.
+P76-01..05 are CLOSED and P76-06 is IN_PROGRESS;
 Phase 76 remains IN_PROGRESS. The local P76-01 Step commit is
 `0224d56cd5a1a94ab110b7e776e6922264eb7950`.
 The local P76-02 Step acceptance commit is
@@ -46,7 +46,7 @@ maps the four unchanged P76-05 criteria. Own independent Step review
 `/root/phase96_cozy76_p76_05a_step_review_001` is PASS with all four MET and
 zero new CPB/HYG/DEV, recorded in original CNCF ledger
 `phase96-review-ledger-001` r21. All four boxes are checked; the local P76-05
-Step commit is PREPARED/PENDING, not executed. Full Phase
+Step commit is `3546755fc3f52606cfb1f209434a2a776ef9358b`. Full Phase
 validation/review, acceptance and release remain pending.
 Phase 74 remains the semantic
 authority; CNCF Phase 96 owns the Scala 3 consumer ABI and runtime admission.
@@ -149,8 +149,8 @@ across one suite; accumulator validation passed 266/266 across eight suites:
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
 three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
 primary ledger `phase96-review-ledger-001` r14. All four source-contract
-criteria below are accepted, with current totals of 20/24 accepted and
-4 unchecked overall after P76-05 independent acceptance.
+criteria below are accepted, with current totals of 22/24 accepted and
+2 unchecked overall after P76-06A independent documentary acceptance.
 The local P76-03 Step acceptance commit is
 `8a4c1794b7ad4557af5b4260d1233acd07520c6e`.
 P76-04 now records actual twice-generated CLI LUI-GEN-01 delivery and 254/254
@@ -160,8 +160,8 @@ ledger r17; its local Step commit is
 `ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`.
 CNCF's same-generated LUI-ACCEPT-01 proof is accepted at local Step commit
 `bef59e729834addd3ac00c1930034bb23a8b428f`; P76-05's four unchanged criteria
-are independently accepted with its local Step commit PREPARED/PENDING,
-not executed. P76-06 remains OPEN. Full
+are independently accepted with its local Step commit
+`3546755fc3f52606cfb1f209434a2a776ef9358b`. P76-06 is IN_PROGRESS. Full
 Phase validation/review, acceptance and release remain pending.
 
 - [x] Existing generator utilities emit Scala 3 public-ABI definitions and bounded provider/bootstrap metadata in the source shape fixed by LUI-ABI-01, discoverable through CNCF ComponentFactory.
@@ -193,13 +193,13 @@ sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` resolved by accepted parent
 M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1 in
 original CNCF ledger `phase96-review-ledger-001` r17. Under
 `phase96-cozy76-p76-04-acceptance-handoff-001` r2, all four criteria below
-are accepted; current totals are 20/24 accepted and 4 unchecked after P76-05
-independent acceptance.
+are accepted; current totals are 22/24 accepted and 2 unchecked after P76-06A
+independent documentary acceptance.
 Local Step commit is `ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`.
 CNCF P96-03's same-generated LUI-ACCEPT-01 proof is accepted at local commit
 `bef59e729834addd3ac00c1930034bb23a8b428f`; P76-05 own independent Step
-acceptance is PASS, with its local commit PREPARED/PENDING, not executed.
-P76-06 and full Phase validation/review/acceptance/release remain pending.
+acceptance is PASS, with its local commit `3546755fc3f52606cfb1f209434a2a776ef9358b`.
+P76-06 remains IN_PROGRESS; full Phase validation/review/acceptance/release remain pending.
 
 - [x] Focused executable specifications and affected compilation pass for semantic mapping, validation and source/provider generation, with commands, revisions and results recorded.
 - [x] Existing target-neutral compile-time Logical UI semantics and Phase 74 semantic fixtures remain unchanged, with affected Logical UI/runtime regression evidence; preserve Phase 51 PLANNED Flutter Target Projection without starting it or claiming Flutter source/suite execution.
@@ -211,7 +211,7 @@ P76-06 and full Phase validation/review/acceptance/release remain pending.
 Stage Status:
 
 - Current status: CLOSED
-- Current step: P76-05A four unchanged criteria accepted after own independent Step review PASS; local Step commit PREPARED/PENDING, not executed
+- Current step: P76-05A four unchanged criteria accepted after own independent Step review PASS; local Step commit 3546755fc3f52606cfb1f209434a2a776ef9358b
 - Owner: CNCF consumer acceptance and Cozy integration owners
 - Update rule: Advance only from evidence for the same actual generated fixture; the checklist below is the closure basis.
 
@@ -234,9 +234,9 @@ Own independent Step review `phase96-cozy76-p76-05a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_05a_step_review_001` is PASS: all four unchanged
 criteria MET, zero new CPB/HYG/DEV, admitted in original CNCF ledger
 `phase96-review-ledger-001` r21. All four boxes below are checked and form
-the P76-05 closure basis. Totals are 20 checked / 4 unchecked; P76-01..05
-CLOSED, P76-06 OPEN and Phase 76 IN_PROGRESS. The local P76-05 Step commit
-is PREPARED/PENDING, not executed. Full Phase validation/review/release and
+the P76-05 closure basis. Totals are 22 checked / 2 unchecked; P76-01..05
+CLOSED, P76-06 IN_PROGRESS and Phase 76 IN_PROGRESS. The local P76-05 Step commit
+is `3546755fc3f52606cfb1f209434a2a776ef9358b`. Full Phase validation/review/release and
 both Phase closures remain pending.
 
 - [x] CNCF P96-03 compiles the LUI-GEN-01 Scala 3 fixture against the agreed ABI without depending on `cozy_2.12`; the actual consumer project/fixture and command/result are recorded.
@@ -248,12 +248,25 @@ both Phase closures remain pending.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN_PROGRESS
+- Current step: P76-06A-DOCS compatibility and developer documentary criteria independently accepted; own local Step commit PREPARED/PENDING, not executed
 - Owner: Cozy Phase 76 release and integration owners
 - Update rule: Advance only when this checklist and preceding stages have complete evidence or admitted dispositions; this checklist is the closure basis.
 
-- [ ] Producer/consumer compatibility and future additive vocabulary evolution document ABI-version policy, supported subset, rejection behavior and definition/provenance ownership against the accepted CNCF contract.
-- [ ] Developer documentation explains the ordinary CML -> generated source/provider -> CNCF admission path, reproducible fixtures and all three handoff receipts without runtime CML parsing or a shared binary runtime library.
+The [developer guide](../guide/logical-ui-generated-producer.md) and
+[dated handoff](../journal/2026/10/2026-10-04-phase-76-compatibility-developer-handoff.md)
+address the first two unchanged criteria, both MET after independent documentary
+Step review `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
+`/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
+ledger `phase96-review-ledger-001` r23. The own local Step commit is
+PREPARED/PENDING, not executed. The last two remain later Phase gates: actual
+final-validation ownership/admission and execution, full Phase review, release
+and complete closure evidence. Only the first two boxes are checked;
+totals are 22 checked / 2 unchecked. P76-06 and Phase 76 remain IN_PROGRESS;
+both Phase closures remain pending. This mapping adds or relocates no obligation.
+
+- [x] Producer/consumer compatibility and future additive vocabulary evolution document ABI-version policy, supported subset, rejection behavior and definition/provenance ownership against the accepted CNCF contract.
+- [x] Developer documentation explains the ordinary CML -> generated source/provider -> CNCF admission path, reproducible fixtures and all three handoff receipts without runtime CML parsing or a shared binary runtime library.
 - [ ] Repository-required release validation and the admitted Phase review/closure evidence are recorded separately from focused intermediate handoffs; any admitted fixes have bounded closure evidence.
 - [ ] Every Phase 76 scope and acceptance criterion maps to completed ledger evidence or explicit admitted candidate/relocation records; journal, Phase status and release records agree without claiming CNCF REST/mutation or app E2E completion.
 

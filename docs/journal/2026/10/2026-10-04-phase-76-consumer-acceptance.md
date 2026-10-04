@@ -5,8 +5,14 @@ Scope: PHASE-76 / P76-05 / P76-05A, receiving CNCF PHASE-96 / P96-03.
 Manifest: `phase96-cozy76-p76-05a-implementation-manifest-001` revision 1.
 Current status: own independent P76-05 Step review PASS accepts all four
 unchanged criteria; P76-05 CLOSED on its checklist basis, with local Step
-commit PREPARED/PENDING, not executed. P76-01..05 CLOSED, 20/24 checked and
-4 unchecked; P76-06 OPEN and Phase 76 IN_PROGRESS. P76-06, full Phase
+commit `3546755fc3f52606cfb1f209434a2a776ef9358b` executed.
+P76-01..05 CLOSED, 22/24 checked and 2 unchecked; P76-06 IN_PROGRESS at
+P76-06A documentary acceptance: independent Step review
+`phase96-cozy76-p76-06a-step-review-001` r1 PASS by
+`/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
+ledger `phase96-review-ledger-001` r23, finds both documentary criteria MET.
+Its own local Step commit is PREPARED/PENDING, not executed,
+and Phase 76 IN_PROGRESS. Full Phase
 validation/review/release and both Phase closures remain pending.
 
 ## Durable evidence and revision binding
@@ -145,15 +151,17 @@ retain the agreed contract.
 | CNCF P96-03 compiles the LUI-GEN-01 Scala 3 fixture against the agreed ABI without depending on `cozy_2.12`; the actual consumer project/fixture and command/result are recorded. | The two unmodified delivered ordinary Test sources compile under Scala3.3.8; both comparisons exit0; representative classpath inspection excludes a Cozy runtime jar; exact commands/results are above. |
 | ComponentFactory discovers and admits the generated provider and definitions, and focused evidence covers the agreed invalid/duplicate/incompatible admission diagnostics. | GC1/GC4 normal bootstrap discovers and publishes the complete vector once, retaining identities and idle sources. GC5 actual-derived ABI2, duplicate screen index2, malformed revision and invalid target preserve typed code/path/reason without fallback, runtime evaluation or publication. GC6 wrong final Detail View binding retains its typed diagnostic and publishes no Display prefix. ABI specs additionally cover incompatible descriptor and duplicate scopes. |
 | The generated fixture produces the same reference List/Detail Display Projection as the LUI-ABI-01 hand-written fixture, preserving semantics, values, identities and ordering. | GC2 structural List/Detail model equality and separate ABI/descriptor/IDs/order/revisions/provenance assertions; GC3 preserves Unicode/whitespace, reverse supplied order, empty List/snapshot None and caller context with independent semantic calls counted separately. GCP1 passed executed assertions requiring at least100 successful generated cases and zero discards; no exact separately printed case count is claimed. |
-| LUI-ACCEPT-01 binds exact producer, consumer and fixture revisions/identities and focused results; both ledgers reference this receipt, not a whole-Phase closure assumption or producer-only text comparison. | Producer delivery and consumer accepted commits, tested context, declared provenance, source mapping and request/result identities are bound above. CNCF P96-03 criterion7 already accepts and links the durable consumer journal; the Cozy ledger references this reciprocal receipt with its own independent Step review accepted; local Step commit remains PREPARED/PENDING, not executed. |
+| LUI-ACCEPT-01 binds exact producer, consumer and fixture revisions/identities and focused results; both ledgers reference this receipt, not a whole-Phase closure assumption or producer-only text comparison. | Producer delivery and consumer accepted commits, tested context, declared provenance, source mapping and request/result identities are bound above. CNCF P96-03 criterion7 already accepts and links the durable consumer journal; the Cozy ledger references this reciprocal receipt with its own independent Step review accepted; local Step commit is 3546755fc3f52606cfb1f209434a2a776ef9358b. |
 
 This receipt connects the [Cozy P76-05 ledger](../../../phase/phase-76-checklist.md#p76-05-cncf-consumer-acceptance)
 and [CNCF P96-03 ledger](../../../../../cloud-native-component-framework-phase96/docs/phase/phase-96-checklist.md#p96-03-componentfactory-admission-and-display-projection)
 to shared LUI-ACCEPT-01 proof. CNCF P96-01..03 are CLOSED; P96-04..11 are
 OPEN. Cozy P76-01..05 are CLOSED after own independent P76-05 Step review
-PASS accepts all four unchanged criteria; P76-06 remains OPEN, with 20 checked /
-4 unchecked obligations and Phase 76 IN_PROGRESS. P76-05's local Step commit
-is PREPARED/PENDING, not executed. P76-06, final aggregate/release validation,
+PASS accepts all four unchanged criteria; P76-06 is IN_PROGRESS, with 22 checked /
+2 unchecked obligations and Phase 76 IN_PROGRESS. P76-05's local Step commit
+is `3546755fc3f52606cfb1f209434a2a776ef9358b`. P76-06A's two documentary
+criteria are independently accepted as recorded in the current status; its own
+local Step commit is PREPARED/PENDING, not executed. Final aggregate/release validation,
 each admitted full Phase review, release and both Phase closures remain pending.
 No CNCF later REST/mutation or app E2E completion is inferred.
 
@@ -204,3 +212,51 @@ items above remain separate follow-up; none is fixed or materialized here.
 Original Goal/binding/bases/PLAN epoch and repair history are unchanged;
 P76-05 cumulative repair and consecutive non-convergence remain zero, neither
 incremented nor reset by this documentary projection.
+
+## 2026-10-04 — Committed P76-05 and P76-06A documentary continuation
+
+P76-05's independently accepted reciprocal documentary Step is locally
+committed as `3546755fc3f52606cfb1f209434a2a776ef9358b`. This commit records
+the receipt, not a new generation or consumer run. Earlier dated PENDING and
+prepared history above is retained; current projections now identify the
+executed commit. Producer delivery remains
+`ccf2b8d7b89582c22f5f4a933b8354812a8ee2a3`; consumer acceptance remains
+`bef59e729834addd3ac00c1930034bb23a8b428f`, with the disclosed tested HEAD
+and delta, 140/140 focused results and distinct declared provenance unchanged.
+
+Frozen manifest `phase96-cozy76-p76-06a-implementation-manifest-001@1`
+authors the [developer guide](../../../guide/logical-ui-generated-producer.md)
+and [compatibility/developer handoff](2026-10-04-phase-76-compatibility-developer-handoff.md).
+P76-06 is IN_PROGRESS; all four criteria remain unchecked during IMPLEMENT.
+The first two await own independent documentary Step review/commit; the last
+two await actual final-validation admission/execution, full Phase review,
+release and complete closure evidence. P76-01..05 remain CLOSED, 20 checked /
+4 unchecked, Phase 76 IN_PROGRESS. No executable behavior, new validation,
+logger repair, publication or later CNCF/app E2E acceptance is claimed.
+Original FINDINGS/M0 and all seven Hygiene items (two persisted/five pending)
+remain separate follow-up; the second-run Logback observation remains unresolved.
+
+## 2026-10-04 — P76-06A independent documentary Step acceptance
+
+Independent Step review `phase96-cozy76-p76-06a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_06a_step_review_001` returned PASS for the eight
+documentary paths. Both unchanged P76-06 documentary criteria are MET;
+the parent admitted the result in original CNCF ledger
+`phase96-review-ledger-001` r23. The sealed source is
+`phase96-cozy76-p76-06a-step-review-source-001` r1. The
+[canonical checklist](../../../phase/phase-76-checklist.md) checks only
+P76-06 ordinals 1 and 2: 22 checked / 2 unchecked, P76-01..05 CLOSED,
+P76-06 and Phase 76 IN_PROGRESS. The own local documentary Step commit is
+PREPARED/PENDING, not executed; no commit identity is claimed.
+
+P76-06 ordinals 3 and 4, actual final-validation ownership/admission and
+execution, full Phase review, release and both Phase closures remain pending.
+Earlier dated 20/4 authoring and preparation/PENDING entries retain their
+original wording and event positions. Original FINDINGS/coordinate M0, source
+and commit bindings, 254-test producer and 140-test consumer evidence, generated
+source, strict v1, independent provenance and application registrations remain
+unchanged. All seven known Hygiene items retain two-persisted/five-pending
+separate follow-up; the Logback observation remains unresolved. No validation
+or executable-specification change occurs in this projection; same-file
+target-program debt is not applicable. Repair/non-convergence remains 0/0,
+neither incremented nor reset.

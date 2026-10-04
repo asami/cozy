@@ -38,7 +38,13 @@ records that evidence. Own P76-05 independent Step review
 `/root/phase96_cozy76_p76_05a_step_review_001` is PASS with all four criteria
 MET and zero new CPB/HYG/DEV, recorded in original CNCF ledger
 `phase96-review-ledger-001` r21. P76-05 is CLOSED on its unchanged checklist
-criteria; its local Step commit is PREPARED/PENDING, not executed. P76-06,
+criteria; its local Step commit is `3546755fc3f52606cfb1f209434a2a776ef9358b`.
+P76-06 is IN_PROGRESS at P76-06A documentary acceptance: independent Step
+review `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
+`/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
+ledger `phase96-review-ledger-001` r23, finds both documentary criteria MET.
+The checklist has 22 checked / 2 unchecked; the own local documentary Step
+commit is PREPARED/PENDING, not executed. Phase 76 remains IN_PROGRESS;
 whole-Phase validation/review, release and both Phase closures remain pending.
 
 The [producer specification](../spec/logical-ui-generated-producer.md) fixes
@@ -158,5 +164,37 @@ existing Logical UI/runtime regression proof without claiming Flutter execution.
 Accepted implementation and CNCF consumer proof are recorded by the
 [Phase 76 stages](../phase/phase-76-checklist.md); the reciprocal P76-05 Step
 has its own independent PASS and four accepted unchanged criteria. Its local
-Step commit is PREPARED/PENDING, not executed; P76-06, full Phase
+Step commit is `3546755fc3f52606cfb1f209434a2a776ef9358b`;
+P76-06 is IN_PROGRESS at P76-06A accepted documentary criteria, own local Step
+commit PREPARED/PENDING and not executed; full Phase
 validation/review/release and both Phase closures remain pending.
+
+The [existing-v1 compatibility index](../spec/logical-ui-generated-producer.md#compatibility-and-evolution-navigation--existing-v1)
+cross-references LUI76-S01..07 and LUI96-S01..08 without changing this design.
+The fixed ABI `cncf.logical-ui-generated.v1` / integer `1` in
+`org.goldenport.cncf.display` selects no SemVer/range/negotiation. The entire
+Phase 74 descriptor is exact and independently checked. Static List/Detail,
+the five roles and five value kinds, explicit registration keys, preserved
+order and scoped uniqueness remain the supported subset; editable/constraint,
+Entity and mutation data stay outside generated definitions.
+
+Future additive vocabulary requires explicit consumer ABI/spec/admission and
+executable proof before producer emission. An opaque validated definition or
+provenance revision is not vocabulary/schema authorization. There is no selected
+v2, automatic backward compatibility, tolerant decoder or invalid-provider
+fallback. Producer LUI76 diagnostics stop invalid syntax/owner/subset before
+STree; consumer `LUI96_ABI_INCOMPATIBLE` and `LUI96_CONTRACT_INCOMPATIBLE`
+retain exact descriptor rejection alongside the existing scalar/scope/target
+diagnostics. Component-first selection, whole-vector static admission and late
+atomic typed joining remain the gates before Display exposure.
+
+Phase 74 semantic authority, CNCF ABI/runtime, Cozy compiler/source and explicit
+application bindings keep separate ownership. Declared provenance != definition
+revision != receipt Git commit != runtime Entity/source revision != Display wire
+schema/version. The [developer guide](../guide/logical-ui-generated-producer.md)
+navigates the actual LUI-ABI-01 -> LUI-GEN-01 -> LUI-ACCEPT-01 sources and
+three durable receipts; the [dated handoff](../journal/2026/10/2026-10-04-phase-76-compatibility-developer-handoff.md)
+maps all Phase scope/criteria. Goldens and the handwritten expected fixture
+remain expectations, distinct from generated delivery and consumer compilation.
+No shared Scala 2.12 runtime binary, runtime CML parser or Flutter dependency
+enters Scala 3 consumption through this documentary navigation.

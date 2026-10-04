@@ -39,7 +39,13 @@ records that evidence. Own P76-05 independent Step review
 `/root/phase96_cozy76_p76_05a_step_review_001` is PASS with all four criteria
 MET and zero new CPB/HYG/DEV, recorded in original CNCF ledger
 `phase96-review-ledger-001` r21. P76-05 is CLOSED on its unchanged checklist
-criteria; its local Step commit is PREPARED/PENDING, not executed. P76-06,
+criteria; its local Step commit is `3546755fc3f52606cfb1f209434a2a776ef9358b`.
+P76-06 is IN_PROGRESS at P76-06A documentary acceptance: independent Step
+review `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
+`/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
+ledger `phase96-review-ledger-001` r23, finds both documentary criteria MET.
+The checklist has 22 checked / 2 unchecked; the own local documentary Step
+commit is PREPARED/PENDING, not executed. Phase 76 remains IN_PROGRESS;
 whole-Phase validation/review, release and both Phase closures remain pending.
 
 ## Authority and supported boundary
@@ -412,5 +418,25 @@ proof is accepted at CNCF Step commit
 `bef59e729834addd3ac00c1930034bb23a8b428f` and recorded in the
 [reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md).
 P76-05 own independent Step review PASS accepts all four unchanged criteria;
-its local Step commit is PREPARED/PENDING, not executed. P76-06, whole-Phase
+its local Step commit is `3546755fc3f52606cfb1f209434a2a776ef9358b`.
+P76-06 is IN_PROGRESS at P76-06A accepted documentary criteria, own local Step
+commit PREPARED/PENDING and not executed; whole-Phase
 validation/review/release and both Phase closures remain pending.
+
+## Compatibility and evolution navigation — existing v1
+
+This section clarifies and indexes the unchanged LUI76-S01..S07 and
+[LUI96-S01..S08](../../../cloud-native-component-framework-phase96/docs/spec/logical-ui-generated-abi.md)
+contract. It adds no normative capability, constructor, default, diagnostic,
+acceptance rule or responsibility. The [developer guide](../guide/logical-ui-generated-producer.md)
+explains usage; the [dated documentary handoff](../journal/2026/10/2026-10-04-phase-76-compatibility-developer-handoff.md)
+maps evidence without promoting fixture data to normative authority.
+
+| Compatibility concern | Existing contract and navigation |
+| --- | --- |
+| Fixed identity | LUI76-S01 / LUI96-S01: `cncf.logical-ui-generated.v1`, integer `1`, package `org.goldenport.cncf.display`. No SemVer, range or negotiation is selected. The entire exact Phase 74 semantic descriptor is independently compared, not reduced to the ABI integer. |
+| Supported subset | LUI76-S02..S04 / LUI96-S02..S05: static List/Detail with five roles (`content`, `title`, `subtitle`, `description`, `status`) and five kinds (`text`, `number`, `boolean`, `timestamp`, `missing`), explicit keys, declaration order, scoped uniqueness and typed rejection. Editable/constraint/Entity/mutation data is excluded. |
+| Additive proposals | LUI76-S01 / LUI96-S01..S03: future vocabulary is a proposal, not automatically compatible v1 input. Consumer ABI/spec/admission and executable proof must explicitly admit it before producer emission. No v2 allocation, backward-compatibility promise, tolerance or fallback follows from this clarification. Independently validated opaque definition/provenance revisions cannot authorize a vocabulary or schema change. |
+| Rejection and exposure | LUI76-S03..S05 reject invalid syntax, owner and subset with existing LUI76 code/path/reason before STree. LUI96-S05 rejects ABI and full descriptor mismatches with `LUI96_ABI_INCOMPATIBLE` / `LUI96_CONTRACT_INCOMPATIBLE`, retaining the other exact scalar/scope/target codes. LUI96-S06/S07 select component first without invalid-provider fallback, admit the whole vector and complete the late atomic typed join before Display exposure. |
+| Ownership | Phase 74 owns semantic authority; CNCF owns ABI/admission/runtime; Cozy owns deterministic compilation/source; the application owns component/factory mixin and explicit View/value/action registration. Declared provenance, definition revision, receipt Git commit, runtime Entity/source revision and Display wire schema/version are separate identities. |
+| Proof chain | LUI76-S06/S07 / LUI96-S08: golden/handwritten expectations are distinct from actual generation. LUI-ABI-01 -> LUI-GEN-01 -> LUI-ACCEPT-01 binds exact producer/consumer sources and explicit receipts; Scala 3 consumption introduces no Cozy Scala 2.12 runtime dependency. |

@@ -50,8 +50,8 @@ properties with at least 100 successful cases. Independent Step review
 `phase96-cozy76-p76-03a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS, attributed to Cozy
 P76-03 in original CNCF primary ledger `phase96-review-ledger-001` r14.
-P76-01..05 are CLOSED with 20/24 obligations accepted and 4 unchecked;
-P76-06 remains OPEN. The local P76-03 Step acceptance commit is
+P76-01..05 are CLOSED with 22/24 obligations accepted and 2 unchecked;
+P76-06 is IN_PROGRESS at P76-06A documentary acceptance, local commit prepared/pending. The local P76-03 Step acceptance commit is
 `8a4c1794b7ad4557af5b4260d1233acd07520c6e`. The received
 fixed LUI-ABI-01 source contract is transcribed in the
 [producer spec](../spec/logical-ui-generated-producer.md) and
@@ -79,7 +79,7 @@ review `phase96-cozy76-p76-05a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_05a_step_review_001` is PASS with all four MET and
 zero new CPB/HYG/DEV, recorded in original CNCF ledger
 `phase96-review-ledger-001` r21. All four P76-05 boxes are checked;
-its local Step commit is PREPARED/PENDING, not executed. Full Phase
+its local Step commit is `3546755fc3f52606cfb1f209434a2a776ef9358b`. Full Phase
 validation/review, release and both Phase
 closures remain pending; Phase 76 remains IN_PROGRESS.
 The [contract journal](../journal/2026/10/2026-10-04-phase-76-producer-contract.md)
@@ -91,6 +91,16 @@ second CLI invocation's Logback JoranException is disclosed there.
 The [ABI proposal](../notes/logical-ui-cncf-producer-abi-proposal.md)
 and [reconciliation journal](../journal/2026/10/2026-10-03-phase-76-cncf96-plan-reconciliation.md)
 record the handoff details.
+
+P76-06A-DOCS authors the [developer guide](../guide/logical-ui-generated-producer.md)
+and [compatibility/developer handoff](../journal/2026/10/2026-10-04-phase-76-compatibility-developer-handoff.md).
+The first two unchanged P76-06 criteria are MET and checked after independent
+Step review `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
+`/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
+ledger `phase96-review-ledger-001` r23. Its own local documentary Step commit
+is PREPARED/PENDING, not executed. The last two
+criteria remain later final-validation, full Phase review and release gates.
+Those two remain unchecked; no obligation is deferred or removed.
 
 | Handoff | Producer -> consumer | Required result |
 | --- | --- | --- |
@@ -211,8 +221,8 @@ cases. Independent Step review `phase96-cozy76-p76-03a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
 three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
 primary ledger `phase96-review-ledger-001` r14. P76-03's four source-contract
-criteria are accepted; current totals are 20/24 accepted and 4 unchecked
-after P76-05 independent acceptance.
+criteria are accepted; current totals are 22/24 accepted and 2 unchecked
+after P76-06A independent documentary acceptance.
 The local P76-03 Step acceptance commit is
 `8a4c1794b7ad4557af5b4260d1233acd07520c6e`.
 Goldens are expectations. P76-04 supplies actual twice-generated CLI files
@@ -230,7 +240,8 @@ LUI-ACCEPT-01 proof is committed as
 [reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md).
 P76-05 is CLOSED on its four unchanged checklist criteria after its own
 independent Step review PASS recorded above; its local Step commit is
-PREPARED/PENDING, not executed. P76-06 remains OPEN; full Phase
+`3546755fc3f52606cfb1f209434a2a776ef9358b`. P76-06 is IN_PROGRESS at
+P76-06A documentary acceptance, own local Step commit PREPARED/PENDING and not executed; full Phase
 validation/review, acceptance, release and both Phase closures remain pending.
 
 ## Acceptance criteria
