@@ -160,10 +160,14 @@ Phase status index (individual Phase/checklist files are authoritative):
   full Phase review PASS and 2769 successful full tests / 192 suites
   (9 pre-existing canceled cases). Its distinct parent manual local
   release binds P543-CLOSURE-001 revision 1 and the
-  [dynamic handoff](../design/cml-dynamic-metadata-handoff.md). Following
+  [dynamic handoff](../design/cml-dynamic-metadata-handoff.md). [Phase 54.4](phase-54.4.md) Use Case and Actor is CLOSED with all three
+  Steps (`fcfa285`, `2ea6137`, `8d204fd`), 181 focused tests, sole full Phase
+  review PASS and 2802 successful full tests / 195 suites (9 pre-existing
+  canceled cases). Its distinct parent manual local release binds
+  P544-CLOSURE-001 revision 1 and the
+  [Use Case handoff](../design/cml-use-case-metadata-handoff.md). Following
   children remain PLANNED and unstarted:
-  `phase-54.4.md` Use Case and
-  Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
+  `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
   traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
   semantic supplier for Textus CBD Support and does not implement its UI or
   publish SimpleModeling.org.

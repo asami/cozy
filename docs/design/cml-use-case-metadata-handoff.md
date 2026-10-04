@@ -1,6 +1,6 @@
 # CML Use Case Metadata Supplier Handoff
 
-Current status: PHASE-54.4 IN_PROGRESS; S54.4.3 / S54.4.3A CLOSED. Supplier fixtures and handoff accepted; final Phase closure remains pending.
+Current status: PHASE-54.4 CLOSED; all three Steps CLOSED; final evidence below supersedes prior pending records.
 Owner: Cozy metadata supplier; Phase parent for validation, independent review, acceptance and local commits.
 Update rule: retain literal fixture facts and independent peer gates; project acceptance only from actual parent evidence.
 
@@ -181,8 +181,8 @@ Independent complete Step review passed with no blockers, Hygiene or
 Development Candidates. The parent manual local acceptance commit binds ten
 paths; native Git history records its revision.
 Legacy compatibility stays in unchanged CmlModelMetadataSpec; this new envelope
-is not input to the legacy format parser. Full Phase review, full repository
-validation and distinct local release are separate pending gates.
+is not input to the legacy format parser. Final full Phase review, full repository validation and distinct local release
+are recorded below.
 
 Cozy publishes metadata. CNCF owns runtime realization; Textus CBD Support owns
 external views, navigation and acceptance. Terminology/BoK, Event Storming and
@@ -190,3 +190,25 @@ final external fixture acceptance remain with Phases 54.5–54.7. This handoff
 claims no external operation or product acceptance. Durable scope and status
 are recorded in the [2026-10-04 journal](../journal/2026/10/2026-10-04-phase-54.4-use-case-metadata.md)
 and [Phase 54.4](../phase/phase-54.4.md).
+
+## Final Phase acceptance and release — 2026-10-04
+
+S54.4.1, S54.4.2 and S54.4.3 are CLOSED at parent manual local commits
+`fcfa28582e66b948a9fe5be9f20558766e98efe4`,
+`2ea61373c5e3754124e3d17a6d03b94b01a0c135` and
+`8d204fdda0d3469a57a0ccf30c5c90e6475d99fb`.
+The sole independent full Phase review P544-FULL-REVIEW-001 revision 1 is PASS
+with zero current blockers, Hygiene or Development Candidates. Original review
+history remains in P544-REVIEW-LEDGER-001 revision 6; Phase repair cycles: zero.
+Ordinary final `sbt --batch test` passed 2802 tests across 195 suites,
+with zero failures or aborted suites. The 9 pre-existing canceled cases
+are four optional Remotion integration cases and five Phase 51 deferred cases;
+their acceptance is not claimed. All Use Case scenarios passed. SBT/wrapper
+exit 0 and `lock=released` are verified in
+P544-FINAL-FULL-VALIDATION-ADMISSION-001 revision 1.
+The distinct parent manual local release binds P544-CLOSURE-001 revision 1.
+Its actual Git revision and committed-tree/clean-tree audit are recorded after
+successful commit in the private closure receipt. This closure projection is
+authoritative only on that verified release. No empty follow-up journal is
+created. Phases 54.5–54.7 remain PLANNED and unstarted; CNCF runtime realization
+and Textus CBD Support external views/navigation/acceptance retain their owners.

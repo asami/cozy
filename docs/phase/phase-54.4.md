@@ -1,7 +1,7 @@
 # Phase 54.4: Use Case and Actor Metadata Handoff
 
-Status: IN_PROGRESS
-Current status: S54.4.1 / S54.4.1A, S54.4.2 / S54.4.2A and S54.4.3 / S54.4.3A CLOSED. Phase closure remains open.
+Status: CLOSED
+Current status: PHASE-54.4 CLOSED; all three Steps CLOSED; final evidence below supersedes prior pending records.
 Owner: Cozy Use Case metadata supplier; Phase parent for validation, review, local commits and closure.
 Update rule: project actual Step evidence mechanically after acceptance/commit; preserve earlier core contracts and later Phase ownership.
 
@@ -29,7 +29,7 @@ through 54.7.
 | MMD-544-01 | Publish Use Case Actor, goal, trigger, flows, conditions, postconditions, domain elements, operations/events, collaborators, and realizing Workflow where modeled. | complete; S54.4.1 accepted |
 | MMD-544-02 | Preserve stable Use Case-to-Workflow and onward dynamic/static references without name-based guessing. | complete; S54.4.2 navigation and S54.4.3 fixed-resource continuation proof accepted |
 | MMD-544-03 | Preserve explicit absence when a source does not declare an Actor, flow, collaborator, or realizing Workflow. | complete; S54.4.1 accepted |
-| MMD-544-04 | Freeze the Use Case/Actor handoff for Terminology, Event Storming, and final CBD Support fixtures. | complete; S54.4.3 supplier handoff accepted; final Phase closure pending |
+| MMD-544-04 | Freeze the Use Case/Actor handoff for Terminology, Event Storming, and final CBD Support fixtures. | complete; S54.4.3 supplier handoff and final Phase closure accepted |
 
 ## Closure criteria
 
@@ -50,7 +50,7 @@ through 54.7.
 
 S54.4.1 is CLOSED on 2026-10-04. The declared-semantics and explicit-absence
 obligations are accepted. Navigation is accepted separately below; fixed
-handoff is accepted below and final closure remains unchecked. Initial focused validation passed 165 tests in eleven suites. The
+handoff and final closure are accepted below. Initial focused validation passed 165 tests in eleven suites. The
 independent Step review found that UC-09 did not actually reorder Catalog
 records. The repaired suite passed all 17 tests and 100 generated cases with
 zero discards, exercising declared and anonymous-gap modes in every case.
@@ -84,8 +84,8 @@ the serial lock was released. Independent complete Step review passed with no
 blockers, Hygiene or Development Candidates. The parent manual local
 acceptance commit binds ten paths; native Git history records its revision.
 Phases 54.5–54.7 are
-unstarted. Full Phase review, ordinary full validation and distinct local
-release remain pending.
+unstarted. Final full Phase review, ordinary full validation and bound release closure
+are recorded below.
 
 ## Non-goals
 
@@ -105,3 +105,25 @@ release remain pending.
 - [Use Case supplier handoff](../design/cml-use-case-metadata-handoff.md)
 - [Dynamic supplier handoff](../design/cml-dynamic-metadata-handoff.md)
 - [Foundation supplier contract](../spec/cml-semantic-foundation.md)
+
+## Final Phase acceptance and release — 2026-10-04
+
+S54.4.1, S54.4.2 and S54.4.3 are CLOSED at parent manual local commits
+`fcfa28582e66b948a9fe5be9f20558766e98efe4`,
+`2ea61373c5e3754124e3d17a6d03b94b01a0c135` and
+`8d204fdda0d3469a57a0ccf30c5c90e6475d99fb`.
+The sole independent full Phase review P544-FULL-REVIEW-001 revision 1 is PASS
+with zero current blockers, Hygiene or Development Candidates. Original review
+history remains in P544-REVIEW-LEDGER-001 revision 6; Phase repair cycles: zero.
+Ordinary final `sbt --batch test` passed 2802 tests across 195 suites,
+with zero failures or aborted suites. The 9 pre-existing canceled cases
+are four optional Remotion integration cases and five Phase 51 deferred cases;
+their acceptance is not claimed. All Use Case scenarios passed. SBT/wrapper
+exit 0 and `lock=released` are verified in
+P544-FINAL-FULL-VALIDATION-ADMISSION-001 revision 1.
+The distinct parent manual local release binds P544-CLOSURE-001 revision 1.
+Its actual Git revision and committed-tree/clean-tree audit are recorded after
+successful commit in the private closure receipt. This closure projection is
+authoritative only on that verified release. No empty follow-up journal is
+created. Phases 54.5–54.7 remain PLANNED and unstarted; CNCF runtime realization
+and Textus CBD Support external views/navigation/acceptance retain their owners.

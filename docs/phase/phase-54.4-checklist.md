@@ -1,7 +1,7 @@
 # Phase 54.4 Checklist: Use Case and Actor Metadata Handoff
 
-Status: IN_PROGRESS
-Current status: S54.4.1 / S54.4.1A, S54.4.2 / S54.4.2A and S54.4.3 / S54.4.3A CLOSED; four supplier/handoff obligations accepted and one final closure obligation remains open.
+Status: CLOSED
+Current status: PHASE-54.4 CLOSED; all three Steps CLOSED; final evidence below supersedes prior pending records.
 Owner: Cozy Use Case metadata supplier; Phase parent for acceptance and closure evidence.
 Update rule: preserve all five obligations; check only from actual accepted validation/review/commit/release evidence.
 phase=[Phase 54.4](phase-54.4.md)
@@ -22,10 +22,10 @@ State: complete; navigation and S54.4.3 fixed-resource cross-view continuation p
 
 ## MMD-544-04: Handoff and focused closure
 
-State: supplier handoff complete; fixed resources, UF-01–09 and durable handoff accepted by focused validation and independent Step review. Final Phase closure remains pending.
+State: supplier handoff complete; fixed resources, UF-01–09 and durable handoff accepted by focused validation and independent Step review. Final Phase closure is accepted below.
 
 - [x] Freeze the Use Case/Actor handoff for Phases 54.5 through 54.7.
-- [ ] Complete focused validation, review, release closure, and reproducible evidence for this child only.
+- [x] Complete focused validation, review, release closure, and reproducible evidence for this child only.
 
 ## Step and Slice evidence ledger
 
@@ -60,8 +60,8 @@ sample. SBT and wrapper exited zero and the serial lock was released.
 Independent complete Step review passed with no blockers, Hygiene or
 Development Candidates. The parent manual local acceptance commit binds ten
 paths; native Git history records its revision. Phases 54.5–54.7 remain unstarted.
-Full Phase review, ordinary full
-validation and distinct release closure remain outstanding.
+Final full Phase review, ordinary full validation and bound release closure
+are recorded below.
 
 Supplier references: [specification](../spec/cml-use-case-metadata.md),
 [design](../design/cml-use-case-metadata.md),
@@ -70,3 +70,25 @@ Supplier references: [specification](../spec/cml-use-case-metadata.md),
 [authored-scope journal](../journal/2026/10/2026-10-04-phase-54.4-use-case-metadata.md),
 [Dynamic handoff](../design/cml-dynamic-metadata-handoff.md) and
 [foundation](../spec/cml-semantic-foundation.md).
+
+## Final Phase acceptance and release — 2026-10-04
+
+S54.4.1, S54.4.2 and S54.4.3 are CLOSED at parent manual local commits
+`fcfa28582e66b948a9fe5be9f20558766e98efe4`,
+`2ea61373c5e3754124e3d17a6d03b94b01a0c135` and
+`8d204fdda0d3469a57a0ccf30c5c90e6475d99fb`.
+The sole independent full Phase review P544-FULL-REVIEW-001 revision 1 is PASS
+with zero current blockers, Hygiene or Development Candidates. Original review
+history remains in P544-REVIEW-LEDGER-001 revision 6; Phase repair cycles: zero.
+Ordinary final `sbt --batch test` passed 2802 tests across 195 suites,
+with zero failures or aborted suites. The 9 pre-existing canceled cases
+are four optional Remotion integration cases and five Phase 51 deferred cases;
+their acceptance is not claimed. All Use Case scenarios passed. SBT/wrapper
+exit 0 and `lock=released` are verified in
+P544-FINAL-FULL-VALIDATION-ADMISSION-001 revision 1.
+The distinct parent manual local release binds P544-CLOSURE-001 revision 1.
+Its actual Git revision and committed-tree/clean-tree audit are recorded after
+successful commit in the private closure receipt. This closure projection is
+authoritative only on that verified release. No empty follow-up journal is
+created. Phases 54.5–54.7 remain PLANNED and unstarted; CNCF runtime realization
+and Textus CBD Support external views/navigation/acceptance retain their owners.
