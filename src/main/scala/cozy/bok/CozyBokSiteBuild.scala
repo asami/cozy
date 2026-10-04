@@ -32,7 +32,8 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -108,6 +109,8 @@ private[cozy] trait CozyBokSiteBuild {
       "--rm",
       "-e",
       "SMARTDOX_KROKI_PORT=9609",
+      "-e",
+      "KROKI_LISTEN=127.0.0.1:9609",
       "-e",
       s"SMARTDOX_KROKI_DOCKER_IMAGE=${config.dockerImage}",
       "-v",

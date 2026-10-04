@@ -11,13 +11,14 @@ import scala.collection.JavaConverters._
 import io.circe.parser
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
  *  version Aug. 28, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -1877,12 +1878,18 @@ class CozyBokSpec
           }
 
           And(
-            "Docker Antora starts the internal Kroki server on SmartDox's Antora port"
+            "every Docker Antora command coordinates the internal Kroki listener with SmartDox's Antora port"
           )
-          runner.commands.exists(cmd =>
-            cmd.contains("SMARTDOX_KROKI_PORT=9609") &&
-              cmd.contains("SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev")
-          ) shouldBe true
+          val antoracommands = runner.commands.filter(command =>
+            command.take(2) == Vector("docker", "run") && command.contains("antora")
+          )
+          antoracommands should not be empty
+          antoracommands.foreach { command =>
+            command.sliding(2).toVector should contain (Vector("-e", "KROKI_LISTEN=127.0.0.1:9609"))
+            command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_PORT=9609"))
+            command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev"))
+            command.sliding(2).toVector should contain (Vector("example/toolchain:dev", "antora"))
+          }
         }
       }
 
@@ -2363,6 +2370,120 @@ class CozyBokSpec
     }
 
     "run optional build extensions" which {
+      "preserve Arcadia-authored homes in both locale layouts" in {
+        Given("bounded generated UTF-8 Arcadia home contents and both configured locale layouts")
+        val suffixes = Gen.listOfN(16, Gen.alphaNumChar).map(_.mkString)
+        val property = Prop.forAll(suffixes) { suffix =>
+          Vector(false, true).foreach { multilocale =>
+            _with_temp_dir("cozy-bok-arcadia-home") { dir =>
+              Given("an Arcadia-enabled BoK project with fresh source and locale-specific authored homes")
+              Files.createDirectories(dir.resolve("src/main/doxsite"))
+              _write(
+                dir.resolve(".cozy/config.yaml"),
+                """bok:
+                  |  docker-image: antora-image
+                  |  arcadia:
+                  |    enabled: true
+                  |    source: src/main/arcadiasite
+                  |""".stripMargin
+              )
+              if (multilocale)
+                _write(
+                  dir.resolve("src/main/doxsite/site.conf"),
+                  """simplemodelingorg = true
+                    |site.metadata.in_language = ["ja", "en"]
+                    |""".stripMargin
+                )
+              val config = CozyBok.BuildConfig.create(List(dir.toString))
+              config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
+              if (multilocale)
+                config.languages shouldBe Vector("ja", "en")
+              val locales = if (multilocale) Vector("ja", "en") else Vector(config.defaultLocale)
+              val homes = locales.map { locale =>
+                val path = if (multilocale) s"$locale/index.html" else "index.html"
+                path -> s"""<!doctype html>
+                  |<html lang="$locale">
+                  |  <body>日本語 Arcadia $locale $suffix</body>${" "}
+                  |</html>
+                  |""".stripMargin
+              }.toMap
+              val runner = new ArcadiaHomeRecordingRunner(homes)
+
+              When("Cozy builds the configured site through the real BoK orchestration")
+              CozyBok.build(config, runner)
+
+              Then("every Arcadia home retains its exact UTF-8 content and required generated surfaces remain")
+              homes.foreach { case (path, content) =>
+                val home = config.websitePath.resolve(path)
+                _read(home) shouldBe content
+                Vector("manual/index.html", "history/index.html", "glossary/index.html").foreach { special =>
+                  home.getParent.resolve(special) should be_regular_file
+                }
+              }
+              runner.commands should contain(
+                Vector("arcadia", "site", "src/main/arcadiasite", "arcadiasite.d")
+              )
+              Vector("rdf/site.ttl", "rdf/site.jsonld", "metadata/rdf/graph.json", "metadata/cncf/knowledge-source.json").foreach { path =>
+                config.websitePath.resolve(path) should be_regular_file
+              }
+            }
+          }
+          true
+        }
+
+        When("the preservation property is checked across at least fifty generated home contents")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+
+        Then("all generated trials preserve homes in both locale layouts")
+        check.passed shouldBe true
+      }
+
+      "retain normal Dashboard homes when Arcadia is disabled" in {
+        Vector(false, true).foreach { multilocale =>
+          _with_temp_dir("cozy-bok-dashboard-home") { dir =>
+            Given("an explicitly Arcadia-disabled BoK project in one of both locale layouts")
+            Files.createDirectories(dir.resolve("src/main/doxsite"))
+            _write(
+              dir.resolve(".cozy/config.yaml"),
+              """bok:
+                |  docker-image: antora-image
+                |  arcadia:
+                |    enabled: false
+                |    source: src/main/arcadiasite
+                |""".stripMargin
+            )
+            if (multilocale)
+              _write(
+                dir.resolve("src/main/doxsite/site.conf"),
+                """simplemodelingorg = true
+                  |site.metadata.in_language = ["ja", "en"]
+                  |""".stripMargin
+              )
+            val config = CozyBok.BuildConfig.create(List(dir.toString))
+            config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
+            if (multilocale)
+              config.languages shouldBe Vector("ja", "en")
+            val targets = if (multilocale) config.languages.map(config.websitePath.resolve(_)) else Vector(config.websitePath)
+            val runner = new RecordingRunner
+
+            When("Cozy builds the site with Arcadia disabled")
+            CozyBok.build(config, runner)
+
+            Then("normal Dashboard homes, special pages and canonical metadata are generated without Arcadia")
+            targets.foreach { target =>
+              _read(target.resolve("index.html")) should include("bok-dashboard-shell")
+              Vector("manual/index.html", "history/index.html", "glossary/index.html").foreach { special =>
+                target.resolve(special) should be_regular_file
+              }
+            }
+            runner.commands.exists(_.take(2) == Vector("arcadia", "site")) shouldBe false
+            Vector("rdf/site.ttl", "rdf/site.jsonld", "metadata/rdf/graph.json", "metadata/cncf/knowledge-source.json").foreach { path =>
+              config.websitePath.resolve(path) should be_regular_file
+            }
+          }
+        }
+      }
+
       "include arcadia step only when enabled" in {
         _with_temp_dir("cozy-bok-arcadia") { dir =>
           Given("a BoK config with Arcadia site generation enabled")
@@ -3770,6 +3891,16 @@ class CozyBokSpec
       calls = calls :+ (command -> cwd)
       if (command.take(2) == Vector("dox", "site"))
         _write_smartdox_metadata(cwd)
+    }
+  }
+
+  private class ArcadiaHomeRecordingRunner(homes: Map[String, String]) extends RecordingRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("arcadia", "site"))
+        homes.foreach { case (path, content) =>
+          _write(cwd.resolve(command.last).resolve(path), content)
+        }
     }
   }
 

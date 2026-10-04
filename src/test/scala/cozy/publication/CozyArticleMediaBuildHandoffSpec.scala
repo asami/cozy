@@ -15,7 +15,7 @@ import cozy.bok.CozyBok
 
 /*
  * @since   Aug.  5, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyArticleMediaBuildHandoffSpec {
@@ -47,8 +47,8 @@ final class CozyArticleMediaBuildHandoffSpec extends AnyWordSpec with Matchers w
     }
 
     "lease one immutable effective publication to every ordinary-build consumer" which {
-      "pass the same digest-addressed publication and configured repository to Dox consumers" in {
-        Given("a media-free configured publication, an unrelated invalid media descriptor, and stale target content")
+      "pass one freshly allocated publication context and configured repository to Dox consumers" in {
+        Given("a media-free publication, unrelated producer inputs and obsolete BoK-owned target content")
         _with_fixture { fixture =>
           _write_media_free_bundle(fixture.publication, revision = 1)
           val descriptor = fixture.project.resolve("src/main/media/unrelated/media.yaml")
@@ -56,14 +56,20 @@ final class CozyArticleMediaBuildHandoffSpec extends AnyWordSpec with Matchers w
           Files.createDirectories(descriptor.getParent)
           Files.write(descriptor, descriptorbytes)
           Files.createDirectories(fixture.project.resolve("target/unrelated"))
-          Files.writeString(fixture.project.resolve("target/unrelated/stale.txt"), "stale", StandardCharsets.UTF_8)
+          val unrelated = fixture.project.resolve("target/unrelated/input.txt")
+          val unrelatedbytes = "unrelated producer input\n".getBytes(StandardCharsets.UTF_8)
+          Files.write(unrelated, unrelatedbytes)
+          val unrelatedtime = Files.getLastModifiedTime(unrelated)
+          val stale = fixture.project.resolve("target/cozy-bok/stale.txt")
+          Files.createDirectories(stale.getParent)
+          Files.writeString(stale, "stale", StandardCharsets.UTF_8)
           val config = CozyBok.BuildConfig.create(List(fixture.project.toString, "--strategy", "preview", "--no-bib-service"))
           val runner = new HandoffRunner
 
           When("the actual ordinary CozyBok build invokes its recording consumers")
           CozyBok.build(config, runner)
 
-          Then("all Dox commands observe one active immutable snapshot and the configured repository")
+          Then("Dox consumers share one freshly allocated active context, unrelated inputs survive and obsolete owned content is cleared")
           val publications = runner.doxCommands.map(_option(_, "-publication"))
           publications.distinct.size shouldBe 1
           publications.head should include("target/cozy-bok/article-media/production-preview/snapshots/")
@@ -76,12 +82,14 @@ final class CozyArticleMediaBuildHandoffSpec extends AnyWordSpec with Matchers w
             commandtext should not include tool
           }
           Files.readAllBytes(descriptor).toVector shouldBe descriptorbytes.toVector
-          Files.exists(fixture.project.resolve("target/unrelated/stale.txt"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+          Files.readAllBytes(unrelated).toVector shouldBe unrelatedbytes.toVector
+          Files.getLastModifiedTime(unrelated) shouldBe unrelatedtime
+          Files.exists(stale, LinkOption.NOFOLLOW_LINKS) shouldBe false
           CozyArticleMediaBuildContext.activeLeaseCount(Paths.get(publications.head)) shouldBe 0
         }
       }
 
-      "reuse unchanged snapshots across target cleanup and retain prior digests after a registry change" in {
+      "allocate fresh contexts across target cleanup and retain prior contexts after a registry change" in {
         Given("a deterministic media-free publication and a recording ordinary-build runner")
         _with_fixture { fixture =>
           _write_media_free_bundle(fixture.publication, revision = 1)
@@ -93,33 +101,48 @@ final class CozyArticleMediaBuildHandoffSpec extends AnyWordSpec with Matchers w
           val firstdirectoryattributes = Files.readAttributes(firstpath, classOf[BasicFileAttributes])
           val firstfileattributes = Files.readAttributes(firstpath.resolve("publication.json"), classOf[BasicFileAttributes])
 
-          When("the same registry is built again after stale ordinary target content is present")
-          Files.writeString(fixture.project.resolve("target/stale.txt"), "stale", StandardCharsets.UTF_8)
+          Given("obsolete BoK-owned target content beside the retained snapshot")
+          Files.writeString(fixture.project.resolve("target/cozy-bok/stale.txt"), "stale", StandardCharsets.UTF_8)
           val second = new HandoffRunner
+
+          When("the same registry is built again with the stale owned content present")
           CozyBok.build(config, second)
           val secondpath = Paths.get(_option(second.doxCommands.head, "-publication"))
 
-          Then("the exact snapshot identity and bytes survive the cleanup")
-          secondpath shouldBe firstpath
+          Then("a fresh byte-identical context is allocated while the prior context survives cleanup unchanged")
+          secondpath should not be firstpath
           Files.readAllBytes(secondpath.resolve("publication.json")).toVector shouldBe firstbytes.toVector
-          val seconddirectoryattributes = Files.readAttributes(secondpath, classOf[BasicFileAttributes])
-          val secondfileattributes = Files.readAttributes(secondpath.resolve("publication.json"), classOf[BasicFileAttributes])
+          Files.exists(firstpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
+          Files.readAllBytes(firstpath.resolve("publication.json")).toVector shouldBe firstbytes.toVector
+          val seconddirectoryattributes = Files.readAttributes(firstpath, classOf[BasicFileAttributes])
+          val secondfileattributes = Files.readAttributes(firstpath.resolve("publication.json"), classOf[BasicFileAttributes])
           seconddirectoryattributes.fileKey shouldBe firstdirectoryattributes.fileKey
           seconddirectoryattributes.lastModifiedTime shouldBe firstdirectoryattributes.lastModifiedTime
           secondfileattributes.fileKey shouldBe firstfileattributes.fileKey
           secondfileattributes.lastModifiedTime shouldBe firstfileattributes.lastModifiedTime
-          Files.exists(fixture.project.resolve("target/stale.txt"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+          CozyArticleMediaBuildContext.activeLeaseCount(firstpath) shouldBe 0
+          CozyArticleMediaBuildContext.activeLeaseCount(secondpath) shouldBe 0
+          Files.exists(fixture.project.resolve("target/cozy-bok/stale.txt"), LinkOption.NOFOLLOW_LINKS) shouldBe false
 
-          When("the configured registry content changes")
+          Given("changed configured registry content")
           _write_media_free_bundle(fixture.publication, revision = 2)
           val changed = new HandoffRunner
+
+          When("the changed registry is built through the ordinary consumers")
           CozyBok.build(config, changed)
           val changedpath = Paths.get(_option(changed.doxCommands.head, "-publication"))
 
-          Then("a different digest is installed while the former immutable snapshot remains byte-identical")
+          Then("another fresh context is allocated while the prior context retains its bytes and filesystem identity")
           changedpath should not be firstpath
+          changedpath should not be secondpath
           Files.exists(firstpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
           Files.readAllBytes(firstpath.resolve("publication.json")).toVector shouldBe firstbytes.toVector
+          val retaineddirectoryattributes = Files.readAttributes(firstpath, classOf[BasicFileAttributes])
+          val retainedfileattributes = Files.readAttributes(firstpath.resolve("publication.json"), classOf[BasicFileAttributes])
+          retaineddirectoryattributes.fileKey shouldBe firstdirectoryattributes.fileKey
+          retaineddirectoryattributes.lastModifiedTime shouldBe firstdirectoryattributes.lastModifiedTime
+          retainedfileattributes.fileKey shouldBe firstfileattributes.fileKey
+          retainedfileattributes.lastModifiedTime shouldBe firstfileattributes.lastModifiedTime
         }
       }
 

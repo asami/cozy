@@ -7,7 +7,7 @@ import java.nio.file.Path
  *  version Jun. 19, 2026
  *  version Jul. 20, 2026
  *  version Aug. 26, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideo {
@@ -204,6 +204,12 @@ private[cozy] object CozyVideo {
     CozyVideoImplementation.reviewEvidence(config, tools, runner)
   def verifyCredits(projectfile: Path): Vector[String] =
     CozyVideoImplementation.verifyCredits(projectfile)
+  private[cozy] def mediaCurrentnessFailure(projectFile: Path, additionalInputs: Vector[Path]): Option[String] =
+    CozyVideoImplementation.mediaCurrentnessFailure(projectFile, additionalInputs)
+  private[cozy] def mediaProducerInputs(projectFile: Path): Vector[Path] =
+    CozyVideoImplementation.mediaProducerInputs(projectFile)
+  private[cozy] def buildMedia(config: BuildConfig, tools: VideoToolRegistry, runner: VideoProcessRunner, additionalInputs: Vector[Path]): String =
+    CozyVideoImplementation.buildMedia(config, tools, runner, additionalInputs)
   def demoScript(config: DemoScriptConfig): String =
     CozyVideoImplementation.demoScript(config)
   def replay(config: ReplayConfig, tools: VideoToolRegistry, runner: VideoProcessRunner): String =
@@ -237,6 +243,7 @@ private[cozy] object CozyVideoImplementation
   with CozyVideoStoryboard
   with CozyVideoStoryboardReview
   with CozyVideoStoryboardBuild
+  with CozyVideoMediaBuild
   with CozyVideoRuntime
   with CozyVideoCommand
   with CozyVideoNarration

@@ -1,6 +1,7 @@
 package cozy.video
 
 import cozy.CozySpecVocabulary
+import cozy.media.CozyMedia
 import io.circe.Json
 import io.circe.parser
 import java.nio.charset.StandardCharsets
@@ -15,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyVideoStoryboardBuildModeSpec {
@@ -38,6 +39,80 @@ final class CozyVideoStoryboardBuildModeSpec
   import CozyVideoStoryboardBuildModeSpec.StaticTool
 
   "Cozy Video Storyboard build modes" should {
+    "produce normal Media final videos within the selected Video extent" which {
+      "render then assemble native final reuse unchanged MP4s and preserve confirmation and prior final artifacts on producer failure" in {
+        _with_temp_dir("media-final-producer") { root =>
+          Given("a native Storyboard selected by Media with actual declared audio and separate confirmation products")
+          _write_credit_profile(root)
+          val project = _write_storyboard_project(root, "storyboard.md", _storyboard(), renderer = Some("remotion"),
+            configuration = """  "locale": "en", "narration": {"provider":"macos-say"}, "voice": {}, "voiceTextNormalization": {},
+              |  "credits": {"profile":"native-test", "include":["native-test-credit"]},
+              |""".stripMargin)
+          val conf = root.resolve("conf/cozy/config.yaml")
+          Files.createDirectories(conf.getParent)
+          Files.writeString(conf, "project:\n  id: native-media\nvideo:\n  tool-mode: host\n", StandardCharsets.UTF_8)
+          val audio = root.resolve("build/audio/board")
+          Files.createDirectories(audio)
+          Files.writeString(audio.resolve("manifest.json"),
+            """[{"sceneId":"opening","speaker":"narrator","file":"opening.wav","leadSilence":0.25,"audioDuration":1.0,"targetDuration":3.5,"tailSilence":2.25,"provider":"macos-say","voiceIdentity":"Samantha"}]""",
+            StandardCharsets.UTF_8)
+          CozyVideoImplementation._write_silence_wav(audio.resolve("opening.wav"), 1.0)
+          Files.writeString(root.resolve("index.dox"), "= Article\n", StandardCharsets.UTF_8)
+          val media = root.resolve("media.yaml")
+          Files.writeString(media, """schema: cozy.media.v1
+            |knowledge: {id: article, source: index.dox}
+            |resources:
+            |  - {id: native-video, kind: video, build: video-project, project: video.json, output: build/final.mp4}
+            |""".stripMargin, StandardCharsets.UTF_8)
+          _build(project, "confirmation", new FakeRunner)
+          val confirmationpaths = _native_products(root, "confirmation").filter(_.startsWith(root.resolve("target/cozy-video/confirmation"))) ++
+            _credit_products(root, "confirmation")
+          val confirmation = _artifact_snapshot(confirmationpaths)
+          val runner = new FakeRunner
+          val config = CozyMedia.CommandConfig.create(List(media.toString, "--target", "native-video"))
+
+          When("ordinary Media build delegates the selected native project")
+          val produced = CozyMedia.buildWithVideoRunner(config, runner)
+
+          Then("normal rendering precedes native final assembly without changing confirmation products")
+          produced should include("mode: final")
+          runner.renderCount shouldBe 1
+          runner.muxCount shouldBe 1
+          _string(_json(root.resolve("target/cozy-video/final/manifest.json")), "schema") shouldBe "cozy.video.final.v2"
+          _same_artifact_snapshot(confirmation) shouldBe true
+          val times = Vector(root.resolve("build/parts/board.mp4"), root.resolve("build/final.mp4")).map(Files.getLastModifiedTime(_))
+          val reused = new FakeRunner
+
+          When("the same selected native Media target is built again")
+          CozyMedia.buildWithVideoRunner(config, reused)
+
+          Then("valid native final and parts retain their times without renderer or concat work")
+          reused.renderCount shouldBe 0
+          reused.muxCount shouldBe 0
+          Vector(root.resolve("build/parts/board.mp4"), root.resolve("build/final.mp4")).map(Files.getLastModifiedTime(_)) shouldBe times
+
+          Given("all prior generated Video destinations and a newer selected Storyboard")
+          val products = _native_products(root, "final") ++ _credit_products(root, "final") ++
+            Vector(root.resolve("build/parts/board.mp4"), root.resolve("build/parts/board.manifest.json"))
+          val before = _artifact_snapshot(products)
+          val source = root.resolve("storyboard.md")
+          Files.setLastModifiedTime(source, FileTime.fromMillis(Files.getLastModifiedTime(root.resolve("build/final.mp4")).toMillis + 1))
+          val failing = new FakeRunner
+          failing.setFfmpegFailure(true)
+          failing.setFfmpegPartialFailure(true)
+
+          When("final assembly fails after the selected part renderer has run")
+          val error = intercept[Exception] { CozyMedia.buildWithVideoRunner(config, failing) }
+
+          Then("part final native records and credits return to prior bytes modes and times while confirmation stays intact")
+          error.getMessage should include("rolled back")
+          failing.renderCount shouldBe 1
+          _same_artifact_snapshot(before) shouldBe true
+          _same_artifact_snapshot(confirmation) shouldBe true
+        }
+      }
+    }
+
     "reject a Storyboard project without a mode while preserving the legacy no-mode build" in {
       _with_temp_dir("mode-required") { root =>
         Given("an approved Storyboard project and an independent legacy dialogue project")
@@ -1520,14 +1595,20 @@ final class CozyVideoStoryboardBuildModeSpec
     }
 
   private def _with_temp_dir[A](label: String)(body: Path => A): A = {
-    val root = Files.createTempDirectory("cozy-video-storyboard-mode-" + label).toRealPath()
+    val parent = Path.of("target/cozy-video-storyboard-mode-spec/work").toAbsolutePath.normalize()
+    Files.createDirectories(parent)
+    val root = Files.createTempDirectory(parent, label + "-").toRealPath()
     try body(root)
     finally _delete(root)
   }
 
   private def _delete(path: Path): Unit =
     if (Files.exists(path))
-      Files.walk(path).iterator().asScala.toVector.sortBy(_.getNameCount).reverse.foreach(Files.deleteIfExists)
+      {
+        val stream = Files.walk(path)
+        try stream.iterator().asScala.toVector.sortBy(_.getNameCount).reverse.foreach(Files.deleteIfExists)
+        finally stream.close()
+      }
 
   private final class FakeRunner extends CozyVideo.VideoProcessRunner {
     private val _commands = ArrayBuffer.empty[Vector[String]]
@@ -1538,6 +1619,7 @@ final class CozyVideoStoryboardBuildModeSpec
     private var _staging_permissions = Option.empty[(Path, java.util.Set[PosixFilePermission])]
 
     def commandCount: Int = _commands.size
+    def renderCount: Int = _commands.count(_.contains("node"))
     def muxCount: Int = _commands.count(_.contains("ffmpeg"))
     def probeCount: Int = _commands.count(_.contains("ffprobe"))
     def setFfmpegFailure(value: Boolean): Unit = _ffmpeg_failure = value
@@ -1551,7 +1633,14 @@ final class CozyVideoStoryboardBuildModeSpec
 
     def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
       _commands += args
-      if (args.contains("ffmpeg")) {
+      if (args.contains("node")) {
+        val script = Path.of(args.find(_.endsWith("render.mjs")).get)
+        val props = _json(script.getParent.getParent.resolve("props.json"))
+        val output = cwd.resolve(props.hcursor.get[String]("outputPath").toOption.get).normalize()
+        Files.createDirectories(output.getParent)
+        Files.writeString(output, "rendered-native-part", StandardCharsets.UTF_8)
+        CozyVideo.VideoCommandResult(0, "rendered", "")
+      } else if (args.contains("ffmpeg")) {
         if (_ffmpeg_failure) {
           if (_ffmpeg_partial_failure) {
             val partial = Path.of(args.last)

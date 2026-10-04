@@ -78,6 +78,47 @@ executable coverage for this boundary.
 
 ## Video credits
 
+### Normal Media-to-Video production
+
+`media build` delegates video-project currentness and production to Video.
+Video observes the selected project, effective context configuration, selected
+credit profile/selection, part scripts or Storyboards/sections, steps and
+recordings, resolved configured and selected character/visual assets, parsed
+audio manifests and consumed WAVs, and native referenced Visual Page, catalog
+and asset inputs. Explicit receipt inputs join this producer closure; package
+knowledge, descriptor, site and publication inputs remain package validation
+and race inputs without automatically becoming video render operands.
+
+Each part uses Generation FileTime policy against its actual render inputs.
+Final assembly uses core inputs and actual part MP4s. Missing or invalid credit
+companions or unestablished rendered-credit semantics select rendering;
+missing final output alone may assemble reusable parts. Newer selected credit
+inputs select rendering before assembly, including title, locale, hold, enabled
+state and displayed items. Ordinary success always emits the current three
+credit companions. Reuse leaves part/final MP4 modification times unchanged.
+Required inputs fail specifically; no audio synthesis is implied.
+
+Credit validity positively checks required schemas, types, selected profile,
+attribution obligations and presentation fields. Unknown JSON extras, harmless
+Markdown whitespace and relocated descriptive provenance paths alone do not
+invalidate reuse. These checks validate current obligations, never historical
+MP4 content. Valid edits preserving mtime have no additional detection promise.
+No equality ledger or replacement identity is introduced.
+
+Before production, direct generated destinations are checked for root escape,
+unsafe paths and actual input aliases. Bounded output-only COPY_ATTRIBUTES
+backups restore selected primary/companion bytes, mtimes and existence on
+in-process render/probe/assembly/install/input-time failure. Failed restoration
+retains recovery files and both diagnostics. Renderer scratch is scratch;
+confirmation and unselected resources remain separate. There is no lock,
+concurrency or crash-safe transaction claim. Integration is specified by
+[CozyMediaVideoBuildSpec](../../src/test/scala/cozy/media/CozyMediaVideoBuildSpec.scala).
+
+Preservation ends at the Video producer return and covers its actual inputs
+including explicit receipt operands. Later Media package-wide descriptor,
+knowledge or site race rejection retains the existing receipt behavior and
+does not promise rollback of generated Video outputs across receipt acceptance.
+
 Video credits have no local credit digest computation, model, or field in
 credit projections, build/part/RDF records, or CLI output. Actual attribution,
 selected profile, provenance, obligations, required-artifact checks, and native

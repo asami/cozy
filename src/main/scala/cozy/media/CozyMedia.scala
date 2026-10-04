@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
  *  version Sep. 14, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -404,12 +404,15 @@ private[cozy] object CozyMedia {
     }
 
   def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String =
-    _build(config, runner, None)
+    _build(config, runner, None, CozyVideo.VideoProcessRunner.default)
+
+  private[cozy] def buildWithVideoRunner(config: CommandConfig, runner: CozyVideo.VideoProcessRunner): String =
+    _build(config, ProcessRunner.default, None, runner)
 
   private[cozy] def buildSummarySlidesPdf(config: CommandConfig, pageSetInput: Path, runner: ProcessRunner): String =
-    _build(config, runner, Some(pageSetInput))
+    _build(config, runner, Some(pageSetInput), CozyVideo.VideoProcessRunner.default)
 
-  private def _build(config: CommandConfig, runner: ProcessRunner, pagesetinput: Option[Path]): String = {
+  private def _build(config: CommandConfig, runner: ProcessRunner, pagesetinput: Option[Path], videorunner: CozyVideo.VideoProcessRunner): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
     val plannedidentity = if (config.dryRun) None else Some(CozyMediaReceipt.capture(mediaplan))
@@ -432,7 +435,8 @@ private[cozy] object CozyMedia {
           mediaplan,
           resolved,
           runner,
-          if (resolved.resource.build == "summary-slides-pdf") pagesetinput else None
+          if (resolved.resource.build == "summary-slides-pdf") pagesetinput else None,
+          videorunner
         )
       }
     }
@@ -849,13 +853,16 @@ private[cozy] object CozyMedia {
     s"Cozy Media Slide Verify\nstatus: valid\nresources: ${selected.size}"
   }
 
-  private def _build_resource(plan: Plan, resolved: ResolvedResource, runner: ProcessRunner, pagesetinput: Option[Path] = None): String =
+  private def _build_resource(plan: Plan, resolved: ResolvedResource, runner: ProcessRunner, pagesetinput: Option[Path] = None,
+    videorunner: CozyVideo.VideoProcessRunner = CozyVideo.VideoProcessRunner.default): String =
     resolved.action match {
       case Action.MissingSource =>
         RAISE.invalidArgumentFault(s"Missing media source for ${resolved.resource.id}")
       case Action.Current if resolved.resource.build == "prebuilt" =>
         CozyMediaReceipt.prebuiltAcceptanceAllowed(plan, resolved)
         s"${resolved.resource.id}: adopted prebuilt ${resolved.source.get}"
+      case Action.Current if resolved.resource.build == "video-project" =>
+        _build_video_resource(plan, resolved, videorunner)
       case Action.Current =>
         s"${resolved.resource.id}: current"
       case Action.AdoptPrebuilt =>
@@ -883,10 +890,15 @@ private[cozy] object CozyMedia {
         }
         s"${resolved.resource.id}: built $output"
       case Action.DelegateVideo =>
-        val project = resolved.project.get
-        val result = CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = false, checkTools = false), CozyVideo.VideoToolRegistry.default)
-        s"${resolved.resource.id}: delegated to cozy video build ($result)"
+        _build_video_resource(plan, resolved, videorunner)
     }
+
+  private def _build_video_resource(plan: Plan, resolved: ResolvedResource, runner: CozyVideo.VideoProcessRunner): String = {
+    CozyMediaReceipt.requireVideoOutput(resolved)
+    val result = CozyVideo.buildMedia(CozyVideo.BuildConfig(resolved.project.get, dryRun = false, checkTools = false),
+      CozyVideo.VideoToolRegistry.default, runner, CozyMediaReceipt.videoAdditionalInputs(plan))
+    s"${resolved.resource.id}: delegated to cozy video build ($result)"
+  }
 
   private def _verify_plan(plan: Plan, resources: Vector[ResolvedResource], profile: Option[String], requirereceipt: Boolean): Vector[String] = {
     val knowledge = if (Files.isRegularFile(plan.knowledgeSource)) Vector.empty else Vector(s"missing knowledge source: ${plan.knowledgeSource}")

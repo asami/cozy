@@ -13,7 +13,7 @@ import org.scalacheck.{Gen, Prop, Test}
 /*
  * @since   Jul. 20, 2026
  *  version Aug. 12, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoCreditsSpec
@@ -526,6 +526,98 @@ final class CozyVideoCreditsSpec
       }
     }
 
+    "validate current credit-domain obligations" which {
+      "accept harmless extras relocated descriptive provenance and Markdown whitespace through normal verification" in {
+        _with_temp_dir("domain-relocation") { dir =>
+          Given("current selected attribution with existing credit artifacts and old descriptive paths")
+          val project = _verification_project(dir)
+          val jsonfile = dir.resolve("build/credits/credits.json")
+          val propsfile = dir.resolve("build/credits/renderer-props.json")
+          val json = parser.parse(_read(jsonfile)).toOption.get
+          val relocated = json.mapObject { fields =>
+            fields.add("extra", Json.obj("nested" -> Json.arr(Json.Null, Json.fromBoolean(false))))
+              .add("profile", fields("profile").get.mapObject(_.add("sourcePath", Json.fromString("/previous/root/profile.yaml"))))
+              .add("evidence", fields("evidence").get.mapObject { evidence =>
+                evidence.add("audio", evidence("audio").get.mapArray(_.map(_.mapObject(_.add("manifestPath", Json.fromString("/previous/root/audio/manifest.json"))))))
+              })
+          }
+          _write(jsonfile, relocated.spaces2)
+          _write(propsfile, parser.parse(_read(propsfile)).toOption.get.mapObject(_.add("extra", Json.arr(Json.fromInt(9)))).spaces2)
+          val markdown = dir.resolve("build/credits/credits.md")
+          _write(markdown, _read(markdown).linesIterator.map(line => "  " + line + "  ").mkString("\r\n"))
+
+          When("Video verifies the existing companions against current selected domain obligations")
+          val findings = CozyVideo.verifyCredits(project)
+
+          Then("generic extras formatting and old absolute descriptive paths do not invalidate current attribution")
+          findings shouldBe empty
+        }
+      }
+
+      Vector("schema", "profile", "required-item", "title", "holdSeconds", "enabled", "locale", "label", "creator", "evidence").foreach { field =>
+        s"reject invalid required $field semantics through normal verification" in {
+          _with_temp_dir("domain-invalid-" + field) { dir =>
+            Given("current valid credit artifacts followed by one wrong required domain value")
+            val project = _verification_project(dir)
+            val jsonfile = dir.resolve("build/credits/credits.json")
+            val propsfile = dir.resolve("build/credits/renderer-props.json")
+            if (Set("schema", "required-item", "evidence").contains(field)) {
+              val json = parser.parse(_read(jsonfile)).toOption.get.mapObject { fields =>
+                field match {
+                  case "schema" => fields.add("schema", Json.fromString("wrong"))
+                  case "required-item" => fields.add("credits", Json.arr())
+                  case "evidence" => fields.add("credits", fields("credits").get.mapArray(_.map(_.mapObject(_.add("evidence", Json.arr(Json.fromString("unknown:invalid")))))))
+                }
+              }
+              _write(jsonfile, json.noSpaces)
+            } else {
+              val json = parser.parse(_read(propsfile)).toOption.get.mapObject { fields =>
+                field match {
+                  case "profile" => fields.add("profile", Json.fromString("wrong"))
+                  case "holdSeconds" => fields.add(field, Json.fromDoubleOrNull(-1.0))
+                  case "enabled" => fields.add(field, Json.fromBoolean(false))
+                  case "label" | "creator" => fields.add("items", fields("items").get.mapArray(_.map(_.mapObject(_.add(field, Json.fromString("wrong"))))))
+                  case _ => fields.add(field, Json.fromString("wrong"))
+                }
+              }
+              _write(propsfile, json.noSpaces)
+            }
+
+            When("Video verifies the current existing files")
+            val findings = CozyVideo.verifyCredits(project)
+
+            Then("the wrong required field remains a domain failure even with an existing MP4")
+            findings should not be empty
+            findings.mkString("\n") should include_text("credit")
+          }
+        }
+      }
+
+      "reject missing Markdown attribution and invalid live selected obligations" in {
+        _with_temp_dir("domain-live-obligation") { dir =>
+          Given("a valid selected profile and emitted attribution artifacts")
+          val project = _verification_project(dir)
+          _write(dir.resolve("build/credits/credits.md"), "## Credits\n")
+
+          When("Video verifies a Markdown artifact without required attribution lines")
+          val markdownfindings = CozyVideo.verifyCredits(project)
+
+          Then("the required Markdown obligation is reported")
+          markdownfindings.mkString("\n") should include_text("credit Markdown")
+
+          Given("the selected live profile now declares an invalid obligation")
+          val profile = dir.resolve("conf/cozy/video/credit-profiles/baseline.yaml")
+          _write(profile, _read(profile).replace("category: original-work", "category: original-work\n    obligation: unknown"))
+
+          When("Video resolves and verifies that selected invalid profile")
+          val findings = CozyVideo.verifyCredits(project)
+
+          Then("the live taxonomy error remains visible")
+          findings.mkString("\n") should include_text("credit.item.invalid-obligation")
+        }
+      }
+    }
+
     "preserve relocation-independent presentation and workspace provenance" in {
       _with_temp_dir("presentation-a") { dira =>
         _with_temp_dir("presentation-b") { dirb =>
@@ -684,6 +776,21 @@ final class CozyVideoCreditsSpec
         check.passed shouldBe true
       }
     }
+  }
+
+  private def _verification_project(dir: Path): Path = {
+    _write_profile(dir, "baseline")
+    _write_default(dir, "baseline")
+    val audio = dir.resolve("audio/manifest.json")
+    _write(audio, """[{"sceneId":"scene-narrator","speaker":"narrator","file":"narrator.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0,"provider":"macos-say","executionMode":"host","voiceIdentity":"Samantha"}]""")
+    val project = dir.resolve("video.json")
+    _write(project, """{"locale":"en","output":"build/final.mp4","credits":{"include":["touhou-original"]},"parts":[{"id":"audio-evidence","type":"dialogue","audioDir":"audio"}]}""")
+    _write(dir.resolve("build/final.mp4"), "existing-video")
+    val effective = CozyVideoCredits.resolve(dir, Some(CozyVideoCredits.Settings(None, Vector("touhou-original"), Vector.empty)),
+      Some("en"), Vector.empty, Vector.empty, Vector(audio -> _audio_entries("en", Vector("narrator")))).requireValid()
+    CozyVideoCredits.write(dir.resolve("build/credits"), effective)
+    _write(dir.resolve("build/manifest.json"), """{"status":"validated","creditProfile":"baseline"}""")
+    project
   }
 
   private def _expected_ids(hasreimumarisa: Boolean, haszundamon: Boolean, locale: String): Vector[String] = {

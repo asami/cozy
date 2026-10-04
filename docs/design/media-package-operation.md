@@ -6,6 +6,36 @@ Codex skills own semantic transformation: thesis extraction, bilingual writing, 
 
 `cozy media` is an orchestration layer above `cozy video`. It does not duplicate narration or rendering semantics.
 
+### Video producer responsibility (PHASE-71.3 S15)
+
+The internal `CozyVideoMediaBuild` route owns dependency discovery, part
+rendering and final assembly for Media. Private Cozy bridges supply currentness,
+producer inputs and normal production; public Video/Media models and commands
+remain unchanged. Media checks its output declaration against Video's resolved
+output and forwards only explicit receipt operands. Its article, descriptor,
+site and publication observations remain package-owned validation/race inputs.
+
+Video reuses the existing plan, Generation FileTime policy, admitted asset
+resolver, Remotion/simple-java2d renderer and final assembler. Part decisions
+consume real render inputs; assembly consumes core inputs and actual parts.
+Selected credit input changes and invalid rendered-credit semantics rerender
+before assembly. Valid reuse invokes the current credit emitter only, preserving
+MP4 times. Positive field validation retains required attribution and display
+semantics while permitting generic extras and relocated descriptive paths.
+
+The existing generated-artifact utility also bounds in-process preservation
+around this producer: direct destination preflight, output-only backups with
+attributes, restore prior bytes/time/existence on failure, and retain original
+plus rollback diagnostics with recovery files if restoration fails. No input
+backups, locks or crash consistency are added. Managed renderer workspace files
+are scratch. This resolves the admitted S13 credit-currentness incident without
+RDF preparation and does not establish complete-site acceptance.
+
+The preservation extent ends when Video production returns. Its input-time
+race guarantee includes explicit receipt operands, while later package-wide
+descriptor/knowledge/site race checks and receipt acceptance keep their existing
+Media behavior without a generated-Video-output transaction across acceptance.
+
 ## BoK Model
 
 A SmartDox article is one representation of a `documentmodel:KnowledgeUnit`. Images and videos are additional representations associated with the same unit. A publication profile projects those representations into SimpleModeling.org, YouTube metadata, an artifact archive, or another BoK distribution.

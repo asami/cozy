@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 16, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoRenderWorkspace {
@@ -357,6 +357,15 @@ private[cozy] trait CozyVideoRenderWorkspace {
   }
 
   private[video] def _stage_web_demo_recording(projectroot: Path, part: VideoPartPlan, workdir: Path): String = {
+    val source = _web_demo_recording_path(projectroot, part)
+    val targetdir = workdir.resolve("public/recording")
+    Files.createDirectories(targetdir)
+    val target = targetdir.resolve("recording" + _asset_extension(source))
+    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    s"recording/${target.getFileName}"
+  }
+
+  private[video] def _web_demo_recording_path(projectroot: Path, part: VideoPartPlan): Path = {
     val configured = part.recordDir.getOrElse(RAISE.invalidArgumentFault(s"Web-demo part ${part.id} has no record directory"))
     val directory = _project_contained_existing_path(projectroot, configured, s"Web-demo part ${part.id} recordDir")
     val candidates =
@@ -373,12 +382,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       } else Vector.empty
     if (candidates.size != 1)
       RAISE.invalidArgumentFault(s"Web-demo part ${part.id} requires exactly one readable .webm or .mp4 in $directory")
-    val source = candidates.head
-    val targetdir = workdir.resolve("public/recording")
-    Files.createDirectories(targetdir)
-    val target = targetdir.resolve("recording" + _asset_extension(source))
-    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-    s"recording/${target.getFileName}"
+    candidates.head
   }
 
   private[video] def _character_asset_bases(projectroot: Path, scriptpath: Path): Vector[Path] = {
@@ -388,13 +392,22 @@ private[cozy] trait CozyVideoRenderWorkspace {
   }
 
   private[video] def _stage_character_dialogue_asset(projectroot: Path, workdir: Path, bases: Vector[Path], authored: String, directory: String, owner: String, field: String): String = {
+    val source = _resolve_character_dialogue_asset(projectroot, bases, authored, owner, field)
+    val targetdir = workdir.resolve("public").resolve(directory)
+    Files.createDirectories(targetdir)
+    val target = targetdir.resolve(_file_segment_id(owner.replace(' ', '-'), "asset owner") + "-" + _file_segment_id(field.replace('.', '-'), "asset field") + _asset_extension(source))
+    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    s"$directory/${target.getFileName}"
+  }
+
+  private[video] def _resolve_character_dialogue_asset(projectroot: Path, bases: Vector[Path], authored: String, owner: String, field: String): Path = {
     val authoredpath = Try(Paths.get(authored)).getOrElse(RAISE.invalidArgumentFault(s"Invalid $field asset for $owner: $authored"))
     if (authoredpath.isAbsolute)
       RAISE.invalidArgumentFault(s"Absolute $field asset is not allowed for $owner: $authored")
     if (authoredpath.iterator().asScala.exists(_.toString == ".."))
       RAISE.invalidArgumentFault(s"Traversal outside admitted asset bases for $owner $field: $authored")
     val project = projectroot.toAbsolutePath.normalize()
-    val source = bases.iterator.flatMap { base =>
+    bases.iterator.flatMap { base =>
       val path = base.resolve(authoredpath).normalize()
       if (!path.startsWith(project))
         RAISE.invalidArgumentFault(s"Traversal outside project root for $owner $field: $authored")
@@ -403,11 +416,6 @@ private[cozy] trait CozyVideoRenderWorkspace {
         if (Files.isRegularFile(contained) && Files.isReadable(contained)) Some(contained) else None
       } else None
     }.toVector.headOption.getOrElse(RAISE.invalidArgumentFault(s"Missing or unreadable $field asset for $owner: $authored"))
-    val targetdir = workdir.resolve("public").resolve(directory)
-    Files.createDirectories(targetdir)
-    val target = targetdir.resolve(_file_segment_id(owner.replace(' ', '-'), "asset owner") + "-" + _file_segment_id(field.replace('.', '-'), "asset field") + _asset_extension(source))
-    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-    s"$directory/${target.getFileName}"
   }
 
   private[video] def _resolve_project_relative_path(projectroot: Path, authored: String, owner: String): Path = {

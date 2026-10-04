@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -41,13 +41,15 @@ private[cozy] trait CozyBokSitePages {
   private[bok] def _write_bok_pages(config: BuildConfig): Unit =
     config.localeMode match {
       case LocaleMode.SingleLocaleRoot =>
-        _write_home_page(config, config.websitePath, config.defaultLocale)
+        if (!config.arcadia.enabled)
+          _write_home_page(config, config.websitePath, config.defaultLocale)
         _write_special_pages(config, config.websitePath, config.defaultLocale, writelocalizedglossaryindexes = true)
         _write_category_pages(config, config.websitePath, config.defaultLocale)
       case LocaleMode.MultiLocaleSubdirs =>
         config.languages.foreach { lang =>
           val target = config.websitePath.resolve(lang)
-          _write_home_page(config, target, lang)
+          if (!config.arcadia.enabled)
+            _write_home_page(config, target, lang)
           _write_special_pages(config, target, lang, writelocalizedglossaryindexes = false)
           _write_category_pages(config, target, lang)
         }

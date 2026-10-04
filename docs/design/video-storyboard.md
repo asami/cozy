@@ -71,6 +71,20 @@ claims no Step, Phase or actual-private-driver acceptance.
 
 ## 1. Design intent
 
+### Normal Media final production (PHASE-71.3 S15)
+
+The internal Video-owned Media route first validates selected Storyboard,
+section, referenced Visual Page/catalog/assets, actual audio and effective
+configuration/credit inputs. It selects existing part renderers using each
+part's Generation FileTime decision, then uses native final assembly. Its
+generated set includes selected part MP4/manifests, final MP4/manifest, shared
+handoffs, final part-artifact records and applicable credit companions, bounded
+by output-only in-process preservation. Positive required credit semantics
+allow generic extras and relocated descriptive provenance without whole-value
+freshness equality. Unchanged reuse emits current credits with MP4 times intact.
+Standalone Video assembly, explicit confirmation, and review ownership retain
+their contracts. Media does not read or replace the confirmation subtree.
+
 Cozy needs one typed content contract across human review, external interchange,
 optional visual inspection, confirmation rendering, and final rendering. The
 design therefore treats Storyboard content as a typed semantic value and treats

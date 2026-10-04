@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path}
 import scala.collection.JavaConverters._
+import scala.util.Try
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
 
@@ -15,7 +16,7 @@ import org.goldenport.RAISE
  *
  * @since   Jul. 20, 2026
  *  version Aug. 12, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCredits {
@@ -283,9 +284,9 @@ private[cozy] object CozyVideoCredits {
     }
   }
 
-  def write(outputdir: Path, effective: EffectiveSet): OutputFiles = {
+  def write(outputDir: Path, effective: EffectiveSet): OutputFiles = {
     effective.requireValid()
-    val directory = outputdir.toAbsolutePath.normalize()
+    val directory = outputDir.toAbsolutePath.normalize()
     Files.createDirectories(directory)
     val jsonfile = directory.resolve("credits.json")
     val markdownfile = directory.resolve("credits.md")
@@ -332,6 +333,81 @@ private[cozy] object CozyVideoCredits {
         )
       })
     )
+
+  /** Current attribution and display obligations, not a historical-content seal. */
+  private[cozy] def validJson(actual: Json, effective: EffectiveSet): Boolean = {
+    val expected = toJson(effective)
+    val profile = actual.hcursor.downField("profile").focus
+    val expectedprofile = expected.hcursor.downField("profile").focus.get
+    val profilevalid = if (expectedprofile.isNull) profile.contains(Json.Null) else profile.exists { value =>
+      _fields_match(value, expectedprofile, Vector("id", "sourceLayer", "selectionLayer")) &&
+        _descriptive_path(value, "sourcePath", optional = false) &&
+        _descriptive_path(value, "selectionPath", optional = expectedprofile.hcursor.downField("selectionPath").focus.contains(Json.Null)) &&
+        value.hcursor.downField("presentation").focus.exists(_fields_match(_, expectedprofile.hcursor.downField("presentation").focus.get,
+          Vector("title", "holdSeconds", "enabled")))
+    }
+    _fields_match(actual, expected, Vector("schema", "locale")) && profilevalid &&
+      _credit_items_valid(actual, expected) && _credit_evidence_valid(actual, expected) &&
+      actual.hcursor.downField("diagnostics").focus.flatMap(_.asArray).exists(_.forall { value =>
+        value.hcursor.get[String]("severity").toOption.exists(Set("error", "warning")) &&
+          Vector("code", "message").forall(field => _meaningful_string(value, field))
+      })
+  }
+
+  private[cozy] def validRendererProps(actual: Json, effective: EffectiveSet): Boolean = {
+    val expected = toRendererProps(effective)
+    _fields_match(actual, expected, Vector("schema", "profile", "locale", "title", "holdSeconds", "enabled")) &&
+      _ordered_items_match(actual, expected, "items", Vector("id", "category", "label", "creator"))
+  }
+
+  private[cozy] def validMarkdown(actual: String, effective: EffectiveSet): Boolean = {
+    def _lines_(text: String): Vector[String] = text.linesIterator.map(_.trim.replaceAll("\\s+", " ")).filter(_.nonEmpty).toVector
+    val required = _lines_(toMarkdown(effective))
+    val lines = _lines_(actual)
+    required.forall(lines.contains)
+  }
+
+  private def _fields_match(actual: Json, expected: Json, fields: Vector[String]): Boolean =
+    actual.isObject && fields.forall { field =>
+      actual.hcursor.downField(field).focus.exists(value => expected.hcursor.downField(field).focus.contains(value))
+    }
+
+  private def _ordered_items_match(actual: Json, expected: Json, field: String, fields: Vector[String]): Boolean =
+    actual.hcursor.downField(field).focus.flatMap(_.asArray).exists { values =>
+      val selected = expected.hcursor.downField(field).focus.flatMap(_.asArray).get
+      values.size == selected.size && values.zip(selected).forall { case (value, required) => _fields_match(value, required, fields) }
+    }
+
+  private def _credit_items_valid(actual: Json, expected: Json): Boolean = {
+    val fields = Vector("id", "category", "label", "publicationText", "creator", "sourceUrl", "termsUrl", "obligation", "surfaces")
+    _ordered_items_match(actual, expected, "credits", fields) &&
+      actual.hcursor.downField("credits").focus.flatMap(_.asArray).exists(_.forall { item =>
+        item.hcursor.downField("evidence").as[Vector[String]].toOption.exists(reasons => reasons.nonEmpty && reasons.forall { reason =>
+          reason == "project:include" || Vector("character:", "asset:", "asset-tag:", "asset-license:", "asset-provenance:", "locale:", "audio:")
+            .exists(prefix => reason.startsWith(prefix) && reason.length > prefix.length)
+        })
+      })
+  }
+
+  private def _credit_evidence_valid(actual: Json, expected: Json): Boolean =
+    actual.hcursor.downField("evidence").focus.exists { evidence =>
+      val required = expected.hcursor.downField("evidence").focus.get
+      _fields_match(evidence, required, Vector("characterIds", "assetTags", "assetLicenses", "assetProvenance")) &&
+        _ordered_items_match(evidence, required, "audio", Vector("provider", "voiceIdentity", "voiceId", "modelIdentity", "speaker")) &&
+        evidence.hcursor.downField("audio").focus.flatMap(_.asArray).exists(_.forall(_descriptive_path(_, "manifestPath", optional = false)))
+    }
+
+  private def _meaningful_string(value: Json, field: String): Boolean =
+    value.hcursor.get[String](field).toOption.exists(text => text.trim.nonEmpty && !text.exists(_.isControl))
+
+  private def _descriptive_path(value: Json, field: String, optional: Boolean): Boolean =
+    value.hcursor.downField(field).focus.exists { path =>
+      (optional && path.isNull) || (path.asString.exists { text =>
+        text.trim.nonEmpty && !text.exists(_.isControl) && Try(Path.of(text)).toOption.exists { path =>
+          Option(path.getFileName).exists(name => name.toString.nonEmpty && name.toString != "." && name.toString != "..")
+        }
+      })
+    }
 
   private def _resolve_profile(
     source: ProfileSource,

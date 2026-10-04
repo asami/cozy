@@ -3,19 +3,109 @@ package cozy.video
 import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
+import java.util.UUID
 import org.goldenport.RAISE
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[video] object CozyVideoStoryboardArtifacts {
   final case class Artifact(source: Path, destination: Path)
 
   private final case class Backup(destination: Path, backup: Option[Path], existed: Boolean)
+
+  /** Output-only preservation for the modeled in-process producer failures. */
+  def preserveDuringProduction[A](projectRoot: Path, destinations: Vector[Path], protectedPaths: Set[Path])(produce: => A): A =
+    preserveDuringProductionWithRestore(projectRoot, destinations, protectedPaths, _restore_copy)(produce)
+
+  private[video] def preserveDuringProductionWithRestore[A](
+    projectRoot: Path,
+    destinations: Vector[Path],
+    protectedPaths: Set[Path],
+    restore: (Path, Path) => Unit
+  )(produce: => A): A = {
+    val root = _direct_directory(projectRoot, "Video production root")
+    val paths = destinations.map(_.toAbsolutePath.normalize())
+    preflightProduction(root, paths, protectedPaths)
+    if (paths.isEmpty) return produce
+    val recoveryparent = root.resolve("target/cozy-video/production")
+    _create_direct_directory(recoveryparent, root, "Video production recovery root")
+    val recovery = recoveryparent.resolve(s"attempt-${UUID.randomUUID()}")
+    Files.createDirectory(recovery)
+    val backups = paths.zipWithIndex.map { case (destination, index) =>
+      if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
+        val saved = recovery.resolve(f"$index%04d.backup")
+        Files.copy(destination, saved, StandardCopyOption.COPY_ATTRIBUTES)
+        Backup(destination, Some(saved), existed = true)
+      } else Backup(destination, None, existed = false)
+    }
+    try {
+      val result = produce
+      _delete_recovery(recovery)
+      result
+    } catch {
+      case NonFatal(error) =>
+        val failures = backups.reverse.flatMap { backup =>
+          try {
+            _preflight_direct_destination(backup.destination)
+            backup.backup match {
+              case Some(saved) => restore(saved, backup.destination)
+              case None => Files.deleteIfExists(backup.destination)
+            }
+            None
+          } catch { case NonFatal(failure) => Some(new IOException(s"cannot restore ${backup.destination}: ${failure.getMessage}", failure)) }
+        }
+        if (failures.nonEmpty)
+          _raise_install_failure(s"Video production failed and rollback requires recovery at $recovery", error, failures)
+        _delete_recovery(recovery)
+        _raise_install_failure("Video production failed and was rolled back", error, Vector.empty)
+    }
+  }
+
+  private[video] def preflightProduction(projectRoot: Path, destinations: Vector[Path], protectedPaths: Set[Path]): Unit = {
+    val root = _direct_directory(projectRoot, "Video production root")
+    val paths = destinations.map(_.toAbsolutePath.normalize())
+    if (paths.distinct.size != paths.size)
+      RAISE.invalidArgumentFault("Video production has duplicate generated destinations")
+    val protectedpaths = protectedPaths.map(_.toAbsolutePath.normalize())
+    paths.foreach { destination =>
+      if (!destination.startsWith(root) || destination == root)
+        RAISE.invalidArgumentFault(s"Video generated destination escapes its project root: $destination")
+      _preflight_direct_destination(destination)
+      if (_protected_destination(destination, protectedpaths) || protectedpaths.exists { input =>
+        Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && Files.exists(input, LinkOption.NOFOLLOW_LINKS) && Files.isSameFile(destination, input)
+      })
+        RAISE.invalidArgumentFault(s"Video generated destination aliases a declared input: $destination")
+    }
+  }
+
+  private def _preflight_direct_destination(destination: Path): Unit = {
+    val parent = Option(destination.getParent).getOrElse(RAISE.invalidArgumentFault(s"Video generated destination has no parent: $destination"))
+    var current = parent.getRoot
+    parent.iterator().asScala.foreach { segment =>
+      current = current.resolve(segment)
+      if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) &&
+        (Files.isSymbolicLink(current) || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"Video generated destination has an unsafe ancestor: $current")
+    }
+    if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
+      _require_direct_regular_file(destination, s"Video generated destination $destination")
+  }
+
+  private def _restore_copy(source: Path, destination: Path): Unit = {
+    Option(destination.getParent).foreach(Files.createDirectories(_))
+    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES)
+  }
+
+  private def _delete_recovery(recovery: Path): Unit = {
+    val stream = Files.walk(recovery)
+    try stream.iterator().asScala.toVector.sortBy(_.getNameCount).reverse.foreach(Files.deleteIfExists)
+    finally stream.close()
+  }
 
   def install(stagingRoot: Path, artifacts: Vector[Artifact], protectedPaths: Set[Path]): Unit =
     installWithMove(stagingRoot, artifacts, protectedPaths, _atomic_move)

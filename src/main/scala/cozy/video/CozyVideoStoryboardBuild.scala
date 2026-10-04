@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoStoryboardBuild {
@@ -43,6 +43,26 @@ private[cozy] trait CozyVideoStoryboardBuild {
   private val _confirmation_mode = "confirmation"
   private val _final_mode = "final"
   private val _handoff_schema = "cozy.video.storyboard-build-handoff.v2"
+
+  private[video] def _media_storyboard_inputs(plan: VideoPlan): Vector[Path] = {
+    val parts = _storyboard_build_parts(plan)
+    parts.flatMap { part =>
+      Vector(part.sourcepath) ++ part.storyboard.scenes.flatMap(scene => scene.diagramRefs ++ scene.assetRefs)
+        .map(reference => _safe_storyboard_build_source(plan.projectRoot, reference, s"Storyboard part ${part.partplan.id} reference")) ++
+        _visual_page_input_paths(part)
+    }.distinct
+  }
+
+  private[video] def _media_storyboard_products(plan: VideoPlan): Vector[Path] =
+    _storyboard_generated_products(plan, _storyboard_build_mode_for(plan, _final_mode), _storyboard_build_parts(plan))
+
+  private[video] def _media_storyboard_final_valid(plan: VideoPlan): Boolean =
+    _valid_final_manifest(plan, _storyboard_build_mode_for(plan, _final_mode), _storyboard_build_parts(plan),
+      _storyboard_build_mode_for(plan, _final_mode).manifestpath)
+
+  private[video] def _media_storyboard_final_records_valid(plan: VideoPlan): Boolean =
+    _valid_final_records(plan, _storyboard_build_mode_for(plan, _final_mode), _storyboard_build_parts(plan),
+      _storyboard_build_mode_for(plan, _final_mode).manifestpath)
 
   private[video] def _build_storyboard_mode(
     config: BuildConfig,
@@ -574,7 +594,10 @@ private[cozy] trait CozyVideoStoryboardBuild {
     }
 
   private def _valid_final_manifest(plan: VideoPlan, mode: StoryboardBuildMode, parts: Vector[StoryboardBuildPart], manifest: Path): Boolean =
-    _is_direct_nonempty_file(mode.outputpath) && _is_direct_nonempty_file(manifest) &&
+    _is_direct_nonempty_file(mode.outputpath) && _valid_final_records(plan, mode, parts, manifest)
+
+  private def _valid_final_records(plan: VideoPlan, mode: StoryboardBuildMode, parts: Vector[StoryboardBuildPart], manifest: Path): Boolean =
+    _is_direct_nonempty_file(manifest) &&
       _record_contains(manifest, _storyboard_mode_record(plan, mode, parts, None, includenarration = false)) &&
       _valid_stored_narration(plan, manifest, parts) &&
       parts.forall(part => _valid_handoff(plan.projectRoot, part)) &&

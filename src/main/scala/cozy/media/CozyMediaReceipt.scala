@@ -12,11 +12,12 @@ import java.time.Instant
 import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
 import cozy.generation.CozyFileUpdatePolicy
+import cozy.video.CozyVideo
 
 /*
  * @since   Aug. 25, 2026
  *  version Sep. 22, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReceipt {
@@ -226,6 +227,18 @@ private[cozy] object CozyMediaReceipt {
   def current(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Boolean =
     _freshness_failure(plan, resolved).isEmpty
 
+  private[cozy] def videoAdditionalInputs(plan: CozyMedia.Plan): Vector[Path] =
+    plan.descriptor.receipt.toVector.flatMap(_.inputs).map(input =>
+      _relative_path(plan.descriptorRoot, input.path, s"Media receipt input ${input.id} path"))
+
+  private[cozy] def requireVideoOutput(resolved: CozyMedia.ResolvedResource): Unit = {
+    val projectfile = resolved.project.getOrElse(_invalid(s"Missing Video project for ${resolved.resource.id}"))
+    val project = StructuredDocumentLoader.loadDocument[CozyVideo.VideoProject](InputSource(projectfile.toFile)).take
+    val output = projectfile.getParent.resolve(project.output.getOrElse("build/final.mp4")).toAbsolutePath.normalize()
+    if (!resolved.output.exists(_.toAbsolutePath.normalize() == output))
+      _invalid(s"Media output for ${resolved.resource.id} must match resolved Video output: $output")
+  }
+
   private def _producer_paths(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Vector[Path] =
     if (Set("copy", "prebuilt").contains(resolved.resource.build)) {
       val production = if (resolved.resource.build == "prebuilt" && plan.descriptor.articleMedia.nonEmpty)
@@ -240,6 +253,10 @@ private[cozy] object CozyMediaReceipt {
       val output = _output(resolved).getOrElse(return Some("output is not declared"))
       if (!Files.isRegularFile(output)) return Some(s"output must be a regular file: $output")
       _validate_output(plan, resolved, output)
+      if (resolved.resource.build == "video-project") {
+        requireVideoOutput(resolved)
+        return CozyVideo.mediaCurrentnessFailure(resolved.project.get, videoAdditionalInputs(plan))
+      }
       if (!_generation_outputs_current(plan, resolved))
         return Some(s"presentation companion outputs are missing or newer than their review manifest: $output")
       val inputs = _producer_paths(plan, resolved)
@@ -291,7 +308,8 @@ private[cozy] object CozyMediaReceipt {
       .map(value => _relative_path(plan.descriptorRoot, value.template, "Media template dependency"))
     val configured = resource.presentation.toVector.flatMap(value => value.catalog.toVector ++ value.binding.toVector) ++
       resource.summarySlidesPdf.toVector.flatMap(value => value.catalog.toVector ++ value.binding.toVector)
-    dependencies ++ templates ++ configured.map(value => _relative_path(plan.descriptorRoot, value, "Media declared dependency"))
+    val video = if (resource.build == "video-project") resolved.project.toVector.flatMap(CozyVideo.mediaProducerInputs) else Vector.empty
+    dependencies ++ templates ++ configured.map(value => _relative_path(plan.descriptorRoot, value, "Media declared dependency")) ++ video
   }
 
   /** A presentation review manifest is written last; newer/missing companion

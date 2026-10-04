@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -79,10 +79,8 @@ private[cozy] trait CozyBokFileSupport {
 
   private def _cleanup_build_target_children(targetroot: Path, cozybok: Path): Unit =
     _direct_children(targetroot, "BoK build target").foreach { child =>
-      if (child == cozybok && Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(child))
+      if (child == cozybok)
         _cleanup_cozy_bok_target(child)
-      else
-        _delete_build_target_child(targetroot, child)
     }
 
   private def _cleanup_cozy_bok_target(cozybok: Path): Unit = {

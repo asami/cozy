@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 27, 2026
  *  version Sep. 29, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCommand {
@@ -362,9 +362,9 @@ private[cozy] trait CozyVideoCommand {
           (if (Files.isRegularFile(manifestpath)) Vector.empty
            else Vector(s"missing project manifest: $manifestpath"))
         val projectionfindings = Vector(
-          _credit_json_projection_finding(jsonfile, CozyVideoCredits.toJson(plan.credits), "credit JSON"),
-          _credit_text_projection_finding(markdownfile, CozyVideoCredits.toMarkdown(plan.credits), "credit Markdown"),
-          _credit_json_projection_finding(rendererpropsfile, CozyVideoCredits.toRendererProps(plan.credits), "credit renderer props")
+          _credit_json_projection_finding(jsonfile, value => CozyVideoCredits.validJson(value, plan.credits), "credit JSON"),
+          _credit_text_projection_finding(markdownfile, plan.credits, "credit Markdown"),
+          _credit_json_projection_finding(rendererpropsfile, value => CozyVideoCredits.validRendererProps(value, plan.credits), "credit renderer props")
         ).flatten
         val manifestfindings =
           if (!Files.isRegularFile(manifestpath))
@@ -395,21 +395,21 @@ private[cozy] trait CozyVideoCommand {
     diagnostics ++ artifactfindings
   }
 
-  private[video] def _credit_json_projection_finding(path: Path, expected: Json, label: String): Option[String] =
+  private[video] def _credit_json_projection_finding(path: Path, valid: Json => Boolean, label: String): Option[String] =
     if (!Files.isRegularFile(path))
       None
     else {
       val actual = parser.parse(Files.readString(path, StandardCharsets.UTF_8)).toOption
-      if (actual.contains(expected)) None else Some(s"$label does not match the effective credit set: $path")
+      if (actual.exists(valid)) None else Some(s"$label does not satisfy the effective credit obligations: $path")
     }
 
-  private[video] def _credit_text_projection_finding(path: Path, expected: String, label: String): Option[String] =
+  private[video] def _credit_text_projection_finding(path: Path, effective: CozyVideoCredits.EffectiveSet, label: String): Option[String] =
     if (!Files.isRegularFile(path))
       None
-    else if (Files.readString(path, StandardCharsets.UTF_8) == expected)
+    else if (CozyVideoCredits.validMarkdown(Files.readString(path, StandardCharsets.UTF_8), effective))
       None
     else
-      Some(s"$label does not match the effective credit set: $path")
+      Some(s"$label does not satisfy the effective credit obligations: $path")
 
   def demoScript(config: DemoScriptConfig): String =
     _render_demo_script_result(_write_demo_script(config))

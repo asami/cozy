@@ -14,7 +14,7 @@ import cozy.CozySpecVocabulary
  *  version Jul. 20, 2026
  *  version Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  4, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -721,7 +721,7 @@ final class CozyVideoProfileRenderSpec
         val localefindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
 
         Then("verification reports the actual credit JSON mismatch")
-        localefindings.mkString("\n") should include_text("credit JSON does not match the effective credit set")
+        localefindings.mkString("\n") should include_text("credit JSON does not satisfy the effective credit obligations")
 
         Given("the exact original credit JSON bytes restored after locale tampering")
         Files.write(creditjsonpath, originalcreditbytes)
@@ -761,7 +761,7 @@ final class CozyVideoProfileRenderSpec
         val rendererfindings = CozyVideo.verifyCredits(pkg.resolve("video.yaml"))
 
         Then("verification reports the existing renderer props diagnostic")
-        rendererfindings.mkString("\n") should include_text("credit renderer props does not match the effective credit set")
+        rendererfindings.mkString("\n") should include_text("credit renderer props does not satisfy the effective credit obligations")
       }
     }
 
