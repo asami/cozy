@@ -1,0 +1,204 @@
+# CML Use Case Metadata v1 Specification
+
+Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A CLOSED. S54.4.2A and S54.4.3A planned.
+Owner: Cozy Use Case metadata supplier; the Phase parent owns acceptance evidence and closure.
+Update rule: preserve the accepted foundation and peer contracts; update status only from actual validation, independent review and local commit evidence.
+
+## Supplier boundary
+
+`private[cozy] cozy.modeler.CmlUseCaseMetadata` consumes an admitted
+`CmlSemanticFoundation.Catalog` and explicit caller declarations. It publishes
+`extensions.cozy.cml.use-case` with `schemaVersion: cozy.cml.use-case.v1`
+in the unchanged `cozy.cml.semantic-metadata.v1` envelope. The child contains
+exactly `schemaVersion`, `actors` and `useCases`.
+
+The facade exposes `build(catalog: Catalog, actors: Vector[ActorProjection],
+useCases: Vector[UseCaseProjection], extensions: JsObject):
+Either[Vector[UseCaseDiagnostic], Graph]`, `read(value: JsValue)` with the same
+result type, `toJson(graph): JsObject` and `canonicalJson(graph): String`.
+Graph exposes read-only `catalog`, `envelope`, `actors` and `useCases`; its
+constructor is private to the facade with no unchecked apply/copy path.
+Null Graph rendering is an internal DbC precondition. Factory and reader input
+failures use typed diagnostics.
+
+Catalog fixes complete core truth. Actor and Use Case arrays independently
+preserve caller order and are full-record multisets of all Catalog records
+whose kinds are respectively `actor` and `use-case`. Every occurrence needs
+one projection, including equal anonymous occurrences. Element identity,
+kind, name, source and core references must all match. Strict wire admission
+requires complete embedded element JSON equality with canonical admitted core
+JSON. Missing, excess, forged and wrong-kind occurrences fail.
+
+## Exact immutable carriers
+
+Both projections start with `element: ElementRecord`. Every following field is
+required `Presence[T]`, in the order shown. No field defaults or inference apply.
+
+| ActorProjection field | T |
+| --- | --- |
+| actorKind | String |
+| summary | String |
+| description | String |
+| useCases | Vector[ModelReference] |
+| workflows | Vector[ModelReference] |
+| operations | Vector[ModelReference] |
+| events | Vector[ModelReference] |
+| domainElements | Vector[ModelReference] |
+
+| UseCaseProjection field | T |
+| --- | --- |
+| declaredId | String |
+| summary | String |
+| description | String |
+| goal | String |
+| trigger | DeclaredExpression |
+| preconditions | Vector[DeclaredExpression] |
+| postconditions | Vector[DeclaredExpression] |
+| priority | String |
+| lifecycleStatus | String |
+| actorReferences | Vector[ActorParticipation] |
+| flows | Vector[UseCaseFlow] |
+| domainElements | Vector[ModelReference] |
+| operations | Vector[ModelReference] |
+| events | Vector[ModelReference] |
+| collaborators | Vector[ModelReference] |
+| realizingWorkflows | Vector[ModelReference] |
+
+`ActorParticipation(role: ActorRole, target: ModelReference)` has exactly those
+two direct required fields. ActorRole is the sealed set Actor, Primary,
+Secondary, Supporting, Stakeholder with case-sensitive wire values `actor`,
+`primary`, `secondary`, `supporting`, `stakeholder`. Participation order and
+duplicates remain authored facts. No primary uniqueness, cardinality,
+reciprocal membership or inferred participation constraint applies.
+
+`UseCaseFlow` has direct required `kind: FlowKind`, then `name`, `summary`,
+`description: Presence[String]`, `condition: Presence[DeclaredExpression]`,
+`steps`, `alternates`, `exceptions: Presence[Vector[DeclaredExpression]]`.
+FlowKind is MainFlow, AlternateFlow, ExceptionFlow, with exact wire values
+`main`, `alternate`, `exception`. Every flow Presence is explicit. Flow names,
+summaries/descriptions, conditions and legacy alternate/exception text survive
+literally; no additional flows are synthesized.
+
+ModelReference and DeclaredExpression are unchanged
+[Dynamic carriers](cml-dynamic-metadata.md). ModelReference is exactly
+`{identity:{modelId:String,elementId:String},boundary:local|external}`;
+DeclaredExpression is exactly `{text:String,references:Presence[Vector[ModelReference]]}`.
+Strings may be empty, multiline, contain control characters, escaped Unicode
+or directives as literal source text. Nonnull text is never trimmed, parsed,
+split, normalized or executed. Actor kind, declaredId, priority and status
+remain literal strings, with no enum or identity semantics.
+
+## Qualified targets and availability
+
+| Reference field or site | Allowed Local Catalog kinds |
+| --- | --- |
+| Actor.useCases | use-case |
+| Actor.workflows; UseCase.realizingWorkflows | workflow |
+| operations on either projection | operation, command |
+| events on either projection | event |
+| domainElements on either projection | entity, value, aggregate, trait, powertype, powertype-kind |
+| ActorParticipation.target | actor |
+| UseCase.collaborators | actor, use-case, component, service, external-system, query, view |
+| trigger, pre/postconditions, flow condition/steps/alternates/exceptions expression references | any existing Catalog ModelElementId |
+
+Local uses the exact qualified pair, checking existence and the specified kind
+set. Expression references do not impose a family type claim. A TermId never
+becomes a ModelElementId. External references require valid ID components and
+a valid boundary, remain opaque, and never resolve locally or acquire a type
+claim, even when their pair equals a Local record. Names, declaredId, Terms,
+source, paths, ordinal and concatenated pairs never supply missing identity.
+Unicode normalization, case folding and delimiter rewriting are forbidden.
+
+Presence is exactly `{status:present,value:typedPayload}` or
+`{status:absent,reason:not-declared|not-represented|unsupported|not-applicable,detail:String}`.
+The typed reasons are NotDeclared, NotRepresented, Unsupported and NotApplicable.
+Present empty strings/vectors differ from absence. ID components and absence
+details must be nonnull, nonempty, free of ISO control codepoints and unpadded
+at either end according to Unicode `Character.isWhitespace` or
+`Character.isSpaceChar`. Internal spaces are retained literally. Anonymous core
+identity remains anonymous; equal occurrence payloads retain their own order.
+
+Null projections, elements, Presence, present payloads, vectors/items, enum
+values, references, identities and expressions reject without expected-input
+exceptions. Every wire child, projection, participation, flow, reference, ID,
+expression and Presence object is closed; omitted, extra, mixed, null,
+wrong-type, unknown enum and wrong-case values fail recursively.
+
+## Admission and publication order
+
+Build first admits base publication, then rejects a caller-supplied own
+namespace as ExtensionConflict, validates coverage and all payloads, and adds
+only its own child. Read first admits base publication, requires its own child
+object, checks version before contradictory child keys, strictly decodes,
+removes only the own child, then enters the same factory. A non-object extension
+value fails the unchanged base publication gate; a missing own namespace fails
+the Use Case gate. Other admitted extension objects remain opaque, including
+false/empty/null values within them and malformed peer semantic content. This
+supplier never certifies a peer reader's semantics.
+
+Canonical publication uses the accepted base recursive object-key writer,
+preserving array order and multiplicity with Play JSON escaping. It adds no
+hash/signature, current-source verification, schema adapter or RFC8785 claim.
+
+`UseCaseDiagnostic(kind, path, detail, publication)` uses these kinds:
+InvalidShape, UnsupportedSchemaVersion, InvalidCoreBinding,
+DuplicateProjection, MissingProjection, InvalidUseCaseSemantics,
+PublicationFailure, ExtensionConflict, UnknownElement and UnknownProjection.
+Only PublicationFailure retains the original typed PublicationDiagnostic.
+The last two kinds are reserved for the forthcoming navigation contract.
+Factory failures collect deterministic diagnostics; strict decoding may stop
+at the first malformed schema coordinate.
+
+| Kind / circumstance | Fixed detail |
+| --- | --- |
+| InvalidShape | The Use Case value does not match the required v1 shape. |
+| UnsupportedSchemaVersion | The Use Case schema version is not supported. |
+| InvalidCoreBinding, typed route | The Use Case projection does not bind exactly to an admitted core record. |
+| InvalidCoreBinding, wire route | The embedded Use Case record does not exactly match admitted core JSON. |
+| MissingProjection | An admitted Use Case or Actor record lacks its required projection occurrence. |
+| DuplicateProjection | A Use Case or Actor record has excess projection occurrences. |
+| InvalidUseCaseSemantics | The declared Use Case reference or absence is invalid. |
+| PublicationFailure | The foundation metadata publication is invalid. |
+| ExtensionConflict | The Use Case extension namespace is already supplied by the caller. |
+
+Paths contain fixed schema fields and array indices, such as `actors[0].summary`
+or `extensions.cozy.cml.use-case.useCases[0].flows.value[0].kind`; semantic checks
+after decoding use factory coordinates. Version failure uses
+`extensions.cozy.cml.use-case.schemaVersion`; conflict uses `extensions`.
+Publication failures retain the base diagnostic path. Diagnostics never echo
+hostile supplied keys, values or source paths.
+
+## Executable supplier evidence and next handoff
+
+[CmlUseCaseMetadataSpec](../../src/test/scala/cozy/modeler/CmlUseCaseMetadataSpec.scala)
+authors UC-01 complete typed/literal core/carrier/Term equality; UC-02 exact
+qualified domains and ordered roles/flows/duplicates; UC-03 every reference
+site's accepted/rejected Local kinds and opaque External values; UC-04 four
+absence reasons, present-empty and equal anonymous occurrences; UC-05 full
+multiset/core binding and typed null boundaries; UC-06 unchanged independently
+admitted predecessor peers/base-first failures; UC-07 recursive closed shapes
+and version precedence; UC-08 literal text and safe strict ID/detail rules;
+UC-09 active ScalaCheck with 100 successes and zero discards over independent
+Catalog/carrier permutations and recursive JSON object-key reconstruction.
+The repaired suite passed all 17 tests, including 100 successful permutation
+cases with zero discards and both fixture modes exercised in every case.
+Independent Step review and focused repair closure accepted this supplier
+boundary. The original eleven-suite, 165-test validation remains retained for
+unchanged predecessor contracts. S54.4.1's manual local acceptance commit
+records this evidence; full Phase acceptance remains pending.
+
+S54.4.2 will consume this immutable Graph through exact actor/useCase/element
+lookups and LocalTarget/ExternalTarget resolution. Its generic internal helper
+`CmlUseCaseMetadataValidation._reference_diagnostic(catalog, reference, path)`
+already validates shape, ID, boundary and Local existence; family sets stay
+separate. S54.4.3 will author fixed resources and same-envelope cross-view
+consumer proof. These later Steps are planned, not present implementation.
+Consumers separately admit [Dynamic](cml-dynamic-metadata.md),
+[Structure](cml-structure-metadata.md) and
+[Classification](cml-classification-metadata.md) peers before following their
+declared references. [Foundation](cml-semantic-foundation.md) and
+[publication](cml-semantic-metadata.md) contracts remain unchanged.
+
+This supplier adds no CML parser/projector integration, CLI/HTTP/SPI/MCP,
+generated legacy sidecar, runtime, external UI/consumer acceptance, dependency
+change or publication deployment. Phases 54.5–54.7 remain unstarted.

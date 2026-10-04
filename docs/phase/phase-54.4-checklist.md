@@ -1,18 +1,49 @@
 # Phase 54.4 Checklist: Use Case and Actor Metadata Handoff
 
-Status: PLANNED
+Status: IN_PROGRESS
+Current status: S54.4.1 / S54.4.1A CLOSED; two supplier obligations accepted and three obligations remain open.
+Owner: Cozy Use Case metadata supplier; Phase parent for acceptance and closure evidence.
+Update rule: preserve all five obligations; check only from actual accepted validation/review/commit/release evidence.
 phase=[Phase 54.4](phase-54.4.md)
 
 ## MMD-544-01: Use Case semantics
 
-- [ ] Preserve declared Actor, goal, trigger, preconditions, main/alternative/exception flows, postconditions, domain elements, operations/events, collaborators, and realizing Workflow.
+- [x] Preserve declared Actor, goal, trigger, preconditions, main/alternative/exception flows, postconditions, domain elements, operations/events, collaborators, and realizing Workflow.
 
 ## MMD-544-02: Stable navigation
 
 - [ ] Preserve stable Use Case-to-Workflow and onward dynamic/static references without name-based reconstruction.
-- [ ] Preserve explicit absence for undeclared Use Case semantics.
 
-## MMD-544-03: Handoff
+## MMD-544-03: Explicit absence
+
+- [x] Preserve explicit absence for undeclared Use Case semantics.
+
+## MMD-544-04: Handoff and focused closure
 
 - [ ] Freeze the Use Case/Actor handoff for Phases 54.5 through 54.7.
 - [ ] Complete focused validation, review, release closure, and reproducible evidence for this child only.
+
+## Step and Slice evidence ledger
+
+| Step / Slice | Frozen goal | Evidence state |
+| --- | --- | --- |
+| S54.4.1 / S54.4.1A | Complete Actor/Use Case typed declarations, validation, strict wire read/render, full binding and explicit gaps. | CLOSED; 17 corrected-suite tests and 100 permutation cases with zero discards; original eleven-suite validation retained; independent Step review and focused repair closure PASS; parent manual local acceptance commit. |
+| S54.4.2 / S54.4.2A | Addressable actor/use-case/core lookup and Local/External reference resolution without guessing. | planned; unstarted. |
+| S54.4.3 / S54.4.3A | Two fixed UTF-8 resources, cross-view consumer fixture proof and durable supplier handoff. | planned; unstarted. |
+
+S54.4.1 is CLOSED on 2026-10-04. Initial validation passed 165 tests in eleven
+suites. The corrected UC-09 exercises both declared and anonymous-gap Catalog
+permutations in every generated case; the full repaired suite passed all 17
+tests, and independent focused re-review resolved the sole Step finding with
+no new findings or evidence gaps. Both runs completed with SBT and wrapper
+exit zero and the serial lock released. This Step's manual local acceptance
+commit binds the ten supplier paths, as recorded in native Git history.
+
+Current core contracts remain unchanged. S54.4.2 and Phases 54.5–54.7 remain
+unstarted. Navigation, fixed handoff, full Phase review, ordinary full
+validation and distinct release closure remain outstanding.
+
+Supplier references: [specification](../spec/cml-use-case-metadata.md),
+[design](../design/cml-use-case-metadata.md),
+[Dynamic handoff](../design/cml-dynamic-metadata-handoff.md) and
+[foundation](../spec/cml-semantic-foundation.md).
