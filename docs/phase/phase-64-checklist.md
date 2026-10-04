@@ -1,23 +1,39 @@
 # Phase 64 Checklist: Capability Model IR and CNCF Projection
 
-Status: planned
+Status: in-progress
 Phase: [Phase 64](phase-64.md)
 Development item: DEV-032
 
 ## CAP-64-01: IR and contract alignment
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy model/generation owner
 - Update rule: Mark DONE only after the IR and identity/reference boundary are
   accepted against CNCF Phase 78.
+- Closure basis: All four items below are checked against the conceptual
+  design/spec contract and independent protected Step review.
 
-- [ ] Define Application Capability and Component Capability IR records.
-- [ ] Define stable qualified identity, scope, source, and version rules.
-- [ ] Define Use Case, Scenario, Component, Operation, Workflow, and
+Contract documents: [Capability Model design](../design/cml-capability-model.md)
+and [Capability Model specification](../spec/cml-capability-model.md).
+
+- [x] Define Application Capability and Component Capability IR records.
+- [x] Define stable qualified identity, scope, source, and version rules.
+- [x] Define Use Case, Scenario, Component, Operation, Workflow, and
       StateMachine references.
-- [ ] Preserve the non-instantiated model boundary and separate Availability,
+- [x] Preserve the non-instantiated model boundary and separate Availability,
       Authorization, Permission, and Guard.
+
+Acceptance evidence (2026-10-05):
+- Specification R1-R12, every conceptual carrier field, and expected examples
+  E1-E12 passed independent protected Step review at GPT-6.1 Sol high with no
+  blockers, Hygiene, or Development Candidates.
+- Parent static validation passed: four owned documents, 34 checks, 32 local
+  links/anchors, and `git diff --check`.
+- This Step defines conceptual IR records and semantic boundaries. Actual
+  Scala IR/parser, executable diagnostics, generation, and real producer/
+  admission/consumer proof remain CAP-64-02 through CAP-64-05. Expected examples
+  are not executed tests or fixtures; CBD CAP-11-01 remains incomplete.
 
 ## CAP-64-02: CML syntax and normalization
 

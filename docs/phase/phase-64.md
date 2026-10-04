@@ -1,6 +1,6 @@
 # Phase 64 - Capability Model IR and CNCF Projection
 
-Status: planned
+Status: in-progress
 Planned at: 2026-09-16
 Reconciled: 2026-09-18
 Development item: DEV-032
@@ -63,11 +63,25 @@ term identity model.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| CAP-64-01 | Freeze the Application/Component Capability IR, identity/reference model, and semantic-reference boundary against Phase 54 and CNCF Phase 78. | planned |
+| CAP-64-01 | Freeze the Application/Component Capability IR, identity/reference model, and semantic-reference boundary against Phase 54 and CNCF Phase 78. | closed |
 | CAP-64-02 | Admit CML syntax and parser/metamodel support for Application and Component Capability without Use Case Group containment semantics. | planned |
 | CAP-64-03 | Implement semantic validation and source-correlated diagnostics, including Goal/Use Case, Capability, realization, and admitted Glossary/BoK references. | planned |
 | CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Application Capability as the application-management IR. | planned |
 | CAP-64-05 | Prove CNCF admission and cbd-support consumption with a real fixture covering Use Case-to-Capability discovery evidence and terminology grounding. | planned |
+
+## CAP-64-01 acceptance
+
+The conceptual IR contract was accepted by independent protected Step review
+at GPT-6.1 Sol high on 2026-10-05, with no blockers, Hygiene, or Development
+Candidates. Specification rules R1-R12, all conceptual carrier fields, and
+expected examples E1-E12 cover the four CAP-64-01 checklist requirements.
+Parent static validation passed 34 checks and 32 local links/anchors, including
+`git diff --check`.
+
+This acceptance freezes semantic records and references. Actual Scala IR,
+syntax/parser/metamodel, diagnostics, generation, and real producer/admission/
+consumer proof remain CAP-64-02 through CAP-64-05. It supplies no executable
+or Textus CBD Support CAP-11-01 acceptance. Phase 64 remains in progress.
 
 ## Required behavior
 
@@ -133,6 +147,8 @@ not reasons to introduce competing containment models.
 
 ## References
 
+- [Capability Model design](../design/cml-capability-model.md)
+- [Capability Model specification](../spec/cml-capability-model.md)
 - [Development note](../notes/capability-model-ir-support-proposal.md)
 - [Development item journal](../journal/2026/09/2026-09-16-capability-model-ir-development-item.md)
 - [Phase 54](phase-54.md)
