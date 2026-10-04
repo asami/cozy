@@ -9,8 +9,13 @@ Responsibility and exclusions are in the [design](../design/cml-causal-metadata.
 S54.6.2 traversal and CT-01..12 are accepted after selected validation: all 239
 tests in 18 suites passed. CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded
 100 successes, zero discards and passed status. Fresh independent
-protected-focused S2 review is PASS; native local Step commit and its receipt
-remain pending. Fixed resources and final handoff are pending S54.6.3.
+protected-focused S2 review is PASS; the parent verified manual native local
+Step commit `661e11b848102faf143bf5f4dc173e5ab7bcafdd` and its receipt.
+S2 is CLOSED. S54.6.3 fixed declared/absence resources, CF-01..08 and supplier
+handoff are accepted after parent mechanical preflight and selected validation:
+all 247 tests in 19 suites passed. Fresh independent lightweight S3 review is
+PASS with no CPB, HYG or DEV items. The parent's manual native local S3 Step
+commit and actual receipt remain pending; S3 and Phase 54.6 remain IN_PROGRESS.
 
 ## Supplier API
 
@@ -269,4 +274,72 @@ result with an info receipt. S54.6.2 selected validation passed all 239 tests in
 18 suites, including all 12 CT behavior blocks. CT-12, CM-10, TM-09, TN-08 and
 TF-09 each recorded 100 successes, zero discards and passed status. Fresh
 independent protected-focused S2 review is PASS with no CPB, HYG or DEV items;
-native local Step commit and its receipt remain pending.
+S2 is CLOSED at parent-verified manual native commit
+`661e11b848102faf143bf5f4dc173e5ab7bcafdd` and its actual receipt.
+
+## Fixed resources and reusable handoff
+
+The top-down working specification
+[`CmlCausalMetadataFixtureSpec`](../../src/test/scala/cozy/modeler/CmlCausalMetadataFixtureSpec.scala)
+owns CF-01..08. Its actual UTF-8 inputs are
+[`causal-metadata-v1-declared.json`](../../src/test/resources/cozy/modeler/causal-metadata-v1-declared.json)
+and [`causal-metadata-v1-absence.json`](../../src/test/resources/cozy/modeler/causal-metadata-v1-absence.json).
+Each retains the complete accepted Terminology declared prefix of fifty-five
+core occurrences, seven Terms, five known peer namespaces and four opaque
+namespaces. Twenty synthetic core occurrences and required peer carriers are
+appended. The resulting resources have seventy-five core occurrences, seven
+Terms, eight causal carriers and the additional opaque
+`org.example.causal-handoff` object, including its literal JSON-null absence.
+Classification has no added carriers and no new Term is declared.
+
+Every added named element uses the exact qualified `causal.example` pair and
+display name `共有`. Source attribution is supplied literal data:
+authority `causal.example`, path `fixtures/causal-model.cml`, sixty-four `a`
+characters as sha256 and occurrence lines 1..19. Both anonymous full core
+records are exactly equal with line 19, absent stable identity and present-empty
+references; their admitted Cause and Reaction payloads differ. No source file,
+computed digest, source-currentness certification or ordinal identity is implied.
+
+The declared fixture supplies buyer operations in command/confirm/command order;
+placement and confirmation cause order-placed, reservation reacts to order-placed
+with reserve-stock rule context, and reserve-stock causes stock-reserved.
+Aggregate/Entity affecting results return the original complete carriers.
+Dependency, Query/View and collaborator references retain exact Local/External
+boundaries and complete relation/profile/context/source/origin values. The
+resident External inventory pair remains external. Duplicate view references
+retain ordered Derived owner/inventory sources. These references never assert
+read-model updates, dependency execution or additional causation.
+
+The absence fixture keeps the declared prefix. The new buyer has no stable
+identity, new nonanonymous core references cycle through the four literal gaps,
+and all new supplemental Presence fields cycle by projection and field ordinal.
+Anonymous cores retain present-empty references and no addressability fallback.
+Missing supplemental fields never erase complete raw gap details, and absence
+never upgrades label, membership, expression or Workflow lists to causal evidence.
+
+CF-01 compares full independent publication, typed families, gaps, complete wire
+and canonical reconsumption. CF-02..04 ask qualified grounded questions using
+actual resource JSON alone. CF-05 preserves all accepted peer facts and prefix
+navigation. CF-06 fixes exact safe mutation diagnostics. CF-07 fixes full-value
+membership and finite direct-cycle questions. CF-08 independently varies
+catalog/Terms, peer carriers, references and recursive object keys, reconstructs
+the entire expected child independently and consumes both actual modes per case.
+It requires actual pass, at least one hundred successes, zero discards, both mode
+counts equal successes and seven positive observed coverage categories.
+Selected S3 validation passed all 247 tests in 19 suites. CF-08, CT-12, CM-10,
+TM-09, TN-08 and TF-09 each recorded 100 successes, zero discards and passed
+status; baseline category counts were positive. CF-08 exercised both actual
+modes per case: declared and absence counts were each 100, with all seven
+observed categories positive. SBT and wrapper exited 0 and the serialization
+lock was released. Fresh independent lightweight S3 review is PASS with no CPB,
+HYG or DEV items. The parent's manual native local S3 Step commit and actual
+receipt remain pending; S3 and Phase 54.6 remain IN_PROGRESS. All five original
+Phase obligations, sole full Phase review, ordinary full tests, distinct release
+and native audit remain pending.
+
+The [supplier handoff](../design/cml-causal-metadata-handoff.md) records schemas,
+source limits, query recipes and observed Step evidence. Phase 54.7 remains
+PLANNED and owns final all-family Cozy supplier/fixture closure. External
+CNCF/Textus CBD runtime/UI integration and consumer acceptance are separate
+downstream responsibilities. Current production, CLI and runtime consumers are
+not migrated by these resources.

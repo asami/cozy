@@ -32,7 +32,7 @@ or read-model links remain explicit gaps.
 | MMD-546-01 | Publish admitted Actor, Command/Operation, Aggregate/Entity, Event, cause/consequence, and affected-subject links. | IN_PROGRESS |
 | MMD-546-02 | Publish declared Workflow policy/reaction and subsequent action/event links where modeled. | IN_PROGRESS |
 | MMD-546-03 | Include external Component/dependency and Query/View/read-model links only where admitted. | IN_PROGRESS |
-| MMD-546-04 | Freeze causal fixtures and handoff for final CBD Support publication/fixture acceptance. | PLANNED |
+| MMD-546-04 | Freeze causal fixtures and handoff for final CBD Support publication/fixture acceptance. | IN_PROGRESS |
 
 ## Stage: Derived causal supplier and traversal
 
@@ -44,11 +44,11 @@ Stage Status:
 | Step | Outcome | Status |
 | --- | --- | --- |
 | [S54.6.1](s54.6.1.md) | Derived supplier, strict v1 publication and paired executable specification. | CLOSED |
-| [S54.6.2](s54.6.2.md) | Qualified direct causal/context traversal over admitted Graph. | IN_PROGRESS |
-| S54.6.3 | Fixed declared/absence JSON resources, peer compatibility and final handoff. | PLANNED |
+| [S54.6.2](s54.6.2.md) | Qualified direct causal/context traversal over admitted Graph. | CLOSED |
+| [S54.6.3](s54.6.3.md) | Fixed declared/absence JSON resources, peer compatibility and final handoff. | IN_PROGRESS |
 
 - [x] S54.6.1 supplier accepted by focused validation, independent review and local Step commit.
-- [ ] S54.6.2 traversal accepted by its selected evidence and local Step commit.
+- [x] S54.6.2 traversal accepted by its selected evidence and local Step commit.
 - [ ] S54.6.3 fixtures and final supplier handoff accepted by selected evidence and local Step commit.
 - [ ] All Phase obligations, sole full review, ordinary full tests and distinct release/native audit complete.
 
@@ -62,10 +62,21 @@ and selected validation: all 239 tests in 18 suites passed, including all 12 CT
 behavior blocks. CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded 100 successes,
 zero discards and passed status; baseline category counts were positive. Fresh
 independent protected-focused S2 review is PASS with no CPB, HYG or DEV items.
-Native local Step commit and its receipt remain pending under the
-[S2 checklist](s54.6.2-checklist.md); S2 remains IN_PROGRESS and S54.6.3 remains
-PLANNED. Final full
-Phase review, full validation, distinct release and native audit remain pending.
+The parent verified manual native S2 commit
+`661e11b848102faf143bf5f4dc173e5ab7bcafdd` and its actual receipt, whose parent
+is the accepted S1 commit. The [S2 checklist](s54.6.2-checklist.md) is CLOSED.
+S54.6.3 fixed declared/absence resources, CF-01..08 and
+[supplier handoff](../design/cml-causal-metadata-handoff.md) are accepted after
+parent mechanical preflight and selected validation: all 247 tests in 19 suites
+passed. CF-08, CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded 100 successes,
+zero discards and passed status; baseline category counts were positive. CF-08
+exercised both actual modes per case: declared and absence counts were each 100,
+with all seven observed categories positive. SBT and wrapper exited 0 and the
+serialization lock was released. Fresh independent lightweight S3 review is
+PASS with no CPB, HYG or DEV items. The parent's manual native local S3 Step
+commit and actual receipt remain pending under the [S3 checklist](s54.6.3-checklist.md);
+S3 and Phase 54.6 remain IN_PROGRESS. All five original Phase obligations, sole
+full Phase review, ordinary full tests, distinct release and native audit remain pending.
 Behavior authority is the [supplier spec](../spec/cml-causal-metadata.md) and
 [design](../design/cml-causal-metadata.md).
 

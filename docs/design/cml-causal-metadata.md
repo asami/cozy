@@ -7,9 +7,13 @@ The existing [Phase 54.6](../phase/phase-54.6.md) contains supplier, traversal
 and fixture Steps. S54.6.1 is accepted and committed; S54.6.2 traversal is accepted
 after selected validation passed all 239 tests in 18 suites. CT-12, CM-10, TM-09,
 TN-08 and TF-09 each recorded 100 successes, zero discards and passed status.
-Fresh independent protected-focused S2 review is PASS; native local Step commit
-and its receipt remain pending. S54.6.3 fixed resources/final handoff remains
-pending.
+Fresh independent protected-focused S2 review is PASS; S2 is CLOSED at
+parent-verified manual native commit `661e11b848102faf143bf5f4dc173e5ab7bcafdd`
+and its actual receipt. S54.6.3 fixed declared/absence resources, CF-01..08 and
+supplier handoff are accepted after parent mechanical preflight and selected
+validation: all 247 tests in 19 suites passed. Fresh independent lightweight S3
+review is PASS with no CPB, HYG or DEV items. The parent's manual native local
+S3 Step commit and actual receipt remain pending; S3 and Phase 54.6 remain IN_PROGRESS.
 
 ## Source-grounded boundary
 
@@ -74,8 +78,8 @@ S54.6.2 consumes only admitted Graph to provide qualified direct traversal
 and separately typed context references, preserving the exact Graph instance.
 It adds no transitive causes, reciprocal relations, Workflow co-membership or
 automatic External resolution.
-S54.6.3 will exercise actual JSON resources, accepted peer compatibility and
-grounded declared/absence questions, then provide the final supplier handoff.
+S54.6.3 authors actual JSON resources, accepted peer compatibility and
+grounded declared/absence questions, with the reusable supplier handoff.
 Phase 54.7 owns the final all-family Cozy supplier contract and fixtures.
 External Textus CBD Support UI/runtime implementation and acceptance remain
 outside the Cozy producer closure and with the downstream consumer owner.
@@ -127,6 +131,50 @@ catalog/peer arrays and recursive keys through actual canonical read. S2 selecte
 validation passed all 239 tests in 18 suites, including all 12 CT behavior blocks.
 CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded 100 successes, zero discards
 and passed status. Fresh independent protected-focused S2 review is PASS with no
-CPB, HYG or DEV items; native local Step commit and its receipt remain pending.
+CPB, HYG or DEV items. S2 is CLOSED at parent-verified manual native local
+commit `661e11b848102faf143bf5f4dc173e5ab7bcafdd` and its actual receipt.
 Fixed resource and final handoff consumers remain S54.6.3, with the canonical
 Phase 54.7 supplier boundary unchanged.
+
+## Fixed fixture and independent oracle responsibility
+
+The two Causal UTF-8 resources are independently authored supplier inputs.
+They retain the entire accepted Terminology declared prefix and append the
+frozen twenty synthetic occurrences and peer declarations. Literal supplied
+source attribution is evidence within the model, without a CML parse, actual
+source digest calculation or source-currentness claim. Equal anonymous core
+values remain two occurrences with distinct causal payloads. Their supplied
+line and array position never become identity.
+
+The cohesive CF-01..08 top-down executable chapter owns its complete literal
+typed carriers and wire encoders. The unchanged predecessor is acquired under
+When through accepted resource/peer APIs. Independent full-record occurrence
+rank orders the expected families. Separate raw-wire and typed gap assembly
+preserve full owners, exact Presence, duplicates and every source/provenance
+field. Independent nine-field traversal links and qualified questions define
+the expected consumer view. No expected child, family or link is taken from
+Causal build/read/traversal output.
+
+Property plans independently reconstruct core and embedded peer correspondence,
+Term and carrier arrays, reference order and recursive JSON keys. Each sample
+consumes both actual modes and independently reconstructs the owned child before
+actual admission, publication, canonical reconsumption and traversal. Observable
+mode/category counts and Test.Result retain the acceptance evidence boundary.
+No source-text, documentation-closure or merely round-trip property substitutes
+for full semantic comparison.
+
+The [handoff](cml-causal-metadata-handoff.md) freezes reusable supplier
+responsibility and qualified query recipes. S1/S2 CLOSED receipts are unchanged.
+Selected S3 validation passed all 247 tests in 19 suites. CF-08, CT-12, CM-10,
+TM-09, TN-08 and TF-09 each recorded 100 successes, zero discards and passed
+status; baseline category counts were positive. CF-08 exercised both actual
+modes per case: declared and absence counts were each 100, with all seven
+observed categories positive. SBT and wrapper exited 0 and the serialization
+lock was released. Fresh independent lightweight S3 review is PASS with no CPB,
+HYG or DEV items. The parent's manual native local S3 Step commit and actual
+receipt remain pending; S3 and Phase 54.6 remain IN_PROGRESS. All five original
+Phase obligations, sole full Phase review, ordinary full tests, distinct release
+and native audit remain pending; Phase 54.7 remains PLANNED.
+Final all-family Cozy supplier policy belongs to Phase 54.7. External Textus CBD
+UI/runtime integration, CNCF execution and downstream acceptance remain with
+the consumer owners. No protected schema, ABI or current production caller changes.
