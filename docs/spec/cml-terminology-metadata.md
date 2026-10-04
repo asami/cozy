@@ -1,6 +1,6 @@
 # CML Terminology Metadata
 
-Status: S54.5.1 supplier validated and independently accepted; manual Step commit pending.
+Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 navigation validated and independently accepted; manual Step commit pending.
 Date: 2026-10-04
 
 This specification defines the internal `private[cozy]` Terminology supplier in
@@ -155,8 +155,8 @@ survive unchanged; Terminology admission does not certify their semantics.
 `TerminologyDiagnosticKind`: `InvalidShape`, `UnsupportedSchemaVersion`,
 `InvalidCoreBinding`, `DuplicateProjection`, `MissingProjection`,
 `InvalidTerminologySemantics`, `PublicationFailure`, `ExtensionConflict`,
-`UnknownElement`, `UnknownTerm`, `UnknownLink`. The last three are reserved for
-the separately planned navigation boundary. Only PublicationFailure retains
+`UnknownElement`, `UnknownTerm`, `UnknownLink`. The last three serve
+the navigation boundary below. Only PublicationFailure retains
 `Some(original PublicationDiagnostic)`; every other kind carries None.
 
 | Condition | Fixed detail |
@@ -189,7 +189,9 @@ The independent executable specification is
 Every behavior block has adjacent Given setup, When production interpretation,
 and Then assertions. Raw fixture declarations and the complete wire oracle do
 not call the supplier. Build, read, render, base admission, and ScalaCheck actions
-occur under When. The following scenarios are authored; results remain pending.
+occur under When. S54.5.1 passed 195 tests in 14 suites and independent protected
+review with focused closure; its acceptance commit is
+`81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`.
 
 | Scenario | Required observable behavior |
 | --- | --- |
@@ -203,5 +205,105 @@ occur under When. The following scenarios are authored; results remain pending.
 | TM-08 | Invalid text/detail/language/qualified identities and preservation of valid literal supplied provenance. |
 | TM-09 | Independent catalog/projection/reference permutations, explicit groups, declared/anonymous absence modes and recursive JSON key reconstruction; minimum 100 successes, zero discards. |
 
-Navigation, fixed resources, consumer handoff, Event Storming traversal, and
-external CBD Support acceptance belong to the subsequent recorded boundaries.
+## Exact qualified navigation
+
+`CmlTerminologyNavigation` consumes an already admitted Graph. Its immutable
+Navigation has a private constructor, retains the original `graph` and `catalog`
+instances, and exposes `allLinks: Vector[TermLink]`. It does not read, render,
+re-admit, or fetch the graph, inspect peer namespaces, or compute source currentness.
+
+```scala
+final case class TermLink(element: ElementRecord, reference: SemanticReference)
+sealed abstract class ReferenceTarget
+final case class LocalTarget(link: TermLink, term: TermProjection) extends ReferenceTarget
+final case class ExternalTarget(link: TermLink) extends ReferenceTarget
+
+build(graph: Graph): Either[Vector[TerminologyDiagnostic], Navigation]
+element(id: ModelElementId): Either[TerminologyDiagnostic, ElementProjection]
+term(id: TermId): Either[TerminologyDiagnostic, TermProjection]
+links(id: ModelElementId): Either[TerminologyDiagnostic, Presence[Vector[TermLink]]]
+linksForTerm(id: TermId): Either[TerminologyDiagnostic, Vector[TermLink]]
+resolve(link: TermLink): Either[TerminologyDiagnostic, ReferenceTarget]
+```
+
+Queries require the entire literal typed qualified identity. Every core family
+with a present identity is addressable; anonymous records remain observable but
+unaddressable. Names, labels, paths, digests, delimiter splitting, suffixes,
+same-named peers, and coincident Model/Term pairs do not create aliases. Supplied
+termType and Mono/Koto stay independent of core kind.
+
+`allLinks` follows catalog element order, then each element's full authored
+reference order, retaining TermTarget references only. Projection array order
+does not reorder links. Complete element and reference values, duplicate
+references and equal anonymous occurrences survive. `links` first finds the
+exact projection and returns its ordered complete links; each Absent reason and
+detail is returned verbatim. Present-empty and model-only references return
+Present-empty. `linksForTerm` first requires an admitted Term, then returns only
+exact Local matches in the same order with multiplicity. Registered External
+equal pairs are excluded; known unused Terms return empty; External-only
+unregistered pairs remain UnknownTerm.
+
+`resolve` first validates the full input tree's shape, then requires full-value
+membership in `allLinks`. Equivalent immutable copies are members. Altered or
+foreign values fail with `UnknownLink` only when their complete value is absent
+from `allLinks`; an alteration that produces another complete admitted value
+remains a member. Duplicate occurrences need no fabricated occurrence ID.
+External yields the unchanged link even when its pair is registered; Local
+yields the exact original TermProjection. Candidate relations, labels, derived
+rules and source vectors remain opaque facts. Resolution never merges Terms,
+selects labels or substitutes endpoints.
+
+### Shape and safe query diagnostics
+
+Shape checks allow nonnull empty kind/name because those descriptive fields
+have no stronger accepted contract. They require nonnull closed Presence branches,
+strict qualified components, reference boundary, relation/profile/context/label,
+source and origin. Element reference vectors allow both target domains; the
+independent TermLink reference specifically requires TermTarget. Absence reasons
+are exactly the four Foundation reasons with strict detail; label language is a
+nonnull None/Some(strict text). Derived requires a strict rule and a nonempty
+nonnull vector of valid sources. Source authority is strict text, path is a
+nonempty project-relative POSIX path without controls, scheme, backslash,
+leading slash or empty/dot/dot-dot segments, digest is 64 literal lowercase
+hex characters, and line is None or a positive Some(Int).
+
+Shape does not certify residency, Local endpoint registration, source-authority
+cross-field agreement, or record/reference membership. A structurally valid
+foreign or altered link whose complete value is absent from `allLinks` fails
+UnknownLink rather than InvalidShape; a complete admitted value remains a member.
+Queries validate before dereferencing and never echo values or throwable causes.
+Unicode edge space uses `Character.isWhitespace || Character.isSpaceChar`;
+ISO controls are checked over code points. Case, interior Unicode and delimiters
+remain literal. Every diagnostic below has `publication=None`.
+
+| Condition | Kind / coordinate | Exact detail |
+| --- | --- | --- |
+| Null Graph | InvalidShape / graph | An admitted Terminology graph is required. |
+| Null/malformed query ID or either component | InvalidTerminologySemantics / element.identity, term.identity, links.identity or linksForTerm.identity | The declared Terminology reference, label, classification or absence is invalid. |
+| Valid unknown model identity | UnknownElement / element.identity or links.identity | No admitted Terminology element has the requested qualified identity. |
+| Valid unknown Term identity | UnknownTerm / term.identity or linksForTerm.identity | No admitted Terminology Term has the requested qualified identity. |
+| Null/malformed complete TermLink | InvalidShape / resolve.link | The Terminology value does not match the required v1 shape. |
+| Well-formed full-value nonmember | UnknownLink / resolve.link | The Terminology link is not admitted by this graph. |
+
+### Navigation executable acceptance map
+
+[CmlTerminologyNavigationSpec](../../src/test/scala/cozy/modeler/CmlTerminologyNavigationSpec.scala)
+authors these scenarios with raw Given facts, all build/read/render/query actions
+under When, and observable Then assertions. S2 passed 205 tests in 15 suites;
+independent Step review and focused repair closure are accepted. TN-08 passed
+100 fixed-seed samples with zero discards and all seven coverage tags positive.
+The manual Step commit remains pending.
+
+| Scenario | Observable behavior |
+| --- | --- |
+| TN-01 | Qualified model/Term scopes, coincident domains, original instances, complete supplemental facts, typed/wire navigation and an empty graph. |
+| TN-02 | Full Local/External endpoints, registered/unregistered External targets, copied value membership and opaque candidates/provenance. |
+| TN-03 | Equal anonymous Event occurrences and repeated complete links without fabricated lookup aliases. |
+| TN-04 | Catalog/reference order, independent projection order, duplicate-preserving Local-only reverse links. |
+| TN-05 | All four exact gap reasons/details, present-empty/model-only references and known unused Terms. |
+| TN-06 | Fixed unknown diagnostics and complete altered/foreign full-value membership. |
+| TN-07 | Null and malformed IDs on both components of all query families and recursively malformed complete link trees. |
+| TN-08 | Independent occurrence-index permutations in declared/absence modes; minimum 100 successes, zero discards, fixed seed 42, collected positive actual value-change coverage. |
+
+Fixed resources, consumer handoff, Event Storming traversal, and external CBD
+Support acceptance remain subsequent recorded boundaries.

@@ -1,7 +1,7 @@
 # CML Terminology Metadata Design
 
 Date: 2026-10-04
-Status: S54.5.1 supplier design validated and independently accepted; manual Step commit pending.
+Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 navigation validated and independently accepted; manual Step commit pending.
 
 The [supplier specification](../spec/cml-terminology-metadata.md) fixes the API,
 wire, diagnostics, and executable acceptance scenarios. This design assigns
@@ -107,6 +107,58 @@ not supplier output or supplier reads. Production actions belong under When,
 and Then observes captured results. Authorship does not establish acceptance.
 
 [Phase 54.5](../phase/phase-54.5.md) separates the supplier, exact qualified
-navigation, and fixed-fixture/handoff Steps. Navigation and resources remain
-pending. Event Storming belongs to Phase 54.6; final consumer fixture acceptance
+navigation, and fixed-fixture/handoff Steps. S1 passed 195 tests in 14 suites,
+independent protected review and focused closure, and is CLOSED at commit
+`81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`. Navigation passed 205 tests in 15 suites;
+independent Step review and focused repair closure are accepted. The manual Step
+commit and fixed resources remain pending.
+Event Storming belongs to Phase 54.6; final consumer fixture acceptance
 belongs to Phase 54.7. No external CBD Support integration is claimed here.
+
+## Navigation responsibility
+
+The additive `CmlTerminologyNavigation` object consumes the private admitted
+Graph directly. Navigation retains its original Graph/Catalog instances and
+immutable exact qualified ModelElementId and TermId projection indexes. All
+present core identities, including families beyond Entity/Event, are navigable;
+anonymous occurrences get no generated identity. No names, paths, digests,
+suffixes, labels, delimiter interpretation or domain coincidence become aliases.
+The [specification](../spec/cml-terminology-metadata.md#exact-qualified-navigation)
+defines the exact API and fixed diagnostics, linked to executable TN-01..08.
+
+The ordered `allLinks` Vector is built from catalog records and their core
+TermTarget references, preserving complete values and occurrence counts. An
+immutable Set is used solely for complete link membership; it never governs
+ordering or reverse multiplicity. Element queries return original projections.
+Element links preserve literal absence and present-empty values. Reverse queries
+first require an admitted Term and filter exact Local targets from the ordered
+Vector; External equal pairs remain excluded.
+
+Resolution separates shape from membership. Private pure closed-shape predicates
+validate the full record/reference/source/origin/Presence tree before any query
+dereference. They accept descriptive empty kind/name and both target families
+inside element references, while a TermLink requires TermTarget. They enforce
+Foundation's strict text, project-relative source path, literal lowercase digest,
+positive optional line, four absence branches, explicit label language Option
+and derived source vector shapes. They do not repeat admission, source-authority
+cross-field checks or graph residency; structurally valid foreign values receive
+UnknownLink only when their complete value is absent from `allLinks`. Complete
+admitted values remain members. Malformed shape receives InvalidShape;
+malformed query components receive InvalidTerminologySemantics; valid missing
+qualified identities receive UnknownElement/UnknownTerm. Fixed safe coordinates,
+details and publication=None preserve the boundary without input echo.
+
+Full-value equivalent copied links are valid, including duplicates with no
+occurrence identity. Local resolution returns the original full TermProjection;
+External returns its original link without local endpoint substitution. Candidate
+relations, localized/reference labels, supplied classifications, context and
+provenance survive literally. BoK retains synonym policy. Navigation neither
+selects a preferred label nor merges endpoints, computes currentness, re-admits
+or serializes the Graph, reads peers, fetches provenance or calls legacy adapters.
+
+TN-01..08 use complete raw expected carriers. The permutation property selects
+remaining occurrence indices without replacement and independently permutes core
+references, catalog records/Terms and both projection arrays. Both declared and
+explicit absence modes retain anonymous occurrences. Prop.collect records actual
+value-vector changes. TN-08 passed 100 samples with fixed seed 42, zero discards
+and positive actual counts for both modes and all five permutation dimensions.
