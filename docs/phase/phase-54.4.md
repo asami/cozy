@@ -1,7 +1,7 @@
 # Phase 54.4: Use Case and Actor Metadata Handoff
 
 Status: IN_PROGRESS
-Current status: S54.4.1 / S54.4.1A CLOSED; S54.4.2 navigation is next. Phase closure remains open.
+Current status: S54.4.1 / S54.4.1A and S54.4.2 / S54.4.2A CLOSED; S54.4.3 fixed-resource handoff planned. Phase closure remains open.
 Owner: Cozy Use Case metadata supplier; Phase parent for validation, review, local commits and closure.
 Update rule: project actual Step evidence mechanically after acceptance/commit; preserve earlier core contracts and later Phase ownership.
 
@@ -27,7 +27,7 @@ through 54.7.
 | ID | Outcome | Status |
 | --- | --- | --- |
 | MMD-544-01 | Publish Use Case Actor, goal, trigger, flows, conditions, postconditions, domain elements, operations/events, collaborators, and realizing Workflow where modeled. | complete; S54.4.1 accepted |
-| MMD-544-02 | Preserve stable Use Case-to-Workflow and onward dynamic/static references without name-based guessing. | planned |
+| MMD-544-02 | Preserve stable Use Case-to-Workflow and onward dynamic/static references without name-based guessing. | complete; S54.4.2 accepted; fixed-resource continuation proof belongs to S54.4.3 |
 | MMD-544-03 | Preserve explicit absence when a source does not declare an Actor, flow, collaborator, or realizing Workflow. | complete; S54.4.1 accepted |
 | MMD-544-04 | Freeze the Use Case/Actor handoff for Terminology, Event Storming, and final CBD Support fixtures. | planned |
 
@@ -45,12 +45,12 @@ through 54.7.
 | Step / Slice | Frozen goal | Status / evidence |
 | --- | --- | --- |
 | S54.4.1 / S54.4.1A | Complete Actor/Use Case typed declarations, validation, strict wire read/render, full binding and explicit gaps. | CLOSED; five supplier modules and UC-01–09 accepted with 17 tests, 100 permutation cases and zero discards; initial eleven-suite validation and independent Step review followed by focused repair closure PASS; parent manual local acceptance commit. |
-| S54.4.2 / S54.4.2A | Addressable actor/use-case/core lookup and Local/External reference resolution without guessing. | planned; unstarted. |
+| S54.4.2 / S54.4.2A | Addressable actor/use-case/core lookup and Local/External reference resolution without guessing. | CLOSED; immutable navigation and UN-01–07 accepted; 172 tests in twelve suites, both 100-case properties with zero discards; independent Step review PASS; parent manual local acceptance commit. |
 | S54.4.3 / S54.4.3A | Two fixed UTF-8 resources, cross-view consumer fixture proof and durable supplier handoff. | planned; unstarted. |
 
 S54.4.1 is CLOSED on 2026-10-04. The declared-semantics and explicit-absence
-obligations are accepted; navigation, fixed handoff and final closure remain
-unchecked. Initial focused validation passed 165 tests in eleven suites. The
+obligations are accepted. Navigation is accepted separately below; fixed
+handoff and final closure remain unchecked. Initial focused validation passed 165 tests in eleven suites. The
 independent Step review found that UC-09 did not actually reorder Catalog
 records. The repaired suite passed all 17 tests and 100 generated cases with
 zero discards, exercising declared and anonymous-gap modes in every case.
@@ -59,8 +59,19 @@ evidence gaps. Both runs ended with SBT and wrapper exit zero and the serial
 lock released. This Step's acceptance commit binds the ten supplier paths;
 the native Git history records its revision.
 
+S54.4.2 is CLOSED on 2026-10-04. Focused validation passed 172 tests in twelve
+suites. Navigation and retained Use Case metadata properties each passed 100
+generated cases with zero discards. SBT and wrapper exited zero and the serial
+lock was released. Independent Step review passed the complete navigation
+accumulator with no blockers, Hygiene or Development Candidates. This Step's
+manual local acceptance commit binds six paths; native Git history records its
+revision.
+
 Foundation, Structure, Classification, Dynamic and legacy core contracts are
-unchanged. S54.4.2 is next and remains unstarted. Phases 54.5–54.7 are
+unchanged. S54.4.2 navigation and its
+[executable specification](../../src/test/scala/cozy/modeler/CmlUseCaseNavigationSpec.scala)
+are accepted by focused validation and independent Step review.
+S54.4.3 fixed-resource handoff remains planned. Phases 54.5–54.7 are
 unstarted. Full Phase review, ordinary full validation and distinct local
 release remain pending.
 

@@ -1,6 +1,6 @@
 # CML Use Case Metadata v1 Design
 
-Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A CLOSED. Navigation and fixed-resource handoff remain planned.
+Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A and S54.4.2 / S54.4.2A CLOSED; fixed-resource handoff planned.
 Owner: Cozy Use Case metadata supplier; the Phase parent owns validation, review and closure.
 Update rule: preserve the frozen qualified identity and peer contracts; record acceptance only from actual evidence and keep later consumer work with its owner.
 
@@ -68,9 +68,14 @@ no automatic semantic validation. Each consumer independently admits the peer
 it wants to traverse. The existing `CmlModelMetadata` legacy sidecar and parser,
 build/dependency/version, CLI and runtime contracts are unchanged.
 
-## Forthcoming consumer handoff
+## Immutable navigation and consumer handoff
 
-S54.4.2 will add immutable navigation over this Graph: `actor(id)` and
+`CmlUseCaseNavigation.build(graph)` returns typed Navigation over an admitted
+Graph without repeating supplier or peer admission. Its private constructor
+has no public apply/copy path. Read-only graph/catalog retain the original
+instances. Immutable projection indexes contain only Present ModelElementId
+pairs; anonymous complete occurrences remain in the original carrier vectors.
+`actor(id)` and
 `useCase(id)` return full projections, `element(id)` returns a complete core
 record, and `resolve(reference)` returns closed LocalTarget(element) or
 ExternalTarget(reference). Exact query identity is required; anonymous,
@@ -78,7 +83,41 @@ unknown, case/authority/delimiter/Term/name/source mismatches never gain a
 fallback. Null/malformed input and well-formed unknown queries remain separate
 typed failures. The already-authored package helper `_reference_diagnostic`
 validates generic reference shape/ID/boundary/Local existence without imposing
-family kinds. No query or navigation module is implemented in S54.4.1.
+family kinds. LocalTarget carries the full Catalog record; ExternalTarget
+retains the exact supplied reference even when its pair also exists locally.
+ReferenceTarget is sealed with these two final value-backed cases.
+
+Null graph uses InvalidShape at `graph` and detail
+`An admitted Use Case graph is required.` Malformed queries use
+InvalidUseCaseSemantics at `actor.identity`, `useCase.identity` or
+`element.identity`, with detail
+`The declared Use Case reference or absence is invalid.` Components are
+nonnull/nonempty, Unicode whitespace/space-char unpadded and ISO-control free;
+valid strings remain exact. Unknown and wrong-family projection queries use
+UnknownProjection at the corresponding identity path and detail
+`No admitted Use Case projection has the requested qualified identity.`
+Unknown core uses UnknownElement at `element.identity` with detail
+`No admitted model element has the requested qualified identity.`
+
+Resolve returns the accepted helper's exact diagnostic: null reference/identity
+at `resolve.reference` and null/invalid boundary at
+`resolve.reference.boundary` use InvalidShape with detail
+`The Use Case value does not match the required v1 shape.` Invalid components
+at `resolve.reference.identity` and dangling Local at `resolve.reference`
+use InvalidUseCaseSemantics with the fixed semantic detail above. Every
+navigation diagnostic has publication=None and no supplied-value echoes.
+
+[CmlUseCaseNavigationSpec](../../src/test/scala/cozy/modeler/CmlUseCaseNavigationSpec.scala)
+authors UN-01–07 with independent complete facts, exact failures and generated
+independent observable Catalog/carrier/query order changes in both declared
+and equal-anonymous fixtures per sample. Build and strict-read routes preserve
+complete authored values. Its 100-success/no-discard property reports the
+actual ScalaCheck result. S54.4.2 is CLOSED on 2026-10-04 after focused
+validation passed 172 tests in twelve suites and both navigation and retained
+Use Case metadata properties passed 100 cases with zero discards. SBT and
+wrapper exited zero with the serial lock released. Independent Step review
+passed with no findings. Its parent manual local acceptance commit binds six
+paths, as recorded in native Git history.
 
 S54.4.3 will freeze declared and explicit-absence UTF-8 resources and prove
 Actor → UseCase → Workflow → declared Dynamic activity/state/operation/event,
@@ -87,7 +126,10 @@ same envelope. External and absent values stop literal Local traversal. This
 uses the accepted [Dynamic handoff](cml-dynamic-metadata-handoff.md),
 [Structure handoff](cml-structure-metadata-handoff.md) and
 [Classification handoff](cml-classification-metadata-handoff.md). Resource and
-navigation Steps remain planned.
+handoff Step remains planned. Consumers independently admit Dynamic and pass
+the preserved Workflow pair to `CmlDynamicTopology.workflow`; Structure and
+Classification admission remain independent too. Navigation creates no links,
+reverse Actor membership, graph walks, peer admission or external resolution.
 
 Cozy owns the metadata supplier, CNCF owns runtime realization, and Textus CBD
 Support owns its views and external acceptance. No cross-repository producer

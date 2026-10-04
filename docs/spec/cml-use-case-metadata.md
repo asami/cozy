@@ -1,6 +1,6 @@
 # CML Use Case Metadata v1 Specification
 
-Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A CLOSED. S54.4.2A and S54.4.3A planned.
+Current status: PHASE-54.4 IN_PROGRESS; S54.4.1 / S54.4.1A and S54.4.2 / S54.4.2A CLOSED; S54.4.3A planned.
 Owner: Cozy Use Case metadata supplier; the Phase parent owns acceptance evidence and closure.
 Update rule: preserve the accepted foundation and peer contracts; update status only from actual validation, independent review and local commit evidence.
 
@@ -145,7 +145,7 @@ InvalidShape, UnsupportedSchemaVersion, InvalidCoreBinding,
 DuplicateProjection, MissingProjection, InvalidUseCaseSemantics,
 PublicationFailure, ExtensionConflict, UnknownElement and UnknownProjection.
 Only PublicationFailure retains the original typed PublicationDiagnostic.
-The last two kinds are reserved for the forthcoming navigation contract.
+The last two kinds describe well-formed unknown navigation queries.
 Factory failures collect deterministic diagnostics; strict decoding may stop
 at the first malformed schema coordinate.
 
@@ -187,16 +187,74 @@ boundary. The original eleven-suite, 165-test validation remains retained for
 unchanged predecessor contracts. S54.4.1's manual local acceptance commit
 records this evidence; full Phase acceptance remains pending.
 
-S54.4.2 will consume this immutable Graph through exact actor/useCase/element
-lookups and LocalTarget/ExternalTarget resolution. Its generic internal helper
+## Immutable navigation
+
+`private[cozy] CmlUseCaseNavigation.build(graph: Graph)` returns
+`Either[Vector[UseCaseDiagnostic], Navigation]`. Navigation has a private
+constructor, no apply/copy bypass, and read-only `graph` and `catalog` retaining
+the original instances. It consumes admission without repeating schema or peer
+validation. `actor(id: ModelElementId)` and `useCase(id: ModelElementId)` return
+`Either[UseCaseDiagnostic, ActorProjection]` and
+`Either[UseCaseDiagnostic, UseCaseProjection]`; `element(id: ModelElementId)`
+returns `Either[UseCaseDiagnostic, ElementRecord]`. Complete core and projection
+values, Presence, sources, carrier order and equal anonymous occurrences remain
+unchanged. Projection indexes include only Present ModelElementId pairs.
+
+Every query requires the exact complete qualified pair. Null ID/components,
+empty components, Unicode whitespace/space-char edge padding and ISO controls
+anywhere return InvalidUseCaseSemantics at `actor.identity`, `useCase.identity`
+or `element.identity`, with detail
+`The declared Use Case reference or absence is invalid.`
+Well-formed unknown and wrong-family projection queries return UnknownProjection
+at the corresponding identity coordinate with detail
+`No admitted Use Case projection has the requested qualified identity.`
+Unknown core queries return UnknownElement at `element.identity` with detail
+`No admitted model element has the requested qualified identity.`
+Null graph returns InvalidShape at `graph` with detail
+`An admitted Use Case graph is required.` All navigation diagnostics have
+publication=None. No trimming, normalization, name/declaredId/Term/source,
+delimiter concatenation or positional alias supplies an address.
+
+`resolve(reference: ModelReference)` returns
+`Either[UseCaseDiagnostic, ReferenceTarget]`. ReferenceTarget is sealed with
+value-backed `LocalTarget(element: ElementRecord)` and
+`ExternalTarget(reference: ModelReference)`. Local resolution returns the full
+Catalog record of any admitted kind. External preserves the exact supplied
+reference, including a pair equal to Local core. Its generic internal helper
 `CmlUseCaseMetadataValidation._reference_diagnostic(catalog, reference, path)`
 already validates shape, ID, boundary and Local existence; family sets stay
-separate. S54.4.3 will author fixed resources and same-envelope cross-view
-consumer proof. These later Steps are planned, not present implementation.
+separate. At fixed `resolve.reference`, null reference/identity yields
+InvalidShape; malformed components yield InvalidUseCaseSemantics at
+`resolve.reference.identity`; null/invalid boundary yields InvalidShape at
+`resolve.reference.boundary`; dangling Local yields InvalidUseCaseSemantics at
+`resolve.reference`. Shape detail is
+`The Use Case value does not match the required v1 shape.` Semantic detail is
+`The declared Use Case reference or absence is invalid.` Diagnostics never
+echo supplied values. Valid missing External remains an ExternalTarget.
+
+[CmlUseCaseNavigationSpec](../../src/test/scala/cozy/modeler/CmlUseCaseNavigationSpec.scala)
+authors UN-01 complete exact lookup and same-instance retention; UN-02 declared
+links, all roles, generic expression contexts and literal target facts; UN-03
+opaque External contrasts; UN-04 missing/wrong-family and descriptive alias
+failures; UN-05 anonymous occurrence gaps, empty values and named survivors;
+UN-06 complete typed hostile-input diagnostics and safe successes; UN-07
+independently generated Catalog/carrier/query permutations for declared and
+anonymous fixtures in every sample through build and strict read. The property
+requires 100 successes, Passed and zero discards and reports its actual result.
+S54.4.2 is CLOSED on 2026-10-04. Focused validation passed 172 tests in twelve
+suites; navigation and retained Use Case metadata properties each passed 100
+cases with zero discards. Both process exits were zero and the serial lock was
+released. Independent Step review passed with no findings. Its parent manual
+local acceptance commit binds six paths, as recorded in native Git history.
+
+S54.4.3 will author fixed resources and same-envelope cross-view consumer proof.
 Consumers separately admit [Dynamic](cml-dynamic-metadata.md),
 [Structure](cml-structure-metadata.md) and
 [Classification](cml-classification-metadata.md) peers before following their
-declared references. [Foundation](cml-semantic-foundation.md) and
+declared references. After independent Dynamic admission, the preserved
+realizing Workflow pair can be passed to `CmlDynamicTopology.workflow`.
+Navigation invents no reverse Actor membership, links, walks or peer admission.
+[Foundation](cml-semantic-foundation.md) and
 [publication](cml-semantic-metadata.md) contracts remain unchanged.
 
 This supplier adds no CML parser/projector integration, CLI/HTTP/SPI/MCP,
