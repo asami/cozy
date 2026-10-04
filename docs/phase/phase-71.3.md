@@ -1,6 +1,6 @@
 # Phase 71.3: Local Site and PDF Currentness with Purpose-Bound Integrity
 
-status=in-progress
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -10,7 +10,7 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.2.md
 execution_priority=current_video_generation_blocker
 
-Status: in progress; Step1 committed; whole Step2 independent review PASS; exact Step2 acceptance commit pending
+Status: closed
 Planned at: 2026-09-29
 Development item: DEV-034
 Primary owner: Cozy
@@ -62,6 +62,18 @@ P710-04/RELEASE boxes stay unchecked; Step1 CLOSED, original epoch/counters,
 exact commit, original-epoch full Phase review and distinct release remain pending;
 full SBT stays **deferred-not-run to PHASE-71.4**.
 
+## 2026-10-04 Step2 commit verified
+
+Exact P710-04-SITE acceptance commit `cad60d4341e2584d9cd97fb4bc8b49cfa0044ac6` is verified on `main`,
+with sole parent `50f83ef4e87945684fd3672c3b621770896f60c1`, all 43 selected paths, the exact
+message, all 22 committed canonical finding records, empty index and all
+9 preserve-only dirty paths retained. Independent Step2 review PASS and
+the actual commit now satisfy P710-04-SITE-ACCEPT. Both owned Steps are CLOSED.
+Earlier pending-commit statements are dated history. Current frontier is
+the single original-epoch full Phase review, followed by a distinct release
+commit; the Phase and four release checklist items remain open. Full SBT
+remains **deferred-not-run to PHASE-71.4**.
+
 ## 2026-10-04 S20 independent Step2 acceptance
 
 Whole P710-04-SITE independent review `887eaa3f-d275-4cbe-b981-e904533de5d5@1`
@@ -83,6 +95,41 @@ accepted; its commit-bound acceptance checkbox and all release checkboxes
 remain open until their actual operations succeed. Earlier dated failure and
 pending sections retain their original evidence and attribution qualifications.
 Repository-full SBT remains **deferred-not-run to PHASE-71.4**.
+
+## 2026-10-04 final Phase release record
+
+Both owned Steps are CLOSED against exact accepted commits
+`50f83ef4e87945684fd3672c3b621770896f60c1` and
+`cad60d4341e2584d9cd97fb4bc8b49cfa0044ac6`. The sole original-epoch full
+Phase review `f5cf4fa6-bdc8-4a37-874c-77c7308dde62@1` returned PASS over
+the original `bff0cc55baee69d5c12fea1310d1425043f8cd31` base through that
+accepted head, 95 owned paths and all 63 target programs. Its result is saved
+and read back in the original typed ledger at revision 15. There are no
+Current Phase Blockers or new findings. All 19 Hygiene and 3 Development
+Candidate records remain once in the original canonical journals; none is
+unpersisted. Earlier failed attempts, pending-frontier snapshots, original
+S19 17/18 outcomes and the separately reconciled publication rejection remain
+dated history, superseded only for current status by this release record.
+
+The [release closure journal](../journal/2026/10/2026-10-04-phase-71.3-release-closure.md)
+records the accepted handoff, validation scope and remaining limitations.
+Repository-full SBT is **deferred-not-run to PHASE-71.4**, the unchanged
+final-only aggregate owner for PHASE-71 through PHASE-71.4. Focused validation
+and both complete isolated native site entries passed; no full-suite success
+or successor execution is claimed.
+
+These final CLOSED statuses and release checkboxes are the selected release
+content. They take effect only when the distinct local release commit and
+its committed-tree closure receipt are verified. Until then, the live workflow
+remains PHASE_RELEASE_COMMIT. The release message carries its explicit
+Phase-Closure-Binding and typed CNCF-Aggregate-Release audit.
+
+The complete nine-path concurrent/unrelated planning and handoff set is
+preserved outside this release. Shared Phase-index/strategy synchronization is
+explicitly deferred; the committed active Phase/checklist are authoritative.
+Phase 71.4 and Phase 71.5 remain planned and not started. No push, publication,
+deployment, original external-input change, skill change or version conversion
+is part of this closure.
 
 ## Goal
 

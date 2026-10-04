@@ -1,13 +1,12 @@
 # Phase 71.3 Checklist
 
-Phase status: IN-PROGRESS
+Phase status: CLOSED
 Updated: 2026-10-04
 Ledger for: [Phase 71.3](phase-71.3.md)
 Primary owner: Cozy
 Repository-full validation: aggregate-deferred to PHASE-71.4
 
-Current frontier: **whole Step2 independent review PASS; exact local Step2
-acceptance commit pending**. The dated S20 acceptance below supersedes the
+Current frontier: **full Phase review PASS; final release content prepared**. The dated S20 acceptance below supersedes the
 earlier S19 pending-review projection while preserving its failed oracle.
 Parent `s19-terminal-projection-evidence.json` dated
 `2026-10-04T08:38:48.999389+00:00` records 18 terminal commands and 17 frozen
@@ -62,6 +61,18 @@ All seven P710-04/RELEASE items remain unchecked; Step1 remains CLOSED.
 P710-03-SITE implementation and focused specifications have validated evidence
 in the [implementation journal](../journal/2026/10/2026-10-04-phase-71.3-site-adapter-implementation.md), including original S10 193/193 across thirteen suite instances and the separate SAR repair 91/91 across seven suites with fifty observed public property trials. Independent Step review `08a982c1-390b-47c5-84eb-2cf5bdc0f39b@1` passed and verified local acceptance commit `50f83ef4e87945684fd3672c3b621770896f60c1` binds P710-03-SITE. This does not establish the P710-04 actual complete-site/PDF driver proof. Its preparation is recorded in the [complete-site-driver journal](../journal/2026/10/2026-10-04-phase-71.3-complete-site-driver.md). The original P710-03/P710-04 labels remain partitioned, not additional work.
 
+## 2026-10-04 Step2 commit verified
+
+Exact P710-04-SITE acceptance commit `cad60d4341e2584d9cd97fb4bc8b49cfa0044ac6` is verified on `main`,
+with sole parent `50f83ef4e87945684fd3672c3b621770896f60c1`, all 43 selected paths, the exact
+message, all 22 committed canonical finding records, empty index and all
+9 preserve-only dirty paths retained. Independent Step2 review PASS and
+the actual commit now satisfy P710-04-SITE-ACCEPT. Both owned Steps are CLOSED.
+Earlier pending-commit statements are dated history. Current frontier is
+the single original-epoch full Phase review, followed by a distinct release
+commit; the Phase and four release checklist items remain open. Full SBT
+remains **deferred-not-run to PHASE-71.4**.
+
 ## 2026-10-04 S20 independent Step2 acceptance
 
 Whole P710-04-SITE independent review `887eaa3f-d275-4cbe-b981-e904533de5d5@1`
@@ -83,6 +94,41 @@ accepted; its commit-bound acceptance checkbox and all release checkboxes
 remain open until their actual operations succeed. Earlier dated failure and
 pending sections retain their original evidence and attribution qualifications.
 Repository-full SBT remains **deferred-not-run to PHASE-71.4**.
+
+## 2026-10-04 final Phase release record
+
+Both owned Steps are CLOSED against exact accepted commits
+`50f83ef4e87945684fd3672c3b621770896f60c1` and
+`cad60d4341e2584d9cd97fb4bc8b49cfa0044ac6`. The sole original-epoch full
+Phase review `f5cf4fa6-bdc8-4a37-874c-77c7308dde62@1` returned PASS over
+the original `bff0cc55baee69d5c12fea1310d1425043f8cd31` base through that
+accepted head, 95 owned paths and all 63 target programs. Its result is saved
+and read back in the original typed ledger at revision 15. There are no
+Current Phase Blockers or new findings. All 19 Hygiene and 3 Development
+Candidate records remain once in the original canonical journals; none is
+unpersisted. Earlier failed attempts, pending-frontier snapshots, original
+S19 17/18 outcomes and the separately reconciled publication rejection remain
+dated history, superseded only for current status by this release record.
+
+The [release closure journal](../journal/2026/10/2026-10-04-phase-71.3-release-closure.md)
+records the accepted handoff, validation scope and remaining limitations.
+Repository-full SBT is **deferred-not-run to PHASE-71.4**, the unchanged
+final-only aggregate owner for PHASE-71 through PHASE-71.4. Focused validation
+and both complete isolated native site entries passed; no full-suite success
+or successor execution is claimed.
+
+These final CLOSED statuses and release checkboxes are the selected release
+content. They take effect only when the distinct local release commit and
+its committed-tree closure receipt are verified. Until then, the live workflow
+remains PHASE_RELEASE_COMMIT. The release message carries its explicit
+Phase-Closure-Binding and typed CNCF-Aggregate-Release audit.
+
+The complete nine-path concurrent/unrelated planning and handoff set is
+preserved outside this release. Shared Phase-index/strategy synchronization is
+explicitly deferred; the committed active Phase/checklist are authoritative.
+Phase 71.4 and Phase 71.5 remain planned and not started. No push, publication,
+deployment, original external-input change, skill change or version conversion
+is part of this closure.
 
 ## P710-03-SITE: Site/PDF/prebuilt and publication-integrity adapter correction
 
@@ -156,13 +202,13 @@ Repository-full SBT remains deferred-not-run to PHASE-71.4.
 
 Stage Status:
 
-- Current status: IN-PROGRESS
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only against the following checklist and accepted executable evidence
 
 - [x] P710-04-SITE-BEHAVIOR: The corresponding owned scope in Phase 71.3 satisfies its observable behavior and produces the declared frozen handoff; record actual driver/output evidence where required, not a configuration-only claim.
 - [x] P710-04-SITE-SPEC: Affected subsystem specification and Given/When/Then executable specifications, including changed consumers and relevant failure behavior, are reconciled and focused validation succeeds.
-- [ ] P710-04-SITE-ACCEPT: Independent Step acceptance review and the exact Step acceptance commit bind this owned result without claiming successor implementation.
+- [x] P710-04-SITE-ACCEPT: Independent Step acceptance review and the exact Step acceptance commit bind this owned result without claiming successor implementation.
 
 ## S17 focused validation and unchanged baseline passed
 
@@ -222,14 +268,14 @@ Repository-full SBT remains **deferred-not-run to PHASE-71.4**.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only when all owned Step items and the following release ledger are satisfied
 
-- [ ] RELEASE-71.3-HANDOFF: Every owned Step is accepted; the frozen contract/driver/audit handoff and exact predecessor dependency are recorded, with zero unpersisted accepted review findings.
-- [ ] RELEASE-71.3-REVIEW: The mandatory Phase review and any bounded closure repair complete for this exact Phase tree; closure journals and checklist agree.
-- [ ] RELEASE-71.3-VALIDATION: Focused/Step validation succeeds; final-only repository-full validation remains explicitly deferred-not-run to PHASE-71.4, without an ordinary full-suite claim.
-- [ ] RELEASE-71.3-COMMIT: The distinct Phase release commit includes its final closure ledger and correct aggregate validation disposition; no successor is started.
+- [x] RELEASE-71.3-HANDOFF: Every owned Step is accepted; the frozen contract/driver/audit handoff and exact predecessor dependency are recorded, with zero unpersisted accepted review findings.
+- [x] RELEASE-71.3-REVIEW: The mandatory Phase review and any bounded closure repair complete for this exact Phase tree; closure journals and checklist agree.
+- [x] RELEASE-71.3-VALIDATION: Focused/Step validation succeeds; final-only repository-full validation remains explicitly deferred-not-run to PHASE-71.4, without an ordinary full-suite claim.
+- [x] RELEASE-71.3-COMMIT: The distinct Phase release commit includes its final closure ledger and correct aggregate validation disposition; no successor is started.
 
 
 ## S18-replan01 terminal disposition: native input preservation failed
