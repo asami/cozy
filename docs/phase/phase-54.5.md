@@ -23,29 +23,31 @@ missing conceptual links explicitly.
 
 Stage Status:
 - Current status: IN_PROGRESS
-- Current step: S54.5.2 / S54.5.2A
+- Current step: S54.5.3 / S54.5.3A
 - Owner: parent workflow
 - Update rule: parent records actual validation, independent review, and acceptance evidence; the [checklist](phase-54.5-checklist.md) remains the closure basis.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| MMD-545-01 | Publish stable semantic-element to terminology references with vocabulary/profile identity, relation kind, source attribution, and supplied localized/preferred labels. | supplier and navigation accepted; fixture and Phase closure pending |
-| MMD-545-02 | Keep BoK Mono/Koto classification distinct from CML Entity/Event classification. | supplier accepted; fixture and Phase closure pending |
-| MMD-545-03 | Record unsupported conceptual grouping or terminology links as explicit capability gaps. | supplier and navigation accepted; fixture and Phase closure pending |
-| MMD-545-04 | Freeze Terminology/BoK fixtures and handoff for Event Storming and final consumer fixtures. | planned |
+| MMD-545-01 | Publish stable semantic-element to terminology references with vocabulary/profile identity, relation kind, source attribution, and supplied localized/preferred labels. | supplier, navigation and fixture accepted; Phase closure pending |
+| MMD-545-02 | Keep BoK Mono/Koto classification distinct from CML Entity/Event classification. | supplier and fixture accepted; Phase closure pending |
+| MMD-545-03 | Record unsupported conceptual grouping or terminology links as explicit capability gaps. | supplier, navigation and fixture accepted; Phase closure pending |
+| MMD-545-04 | Freeze Terminology/BoK fixtures and handoff for Event Storming and final consumer fixtures. | focused validation and independent Step review accepted; manual Step commit and Phase closure pending |
 
 ## Planned Steps and current evidence
 
 Each class S Step has one Slice. S54.5.1 is CLOSED with validation, independent
 acceptance and commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`. S54.5.2 is
-validated and independently accepted; its manual Step commit is pending.
+CLOSED at acceptance commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`.
+S54.5.3 fixtures and handoff passed focused validation and independent Step
+review; the parent manual Step commit remains pending.
 Phase closure is pending.
 
 | Step / Slice | Observable boundary | Evidence status |
 | --- | --- | --- |
 | S54.5.1 / S54.5.1A | Complete typed supplier, strict versioned wire, independent executable specification, paired spec/design. | CLOSED; 195 tests in 14 suites passed; independent protected review and focused closure passed; acceptance commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`. |
-| S54.5.2 / S54.5.2A | Exact qualified consumer navigation with full Local/External resolution and ordered links. | 205 tests in 15 suites passed; independent Step review and focused repair closure accepted; manual Step commit pending. |
-| S54.5.3 / S54.5.3A | Fixed declared/absence fixtures, peer compatibility and supplier handoff. | Planned; resources, validation and acceptance pending. |
+| S54.5.2 / S54.5.2A | Exact qualified consumer navigation with full Local/External resolution and ordered links. | CLOSED; 205 tests in 15 suites passed; independent Step review and focused repair closure PASS; acceptance commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`. |
+| S54.5.3 / S54.5.3A | Fixed declared/absence fixtures, peer compatibility and supplier handoff. | 214 tests in 16 suites passed; independent complete Step review PASS with no blockers; parent manual Step commit pending. |
 
 The accepted supplier contract is in [spec](../spec/cml-terminology-metadata.md)
 and [design](../design/cml-terminology-metadata.md). TM-01..09 are exercised in
@@ -60,8 +62,17 @@ resolution, explicit gaps, safe shape/membership diagnostics and the fixed-seed
 independent occurrence permutation property. TN-08 and TM-09 each passed 100
 samples with zero discards and all seven actual coverage tags positive.
 Independent Step review and focused repair closure are accepted, with no
-remaining Step blockers. The manual Step commit, fixed fixtures, sole full Phase
-review, ordinary full validation and release closure remain pending. External
+remaining S2 Step blockers. S2 acceptance commit is
+`350175851dfa267aaa35c4cae865ad67f15f0cd8`. Fixed resources and TF-01..09 in
+[CmlTerminologyMetadataFixtureSpec](../../src/test/scala/cozy/modeler/CmlTerminologyMetadataFixtureSpec.scala)
+are authored with complete independent raw/prefix/wire expectations and separate
+peer gates. The [supplier handoff](../design/cml-terminology-metadata-handoff.md)
+records the fixed 55/7 declarations and reproducible sixteen-suite recipe.
+S3 passed 214 tests in 16 suites and independent complete Step review with no
+blockers. TM-09, TN-08 and TF-09 each passed 100 samples with zero discards and
+all seven actual coverage tags positive; TF-09 exercised both modes per sample.
+The manual Step commit, sole full Phase review, ordinary full validation and
+release closure remain pending. External
 consumer acceptance is outside scope.
 
 ## Closure criteria
@@ -71,7 +82,7 @@ consumer acceptance is outside scope.
   resolved by Cozy.
 - Missing terminology semantics remain explicit absence.
 
-The internal supplier and planned navigation/fixtures expose this capability;
+The internal supplier, accepted navigation and accepted fixtures expose this capability;
 external CBD Support integration is outside the current supplier boundary.
 
 ## Non-goals

@@ -1,7 +1,7 @@
 # CML Terminology Metadata Design
 
 Date: 2026-10-04
-Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 navigation validated and independently accepted; manual Step commit pending.
+Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 CLOSED at commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`; S54.5.3 validated and independently accepted; manual Step commit pending.
 
 The [supplier specification](../spec/cml-terminology-metadata.md) fixes the API,
 wire, diagnostics, and executable acceptance scenarios. This design assigns
@@ -111,7 +111,9 @@ navigation, and fixed-fixture/handoff Steps. S1 passed 195 tests in 14 suites,
 independent protected review and focused closure, and is CLOSED at commit
 `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`. Navigation passed 205 tests in 15 suites;
 independent Step review and focused repair closure are accepted. The manual Step
-commit and fixed resources remain pending.
+acceptance commit is `350175851dfa267aaa35c4cae865ad67f15f0cd8`.
+S3 fixed resources passed 214 tests in 16 suites and independent complete Step
+review; the parent manual Step commit remains pending.
 Event Storming belongs to Phase 54.6; final consumer fixture acceptance
 belongs to Phase 54.7. No external CBD Support integration is claimed here.
 
@@ -162,3 +164,38 @@ references, catalog records/Terms and both projection arrays. Both declared and
 explicit absence modes retain anonymous occurrences. Prop.collect records actual
 value-vector changes. TN-08 passed 100 samples with fixed seed 42, zero discards
 and positive actual counts for both modes and all five permutation dimensions.
+
+## Fixed resource oracle and handoff responsibility
+
+The [declared](../../src/test/resources/cozy/modeler/terminology-metadata-v1-declared.json)
+and [explicit-absence](../../src/test/resources/cozy/modeler/terminology-metadata-v1-absence.json)
+fixtures extend the complete accepted Use Case prefix. Their 55 core occurrences
+and seven Terms include two equal anonymous Event records; all occurrences need
+their own Terminology projection. The only peer change is two complete new
+Structure Entity projections, yielding five Structure elements. Original relations,
+Classification/Dynamic/Use Case vectors and four opaque peers remain intact.
+Independent peer readers retain admission responsibility for the same envelope.
+
+The [handoff](cml-terminology-metadata-handoff.md) supplies the exact literal
+identity, source, reference, group, label, classification and gap tables and the
+JSON-only consumer recipe. Entity→Koto and Event→Mono deliberately demonstrate
+separate classification authority. Qualified Local resolution and External
+retention preserve complete carriers; synonym candidates remain opaque and BoK
+curators own meaning. Modeled provenance is synthetic caller data.
+
+TF-01..09 in [the fixture specification](../../src/test/scala/cozy/modeler/CmlTerminologyMetadataFixtureSpec.scala)
+separate accepted prefix authority, raw new typed facts and a pure complete
+test-owned wire renderer. No new resource read or production renderer supplies
+expected declarations. Full typed/vector/JsValue/canonical equality is the oracle;
+there is no saved-output or management-checksum gate. Recursive key rebuilding
+preserves arrays and explicit nulls. Occurrence-index permutations without
+replacement independently vary core references, Catalog/Term order and projection
+orders in both modes per sample, adjust embedded records/filters consistently,
+and collect actual value-vector coverage with seed42 and zero discards.
+The [spec acceptance map](../spec/cml-terminology-metadata.md#fixed-fixture-and-supplier-handoff-contract)
+defines the nine observable families. S3 passed 214 tests in 16 suites and
+independent complete Step review with no blockers. TM-09, TN-08 and TF-09 each
+passed 100 samples, zero discards and all seven positive coverage tags; TF-09
+exercised both modes per sample. The manual Step commit, full Phase review,
+ordinary full validation and distinct release remain pending. Successor and
+external ownership remain as recorded above.

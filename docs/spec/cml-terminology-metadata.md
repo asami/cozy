@@ -1,6 +1,6 @@
 # CML Terminology Metadata
 
-Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 navigation validated and independently accepted; manual Step commit pending.
+Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 CLOSED at commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`; S54.5.3 validated and independently accepted; manual Step commit pending.
 Date: 2026-10-04
 
 This specification defines the internal `private[cozy]` Terminology supplier in
@@ -292,7 +292,8 @@ authors these scenarios with raw Given facts, all build/read/render/query action
 under When, and observable Then assertions. S2 passed 205 tests in 15 suites;
 independent Step review and focused repair closure are accepted. TN-08 passed
 100 fixed-seed samples with zero discards and all seven coverage tags positive.
-The manual Step commit remains pending.
+S54.5.2 is CLOSED at the parent manual local acceptance commit
+`350175851dfa267aaa35c4cae865ad67f15f0cd8`.
 
 | Scenario | Observable behavior |
 | --- | --- |
@@ -305,5 +306,53 @@ The manual Step commit remains pending.
 | TN-07 | Null and malformed IDs on both components of all query families and recursively malformed complete link trees. |
 | TN-08 | Independent occurrence-index permutations in declared/absence modes; minimum 100 successes, zero discards, fixed seed 42, collected positive actual value-change coverage. |
 
-Fixed resources, consumer handoff, Event Storming traversal, and external CBD
-Support acceptance remain subsequent recorded boundaries.
+## Fixed fixture and supplier handoff contract
+
+The fixed UTF-8 [declared](../../src/test/resources/cozy/modeler/terminology-metadata-v1-declared.json)
+and [explicit-absence](../../src/test/resources/cozy/modeler/terminology-metadata-v1-absence.json)
+resources and [supplier handoff](../design/cml-terminology-metadata-handoff.md)
+extend the accepted declared Use Case predecessor's complete 49-record/four-Term
+prefix to 55 core occurrences and seven Terms. The new child covers every core
+and Term occurrence; two complete equal anonymous Event records retain duplicate
+multiplicity. Exactly two new Structure Entity projections are appended to the
+original three. Other prefix carriers and all four opaque peers retain every
+field and order. Event requires no new Dynamic family projection.
+
+New typed expected facts are independent literal declarations. Prefix authority
+comes only from the separately parsed accepted predecessor and its independent
+peer readers. A pure test-owned renderer encodes every full source, reference,
+core and projection field, assembling the complete expected JSON; recursive
+test-owned key sorting supplies its canonical string. New fixture decoding and
+production renderers never provide expectations. Whole JsValue equality guards
+every build/read/render/canonical-reconsumption route. Structure, Classification,
+Dynamic and Use Case independently admit the same expanded resource and retain
+their full catalogs/carrier vectors. Legacy CmlModelMetadataSpec remains its
+separate accumulator gate.
+
+[CmlTerminologyMetadataFixtureSpec](../../src/test/scala/cozy/modeler/CmlTerminologyMetadataFixtureSpec.scala)
+authors these independently identifiable scenario families:
+
+| Scenario | Observable fixture contract |
+| --- | --- |
+| TF-01 | Real declared resource; complete 55/7 core, projection, source, reference, envelope and independent canonical equality. |
+| TF-02 | Real absence resource; all four link gaps, cyclic supplemental gaps, Unsupported groups and anonymous present-empty records. |
+| TF-03 | JSON-only qualified Entity→Koto/Event→Mono questions with full Local/External carriers and opaque candidate/provenance facts. |
+| TF-04 | Authored link/reverse order and duplicates, 11 declared links, TA6/TB2 Local reverse links, known unused Term, exact absence and safe unknown/member boundaries. |
+| TF-05 | Independent prefix and all four peer gates; exact two Structure additions and qualified Use Case→Dynamic→static continuation. |
+| TF-06 | Recursive single-mutation strict shapes, enum/label/Presence/core/reference failures, version precedence and original base PublicationDiagnostic. |
+| TF-07 | Typed/wire missing/excess/forged full records and Terms, equal anonymous occurrences, exact filters and bounded complete groups. |
+| TF-08 | Independent recursive object-key reconstruction, whole wire/canonical equality, authored arrays and explicit nulls. |
+| TF-09 | Seed42 property with both modes per sample, minimum100 successes, zero discards, independent occurrence-index permutations and positive actual coverage. |
+
+Given owns raw literals and mutation/permutation plans; When owns resource I/O,
+predecessor/supplier/peer admission, rendering, queries and Test.check; Then
+observes captured outcomes. Arrays retain authored order and duplicates, with
+reference permutations adjusting exact term filters and embedded peer records.
+S3 passed 214 tests in 16 suites, including TF-01..09. TM-09, TN-08 and TF-09
+each passed 100 samples with zero discards and all seven actual coverage tags
+positive; TF-09 exercised both modes in every sample. Independent complete Step
+review passed with no blockers. The parent manual Step commit remains pending.
+Phase 54.6
+owns Event Storming and Phase 54.7 final consumer fixture acceptance. CNCF runtime
+and external Textus CBD Support integration retain their owners; full Phase
+review, ordinary full validation and distinct release remain pending.

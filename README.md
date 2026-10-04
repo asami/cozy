@@ -198,6 +198,10 @@ Actor → Use Case → Workflow navigation, independent Dynamic/static reader
 admission, and the developer validation recipe. Source attribution is synthetic
 caller data; External references remain opaque and unavailable facts stay explicit.
 
+The [Terminology and BoK supplier handoff](docs/design/cml-terminology-metadata-handoff.md)
+adds fixed declared and explicit-gap fixtures, exact qualified Term navigation,
+independent Mono/Koto and labels, and the sixteen-suite validation recipe.
+
 ---
 
 ## Cozy in the SimpleModeling Workflow
