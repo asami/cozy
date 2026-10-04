@@ -43,19 +43,28 @@ Stage Status:
 
 | Step | Outcome | Status |
 | --- | --- | --- |
-| [S54.6.1](s54.6.1.md) | Derived supplier, strict v1 publication and paired executable specification. | IN_PROGRESS |
-| S54.6.2 | Qualified direct causal/context traversal over admitted Graph. | PLANNED |
+| [S54.6.1](s54.6.1.md) | Derived supplier, strict v1 publication and paired executable specification. | CLOSED |
+| [S54.6.2](s54.6.2.md) | Qualified direct causal/context traversal over admitted Graph. | IN_PROGRESS |
 | S54.6.3 | Fixed declared/absence JSON resources, peer compatibility and final handoff. | PLANNED |
 
-- [ ] S54.6.1 supplier accepted by focused validation, independent review and local Step commit.
+- [x] S54.6.1 supplier accepted by focused validation, independent review and local Step commit.
 - [ ] S54.6.2 traversal accepted by its selected evidence and local Step commit.
 - [ ] S54.6.3 fixtures and final supplier handoff accepted by selected evidence and local Step commit.
 - [ ] All Phase obligations, sole full review, ordinary full tests and distinct release/native audit complete.
 
-The current position is accepted S54.6.1A supplier implementation, successful
-focused compilation and 227 tests in 17 suites, and independent S1 review PASS.
-The parent's manual native local Step commit and actual receipt remain pending,
-so S54.6.1 stays IN_PROGRESS. S54.6.2 and S54.6.3 remain PLANNED; final full
+S54.6.1 is CLOSED with successful focused compilation, 227 tests in 17 suites,
+CM-10 ScalaCheck 100 successes/zero discards/pass, independent S1 review PASS
+and verified native local commit `1d928b39c8b83c533c55dce389cb6c6589640249`.
+The parent retains `P546-S5461-REVIEW-001` revision 1 and
+`s5461-parent-manual-commit-receipt-001.json` (verified) as S1 acceptance evidence.
+S54.6.2 traversal and CT-01..12 are accepted after parent mechanical preflight
+and selected validation: all 239 tests in 18 suites passed, including all 12 CT
+behavior blocks. CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded 100 successes,
+zero discards and passed status; baseline category counts were positive. Fresh
+independent protected-focused S2 review is PASS with no CPB, HYG or DEV items.
+Native local Step commit and its receipt remain pending under the
+[S2 checklist](s54.6.2-checklist.md); S2 remains IN_PROGRESS and S54.6.3 remains
+PLANNED. Final full
 Phase review, full validation, distinct release and native audit remain pending.
 Behavior authority is the [supplier spec](../spec/cml-causal-metadata.md) and
 [design](../design/cml-causal-metadata.md).

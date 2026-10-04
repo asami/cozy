@@ -6,7 +6,11 @@ The S54.6.1 supplier derives a Causal consumer view solely from an admitted
 The paired working specification is
 [`CmlCausalMetadataSpec`](../../src/test/scala/cozy/modeler/CmlCausalMetadataSpec.scala).
 Responsibility and exclusions are in the [design](../design/cml-causal-metadata.md).
-Traversal is pending S54.6.2; fixed resources and final handoff are pending S54.6.3.
+S54.6.2 traversal and CT-01..12 are accepted after selected validation: all 239
+tests in 18 suites passed. CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded
+100 successes, zero discards and passed status. Fresh independent
+protected-focused S2 review is PASS; native local Step commit and its receipt
+remain pending. Fixed resources and final handoff are pending S54.6.3.
 
 ## Supplier API
 
@@ -159,3 +163,110 @@ provenance; CM-09 null/conflict safe diagnostics; CM-10 active ScalaCheck with
 at least 100 successes and zero discards for independent pair, peer-carrier,
 duplicate and recursive key-order properties. The suite checks Test.Result
 status/counts and complete independent expected values, beyond round trips.
+
+## Qualified causal and context traversal
+
+`private[cozy] CmlCausalTraversal` consumes only an admitted Causal Graph.
+Its final `Traversal` has a constructor private to the facade, retains the exact
+`graph`, and exposes `nodes` as every catalog ElementRecord occurrence, including
+anonymous, Query, View, Component and unconnected records, and ordered `allLinks`.
+The paired working specification is
+[`CmlCausalTraversalSpec`](../../src/test/scala/cozy/modeler/CmlCausalTraversalSpec.scala).
+
+```scala
+def build(graph: CmlCausalMetadata.Graph): Either[Vector[CausalDiagnostic], Traversal]
+// Methods on Traversal:
+def node(id: ModelElementId): Either[CausalDiagnostic, ElementRecord]
+def outgoing(id: ModelElementId): Either[CausalDiagnostic, Vector[TraversalLink]]
+def incoming(id: ModelElementId): Either[CausalDiagnostic, Vector[TraversalLink]]
+def causes(id: ModelElementId): Either[CausalDiagnostic, Presence[Vector[TraversalLink]]]
+def consequences(id: ModelElementId): Either[CausalDiagnostic, Presence[Vector[TraversalLink]]]
+def affecting(id: ModelElementId): Either[CausalDiagnostic, Presence[Vector[CausalLinkProjection]]]
+def resolve(link: TraversalLink): Either[CausalDiagnostic, ReferenceTarget]
+```
+
+`TraversalLink` is the immutable complete value `(owner: ElementRecord,
+kind: LinkKind, source: Presence[CmlDynamicMetadata.ModelReference],
+target: Presence[CmlDynamicMetadata.ModelReference], sourceAttribution:
+SourceAttribution, origin: ReferenceOrigin, evidenceField: String,
+evidenceIndex: Int, semanticReference: Option[SemanticReference])`. Evidence
+coordinates describe occurrences; they do not supply node or anonymous identity.
+The closed LinkKind alternatives have these disjoint meanings and emission order
+within each complete catalog owner occurrence:
+
+| Kind | Source / target and evidence |
+| --- | --- |
+| Cause, Reaction | Exact causal carrier endpoints, even absent; `causalLinks`, index 0; owner.source, Declared, None. These alone assert direct causation. |
+| AffectedSubject | Exact causal source to each Present affected subject; `causalLinks.affectedElements`, original array index. |
+| RuleInput, RuleOutput | Exact causal source to Present rule, then rule to exact target; `causalLinks.rule`, indices 0 and 1. Declared rule context, without execution inference. |
+| ActorOperation | Owner identity source to each Present operation; `actorOperations.operations`, original array index. |
+| AggregateMember | Owner identity source to nested aggregate Presence, or exact outer boundary absence; `aggregateBoundaries.aggregate`, index 0. One link per supplied Structure element; membership text remains in Graph. |
+| WorkflowRule | Owner identity source to each Present Workflow or Activity rule; `ruleContexts.rules`, original array index. |
+| Collaborator | Owner identity source to each Present collaborator; `collaboratorContexts.collaborators`, original array index. |
+| ModelReferenceLink | Owner identity source to full ModelTarget pair/boundary; `modelReferences.references`, filtered ModelTarget index; exact reference.source, reference.origin and Some(full SemanticReference). Leading TermTarget values do not advance this index. |
+
+An owner source is Present(Local qualified identity), or the owner's exact
+anonymous identity absence. All context kinds except ModelReferenceLink use
+owner.source, None semanticReference and
+`Derived("cozy.cml.causal.<token>.v1", Vector(owner.source))`, with exact tokens
+`affected-subject`, `rule-input`, `rule-output`, `actor-operation`,
+`aggregate-member`, `workflow-rule`, and `collaborator`. ModelReferenceLink keeps
+complete relation/profile/context/preferredLabel and ordered duplicate Derived
+sources. Absent or empty affected, rule-list, operations, collaborators or
+references emit no extra references; absent causal rule emits neither rule link.
+Direct carriers and supplied Structure member links retain their stated exceptions.
+
+Catalog owner order precedes family order. Each family independently associates
+the nth equal full-record carrier with the nth catalog occurrence; anonymous
+duplicates and authored arrays remain ordered and complete. No ID-only,
+source-only, name-based or first-match correspondence is allowed.
+
+Outgoing and incoming index only Present Local endpoint pairs, independently
+on each side. One absent endpoint leaves the opposite Local adjacency intact.
+Resident External references never enter Local adjacency. Causes and consequences
+select only incoming/outgoing Cause and Reaction respectively. Affecting returns
+complete original causal carrier occurrences whose affectedElements contain the
+exact Local pair, once per matching carrier even with repeated affected entries.
+Equal duplicate carriers remain separate. Aggregate membership never asserts
+aggregate-caused-event; no transitive, reciprocal or policy-execution edge is added.
+Consumers follow direct chains with separate requests; direct cycles do not recurse.
+
+Every ID API first validates and looks up the exact qualified pair. Each component
+must be nonnull, nonempty, Unicode edge-unpadded (including NBSP), and free of ISO
+controls anywhere; internal whitespace remains literal. Missing Dynamic copies
+the exact global causalLinks Absent through causes, consequences and affecting.
+Available empty Dynamic yields Present(empty). Known noncausal/unconnected nodes
+have empty adjacency; unknown nodes fail before global availability is considered.
+
+ReferenceTarget is closed: `LocalTarget(link, element)` returns the exact full
+admitted record, `ExternalTarget(link)` never performs local lookup even for a
+resident pair, and `AbsentTarget(link, absence)` preserves the complete absence.
+Resolve checks full-value allLinks membership before inspecting nested input;
+equivalent immutable copies, including owner.copy, are members. Every nonnull
+malformed or foreign value is UnknownLink; it cannot obtain Local access by
+forging coordinates, provenance or semantic fields.
+
+| Traversal failure | Kind / fixed path / exact detail |
+| --- | --- |
+| Null Graph | InvalidShape / `graph` / `An admitted Causal graph is required.` |
+| Invalid query pair | InvalidShape / `<API>.identity` / `The Causal query identity is invalid.` |
+| Well-formed unknown/unaddressable pair | UnknownElement / `<API>.identity` / `The Causal element identity is unknown or unaddressable.` |
+| Null resolve link | InvalidShape / `resolve.link` / `The Causal traversal link is invalid.` |
+| Any nonnull malformed/foreign link | UnknownLink / `resolve.link` / `The Causal traversal link is not admitted by this graph.` |
+
+These diagnostics never echo supplied IDs, keys or source paths. Build retains
+the admitted Graph without rebuilding publication or inferring absent peers.
+All capability gaps, full carriers and canonical peer/core facts remain available.
+
+CT-01..12 specify the complete ten-kind/nine-field literal oracle, qualified
+identity, one-sided Local adjacency, direct chains/cycles, affected occurrence
+joins, missing versus empty, four absence reasons and gaps, exact provenance,
+full membership, all six ID diagnostics, malformed/null boundaries and active
+ScalaCheck permutations. CT-12 compares independent full links, both qualified
+pair directions, carriers, context and Local/External resolutions after actual
+canonical Causal read, and inspects the actual >=100 successful/0 discarded/passed
+result with an info receipt. S54.6.2 selected validation passed all 239 tests in
+18 suites, including all 12 CT behavior blocks. CT-12, CM-10, TM-09, TN-08 and
+TF-09 each recorded 100 successes, zero discards and passed status. Fresh
+independent protected-focused S2 review is PASS with no CPB, HYG or DEV items;
+native local Step commit and its receipt remain pending.

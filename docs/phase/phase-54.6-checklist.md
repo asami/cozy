@@ -30,9 +30,20 @@ Stage Status:
 - [ ] All three planned Steps have accepted focused validation, independent review and native local Step commits.
 - [ ] Sole full Phase review, ordinary full tests, distinct release and native requirement audit are recorded.
 
-S54.6.1 is IN_PROGRESS; S54.6.2 and S54.6.3 remain PLANNED. All five original
-obligations remain unchecked. S1 supplier implementation, successful focused
-compilation and 227 tests in 17 suites, and independent S1 review PASS are
-accepted. The parent's manual native local Step commit and actual receipt
-remain pending, along with final full Phase review, full validation, distinct
-release and native requirement audit.
+- [x] [S54.6.1](s54.6.1.md) supplier has accepted focused validation, independent review and verified native local Step receipt.
+
+S54.6.1 is CLOSED: focused compilation and 227 tests in 17 suites, CM-10
+100 successes/zero discards/pass and independent S1 review PASS are accepted;
+native commit `1d928b39c8b83c533c55dce389cb6c6589640249` has a verified receipt.
+Actual S1 evidence is retained as `P546-S5461-REVIEW-001` revision 1 and
+`s5461-parent-manual-commit-receipt-001.json` (verified).
+[S54.6.2](s54.6.2.md) traversal and CT-01..12 are accepted after parent mechanical
+preflight and selected validation: all 239 tests in 18 suites passed, including
+all 12 CT behavior blocks. CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded
+100 successes, zero discards and passed status; baseline category counts were
+positive. Fresh independent protected-focused S2 review is PASS with no CPB,
+HYG or DEV items. S2 remains IN_PROGRESS because native local Step commit and
+its receipt remain pending in its [checklist](s54.6.2-checklist.md).
+S54.6.3 is PLANNED. All five
+original Phase obligations remain unchecked, along with final full Phase
+review, full validation, distinct release and native requirement audit.

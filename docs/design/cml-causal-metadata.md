@@ -4,8 +4,12 @@ The [Causal v1 specification](../spec/cml-causal-metadata.md) fixes an additive
 consumer view over the accepted Foundation envelope. Cozy supplies source-grounded
 facts for Textus CBD Support without adding Event Storming as a CML source model.
 The existing [Phase 54.6](../phase/phase-54.6.md) contains supplier, traversal
-and fixture Steps. S54.6.1 implements the supplier; S54.6.2 traversal and S54.6.3
-fixed resources/final handoff are pending.
+and fixture Steps. S54.6.1 is accepted and committed; S54.6.2 traversal is accepted
+after selected validation passed all 239 tests in 18 suites. CT-12, CM-10, TM-09,
+TN-08 and TF-09 each recorded 100 successes, zero discards and passed status.
+Fresh independent protected-focused S2 review is PASS; native local Step commit
+and its receipt remain pending. S54.6.3 fixed resources/final handoff remains
+pending.
 
 ## Source-grounded boundary
 
@@ -66,9 +70,10 @@ hash or immutable transport requirement.
 
 ## Pending consumers and exclusions
 
-S54.6.2 will consume only admitted Graph to provide qualified direct traversal
-and separately typed context references. It will not infer transitive causes,
-reciprocal relations, Workflow co-membership or automatic External resolution.
+S54.6.2 consumes only admitted Graph to provide qualified direct traversal
+and separately typed context references, preserving the exact Graph instance.
+It adds no transitive causes, reciprocal relations, Workflow co-membership or
+automatic External resolution.
 S54.6.3 will exercise actual JSON resources, accepted peer compatibility and
 grounded declared/absence questions, then provide the final supplier handoff.
 Phase 54.7 owns the final all-family Cozy supplier contract and fixtures.
@@ -79,3 +84,49 @@ This supplier adds no parser/DSL, caller-authored causal declarations, generator
 runtime, CLI, UI/site, external resolution, upstream schema/ABI change, dependency
 coordinate change, publication or deployment. Scala 2.12.18 and
 Cozy 0.3.3-SNAPSHOT remain the accepted build boundary.
+
+## Traversal responsibility and value boundary
+
+`CmlCausalTraversal` owns the ten-kind closed link algebra, nine-field immutable
+link, closed Local/External/Absent resolution and final private-constructor
+Traversal. It is an additive consumer of the accepted Graph; it neither changes
+the supplier wire nor bypasses its admission. The complete nodes vector remains
+the catalog vector, and all absent capabilities and full carrier records remain
+accessible through the retained Graph.
+
+Independent method-local occurrence cursors for each carrier family bind full
+ElementRecord equality to catalog occurrences. The resulting links interleave
+families within each owner in the specified order. Separate immutable incoming
+and outgoing indices retain ordered duplicates and select Local sides only.
+The temporary cursors do not escape construction or become shared mutable state.
+One absent side does not destroy evidence on the other side. Exact qualified
+pairs, without normalized or concatenated keys, preserve the accepted identity
+boundary and keep unconnected noncausal nodes addressable.
+
+Cause/Reaction are the only causal strength. Derived tokens document projection
+of actor, affected, rule, workflow, aggregate and collaborator context; they do
+not reinterpret supplied declarations as execution. ModelReferenceLink retains
+its reference's own source/origin and complete SemanticReference. Affecting uses
+a per-carrier Local membership predicate so repeated subject entries cannot
+multiply one carrier and equal duplicate carriers cannot collapse. Consumers
+may follow direct causal steps through separate calls; no recursive closure is
+needed, including for cycles.
+
+Full-value membership is tested before dereferencing a resolve input. A linear
+immutable vector membership comparison avoids hashing malformed nested data
+while accepting equivalent immutable value copies. Only admitted links then
+select Local, External or Absent targets. External targets do not access the
+local node index. The six ID APIs validate and locate a node before availability
+selection, preserving unknown-node precedence over missing Dynamic.
+
+The CT-01..12 executable chapter authors independent complete literal link,
+carrier, adjacency and resolution expectations. Pure fixture helpers own literal
+peer/core wire values; accepted S1 private fixtures remain private. The active
+property varies qualified pairs, equal anonymous payload order, independent
+catalog/peer arrays and recursive keys through actual canonical read. S2 selected
+validation passed all 239 tests in 18 suites, including all 12 CT behavior blocks.
+CT-12, CM-10, TM-09, TN-08 and TF-09 each recorded 100 successes, zero discards
+and passed status. Fresh independent protected-focused S2 review is PASS with no
+CPB, HYG or DEV items; native local Step commit and its receipt remain pending.
+Fixed resource and final handoff consumers remain S54.6.3, with the canonical
+Phase 54.7 supplier boundary unchanged.
