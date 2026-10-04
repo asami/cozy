@@ -274,3 +274,102 @@ admission, bootstrap and equivalent Display projection of those same generated
 files through LUI-ACCEPT-01 remain P76-05/P96-03C. Full-suite validation,
 publication, push, full Phase acceptance/release and either Phase closure
 remain pending. Phase 74 authority and Phase 51 PLANNED are preserved.
+
+## 2026-10-04 — P76-03 local commit and P76-04A documentary preparation
+
+The accepted P76-03 source-generation Step is now committed locally as
+`8a4c1794b7ad4557af5b4260d1233acd07520c6e` on
+`codex/phase-76-logical-ui-producer`. Earlier PREPARED/PENDING entries retain
+their historical meaning. The accepted 322/322 focused tests and independent
+Step review recorded above remain P76-03 source-contract evidence.
+
+Frozen manifest `phase96-cozy76-p76-04a-implementation-manifest-001` r1
+begins only its initial documentary pass. The
+[generated handoff journal](2026-10-04-phase-76-generated-handoff.md) records
+the actual selected ESS2-01 input identity and frozen commands/provenance/
+expected outputs. Both ordinary CLI runs, the focused six-suite accumulator,
+output inspection/equality and actual generated resource delivery remain
+unexecuted/pending; no result is inferred from goldens or prior in-process tests.
+
+The [current checklist](../../../phase/phase-76-checklist.md) retains P76-01..03
+CLOSED, 12/24 obligations accepted and 12 unchecked. P76-04 is IN_PROGRESS
+with all four obligations unchecked; P76-05/06 remain OPEN and Phase 76
+remains IN_PROGRESS. Fresh P76-04 whole-Step independent acceptance and local
+Step commit, CNCF P96-03C/LUI-ACCEPT-01, reciprocal/final full validation,
+full Phase acceptance and release remain pending. No behavioral contract,
+Executable Specification, Phase 74 semantics, Phase 51 PLANNED status or
+retained Goal/review/repair history changes in this documentary pass.
+
+## 2026-10-04 — P76-04A actual evidence delivery
+
+The [generated handoff journal](2026-10-04-phase-76-generated-handoff.md)
+now records parent-admitted actual results of both frozen ordinary CLI runs:
+required definitions/provider emitted in both save roots, all four parent
+first/second and first/golden comparisons exit 0, SBT/wrapper exit 0 and
+serial lock released. The exact first-run UTF-8/LF source is delivered as
+[definitions](../../../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiDefinitions.scala.txt)
+and [provider](../../../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiMetadataProvider.scala.txt).
+The exact frozen six-suite producer/Phase 74 runtime accumulator passed
+254/254 tests with zero failures/aborts/canceled/ignored/pending, compile_failed
+false, SBT/wrapper exit 0 and serial lock released. Actual request/result/log
+identities and unchanged producer/consumer revisions plus the preserved 21-path
+consumer tree are recorded in that journal. No validation was run by this edit.
+
+The second CLI invocation reported a Logback JoranException pointing to a
+removed background-job1 jar; required files were emitted and both invocations
+exited 0. This unresolved logger observation carries no failure-cause claim.
+The corrected earlier missing-file inventory observation resulted from ignore
+filtering, not an admitted product failure or replan.
+
+P76-04 remains IN_PROGRESS, producer-validated with LUI-GEN-01 delivered and
+awaiting fresh independent whole-Step acceptance and local commit. All four
+boxes stay unchecked; totals remain 12 checked / 12 unchecked, P76-01..03
+CLOSED, P76-05/06 OPEN and Phase 76 IN_PROGRESS. Earlier unexecuted entries
+remain preparation history. CNCF same-generated Scala 3 compilation/admission/
+bootstrap/Display LUI-ACCEPT-01 and final reciprocal/full validation, full Phase
+acceptance and release remain pending. Phase 74 authority and Phase 51 PLANNED
+remain unchanged, without a Flutter validation claim.
+
+## 2026-10-04 — P76-04A independent Step acceptance and coordinate M0 closure
+
+The actual two ordinary CLI generations and first-run LUI-GEN-01 delivery in
+the [generated handoff journal](2026-10-04-phase-76-generated-handoff.md)
+are accepted under `phase96-cozy76-p76-04-acceptance-handoff-001` r1.
+Representative request `phase96-cozy76-p76-04a-representative-request-001` r1
+and result `phase96-cozy76-p76-04a-representative-result-001` r1 retain both
+CLI executions. Accumulator request
+`phase96-cozy76-p76-04a-accumulator-request-001` r1 and result
+`phase96-cozy76-p76-04a-accumulator-result-001` r1 retain 254/254 tests across
+six completed producer/Phase 74 runtime suites, with no failures or aborts.
+Both requests have terminal SBT/wrapper exit 0 and shared lock released;
+the prior exact commands, output/provenance and logger caveat remain evidence.
+This entry records admitted results and executes no validation.
+
+Independent Step review `phase96-cozy76-p76-04a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_04a_step_review_001` retains original FINDINGS.
+The sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` is resolved by accepted
+parent M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1
+and proof `phase96-cozy76-p76-04a-coordinate-m0-proof-001` r1, recorded in
+original CNCF ledger `phase96-review-ledger-001` r17. The corrected descriptive
+producer coordinate is `org.simplemodeling:cozy_2.12:0.3.3-SNAPSHOT`, Scala
+`2.12.18`; the consumer remains
+`org.goldenport:goldenport-cncf_3:0.5.3-SNAPSHOT`, Scala `3.3.8`. No actual
+coordinate/version, normative contract or generated bytes change; the review
+is not relabeled PASS. No new HYG/DEV item is admitted and the three known
+P76-03 Hygiene items remain separate follow-up.
+
+All four unchanged P76-04 criteria are accepted in the
+[current checklist](../../../phase/phase-76-checklist.md), giving P76-01..04
+CLOSED with 16/24 checked and 8 unchecked; P76-05/06 remain OPEN and
+Phase 76 remains IN_PROGRESS. P76-01..03 retain their accepted local commits;
+the local P76-04 Step commit is PREPARED/PENDING, not executed.
+Cumulative P76-04 repair cycles remain 0 and consecutive non-converging
+repairs remain 0; this documentary accounting exclusion neither increments
+nor resets them. Original Goal/binding/bases/PLAN epoch, coordinated additions
+and review history are retained; no full Phase review is added.
+
+Earlier journal entries remain their chronological snapshots. Phase 74
+authority and Phase 51 PLANNED are preserved without Flutter execution.
+Same-generated CNCF Scala 3 compilation, ComponentFactory admission/bootstrap
+and Display LUI-ACCEPT-01 (P76-05/P96-03C), final reciprocal/full validation,
+full Phase review/acceptance, release and closure remain pending.

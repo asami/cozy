@@ -50,22 +50,34 @@ properties with at least 100 successful cases. Independent Step review
 `phase96-cozy76-p76-03a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS, attributed to Cozy
 P76-03 in original CNCF primary ledger `phase96-review-ledger-001` r14.
-P76-03 is CLOSED with 12/24 obligations accepted and 12 unchecked;
-P76-04..06 remain OPEN. The local P76-03 Step acceptance commit is
-PREPARED/PENDING, not executed. The received
+P76-01..04 are CLOSED with 16/24 obligations accepted and 8 unchecked;
+P76-05/06 remain OPEN. The local P76-03 Step acceptance commit is
+`8a4c1794b7ad4557af5b4260d1233acd07520c6e`. The received
 fixed LUI-ABI-01 source contract is transcribed in the
 [producer spec](../spec/logical-ui-generated-producer.md) and
 [design](../design/logical-ui-generated-producer.md). Pure-producer executable
 verification and independent Step review are accepted, as are P76-03A's
 renderer, both ordinary in-process routes, optional Realm integration and
-library guards under the source/provider contract only. Actual twice-generated
-CLI LUI-GEN-01 (P76-04), same-generated Scala 3 compilation/factory/bootstrap/
-Display LUI-ACCEPT-01 (P76-05/P96-03C), full Phase acceptance and release
-remain pending; Phase 76
-remains IN_PROGRESS.
+library guards under the source/provider contract only. P76-04 now records
+actual twice-generated CLI LUI-GEN-01 delivery and 254/254 producer/runtime
+tests across six suites, with SBT/wrapper exit 0 and shared lock released.
+Independent Step review `phase96-cozy76-p76-04a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_04a_step_review_001` retains its original FINDINGS
+result; its sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` is resolved by
+accepted parent M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001`
+r1 in original CNCF ledger `phase96-review-ledger-001` r17. All four P76-04
+criteria are accepted under `phase96-cozy76-p76-04-acceptance-handoff-001` r1;
+the local P76-04 Step commit is PREPARED/PENDING, not executed.
+Same-generated Scala 3 compilation/factory/bootstrap/Display
+LUI-ACCEPT-01 (P76-05/P96-03C), full Phase acceptance and release remain
+pending; Phase 76 remains IN_PROGRESS.
 The [contract journal](../journal/2026/10/2026-10-04-phase-76-producer-contract.md)
 records source coordinates, existing consumer focused evidence and documentary
-acceptance. The [ABI proposal](../notes/logical-ui-cncf-producer-abi-proposal.md)
+acceptance. The [generated handoff journal](../journal/2026/10/2026-10-04-phase-76-generated-handoff.md)
+records P76-04A's input, exact commands, actual two-run output parity and
+first-run source delivery, terminal receipts and 254/254 focused tests. The
+second CLI invocation's Logback JoranException is disclosed there.
+The [ABI proposal](../notes/logical-ui-cncf-producer-abi-proposal.md)
 and [reconciliation journal](../journal/2026/10/2026-10-03-phase-76-cncf96-plan-reconciliation.md)
 record the handoff details.
 
@@ -188,9 +200,19 @@ cases. Independent Step review `phase96-cozy76-p76-03a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
 three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
 primary ledger `phase96-review-ledger-001` r14. P76-03's four source-contract
-criteria are accepted; 12/24 obligations are accepted and 12 unchecked.
-The local P76-03 Step acceptance commit is PREPARED/PENDING, not executed.
-Goldens are expectations. Actual twice-generated CLI LUI-GEN-01 (P76-04),
+criteria are accepted; current totals are 16/24 accepted and 8 unchecked
+after P76-04 acceptance.
+The local P76-03 Step acceptance commit is
+`8a4c1794b7ad4557af5b4260d1233acd07520c6e`.
+Goldens are expectations. P76-04 supplies actual twice-generated CLI files
+and 254/254 tests across the six frozen producer/runtime suites, with SBT and
+wrapper exit 0 and shared lock released for both requests. Exact first-run
+[definitions](../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiDefinitions.scala.txt)
+and [provider](../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiMetadataProvider.scala.txt)
+are delivered for CNCF consumption. P76-04's four criteria are accepted by
+the original independent Step review FINDINGS plus accepted parent coordinate
+M0 amendment r1, recorded in original CNCF ledger r17 as described above.
+The local P76-04 Step commit is PREPARED/PENDING, not executed;
 same-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
 (P76-05/P96-03C), full Phase acceptance and release remain pending.
 

@@ -16,9 +16,20 @@ nine suites, including three ScalaCheck properties with at least 100 successful
 cases, and independent Step review `phase96-cozy76-p76-03a-step-review-001`
 r1 PASS by `/root/phase96_cozy76_p76_03a_step_review_001`, attributed in
 original CNCF primary ledger `phase96-review-ledger-001` r14. The local
-P76-03 Step acceptance commit is PREPARED/PENDING, not executed. Actual
-twice-generated ordinary CLI LUI-GEN-01, same-generated Scala 3 consumer
-compilation/factory/bootstrap/Display LUI-ACCEPT-01 and whole-Phase
+P76-03 Step acceptance commit is
+`8a4c1794b7ad4557af5b4260d1233acd07520c6e`. P76-04A's
+[generated handoff journal](../journal/2026/10/2026-10-04-phase-76-generated-handoff.md)
+records actual twice-generated CLI LUI-GEN-01 delivery and 254/254 focused
+producer/runtime tests across six suites, with SBT/wrapper exit 0 and shared
+lock released. P76-04 producer generation handoff is accepted under
+`phase96-cozy76-p76-04-acceptance-handoff-001` r1. Independent Step review
+`phase96-cozy76-p76-04a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_04a_step_review_001` retains original FINDINGS;
+its sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` is resolved by accepted
+parent M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1,
+recorded in original CNCF ledger `phase96-review-ledger-001` r17. The local
+P76-04 Step commit is PREPARED/PENDING, not executed. Same-generated Scala 3
+consumer compilation/factory/bootstrap/Display LUI-ACCEPT-01 and whole-Phase
 verification/release remain pending.
 
 ## Authority and supported boundary
@@ -380,6 +391,10 @@ Independent Step review `phase96-cozy76-p76-03a-step-review-001` r1 by
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS, attributed in original
 CNCF primary ledger `phase96-review-ledger-001` r14. This accepts the P76-03
 source/provider contract and ordinary in-process wiring. The local Step
-acceptance commit is PREPARED/PENDING, not executed. Actual twice-generated
-ordinary CLI LUI-GEN-01, same-generated Scala 3 compilation/factory/bootstrap/
-Display LUI-ACCEPT-01 and whole-Phase verification/release remain pending.
+acceptance commit is `8a4c1794b7ad4557af5b4260d1233acd07520c6e`. P76-04 now
+records actual twice-generated CLI output and 254/254 producer/runtime tests
+across six suites in the generated handoff journal. P76-04 producer handoff
+is accepted by the original independent Step review FINDINGS plus accepted
+parent coordinate M0 amendment r1 in original CNCF ledger r17; its local
+Step commit is PREPARED/PENDING, not executed. Same-generated Scala 3 compilation/factory/bootstrap/Display
+LUI-ACCEPT-01 and whole-Phase verification/release remain pending.

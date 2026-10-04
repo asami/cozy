@@ -16,18 +16,30 @@ tests across nine suites, three ScalaCheck properties with at least 100
 successful cases and independent Step review
 `phase96-cozy76-p76-03a-step-review-001` r1 PASS by
 `/root/phase96_cozy76_p76_03a_step_review_001`, attributed to Cozy P76-03 in
-original CNCF primary ledger `phase96-review-ledger-001` r14: 12/24 obligations
-accepted, 12 unchecked. P76-01..03 are CLOSED and P76-04..06 remain OPEN;
+original CNCF primary ledger `phase96-review-ledger-001` r14. P76-04's four
+producer-regression/generated-handoff obligations are also accepted after the
+original independent Step review and accepted parent coordinate M0 amendment:
+16/24 obligations accepted, 8 unchecked. P76-01..04 are CLOSED and
+P76-05/06 remain OPEN;
 Phase 76 remains IN_PROGRESS. The local P76-01 Step commit is
 `0224d56cd5a1a94ab110b7e776e6922264eb7950`.
 The local P76-02 Step acceptance commit is
 `d9e106ca7d154402487274e189063f4276d0d94a`.
-The local P76-03 Step acceptance commit is PREPARED/PENDING, not executed.
+The local P76-03 Step acceptance commit is
+`8a4c1794b7ad4557af5b4260d1233acd07520c6e`.
 P76-03 acceptance covers the renderer, both ordinary in-process routes,
 optional Realm integration and library guards under the source/provider
-contract only. Actual twice-generated CLI LUI-GEN-01 (P76-04), the same
-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
-(P76-05/P96-03C), full Phase acceptance and release remain pending.
+contract only. P76-04 now supplies actual twice-generated CLI LUI-GEN-01
+delivery and 254/254 focused tests across six suites, with SBT/wrapper exit 0
+and shared lock released. Independent review
+`phase96-cozy76-p76-04a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_04a_step_review_001` retains FINDINGS; its sole
+`CPB-COZY76-P7604-PRODUCER-COORDINATE-001` is resolved by accepted parent M0
+amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1, recorded
+in original CNCF ledger `phase96-review-ledger-001` r17. The local P76-04
+Step commit is PREPARED/PENDING, not executed. Same-generated Scala 3 compilation/factory/
+bootstrap/Display LUI-ACCEPT-01 (P76-05/P96-03C), full Phase acceptance and
+release remain pending.
 Phase 74 remains the semantic
 authority; CNCF Phase 96 owns the Scala 3 consumer ABI and runtime admission.
 The [producer ABI proposal](../notes/logical-ui-cncf-producer-abi-proposal.md)
@@ -111,7 +123,7 @@ consumer acceptance and full Phase acceptance remain pending.
 Stage Status:
 
 - Current status: CLOSED
-- Current step: P76-03A renderer, both ordinary in-process routes, optional Realm integration and library guards accepted after 322/322 focused tests and independent Step review PASS; local Step acceptance commit PREPARED/PENDING, not executed
+- Current step: P76-03A renderer, both ordinary in-process routes, optional Realm integration and library guards accepted after 322/322 focused tests and independent Step review PASS; local Step acceptance commit 8a4c1794b7ad4557af5b4260d1233acd07520c6e
 - Owner: Cozy source-generation owners
 - Update rule: Advance only from generated source and provider specifications against the admitted ABI; the checklist below is the closure basis.
 
@@ -129,11 +141,16 @@ across one suite; accumulator validation passed 266/266 across eight suites:
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS with zero CPB/DEV and
 three nonblocking Hygiene items, attributed to Cozy P76-03 in original CNCF
 primary ledger `phase96-review-ledger-001` r14. All four source-contract
-criteria below are accepted, with 12/24 accepted and 12 unchecked overall.
-The local P76-03 Step acceptance commit is PREPARED/PENDING, not executed.
-Actual twice-generated CLI LUI-GEN-01 (P76-04), same-generated Scala 3
-compilation/factory/bootstrap/Display LUI-ACCEPT-01 (P76-05/P96-03C), full
-Phase acceptance and release evidence remain pending.
+criteria below are accepted, with current totals of 16/24 accepted and
+8 unchecked overall after P76-04 acceptance.
+The local P76-03 Step acceptance commit is
+`8a4c1794b7ad4557af5b4260d1233acd07520c6e`.
+P76-04 now records actual twice-generated CLI LUI-GEN-01 delivery and 254/254
+focused tests across six suites. P76-04 is accepted by the retained independent
+Step review FINDINGS plus accepted coordinate M0 amendment r1 in original CNCF
+ledger r17; its local Step commit is PREPARED/PENDING, not executed.
+Same-generated Scala 3 compilation/factory/bootstrap/Display LUI-ACCEPT-01
+(P76-05/P96-03C), full Phase acceptance and release remain pending.
 
 - [x] Existing generator utilities emit Scala 3 public-ABI definitions and bounded provider/bootstrap metadata in the source shape fixed by LUI-ABI-01, discoverable through CNCF ComponentFactory.
 - [x] Generated source contains no Cozy runtime, Flutter/TFAF, runtime endpoint URL, widget, callback, datastore or client-navigation dependency, and no consumer implementation classes outside the public ABI.
@@ -144,14 +161,35 @@ Phase acceptance and release evidence remain pending.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
+- Current step: P76-04A actual generated LUI-GEN-01 and producer regression accepted by original independent Step review plus parent coordinate M0 amendment; local Step commit PREPARED/PENDING, not executed
 - Owner: Cozy producer validation owners
 - Update rule: Advance only from reproducible generation and affected regression evidence; the checklist below is the closure basis.
 
-- [ ] Focused executable specifications and affected compilation pass for semantic mapping, validation and source/provider generation, with commands, revisions and results recorded.
-- [ ] Existing target-neutral compile-time Logical UI semantics and Phase 74 semantic fixtures remain unchanged, with affected Logical UI/runtime regression evidence; preserve Phase 51 PLANNED Flutter Target Projection without starting it or claiming Flutter source/suite execution.
-- [ ] LUI-GEN-01 supplies the actual generated fixture/provider, input fixture and generation command, exact producer and consumer ABI revisions/coordinates, output identities and deterministic generation evidence.
-- [ ] Producer-local text/golden checks are identified as producer evidence only; the generated artifact is available for the exact CNCF consumer acceptance without requiring a public release or intermediate full-test run.
+The [generated handoff journal](../journal/2026/10/2026-10-04-phase-76-generated-handoff.md)
+records the ordinary input, exact two CLI commands, inspected two-run/golden
+byte parity and actual first-run two-file delivery. Parent-admitted terminal
+receipts have SBT/wrapper exit 0 and shared lock released; the frozen six-suite
+accumulator passed 254/254 tests with no failures or aborts. The second CLI
+invocation reported a Logback JoranException, disclosed in the journal.
+Delivered [definitions](../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiDefinitions.scala.txt)
+and [provider](../../src/test/resources/logicalui/generated/ess2-01/DomainLogicalUiMetadataProvider.scala.txt)
+are producer output for pending CNCF same-source acceptance. Independent
+Step review `phase96-cozy76-p76-04a-step-review-001` r1 by
+`/root/phase96_cozy76_p76_04a_step_review_001` retains original FINDINGS, with
+sole `CPB-COZY76-P7604-PRODUCER-COORDINATE-001` resolved by accepted parent
+M0 amendment `phase96-cozy76-p76-04a-coordinate-m0-amendment-001` r1 in
+original CNCF ledger `phase96-review-ledger-001` r17. Under
+`phase96-cozy76-p76-04-acceptance-handoff-001` r1, all four criteria below
+are accepted, bringing current totals to 16/24 accepted and 8 unchecked.
+Local Step commit is PREPARED/PENDING, not executed. Same-generated Scala 3
+compilation/factory/bootstrap/Display LUI-ACCEPT-01 (P76-05/P96-03C), full
+Phase validation/review/acceptance and release remain pending.
+
+- [x] Focused executable specifications and affected compilation pass for semantic mapping, validation and source/provider generation, with commands, revisions and results recorded.
+- [x] Existing target-neutral compile-time Logical UI semantics and Phase 74 semantic fixtures remain unchanged, with affected Logical UI/runtime regression evidence; preserve Phase 51 PLANNED Flutter Target Projection without starting it or claiming Flutter source/suite execution.
+- [x] LUI-GEN-01 supplies the actual generated fixture/provider, input fixture and generation command, exact producer and consumer ABI revisions/coordinates, output identities and deterministic generation evidence.
+- [x] Producer-local text/golden checks are identified as producer evidence only; the generated artifact is available for the exact CNCF consumer acceptance without requiring a public release or intermediate full-test run.
 
 ## P76-05: CNCF consumer acceptance
 
