@@ -137,3 +137,27 @@ settings are not substitutes.
 
 These properties are executable in `CozyCarLintSpec`,
 `CozyCarReviewProviderSpec`, and `CozyCarPublisherSpec`.
+
+
+## Textus Component Project Area and Git Ignore Baseline
+
+Project scaffolds MUST follow the CNCF Phase 101 Component Project Resource convention. Generated projects MUST include a project-generation-time Git ignore rule equivalent to:
+
+```gitignore
+.textus/*/work.d/
+```
+
+This is the generic Textus rule for all Components. Cozy MUST NOT generate component-specific ignore entries for SQLite files, worktrees, caches, temporary files, or other runtime work resources.
+
+The standard Component project area is logically:
+
+```text
+.textus/<component>/
+  config.yaml / definition files     # version-controlled
+  resources/                         # version-controlled
+  work.d/                            # ignored runtime/work resources
+```
+
+Cozy project generation may create only the directories/files needed by the generated project; it does not need to pre-create every Component area or every `work.d` subdirectory. The stable `.gitignore` rule MUST nevertheless be present so Components introduced later can use CNCF Phase 101 resources without modifying project Git policy.
+
+CNCF Phase 101 owns the logical resource/layout contract. Cozy owns deterministic projection of the project scaffold and baseline `.gitignore`; generated application/domain code MUST NOT depend on the physical layout.
