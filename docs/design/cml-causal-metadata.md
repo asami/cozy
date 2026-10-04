@@ -12,8 +12,17 @@ parent-verified manual native commit `661e11b848102faf143bf5f4dc173e5ab7bcafdd`
 and its actual receipt. S54.6.3 fixed declared/absence resources, CF-01..08 and
 supplier handoff are accepted after parent mechanical preflight and selected
 validation: all 247 tests in 19 suites passed. Fresh independent lightweight S3
-review is PASS with no CPB, HYG or DEV items. The parent's manual native local
-S3 Step commit and actual receipt remain pending; S3 and Phase 54.6 remain IN_PROGRESS.
+review is PASS with no CPB, HYG or DEV items. S3 is CLOSED at parent-verified
+manual native commit `2360d78ac1ee24e4b9e51465d41f669a861283f6` and its actual
+receipt, whose sole parent is S2 `661e11b848102faf143bf5f4dc173e5ab7bcafdd`.
+[Phase 54.6](../phase/phase-54.6.md) is CLOSED with all five original obligations,
+all three native Steps and all four MMD outcomes accepted.
+The sole independent full Phase review passed with no Current Phase Blockers,
+Hygiene or Development Candidates. Ordinary `sbt --batch test` passed 2868
+tests in 201 suites, zero failures/aborted suites, 9 pre-existing optional/deferred
+canceled cases. SBT and wrapper exited zero; the serial lock was released.
+The distinct parent manual local release binds `P546-CLOSURE-001@1`; its native
+commit and closure receipt are verified after committing these final records.
 
 ## Source-grounded boundary
 
@@ -171,10 +180,18 @@ status; baseline category counts were positive. CF-08 exercised both actual
 modes per case: declared and absence counts were each 100, with all seven
 observed categories positive. SBT and wrapper exited 0 and the serialization
 lock was released. Fresh independent lightweight S3 review is PASS with no CPB,
-HYG or DEV items. The parent's manual native local S3 Step commit and actual
-receipt remain pending; S3 and Phase 54.6 remain IN_PROGRESS. All five original
-Phase obligations, sole full Phase review, ordinary full tests, distinct release
-and native audit remain pending; Phase 54.7 remains PLANNED.
+HYG or DEV items. S3 is CLOSED at parent-verified manual native commit
+`2360d78ac1ee24e4b9e51465d41f669a861283f6` and its actual receipt, whose sole
+parent is S2 `661e11b848102faf143bf5f4dc173e5ab7bcafdd`.
+[Phase 54.6](../phase/phase-54.6.md) is CLOSED with all five original obligations,
+all three native Steps and all four MMD outcomes accepted.
+The sole independent full Phase review passed with no Current Phase Blockers,
+Hygiene or Development Candidates. Ordinary `sbt --batch test` passed 2868
+tests in 201 suites, zero failures/aborted suites, 9 pre-existing optional/deferred
+canceled cases. SBT and wrapper exited zero; the serial lock was released.
+The distinct parent manual local release binds `P546-CLOSURE-001@1`; its native
+commit and closure receipt are verified after committing these final records.
+Phase 54.7 remains PLANNED and unstarted.
 Final all-family Cozy supplier policy belongs to Phase 54.7. External Textus CBD
 UI/runtime integration, CNCF execution and downstream acceptance remain with
 the consumer owners. No protected schema, ABI or current production caller changes.

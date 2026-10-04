@@ -206,6 +206,14 @@ independent full Phase review PASS and 2835 successful full tests in 198 suites
 (9 pre-existing optional/deferred cancellations). The final parent manual local
 release binds `P545-CLOSURE-001@1`; external consumer acceptance retains its owner.
 
+The [Causal supplier/traversal handoff](docs/design/cml-causal-metadata-handoff.md)
+and [Causal v1 spec](docs/spec/cml-causal-metadata.md) freeze declared/absence
+fixtures and qualified causal queries. [Phase 54.6](docs/phase/phase-54.6.md)
+is CLOSED with all three native Steps, sole independent full Phase review PASS
+and 2868 successful full tests in 201 suites (9 pre-existing optional/deferred
+canceled cases). The distinct parent manual local release binds `P546-CLOSURE-001@1`;
+its native commit and closure receipt are verified after committing these final records.
+
 ---
 
 ## Cozy in the SimpleModeling Workflow

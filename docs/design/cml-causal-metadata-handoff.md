@@ -103,7 +103,7 @@ CF-08 exercises both actual modes per sample, independently permuting core,
 Terms, peer/reference arrays and recursive keys, with actual result/category
 receipts required before acceptance.
 
-## Observed evidence and pending closure
+## Observed evidence and final closure
 
 S1 is CLOSED at parent-verified native manual commit
 `1d928b39c8b83c533c55dce389cb6c6589640249`, parent original Phase base
@@ -125,11 +125,23 @@ each recorded 100 successes, zero discards and passed status; baseline category
 counts were positive. CF-08 exercised both actual modes per case: declared and
 absence counts were each 100, with all seven observed categories positive. SBT
 and wrapper exited 0 and the serialization lock was released. Fresh independent
-lightweight S3 review is PASS with no CPB, HYG or DEV items. The parent's manual
-native local S3 Step commit and actual receipt remain pending; no native S3
-commit/receipt or final release OID is claimed. S3 and Phase 54.6 remain
-IN_PROGRESS; all five original Phase obligations, sole full Phase review,
-ordinary full tests and distinct release/native requirement audit remain pending.
+lightweight S3 review is PASS with no CPB, HYG or DEV items. The parent verified
+manual native local S3 Step commit `2360d78ac1ee24e4b9e51465d41f669a861283f6`
+and its actual receipt, whose sole parent is S2
+`661e11b848102faf143bf5f4dc173e5ab7bcafdd`; S3 is CLOSED.
+[Phase 54.6](../phase/phase-54.6.md) is CLOSED with all five original obligations,
+all three native Steps and all four MMD outcomes accepted. The sole full Phase
+review covered all 21 accepted paths and all seven whole programs against the
+original Phase base and five original obligations.
+The sole independent full Phase review passed with no Current Phase Blockers,
+Hygiene or Development Candidates. Ordinary `sbt --batch test` passed 2868
+tests in 201 suites, zero failures/aborted suites, 9 pre-existing optional/deferred
+canceled cases. SBT and wrapper exited zero; the serial lock was released.
+The distinct parent manual local release binds `P546-CLOSURE-001@1`; its native
+commit and closure receipt are verified after committing these final records.
+The nine existing cancellations comprise four optional Docker Remotion opt-in
+cases and five CV-04/CV-05/CV-06/SP-01 ownership cases; all 33 current Causal
+behaviors succeeded. Scala 2.12.18 and Cozy 0.3.3-SNAPSHOT remain unchanged.
 
 Phase 54.7 owns final all-family Cozy supplier contract and fixture closure.
 External CNCF/Textus CBD runtime/UI work and consumer acceptance remain with

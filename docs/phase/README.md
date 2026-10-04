@@ -171,8 +171,15 @@ Phase status index (individual Phase/checklist files are authoritative):
   PASS and 2835 successful full tests / 198 suites (9 pre-existing canceled
   cases). Its distinct parent manual local release binds `P545-CLOSURE-001@1`
   and the [Terminology handoff](../design/cml-terminology-metadata-handoff.md).
-  Following children remain PLANNED and unstarted: `phase-54.6.md` Event
-  Storming traversal and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
+  [Phase 54.6](phase-54.6.md) Event Storming traversal is CLOSED with all three
+  native Steps (`1d928b3`, `661e11b`, `2360d78`), 247 focused tests in 19 suites,
+  sole independent full Phase review PASS and 2868 successful full tests in 201
+  suites (9 pre-existing optional/deferred canceled cases). Its distinct parent
+  manual local release binds `P546-CLOSURE-001@1`; its native commit and closure
+  receipt are verified after committing these final records. The
+  [Causal handoff](../design/cml-causal-metadata-handoff.md) is frozen.
+  Only [Phase 54.7](phase-54.7.md) consumer fixtures remains PLANNED and unstarted.
+  The sequence is a Cozy
   semantic supplier for Textus CBD Support and does not implement its UI or
   publish SimpleModeling.org.
 - Closed Document Project scaffold phase: `phase-48.md` adds the
