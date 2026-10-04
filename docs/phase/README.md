@@ -59,10 +59,24 @@ Phase status index (individual Phase/checklist files are authoritative):
   sbt-cozy bridge and `simplemodeling-model` driver receipt. Each child
   completed its own full SBT validation. Neither weakens provenance nor closes
   the independent CNCF Phase 74.1.
-- Planned `sm-workflow` runtime-control sequence: [Phase 66](phase-66.md)
-  adds only Retry / Timeout declaration and ABI lowering; [Phase 67](phase-67.md),
-  [Phase 68](phase-68.md), and [Phase 69](phase-69.md) separately plan
-  scheduling/lifecycle, failure/execution-safety, and semantic iteration.
+- `sm-workflow` runtime-control sequence: [Phase 66](phase-66.md) is
+  COMPLETE at Cozy delivery of Retry / Timeout declarations, deterministic
+  generated ABI and the CNCF handoff. CNCF owns connection and its remaining
+  validation; historical S66.3 metadata receiver/fixture evidence is preserved.
+  [Phase 67](phase-67.md) is COMPLETE at Cozy producer delivery of Deadline,
+  Timer/Wait, Cancellation and durable suspension/resumption metadata, with
+  its [CNCF82 handoff](phase-67-cncf-handoff.md) accepted through S67.1-S67.3.
+  The sole comprehensive review passed; final Cozy validation/local release
+  evidence is recorded in the [checklist](phase-67-checklist.md). CNCF Phase 82 separately
+  owns receiver integration and scheduling/lifecycle runtime behavior.
+  [Phase 68](phase-68.md) is COMPLETE for failure/execution-safety; all three Steps and
+  its [CNCF83 handoff](phase-68-cncf-handoff.md) are accepted. The sole full Phase
+  review and final Cozy validation passed; the containing local release completes
+  closure as recorded in the [checklist](phase-68-checklist.md). CNCF83 owns runtime enforcement.
+  [Phase 69](phase-69.md) is COMPLETE for semantic iteration: all three Steps
+  and the [CNCF84 handoff](phase-69-cncf-handoff.md) are accepted. The sole full
+  Phase review and final Cozy full suite passed; the containing local release
+  closes its [checklist](phase-69-checklist.md). CNCF84 owns receiver/runtime work.
   Cozy owns source semantics and generated ABI; CNCF owns runtime execution.
 - Deferred producer follow-up: [Phase 70](phase-70.md) specifies a future
   generalized Composite StateMachine semantic artifact with typed rules,
@@ -119,17 +133,46 @@ Phase status index (individual Phase/checklist files are authoritative):
   sequence; file updates use declared inputs and modification times, not
   speculative metadata or hash gates.
   The unchanged former numeric successor is [Phase 72](phase-72.md), CML
-  Failure Model; it is not started or renumbered by this split.
+  Failure Model; the split did not start or renumber it. Updated 2026-10-03:
+  Phase 72 is COMPLETE, with SOURCE and ABI accepted at
+  `6c15b65cd83181fdf61aa8674c9a847f79751805` and
+  `1d9c80775e74f7d0ba0dd60f1cf4730ef84c3843`. Its
+  [CNCF91/sm-workflow HANDOFF](phase-72-cncf-handoff.md) is authored with
+  static validation accepted and independent Step review PASS; its manual
+  HANDOFF commit `783a48552de5fa6a4b34a8dfe9c1184f005de62f` is accepted,
+  and the sole Phase-wide review and final full validation passed. The containing
+  local release closes the [checklist](phase-72-checklist.md).
+  Receiver/runtime integration and workflow/AI wiring remain
+  recipient-owned prerequisites.
 - Planned site-production contract after the Phase 74 collision was resolved:
   [Phase 75](phase-75.md) retains the local planned scope under a distinct
   number; GitHub's closed UI Phase 74 remains unchanged.
 - CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
-  publication. `phase-54.1.md` is CLOSED for Structure; following children
-  remain PLANNED: `phase-54.2.md` Classification,
-  `phase-54.3.md` Workflow and StateMachine, `phase-54.4.md` Use Case and
-  Actor, `phase-54.5.md` Terminology/BoK, `phase-54.6.md` Event Storming
-  traversal, and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
+  publication. `phase-54.md` and `phase-54.1.md` are CLOSED;
+  [Phase 54.2](phase-54.2.md) Classification is CLOSED with all three Steps
+  CLOSED (`3cc21f3`, `1294676`, `036a553`). S54.2.3 fixtures/[handoff](../design/cml-classification-metadata-handoff.md)
+  passed 102 focused tests and independent lightweight review. The sole full
+  Phase review and accepted M0 cycle 1 have no remaining blockers. Ordinary
+  full validation passed 2730 tests / 189 suites; this distinct parent manual
+  local release binds the final canonical closure. [Phase 54.3](phase-54.3.md) Workflow and StateMachine is CLOSED with
+  all three Steps (`feb4ba8`, `4a57f37`, `2ef722d`), 141 focused tests, sole
+  full Phase review PASS and 2769 successful full tests / 192 suites
+  (9 pre-existing canceled cases). Its distinct parent manual local
+  release binds P543-CLOSURE-001 revision 1 and the
+  [dynamic handoff](../design/cml-dynamic-metadata-handoff.md). [Phase 54.4](phase-54.4.md) Use Case and Actor is CLOSED with all three
+  Steps (`fcfa285`, `2ea6137`, `8d204fd`), 181 focused tests, sole full Phase
+  review PASS and 2802 successful full tests / 195 suites (9 pre-existing
+  canceled cases). Its distinct parent manual local release binds
+  P544-CLOSURE-001 revision 1 and the
+  [Use Case handoff](../design/cml-use-case-metadata-handoff.md).
+  [Phase 54.5](phase-54.5.md) Terminology/BoK is CLOSED with all three Steps
+  (`81cd3bb`, `3501758`, `09d9ca8`), 214 focused tests, sole full Phase review
+  PASS and 2835 successful full tests / 198 suites (9 pre-existing canceled
+  cases). Its distinct parent manual local release binds `P545-CLOSURE-001@1`
+  and the [Terminology handoff](../design/cml-terminology-metadata-handoff.md).
+  Following children remain PLANNED and unstarted: `phase-54.6.md` Event
+  Storming traversal and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
   semantic supplier for Textus CBD Support and does not implement its UI or
   publish SimpleModeling.org.
 - Closed Document Project scaffold phase: `phase-48.md` adds the
