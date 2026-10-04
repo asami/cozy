@@ -1,6 +1,6 @@
 # CML Terminology Metadata
 
-Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 CLOSED at commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`; S54.5.3 validated and independently accepted; manual Step commit pending.
+Status: Phase 54.5 CLOSED; S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 CLOSED at commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`; S54.5.3 CLOSED at commit `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`; final release binding `P545-CLOSURE-001@1`.
 Date: 2026-10-04
 
 This specification defines the internal `private[cozy]` Terminology supplier in
@@ -351,8 +351,14 @@ reference permutations adjusting exact term filters and embedded peer records.
 S3 passed 214 tests in 16 suites, including TF-01..09. TM-09, TN-08 and TF-09
 each passed 100 samples with zero discards and all seven actual coverage tags
 positive; TF-09 exercised both modes in every sample. Independent complete Step
-review passed with no blockers. The parent manual Step commit remains pending.
+review passed with no blockers. The S3 acceptance commit is `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`.
 Phase 54.6
 owns Event Storming and Phase 54.7 final consumer fixture acceptance. CNCF runtime
-and external Textus CBD Support integration retain their owners; full Phase
-review, ordinary full validation and distinct release remain pending.
+and external Textus CBD Support integration retain their owners.
+
+The sole independent full Phase review passed with no blockers, Hygiene or
+Development Candidates. Ordinary `sbt --batch test` passed 2835 tests in 198
+suites, with zero failures or aborted suites and 9 pre-existing optional/deferred
+canceled cases. SBT and wrapper exited zero; the serial lock was released.
+The distinct parent manual local release binds `P545-CLOSURE-001@1`; its native
+commit and closure receipt are verified after committing these final records.

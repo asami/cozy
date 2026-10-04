@@ -1,7 +1,7 @@
 # CML Terminology and BoK Metadata Supplier Handoff
 
 Date: 2026-10-04
-Status: S54.5.3 validated and independently accepted; manual Step commit pending. Phase closure pending.
+Status: Phase 54.5 CLOSED; S54.5.3 CLOSED at `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`; final release binding `P545-CLOSURE-001@1`.
 Owner: Cozy metadata supplier; glossary/BoK curators own meaning and synonym decisions.
 
 ## Artifacts and admission boundary
@@ -213,10 +213,17 @@ aborted suites, SBT and wrapper exit zero, and the serial lock released.
 TM-09, TN-08 and TF-09 each passed 100 samples with zero discards and all seven
 actual coverage tags positive; TF-09 exercised both modes in every sample.
 Independent complete Step review passed with no blockers. The parent manual
-Step commit remains pending.
+Step acceptance commit is `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`.
 
 Phase 54.6 owns Event Storming traversal; Phase 54.7 owns final consumer fixture
 acceptance. CNCF owns runtime realization and Textus CBD Support owns external
-integration, views and acceptance. None is claimed completed here. The sole full
-Phase review, ordinary full validation and distinct release remain pending in
-the [Phase](../phase/phase-54.5.md) and [checklist](../phase/phase-54.5-checklist.md).
+integration, views and acceptance. None is claimed completed here. The
+[Phase](../phase/phase-54.5.md) and [checklist](../phase/phase-54.5-checklist.md)
+record the completed Cozy supplier boundary.
+
+The sole independent full Phase review passed with no blockers, Hygiene or
+Development Candidates. Ordinary `sbt --batch test` passed 2835 tests in 198
+suites, with zero failures or aborted suites and 9 pre-existing optional/deferred
+canceled cases. SBT and wrapper exited zero; the serial lock was released.
+The distinct parent manual local release binds `P545-CLOSURE-001@1`; its native
+commit and closure receipt are verified after committing these final records.

@@ -1,7 +1,7 @@
 # CML Terminology Metadata Design
 
 Date: 2026-10-04
-Status: S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 CLOSED at commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`; S54.5.3 validated and independently accepted; manual Step commit pending.
+Status: Phase 54.5 CLOSED; S54.5.1 CLOSED at commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`; S54.5.2 CLOSED at commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`; S54.5.3 CLOSED at commit `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`; final release binding `P545-CLOSURE-001@1`.
 
 The [supplier specification](../spec/cml-terminology-metadata.md) fixes the API,
 wire, diagnostics, and executable acceptance scenarios. This design assigns
@@ -113,7 +113,7 @@ independent protected review and focused closure, and is CLOSED at commit
 independent Step review and focused repair closure are accepted. The manual Step
 acceptance commit is `350175851dfa267aaa35c4cae865ad67f15f0cd8`.
 S3 fixed resources passed 214 tests in 16 suites and independent complete Step
-review; the parent manual Step commit remains pending.
+review; the parent manual Step acceptance commit is `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`.
 Event Storming belongs to Phase 54.6; final consumer fixture acceptance
 belongs to Phase 54.7. No external CBD Support integration is claimed here.
 
@@ -196,6 +196,12 @@ The [spec acceptance map](../spec/cml-terminology-metadata.md#fixed-fixture-and-
 defines the nine observable families. S3 passed 214 tests in 16 suites and
 independent complete Step review with no blockers. TM-09, TN-08 and TF-09 each
 passed 100 samples, zero discards and all seven positive coverage tags; TF-09
-exercised both modes per sample. The manual Step commit, full Phase review,
-ordinary full validation and distinct release remain pending. Successor and
-external ownership remain as recorded above.
+exercised both modes per sample. S3 is CLOSED at `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`.
+
+The sole independent full Phase review passed with no blockers, Hygiene or
+Development Candidates. Ordinary `sbt --batch test` passed 2835 tests in 198
+suites, with zero failures or aborted suites and 9 pre-existing optional/deferred
+canceled cases. SBT and wrapper exited zero; the serial lock was released.
+The distinct parent manual local release binds `P545-CLOSURE-001@1`; its native
+commit and closure receipt are verified after committing these final records.
+Successor and external ownership remain as recorded above.

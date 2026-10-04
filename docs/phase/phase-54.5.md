@@ -1,6 +1,6 @@
 # Phase 54.5: Terminology and BoK Semantic References
 
-Status: IN_PROGRESS
+Status: CLOSED
 
 Plan date: 2026-09-17
 Implementation start: 2026-10-04
@@ -22,32 +22,32 @@ missing conceptual links explicitly.
 ## In-scope work
 
 Stage Status:
-- Current status: IN_PROGRESS
-- Current step: S54.5.3 / S54.5.3A
+- Current status: CLOSED
+- Current step: all three Steps CLOSED; Phase closure
 - Owner: parent workflow
 - Update rule: parent records actual validation, independent review, and acceptance evidence; the [checklist](phase-54.5-checklist.md) remains the closure basis.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| MMD-545-01 | Publish stable semantic-element to terminology references with vocabulary/profile identity, relation kind, source attribution, and supplied localized/preferred labels. | supplier, navigation and fixture accepted; Phase closure pending |
-| MMD-545-02 | Keep BoK Mono/Koto classification distinct from CML Entity/Event classification. | supplier and fixture accepted; Phase closure pending |
-| MMD-545-03 | Record unsupported conceptual grouping or terminology links as explicit capability gaps. | supplier, navigation and fixture accepted; Phase closure pending |
-| MMD-545-04 | Freeze Terminology/BoK fixtures and handoff for Event Storming and final consumer fixtures. | focused validation and independent Step review accepted; manual Step commit and Phase closure pending |
+| MMD-545-01 | Publish stable semantic-element to terminology references with vocabulary/profile identity, relation kind, source attribution, and supplied localized/preferred labels. | CLOSED; supplier, navigation, fixtures and Phase acceptance |
+| MMD-545-02 | Keep BoK Mono/Koto classification distinct from CML Entity/Event classification. | CLOSED; independent classifications and fixture acceptance |
+| MMD-545-03 | Record unsupported conceptual grouping or terminology links as explicit capability gaps. | CLOSED; supplier, navigation, fixtures and Phase acceptance |
+| MMD-545-04 | Freeze Terminology/BoK fixtures and handoff for Event Storming and final consumer fixtures. | CLOSED; fixtures, handoff, validation, sole full review and release binding |
 
 ## Planned Steps and current evidence
 
 Each class S Step has one Slice. S54.5.1 is CLOSED with validation, independent
 acceptance and commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`. S54.5.2 is
 CLOSED at acceptance commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`.
-S54.5.3 fixtures and handoff passed focused validation and independent Step
-review; the parent manual Step commit remains pending.
-Phase closure is pending.
+S54.5.3 is CLOSED at `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca` after
+214 tests in 16 suites and independent complete Step review PASS.
+All five checklist obligations are accepted; the final release binds Phase closure.
 
 | Step / Slice | Observable boundary | Evidence status |
 | --- | --- | --- |
 | S54.5.1 / S54.5.1A | Complete typed supplier, strict versioned wire, independent executable specification, paired spec/design. | CLOSED; 195 tests in 14 suites passed; independent protected review and focused closure passed; acceptance commit `81cd3bbcbaaa293c1cc7a7a33901aa99b8d7c2cc`. |
 | S54.5.2 / S54.5.2A | Exact qualified consumer navigation with full Local/External resolution and ordered links. | CLOSED; 205 tests in 15 suites passed; independent Step review and focused repair closure PASS; acceptance commit `350175851dfa267aaa35c4cae865ad67f15f0cd8`. |
-| S54.5.3 / S54.5.3A | Fixed declared/absence fixtures, peer compatibility and supplier handoff. | 214 tests in 16 suites passed; independent complete Step review PASS with no blockers; parent manual Step commit pending. |
+| S54.5.3 / S54.5.3A | Fixed declared/absence fixtures, peer compatibility and supplier handoff. | 214 tests in 16 suites passed; independent complete Step review PASS with no blockers; acceptance commit `09d9ca8cc0d6188dc3d009764ce8ded24825b4ca`. |
 
 The accepted supplier contract is in [spec](../spec/cml-terminology-metadata.md)
 and [design](../design/cml-terminology-metadata.md). TM-01..09 are exercised in
@@ -71,9 +71,13 @@ records the fixed 55/7 declarations and reproducible sixteen-suite recipe.
 S3 passed 214 tests in 16 suites and independent complete Step review with no
 blockers. TM-09, TN-08 and TF-09 each passed 100 samples with zero discards and
 all seven actual coverage tags positive; TF-09 exercised both modes per sample.
-The manual Step commit, sole full Phase review, ordinary full validation and
-release closure remain pending. External
-consumer acceptance is outside scope.
+The sole independent full Phase review passed with no blockers, Hygiene or
+Development Candidates. Ordinary `sbt --batch test` passed 2835 tests in 198
+suites, with zero failures or aborted suites and 9 pre-existing optional/deferred
+canceled cases. SBT and wrapper exited zero; the serial lock was released.
+The distinct parent manual local release binds `P545-CLOSURE-001@1`; its native
+commit and closure receipt are verified after committing these final records.
+External consumer acceptance is outside scope.
 
 ## Closure criteria
 

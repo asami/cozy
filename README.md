@@ -201,6 +201,10 @@ caller data; External references remain opaque and unavailable facts stay explic
 The [Terminology and BoK supplier handoff](docs/design/cml-terminology-metadata-handoff.md)
 adds fixed declared and explicit-gap fixtures, exact qualified Term navigation,
 independent Mono/Koto and labels, and the sixteen-suite validation recipe.
+[Phase 54.5](docs/phase/phase-54.5.md) is CLOSED with all three Step commits,
+independent full Phase review PASS and 2835 successful full tests in 198 suites
+(9 pre-existing optional/deferred cancellations). The final parent manual local
+release binds `P545-CLOSURE-001@1`; external consumer acceptance retains its owner.
 
 ---
 
