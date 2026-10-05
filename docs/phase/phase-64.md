@@ -64,7 +64,7 @@ term identity model.
 | ID | Outcome | Status |
 | --- | --- | --- |
 | CAP-64-01 | Freeze the Application/Component Capability IR, identity/reference model, and semantic-reference boundary against Phase 54 and CNCF Phase 78. | closed |
-| CAP-64-02 | Admit CML syntax and parser/metamodel support for Application and Component Capability without Use Case Group containment semantics. | planned |
+| CAP-64-02 | Admit CML syntax and parser/metamodel support for Application and Component Capability without Use Case Group containment semantics. | closed |
 | CAP-64-03 | Implement semantic validation and source-correlated diagnostics, including Goal/Use Case, Capability, realization, and admitted Glossary/BoK references. | planned |
 | CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Application Capability as the application-management IR. | planned |
 | CAP-64-05 | Prove CNCF admission and cbd-support consumption with a real fixture covering Use Case-to-Capability discovery evidence and terminology grounding. | planned |
@@ -82,6 +82,48 @@ This acceptance freezes semantic records and references. Actual Scala IR,
 syntax/parser/metamodel, diagnostics, generation, and real producer/admission/
 consumer proof remain CAP-64-02 through CAP-64-05. It supplies no executable
 or Textus CBD Support CAP-11-01 acceptance. Phase 64 remains in progress.
+
+## CAP-64-02 acceptance
+
+The initial authored grammar now uses a separate top-level CAPABILITY-MODEL
+and direct Application, Component and declaration containers. Private immutable
+Scala IR and the callable SourceInput normalization entry retain every R3
+carrier, explicit provided/required direction, all three realization kinds and
+per-document source authority/path/revisions. Two real CML resources and
+C64P01–25 executable cases, including active ScalaCheck properties, are authored.
+The [specification](../spec/cml-capability-model.md#initial-authored-cml-grammar)
+owns exact grammar and source rules; the
+[design](../design/cml-capability-model.md#original-cml-documents-and-normalization-responsibilities)
+maps the eight implementation modules.
+
+The 16-file Step and 39-path supporting contract/consumer boundary passed
+independent protected Step review at GPT-6.1 Sol high on 2026-10-05, with no
+current Step blockers or Hygiene. All four CAP-64-02 checklist criteria are
+complete. Real-parser acceptance passed 25/25 cases on subject revision 7
+after surplus terminal blank lines were removed from the two CML fixtures.
+The parent accepted this exact spacing-only amendment under the original
+independent review; all nonterminal fixture content and expectations remain
+unchanged. The retained IR/Foundation/legacy accumulator passed 68/68 cases
+on revision 6, including two properties requiring 100 active and zero
+discarded samples. Its unchanged suites and consumed inputs remain relevant;
+the original result retains revision 6. Both focused executions compiled
+their selected main/Test inputs and released the serial lock. Parent
+mechanical and diff checks passed.
+
+One nonblocking upstream parser Development Candidate is tracked by the
+coordinating Phase 11. Equivalent JSON Unicode escapes preserve decoded
+quote/backslash IDs through actual Kaleidox parsing; this evidence does not
+claim support for every equivalent escaped-quote spelling or an upstream
+parser repair. Phase 64 remains in progress and full validation remains a
+separate release obligation.
+
+Parsed results prove no semantic graph admission: duplicate IDs or
+declaration keys, Local target resolution, dependency cycles, repeated-key
+agreement, version compatibility and target ABI checks remain CAP-64-03.
+CAP-64-04 owns generation against CNCF's accepted v1 contract and Phase 63.1
+multi-CML provenance. CAP-64-05 owns real producer/admission/consumer evidence.
+These authored parser inputs are not generated CNCF resources. CNCF target
+adapters/discovery, CBD CAP-11-01 and Phase closure are not established here.
 
 ## Required behavior
 

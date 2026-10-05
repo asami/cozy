@@ -38,15 +38,47 @@ Acceptance evidence (2026-10-05):
 ## CAP-64-02: CML syntax and normalization
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy CML parser/metamodel owner
 - Update rule: Mark DONE only after syntax is promoted into design/spec and
   parser/metamodel executable specifications pass.
+- Closure basis: All four items below are checked against the promoted
+  syntax/source contract, real-parser executable proof and independent
+  protected Step review.
 
-- [ ] Resolve provisional keyword choices against existing CML syntax.
-- [ ] Parse and normalize Application and Component Capability declarations.
-- [ ] Represent provided/required direction and realization mapping explicitly.
-- [ ] Preserve cross-file and multi-CML source identity deterministically.
+- [x] Resolve provisional keyword choices against existing CML syntax.
+- [x] Parse and normalize Application and Component Capability declarations.
+- [x] Represent provided/required direction and realization mapping explicitly.
+- [x] Preserve cross-file and multi-CML source identity deterministically.
+
+Acceptance evidence (2026-10-05):
+
+- Exact initial syntax is promoted into the
+  [specification](../spec/cml-capability-model.md#initial-authored-cml-grammar)
+  and private module responsibilities into the
+  [design](../design/cml-capability-model.md#original-cml-documents-and-normalization-responsibilities).
+- Private R3 carriers and SourceInput normalization retain distinct
+  Application/Component definitions, full directional declarations, three
+  realization kinds, independent revisions and per-document envelopes.
+- The 16-file Step and 39-path contract/consumer boundary passed independent
+  protected Step review at GPT-6.1 Sol high, with no current Step blockers or
+  Hygiene. One nonblocking upstream parser Development Candidate is tracked
+  separately by the coordinating Phase 11.
+- Real-parser acceptance passed 25/25 cases on subject revision 7 after
+  surplus terminal blank lines were removed from the two CML fixtures. The
+  parent accepted this exact spacing-only amendment under the original
+  independent review; all nonterminal fixture content and expectations remain
+  unchanged. The retained IR/Foundation/legacy accumulator passed 68/68 cases
+  on revision 6, including two properties requiring 100 active and zero
+  discarded samples. Its unchanged suites and consumed inputs remain relevant;
+  the original result retains revision 6. Both focused executions compiled
+  their selected main/Test inputs and completed with released serial locks.
+  Parent mechanical and diff checks passed.
+- The quote/backslash property retains decoded literal IDs through equivalent
+  JSON Unicode escapes and actual Kaleidox parsing. It does not assert every
+  equivalent escaped-quote spelling is accepted by the upstream parser.
+- Parsed syntax/source facts are not semantic admission or generated CNCF
+  output. CAP-64-03 through CAP-64-05 and CBD CAP-11-01 remain incomplete.
 
 ## CAP-64-03: Validation and diagnostics
 

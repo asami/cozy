@@ -1,8 +1,9 @@
 # CML Capability Model Design
 
 This document describes the stable structure and responsibility boundaries of
-Capability Model IR. The [Capability Model specification](../spec/cml-capability-model.md)
-owns normative semantics and conceptual carriers. [Phase 64](../phase/phase-64.md)
+Capability Model IR and its private CML normalization implementation.
+The [Capability Model specification](../spec/cml-capability-model.md)
+owns normative semantics, carriers and authored grammar. [Phase 64](../phase/phase-64.md)
 and its [checklist](../phase/phase-64-checklist.md) own progress and acceptance.
 
 ## Application and Component kinds with common Foundation identities
@@ -92,3 +93,50 @@ assigns syntax and actual IR to CAP-64-02, validation to CAP-64-03, generation t
 CAP-64-04, and real producer/admission/consumer proof to CAP-64-05. It separates
 this conceptual contract from the implementation and executable evidence needed
 for the downstream ingestion boundary.
+
+## Original CML documents and normalization responsibilities
+
+The caller pairs each separately parsed Kaleidox document with explicit source
+scope before any legacy aggregate merge. The normalization entry consumes
+original logical sections, using containment filtering to keep promoted
+divisions attached to their original parent. Its result is an ordered vector
+of parsed document envelopes. Retaining the envelope makes source authority,
+path and per-document compatibility available to the future validator without
+flattening or choosing among records.
+
+The [private input contract](../spec/cml-capability-model.md#private-scala-ir-and-per-document-input)
+and [authored grammar](../spec/cml-capability-model.md#initial-authored-cml-grammar)
+own the exact API, syntax and rejection behavior. Legacy CAPABILITY and metadata
+remain separate programs. The private entry needs no existing Modeler,
+Kaleidox, Foundation or deployment-style integration edit.
+
+| Module | Structural responsibility |
+| --- | --- |
+| [CmlCapabilityModel](../../src/main/scala/cozy/modeler/CmlCapabilityModel.scala) | Immutable R3 records and distinct closed Capability, direction, role and realization-target families; actual Foundation and Java ComponentId types. |
+| [CmlCapabilitySource](../../src/main/scala/cozy/modeler/CmlCapabilitySource.scala) | Revision-bearing source/origin, explicit source input/document envelopes, syntax issue carriers and lexical primitives. |
+| [CmlCapabilityCml](../../src/main/scala/cozy/modeler/CmlCapabilityCml.scala) | Private callable SourceInput entry, parser failure/scope gate and all-or-nothing document results. |
+| [CmlCapabilityCmlSectionsPart](../../src/main/scala/cozy/modeler/CmlCapabilityCmlSectionsPart.scala) | Original-section extraction, role-aware traversal, physical field-line grammar and actual section locations. |
+| [CmlCapabilityJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityJsonPart.scala) | Duplicate-aware single JSON value boundary and shared closed fields, scalar, array and Presence decoding. |
+| [CmlCapabilityDefinitionJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityDefinitionJsonPart.scala) | Application/Component definitions and distinct versioned mapping/dependency targets. |
+| [CmlCapabilityReferenceJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityReferenceJsonPart.scala) | Foundation qualified identities/targets, model links, grounding, independent traceability and source/origin decoding. |
+| [CmlCapabilityDeclarationJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityDeclarationJsonPart.scala) | Shared canonical Component references, complete declarations, repeated realization keys and compatibility. |
+
+The three carrier/entry objects are private to Cozy; decoding and section
+helpers are private to the modeler package. Closed field decoders stage typed
+values only after successful decoding. Independent field and array outcomes
+retain deterministic issue order; immutable records are assembled only when
+their required structure succeeds. Jackson validates duplicate keys and the
+single-value boundary before Play JSON can construct an object map.
+
+Authored source line/revision and parser section location have distinct roles.
+Direct sources bind to the document's explicit scope; derivation inputs can
+retain foreign source scopes. The future semantic validator receives unresolved
+duplicates and graph/target facts through these same parsed envelopes, then
+owns semantic admission and structured resolution. The generator consumes
+validated facts under CAP-64-04 and the accepted CNCF external contract.
+
+The [C64P executable case map](../spec/cml-capability-model.md#authored-executable-normalization-cases)
+links two real separately parsed CML resources, complete typed expectations and
+active property specifications. These inputs demonstrate authored syntax and
+normalization when validated; they supply no generated producer/admission/CBD
+proof. CAP-64-02 validation and independent acceptance remain pending.

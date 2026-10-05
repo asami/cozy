@@ -1,0 +1,29 @@
+# CAPABILITY-MODEL
+compatibility = {"state":"ABSENT","reason":"NotRepresented","detail":"Compatibility unavailable in this document."}
+
+## APPLICATION-CAPABILITY
+### Remote application
+identity = {"modelId":"Other:能力/B","elementId":"Application:Remote"}
+contractVersion = "app:v1"
+name = "Remote"
+summary = {"state":"ABSENT","reason":"NotDeclared","detail":"No summary declared."}
+description = {"state":"PRESENT","value":"Remote description"}
+source = {"modelAuthority":"Other:能力/B","path":"model/capability-model-secondary.cml","sourceRevision":"secondary-definition-r20","line":null}
+demandReferences = {"state":"PRESENT","value":[]}
+discoveryReferences = {"state":"PRESENT","value":[]}
+componentMappings = {"state":"PRESENT","value":[]}
+dependencies = {"state":"PRESENT","value":[]}
+grounding = {"state":"PRESENT","value":[]}
+traceability = {"state":"PRESENT","value":[]}
+
+## COMPONENT-CAPABILITY
+### Remote component
+identity = {"modelId":"Other:能力/B","elementId":"Component:Remote"}
+contractVersion = "contract:二"
+name = "Remote"
+summary = {"state":"ABSENT","reason":"NotDeclared","detail":"No summary declared."}
+description = {"state":"PRESENT","value":"Remote description"}
+source = {"modelAuthority":"Other:能力/B","path":"model/capability-model-secondary.cml","sourceRevision":"secondary-definition-r20","line":null}
+discoveryReferences = {"state":"PRESENT","value":[]}
+grounding = {"state":"PRESENT","value":[]}
+traceability = {"state":"PRESENT","value":[]}

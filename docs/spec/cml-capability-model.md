@@ -1,15 +1,17 @@
 # CML Capability Model Specification
 
-Status: normative semantic IR contract
+Status: normative semantic IR and private CML normalization contract
 
 ## Authority and scope
 
 This specification defines the conceptual Application Capability and Component
 Capability IR, its qualified identities, declarations, relationships, versions,
 provenance, grounding, and validation boundaries. R1 through R12 are normative.
-The carrier tables describe required semantic data, not an implemented Scala
-facade, codec, admitted Graph, CML syntax, or external wire shape. E1 through E12
-are expected semantic examples, not executed tests or fixtures.
+The R3 tables describe semantic data. The private Scala IR and initial authored
+CML syntax are specified below for CAP-64-02. Parsed documents are not admitted
+Graphs or CNCF projections. E1 through E12 remain expected semantic examples;
+the C64P executable cases below have been authored, with validation and
+independent Step acceptance pending.
 
 The [Capability Model design](../design/cml-capability-model.md) provides
 structural context. The [CML Semantic Foundation](cml-semantic-foundation.md)
@@ -34,8 +36,9 @@ axis and MAY exist independently of Use Cases. Component Capability expresses
 the CNCF architectural contract independently of executable realization.
 
 Both families MUST NOT hold execution, scheduling, retry, compensation,
-authorization, Availability, Permission, Guard, or runtime state. This semantic
-Step selects neither source constructs nor public Scala or wire APIs.
+authorization, Availability, Permission, Guard, or runtime state. The original
+semantic Step selects no public Scala or wire API. CAP-64-02's private source
+constructs are specified below.
 
 ### R2 Exact qualified identity and contract version
 
@@ -251,12 +254,14 @@ these domains substitutes for stable Capability identity or its contract version
 CNCF CAP-78-02 owns concrete external wire keys, codec, and the exact supported
 ABI set. Cozy CAP-64-04 MUST consume that accepted contract before generating
 output. This specification freezes no guessed ABI, extension namespace,
-resource filename, JSON shape, or CML keyword.
+resource filename or external JSON shape. The private CML field grammar below
+is separate from the generated CNCF projection.
 
 ### R12 Implementation and proof boundary
 
-This Step freezes semantic IR and conceptual carriers only. The remaining work
-is separately owned:
+CAP-64-01 freezes semantic IR and conceptual carriers. CAP-64-02 adds the private
+typed IR and source normalization below. The implementation and proof owners
+remain separate:
 
 | Step | Implementation and executable proof responsibility |
 | --- | --- |
@@ -264,6 +269,17 @@ is separately owned:
 | CAP-64-03 | Structured validation and source-correlated diagnostics. |
 | CAP-64-04 | Deterministic multi-CML generation against the accepted CNCF external contract. |
 | CAP-64-05 | Real producer, admission, and consumer proof. |
+
+Successful CAP-64-02 normalization proves syntax, lexical validity and direct
+source ownership only. It MUST preserve structurally valid duplicate identities
+and declaration keys, missing or ambiguous Local targets, reference versions,
+dependency cycles, and disagreements between repeated realization keys and
+their enclosing declarations. CAP-64-03 MUST diagnose these semantic
+contradictions before admission; it also owns role/target-kind resolution,
+direct compatibility policy and actual executable target ABI validation.
+Normalization MUST NOT select winners, claim target availability or certify
+parsed records as admitted or usable. Closed syntax rejection of embedded
+execution/control/authorization fields does not close CAP-64-03.
 
 The examples below MUST NOT be treated as executed tests or fixtures. Failure
 outcomes MUST remain typed and source-correlated: invalid, unsupported,
@@ -275,6 +291,223 @@ R10; failed source acquisition cannot establish nonexistence.
 Textus CBD Support CAP-11-01 remains incomplete until actual Cozy-generated
 input and CNCF executable admission exist. A semantic documentation contract
 does not supply producer, admission, or consumer acceptance evidence.
+
+## Private Scala IR and per-document input
+
+All carriers are immutable Scala 2.12 implementation types under
+`private[cozy]` objects in `cozy.modeler`. They add no public facade or dependency.
+`CmlCapabilityModel` supplies the exact R3 definition, reference, declaration,
+mapping, dependency, grounding, realization, compatibility and traceability
+records. `ApplicationCapability.kind` is `ApplicationKind` and
+`ComponentCapability.kind` is `ComponentKind`; distinct versioned reference
+classes retain the corresponding fixed family. These tags are assigned by the
+definition container, never by a missing-field default.
+
+Foundation supplies its actual `ModelElementId`, `TermId`, `RelationId`,
+`ProfileId`, `Presence`, `Present`, `Absent`, four `AbsenceReason` values,
+`ReferenceBoundary`, `SemanticTarget`, `ModelTarget`, `TermTarget` and
+`LocalizedLabel`. Capability neither redeclares those domains nor modifies
+Foundation's legacy source/origin carriers. Runtime Component values are the
+existing Java `org.goldenport.cncf.component.identity.ComponentId`.
+
+| Private closed family | Scala alternatives / exact authored tags |
+| --- | --- |
+| CapabilityKind | `ApplicationKind` / APPLICATION; `ComponentKind` / COMPONENT |
+| Direction | `Provided` / PROVIDED; `Required` / REQUIRED |
+| TargetKind | `Operation` / OPERATION; `Workflow` / WORKFLOW; `StateMachine` / STATE_MACHINE |
+| ModelRole | `Goal`, `UseCase`, `Scenario`, `UseCaseSlice`, `Component`, `Specification`, `Evidence` / GOAL, USE_CASE, SCENARIO, USE_CASE_SLICE, COMPONENT, SPECIFICATION, EVIDENCE |
+| TraceabilityRole | `SpecificationTrace` / SPECIFICATION; `EvidenceTrace` / EVIDENCE |
+
+`CmlCapabilitySource` supplies these input, source and diagnostic carriers:
+
+| Carrier | Complete fields / alternatives |
+| --- | --- |
+| CapabilitySource | `modelAuthority: String`, `path: String`, `sourceRevision: String`, `line: Option[Int]` |
+| CapabilityOrigin | `Declared` or `Derived(ruleId: String, inputs: Vector[CapabilitySource])` |
+| SourceScope | `modelAuthority: String`, `path: String` |
+| SourceInput | `scope: SourceScope`, `model: org.goldenport.kaleidox.Model` |
+| CapabilityDocument | `scope: SourceScope`, `model: CapabilityModel` |
+| SyntaxIssue | `kind: SyntaxIssueKind`, `fieldPath: String`, `scope: SourceScope`, `sectionPath: Vector[String]`, `line: Option[Int]`, `message: String` |
+| SyntaxIssueKind | `MalformedInput`, `InvalidStructure`, `InvalidField`, `InvalidSource`, `UnsupportedSyntax` |
+
+The private callable entry is:
+
+```scala
+CmlCapabilityCml.normalize(inputs: Vector[SourceInput]):
+  Either[Vector[SyntaxIssue], Vector[CapabilityDocument]]
+```
+
+Callers MUST supply individually parsed original documents before a legacy
+`Model.+` aggregate can lose per-file identity. The entry MUST inspect each
+model's parser errors before interpreting absence. Error-bearing parser/load
+results yield `MalformedInput` with supplied input source context. Invalid or
+missing scope and duplicate input paths yield `InvalidSource`; duplicate paths
+MUST NOT select a first or last document. Acquisition, IO, CLI dispatch, imports,
+revision lookup and generated-metadata reparsing are outside this entry.
+
+Successful output retains input order, per-document ordered definitions,
+declarations, relationship vectors and compatibility Presence. It MUST NOT
+flatten envelopes, sort, deduplicate or issue name indexes. A successfully
+parsed legacy source without a reserved new construct yields no document.
+An explicitly authored empty new root yields one document with empty vectors
+and its authored compatibility Presence. Every error yields Left with no
+partial successful output or sibling salvage.
+
+Issues retain input, original section and field coordinates in deterministic
+supplied document/section/field order. Missing-field issues follow the required
+field order. `sectionPath` contains original logical section labels and `line`
+is the actual optional section-header line. Diagnostic locations MUST NOT
+overwrite authored `CapabilitySource.line` or claim source byte currentness.
+
+## Initial authored CML grammar
+
+`CAPABILITY-MODEL` is exactly one top-level generic logical section in an
+authored document. It is separate from Kaleidox's legacy `CAPABILITY` division
+and deployment style bundles. There are no placement or case aliases. Original
+sections are extracted from parsed divisions and contained promoted sections
+are visited only through their original parent.
+
+```text
+# CAPABILITY-MODEL
+compatibility = JSON-Presence-of-Compatibility-array
+
+## APPLICATION-CAPABILITY
+### arbitrary entry label
+mandatory field = one JSON value
+
+## COMPONENT-CAPABILITY
+### arbitrary entry label
+mandatory field = one JSON value
+
+## COMPONENT-CAPABILITY-DECLARATION
+### arbitrary entry label
+mandatory field = one JSON value
+```
+
+Each of the three containers is optional, occurs at most once, is a direct
+child of the root, and has an empty prologue. An omitted container supplies an
+explicitly empty model vector. Entry headings are arbitrary presentation and
+diagnostic labels, including labels identical to reserved tokens. They MUST
+NOT supply identity, kind, name, contract version or source. Entries are leaves.
+Reserved container tokens elsewhere, or with wrong capitalization, fail.
+Duplicate roots/containers, unexpected root fields, container prologue and
+child sections under records fail with contextual issues.
+
+| Section role | Exact mandatory body keys |
+| --- | --- |
+| Root | `compatibility` |
+| Application entry | `identity`, `contractVersion`, `name`, `summary`, `description`, `source`, `demandReferences`, `discoveryReferences`, `componentMappings`, `dependencies`, `grounding`, `traceability` |
+| Component entry | `identity`, `contractVersion`, `name`, `summary`, `description`, `source`, `discoveryReferences`, `grounding`, `traceability` |
+| Declaration entry | `component`, `direction`, `capability`, `source`, `realizations`, `traceability` |
+
+Each field MUST be one physical nonblank `key = JSON-value` line. Split at the
+first equals sign and trim only grammar around the delimiter. Decoded JSON
+strings retain literal contents, including interior equals signs. Keys have
+exact case; each mandatory field appears once, in any authored order. Bare
+strings, multiline values, comments, code fences, aliases and convenience
+defaults are unsupported. Before Play JSON decoding, Jackson core
+`STRICT_DUPLICATE_DETECTION` and a one-value/trailing-token check reject
+duplicate JSON keys at every depth and malformed syntax. Unknown fields are
+rejected recursively. This is a private authoring representation, not a CNCF
+projection envelope or producer output codec.
+
+### Exact closed JSON carriers
+
+Every object has exactly the keys below. Every listed key is mandatory.
+`text` means valid literal text; `array[A]` retains authored order and repeats.
+The R3 tables above define which Presence payload each enclosing field uses.
+Only Source.line and LocalizedLabel.language allow explicit null.
+
+| Carrier / branch | Exact keys and values |
+| --- | --- |
+| ComponentRef | `namespace: canonical namespace`, `id: canonical local ID` |
+| ModelElementId | `modelId: text`, `elementId: text` |
+| TermId | `vocabularyId: text`, `termId: text` |
+| RelationId | `vocabularyId: text`, `relationId: text` |
+| ProfileId | `vocabularyId: text`, `profileId: text` |
+| Source | `modelAuthority: text`, `path: canonical project-relative POSIX path`, `sourceRevision: opaque text`, `line: null or positive whole Int-valued JSON number` |
+| Presence / Present | `state: PRESENT`, `value: A` |
+| Presence / Absent | `state: ABSENT`, `reason: NotDeclared \| NotRepresented \| Unsupported \| NotApplicable`, `detail: text` |
+| Origin / Declared | `kind: DECLARED` |
+| Origin / Derived | `kind: DERIVED`, `ruleId: text`, `inputs: nonempty array[Source]` |
+| ModelReference | `identity: ModelElementId`, `boundary: LOCAL \| EXTERNAL` |
+| SemanticTarget / Model | `kind: MODEL`, `identity: ModelElementId` |
+| SemanticTarget / Term | `kind: TERM`, `identity: TermId` |
+| LocalizedLabel | `text: text`, `language: null or text` |
+| VersionedApplicationCapabilityReference | `kind: APPLICATION`, `identity: ModelElementId`, `contractVersion: opaque text` |
+| VersionedComponentCapabilityReference / CapabilityReference | `kind: COMPONENT`, `identity: ModelElementId`, `contractVersion: opaque text` |
+| DeclarationKey | `component: ComponentRef`, `direction: PROVIDED \| REQUIRED`, `capability: VersionedComponentCapabilityReference` |
+| Declaration | `component: ComponentRef`, `direction: PROVIDED \| REQUIRED`, `capability: VersionedComponentCapabilityReference`, `source: Source`, `realizations: Presence[array[Realization]]`, `traceability: Presence[array[Traceability]]` |
+| Realization | `declarationKey: DeclarationKey`, `targetKind: OPERATION \| WORKFLOW \| STATE_MACHINE`, `target: ModelReference`, `targetComponent: ComponentRef`, `targetContractVersion: opaque text`, `generatedAbiVersion: independently supplied opaque target ABI text`, `source: Source`, `origin: Origin` |
+| Compatibility | `identity: ModelElementId`, `requiredVersion: opaque text`, `providedVersion: opaque text`, `source: Source`, `origin: Origin` |
+| ModelLink | `role: GOAL \| USE_CASE \| SCENARIO \| USE_CASE_SLICE \| COMPONENT \| SPECIFICATION \| EVIDENCE`, `target: ModelReference`, `source: Source`, `origin: Origin` |
+| Traceability | `role: SPECIFICATION \| EVIDENCE`, `target: ModelReference`, `source: Source`, `origin: Origin` |
+| Grounding | `target: SemanticTarget`, `boundary: LOCAL \| EXTERNAL`, `relation: Presence[RelationId]`, `profile: Presence[ProfileId]`, `context: Presence[text]`, `preferredLabel: Presence[LocalizedLabel]`, `source: Source`, `origin: Origin` |
+| ApplicationComponentMapping | `target: VersionedComponentCapabilityReference`, `boundary: LOCAL \| EXTERNAL`, `source: Source`, `origin: Origin` |
+| ApplicationDependency | `target: VersionedApplicationCapabilityReference`, `boundary: LOCAL \| EXTERNAL`, `source: Source`, `origin: Origin` |
+
+Demand ModelLinks permit only GOAL, USE_CASE, SCENARIO and USE_CASE_SLICE.
+Discovery permits all seven ModelLink roles. Traceability has only its two
+distinct roles. Type and role syntax checks MUST NOT certify target-kind
+availability, infer inverse edges or combine unrelated lists.
+
+Decode ComponentRef through the existing `ComponentNamespace.parse`,
+`ComponentLocalId.parse` and `ComponentId.of`. Never issue another Component
+identity domain. The Component reference is independent of the Capability's
+qualified model identity. Reference kind, direction, target kind, contract and
+target ABI values are all explicit. Repeated realization keys are retained
+for the later semantic validator; this layer neither invokes nor adapts targets.
+
+### Lexical and direct source ownership
+
+Every qualified identity component and opaque contract/revision/ABI/rule/name/
+description/detail/context/label/language value MUST be nonnull, nonempty,
+free of ISO controls, and have no leading or trailing Unicode whitespace.
+Whitespace checks use `Character.isWhitespace || Character.isSpaceChar` on
+code points. Preserve case, Unicode composition and delimiters; never trim or
+repair decoded text. Paths reject absolute, drive/URI-prefix, backslash,
+control, empty-segment, dot-segment and dot-dot-segment forms without
+normalization. Source.line MUST be explicitly null or a positive whole
+Int-valued number; fraction, zero, negative, overflow, boolean and string fail.
+
+Every definition, declaration and relationship/compatibility edge MUST carry
+its own explicit Source. Direct source authority and path MUST equal its
+SourceInput scope. A definition's identity.modelId MUST equal that authority.
+Definition and edge revisions can differ independently in one document.
+Derived inputs MUST be nonempty, ordered and independently valid; foreign
+authority/path/revision evidence is allowed and retained. No primary source
+replacement or revision equality requirement applies to Derived inputs.
+Headings, model names, URI, source bytes, legacy sha256, packages and CLI defaults
+MUST NOT supply missing identity/version/revision/ABI/source data. External
+boundaries remain External even if another input contains the target.
+
+### Authored executable normalization cases
+
+The two real CML parser inputs are
+[primary](../../src/test/resources/modeler/capability-model.cml) and
+[secondary](../../src/test/resources/modeler/capability-model-secondary.cml).
+They are authored inputs, not generated projections or producer/consumer proof.
+[CmlCapabilityCmlSpec](../../src/test/scala/cozy/modeler/CmlCapabilityCmlSpec.scala)
+authors C64P01–23;
+[CmlCapabilityModelSpec](../../src/test/scala/cozy/modeler/CmlCapabilityModelSpec.scala)
+authors C64P24–25 and immutable-carrier behavior. All cases use semantic
+should/which/in grouping and actual Given/When/Then boundaries. Active
+ScalaCheck requires at least 100 successful samples with zero discards.
+Validation and independent acceptance are pending.
+
+| Cases | Observable normalization obligation |
+| --- | --- |
+| C64P01 | Actual load and complete independent typed R3 equality. |
+| C64P02–03 | Independent Application emptiness and four explicit many-to-many demand edges. |
+| C64P04–05 | Canonical providers/directions and three complete realization kinds. |
+| C64P06–08 | Explicit boundaries, all Presence branches and ordered independent Derived evidence. |
+| C64P09–12 | Two real sources, deterministic order, identity independence, literal Foundation vocabulary/labels and optional actual diagnostic lines. |
+| C64P13 | Successful legacy absence versus explicit empty new root. |
+| C64P14–15 | Role-aware containers, arbitrary entry labels and strict physical-field/JSON failures. |
+| C64P16–18 | Invalid lexical/source/Component domains and wrong closed reference/role/Presence/Origin branches. |
+| C64P19–20 | Direct source ownership, foreign derivation evidence, parser failures, malformed scopes and duplicate paths without partial salvage. |
+| C64P21–23 | Parsed unresolved graph facts, independent Application edges and per-document directed compatibility. |
+| C64P24–25 | Active literal-ID/revision/order determinism and invalid source/identity/path with explicit Presence/Origin variation properties. |
 
 ## Semantic acceptance matrix
 
