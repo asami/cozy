@@ -1,0 +1,63 @@
+# VALUE
+
+## DartText
+package = dart.fixture
+
+### ATTRIBUTE
+| name | type | multiplicity |
+| --- | --- | --- |
+| value | string | 1 |
+
+## DartCode
+package = dart.fixture
+
+### ATTRIBUTE
+| name | type | multiplicity |
+| --- | --- | --- |
+| code | string | 1 |
+
+## DartAddress
+package = dart.fixture
+
+### ATTRIBUTE
+| name | type | multiplicity |
+| --- | --- | --- |
+| street | string | 1 |
+
+## DartRecord
+package = dart.fixture
+
+### ATTRIBUTE
+| name | type | multiplicity |
+| --- | --- | --- |
+| id | string | 1 |
+| recordId | DartText | 1 |
+| count | int | 1 |
+| ratio | double | 1 |
+| detail | DartText | ? |
+| tags | string | * |
+| members | DartText | + |
+
+# POWERTYPE
+
+## DartFinite
+package = dart.fixture
+
+### alpha
+value = 1
+label = Alpha
+
+### beta
+value = 2
+label = Beta
+
+## DartSealed
+package = dart.fixture
+
+### alpha
+value = 1
+label = Alpha
+
+### beta
+value = 2
+label = Beta
