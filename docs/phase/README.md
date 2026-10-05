@@ -178,7 +178,13 @@ Phase status index (individual Phase/checklist files are authoritative):
   manual local release binds `P546-CLOSURE-001@1`; its native commit and closure
   receipt are verified after committing these final records. The
   [Causal handoff](../design/cml-causal-metadata-handoff.md) is frozen.
-  Only [Phase 54.7](phase-54.7.md) consumer fixtures remains PLANNED and unstarted.
+  [Phase 54.7](phase-54.7.md) is IN_PROGRESS: S1/S2 are CLOSED at verified
+  native Steps; [S3](s54.7.3.md) compatibility and the
+  [publication handoff](../design/cml-semantic-publication-handoff.md) have accepted
+  behavior, whole-file conformance and fresh independent focused review PASS after
+  successful compilation and 274 passing tests in 22 suites. S3 remains IN_PROGRESS
+  with its native Step acceptance commit and verified receipt pending. Sole full
+  Phase review, full validation, distinct release and native audit remain pending.
   The sequence is a Cozy
   semantic supplier for Textus CBD Support and does not implement its UI or
   publish SimpleModeling.org.

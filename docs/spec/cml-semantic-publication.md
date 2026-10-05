@@ -112,14 +112,8 @@ version/design. Scala 2.12.18, 0.3.3-SNAPSHOT, and the legacy ABI are unchanged.
 | SP-07 | Entire input and independent typed facts survive canonical parsing and re-admission. |
 | SP-08 | Active seed 42 ScalaCheck asserts actual passed result, at least 100 successes, zero discards, and observed coverage for recursive object reconstruction in both complete modes. |
 
-These are bottom-up supplier specifications. The authored top-down question
-fixtures in S54.7.2 have accepted behavior and conformance: current compilation
-succeeded, all 268 tests in 21 suites and all eleven SF examples passed, SF-11
-seed 42 passed with 100 successes and zero discards, all 21 observed coverage
-counts at 100 and 31 distinct execution orders, and the fresh independent focused
-Step review returned PASS. Native S2 Step acceptance commit and verified receipt
-remain pending; S54.7.3 final compatibility/adoption evidence and final Phase
-gates remain separate and pending.
+These are bottom-up supplier specifications. The top-down question contract is
+separate; factual acceptance is recorded in the current evidence section below.
 
 Consumers use the accepted Terminology and Use Case navigation, Classification
 and Dynamic topology, and Causal traversal APIs. Only Cause/Reaction assert
@@ -204,11 +198,66 @@ Missing family, explicit field absence, available empty consequences and an
 unknown query stay distinct. Provenance records are admitted snapshots; they
 do not assert that source files exist or are current.
 
-The [S54.7.2 checklist](../phase/s54.7.2-checklist.md) records current acceptance
-status. Authored executable behavior and conformance are accepted from current
-VAL003 compilation, all 268 tests in 21 suites and all eleven SF examples passing,
-SF-11 seed 42 with 100 successes, zero discards, a passed result, all 21 observed
-coverage counts at 100 and 31 distinct question execution orders, and the fresh
-independent focused Step review PASS. Native S2 Step acceptance commit and verified
-receipt remain pending. S3 compatibility/handoff and final Phase gates remain
-separate, and Textus CBD Support external acceptance is outside this contract.
+The [S54.7.2 checklist](../phase/s54.7.2-checklist.md) records question acceptance.
+Textus CBD Support external acceptance remains outside this producer contract.
+
+
+## Compatibility component contract
+
+The bottom-up [CompatibilitySpec](../../src/test/scala/cozy/modeler/CmlSemanticPublicationCompatibilitySpec.scala)
+adds the following interface obligations over unchanged resources and suppliers.
+Expected full typed facts come from independently admitted base and strict family
+readers before facade actions. Expected canonical strings come from a pure
+recursive test-owned sorted-object serializer over raw input, retaining array
+order and exact Play JSON scalar rendering; production canonical output is not
+its own oracle. Counts and IDs supplement complete field/envelope comparisons.
+
+| Contract | Required compatibility |
+| --- | --- |
+| PC-01 | Read/build/render/canonical-parse/read retain the entire unchanged declared and absence wires, full Catalog/Terms, all six complete Graphs and envelopes. Outer/child versions and contract-only semantic-strength version remain fixed; legacy metadata is separate. |
+| PC-02 | The literal future peer, including apparent causal version, forged elements/Terms, nested foreign schema, true capability, shared name, arrays and nulls, remains opaque. Known carrier/core facts remain unchanged; expected extended envelopes include the peer exactly. |
+| PC-03 | All missing, each of six single families and all-admitted form eight independently valid empty publications. Literal empty wire and all empty typed fields distinguish missing family, missing field, present-empty and unknown query. |
+| PC-04 | Full embedded Classification trait and Terminology element/Term source mismatches fail independent admission even if Causal accepts its narrower peers. Every unknown known child version fails read/build safely; registered Structure-first order and base-first precedence are fixed. |
+| PC-05 | Exact ModelElementId/TermId pairs, complete records/references/provenance, ordered Derived sources, duplicate Local links, resident External stopping, full anonymous occurrences and explicit unaddressability survive. |
+| PC-06 | Each actual seed-42 no-discard sample executes both full literal-extended modes, recursive object reconstruction and all six invalid-child versions through read/build. Whole raw/canonical/typed oracles and observed result/coverage constrain execution. |
+
+Unknown namespace policy grants no capability or core override from an apparent
+registered schemaVersion, prefix, label or nested data. Known malformed families
+cannot become opaque. Availability is independently valid construction, never a
+repair of a populated remaining Causal summary. Causal-only empty fields have the
+five exact missing-peer absences and ordered owner-None gaps; all-admitted has
+five present-empty fields and only Unsupported causalInference. Both retain empty
+modelReferences and exact UnknownElement/node.identity query failure. The
+[handoff](../design/cml-semantic-publication-handoff.md#eight-valid-empty-availability-cases)
+provides all eight cases, exact details and the version/responsibility recipe.
+
+PC-06 uses seed 42, workers 1, minimum 100 successes and zero discarded samples.
+Every sample consumes both complete modes, opaque literal and all six fixed known
+version failures. Required observed tags are declared, absence,
+recursive-object-reconstruction, literal-arrays-and-nulls, opaque-retention and
+adversarial-all-six-families. Actual Test.check passed/succeeded/discarded fields
+and sorted coverage counts are reported and asserted; configured minima or tags
+are not passing evidence. Embedded adversaries remain concrete PC-04 behavior.
+
+## Current factual acceptance
+
+S1 is CLOSED at verified native commit
+`0b1db8996cc4979cbab029a801ae82f0611f7e43`, with 257 tests/20 suites,
+SP-08 100 successes/zero discards/four positive coverage counts of 100 and
+focused review PASS. S2 is CLOSED at verified native commit
+`2f7d1852b9d4b1e55e13d1200799673e00624606`, sole parent S1, with all eighteen
+checklist entries accepted. Current VAL003 passed 268 tests/21 suites/all eleven
+SF examples; SF-11 had 100 successes, zero discards, passed status, all 21 coverage
+counts at 100 and 31 execution orders, and focused review PASS after bounded
+repair 1. Historical failure/stop/repair evidence remains in the journal.
+
+[S3](../phase/s54.7.3.md) compatibility and producer handoff have accepted behavior
+and whole-file conformance. P547-S5473-VAL-001 compiled successfully and passed
+all 274 tests in 22 suites, including all six PC and all eleven SF examples.
+PC-06, SP-08 and SF-11 each ran seed 42 with 100 successes, zero discards and
+passed=true; all six, four and 21 respective coverage counts were 100, with 31
+SF-11 question execution orders. Fresh independent P547-S5473-REVIEW-001 returned
+PASS over all eighteen Step paths. S3 remains IN_PROGRESS with its native Step
+acceptance commit and verified receipt pending. Full Phase review, ordinary full
+validation, distinct release and native
+requirement audit remain pending; all five original Phase obligations stay open.

@@ -214,6 +214,16 @@ and 2868 successful full tests in 201 suites (9 pre-existing optional/deferred
 canceled cases). The distinct parent manual local release binds `P546-CLOSURE-001@1`;
 its native commit and closure receipt are verified after committing these final records.
 
+The final [semantic publication handoff](docs/design/cml-semantic-publication-handoff.md)
+and [publication contract](docs/spec/cml-semantic-publication.md) provide the
+six-family version/admission policy, reproducible consumer recipe and complete
+compatibility evidence. [Phase 54.7](docs/phase/phase-54.7.md) is IN_PROGRESS:
+S1/S2 are CLOSED at verified native Steps; S3 compatibility and handoff have accepted
+behavior, whole-file conformance and fresh independent focused review PASS after
+successful compilation and 274 passing tests in 22 suites. S3 remains IN_PROGRESS
+with its native Step acceptance commit and verified receipt pending. Final Phase
+review, full validation, distinct release and native audit remain pending.
+
 ---
 
 ## Cozy in the SimpleModeling Workflow

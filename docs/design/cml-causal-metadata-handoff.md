@@ -1,7 +1,9 @@
 # CML Causal Metadata supplier handoff
 
 Supplier: Cozy / [Phase 54.6](../phase/phase-54.6.md)
-Consumer closure: Cozy [Phase 54.7](../phase/phase-54.7.md), still PLANNED
+Consumer closure: Cozy [Phase 54.7](../phase/phase-54.7.md), IN_PROGRESS;
+S1/S2 CLOSED; S3 behavior/conformance/focused review accepted at 274 tests/22 suites,
+native Step commit and final Phase gates pending.
 External consumer: CNCF/Textus CBD Support runtime/UI integration and acceptance
 Behavior authority: [Causal v1 spec](../spec/cml-causal-metadata.md)
 Responsibility: [Causal design](cml-causal-metadata.md)
@@ -147,3 +149,20 @@ Phase 54.7 owns final all-family Cozy supplier contract and fixture closure.
 External CNCF/Textus CBD runtime/UI work and consumer acceptance remain with
 downstream owners. This handoff supplies no parser/second source model, external
 resolution, dependency execution, runtime/CLI/UI, publication or deployment.
+
+
+## Current Phase 54.7 consumer closure projection
+
+The [final publication handoff](cml-semantic-publication-handoff.md) supersedes
+this document's planned successor projection for current Phase 54.7 status.
+Phase 54.7 is IN_PROGRESS: final all-family admission S1 and source-grounded
+questions S2 are CLOSED at verified native commits `0b1db8996cc4979cbab029a801ae82f0611f7e43`
+and `2f7d1852b9d4b1e55e13d1200799673e00624606`; S3 compatibility and reproducible
+producer handoff have accepted behavior, whole-file conformance and fresh
+independent focused review PASS after successful compilation and 274 passing
+tests in 22 suites. S3 remains IN_PROGRESS with its native Step acceptance
+commit and verified receipt pending.
+Final Phase review, full validation, distinct release and native audit remain
+pending. All Phase 54.6 closure facts and accepted contracts above remain historical
+accepted evidence. Downstream CNCF runtime and Textus CBD Support integration,
+views/navigation/acceptance retain their owners.

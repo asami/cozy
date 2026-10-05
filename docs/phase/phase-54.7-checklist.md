@@ -33,7 +33,7 @@ compile qualification repair and S1 repair 1. Native commit
 on main. [Its checklist](s54.7.1-checklist.md) accepts all seven original S1
 closure items.
 
-[S54.7.2](s54.7.2.md) is IN_PROGRESS: the SF-01..11 executable specification,
+[S54.7.2](s54.7.2.md) is CLOSED: the SF-01..11 executable specification,
 two complete literal question resources and consumer contract/responsibility
 notes are authored. S2 behavior and conformance are accepted: current VAL003
 compilation succeeded and all 268 tests in 21 suites passed, including all eleven
@@ -43,8 +43,18 @@ SP-08 seed 42 also passed with 100 successes and zero discards and all four
 coverage counts at 100. The fresh independent focused Step review returned PASS
 after completed S2 repair 1, the bounded test-only transition carrier query through
 existing Causal.node with unchanged Dynamic.node and full expectations retained.
-The native Step acceptance commit and verified receipt remain pending;
-[its checklist](s54.7.2-checklist.md) is the closure basis. S54.7.3 remains
-PLANNED. The sole full Phase review, full repository
-validation and release remain pending. All five original obligations stay
+Native Step acceptance commit `2f7d1852b9d4b1e55e13d1200799673e00624606` on main
+and the verified exact twelve-path receipt record S1 as sole parent; all eighteen
+entries in [its checklist](s54.7.2-checklist.md) are accepted.
+[S54.7.3](s54.7.3.md) PC-01..06 and the reproducible producer handoff have accepted
+behavior and whole-file conformance. P547-S5473-VAL-001 compiled successfully
+and passed all 274 tests in 22 suites, including all six PC and all eleven SF
+examples. PC-06, SP-08 and SF-11 each ran seed 42 with 100 successes, zero
+discards and passed=true; all six, four and 21 respective coverage counts were
+100, with 31 SF-11 question execution orders. Fresh independent
+P547-S5473-REVIEW-001 returned PASS over all eighteen Step paths. S3 remains
+IN_PROGRESS; twelve entries are checked and its native Step acceptance commit
+and verified receipt remain unchecked in [its checklist](s54.7.3-checklist.md).
+The sole full Phase review, ordinary full
+repository validation, distinct release and native requirement audit remain pending. All five original obligations stay
 unchecked until actual parent acceptance; neither S1 nor S2 alone closes any Phase outcome.
