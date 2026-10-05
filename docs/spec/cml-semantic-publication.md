@@ -112,8 +112,14 @@ version/design. Scala 2.12.18, 0.3.3-SNAPSHOT, and the legacy ABI are unchanged.
 | SP-07 | Entire input and independent typed facts survive canonical parsing and re-admission. |
 | SP-08 | Active seed 42 ScalaCheck asserts actual passed result, at least 100 successes, zero discards, and observed coverage for recursive object reconstruction in both complete modes. |
 
-These are bottom-up supplier specifications. The top-down question fixtures in
-S54.7.2 and final compatibility/adoption evidence in S54.7.3 remain pending.
+These are bottom-up supplier specifications. The authored top-down question
+fixtures in S54.7.2 have accepted behavior and conformance: current compilation
+succeeded, all 268 tests in 21 suites and all eleven SF examples passed, SF-11
+seed 42 passed with 100 successes and zero discards, all 21 observed coverage
+counts at 100 and 31 distinct execution orders, and the fresh independent focused
+Step review returned PASS. Native S2 Step acceptance commit and verified receipt
+remain pending; S54.7.3 final compatibility/adoption evidence and final Phase
+gates remain separate and pending.
 
 Consumers use the accepted Terminology and Use Case navigation, Classification
 and Dynamic topology, and Causal traversal APIs. Only Cause/Reaction assert
@@ -125,3 +131,84 @@ There is no generic query engine or external consumer acceptance in this contrac
 
 See [design](../design/cml-semantic-publication.md) and
 [Phase 54.7](../phase/phase-54.7.md).
+
+## Source-grounded consumer question fixtures
+
+`CmlSemanticPublicationFixtureSpec` is the top-down executable consumer contract
+for S54.7.2. It consumes the unchanged `causal-metadata-v1-declared.json` and
+`causal-metadata-v1-absence.json` full publications through `Publication.read`
+and the existing navigation/topology/traversal APIs. The paired question resources
+are `semantic-publication-v1-declared-questions.json` and
+`semantic-publication-v1-absence-questions.json` under `src/test/resources/cozy/modeler`.
+They are test-owned fixtures, without a production question wire API or parser.
+
+Each resource has exactly `schemaVersion`, `publicationResource`, `mode` and
+`questions`. Its schema is `cozy.cml.semantic-questions.v1`, its publication
+filename is the corresponding unchanged Causal resource, and its mode is
+`declared` or `absence`. Every ordered question has exactly `id`, `question`,
+`inputs`, `expected` and `evidence`. `expected` has exactly `sourceFacts` and
+`answerAssertions`: complete selected raw source objects and independent answer
+assertions. Evidence is an ordered array of `{namespace, field, owner}` objects;
+owner is a full qualified pair, or null for the global unsupported gap.
+
+Declared order is Q01..Q08. Absence order is
+Q01, Q02, Q05, Q06, Q08, A01, A02, A03, A04. All seventeen occurrences execute
+complete finite semantic requests; merely parsing their shape proves no answer.
+
+| Questions / requirements | Observable source-grounded answer |
+| --- | --- |
+| Q01 / SF-02 | Separate `ModelElementId(terminology.a, shared)` and `TermId(terminology.a, shared)` domains; full element/Term projections, three forward references, six Local reverse occurrences and resident External stopping. |
+| Q02 / SF-03 | Complete UseCase and Actor projections, five ordered roles, External payment stop and full `dynamic.example/operation:complete` core with line 38 provenance. |
+| Q03 / SF-04 | Direct `causal.example/cause:placement` Cause, separately derived affected-subject context, full affected Structure and member boundary; aggregate consequences are available empty. |
+| Q04 / SF-05 | Both incoming placement/confirmation Causes, direct reservation Reaction, separate RuleInput/RuleOutput evidence and subsequent stock-event Cause; complete owner/source/target/provenance/order retained. |
+| Q05 / SF-06 | Full Workflow/StateMachine/states/transition, Local `structure.example/aggregate:order` owner and ordered full static affected Structure; Dynamic and Causal identities stay distinct. |
+| Q06 / SF-07 | Ordered status, category and status-secondary Classification declarations with status/category/status targets; two status-like dimensions remain independent full declarations. |
+| Q07 / SF-08 | Complete component dependency and ordered event generic references; External remains External even when resident; Query/View causes remain available empty. |
+| Q08, A01..04 / SF-09 | Full global unsupported gap, exact unknown-node diagnostic, four complete causal field absences, retained earlier answers and two equal anonymous core occurrences with distinct ordered carrier payloads. |
+
+SF-01 executes the exact matrix independently of production output. SF-10
+retains both entire Envelopes, 75 core occurrences, seven Terms, all six complete
+typed graphs and five opaque peers. Counts support full object comparisons and
+do not substitute for them. SF-11 runs actual seed 42 ScalaCheck with at least
+100 successes, zero discards, a passed result and published observed coverage
+for both modes and all seventeen occurrences. Each sample recursively rebuilds
+object keys while retaining arrays, nulls, scalars and duplicate occurrences,
+and separately varies question execution order while retaining literal fixture
+order. It executes every mandatory complete answer in both modes.
+
+Literal expectations come from complete predecessor raw source facts. The spec
+independently admits unchanged suppliers before facade/query actions and compares
+complete typed projections/core records/Terms/links with selected or reconstructed
+independent objects. Raw observations also match entire literal fields, including
+Presence, sources, references and nested projections. Full records govern record
+correspondence; anonymous payloads retain ordered occurrence vectors. Existing
+family codecs encode observations only. No expected answer is generated from a
+current facade, navigation, topology or traversal output.
+
+Every traversal-link comparison covers `owner`, `kind`, `source`, `target`,
+`sourceAttribution`, `origin`, `evidenceField`, `evidenceIndex` and
+`semanticReference`. Direct causal evidence retains Declared origin, field
+`causalLinks` and index 0. Affected/rule context retains its exact Derived rule,
+owner source vector, field and index; RuleInput uses 0 and RuleOutput uses 1.
+Generic-reference context retains the entire authored SemanticReference and its
+own source/origin/index. Rule cores remain full ElementRecords: there is no
+invented RuleProjection or operation projection.
+
+Only direct Cause/Reaction answers assert causation. These finite continuations
+do not execute policy or operations, infer transitive causes, update read models,
+merge classification dimensions, alias Terms with model elements, or recover
+anonymous identity from names/source/ordinal. Unsupported causal inference is
+the full owner-null `causalInference` gap with Unsupported reason and detail
+`No causation is inferred from names, membership, generic relations or expression text.`
+Missing family, explicit field absence, available empty consequences and an
+unknown query stay distinct. Provenance records are admitted snapshots; they
+do not assert that source files exist or are current.
+
+The [S54.7.2 checklist](../phase/s54.7.2-checklist.md) records current acceptance
+status. Authored executable behavior and conformance are accepted from current
+VAL003 compilation, all 268 tests in 21 suites and all eleven SF examples passing,
+SF-11 seed 42 with 100 successes, zero discards, a passed result, all 21 observed
+coverage counts at 100 and 31 distinct question execution orders, and the fresh
+independent focused Step review PASS. Native S2 Step acceptance commit and verified
+receipt remain pending. S3 compatibility/handoff and final Phase gates remain
+separate, and Textus CBD Support external acceptance is outside this contract.

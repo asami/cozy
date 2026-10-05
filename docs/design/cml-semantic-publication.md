@@ -61,14 +61,77 @@ provide no equivalence or execution result. External boundaries stop local
 resolution even when the target is resident. Equal anonymous records remain
 distinct occurrences without source/name/ordinal identity recovery.
 
-S54.7.2 will supply top-down source-grounded question fixtures over the two actual
+S54.7.2 supplies authored top-down source-grounded question fixtures over the two actual
 accepted Causal resources: Term/element, Use Case/Actor/Operation,
 Operation/Entity-or-Aggregate/Event, Event/Rule-or-Reaction/Operation-or-Event,
 Workflow/StateMachine/Entity, independent Classification dimensions, and explicit
-External/provenance/unsupported gaps. S54.7.3 will supply final compatibility and
-reproducible producer handoff evidence. These are pending consumers of this fixed
-supplier boundary. Textus CBD Support owns its UI/runtime/integration acceptance;
+External/provenance/unsupported gaps. Their behavior and conformance are accepted:
+current compilation succeeded, all 268 tests in 21 suites and all eleven SF
+examples passed, SF-11 seed 42 passed with 100 successes and zero discards, all
+21 observed coverage counts at 100 and 31 distinct question execution orders,
+and the fresh independent focused Step review returned PASS. Native S2 Step
+acceptance commit and verified receipt remain pending. S54.7.3 will supply final
+compatibility and reproducible producer handoff evidence, which remains pending
+over this fixed supplier boundary. Textus CBD Support owns its UI/runtime/integration acceptance;
 Cozy's producer closure makes no external acceptance claim.
 
 See [Phase 54.7](../phase/phase-54.7.md) and
 [S54.7.1](../phase/s54.7.1.md).
+
+## Test-owned finite consumer questions
+
+S54.7.2's `CmlSemanticPublicationFixtureSpec` owns a fixed dispatch over the
+seventeen declared/absence question occurrences. Its two small question resources
+contain complete literal selected source facts, answer assertions and evidence,
+and refer to the unchanged full Causal input publications. This ownership stops
+at executable consumer evidence: it introduces no production question schema,
+parser, request registry or general query engine. The stable
+[question contract](../spec/cml-semantic-publication.md) defines the matrix;
+the [Step checklist](../phase/s54.7.2-checklist.md) owns current acceptance status.
+
+The facade owns final all-family admission and full retention. Terminology
+Navigation owns element/Term/links/reverse-links and explicit Term resolution.
+Use Case Navigation owns complete UseCase/Actor/core queries and ModelReference
+resolution. Dynamic Topology owns Workflow, StateMachine, State, Transition and
+node queries. Classification Topology owns independent dimensions and nodes.
+Structure Graph owns full static projections. Causal Traversal owns finite
+node/outgoing/causes/consequences/affecting/resolve requests and their direct or
+contextual evidence strength. The consumer spec composes these accepted APIs;
+it does not transfer semantic ownership to the facade or redesign suppliers.
+
+Complete typed expectations are selected from independently admitted unchanged
+supplier readers and raw predecessor facts, before facade or query actions.
+Complete literal source facts also constrain observed encodings, so matching an
+ID, source index, count, or roundtrip alone cannot conceal a changed projection,
+reference, source or Presence value. Observation encoders use existing family
+codecs or test-owned full-field encoding. They never generate expected output.
+Full-record correspondence and ordered occurrence vectors preserve equal
+anonymous owners and different carrier payloads without an identity fallback.
+
+Traversal expectations preserve all nine link fields. Direct Cause/Reaction,
+affected-subject context, RuleInput/RuleOutput and generic SemanticReference
+context remain separate evidence. A full rule ElementRecord is the admitted
+rule fact; there is no rule or operation projection and no policy execution.
+Local static continuation is contextual, External stopping remains explicit
+even for resident targets, and classification dimensions retain independent
+declaration identities despite shared powertype targets. Available empty direct
+answers do not erase full Dynamic capability or explicit field gaps.
+
+Seed 42 property execution recursively reconstructs object keys independently
+and separately permutes finite question execution. It keeps authored arrays,
+nulls and scalar values intact, consumes both complete modes in every sample,
+and reports actual Test.Result and coverage. The literal fixture order is a
+contract independently of the varying execution order. Configured success
+minima are not validation evidence.
+
+All source coordinates are admitted snapshot provenance rather than claims
+about current source files. The consumer boundary grants no name-based identity,
+Term equivalence, policy result, transitive causation or read-model update. S3
+retains compatibility and reproducible producer handoff ownership, while Textus
+CBD Support retains UI/runtime/integration acceptance ownership. Current S2
+behavior and conformance are accepted from VAL003 compilation, all 268 tests in
+21 suites and all eleven SF examples passing, SF-11 seed 42 with 100 successes,
+zero discards, a passed result, all 21 observed coverage counts at 100 and 31
+distinct question execution orders, and fresh independent focused review PASS.
+Native S2 Step acceptance commit and verified receipt and all final Phase gates
+remain pending.

@@ -1,0 +1,5309 @@
+{
+  "schemaVersion": "cozy.cml.semantic-questions.v1",
+  "publicationResource": "causal-metadata-v1-declared.json",
+  "mode": "declared",
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "Term and element correspondence with duplicate Local links and External stopping",
+      "inputs": {
+        "element": {
+          "modelId": "terminology.a",
+          "elementId": "shared"
+        },
+        "term": {
+          "vocabularyId": "terminology.a",
+          "termId": "shared"
+        }
+      },
+      "expected": {
+        "sourceFacts": {
+          "elementProjection": {
+            "element": {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "terminology.a",
+                  "elementId": "shared"
+                }
+              },
+              "kind": "entity",
+              "name": "共有",
+              "source": {
+                "authorityId": "terminology.a",
+                "path": "src/main/cml/terminology-handoff.cml",
+                "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "line": 50
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology a-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 a-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.a",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 50
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology a-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 a-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.a",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 50
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "external",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology a-external."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 a-external",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.a",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 50
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "terminology.b",
+                        "elementId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology a-model."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 a-model",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.a",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 50
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  }
+                ]
+              }
+            },
+            "termReferences": {
+              "status": "present",
+              "value": [
+                {
+                  "target": {
+                    "kind": "term",
+                    "identity": {
+                      "vocabularyId": "terminology.a",
+                      "termId": "shared"
+                    }
+                  },
+                  "boundary": "local",
+                  "relation": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "relations.example",
+                      "relationId": "synonym-candidate"
+                    }
+                  },
+                  "profile": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "profiles.example",
+                      "profileId": "view:literal"
+                    }
+                  },
+                  "context": {
+                    "status": "present",
+                    "value": "Terminology a-local."
+                  },
+                  "preferredLabel": {
+                    "status": "present",
+                    "value": {
+                      "text": "参照 a-local",
+                      "language": null
+                    }
+                  },
+                  "source": {
+                    "authorityId": "terminology.a",
+                    "path": "src/main/cml/terminology-handoff.cml",
+                    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    "line": 50
+                  },
+                  "origin": {
+                    "kind": "derived",
+                    "ruleId": "rule:literal",
+                    "sources": [
+                      {
+                        "authorityId": "input.a",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 70
+                      },
+                      {
+                        "authorityId": "input.b",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 71
+                      }
+                    ]
+                  }
+                },
+                {
+                  "target": {
+                    "kind": "term",
+                    "identity": {
+                      "vocabularyId": "terminology.a",
+                      "termId": "shared"
+                    }
+                  },
+                  "boundary": "local",
+                  "relation": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "relations.example",
+                      "relationId": "synonym-candidate"
+                    }
+                  },
+                  "profile": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "profiles.example",
+                      "profileId": "view:literal"
+                    }
+                  },
+                  "context": {
+                    "status": "present",
+                    "value": "Terminology a-local."
+                  },
+                  "preferredLabel": {
+                    "status": "present",
+                    "value": {
+                      "text": "参照 a-local",
+                      "language": null
+                    }
+                  },
+                  "source": {
+                    "authorityId": "terminology.a",
+                    "path": "src/main/cml/terminology-handoff.cml",
+                    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    "line": 50
+                  },
+                  "origin": {
+                    "kind": "derived",
+                    "ruleId": "rule:literal",
+                    "sources": [
+                      {
+                        "authorityId": "input.a",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 70
+                      },
+                      {
+                        "authorityId": "input.b",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 71
+                      }
+                    ]
+                  }
+                },
+                {
+                  "target": {
+                    "kind": "term",
+                    "identity": {
+                      "vocabularyId": "terminology.a",
+                      "termId": "shared"
+                    }
+                  },
+                  "boundary": "external",
+                  "relation": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "relations.example",
+                      "relationId": "synonym-candidate"
+                    }
+                  },
+                  "profile": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "profiles.example",
+                      "profileId": "view:literal"
+                    }
+                  },
+                  "context": {
+                    "status": "present",
+                    "value": "Terminology a-external."
+                  },
+                  "preferredLabel": {
+                    "status": "present",
+                    "value": {
+                      "text": "参照 a-external",
+                      "language": null
+                    }
+                  },
+                  "source": {
+                    "authorityId": "terminology.a",
+                    "path": "src/main/cml/terminology-handoff.cml",
+                    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    "line": 50
+                  },
+                  "origin": {
+                    "kind": "derived",
+                    "ruleId": "rule:literal",
+                    "sources": [
+                      {
+                        "authorityId": "input.a",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 70
+                      },
+                      {
+                        "authorityId": "input.b",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 71
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "conceptualGroups": {
+              "status": "present",
+              "value": [
+                {
+                  "target": {
+                    "kind": "model-element",
+                    "identity": {
+                      "modelId": "terminology.b",
+                      "elementId": "shared"
+                    }
+                  },
+                  "boundary": "local",
+                  "relation": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "relations.example",
+                      "relationId": "synonym-candidate"
+                    }
+                  },
+                  "profile": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "profiles.example",
+                      "profileId": "view:literal"
+                    }
+                  },
+                  "context": {
+                    "status": "present",
+                    "value": "Terminology a-model."
+                  },
+                  "preferredLabel": {
+                    "status": "present",
+                    "value": {
+                      "text": "参照 a-model",
+                      "language": null
+                    }
+                  },
+                  "source": {
+                    "authorityId": "terminology.a",
+                    "path": "src/main/cml/terminology-handoff.cml",
+                    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    "line": 50
+                  },
+                  "origin": {
+                    "kind": "declared"
+                  }
+                },
+                {
+                  "target": {
+                    "kind": "term",
+                    "identity": {
+                      "vocabularyId": "terminology.a",
+                      "termId": "shared"
+                    }
+                  },
+                  "boundary": "local",
+                  "relation": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "relations.example",
+                      "relationId": "synonym-candidate"
+                    }
+                  },
+                  "profile": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "profiles.example",
+                      "profileId": "view:literal"
+                    }
+                  },
+                  "context": {
+                    "status": "present",
+                    "value": "Terminology a-local."
+                  },
+                  "preferredLabel": {
+                    "status": "present",
+                    "value": {
+                      "text": "参照 a-local",
+                      "language": null
+                    }
+                  },
+                  "source": {
+                    "authorityId": "terminology.a",
+                    "path": "src/main/cml/terminology-handoff.cml",
+                    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    "line": 50
+                  },
+                  "origin": {
+                    "kind": "derived",
+                    "ruleId": "rule:literal",
+                    "sources": [
+                      {
+                        "authorityId": "input.a",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 70
+                      },
+                      {
+                        "authorityId": "input.b",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 71
+                      }
+                    ]
+                  }
+                },
+                {
+                  "target": {
+                    "kind": "term",
+                    "identity": {
+                      "vocabularyId": "terminology.a",
+                      "termId": "shared"
+                    }
+                  },
+                  "boundary": "local",
+                  "relation": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "relations.example",
+                      "relationId": "synonym-candidate"
+                    }
+                  },
+                  "profile": {
+                    "status": "present",
+                    "value": {
+                      "vocabularyId": "profiles.example",
+                      "profileId": "view:literal"
+                    }
+                  },
+                  "context": {
+                    "status": "present",
+                    "value": "Terminology a-local."
+                  },
+                  "preferredLabel": {
+                    "status": "present",
+                    "value": {
+                      "text": "参照 a-local",
+                      "language": null
+                    }
+                  },
+                  "source": {
+                    "authorityId": "terminology.a",
+                    "path": "src/main/cml/terminology-handoff.cml",
+                    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    "line": 50
+                  },
+                  "origin": {
+                    "kind": "derived",
+                    "ruleId": "rule:literal",
+                    "sources": [
+                      {
+                        "authorityId": "input.a",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 70
+                      },
+                      {
+                        "authorityId": "input.b",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 71
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "termProjection": {
+            "term": {
+              "identity": {
+                "vocabularyId": "terminology.a",
+                "termId": "shared"
+              },
+              "source": {
+                "authorityId": "terminology.a",
+                "path": "glossary/terminology.dox",
+                "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "line": 60
+              }
+            },
+            "termType": {
+              "status": "present",
+              "value": "event-type"
+            },
+            "bokKind": {
+              "status": "present",
+              "value": "koto"
+            },
+            "labels": {
+              "status": "present",
+              "value": [
+                {
+                  "text": "共有",
+                  "language": "ja"
+                },
+                {
+                  "text": "Shared",
+                  "language": "en"
+                },
+                {
+                  "text": "共有",
+                  "language": "ja"
+                },
+                {
+                  "text": "無言語",
+                  "language": null
+                }
+              ]
+            },
+            "preferredLabel": {
+              "status": "present",
+              "value": {
+                "text": "優先外",
+                "language": "ja"
+              }
+            }
+          },
+          "anonymousElementProjections": [
+            {
+              "element": {
+                "identity": {
+                  "status": "absent",
+                  "reason": "not-represented",
+                  "detail": "No stable Terminology element identity is represented."
+                },
+                "kind": "event",
+                "name": "共有",
+                "source": {
+                  "authorityId": "terminology.anonymous",
+                  "path": "src/main/cml/terminology-handoff.cml",
+                  "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                  "line": 54
+                },
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "target": {
+                        "kind": "term",
+                        "identity": {
+                          "vocabularyId": "terminology.a",
+                          "termId": "shared"
+                        }
+                      },
+                      "boundary": "local",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "relations.example",
+                          "relationId": "synonym-candidate"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "profiles.example",
+                          "profileId": "view:literal"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "Terminology anonymous-local."
+                      },
+                      "preferredLabel": {
+                        "status": "present",
+                        "value": {
+                          "text": "参照 anonymous-local",
+                          "language": null
+                        }
+                      },
+                      "source": {
+                        "authorityId": "terminology.anonymous",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 54
+                      },
+                      "origin": {
+                        "kind": "derived",
+                        "ruleId": "rule:literal",
+                        "sources": [
+                          {
+                            "authorityId": "input.a",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 70
+                          },
+                          {
+                            "authorityId": "input.b",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 71
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "target": {
+                        "kind": "term",
+                        "identity": {
+                          "vocabularyId": "terminology.a",
+                          "termId": "shared"
+                        }
+                      },
+                      "boundary": "local",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "relations.example",
+                          "relationId": "synonym-candidate"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "profiles.example",
+                          "profileId": "view:literal"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "Terminology anonymous-local."
+                      },
+                      "preferredLabel": {
+                        "status": "present",
+                        "value": {
+                          "text": "参照 anonymous-local",
+                          "language": null
+                        }
+                      },
+                      "source": {
+                        "authorityId": "terminology.anonymous",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 54
+                      },
+                      "origin": {
+                        "kind": "derived",
+                        "ruleId": "rule:literal",
+                        "sources": [
+                          {
+                            "authorityId": "input.a",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 70
+                          },
+                          {
+                            "authorityId": "input.b",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 71
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "termReferences": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "conceptualGroups": {
+                "status": "absent",
+                "reason": "unsupported",
+                "detail": "The conceptual group is unsupported."
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "absent",
+                  "reason": "not-represented",
+                  "detail": "No stable Terminology element identity is represented."
+                },
+                "kind": "event",
+                "name": "共有",
+                "source": {
+                  "authorityId": "terminology.anonymous",
+                  "path": "src/main/cml/terminology-handoff.cml",
+                  "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                  "line": 54
+                },
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "target": {
+                        "kind": "term",
+                        "identity": {
+                          "vocabularyId": "terminology.a",
+                          "termId": "shared"
+                        }
+                      },
+                      "boundary": "local",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "relations.example",
+                          "relationId": "synonym-candidate"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "profiles.example",
+                          "profileId": "view:literal"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "Terminology anonymous-local."
+                      },
+                      "preferredLabel": {
+                        "status": "present",
+                        "value": {
+                          "text": "参照 anonymous-local",
+                          "language": null
+                        }
+                      },
+                      "source": {
+                        "authorityId": "terminology.anonymous",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 54
+                      },
+                      "origin": {
+                        "kind": "derived",
+                        "ruleId": "rule:literal",
+                        "sources": [
+                          {
+                            "authorityId": "input.a",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 70
+                          },
+                          {
+                            "authorityId": "input.b",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 71
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "target": {
+                        "kind": "term",
+                        "identity": {
+                          "vocabularyId": "terminology.a",
+                          "termId": "shared"
+                        }
+                      },
+                      "boundary": "local",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "relations.example",
+                          "relationId": "synonym-candidate"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "profiles.example",
+                          "profileId": "view:literal"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "Terminology anonymous-local."
+                      },
+                      "preferredLabel": {
+                        "status": "present",
+                        "value": {
+                          "text": "参照 anonymous-local",
+                          "language": null
+                        }
+                      },
+                      "source": {
+                        "authorityId": "terminology.anonymous",
+                        "path": "src/main/cml/terminology-handoff.cml",
+                        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                        "line": 54
+                      },
+                      "origin": {
+                        "kind": "derived",
+                        "ruleId": "rule:literal",
+                        "sources": [
+                          {
+                            "authorityId": "input.a",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 70
+                          },
+                          {
+                            "authorityId": "input.b",
+                            "path": "src/main/cml/terminology-handoff.cml",
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "line": 71
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "termReferences": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "conceptualGroups": {
+                "status": "absent",
+                "reason": "unsupported",
+                "detail": "The conceptual group is unsupported."
+              }
+            }
+          ],
+          "coreOccurrenceIndexes": [
+            53,
+            54
+          ],
+          "anonymousCoreOccurrences": [
+            {
+              "identity": {
+                "status": "absent",
+                "reason": "not-represented",
+                "detail": "No stable Terminology element identity is represented."
+              },
+              "kind": "event",
+              "name": "共有",
+              "source": {
+                "authorityId": "terminology.anonymous",
+                "path": "src/main/cml/terminology-handoff.cml",
+                "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "line": 54
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "identity": {
+                "status": "absent",
+                "reason": "not-represented",
+                "detail": "No stable Terminology element identity is represented."
+              },
+              "kind": "event",
+              "name": "共有",
+              "source": {
+                "authorityId": "terminology.anonymous",
+                "path": "src/main/cml/terminology-handoff.cml",
+                "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "line": 54
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "term",
+                      "identity": {
+                        "vocabularyId": "terminology.a",
+                        "termId": "shared"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "relations.example",
+                        "relationId": "synonym-candidate"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "profiles.example",
+                        "profileId": "view:literal"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "Terminology anonymous-local."
+                    },
+                    "preferredLabel": {
+                      "status": "present",
+                      "value": {
+                        "text": "参照 anonymous-local",
+                        "language": null
+                      }
+                    },
+                    "source": {
+                      "authorityId": "terminology.anonymous",
+                      "path": "src/main/cml/terminology-handoff.cml",
+                      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                      "line": 54
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "rule:literal",
+                      "sources": [
+                        {
+                          "authorityId": "input.a",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 70
+                        },
+                        {
+                          "authorityId": "input.b",
+                          "path": "src/main/cml/terminology-handoff.cml",
+                          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                          "line": 71
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "answerAssertions": {
+          "forwardBoundaries": [
+            "local",
+            "local",
+            "external"
+          ],
+          "reverseLocalOccurrences": 6,
+          "reverseAnonymousOccurrences": 4,
+          "preserveCompleteTermLink": true,
+          "externalResolution": "ExternalTarget",
+          "noModelElementTermAlias": true
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.terminology",
+          "field": "termReferences",
+          "owner": {
+            "modelId": "terminology.a",
+            "elementId": "shared"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q02",
+      "question": "Declared UseCase Actor Operation continuation",
+      "inputs": {
+        "useCase": {
+          "modelId": "usecase.example",
+          "elementId": "use-case:complete-order"
+        }
+      },
+      "expected": {
+        "sourceFacts": {
+          "useCaseProjection": {
+            "element": {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "usecase.example",
+                  "elementId": "use-case:complete-order"
+                }
+              },
+              "kind": "use-case",
+              "name": "共有",
+              "source": {
+                "authorityId": "usecase.example",
+                "path": "src/main/cml/use-case-handoff.cml",
+                "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "line": 45
+              },
+              "references": {
+                "status": "absent",
+                "reason": "not-declared",
+                "detail": "No semantic references are declared."
+              }
+            },
+            "declaredId": {
+              "status": "present",
+              "value": "UC-COMPLETE"
+            },
+            "summary": {
+              "status": "present",
+              "value": "Complete order."
+            },
+            "description": {
+              "status": "present",
+              "value": "Complete the declared order use case."
+            },
+            "goal": {
+              "status": "present",
+              "value": "Complete the declared order flow."
+            },
+            "trigger": {
+              "status": "present",
+              "value": {
+                "text": "Order submitted.",
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "identity": {
+                        "modelId": "dynamic.example",
+                        "elementId": "event:completed"
+                      },
+                      "boundary": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            "preconditions": {
+              "status": "present",
+              "value": [
+                {
+                  "text": "Order is pending.",
+                  "references": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "identity": {
+                          "modelId": "dynamic.example",
+                          "elementId": "state:pending"
+                        },
+                        "boundary": "local"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "postconditions": {
+              "status": "present",
+              "value": [
+                {
+                  "text": "Order is complete.",
+                  "references": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "identity": {
+                          "modelId": "dynamic.example",
+                          "elementId": "state:done"
+                        },
+                        "boundary": "local"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "priority": {
+              "status": "present",
+              "value": "high"
+            },
+            "lifecycleStatus": {
+              "status": "present",
+              "value": "approved"
+            },
+            "actorReferences": {
+              "status": "present",
+              "value": [
+                {
+                  "role": "primary",
+                  "target": {
+                    "identity": {
+                      "modelId": "usecase.example",
+                      "elementId": "actor:requester"
+                    },
+                    "boundary": "local"
+                  }
+                },
+                {
+                  "role": "secondary",
+                  "target": {
+                    "identity": {
+                      "modelId": "usecase.example",
+                      "elementId": "actor:auditor"
+                    },
+                    "boundary": "local"
+                  }
+                },
+                {
+                  "role": "supporting",
+                  "target": {
+                    "identity": {
+                      "modelId": "external.example",
+                      "elementId": "actor:payment"
+                    },
+                    "boundary": "external"
+                  }
+                },
+                {
+                  "role": "stakeholder",
+                  "target": {
+                    "identity": {
+                      "modelId": "usecase.example",
+                      "elementId": "actor:requester"
+                    },
+                    "boundary": "local"
+                  }
+                },
+                {
+                  "role": "actor",
+                  "target": {
+                    "identity": {
+                      "modelId": "usecase.example",
+                      "elementId": "actor:auditor"
+                    },
+                    "boundary": "local"
+                  }
+                }
+              ]
+            },
+            "flows": {
+              "status": "present",
+              "value": [
+                {
+                  "kind": "main",
+                  "name": {
+                    "status": "present",
+                    "value": "main"
+                  },
+                  "summary": {
+                    "status": "present",
+                    "value": "Complete the order."
+                  },
+                  "description": {
+                    "status": "present",
+                    "value": "Submit and complete the declared order."
+                  },
+                  "condition": {
+                    "status": "absent",
+                    "reason": "not-applicable",
+                    "detail": "The main flow has no declared condition."
+                  },
+                  "steps": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "text": "Requester submits the order.",
+                        "references": {
+                          "status": "present",
+                          "value": [
+                            {
+                              "identity": {
+                                "modelId": "usecase.example",
+                                "elementId": "actor:requester"
+                              },
+                              "boundary": "local"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "text": "Complete the order.",
+                        "references": {
+                          "status": "present",
+                          "value": [
+                            {
+                              "identity": {
+                                "modelId": "dynamic.example",
+                                "elementId": "operation:complete"
+                              },
+                              "boundary": "local"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "alternates": {
+                    "status": "present",
+                    "value": []
+                  },
+                  "exceptions": {
+                    "status": "present",
+                    "value": []
+                  }
+                },
+                {
+                  "kind": "alternate",
+                  "name": {
+                    "status": "present",
+                    "value": "alternate"
+                  },
+                  "summary": {
+                    "status": "present",
+                    "value": "Reject the order."
+                  },
+                  "description": {
+                    "status": "present",
+                    "value": "Reject and review the declared order."
+                  },
+                  "condition": {
+                    "status": "present",
+                    "value": {
+                      "text": "rejected",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "dynamic.example",
+                              "elementId": "rule:complete"
+                            },
+                            "boundary": "local"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "steps": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "text": "Reject the order.",
+                        "references": {
+                          "status": "present",
+                          "value": [
+                            {
+                              "identity": {
+                                "modelId": "dynamic.example",
+                                "elementId": "activity:reject"
+                              },
+                              "boundary": "local"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "alternates": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "text": "Review the order again.",
+                        "references": {
+                          "status": "present",
+                          "value": [
+                            {
+                              "identity": {
+                                "modelId": "dynamic.example",
+                                "elementId": "activity:review"
+                              },
+                              "boundary": "local"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "exceptions": {
+                    "status": "present",
+                    "value": []
+                  }
+                },
+                {
+                  "kind": "exception",
+                  "name": {
+                    "status": "present",
+                    "value": "exception"
+                  },
+                  "summary": {
+                    "status": "present",
+                    "value": "Handle payment failure."
+                  },
+                  "description": {
+                    "status": "present",
+                    "value": "Notify failure and keep the declared order pending."
+                  },
+                  "condition": {
+                    "status": "present",
+                    "value": {
+                      "text": "payment unavailable",
+                      "references": {
+                        "status": "present",
+                        "value": [
+                          {
+                            "identity": {
+                              "modelId": "external.example",
+                              "elementId": "event:unavailable"
+                            },
+                            "boundary": "external"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "steps": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "text": "Notify payment failure.",
+                        "references": {
+                          "status": "present",
+                          "value": [
+                            {
+                              "identity": {
+                                "modelId": "dynamic.example",
+                                "elementId": "event:completed"
+                              },
+                              "boundary": "local"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  "alternates": {
+                    "status": "present",
+                    "value": []
+                  },
+                  "exceptions": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "text": "Keep the order pending.",
+                        "references": {
+                          "status": "present",
+                          "value": [
+                            {
+                              "identity": {
+                                "modelId": "dynamic.example",
+                                "elementId": "state:pending"
+                              },
+                              "boundary": "local"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "domainElements": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "operations": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "operation:complete"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "events": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "event:completed"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "collaborators": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "usecase.example",
+                    "elementId": "component:partner"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "usecase.example",
+                    "elementId": "service:fulfillment"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "usecase.example",
+                    "elementId": "external-system:payment"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "external.example",
+                    "elementId": "component:partner"
+                  },
+                  "boundary": "external"
+                }
+              ]
+            },
+            "realizingWorkflows": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "workflow:fulfillment"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "external.example",
+                    "elementId": "workflow:fulfillment"
+                  },
+                  "boundary": "external"
+                }
+              ]
+            }
+          },
+          "actorProjections": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "usecase.example",
+                    "elementId": "actor:requester"
+                  }
+                },
+                "kind": "actor",
+                "name": "共有",
+                "source": {
+                  "authorityId": "usecase.example",
+                  "path": "src/main/cml/use-case-handoff.cml",
+                  "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "line": 43
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "actorKind": {
+                "status": "present",
+                "value": "human"
+              },
+              "summary": {
+                "status": "present",
+                "value": "Request an order."
+              },
+              "description": {
+                "status": "present",
+                "value": "Submit the declared order use case."
+              },
+              "useCases": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "usecase.example",
+                      "elementId": "use-case:complete-order"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              },
+              "workflows": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "dynamic.example",
+                      "elementId": "workflow:fulfillment"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              },
+              "operations": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "dynamic.example",
+                      "elementId": "operation:complete"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              },
+              "events": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "dynamic.example",
+                      "elementId": "event:completed"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              },
+              "domainElements": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "structure.example",
+                      "elementId": "entity:order"
+                    },
+                    "boundary": "local"
+                  },
+                  {
+                    "identity": {
+                      "modelId": "structure.example",
+                      "elementId": "aggregate:order"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "usecase.example",
+                    "elementId": "actor:auditor"
+                  }
+                },
+                "kind": "actor",
+                "name": "共有",
+                "source": {
+                  "authorityId": "usecase.example",
+                  "path": "src/main/cml/use-case-handoff.cml",
+                  "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "line": 44
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "actorKind": {
+                "status": "present",
+                "value": "system"
+              },
+              "summary": {
+                "status": "present",
+                "value": "Observe an order."
+              },
+              "description": {
+                "status": "present",
+                "value": "Observe the declared order use case."
+              },
+              "useCases": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "usecase.example",
+                      "elementId": "use-case:observe-order"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              },
+              "workflows": {
+                "status": "present",
+                "value": []
+              },
+              "operations": {
+                "status": "present",
+                "value": []
+              },
+              "events": {
+                "status": "present",
+                "value": []
+              },
+              "domainElements": {
+                "status": "present",
+                "value": []
+              }
+            }
+          ],
+          "operationCore": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "dynamic.example",
+                "elementId": "operation:complete"
+              }
+            },
+            "kind": "operation",
+            "name": "共有",
+            "source": {
+              "authorityId": "dynamic.example",
+              "path": "src/main/cml/dynamic-handoff.cml",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "line": 38
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          }
+        },
+        "answerAssertions": {
+          "roles": [
+            "primary",
+            "secondary",
+            "supporting",
+            "stakeholder",
+            "actor"
+          ],
+          "operation": {
+            "modelId": "dynamic.example",
+            "elementId": "operation:complete"
+          },
+          "operationSourceLine": 38,
+          "externalResolution": "ExternalTarget",
+          "claimsExecution": false
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.use-case",
+          "field": "actorReferences",
+          "owner": {
+            "modelId": "usecase.example",
+            "elementId": "use-case:complete-order"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q03",
+      "question": "Direct operation cause and contextual affected Structure subjects",
+      "inputs": {
+        "operation": {
+          "modelId": "causal.example",
+          "elementId": "command:place-order"
+        }
+      },
+      "expected": {
+        "sourceFacts": {
+          "causalCarrier": {
+            "element": {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "cause:placement"
+                }
+              },
+              "kind": "causal-link",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 14
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            "kind": "cause",
+            "source": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "causal.example",
+                  "elementId": "command:place-order"
+                },
+                "boundary": "local"
+              }
+            },
+            "target": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "causal.example",
+                  "elementId": "event:order-placed"
+                },
+                "boundary": "local"
+              }
+            },
+            "rule": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No causal rule is declared."
+            },
+            "affectedElements": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "entity:order-item"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            }
+          },
+          "subjectCores": [
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "command:place-order"
+                }
+              },
+              "kind": "command",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 2
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "event:order-placed"
+                }
+              },
+              "kind": "event",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 6
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "query:availability"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "component:inventory"
+                      }
+                    },
+                    "boundary": "external",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "aggregate:order"
+                }
+              },
+              "kind": "aggregate",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 4
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "entity:order-item"
+                }
+              },
+              "kind": "entity",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 5
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            }
+          ],
+          "structureProjections": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "aggregate:order"
+                  }
+                },
+                "kind": "aggregate",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 4
+                },
+                "references": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              "kind": "aggregate",
+              "aggregateBoundary": {
+                "status": "absent",
+                "reason": "not-applicable",
+                "detail": "The Aggregate has no containing Aggregate."
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "entity:order-item"
+                  }
+                },
+                "kind": "entity",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 5
+                },
+                "references": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              "kind": "entity",
+              "aggregateBoundary": {
+                "status": "present",
+                "value": {
+                  "aggregate": {
+                    "status": "present",
+                    "value": {
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "aggregate:order"
+                      },
+                      "boundary": "local"
+                    }
+                  },
+                  "membership": {
+                    "status": "present",
+                    "value": "member"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "answerAssertions": {
+          "directKind": "Cause",
+          "directOwner": {
+            "modelId": "causal.example",
+            "elementId": "cause:placement"
+          },
+          "affectedOrder": [
+            {
+              "modelId": "causal.example",
+              "elementId": "aggregate:order"
+            },
+            {
+              "modelId": "causal.example",
+              "elementId": "entity:order-item"
+            }
+          ],
+          "aggregateConsequences": {
+            "status": "present",
+            "value": []
+          },
+          "membership": "member",
+          "aggregateCausation": false
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.causal",
+          "field": "causalLinks",
+          "owner": {
+            "modelId": "causal.example",
+            "elementId": "cause:placement"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q04",
+      "question": "Direct event reaction, separate rule context and subsequent direct cause",
+      "inputs": {
+        "event": {
+          "modelId": "causal.example",
+          "elementId": "event:order-placed"
+        },
+        "operation": {
+          "modelId": "causal.example",
+          "elementId": "operation:reserve-stock"
+        },
+        "rule": {
+          "modelId": "causal.example",
+          "elementId": "rule:reserve-stock"
+        }
+      },
+      "expected": {
+        "sourceFacts": {
+          "causalCarriers": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "cause:placement"
+                  }
+                },
+                "kind": "causal-link",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 14
+                },
+                "references": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              "kind": "cause",
+              "source": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "command:place-order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "target": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "event:order-placed"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "rule": {
+                "status": "absent",
+                "reason": "not-declared",
+                "detail": "No causal rule is declared."
+              },
+              "affectedElements": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "causal.example",
+                      "elementId": "aggregate:order"
+                    },
+                    "boundary": "local"
+                  },
+                  {
+                    "identity": {
+                      "modelId": "causal.example",
+                      "elementId": "entity:order-item"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "cause:confirmation"
+                  }
+                },
+                "kind": "causal-link",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 15
+                },
+                "references": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              "kind": "cause",
+              "source": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "operation:confirm-order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "target": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "event:order-placed"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "rule": {
+                "status": "absent",
+                "reason": "not-declared",
+                "detail": "No causal rule is declared."
+              },
+              "affectedElements": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "causal.example",
+                      "elementId": "aggregate:order"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "reaction:reservation"
+                  }
+                },
+                "kind": "causal-link",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 16
+                },
+                "references": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              "kind": "reaction",
+              "source": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "event:order-placed"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "target": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "operation:reserve-stock"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "rule": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "rule:reserve-stock"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "affectedElements": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "causal.example",
+                      "elementId": "aggregate:order"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "cause:stock-event"
+                  }
+                },
+                "kind": "causal-link",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 17
+                },
+                "references": {
+                  "status": "present",
+                  "value": []
+                }
+              },
+              "kind": "cause",
+              "source": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "operation:reserve-stock"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "target": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "causal.example",
+                    "elementId": "event:stock-reserved"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "rule": {
+                "status": "absent",
+                "reason": "not-declared",
+                "detail": "No causal rule is declared."
+              },
+              "affectedElements": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "causal.example",
+                      "elementId": "entity:order-item"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            }
+          ],
+          "subjectCores": [
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "event:order-placed"
+                }
+              },
+              "kind": "event",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 6
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "query:availability"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "component:inventory"
+                      }
+                    },
+                    "boundary": "external",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "operation:confirm-order"
+                }
+              },
+              "kind": "operation",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 3
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "operation:reserve-stock"
+                }
+              },
+              "kind": "operation",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 8
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "rule:reserve-stock"
+                }
+              },
+              "kind": "rule",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 7
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "event:stock-reserved"
+                }
+              },
+              "kind": "event",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 9
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "aggregate:order"
+                }
+              },
+              "kind": "aggregate",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 4
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "entity:order-item"
+                }
+              },
+              "kind": "entity",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 5
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            }
+          ]
+        },
+        "answerAssertions": {
+          "incomingOwners": [
+            {
+              "modelId": "causal.example",
+              "elementId": "cause:placement"
+            },
+            {
+              "modelId": "causal.example",
+              "elementId": "cause:confirmation"
+            }
+          ],
+          "reactionOwner": {
+            "modelId": "causal.example",
+            "elementId": "reaction:reservation"
+          },
+          "subsequentCauseOwner": {
+            "modelId": "causal.example",
+            "elementId": "cause:stock-event"
+          },
+          "ruleKinds": [
+            "RuleInput",
+            "RuleOutput"
+          ],
+          "ruleEvidenceIndexes": [
+            0,
+            1
+          ],
+          "claimsPolicyExecution": false,
+          "claimsTransitiveCause": false
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.causal",
+          "field": "causalLinks",
+          "owner": {
+            "modelId": "causal.example",
+            "elementId": "reaction:reservation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q05",
+      "question": "Declared Workflow StateMachine static subjects and states",
+      "inputs": {
+        "workflow": {
+          "modelId": "dynamic.example",
+          "elementId": "workflow:fulfillment"
+        }
+      },
+      "expected": {
+        "sourceFacts": {
+          "workflowProjection": {
+            "element": {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "dynamic.example",
+                  "elementId": "workflow:fulfillment"
+                }
+              },
+              "kind": "workflow",
+              "name": "共有",
+              "source": {
+                "authorityId": "dynamic.example",
+                "path": "src/main/cml/dynamic-handoff.cml",
+                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "line": 23
+              },
+              "references": {
+                "status": "absent",
+                "reason": "not-declared",
+                "detail": "No semantic references are declared."
+              }
+            },
+            "purpose": {
+              "status": "present",
+              "value": "Complete the declared order flow."
+            },
+            "activities": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "activity:review"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "activity:branch"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "activity:accept"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "activity:reject"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "activity:merge"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "flows": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "flow:review-branch"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "flow:branch-accept"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "flow:branch-reject"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "flow:accept-merge"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "flow:reject-merge"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "participants": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "external.example",
+                    "elementId": "actor:reviewer"
+                  },
+                  "boundary": "external"
+                }
+              ]
+            },
+            "affectedElements": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "stateMachines": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "machine:order"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "operations": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "operation:complete"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "events": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "event:completed"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "rules": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "rule:complete"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "stateEffects": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "state:done"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "transition:complete"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            }
+          },
+          "stateMachineProjection": {
+            "element": {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "dynamic.example",
+                  "elementId": "machine:order"
+                }
+              },
+              "kind": "state-machine",
+              "name": "共有",
+              "source": {
+                "authorityId": "dynamic.example",
+                "path": "src/main/cml/dynamic-handoff.cml",
+                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "line": 34
+              },
+              "references": {
+                "status": "absent",
+                "reason": "not-declared",
+                "detail": "No semantic references are declared."
+              }
+            },
+            "owner": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "structure.example",
+                  "elementId": "aggregate:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "affectedElements": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "states": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "state:pending"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "state:done"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "transitions": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "transition:complete"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "workflows": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "workflow:fulfillment"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            }
+          },
+          "stateProjections": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "dynamic.example",
+                    "elementId": "state:pending"
+                  }
+                },
+                "kind": "state",
+                "name": "共有",
+                "source": {
+                  "authorityId": "dynamic.example",
+                  "path": "src/main/cml/dynamic-handoff.cml",
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "line": 35
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "stateMachine": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "machine:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "entryActions": {
+                "status": "present",
+                "value": []
+              },
+              "exitActions": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "dynamic.example",
+                    "elementId": "state:done"
+                  }
+                },
+                "kind": "state",
+                "name": "共有",
+                "source": {
+                  "authorityId": "dynamic.example",
+                  "path": "src/main/cml/dynamic-handoff.cml",
+                  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "line": 36
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "stateMachine": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "machine:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "entryActions": {
+                "status": "present",
+                "value": []
+              },
+              "exitActions": {
+                "status": "present",
+                "value": []
+              }
+            }
+          ],
+          "transitionProjection": {
+            "element": {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "dynamic.example",
+                  "elementId": "transition:complete"
+                }
+              },
+              "kind": "transition",
+              "name": "共有",
+              "source": {
+                "authorityId": "dynamic.example",
+                "path": "src/main/cml/dynamic-handoff.cml",
+                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "line": 37
+              },
+              "references": {
+                "status": "absent",
+                "reason": "not-declared",
+                "detail": "No semantic references are declared."
+              }
+            },
+            "stateMachine": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "machine:order"
+                },
+                "boundary": "local"
+              }
+            },
+            "fromState": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "state:pending"
+                },
+                "boundary": "local"
+              }
+            },
+            "toState": {
+              "status": "present",
+              "value": {
+                "identity": {
+                  "modelId": "dynamic.example",
+                  "elementId": "state:done"
+                },
+                "boundary": "local"
+              }
+            },
+            "triggers": {
+              "status": "present",
+              "value": [
+                {
+                  "text": "completed",
+                  "references": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "identity": {
+                          "modelId": "dynamic.example",
+                          "elementId": "event:completed"
+                        },
+                        "boundary": "local"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "guard": {
+              "status": "present",
+              "value": {
+                "text": "approved",
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "identity": {
+                        "modelId": "dynamic.example",
+                        "elementId": "rule:complete"
+                      },
+                      "boundary": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            "actions": {
+              "status": "present",
+              "value": [
+                {
+                  "text": "complete()",
+                  "references": {
+                    "status": "present",
+                    "value": [
+                      {
+                        "identity": {
+                          "modelId": "dynamic.example",
+                          "elementId": "operation:complete"
+                        },
+                        "boundary": "local"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "activities": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "activity:accept"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "workflows": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "workflow:fulfillment"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "affectedElements": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  },
+                  "boundary": "local"
+                },
+                {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            },
+            "stateEffects": {
+              "status": "present",
+              "value": [
+                {
+                  "identity": {
+                    "modelId": "dynamic.example",
+                    "elementId": "state:done"
+                  },
+                  "boundary": "local"
+                }
+              ]
+            }
+          },
+          "structureProjections": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  }
+                },
+                "kind": "entity",
+                "name": "共有",
+                "source": {
+                  "authorityId": "structure.example",
+                  "path": "src/main/cml/structure-handoff.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 1
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "kind": "entity",
+              "aggregateBoundary": {
+                "status": "present",
+                "value": {
+                  "aggregate": {
+                    "status": "present",
+                    "value": {
+                      "identity": {
+                        "modelId": "structure.example",
+                        "elementId": "aggregate:order"
+                      },
+                      "boundary": "local"
+                    }
+                  },
+                  "membership": {
+                    "status": "present",
+                    "value": "member:主"
+                  }
+                }
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "structure.example",
+                    "elementId": "aggregate:order"
+                  }
+                },
+                "kind": "aggregate",
+                "name": "共有",
+                "source": {
+                  "authorityId": "structure.example",
+                  "path": "src/main/cml/structure-handoff.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 3
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "kind": "aggregate",
+              "aggregateBoundary": {
+                "status": "present",
+                "value": {
+                  "aggregate": {
+                    "status": "present",
+                    "value": {
+                      "identity": {
+                        "modelId": "structure.example",
+                        "elementId": "aggregate:order"
+                      },
+                      "boundary": "local"
+                    }
+                  },
+                  "membership": {
+                    "status": "present",
+                    "value": "root:宣言"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "answerAssertions": {
+          "machineOwner": {
+            "modelId": "structure.example",
+            "elementId": "aggregate:order"
+          },
+          "affectedOrder": [
+            {
+              "modelId": "structure.example",
+              "elementId": "entity:order"
+            },
+            {
+              "modelId": "structure.example",
+              "elementId": "aggregate:order"
+            }
+          ],
+          "workflowSourceLine": 23,
+          "machineSourceLine": 34
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.dynamic",
+          "field": "stateMachines",
+          "owner": {
+            "modelId": "dynamic.example",
+            "elementId": "workflow:fulfillment"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q06",
+      "question": "Independent ordered status category and status-secondary classification dimensions",
+      "inputs": {
+        "subject": {
+          "modelId": "structure.example",
+          "elementId": "entity:order"
+        }
+      },
+      "expected": {
+        "sourceFacts": {
+          "dimensions": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "classification.example",
+                    "elementId": "dimension:status"
+                  }
+                },
+                "kind": "powertype-classification",
+                "name": "共有",
+                "source": {
+                  "authorityId": "classification.example",
+                  "path": "src/main/cml/classification-handoff.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 20
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "subject": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "powertype": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "classification.example",
+                    "elementId": "powertype:status"
+                  },
+                  "boundary": "local"
+                }
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "classification.example",
+                    "elementId": "dimension:category"
+                  }
+                },
+                "kind": "powertype-classification",
+                "name": "共有",
+                "source": {
+                  "authorityId": "classification.example",
+                  "path": "src/main/cml/classification-handoff.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 21
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "subject": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "powertype": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "classification.example",
+                    "elementId": "powertype:category"
+                  },
+                  "boundary": "local"
+                }
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "classification.example",
+                    "elementId": "dimension:status-secondary"
+                  }
+                },
+                "kind": "powertype-classification",
+                "name": "共有",
+                "source": {
+                  "authorityId": "classification.example",
+                  "path": "src/main/cml/classification-handoff.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 22
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "subject": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "structure.example",
+                    "elementId": "entity:order"
+                  },
+                  "boundary": "local"
+                }
+              },
+              "powertype": {
+                "status": "present",
+                "value": {
+                  "identity": {
+                    "modelId": "classification.example",
+                    "elementId": "powertype:status"
+                  },
+                  "boundary": "local"
+                }
+              }
+            }
+          ],
+          "powertypes": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "classification.example",
+                    "elementId": "powertype:status"
+                  }
+                },
+                "kind": "powertype",
+                "name": "共有",
+                "source": {
+                  "authorityId": "classification.example",
+                  "path": "src/main/cml/classification-handoff.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 9
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "members": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "classification.example",
+                      "elementId": "kind:status-open"
+                    },
+                    "boundary": "local"
+                  },
+                  {
+                    "identity": {
+                      "modelId": "classification.example",
+                      "elementId": "kind:status-closed"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "classification.example",
+                    "elementId": "powertype:category"
+                  }
+                },
+                "kind": "powertype",
+                "name": "共有",
+                "source": {
+                  "authorityId": "classification.example",
+                  "path": "src/main/cml/classification-handoff.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 10
+                },
+                "references": {
+                  "status": "absent",
+                  "reason": "not-declared",
+                  "detail": "No semantic references are declared."
+                }
+              },
+              "members": {
+                "status": "present",
+                "value": [
+                  {
+                    "identity": {
+                      "modelId": "classification.example",
+                      "elementId": "kind:category-retail"
+                    },
+                    "boundary": "local"
+                  },
+                  {
+                    "identity": {
+                      "modelId": "classification.example",
+                      "elementId": "kind:category-wholesale"
+                    },
+                    "boundary": "local"
+                  }
+                ]
+              }
+            }
+          ],
+          "subjectCore": {
+            "identity": {
+              "status": "present",
+              "value": {
+                "modelId": "structure.example",
+                "elementId": "entity:order"
+              }
+            },
+            "kind": "entity",
+            "name": "共有",
+            "source": {
+              "authorityId": "structure.example",
+              "path": "src/main/cml/structure-handoff.cml",
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "line": 1
+            },
+            "references": {
+              "status": "absent",
+              "reason": "not-declared",
+              "detail": "No semantic references are declared."
+            }
+          }
+        },
+        "answerAssertions": {
+          "dimensionOrder": [
+            {
+              "modelId": "classification.example",
+              "elementId": "dimension:status"
+            },
+            {
+              "modelId": "classification.example",
+              "elementId": "dimension:category"
+            },
+            {
+              "modelId": "classification.example",
+              "elementId": "dimension:status-secondary"
+            }
+          ],
+          "targetOrder": [
+            {
+              "modelId": "classification.example",
+              "elementId": "powertype:status"
+            },
+            {
+              "modelId": "classification.example",
+              "elementId": "powertype:category"
+            },
+            {
+              "modelId": "classification.example",
+              "elementId": "powertype:status"
+            }
+          ],
+          "sourceLines": [
+            20,
+            21,
+            22
+          ],
+          "mergedDimensions": false
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.classification",
+          "field": "powertypeClassifications",
+          "owner": {
+            "modelId": "structure.example",
+            "elementId": "entity:order"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q07",
+      "question": "Full generic references preserve External boundaries and grant no read-model updates",
+      "inputs": {
+        "component": {
+          "modelId": "causal.example",
+          "elementId": "component:inventory"
+        },
+        "event": {
+          "modelId": "causal.example",
+          "elementId": "event:order-placed"
+        },
+        "query": {
+          "modelId": "causal.example",
+          "elementId": "query:availability"
+        },
+        "view": {
+          "modelId": "causal.example",
+          "elementId": "view:order-summary"
+        }
+      },
+      "expected": {
+        "sourceFacts": {
+          "modelReferences": [
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "component:inventory"
+                  }
+                },
+                "kind": "component",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 11
+                },
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "target": {
+                        "kind": "model-element",
+                        "identity": {
+                          "modelId": "causal.external",
+                          "elementId": "component:inventory"
+                        }
+                      },
+                      "boundary": "external",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-relations",
+                          "relationId": "depends-on"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-profiles",
+                          "profileId": "dependency"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "declared dependency"
+                      },
+                      "preferredLabel": {
+                        "status": "absent",
+                        "reason": "not-declared",
+                        "detail": "No preferred causal label is declared."
+                      },
+                      "source": {
+                        "authorityId": "causal.example",
+                        "path": "fixtures/causal-model.cml",
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "line": 11
+                      },
+                      "origin": {
+                        "kind": "declared"
+                      }
+                    }
+                  ]
+                }
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.external",
+                        "elementId": "component:inventory"
+                      }
+                    },
+                    "boundary": "external",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "depends-on"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "dependency"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared dependency"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 11
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "element": {
+                "identity": {
+                  "status": "present",
+                  "value": {
+                    "modelId": "causal.example",
+                    "elementId": "event:order-placed"
+                  }
+                },
+                "kind": "event",
+                "name": "共有",
+                "source": {
+                  "authorityId": "causal.example",
+                  "path": "fixtures/causal-model.cml",
+                  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "line": 6
+                },
+                "references": {
+                  "status": "present",
+                  "value": [
+                    {
+                      "target": {
+                        "kind": "model-element",
+                        "identity": {
+                          "modelId": "causal.example",
+                          "elementId": "view:order-summary"
+                        }
+                      },
+                      "boundary": "local",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-relations",
+                          "relationId": "read-model"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-profiles",
+                          "profileId": "read-model"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "declared read-model reference"
+                      },
+                      "preferredLabel": {
+                        "status": "absent",
+                        "reason": "not-declared",
+                        "detail": "No preferred causal label is declared."
+                      },
+                      "source": {
+                        "authorityId": "causal.example",
+                        "path": "fixtures/causal-model.cml",
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "line": 6
+                      },
+                      "origin": {
+                        "kind": "derived",
+                        "ruleId": "literal.causal-reference.v1",
+                        "sources": [
+                          {
+                            "authorityId": "causal.example",
+                            "path": "fixtures/causal-model.cml",
+                            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "line": 6
+                          },
+                          {
+                            "authorityId": "causal.example",
+                            "path": "fixtures/causal-model.cml",
+                            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "line": 11
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "target": {
+                        "kind": "model-element",
+                        "identity": {
+                          "modelId": "causal.example",
+                          "elementId": "query:availability"
+                        }
+                      },
+                      "boundary": "local",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-relations",
+                          "relationId": "read-model"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-profiles",
+                          "profileId": "read-model"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "declared read-model reference"
+                      },
+                      "preferredLabel": {
+                        "status": "absent",
+                        "reason": "not-declared",
+                        "detail": "No preferred causal label is declared."
+                      },
+                      "source": {
+                        "authorityId": "causal.example",
+                        "path": "fixtures/causal-model.cml",
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "line": 6
+                      },
+                      "origin": {
+                        "kind": "declared"
+                      }
+                    },
+                    {
+                      "target": {
+                        "kind": "model-element",
+                        "identity": {
+                          "modelId": "causal.example",
+                          "elementId": "component:inventory"
+                        }
+                      },
+                      "boundary": "external",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-relations",
+                          "relationId": "read-model"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-profiles",
+                          "profileId": "read-model"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "declared read-model reference"
+                      },
+                      "preferredLabel": {
+                        "status": "absent",
+                        "reason": "not-declared",
+                        "detail": "No preferred causal label is declared."
+                      },
+                      "source": {
+                        "authorityId": "causal.example",
+                        "path": "fixtures/causal-model.cml",
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "line": 6
+                      },
+                      "origin": {
+                        "kind": "declared"
+                      }
+                    },
+                    {
+                      "target": {
+                        "kind": "model-element",
+                        "identity": {
+                          "modelId": "causal.example",
+                          "elementId": "view:order-summary"
+                        }
+                      },
+                      "boundary": "local",
+                      "relation": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-relations",
+                          "relationId": "read-model"
+                        }
+                      },
+                      "profile": {
+                        "status": "present",
+                        "value": {
+                          "vocabularyId": "causal-profiles",
+                          "profileId": "read-model"
+                        }
+                      },
+                      "context": {
+                        "status": "present",
+                        "value": "declared read-model reference"
+                      },
+                      "preferredLabel": {
+                        "status": "absent",
+                        "reason": "not-declared",
+                        "detail": "No preferred causal label is declared."
+                      },
+                      "source": {
+                        "authorityId": "causal.example",
+                        "path": "fixtures/causal-model.cml",
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "line": 6
+                      },
+                      "origin": {
+                        "kind": "derived",
+                        "ruleId": "literal.causal-reference.v1",
+                        "sources": [
+                          {
+                            "authorityId": "causal.example",
+                            "path": "fixtures/causal-model.cml",
+                            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "line": 6
+                          },
+                          {
+                            "authorityId": "causal.example",
+                            "path": "fixtures/causal-model.cml",
+                            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                            "line": 11
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "query:availability"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "component:inventory"
+                      }
+                    },
+                    "boundary": "external",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "subjectCores": [
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "component:inventory"
+                }
+              },
+              "kind": "component",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 11
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.external",
+                        "elementId": "component:inventory"
+                      }
+                    },
+                    "boundary": "external",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "depends-on"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "dependency"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared dependency"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 11
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "event:order-placed"
+                }
+              },
+              "kind": "event",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 6
+              },
+              "references": {
+                "status": "present",
+                "value": [
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "query:availability"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "component:inventory"
+                      }
+                    },
+                    "boundary": "external",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "declared"
+                    }
+                  },
+                  {
+                    "target": {
+                      "kind": "model-element",
+                      "identity": {
+                        "modelId": "causal.example",
+                        "elementId": "view:order-summary"
+                      }
+                    },
+                    "boundary": "local",
+                    "relation": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-relations",
+                        "relationId": "read-model"
+                      }
+                    },
+                    "profile": {
+                      "status": "present",
+                      "value": {
+                        "vocabularyId": "causal-profiles",
+                        "profileId": "read-model"
+                      }
+                    },
+                    "context": {
+                      "status": "present",
+                      "value": "declared read-model reference"
+                    },
+                    "preferredLabel": {
+                      "status": "absent",
+                      "reason": "not-declared",
+                      "detail": "No preferred causal label is declared."
+                    },
+                    "source": {
+                      "authorityId": "causal.example",
+                      "path": "fixtures/causal-model.cml",
+                      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "line": 6
+                    },
+                    "origin": {
+                      "kind": "derived",
+                      "ruleId": "literal.causal-reference.v1",
+                      "sources": [
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 6
+                        },
+                        {
+                          "authorityId": "causal.example",
+                          "path": "fixtures/causal-model.cml",
+                          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "line": 11
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "query:availability"
+                }
+              },
+              "kind": "query",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 12
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            },
+            {
+              "identity": {
+                "status": "present",
+                "value": {
+                  "modelId": "causal.example",
+                  "elementId": "view:order-summary"
+                }
+              },
+              "kind": "view",
+              "name": "共有",
+              "source": {
+                "authorityId": "causal.example",
+                "path": "fixtures/causal-model.cml",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "line": 13
+              },
+              "references": {
+                "status": "present",
+                "value": []
+              }
+            }
+          ]
+        },
+        "answerAssertions": {
+          "eventReferenceBoundaries": [
+            "local",
+            "local",
+            "external",
+            "local"
+          ],
+          "externalResolution": "ExternalTarget",
+          "queryCauses": {
+            "status": "present",
+            "value": []
+          },
+          "viewCauses": {
+            "status": "present",
+            "value": []
+          },
+          "claimsReadModelUpdate": false
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.causal",
+          "field": "modelReferences.references",
+          "owner": {
+            "modelId": "causal.example",
+            "elementId": "event:order-placed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q08",
+      "question": "Unsupported causal inference remains an explicit source-grounded gap",
+      "inputs": {
+        "capability": "causalInference"
+      },
+      "expected": {
+        "sourceFacts": {
+          "unsupportedGap": {
+            "owner": null,
+            "field": "causalInference",
+            "absence": {
+              "status": "absent",
+              "reason": "unsupported",
+              "detail": "No causation is inferred from names, membership, generic relations or expression text."
+            }
+          }
+        },
+        "answerAssertions": {
+          "causalInference": "unsupported",
+          "inferFromNames": false,
+          "inferFromMembership": false,
+          "inferFromGenericRelations": false,
+          "claimsSourceCurrentness": false
+        }
+      },
+      "evidence": [
+        {
+          "namespace": "cozy.cml.causal",
+          "field": "causalInference",
+          "owner": null
+        }
+      ]
+    }
+  ]
+}
