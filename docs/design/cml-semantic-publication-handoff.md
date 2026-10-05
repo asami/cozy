@@ -192,10 +192,12 @@ recorded sbt_exit=0, wrapper_exit=0 and lock=released.
 
 Observed S1 acceptance: 257 tests/20 suites, SP-08 seed 42 with 100 successes,
 zero discards and four coverage counts of 100, focused review PASS, verified native
-commit `0b1db8996cc4979cbab029a801ae82f0611f7e43`. Observed S2 acceptance:
+commit `0b1db8996cc4979cbab029a801ae82f0611f7e43`, repair 1. Observed S2 acceptance:
 268 tests/21 suites, SF-11 seed 42 with 100 successes, zero discards, all 21
 coverage counts of 100 and 31 execution orders, focused review PASS, verified
-native commit `2f7d1852b9d4b1e55e13d1200799673e00624606` with S1 as sole parent.
+native commit `2f7d1852b9d4b1e55e13d1200799673e00624606` with S1 as sole parent,
+repair 1; SP-08 seed 42 also passed with 100 successes/zero discards/all four
+coverage counts100.
 The historical S2 failure, infrastructure stop, bounded repair and accepted fresh
 validation remain recorded in the [journal](../journal/2026/10/2026-10-05-phase-54.7-semantic-publication.md).
 
@@ -207,8 +209,31 @@ counts were 100, with 31 SF-11 question execution orders. Fresh independent
 P547-S5473-REVIEW-001 returned PASS over all eighteen Step paths, covering full
 typed/raw/canonical oracles, eight valid empty publications, nine strict adversaries,
 qualified complete provenance/occurrences/External stopping and this stable handoff.
-S3 remains IN_PROGRESS with its native Step acceptance commit and verified receipt
-pending in [its checklist](../phase/s54.7.3-checklist.md). All five original Phase
-obligations, sole full Phase review, ordinary full validation, distinct release
-and native requirement audit remain pending. External consumer acceptance retains
-its downstream owner.
+S3 is CLOSED at native Step commit `abe935c6e2144b04308e16f10e4f82fed92c471b`,
+sole parent S2. Verified `s5473-parent-manual-commit-receipt-001.json` records the
+exact eighteen accepted paths; all thirteen original entries in
+[its checklist](../phase/s54.7.3-checklist.md) are accepted, with repair 0.
+
+The sole full Phase review `P547-FULL-REVIEW-001 r1` is PASS over original base
+`8099e3e3c16c98127df53b7344f5b54841105993` through accepted S3
+`abe935c6e2144b04308e16f10e4f82fed92c471b`, all 24 paths/four whole programs/
+four outcomes/five obligations, with no CPB, HYG or DEV. Actual ordinary
+`P547-FINAL-VAL-001`, logical `sbt --batch test`, passed 2895 tests in 204 suites,
+failed=0/aborted=0/ignored=0/pending=0 and nine existing optional/deferred
+cancellations. Four real Docker Remotion tests require
+`cozy.video.remotion.integration=true`; five historical Phase 51 CV-01 cases are
+deferred to CV-04/CV-05/CV-06/SP-01, with sources unchanged. All 27 new publication
+behaviors passed, none canceled. PC-06/SF-11/SP-08 each observed seed 42/100
+successes/zero discards/pass, all six/21/four coverage counts100 and 31 SF-11
+execution orders. Actual SBT=0, wrapper=0, lock=released and permission=consumed.
+Log: `/private/tmp/skill.cncf.d/a-311bd647-e362-43a0-ba2d-4b9c8c53736b/32505-20261005T035755Z.log`;
+summary: `/private/tmp/skill.cncf.d/a-311bd647-e362-43a0-ba2d-4b9c8c53736b/32505-20261005T035755Z.summary.json`.
+
+The distinct final release contains canonical Phase CLOSED closure and binds
+`P547-CLOSURE-001@1`; its native release OID, committed-tree receipt and final
+requirement audit are verified after committing and retained in parent workflow
+evidence. Cozy has completed the versioned consumer-neutral JSON contract,
+source-grounded fixtures and reproducible handoff. Textus CBD Support owns external
+integration/views/navigation/acceptance, BoK canonical meaning/synonyms, and CNCF
+runtime. No external acceptance is claimed; Scala 2.12.18 and 0.3.3-SNAPSHOT are
+unchanged.

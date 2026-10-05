@@ -1,9 +1,9 @@
 # CML Causal Metadata supplier handoff
 
 Supplier: Cozy / [Phase 54.6](../phase/phase-54.6.md)
-Consumer closure: Cozy [Phase 54.7](../phase/phase-54.7.md), IN_PROGRESS;
-S1/S2 CLOSED; S3 behavior/conformance/focused review accepted at 274 tests/22 suites,
-native Step commit and final Phase gates pending.
+Consumer closure: Cozy [Phase 54.7](../phase/phase-54.7.md), CLOSED in final release content;
+all three native Steps CLOSED, sole full Phase review PASS, actual ordinary full
+validation 2895 tests/204 suites with nine existing optional/deferred cancellations.
 External consumer: CNCF/Textus CBD Support runtime/UI integration and acceptance
 Behavior authority: [Causal v1 spec](../spec/cml-causal-metadata.md)
 Responsibility: [Causal design](cml-causal-metadata.md)
@@ -155,14 +155,28 @@ resolution, dependency execution, runtime/CLI/UI, publication or deployment.
 
 The [final publication handoff](cml-semantic-publication-handoff.md) supersedes
 this document's planned successor projection for current Phase 54.7 status.
-Phase 54.7 is IN_PROGRESS: final all-family admission S1 and source-grounded
-questions S2 are CLOSED at verified native commits `0b1db8996cc4979cbab029a801ae82f0611f7e43`
-and `2f7d1852b9d4b1e55e13d1200799673e00624606`; S3 compatibility and reproducible
-producer handoff have accepted behavior, whole-file conformance and fresh
-independent focused review PASS after successful compilation and 274 passing
-tests in 22 suites. S3 remains IN_PROGRESS with its native Step acceptance
-commit and verified receipt pending.
-Final Phase review, full validation, distinct release and native audit remain
-pending. All Phase 54.6 closure facts and accepted contracts above remain historical
-accepted evidence. Downstream CNCF runtime and Textus CBD Support integration,
-views/navigation/acceptance retain their owners.
+Phase 54.7 is CLOSED in final release content. Final all-family admission S1 and
+source-grounded questions S2 are CLOSED at verified native commits
+`0b1db8996cc4979cbab029a801ae82f0611f7e43` and
+`2f7d1852b9d4b1e55e13d1200799673e00624606`; S3 compatibility and reproducible
+producer handoff are CLOSED at `abe935c6e2144b04308e16f10e4f82fed92c471b`, sole
+parent S2, with exact eighteen-path verified native receipt and thirteen accepted
+checklist entries. Focused S3 evidence remains 274 tests/22 suites, fresh
+independent review PASS and repair 0; PC-06/SF-11/SP-08 each observed seed 42/100
+successes/zero discards/pass and all six/21/four coverage counts100, with 31 SF-11
+execution orders. S1/S2 focused evidence remains scoped to their own Steps.
+
+The sole full Phase review `P547-FULL-REVIEW-001 r1` is PASS over the original
+base through accepted S3, all 24 paths/four whole programs/four outcomes/five
+obligations, with no CPB, HYG or DEV. Actual ordinary `P547-FINAL-VAL-001`, logical
+`sbt --batch test`, passed 2895 tests in 204 suites, zero failures/aborted suites
+and nine existing optional/deferred cancellations. All 27 new publication behaviors
+passed, none canceled. The distinct final release contains canonical closure and
+binds `P547-CLOSURE-001@1`; its native release OID, committed-tree receipt and final
+requirement audit are verified after committing and retained in parent workflow
+evidence. All Phase 54.6 closure facts and accepted contracts above remain historical
+accepted evidence. Cozy produces the completed versioned consumer-neutral JSON
+contract, source-grounded fixtures and reproducible handoff. BoK canonical meaning/
+synonyms, CNCF runtime and Textus CBD Support integration/views/navigation/acceptance
+retain their owners; no external acceptance is claimed. Scala 2.12.18 and
+0.3.3-SNAPSHOT remain unchanged.

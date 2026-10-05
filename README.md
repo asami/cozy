@@ -217,12 +217,15 @@ its native commit and closure receipt are verified after committing these final 
 The final [semantic publication handoff](docs/design/cml-semantic-publication-handoff.md)
 and [publication contract](docs/spec/cml-semantic-publication.md) provide the
 six-family version/admission policy, reproducible consumer recipe and complete
-compatibility evidence. [Phase 54.7](docs/phase/phase-54.7.md) is IN_PROGRESS:
-S1/S2 are CLOSED at verified native Steps; S3 compatibility and handoff have accepted
-behavior, whole-file conformance and fresh independent focused review PASS after
-successful compilation and 274 passing tests in 22 suites. S3 remains IN_PROGRESS
-with its native Step acceptance commit and verified receipt pending. Final Phase
-review, full validation, distinct release and native audit remain pending.
+compatibility evidence. [Phase 54.7](docs/phase/phase-54.7.md) is CLOSED in the
+final release content: all three native Steps are CLOSED, the sole independent
+full Phase review is PASS, and ordinary full validation passed 2895 tests in 204
+suites, with zero failures/aborted suites and nine existing optional/deferred
+cancellations. Cozy owns the completed producer contract, fixtures and handoff;
+external consumer acceptance retains its owner. The distinct final release contains
+canonical closure and binds `P547-CLOSURE-001@1`; its native release OID,
+committed-tree receipt and final requirement audit are verified after committing
+and retained in parent workflow evidence.
 
 ---
 

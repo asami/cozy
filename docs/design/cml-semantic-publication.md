@@ -154,10 +154,13 @@ explicit migration responsibility, not implicit registration or reconstruction.
 ## Current factual evidence
 
 S1 is CLOSED at verified native `0b1db8996cc4979cbab029a801ae82f0611f7e43`
-with 257 tests/20 suites and focused PASS. S2 is CLOSED at verified native
+with 257 tests/20 suites, SP-08 seed 42/100 successes/zero discards/all four
+coverage counts100 and focused PASS after S1 repair 1. S2 is CLOSED at verified native
 `2f7d1852b9d4b1e55e13d1200799673e00624606`, sole parent S1, with eighteen
 checked entries, 268 tests/21 suites/all eleven SF examples, SF-11 100 successes/
-zero discards/all 21 coverage counts100/31 execution orders and focused PASS.
+zero discards/all 21 coverage counts100/31 execution orders and focused PASS
+after S2 repair 1; SP-08 seed 42 passed with 100 successes/zero discards/all four
+coverage counts100.
 The historical failures and bounded repair remain in the chronological journal.
 
 S3 PC-01..06 and the producer handoff have accepted behavior and whole-file
@@ -166,10 +169,23 @@ in 22 suites, including all six PC and all eleven SF examples. PC-06, SP-08 and
 SF-11 each ran seed 42 with 100 successes, zero discards and passed=true; all
 six, four and 21 respective coverage counts were 100, with 31 SF-11 question
 execution orders. Fresh independent P547-S5473-REVIEW-001 returned PASS over all
-eighteen Step paths. S3 remains IN_PROGRESS with its native Step acceptance commit
-and verified receipt pending. All five original Phase obligations, sole full
-Phase review, ordinary full validation, distinct release and native requirement
-audit remain pending. Canonical current
-state and closure basis remain [Phase 54.7](../phase/phase-54.7.md) and its
-[checklist](../phase/phase-54.7-checklist.md); normative responsibility is separate
-from these observed facts.
+eighteen Step paths. S3 is CLOSED at native Step commit
+`abe935c6e2144b04308e16f10e4f82fed92c471b`, sole parent S2. Verified
+`s5473-parent-manual-commit-receipt-001.json` records exactly eighteen accepted
+paths and all thirteen original S3 checklist entries are accepted, with repair 0.
+
+The sole independent full Phase review `P547-FULL-REVIEW-001 r1` is PASS over
+the original base through accepted S3, all 24 paths/four whole programs/four
+outcomes/five obligations, with no CPB, HYG or DEV. Actual ordinary
+`P547-FINAL-VAL-001`, logical `sbt --batch test`, passed 2895 tests in 204 suites,
+failed=0/aborted=0/ignored=0/pending=0 and nine existing optional/deferred
+cancellations. All 27 new publication behaviors passed, none canceled.
+PC-06/SF-11/SP-08 each observed seed 42/100 successes/zero discards/pass and
+all six/21/four coverage counts100, with 31 SF-11 execution orders. Actual SBT=0,
+wrapper=0, lock=released and permission=consumed. Canonical current state and
+closure basis are [Phase 54.7](../phase/phase-54.7.md) and its
+[checklist](../phase/phase-54.7-checklist.md), CLOSED in the distinct final release
+content, which binds `P547-CLOSURE-001@1`. Its native release OID, committed-tree
+receipt and final requirement audit are verified after committing and retained
+in parent workflow evidence. Normative responsibility remains separate from
+these observed facts; external acceptance retains its owner.
