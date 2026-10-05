@@ -1,13 +1,13 @@
 # Dart model and API generation
 
-Status: frozen Phase 65 contract; implementation and independent acceptance pending
+Status: frozen Phase 65 contract; S65.2 accepted; S65.3 independently accepted; real CBD/S65.4 and Phase closure pending
 Date: 2026-10-05
 Scope: Cozy's Dart model, JSON and operation projection
 
 This specification defines the public generated contract for
 [Phase 65](../phase/phase-65.md). The twelve numbered sections retain the parent
-contract's decision numbering. They describe required behavior, not an existing
-Dart implementation. The [design](../design/dart-model-api-generation.md)
+contract's decision numbering. They describe required behavior; implementation
+correspondence and evidence status are recorded below. The [design](../design/dart-model-api-generation.md)
 inventories actual source evidence and responsibility boundaries.
 
 Documentation roles and authority follow the Core Rule Map in
@@ -225,7 +225,7 @@ canonical request; the consumer supplies its implementation.
 
 ## 11. CLI contract and compatibility
 
-The proposed entry, to be implemented in Cozy's
+The entry authored in Cozy's
 [ModelerServiceClass](../../src/main/scala/cozy/modeler/ModelerServiceClass.scala), is:
 
 ```text
@@ -248,7 +248,8 @@ uses existing `Environment`/response-owned file writing after the successful
 typed file-realm response; the generator/facade must not write individual files
 as it validates them.
 
-The entry does not yet exist. Existing `modeler class` and `modeler project`
+`ModelerServiceClass.DartOperationClass` passed focused validation attempt 004
+and was accepted by independent protected Step review 001. Existing `modeler class` and `modeler project`
 retain their loader, charset, response and failure contracts in
 [modeler service operations](modeler-service-operations.md). Direct
 `modeler-scala`, `modeler-scala-value` and
@@ -291,12 +292,23 @@ text assertion does not satisfy this requirement.
 
 ## Observable acceptance scenarios and evidence status
 
-Every row below is a required future executable acceptance scenario. None is
-claimed executed by this documentation Slice. Later executable specifications
-use `AnyWordSpec`, `Matchers` and `GivenWhenThen` with clauses at the actual
-setup/action/assertion boundaries; compilation/analyzer/consumer execution must
-exercise emitted packages. Planned source/test paths are to be frozen in later
-Step manifests, not represented here as existing files or evidence links.
+Every row below remains a required executable acceptance scenario. S65.2's
+DA-01..12 evidence is accepted at native `716d208ce8505746ac03a3cc3606299f5c4e10e4`;
+S65.3A's DA-13..19 programs/specifications passed focused validation attempt 004:
+Main and Test compilation and all twelve suites succeeded, with 195/195 tests,
+zero failures or aborted/canceled/ignored/pending tests, SBT/wrapper exit 0 and
+the serial lock released. Actual SDK evidence contains sixteen direct command
+reports across the typed positive consumer, intended negative type diagnostics
+and all-void package scenarios; the negative analyzer was intentionally rejected.
+Dart SDK 3.13.4 exercised `@dart=3.0` source mode, without a separately installed
+Dart 3.0 SDK claim. The first complete independent protected Step review 001
+returned PASS, with no Current Boundary Blockers, Hygiene or Development
+Candidates. It accepted the malformed canonical-model error guard and
+valid-empty/CLI conformance. S65.3 is independently accepted for its local Step
+commit. The executable specifications use `AnyWordSpec`,
+`Matchers` and `GivenWhenThen` at actual setup/action/expectation boundaries.
+Compilation/analyzer/consumer evidence must exercise emitted packages. S65.4's
+real CBD acceptance remains unexecuted.
 
 | ID / Step | Given | When | Required observable result |
 | --- | --- | --- | --- |
@@ -322,9 +334,44 @@ Step manifests, not represented here as existing files or evidence links.
 | DA-20 / S65.4 | SDK generated from the real CBD status CML and actual running CBD | Send encoded request through tools/call; compile/run independent Dart consumer | Named wrappers/counts decoded from live response and re-encoded; no shadow model |
 | DA-21 / S65.4 | Source-copy build, launcher or actual wire failure | Attempt real acceptance route | DART-08 remains unresolved; no fixture/canned-output substitute or success claim |
 
-Existing evidence is source inspection only: canonical builder/projector symbols,
-the current class/project facade, the real CBD CML fields and
-`ComponentFactory.StatusActionCallImpl` plus the existing MCP envelope script.
-Generated Dart, analyzer results, round trips, compatibility execution and live
-consumer results remain planned evidence. The design records unexecuted runtime
-prerequisites and reproducible evidence requirements.
+S65.2 accepted both Dart model suites with 21/21 tests in validation attempt 006,
+actual emitted SDK analysis/runtime/compiler checks and independent focused
+re-review 006. S65.3 is independently accepted by protected Step review 001.
+The two remaining real CBD/Phase closure checklist boxes stay unchecked;
+Phase 65 remains IN_PROGRESS. Repository-full validation, full Phase review
+and final release remain later unexecuted obligations. The
+real CBD source fields, `ComponentFactory.StatusActionCallImpl` and MCP envelope
+remain read-only source evidence; live consumer results remain S65.4 evidence.
+The design retains its unexecuted runtime prerequisites and consumer route.
+
+## Authored implementation correspondence
+
+This section records source correspondence and does not change the numbered
+contract or acceptance matrix.
+
+- [DartPackageGenerator](../../src/main/scala/cozy/modeler/DartPackageGenerator.scala)
+  joins `Modeler.ModelBuilder.buildValue()` with selected canonical operations,
+  reuses the accepted data projection/renderers/runtime and builds all six Realm
+  paths after selected contracts and symbols validate.
+- [DartOperationProjection](../../src/main/scala/cozy/modeler/DartOperationProjection.scala)
+  retains original owner/service/operation identities, existing normalized
+  definitions and canonical input/output objects. Opt-in immutable canonical
+  names/ValueClass bindings in
+  [ModelServiceOperationProjector](../../src/main/scala/cozy/modeler/ModelServiceOperationProjector.scala)
+  preserve default two-argument behavior; the selected-service leaf helper in
+  [ModelerRelationshipCml](../../src/main/scala/cozy/modeler/ModelerRelationshipCml.scala)
+  retains exact source metadata ownership and duplicate diagnostics.
+- [DartApiRenderer](../../src/main/scala/cozy/modeler/DartApiRenderer.scala)
+  emits the typed interfaces and escaped source metadata; package admission is
+  additive in [DartNaming](../../src/main/scala/cozy/modeler/DartNaming.scala).
+- [ModelerServiceClass](../../src/main/scala/cozy/modeler/ModelerServiceClass.scala)
+  owns the explicit strict Dart request, shared loader/charset/failure boundary
+  and complete `FileRealmResponse`. Environment owns successful saving.
+- [DartPackageGenerationSpec](../../src/test/scala/cozy/modeler/DartPackageGenerationSpec.scala),
+  [DartPackageRuntimeSpec](../../src/test/scala/cozy/modeler/DartPackageRuntimeSpec.scala)
+  and [DartModelerServiceSpec](../../src/test/scala/cozy/modeler/DartModelerServiceSpec.scala)
+  author representative canonical, compiler/consumer and CLI observations for
+  DA-13..19. The [CML fixture](../../src/test/resources/modeler/dart-api.cml) and
+  [independent Dart consumer](../../src/test/resources/modeler/dart-api-consumer.dart)
+  are representative evidence exercised in focused attempt 004 and accepted by
+  independent protected Step review 001; they do not replace the frozen real CBD route.

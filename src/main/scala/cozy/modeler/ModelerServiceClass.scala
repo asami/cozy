@@ -12,7 +12,8 @@ import cozy._
 
 /*
  * @since   Aug. 20, 2025
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 case object ModelerServiceClass extends ServiceClass {
@@ -28,10 +29,16 @@ case object ModelerServiceClass extends ServiceClass {
     spec.Multiplicity.ZeroOne
   )
   private val _request = spec.Request(_model, _save, _charset)
+  private val _package = spec.Parameter("package", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.One)
+  private val _types = spec.Parameter("types", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.ZeroOne)
+  private val _operations = spec.Parameter("operations", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.ZeroOne)
+  private val _sealed_types = spec.Parameter("sealed-types", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.ZeroOne)
+  private val _dart_request = spec.Request(_model, _package, _save, _types, _operations, _sealed_types, _charset)
 
   val operations = Operations(
     ClassOperationClass,
-    ProjectOperationClass
+    ProjectOperationClass,
+    DartOperationClass
   )
 
   case object ClassOperationClass extends OperationClassWithOperation {
@@ -71,6 +78,57 @@ case object ModelerServiceClass extends ServiceClass {
         case m => _unexpected_result("project", m)
       }
   }
+
+  case object DartOperationClass extends OperationClassWithOperation {
+    val request = _dart_request
+    val response = spec.Response.empty
+    val specification = spec.Operation("dart", request, response)
+
+    override def makeRequest(req: Request, args: Seq[String]): Option[Either[Response, Request]] =
+      if (req.operation != specification.name) None else {
+        try {
+          val arguments = args.flatMap { argument =>
+            val separator = argument.indexOf('=')
+            if (argument.startsWith("--") && separator >= 0)
+              Vector(argument.take(separator), argument.drop(separator + 1))
+            else Vector(argument)
+          }
+          Some(Right(request.buildStrict(req, arguments)))
+        } catch {
+          case NonFatal(e) => Some(Left(ConclusionResponse(Conclusion.make(e))))
+        }
+      }
+
+    def apply(env: Environment, req: Request): Response =
+      try {
+        val packagename = req.getPropertyString("package").getOrElse {
+          return ConclusionResponse(Conclusion.missingArgumentFault("package"))
+        }
+        if (req.get(_save).isEmpty)
+          return ConclusionResponse(Conclusion.missingArgumentFault("save"))
+        val options = DartPackageGenerator.Options(
+          packageName = DartNaming.requirePackageName(packagename),
+          typeNames = _selectors(req, "types"),
+          operationNames = _selectors(req, "operations"),
+          sealedTypeNames = _selectors(req, "sealed-types").toSet
+        )
+        val ctx = env.toAppEnvironment[Context]
+        _load_model(ctx, req) match {
+          case Left(result) => result
+          case Right(model) => FileRealmResponse(DartPackageGenerator.generate(model, options))
+        }
+      } catch {
+        case NonFatal(e) => ConclusionResponse(Conclusion.make(e))
+      }
+  }
+
+  private def _selectors(req: Request, name: String): Vector[String] =
+    req.getPropertyString(name).map { value =>
+      val members = value.split(",", -1).toVector.map(_.trim)
+      if (members.exists(_.isEmpty))
+        org.goldenport.RAISE.invalidArgumentFault(s"--$name requires nonempty comma-separated identities.")
+      members
+    }.getOrElse(Vector.empty)
 
   private def _normalize_make_request(
     req: Request,

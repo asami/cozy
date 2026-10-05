@@ -8,6 +8,20 @@ import org.goldenport.RAISE
  * @version Oct.  5, 2026
  */
 private[modeler] object DartNaming {
+  private val _package_keywords = Set(
+    "assert", "break", "case", "catch", "class", "const", "continue", "default",
+    "do", "else", "enum", "extends", "false", "final", "finally", "for", "if",
+    "in", "is", "new", "null", "rethrow", "return", "super", "switch", "this",
+    "throw", "true", "try", "var", "void", "while", "with"
+  )
+
+  def requirePackageName(packageName: String): String = {
+    if (!packageName.matches("[a-z_][a-z0-9_]*") || packageName.forall(_ == '_') ||
+        _package_keywords(packageName))
+      RAISE.invalidArgumentFault(s"Invalid Dart package name '$packageName'.")
+    packageName
+  }
+
   private val _keywords = Set(
     "abstract", "as", "assert", "async", "await", "base", "break", "case",
     "catch", "class", "const", "continue", "covariant", "default", "deferred",

@@ -1,6 +1,6 @@
 # Dart model and API generation design
 
-Status: frozen Phase 65 design; implementation and independent acceptance pending
+Status: frozen Phase 65 design; S65.2 accepted; S65.3 independently accepted; real CBD/S65.4 and Phase closure pending
 Date: 2026-10-05
 Scope: canonical source inventory and Cozy projection/consumer responsibilities
 
@@ -53,8 +53,9 @@ DTO definitions or become a persistent Dart semantic model.
 
 The current normalized-definition vector is exposed inside the modeler package;
 the source service/component context retains the ownership needed to distinguish
-`component.service.operation`. A later Cozy implementation must join these
-existing sources without guessing ownership from an operation's short name.
+`component.service.operation`. The authored Cozy operation projection joins
+these existing sources using explicit component service declarations or the
+canonical single-component implicit ownership boundary.
 Server `MOperation` bodies, generated Scala text, sample JSON and client-local
 models are not substitutes for canonical DTO metadata.
 
@@ -90,9 +91,9 @@ These are stable public behaviors in the specification, not consumer heuristics.
 
 ## Cozy facade, output and failure ownership
 
-The future `cozy modeler dart` entry extends the existing Cozy modeler service
-file/charset parsing and structured failure boundary. The existing facade today
-exposes only class/project. A Dart renderer constructs a complete Realm after
+The authored `cozy modeler dart` entry extends the existing Cozy modeler service
+file/charset parsing and structured failure boundary, alongside class/project.
+Its package renderer constructs a complete Realm after
 selection, support, numeric, symbol/path and DTO validation; response-owned
 file writing then handles `--save`. This keeps invalid contracts from emitting
 a partial successful package.
@@ -105,9 +106,66 @@ authorization or rich Phase 54 validation is inferred from source names.
 
 Compatibility covers class/project, direct modeler-scala/modeler-scala-value
 and `ModelGenerationTarget.Cncf/Library`, with unchanged Scala 2.12.18 and Cozy
-0.3.3-SNAPSHOT during this Slice. Dart implementation paths and executable spec
-paths are prospective and will be frozen by later Step manifests; they are not
-claimed as existing implementation evidence here.
+0.3.3-SNAPSHOT during this Slice. S65.3A implementation/source correspondence is
+recorded below; focused validation attempt 004 passed and independent protected
+Step review 001 accepted the complete Step.
+
+## Authored S65.2/S65.3 source correspondence
+
+S65.2 is accepted at native `716d208ce8505746ac03a3cc3606299f5c4e10e4`, with the
+accepted data generator, projection, renderer and technical JSON runtime. Its
+two executable suites passed 21/21 tests in attempt 006 with actual emitted Dart
+SDK/runtime/compiler evidence and independent focused re-review 006.
+
+[DartPackageGenerator](../../src/main/scala/cozy/modeler/DartPackageGenerator.scala)
+is the pure complete-package entry. It uses canonical `buildValue` objects and
+the accepted data projection for selected closure, rendering and wire codecs.
+[DartOperationProjection](../../src/main/scala/cozy/modeler/DartOperationProjection.scala)
+joins original owner/service identities, normalized canonical definitions and
+resolved canonical DTO objects. Its view contains no authored field schema.
+The optional immutable canonical binding in
+[ModelServiceOperationProjector](../../src/main/scala/cozy/modeler/ModelServiceOperationProjector.scala)
+admits qualified identities and retains original Value input-kind/field
+semantics. Existing callers use the unchanged default branch. Temporary
+selected-service builders use the additive exact-service leaf selector in
+[ModelerRelationshipCml](../../src/main/scala/cozy/modeler/ModelerRelationshipCml.scala),
+preserving direct/section conflict checks and selected duplicate diagnostics.
+
+[DartApiRenderer](../../src/main/scala/cozy/modeler/DartApiRenderer.scala) owns
+typed abstract interfaces, source metadata and API/public symbol admission.
+[DartNaming](../../src/main/scala/cozy/modeler/DartNaming.scala) adds exact pub
+package admission while preserving existing type/member naming and wire codecs.
+[ModelerServiceClass.DartOperationClass](../../src/main/scala/cozy/modeler/ModelerServiceClass.scala)
+uses its own strict typed request, the existing loader/charset and Conclusion
+boundary, and complete response-owned saving; it creates no generation-side
+filesystem output or external Kaleidox function.
+
+The [package-generation specification](../../src/test/scala/cozy/modeler/DartPackageGenerationSpec.scala)
+authors canonical selection, kind, ownership, namespace and determinism
+observations. The [runtime specification](../../src/test/scala/cozy/modeler/DartPackageRuntimeSpec.scala)
+authors offline direct-SDK analysis and independent positive/negative consumer
+observations, with task-owned command/timeout receipts. The
+[CLI specification](../../src/test/scala/cozy/modeler/DartModelerServiceSpec.scala)
+authors actual typed CLI response/saved-Realm and failure observations. Their
+[representative CML](../../src/test/resources/modeler/dart-api.cml) and
+[independent consumer](../../src/test/resources/modeler/dart-api-consumer.dart)
+contain canonical shared/error/inline/void contracts and generated typed use.
+Focused validation attempt 004 passed Main and Test compilation and all twelve
+suites: 195/195 tests succeeded, with zero failures or
+aborted/canceled/ignored/pending tests, SBT/wrapper exit 0 and the serial lock
+released. Actual SDK evidence contains sixteen direct command reports across
+the typed positive consumer, intended negative type diagnostics and all-void
+package scenarios; the negative analyzer was intentionally rejected. Dart SDK
+3.13.4 exercised `@dart=3.0` source mode; no separately installed Dart 3.0 SDK is
+claimed. The first complete independent protected Step review 001 returned
+PASS, with no Current Boundary Blockers, Hygiene or Development Candidates.
+It accepted the malformed canonical-model error guard and valid-empty/CLI
+conformance. S65.3 is independently accepted for its local Step commit.
+The two remaining real CBD/Phase closure
+checklist boxes stay unchecked and
+Phase 65 remains IN_PROGRESS. Live real CBD/S65.4, repository-full validation,
+full Phase review and final release remain later unexecuted obligations. The
+S65.4 route below remains the real consumer obligation.
 
 ## Real CBD source and runtime producer
 
