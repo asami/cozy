@@ -1,6 +1,6 @@
 # Phase 65: CBD Support Dart Model and API Code Generation
 
-Status: PLANNED
+Status: IN_PROGRESS
 
 Plan date: 2026-09-15
 Rebased from the GitHub Phase 55 planning record: 2026-09-17
@@ -27,8 +27,8 @@ media-registration closure.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| DART-01 | Inventory Cozy IR, existing generation targets, operation metadata, and CBD Support consumer contracts without creating a shadow Dart IR. | planned |
-| DART-02 | Freeze deterministic Dart mappings for required/optional values, identifiers, collections, enums, variants, naming, packages, and imports. | planned |
+| DART-01 | Inventory Cozy IR, existing generation targets, operation metadata, and CBD Support consumer contracts without creating a shadow Dart IR. | in-progress; contract ready for independent review |
+| DART-02 | Freeze deterministic Dart mappings for required/optional values, identifiers, collections, enums, variants, naming, packages, and imports. | in-progress; contract ready for independent review |
 | DART-03 | Generate immutable, typed Dart model classes with explicit required/optional constructor semantics. | planned |
 | DART-04 | Generate enums and sealed variants wherever the source guarantees closure. | planned |
 | DART-05 | Generate JSON codecs that preserve nullability, discriminators, names, and round-trip semantics. | planned |
@@ -36,6 +36,26 @@ media-registration closure.
 | DART-07 | Emit deterministic, consumable Dart package layouts with analyzer-clean output. | planned |
 | DART-08 | Prove one real Textus CBD Support consumer path uses generated contracts. | planned |
 | DART-09 | Document reuse by later CBD Support UI work and prohibit a parallel shadow model. | planned |
+
+## Current Step and evidence correspondence
+
+S65.1A authors the [normative contract](../spec/dart-model-api-generation.md)
+and [source/design inventory](../design/dart-model-api-generation.md).
+The contract is ready for parent validation and independent review; DART-01/02
+remain pending independent acceptance and the parent's manual Step gate.
+No generated package, executable validation or live consumer success is claimed.
+All original checklist items remain unchecked.
+
+| Internal Step | Checklist group | Phase outcomes | Evidence locator / closure basis |
+| --- | --- | --- | --- |
+| S65.1: contract inventory and mapping; Slice S65.1A | DART-01 | DART-01, DART-02 | Spec sections 1–12 and acceptance matrix; design canonical inventory and CBD route; independent acceptance pending. |
+| S65.2: immutable models and codecs | DART-02 | DART-03, DART-04, DART-05 | Spec sections 3–8 and DA-01..12; emitted Dart compilation and executable round trips planned. |
+| S65.3: operation/package entry | DART-03 | DART-06, DART-07 | Spec sections 8–11 and DA-13..19; typed DTO/interface, analyzer/consumer import and compatibility evidence planned. |
+| S65.4: real CBD consumption and handoff | DART-04 | DART-08, DART-09 | Spec real CBD acceptance and DA-20..21; design frozen consumer route; live independent Dart consumption, reuse evidence and Phase closure planned. |
+
+The Phase outcomes and checklist groups retain their separate original
+numbering. Runtime prerequisites are recorded in the design; they do not
+constitute completion evidence or remove the real CBD acceptance obligation.
 
 ## Required boundaries
 
@@ -69,6 +89,8 @@ media-registration closure.
 ## References
 
 - [Phase 65 checklist](phase-65-checklist.md)
+- [Dart model/API generation specification](../spec/dart-model-api-generation.md)
+- [Dart model/API generation design](../design/dart-model-api-generation.md)
 - [Dart model/API generation proposal](../notes/dart-model-api-code-generation-provisional-specification.md)
 - [Dart consumer planning record](../journal/2026/09/2026-09-15-dart-code-generation-knowledgehub-consumer.md)
 - [Phase 54](phase-54.md)
