@@ -116,6 +116,18 @@ comes only from the canonical project-relative source representation; source
 and output digests are integrity evidence and must neither derive identity nor
 control source selection.
 
+The explicit delegated artifact union defines V2 Cozy output ownership at
+publication and package admission. Validating those recorded claims lets
+independent build generators share a managed tree: their Scala files,
+including `BuildVersion.scala`, may be added, changed, or removed without
+changing V2 evidence. Each claimed file must still be regular and readable at
+its recorded relative path with matching bytes. Source evidence, the exact
+target/generator identity, and internal union, output-digest, and evidence-digest
+consistency remain mandatory. This decision is confined to V2; direct V1
+semantics and all existing generation, release, package, and runtime contracts
+remain intact. The actual bridge and package-admission contract is executable in
+[`CozySbtBridgeMultiProvenanceSpec`](../../src/test/scala/cozy/runtime/CozySbtBridgeMultiProvenanceSpec.scala).
+
 The aggregate/rebind API validates every selected delegated v1 input before
 V2 publication. It rejects a missing or unreadable manifest/output root,
 malformed evidence, duplicate or ambiguous canonical source identity, stale

@@ -3,7 +3,6 @@ package cozy.modeler
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, StandardCopyOption}
 import java.security.MessageDigest
-import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
@@ -11,6 +10,7 @@ import GenerationProvenance.{Artifact, Diagnostic, DiagnosticCode, Inputs}
 
 /*
  * @since   Sep. 16, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object GenerationProvenanceAggregate {
@@ -322,7 +322,11 @@ private[cozy] object GenerationProvenanceAggregate {
       val sourcediagnostics = sourcevalidations.foldLeft(Vector.empty[Diagnostic]) { (z, x) =>
         z ++ x.fold(identity, identity)
       }
-      val artifactresult = _scala_artifacts(projectroot, excludedoutputroots)
+      val artifactresult = _claimed_scala_artifacts(
+        projectroot,
+        normalized.artifacts,
+        excludedoutputroots
+      )
       val outputdiagnostics = artifactresult.fold(identity, { artifacts =>
         val outputdigest = _artifact_digest(artifacts)
         if (
@@ -952,44 +956,35 @@ private[cozy] object GenerationProvenanceAggregate {
         )))
     }
 
-  private def _scala_artifacts(
+  private def _claimed_scala_artifacts(
     root: Path,
+    claims: Vector[Artifact],
     excludedroots: Vector[Path]
   ): Either[Vector[Diagnostic], Vector[Artifact]] = {
-    val target = root.resolve("target")
     val excluded = excludedroots.map(_.toAbsolutePath.normalize())
-    if (!Files.isDirectory(target))
-      Right(Vector.empty)
-    else {
-      try {
-        val stream = Files.walk(target)
-        try
-          Right(stream.iterator().asScala.
-            filter(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala")).
-            filterNot(path =>
-              excluded.exists(excludedroot =>
-                path.toAbsolutePath.normalize().startsWith(excludedroot)
-              )
-            ).
-            map { path =>
-              val relative = root.relativize(path.toAbsolutePath.normalize()).toString.
-                replace(java.io.File.separatorChar, '/')
-              Artifact(relative, _sha256(path))
-            }.
-            toVector.
-            sortBy(_.path))
-        finally stream.close()
-      } catch {
-        case NonFatal(exception) =>
-          Left(Vector(_diagnostic(
-            DiagnosticCode.OutputTampered,
-            root.toString,
-            "readable generated Scala output",
-            Option(exception.getMessage).getOrElse(exception.getClass.getName),
-            "Generated Scala output cannot be enumerated or read.",
-            "Restore output readability or regenerate the output and provenance together."
-          )))
-      }
+    try {
+      Right(claims.
+        map(claim => claim -> root.resolve(claim.path).normalize()).
+        filter { case (_, path) =>
+          Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala")
+        }.
+        filterNot { case (_, path) =>
+          excluded.exists(excludedroot => path.startsWith(excludedroot))
+        }.
+        map { case (claim, path) =>
+          Artifact(claim.path, _sha256(path))
+        }.
+        sortBy(_.path))
+    } catch {
+      case NonFatal(exception) =>
+        Left(Vector(_diagnostic(
+          DiagnosticCode.OutputTampered,
+          root.toString,
+          "readable recorded Scala output",
+          Option(exception.getMessage).getOrElse(exception.getClass.getName),
+          "Recorded Scala output cannot be read.",
+          "Restore output readability or regenerate the output and provenance together."
+        )))
     }
   }
 
