@@ -12,7 +12,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 /*
  * @since   Aug.  4, 2026
  *  version Aug. 30, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaRegistry {
@@ -43,6 +43,14 @@ private[cozy] object CozyArticleMediaRegistry {
   final case class Snapshot(
     entries: Vector[Entry],
     bundleContents: Map[String, Vector[Byte]] = Map.empty
+  )
+
+  final case class CurrentSiteState(entries: Vector[Entry], bundleNames: Vector[String])
+
+  final case class CurrentSiteMergeResult(
+    bundlePaths: Vector[Path],
+    entryPaths: Vector[String],
+    state: CurrentSiteState
   )
 
   /* Read-only, canonical view for a consumer that has already obtained a
@@ -645,6 +653,92 @@ private[cozy] object CozyArticleMediaRegistry {
     }
   }
 
+  /* Current single-writer registration reads semantic input only. The one
+   * explicitly typed framework contract shares this directory but owns no
+   * publication entries. Legacy snapshot loading keeps its original contract. */
+  def readCurrentSite(root: Path): CurrentSiteState = {
+    val realroot = _current_site_root(root)
+    val stream = Files.list(realroot)
+    try {
+      val bundles = stream.iterator().asScala.toVector.filter(_is_direct_json_filename)
+        .sortBy(_.getFileName.toString).flatMap { path =>
+          val filename = path.getFileName.toString
+          _validate_target_bundle(path, _filename_stem(filename))
+          val json = Try(Json.parse(Files.readString(path, StandardCharsets.UTF_8))).getOrElse(
+            _invalid(s"Configured publication bundle is malformed JSON: $filename")
+          )
+          val value = json.asOpt[JsObject].getOrElse(
+            _invalid(s"Configured publication bundle must be a JSON object: $filename")
+          )
+          val framework = filename == "cncf-framework-publication.json" &&
+            (value \ "schemaVersion").asOpt[String].contains("cncf.framework-publication.v1") &&
+            (value \ "kind").asOpt[String].contains("framework-publication-contract") &&
+            !Set("type", "publication", "entries").exists(value.keys.contains)
+          if (framework) None else Some(_parse_bundle(value, filename) -> (value \ "publication" \ "path").asOpt[String])
+        }
+      val entries = bundles.flatMap(_._1._2)
+      _validate_duplicates(entries)
+      bundles.flatMap { case ((name, _), path) => path.map(_ -> name) }.groupBy(_._1).collectFirst {
+        case (path, owners) if owners.size > 1 =>
+          _invalid(s"Publication registry publication.path collision: $path (${owners.map(_._2).sorted.mkString(", ")})")
+      }
+      val identities = entries.collect {
+        case entry if entry.path.startsWith("metadata/article-media/") =>
+          _strict_result(entry.metadata).publication.articleIdentity
+        case entry if entry.path.startsWith("metadata/article-media-integrity/") =>
+          _integrity_result(entry.metadata).record.articleIdentity
+      }.distinct.sorted
+      identities.foreach(identity => _article_owner_entries(entries, identity))
+      CurrentSiteState(entries.sortBy(x => (x.path, x.bundleName)), bundles.map(_._1._1))
+    } finally stream.close()
+  }
+
+  def mergeCurrentSite(
+    root: Path,
+    roleUpdates: Vector[SiteRoleUpdate],
+    dryRun: Boolean
+  ): CurrentSiteMergeResult = {
+    if (roleUpdates == null)
+      _invalid("Article-media registry site role updates must be defined")
+    val realroot = _current_site_root(root)
+    val current = readCurrentSite(realroot)
+    if (roleUpdates.isEmpty)
+      return CurrentSiteMergeResult(Vector.empty, Vector.empty, current)
+    val updates = _normalize_site_role_updates(roleUpdates)
+    val articles = updates.groupBy(_.articleidentity).toVector.sortBy(_._1).map { case (identity, selected) =>
+      val owner = _article_owner_entries(current.entries, identity)
+      val existing = current.entries.find(_.path == s"metadata/article-media/$identity.json").map(x => _strict_result(x.metadata))
+      OwnerPlan(owner, Vector(_publication_entry(_merge_site_strict(identity, existing, selected))), Vector.empty,
+        owner == "article-media" && !current.bundleNames.contains(owner))
+    }
+    val plans = articles.groupBy(_.owner).toVector.sortBy(_._1).map { case (owner, values) =>
+      OwnerPlan(owner, values.flatMap(_.entries).sortBy(_.path), Vector.empty, values.exists(_.createarticlemedia))
+    }
+    _validate_owner_plans(current.entries, plans)
+    val replacedpaths = plans.flatMap(_.entries.map(_.path)).toSet
+    val projectedentries = current.entries.filterNot(x => replacedpaths.contains(x.path)) ++
+      plans.flatMap(plan => plan.entries.map(_.copy(bundleName = plan.owner)))
+    _validate_duplicates(projectedentries)
+    val projected = CurrentSiteState(projectedentries.sortBy(x => (x.path, x.bundleName)),
+      (current.bundleNames ++ plans.map(_.owner)).distinct.sorted)
+    if (!dryRun)
+      plans.foreach { plan =>
+        CozyPublicationCompiler.replaceMetadataCurrent(realroot, plan.owner,
+          plan.entries.map(x => x.path -> x.metadata), plan.createarticlemedia)
+      }
+    CurrentSiteMergeResult(plans.map(plan => realroot.resolve(s"${plan.owner}.json")),
+      plans.flatMap(_.entries.map(_.path)).distinct.sorted, if (dryRun) projected else readCurrentSite(realroot))
+  }
+
+  private def _current_site_root(root: Path): Path = {
+    if (root == null)
+      _invalid("Configured publication root must be defined")
+    val lexical = root.toAbsolutePath.normalize()
+    if (Files.isSymbolicLink(lexical) || !Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS) || lexical.toRealPath() != lexical)
+      _invalid(s"Configured publication root must be an existing direct canonical directory: $root")
+    lexical
+  }
+
   private[publication] def canonicalProjection(snapshot: Snapshot): CanonicalProjection = {
     if (snapshot == null || snapshot.entries == null || snapshot.bundleContents == null)
       _invalid("Article-media registry snapshot must be defined")
@@ -1154,12 +1248,17 @@ private[cozy] object CozyArticleMediaRegistry {
     }
   }
 
-  private def _article_owner(snapshot: Snapshot, identity: String): String = {
+  private def _article_owner(snapshot: Snapshot, identity: String): String =
+    _article_owner_entries(snapshot.entries, identity)
+
+  private def _article_owner_entries(entries: Vector[Entry], identity: String): String = {
     val strictpath = s"metadata/article-media/$identity.json"
     val owners = (
-      snapshot.entries.collect {
+      entries.collect {
         case entry if entry.path == strictpath => entry.bundleName
-      } ++ _integrity_entries_for_identity(snapshot, identity).map(_.bundleName)
+      } ++ entries.filter(_.path.startsWith("metadata/article-media-integrity/")).filter { entry =>
+        _integrity_result(entry.metadata).record.articleIdentity == identity
+      }.map(_.bundleName)
     ).distinct.sorted
     if (owners.size > 1)
       _invalid(s"Article-media registry identity has multiple bundle owners: $identity (${owners.mkString(", ")})")
@@ -1244,7 +1343,10 @@ private[cozy] object CozyArticleMediaRegistry {
     }
   }
 
-  private def _validate_plans(snapshot: Snapshot, plans: Vector[OwnerPlan]): Unit = {
+  private def _validate_plans(snapshot: Snapshot, plans: Vector[OwnerPlan]): Unit =
+    _validate_owner_plans(snapshot.entries, plans)
+
+  private def _validate_owner_plans(entries: Vector[Entry], plans: Vector[OwnerPlan]): Unit = {
     val owners = plans.map(_.owner)
     if (owners.distinct.size != owners.size)
       _invalid("Article-media registry owner plan is not deterministic")
@@ -1254,7 +1356,7 @@ private[cozy] object CozyArticleMediaRegistry {
         _invalid("Article-media registry creation is limited to article-media")
       _validate_requested_duplicates(plan.entries)
       plan.entries.foreach { entry =>
-        snapshot.entries.find(x => x.path == entry.path && x.bundleName != plan.owner).foreach { current =>
+        entries.find(x => (x.path == entry.path || x.key == entry.key) && x.bundleName != plan.owner).foreach { current =>
           _invalid(s"Publication registry entry is owned by another bundle: ${entry.path} (${current.bundleName})")
         }
       }
@@ -1295,6 +1397,11 @@ private[cozy] object CozyArticleMediaRegistry {
     val bundle = json.asOpt[JsObject].getOrElse(
       _invalid(s"Configured publication bundle must be a JSON object: $filename")
     )
+    val parsed = _parse_bundle(bundle, filename)
+    Bundle(filename, parsed._1, parsed._2, bytes.toVector)
+  }
+
+  private def _parse_bundle(bundle: JsObject, filename: String): (String, Vector[Entry]) = {
     if ((bundle \ "type").asOpt[String].forall(_ != "publication-bundle"))
       _invalid(s"Configured publication bundle has invalid type: $filename")
     val name = _bundle_name(bundle, filename)
@@ -1305,7 +1412,7 @@ private[cozy] object CozyArticleMediaRegistry {
       case Some(JsArray(values)) => values.toVector
       case _ => _invalid(s"Configured publication bundle entries must be an array: $name")
     }
-    Bundle(filename, name, entries.map(_entry(name, _)), bytes.toVector)
+    name -> entries.map(_entry(name, _))
   }
 
   private def _bundle_name(bundle: JsObject, filename: String): String = {

@@ -21,7 +21,7 @@ import scala.sys.process._
  *  version Jun.  8, 2026
  *  version Jun. 19, 2026
  *  version Aug. 12, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -278,6 +278,19 @@ private[cozy] object CozyPublicationCompiler {
       removePrefixes,
       expectedBundleContents
     )
+
+  private[publication] def replaceMetadataCurrent(
+    root: Path,
+    name: String,
+    entries: Vector[(String, JsValue)],
+    createArticleMedia: Boolean
+  ): Unit = {
+    if (entries == null || entries.exists(x => x == null || x._1 == null || x._2 == null))
+      RAISE.invalidArgumentFault("Current publication metadata entries must be defined")
+    PublicationRegistry.replaceMetadataCurrent(root, name,
+      entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
+      createArticleMedia)
+  }
 
   /*
    * Article-media registration holds one registry transaction across its
@@ -1339,7 +1352,8 @@ private[cozy] object CozyPublicationCompiler {
     sourcePath: String,
     sourceCommit: Option[String],
     entries: Vector[PublicationBundleEntry],
-    raw: Option[JsObject] = None
+    raw: Option[JsObject] = None,
+    preserveentryfields: Boolean = false
   )
   private final case class MetadataRemoval(path: String, exact: Boolean)
 
@@ -1438,6 +1452,48 @@ private[cozy] object CozyPublicationCompiler {
       expectedBundleContents: Map[String, Vector[Byte]]
     ): Unit =
       _replace_metadata(root, name, entries, removePrefixes, expectedBundleContents)
+
+    /* The canonical site route is a single-writer current read/transform/write.
+     * Atomicity is one existing bundle writer call, with no snapshot capability
+     * or cross-bundle rollback contract. */
+    def replaceMetadataCurrent(
+      root: Path,
+      name: String,
+      entries: Vector[PublicationBundleEntry],
+      createArticleMedia: Boolean
+    ): Unit = {
+      if (root == null || entries == null)
+        RAISE.invalidArgumentFault("Current publication metadata inputs must be defined")
+      val realroot = root.toAbsolutePath.normalize()
+      if (Files.isSymbolicLink(realroot) || !Files.isDirectory(realroot, LinkOption.NOFOLLOW_LINKS) || realroot.toRealPath() != realroot)
+        RAISE.invalidArgumentFault(s"Current publication replacement requires a direct canonical root: $root")
+      val bundlename = _validate_bundle_name(name)
+      if (createArticleMedia && bundlename != "article-media")
+        RAISE.invalidArgumentFault("Publication metadata creation is limited to article-media")
+      val target = realroot.resolve(s"$bundlename.json")
+      if (Files.isSymbolicLink(target) ||
+        (Files.exists(target, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"Current publication bundle must be a direct regular file: $target")
+      val old = _load_bundle(target, bundlename).getOrElse {
+        if (createArticleMedia && Files.notExists(target, LinkOption.NOFOLLOW_LINKS))
+          PublicationBundle("article-media", None, "", ".", None, Vector.empty)
+        else
+          RAISE.invalidArgumentFault(s"Publication bundle not found: $bundlename")
+      }
+      val validated = entries.map { entry =>
+        val value = _validate_entry(entry)
+        if (value.path != entry.path || value.key != entry.key || !value.path.endsWith(".json") || value.path != value.path.trim)
+          RAISE.invalidArgumentFault(s"Current publication entry must use canonical path/key: ${entry.path}")
+        value
+      }
+      if (validated.map(_.path).distinct.size != validated.size || validated.map(_.key).distinct.size != validated.size)
+        RAISE.invalidArgumentFault("Current publication replacement has duplicate entries")
+      val paths = validated.map(_.path).toSet
+      val bundle = old.copy(entries = (old.entries.filterNot(x => paths.contains(x.path)) ++ validated).sortBy(_.path),
+        preserveentryfields = true)
+      _check_collisions(realroot, bundle)
+      _write_bundle(target, bundle)
+    }
 
     def remove(root: Path, name: String): Unit = {
       _with_registry_lock(root) { realroot =>
@@ -1784,9 +1840,19 @@ private[cozy] object CozyPublicationCompiler {
         "sourceRepository" -> p.sourceRepository,
         "sourcePath" -> p.sourcePath,
         "sourceCommit" -> p.sourceCommit,
-        "entries" -> JsArray(p.entries.sortBy(_.path).map(_entry_json))
+        "entries" -> JsArray(p.entries.sortBy(_.path).map { entry =>
+          val canonicalentry = _entry_json(entry).as[JsObject]
+          if (p.preserveentryfields) {
+            val previous = p.raw.toVector.flatMap(x => (x \ "entries").asOpt[JsArray].toVector.flatMap(_.value))
+              .collectFirst { case value: JsObject if (value \ "path").asOpt[String].contains(entry.path) => value }
+            previous.map(_ ++ canonicalentry).getOrElse(canonicalentry)
+          } else canonicalentry
+        })
       )
-      p.raw.map(_ ++ canonical).getOrElse(canonical)
+      if (p.preserveentryfields)
+        p.raw.map(_ ++ Json.obj("entries" -> (canonical \ "entries").as[JsArray])).getOrElse(canonical)
+      else
+        p.raw.map(_ ++ canonical).getOrElse(canonical)
     }
 
     private def _entry_json(p: PublicationBundleEntry): JsValue =

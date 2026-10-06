@@ -1,6 +1,6 @@
 # Phase 75 Checklist: Historical Artifact Preservation and Canonical Media Deployment
 
-Phase status: in progress / COZY-75-10 preservation complete; Step acceptance commit pending
+Phase status: in progress / COZY-75-10 preservation committed; COZY-75-09D accepted at ledger 11; Step09 exact commits pending
 Ledger for: [Phase 75](phase-75.md)
 Priority updated: 2026-10-05
 Canonical four-role warehouse requirement added: 2026-10-06
@@ -20,9 +20,23 @@ COZY-75-10B has accepted focused continuation review
 Step ledger revision 4. COZY-75-10C has accepted focused continuation review
 `db611802-e431-4e1c-8565-6d2a91a44a68/1`, predecessor
 `e3373500-b64f-412b-bed0-b911818198ee/1`, Step ledger revision 5.
-The original preservation criterion is met; the Step acceptance commit is pending.
-No source implementation, SBT validation, commit,
-dependency refresh, canonical deployment or public publication is claimed.
+The original preservation criterion is met and accepted in Cozy
+`4961684204cae795e97bf2763bc57711df109c04` and site
+`eae537a15418e12bfdff85d1f0208a0a9813c58e`. Step09A's bounded source/spec
+is accepted by root review `adebd1c2-d1f3-4e05-92d2-a142751fb762/1` with
+39 focused tests. 09B1's 11 declarations / 55 mappings are authored; 09B1V
+focused native validation passed all 11 tests and independent continuation
+`phase75-09b1v-focused-acceptance/1` is accepted at Step ledger revision 8.
+09B2 source and 15 GWT scenarios are authored; focused validation passed 15 new
+and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews).
+09C/09C2 independent PASS `phase75-09c2-focused-acceptance/1` is accepted at
+ledger 10 (nine reviews, zero full Phase reviews). Eleven native local commands
+completed with 38 Created/retrieved, zero Reused and 17 Unavailable. 09D is in
+progress; 36 exact non-video uploads/public retrievals and 17 existing YouTube
+checks/reuse are complete. All 11 native dry-runs and 11 writes completed at
+exit 0: 53 Registered / 2 Unavailable, reconciled in the native bundle.
+Independent Step09 acceptance/exact commits and Phase75 full-suite/full-review/
+release remain pending. No dependency refresh or Step/Phase closure is claimed.
 
 The 2026-10-06 bounded descriptor, warehouse and declared-location observations
 are recorded in the [current scope/inspection journal](../../../simplemodeling-org/docs/journal/2026/10/2026-10-06-phase-75-artifact-scope-and-warehouse-inspection.md).
@@ -82,8 +96,9 @@ Stage Status:
   requires every checklist item below, not recovery-copy success alone.
 
 DONE records only the completed original preservation criterion below.
-The Step acceptance commit remains pending; canonical deployment and Phase
-closure are not claimed.
+The Step acceptance commits are Cozy `4961684204cae795e97bf2763bc57711df109c04`
+and site `eae537a15418e12bfdff85d1f0208a0a9813c58e`; canonical deployment and
+Phase closure are not claimed.
 
 Notation: `[~]` means partially executed with explicit remaining work;
 it is not DONE. `[ ]` remains not started; `[x]` requires completed evidence.
@@ -121,7 +136,9 @@ it is not DONE. `[ ]` remains not started; `[x]` requires completed evidence.
       Focused continuation review `db611802-e431-4e1c-8565-6d2a91a44a68/1`
       accepted this slice, with predecessor `e3373500-b64f-412b-bed0-b911818198ee/1`
       and typed Step ledger revision 5. Final editions, canonical/public retrieval,
-      each-Phase full validation, Step acceptance commit and release remain pending.
+      each-Phase full validation and release remain pending. Step10 acceptance
+      is recorded by Cozy `4961684204cae795e97bf2763bc57711df109c04` and site
+      `eae537a15418e12bfdff85d1f0208a0a9813c58e`.
 - [x] Inventory past and current videos, article PDFs, slide PDFs/editable
       slides, infographics and identifying source/publication records across
       existing archives, tracked assets, build/work directories and known URLs.
@@ -175,9 +192,262 @@ it is not DONE. `[ ]` remains not started; `[x]` requires completed evidence.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Cozy Phase 75
 - Update rule: close only on this section's completed checklist evidence.
+
+Closure basis (2026-10-06): original Step09 implementation and operational
+criteria are met with the explicitly retained missing/uncertain dispositions.
+Fresh independent protected-focused review
+`phase75-09d-focused-acceptance/1` is PASS at ledger 11, covering all 83 paths:
+36 scoped uploads and full public retrievals, exact Completed invalidation,
+17 existing public YouTube identities, 11 native preflights and 11 writes,
+and 53 registered roles with two unavailable PDF roles excluded. Parent static
+checks passed (59 local links, no missing targets; three Git whitespace checks).
+Exact Step acceptance commits remain pending at this bookkeeping boundary;
+their native revisions are recorded after execution. This does not close
+Phase75 or recover the 15 missing video masters/two article PDFs. Phase75's
+own full suite, one full Phase review and release remain required. The dated
+earlier pending observations below remain historical.
+
+09A's additive `media deploy` adapter, four-role placement contract and executable
+behavior specification are accepted by root review
+`adebd1c2-d1f3-4e05-92d2-a142751fb762/1` with 39 focused tests.
+09B1's actual 11 declarations / 55 mappings are authored; 09B1V focused native
+validation passed all 11 tests; independent focused continuation
+`phase75-09b1v-focused-acceptance/1` accepted 09B1/09B1V at ledger 8. The
+[declaration migration journal](../../../simplemodeling-org/docs/journal/2026/10/2026-10-06-phase-75-warehouse-declaration-migration.md)
+retains the old mappings and exact operator invocation. The original parent
+native-validation preparation rejected `deploy` despite `--dry-run` before
+runner/SBT submission; that original invocation remains unexecuted. The new
+native-main behavior tests ran as recorded below. The 55 mapped resources
+remain distinct from 57
+preservation associations and 19 protected gaps; two auxiliary gaps stay outside
+the deploy mapping. No deployment/publication or Phase closure criterion closes.
+09B2's canonical registration source/spec is authored with focused validation
+PASS for 15 new and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews);
+actual registry migration awaits 09C placement. 09C retains
+warehouse Git exclusion, scoped media upload and real local placement/retrieval;
+09D retains scoped reuse of 17 existing YouTube URLs and public retrieval;
+no duplicate video upload is selected. The 19 gaps and
+uncertain editions remain protected. Each later slice requires its own frozen
+boundary and actual evidence; Phase75 still owns its full suite/review/release.
+
+### COZY-75-09B1V native declaration acceptance (2026-10-06)
+
+The authored executable specification `cozy.media.CozyMediaWarehouseDeclarationAcceptanceSpec`
+registers all 11 actual descriptors with 55 literal expected resource rows.
+The declaration-only 09B1 authoring retains parent static PASS; 09B1V focused
+native validation is PASS. Independent focused continuation
+`phase75-09b1v-focused-acceptance/1` is accepted at Step ledger revision 8,
+retaining root `adebd1c2-d1f3-4e05-92d2-a142751fb762/1`. The earlier 14-argument
+`runMain` preparation was ineligible under `command_control.py`'s
+`_validation_argv` deploy-token rule and was never submitted to a runner,
+SBT, permission review or the platform. This was not a platform denial; its
+original argument list and provenance remain in the migration journal and
+`validation-preflight-COZY-75-09B1.json`.
+
+Each behavior calls native `cozy.Cozy.main` with literal `--dry-run`,
+using the real declaration and existing sources through CLI preflight, runtime,
+dispatcher and typed decoder. It compares ordered resource/status/article/
+locale/role/source/destination/public fields and the complete/partial report
+heading, and observes that initially absent selected destinations remain absent.
+Missing sources must report `Unavailable`; available sources report `Planned`.
+These selected no-write observations do not certify untouched existing bytes
+or resolve historical edition choices.
+
+Only exact `-Dcozy.media.warehouse.integration=true` enables the external
+fixture. Without it, all 11 behaviors explicitly cancel without reading external
+fixtures. Enabled runs require explicit nonblank absolute existing
+`cozy.media.warehouse.declarationRoot` and `SIMPLEMODELING_ARTIFACT_ROOT`;
+missing or invalid enabled inputs fail. Canceled/default/no-test outcomes cannot
+establish acceptance. The parent-selected exact five logical SBT arguments are:
+
+```json
+[
+  "--batch",
+  "set Test / fork := true",
+  "set Test / envVars += (\"SIMPLEMODELING_ARTIFACT_ROOT\" -> \"/Users/asami/src/maven-repository\")",
+  "set Test / javaOptions ++= Seq(\"-Dcozy.media.warehouse.integration=true\", \"-Dcozy.media.warehouse.declarationRoot=/Users/asami/src/dev2025/simplemodeling-org\")",
+  "testOnly cozy.media.CozyMediaWarehouseDeclarationAcceptanceSpec"
+]
+```
+
+Actual focused validation on 2026-10-06 used the typed registered
+`cncf_command_runner` and shared serial wrapper with first-attempt scoped
+escalation for the native deploy dry-run behavior specification.
+`validation-COZY-75-09B1V.json` records PASS: one completed suite, 11 tests
+succeeded, zero failed/canceled, and 11 native reports covering 55 rows
+(38 `Planned`, 17 `Unavailable`). SBT and wrapper both exited 0 with
+`lock=released`. Actual operational evidence is the log
+`/private/tmp/skill.cncf.d/a-55de8630-c1b6-4777-8140-4c1085f10367/81381-20261006T002206Z.log`
+and summary
+`/private/tmp/skill.cncf.d/a-55de8630-c1b6-4777-8140-4c1085f10367/81381-20261006T002206Z.summary.json`.
+All eleven tests observed that initially absent selected destinations remained
+absent; unavailable sources were not recovered or deployed. Independent
+focused continuation `phase75-09b1v-focused-acceptance/1` accepts this declaration
+boundary at ledger 8. Neither that acceptance nor the focused PASS establishes
+actual placement/retrieval, upload, registry readiness, Step closure or Phase
+closure.
+
+Phase75's final full suite, after all Step commits, must use `test` with forked
+Tests, explicit `SIMPLEMODELING_ARTIFACT_ROOT=/Users/asami/src/maven-repository`,
+and `cozy.media.warehouse.integration=true`,
+`cozy.media.warehouse.declarationRoot=/Users/asami/src/dev2025/simplemodeling-org`
+and `cozy.media.warehouse.uploadRoot=/Users/asami/src/maven-repository`.
+All 11 native declaration scenarios and seven upload scenarios must execute;
+opt-in cancellation is not acceptance. The accepted 09A 39-test evidence remains applicable;
+whole-Step consumer acceptance, 09C placement/retrieval/
+Git exclusion/upload mapping, 09D YouTube/public retrieval and the full Phase
+review/release remain pending. The 57 preservation associations, 19 protected
+gaps, legacy files/URLs and YouTube metadata retain their recorded dispositions.
+
+### COZY-75-09B2 canonical registration authoring (2026-10-06)
+
+- [x] Author the explicit warehouse-profile CLI, current semantic registry
+      parser/exact-role merge and narrow current compiler replacement in the
+      ten admitted Cozy paths, with the fifteen GWT scenarios and native-main/
+      pinned-SmartDox round trip in `CozyArticleMediaWarehouseSiteCommandSpec`.
+      Evidence: [registration authoring journal](../journal/2026/10/2026-10-06-phase-75-warehouse-site-registration.md).
+- [x] Complete the parent-selected representative/legacy accumulator validation
+      and independent focused continuation review for 09B2. Focused validation
+      passed 15 new and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews). The implementation
+      worker executed no tests, runtime operation or self-review.
+- [ ] Perform actual production registry migration after 09C canonical placement,
+      retaining 09D public verification and all original Step09 outcomes.
+
+Parent-focused validation on 2026-10-06 passed: 15 new registration scenarios and 176 legacy accumulator tests across eight suites, with zero failures/cancellations. The registered `cncf_command_runner` used invocation `phase75-09b2-validation-2`; SBT and wrapper exited 0 and the shared lock was released. The typed result reader accepted the current subject. The first invocation's Scala 2.12 underscore-interpolation compile failure is retained; exactly eight test references were corrected to braced interpolation without changing fixtures or expected values. Evidence: `validation-COZY-75-09B2.json` and log `/private/tmp/skill.cncf.d/a-b31c740e-991e-4626-ad11-802cef81382d/12139-20261006T011940Z.log`. Independent focused continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9, retaining eight reviews and zero full Phase reviews. Actual placement/publication and Phase75's own final full suite/full review/release remain pending.
+
+Root `adebd1c2-d1f3-4e05-92d2-a142751fb762/1`, latest focused acceptance
+`phase75-09b2-focused-acceptance/1` at ledger 9, the accepted 39 focused tests
+and 11 native declaration scenarios remain cumulative evidence. Step09 and
+Phase75 remain open. The final opt-in full suite, one full Phase review and
+release remain required; Phase75.1 has not started.
+
+### COZY-75-09C local canonical placement complete with gaps (2026-10-06)
+
+- [x] Author warehouse `/media/` Git exclusion, exact selected non-video
+      `upload-media.sh` and operator guide, together with seven native GWT
+      scenarios in `CozyMediaWarehouseUploadSpec` using actual selected programs
+      and fake AWS under `target/` fixtures. Worker execution is zero.
+- [x] Complete parent-selected upload/native-declaration validation: all seven
+      upload scenarios and 11 actual declaration scenarios passed across two
+      suites, with zero failed/canceled/aborted tests, SBT/wrapper exit 0,
+      `lock=released` and typed current-subject acceptance.
+- [ ] Complete independent 09C focused continuation review; focused test PASS
+      does not establish independent acceptance.
+- [x] Perform native placement and ordinary local retrieval for all 55 mappings:
+      all 11 commands terminated at exit 0/no stderr; 38 Created with actual
+      opened/copy-content/MIME/size/preserved-location observations, zero Reused,
+      17 Unavailable. Exact receipts are in
+      `.codex-workflow/phases/PHASE-75/placement-retrieval-COZY-75-09C2.json`.
+      The original pre-placement observation is retained as history:
+      The [placement journal](../../../simplemodeling-org/docs/journal/2026/10/2026-10-06-phase-75-canonical-placement.md)
+      recorded 38 available sources with individual preserved copies, 17 missing
+      sources, zero observed destinations and 55 pending native outcomes.
+      The parent's current exact Cozy adapter cannot carry the required unset
+      environment value; no deployment was submitted or refused.
+- [ ] Verify exact-coordinate Git exclusion and empty tracked `media/` state.
+- [ ] Complete later 09D remote publication, production registration and public
+      retrieval after independent acceptance. Preserve all 57 prior associations,
+      19 gaps, two auxiliary gaps, ten historical Dropbox masters and edition
+      disputes. Step09/Phase75 stay open; Phase75.1 has not started.
+
+The final full suite must enable both 11 actual declaration scenarios and seven
+upload scenarios with explicit roots; cancellation is not acceptance. Phase75
+retains its own final full suite after all Step commits, one full Phase review
+and release.
+
+## Historical parent-focused validation (18 tests, 2026-10-06)
+
+Parent validation `phase75-09c-validation-1` passed all 18 tests across two
+suites: seven native upload business scenarios and 11 actual declaration
+scenarios, with zero failed, canceled or aborted tests. Registered
+`cncf_command_runner` `/root/sbt_receipt_230c4c5a1c474941abf7`
+(`gpt-6-luna/medium`) reported SBT exit 0, wrapper exit 0 and
+`lock=released`; the typed current-subject verifier accepted the result.
+Evidence: Cozy `.codex-workflow/phases/PHASE-75/validation-COZY-75-09C.json`
+and log
+`/private/tmp/skill.cncf.d/a-3ccde50c-0867-4c48-87d7-9eca65ff23c2/34279-20261006T020621Z.log`.
+
+The upload scenarios used actual selected programs with fake AWS in disposable
+`target/` fixtures; the actual declaration scenarios were native dry-runs.
+No canonical destination was created and no remote mutation occurred.
+Independent 09C review remains pending. All 55 native placement outcomes remain
+Pending, with zero canonical destinations observed. Remote uploads, public
+retrieval and actual production registration remain pending. The required
+environment value is unset and the current exact CLI adapter has no environment
+binding; no deployment was submitted and no platform refusal occurred.
+Step09 and Phase75 remain open, with the final full suite, one full Phase
+review and release still required. Phase75.1 has not started.
+
+### Retained canonical deployment obligations
+
+- [x] Author COZY-75-09C2 command-specific `--warehouse-root` for deploy and
+      register-site with `--warehouse-profile`, using shared direct-root
+      planning and nine grouped GWT examples in `CozyMediaWarehouseRootSpec`.
+- [x] Execute the nine examples and parent-selected affected accumulator:
+      `phase75-09c2-validation-1` passed 9+202=211 across ten suites, zero
+      failed/canceled/aborted, SBT/wrapper exit 0, `lock=released` and typed
+      current-subject acceptance. Evidence:
+      `.codex-workflow/phases/PHASE-75/validation-COZY-75-09C2.json`;
+      log `/private/tmp/skill.cncf.d/a-a0e2761a-a0e5-4472-8c82-c331cc1f52dc/48680-20261006T023443Z.log`.
+- [x] Use the exact native input `cozy --runtime-dev-dir
+      /Users/asami/src/dev2025/cozy media deploy <absolute-descriptor> --profile
+      artifact-archive --warehouse-root /Users/asami/src/maven-repository`
+      for all 11 selected descriptors after parent prerequisite checks:
+      all exit 0/terminal/no stderr; 38 Created, zero Reused, 17 Unavailable.
+      All 38 were opened and business copy content/MIME/size/preserved locations
+      recorded; all 55 existing mapping rows now project exact outcomes.
+      Evidence: `.codex-workflow/phases/PHASE-75/placement-retrieval-COZY-75-09C2.json`
+      and `placement-evidence-COZY-75-09C2.json` in the same directory, including
+      exact native result/stdout paths. This is local retrieval, not visual QA,
+      immutable seals or public evidence. Earlier zero-destination/environment
+      observations remain historical. All 55 coordinates are Git ignored;
+      tracked media is empty. No public/registry completion is implied.
+- [x] Record independent 09C/09C2 PASS and accepted focused continuation
+      `phase75-09c2-focused-acceptance/1` at ledger 10: nine reviews, zero
+      full Phase reviews, no blockers/new nonblocking findings. Evidence:
+      `.codex-workflow/phases/PHASE-75/focused-source-COZY-75-09C2.json` and
+      `focused-acceptance-COZY-75-09C2.json` in that directory.
+- [~] Execute the frozen parent-owned 09D publication/retrieval boundary:
+      preserve selected existing remote objects before overwrite; upload only
+      36 exact non-video keys and invalidate their exact paths; retrieve public
+      content; independently check/reuse 17 existing YouTube URLs; complete
+      all 11 native registration preflights/writes with explicit publication
+      root, `--warehouse-profile artifact-archive` and the same warehouse root.
+      Parent receipt `publication-retrieval-COZY-75-09D.json` in Cozy
+      `.codex-workflow/phases/PHASE-75` confirms 36 explicit pre-upload S3 404s,
+      zero existing same-key objects/new remote backups, actual 36 uploads /
+      15,306,063 local bytes at exit 0 and exact 36-path invalidation
+      `I3XJJBX73JUEWVX1YUH3OY41SI` on `ELXOJ4TOYGKJK`, now `Completed`.
+      All 36 public full GETs returned HTTP 200 with expected MIME/size and
+      canonical business payload matches. All 17 existing YouTube URLs passed
+      watch/oEmbed video/channel identity checks and public-player status
+      `OK`, not private/not unlisted; no new video upload/master download/rerender.
+      The one-preflight/no-write statement is retained as a historical journal
+      checkpoint. Parent `native-registration-evidence-COZY-75-09D.json`
+      confirms all 11 dry-runs and 11 writes at terminal exit 0/no stderr:
+      55 rows = 53 Registered / 2 Unavailable. Native `article-media.json`
+      reconciles 11 articles and 53 roles (infographic 20, article_pdf 7,
+      summary_slides_pdf 9, video 17); identity/key/path, locale/role, URL/MIME,
+      video state and owner checks are PASS. Both unavailable Model Harness
+      PDF roles are unregistered. Existing six bundles/framework contract have
+      empty Git diffs; only the new native bundle appears in publication status.
+      Actual operations and factual projections are complete; parent static
+      checks, independent protected-focused acceptance and exact commits remain
+      pending. Evidence status:
+      [publication and retrieval journal](../../../simplemodeling-org/docs/journal/2026/10/2026-10-06-phase-75-publication-and-retrieval.md).
+      Prior 191/18/211-test receipts, preservation associations, missing masters,
+      PDF gaps and edition disputes remain retained. Step09 and Phase75 stay open.
+
+Missing declarations remain 15 video sources and two Model Harness article-PDF
+sources; the older two auxiliary gaps are outside the 55. Original 57
+associations/19 gaps/ten Dropbox masters/edition disputes and Hygiene remain.
+Phase75's own final-only full SBT test follows all Step commits, includes native
+integration 11+7+9 without cancellation, then one full Phase review and release.
+Independent 09C/09C2 review is accepted at ledger 10; Step09 acceptance commit
+and Phase release remain pending. Phase75.1 has not started.
 
 - [x] Record the owner's canonical warehouse selection for all four roles:
       `/Users/asami/src/maven-repository`, the historically named site data store.
@@ -185,32 +455,63 @@ Stage Status:
       CAR Maven area remains independent. The old `/repository/` upload mapping
       does not establish the new media mapping.
       Evidence: [warehouse requirement](../journal/2026/10/2026-10-06-phase-75-canonical-media-warehouse.md).
-- [ ] Promote the four-role canonical placement/URL requirement into the
+- [~] Promote the four-role canonical placement/URL requirement into the
       existing article-media design/spec; configure the actual repository root
       without hardcoding machine paths in reusable code or public metadata.
-- [ ] Freeze role-specific warehouse coordinate/path bindings for video,
+      The dated Phase75 sections in the existing
+      [spec](../spec/article-media-publication.md) and
+      [design](../design/article-media-publication.md) and 09A adapter/spec are
+      accepted by the root review above. Actual participating profile migration
+      is accepted with 09B1V focused native validation PASS and independent
+      continuation `phase75-09b1v-focused-acceptance/1` at ledger 8.
+      09B2 canonical registration is authored; focused validation passed 15 new
+      and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews).
+- [~] Freeze role-specific warehouse coordinate/path bindings for video,
       infographic, article PDF and summary-slide PDF using existing conventions;
       apply `media/<ja|en>/<category>/<article>/` to all four roles; distinguish
       PDF roles and locales, and preserve older editions separately before update.
+      09B1's frozen 11-descriptor / 55-resource bindings are authored in the
+      linked migration journal; 09B1V focused native validation is PASS and
+      independent continuation is accepted at ledger 8. Later deployment
+      remains open.
 - [x] Record the owner-selected operational path convention and full-path article
       identification requirement, with simple basenames and optional adjacent
       metadata; no mandatory reverse-lookup implementation or parallel registry.
       Evidence: [path convention decision](../journal/2026/10/2026-10-06-phase-75-media-path-convention.md).
-- [ ] Promote and implement the convention in declarations/design/spec and
+- [~] Promote and implement the convention in declarations/design/spec and
       placement: article is the logical source filename stem, category/article
       identifies one article, and JA/EN share those names. Document a concrete
       reason for any exception rather than inventing a different hierarchy.
+      09A's reusable explicit-descriptor placement/specification is accepted;
+      09B1 participating declarations are authored; 09B1V focused native validation
+      is PASS, with independent continuation accepted at ledger 8.
+      09B2 registration is authored with focused validation PASS for 15 new and
+      176 legacy tests; its independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews).
+      Operational proof remains open.
 - [ ] Verify/configure media upload mapping to `/media/<ja|en>/<category>/<article>/`
       independently of HTML `/en/` routing and the existing CAR `/repository/`
       upload. Record local placement and remote availability separately.
 - [ ] Prove full-path-to-article/locale association for all four roles without
       encoding identity in each basename or requiring a reverse-lookup service;
       optional metadata must not become a prerequisite for ordinary placement.
-- [ ] Implement the non-video warehouse placement and declaration/registry
+- [~] Implement the non-video warehouse placement and declaration/registry
       mapping in Cozy; migrate participating `_images/` publication declarations
       and legacy archive-profile keys without losing originals or useful URLs.
-- [ ] Prove all four role mappings with focused executable specifications,
+      09A adapter/spec accepted; 09B1 declaration/public-path edits authored with
+      legacy destinations retained. 09B1V focused native validation is PASS;
+      independent continuation `phase75-09b1v-focused-acceptance/1` is accepted
+      at ledger 8. 09B2 registration is authored with focused validation PASS for
+      15 new and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews);
+      09C2 actual local placement is complete with 38 Created/retrieved and
+      17 Unavailable; 09D publication/production registration remains pending.
+- [~] Prove all four role mappings with focused executable specifications,
       including unavailable media, distinct editions and video compatibility.
+      09A's 39 focused tests and accepted review cover the reusable contract;
+      09B1V's real-input focused native validation passed all 11 tests;
+      independent continuation is accepted at ledger 8. 09B2's 15 canonical
+      registration scenarios and 176 legacy tests passed focused validation;
+      independent continuation `phase75-09b2-focused-acceptance/1` is accepted;
+      later operational evidence remains open.
 - [ ] Exclude deployed warehouse payloads for all four roles from Git
       staging/tracking; never commit or push them to GitHub. Preserve existing
       source/master tracking separately, without broad untracking/history rewrites.

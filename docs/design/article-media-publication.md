@@ -319,3 +319,189 @@ authoritative in `docs/spec/article-media-publication.md`. Phase 26 status and
 checklist progress remain in the Phase 26 ledger, and Phase 28.1 WIP status
 remains in the Phase 28.1 ledger; exploratory history remains non-normative in
 the associated note and journal.
+
+## Phase 75 canonical deployment adapter (2026-10-06)
+
+`CozyMediaWarehouse` owns one additive declaration-to-local-placement boundary,
+exposed by `cozy media deploy <media.yaml> --profile <id> [--warehouse-root <absolute-directory>] [--target
+<resource-id>] [--dry-run]`. It decodes `CozyMedia.Descriptor` through the
+existing structured-document decoder directly. It does not enter legacy
+`resolvePlan`, receipt/currentness, build, publication transaction, site
+registration or hashing flows. Existing CLI routes and parser semantics remain
+compatible; supplied site context is rejected by this placement boundary.
+
+The explicit descriptor profile owns the warehouse root. `rootEnv` overrides
+`root` and a missing/blank environment value fails; a relative `root` resolves
+against the descriptor parent. The existing direct directory is required before
+planning. No project-config fallback or workstation root is embedded in reusable
+code. The stable singleton contains the small deployment plan/result and status
+models; those values report paths and observed local placement, and are not
+persisted acceptance records.
+
+The explicit article identity, resource locale and articleMedia role determine
+`media/<ja|en>/<category>/<article>/`, with `article.pdf`, `slides.pdf`,
+`video.mp4` and `infographic.<actual lowercase extension>`. JA/EN share the
+logical category/article names; a Document Project's name, rather than its
+physical `index.dox`, identifies the article. Both PDF roles remain distinct.
+Declared format/MIME and literal publication/public-path equality are validated
+without converting bytes. Full paths carry the association; optional adjacent
+metadata needs no new schema, reverse lookup or parallel source of truth.
+
+Planning selects only explicitly mapped resources, resolves the declared output
+before any fallback source, and performs complete mapping, direct-path and byte
+conflict checks before mutation. A no-output source is admissible only for
+prebuilt/copy. A missing output/source has an explicit unavailable disposition;
+it never causes a render, manuscript substitution, cross-locale reuse or all-
+published claim. Streaming equality permits reuse without computing hashes or
+manufacturing approval/currentness evidence.
+
+The no-version layout relies on preservation of originals and distinct editions
+under the existing policy. Deployment never overwrites: differing existing
+bytes reject preflight, identical bytes remain in place, and absent destinations
+are copied without replacement after creating selected parents. There is no
+lock/retry/rollback protocol or multi-file atomicity claim; native I/O failures
+remain visible. Dry-run uses the same preflight and reports planned/unavailable
+paths without writes. A partial result explicitly distinguishes placed resources
+from absent ones.
+
+Video placement preserves an MP4 master backup; the warehouse public path does
+not replace a site's production YouTube watch URL, and production files are not
+read or changed. Site declaration/consumed-registry migration, warehouse Git
+exclusion and media upload mapping, real artifact retrieval and scoped YouTube
+publication are later Step09 consumer obligations. Local placement is separate
+from remote availability. The normative four-role contract is in the dated
+Phase 75 section of the existing [specification](../spec/article-media-publication.md),
+paired with `CozyMediaWarehouseSpec`; historical Phase 26/28.1/71 decisions are
+preserved above.
+
+### Explicit canonical registration boundary
+
+COZY-75-09C2 adds a command-specific optional `--warehouse-root` input to
+deploy and opted-in warehouse registration. `DeployConfig` wraps the unchanged
+generic CommandConfig; only the deploy dispatcher creates it. SiteCommand
+and WarehouseSiteBinding retain prior field order and defaults, adding a
+trailing optional Path. SiteCommand rejects root-only and mixed-context
+requests before entering historical evidence capture.
+
+One direct-root resolver checks exact absolute normalized existing directories
+and every symlink component before planning. The explicit-root entry and the
+legacy entry share the existing layout and full-batch preflight; both deploy
+entries share one copy executor. Root selection alone changes: an explicit
+root bypasses environment/profile root resolution while preserving profile
+existence, declaration semantics, availability and no-overwrite checks.
+Absent overrides retain rootEnv/root behavior. The registration binding calls
+the same explicit-root planner and retains the existing strict metadata,
+YouTube evidence and registry owner writer. No schema, identity, concurrency
+or legacy transaction change is introduced. Nine grouped native business
+examples in `CozyMediaWarehouseRootSpec` passed parent validation together with
+202 affected examples: 211 PASS across ten suites, zero failed/canceled/aborted,
+SBT/wrapper exit 0, lock released and typed current-subject acceptance.
+The registered runner `/root/sbt_receipt_eec63e180d124ef58c80`
+(`gpt-6-luna/medium`) used `phase75-09c2-validation-1`.
+Evidence: `/Users/asami/src/dev2025/cozy/.codex-workflow/phases/PHASE-75/validation-COZY-75-09C2.json`;
+log `/private/tmp/skill.cncf.d/a-a0e2761a-a0e5-4472-8c82-c331cc1f52dc/48680-20261006T023443Z.log`.
+
+All 11 selected native placement commands subsequently terminated at exit 0,
+without stderr: 38 Created, zero Reused and 17 Unavailable. The parent opened
+all 38 copies and confirmed ordinary copy content, MIME/size and preserved
+locations. All 55 coordinates remain Git ignored and tracked media is empty.
+Exact result/stdout paths and observations are in
+`/Users/asami/src/dev2025/cozy/.codex-workflow/phases/PHASE-75/placement-retrieval-COZY-75-09C2.json`,
+paired with `placement-evidence-COZY-75-09C2.json` and
+`operational-observations-COZY-75-09C2.json` in that directory.
+Local retrieval proves neither visual QA nor remote availability and supplies
+no immutable seal. No source substitution, overwrite, producer/global-env/
+descriptor/launcher/helper edit or remote operation occurred. Independent 09C
+review and later 09D/public registration remain pending; Step09/Phase75 remain
+open. Earlier 191/18-test receipts and protected editions/gaps retain their
+historical dispositions.
+
+Phase75's own final-only full SBT suite follows all Step commits and enables
+native integration 11+7+9 without cancellation, followed by one full Phase
+review and release. Phase75.1 remains unstarted.
+
+The same `media register-site` operation gains an explicit
+`--warehouse-profile` selection with separated and equals forms. Its trailing
+optional configuration field defaults to absent. Dispatch selects the new
+branch before historical root-evidence capture. Any supplied site context is
+rejected in that branch; there is no fallback or project-profile discovery.
+The historical no-option path, callback seam and `--profile` rejection remain
+owned by the existing implementation.
+
+`CozyArticleMediaWarehouseSiteBinding` owns semantic selection for this path.
+Its stable object contains Config/Row/Plan and Planned/Registered/Unavailable
+status values. It calls the accepted warehouse planner, checks the requested
+profile against the descriptor association and matches selected resource IDs
+back to explicit descriptor metadata. Non-video candidates use canonical
+direct readable destination files. Missing old outputs do not block placed
+files, and old outputs do not substitute for missing placement. Video
+candidates instead read declared current production JSON beneath the
+descriptor parent and validate identity, locale, publication states and clean
+YouTube URLs, including optional videoId agreement. No producer, upload or
+MP4 prerequisite enters this association boundary.
+
+The existing registry remains the single schema/parser/owner namespace.
+`readCurrentSite` factors publication-bundle parsing and entry decoding from
+the historical loader, excluding only the actual typed unrelated framework
+contract in a mixed publication directory. Its semantic CurrentSiteState
+includes empty owner bundles. `mergeCurrentSite` reuses site update
+normalization, strict exact-role merging and entry-based owner/conflict
+helpers. It admits empty updates as a truthful no-op without changing the
+historical empty-update rejection. Integrity-only ownership is honored and
+split owners fail. Existing integrity records remain historical evidence;
+canonical references do not invoke the historical strict-integrity
+hash/public-path correlation gate.
+
+The frozen execution model is local single-user/single-writer current
+read/transform/write. Complete semantic preflight precedes writes. The narrow
+package-private `replaceMetadataCurrent` primitive validates the direct
+canonical root/target and requested paths/keys, loads the current owner (or
+creates only the canonical article-media default), retains provenance,
+unknown semantic fields and unselected entries, checks current collisions and
+uses the existing atomic bundle writer. Its entry-field preservation is
+selected only by this route. No legacy locked replacement, snapshot/hash
+comparison, fileKey unchanged proof, retry, backup or rollback is invoked.
+Later native I/O errors are observable and can follow an earlier owner write;
+one-file atomicity does not imply a whole-registry transaction.
+
+The command reports each selected row, its public path or actual watch URL,
+and a partial outcome when any role is unavailable. Dry-run exposes Planned
+rows and projected semantic state without storage outputs; real registration
+reports Registered for available roles only. Local placement, registry
+references and public URL retrieval are distinct outcomes. This Slice authors
+fixture-only integration in `CozyArticleMediaWarehouseSiteCommandSpec` and
+does not establish actual production placement, upload or retrieval. Legacy
+Phase26/28.1/71 decisions above retain their separate contracts.
+
+### Warehouse upload responsibility
+
+The warehouse's `upload-media.sh` owns one explicit selected non-video file
+publication boundary. It resolves source files from its actual script directory,
+validates the complete literal coordinate selection and direct readable file
+paths, then performs one exact ordered AWS copy per file with fixed MIME.
+Category/article token admission is intentionally the settled upload grammar
+`[A-Za-z0-9_-]+`; the accepted Cozy placement grammar is unchanged. No fallback
+root, broad selection, source freshness seal or deployment redesign is introduced.
+
+After every real copy succeeds, the existing warehouse CloudFront helper owns
+distribution selection and AWS invalidation. The adapter passes the exact
+selected public paths, preserving the distribution override while admitting no
+broad path override. Dry-run uses AWS simulation only and never invalidates.
+Explicit suppression leaves copies enabled. Native copy or invalidation failure
+remains observable with no retry or rollback; prior successful copies can remain
+visible. This is local single-user execution with no added management lock,
+transaction, hashes or repeated unchanged-source checks.
+
+The actual selected script/helper are inputs to the native upload business spec;
+test setup copies them into task-local `target/` fixtures beside fake media and
+an AWS recording stub. Copying is fixture construction, not an unchanged-artifact
+certificate. The stable companion models fixture paths, selected files and
+observed calls. Seven GWT scenarios observe exact argv and outcomes without
+network, real placement, historical workflow records or source-text assertions.
+
+Warehouse Git ignores `/media/` for all roles. CAR `upload.sh`, the shared helper
+and repository metadata keep their existing responsibilities. Local master
+preservation, canonical placement, remote non-video publication, YouTube links,
+registry writing and public retrieval retain separate evidence requirements.
+The initial 09C record contains all 55 declared mappings and existing preserved
+copies with placement pending; actual receipts belong to the parent operation.

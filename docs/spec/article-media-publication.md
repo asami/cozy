@@ -541,3 +541,262 @@ Executable specifications added during implementation must demonstrate:
 
 These requirements preserve the publication boundaries accepted in Phases 9,
 10, and 19.
+
+## Phase 75 canonical existing-artifact deployment (2026-10-06)
+
+`cozy media deploy <media.yaml> --profile <id> [--warehouse-root <absolute-directory>] [--target <resource-id>]
+[--dry-run]` places explicitly declared, already produced artifacts in a local
+warehouse. This additive command does not build, render, transcode, publish
+remotely, register site metadata, generate receipts or compute hashes. The
+historical Phase 26/28.1 publication and Phase 71 contracts above remain intact.
+Site context (`--site-root` / `--site-config`) is unsupported for deployment.
+
+The existing `cozy.media.v1` descriptor must have unique resource IDs, explicit
+`articleMedia.articleIdentity` and the selected `profiles.<id>` declaration.
+Project-configured profiles are not fallback inputs. Profile `rootEnv` takes
+precedence over `root`: its named environment value must be nonblank and exact;
+a missing value fails rather than falling back. Otherwise `root` is required.
+A relative root resolves against the descriptor parent; the normalized absolute
+root must already exist as a direct non-symlink directory, with no symlink
+ancestors. Reusable code and public metadata carry no machine-specific root.
+
+Only resources declaring `publications.<id>` participate. A target must name an
+existing resource mapped to that profile; an empty selection fails. Unmapped
+resources and auxiliary assets are not discovered or deployed. Identity is
+exactly `category/article`, two segments matching
+`[A-Za-z0-9_-][A-Za-z0-9._-]*`, excluding `.` and `..`. The article segment is
+the logical source filename stem (for a Document Project, its logical name,
+not physical `index`); category/article is shared across JA and EN. Locale is
+explicitly `ja` or `en`, and role comes only from resource `articleMedia.role`.
+
+| Role | Required kind / format | Canonical basename |
+| --- | --- | --- |
+| `article_pdf` | `document`, `application/pdf`, PDF source filename | `article.pdf` |
+| `summary_slides_pdf` | `document`, `application/pdf`, PDF source filename | `slides.pdf` |
+| `video` | `video`, MP4 source filename | `video.mp4` |
+| `infographic` | `infographic`, SVG / PNG / JPG / JPEG / WebP filename and corresponding `image/svg+xml` / `image/png` / `image/jpeg` / `image/webp` | `infographic.<actual lowercase extension>` |
+
+The literal publication coordinate must equal
+`media/<locale>/<category>/<article>/<basename>`; malformed absolute paths,
+traversal, backslashes, query/fragment suffixes and alternate coordinates fail,
+rather than being normalized into success. Non-video `articleMedia.publicPath`
+must equal `/` plus that coordinate. The full path identifies article, locale
+and role without identity-bearing basenames, version segments or reverse lookup.
+Optional adjacent metadata can supply title, article URL or source association;
+it is not a placement prerequisite and this command does not create it or a
+parallel registry. Video's warehouse path is a master-backup URL only: site
+video links retain their separately declared YouTube watch URLs. Deployment
+does not read, infer or modify video production records.
+
+A declared `output` always supplies the selected source, even when missing.
+It never falls back to a manuscript or another source/locale. Without output,
+one explicit `source` is allowed only for `build: prebuilt` or `build: copy`.
+Source declarations must be relative to the descriptor parent; existing
+relative paths outside that parent remain supported. Symlink leaves/ancestors,
+directories, nonregular files and unreadable present files fail. An absent
+source is `Unavailable`, not a publication claim. Bytes are copied in their
+declared format without conversion or substitution.
+
+All selected coordinates, sources, destinations and conflicts are preflighted
+before writes. Duplicate destinations fail. Destination paths stay beneath the
+selected root; existing ancestors must be direct directories and an existing
+destination a direct regular file, without symlink traversal. Identical existing
+bytes can be `Reused` by ordinary streaming equality; different bytes fail the
+whole preflight. Originals and separately preserved historical editions remain
+retained. There is no overwrite/force option, automatic version/backup path,
+receipt, hash certificate, lock, retry, rollback or multi-file atomicity promise.
+
+Dry-run reports actual source/destination/public paths with `Planned` for
+available sources and `Unavailable` for absent ones, creating nothing. Normal
+deployment creates only missing selected parent directories and copies without
+replacement: `Created` and `Reused` describe local placement only. Missing
+resources remain `Unavailable` while independently valid resources progress;
+the result explicitly reports a partial outcome. Native I/O failures propagate,
+including failures after earlier copies, without a fabricated all-resource
+success or rollback claim. Local retrieval, Git exclusion, scoped media upload
+and actual remote URL retrieval require separate evidence. The intended public
+mapping is `/media/<locale>/<category>/<article>/<file>`, independently of HTML
+`/en/` routing and CAR `/repository/` upload mapping. Deployed payloads for all
+four roles stay outside GitHub; source/master tracking remains project-owned.
+
+Executable behavior is specified by `cozy.media.CozyMediaWarehouseSpec`:
+four-role JA/EN dispatcher placement, selected targets, profile/rootEnv and
+descriptor admission, missing-output precedence and partial outcomes, dry-run,
+byte reuse/conflicts, malformed mappings and symlink rejection, and preservation
+of production video metadata with no process-runner use.
+
+### Canonical warehouse site registration
+
+The additive `--warehouse-root <absolute-directory>` or
+`--warehouse-root=<absolute-directory>` input selects an existing direct
+absolute normalized warehouse directory. Deploy accepts it through its own
+`DeployConfig`; the generic media command configuration and other media
+routes do not accept it. Register-site accepts it only together with
+`--warehouse-profile`, and rejects root-only legacy requests or mixed site
+contexts before historical evidence capture or registry mutation.
+
+Both commands share `CozyMediaWarehouse.requireWarehouseRoot` and the same
+warehouse planner. Null, empty, trim-altered, relative, dot/dotdot,
+missing-directory, file and symlink-leaf/ancestor roots fail before writes.
+Spaces within an exact absolute path are retained. Repeated options, including
+mixed separated/equals forms, fail. An explicit root replaces only root
+resolution: the requested descriptor profile, exact mappings, identity,
+locale, role, MIME, direct paths and complete no-overwrite preflight remain
+required. Explicit roots do not require the profile's environment variable;
+an absent override preserves rootEnv-over-root precedence and existing
+relative-root semantics. No workstation default or descriptor rewrite is added.
+
+Retained `plan` and `deploy` APIs use the existing profile behavior.
+`planAtRoot` and `deployAtRoot` accept the same validated direct Path root;
+`deployCommand` routes the optional override without duplicating placement.
+The nine examples in `cozy.media.CozyMediaWarehouseRootSpec` specify native
+JA/EN four-role placement and registration, option isolation, compatibility,
+partial/dry-run outcomes, root rejection and preservation. Parent validation
+`phase75-09c2-validation-1` executed all nine plus 202 affected examples:
+211 passed across ten suites, with zero failures/cancellations/aborts,
+SBT/wrapper exit 0 and `lock=released`. The typed current-subject reader
+accepted the result. Evidence: `/Users/asami/src/dev2025/cozy/.codex-workflow/phases/PHASE-75/validation-COZY-75-09C2.json`;
+log `/private/tmp/skill.cncf.d/a-a0e2761a-a0e5-4472-8c82-c331cc1f52dc/48680-20261006T023443Z.log`.
+
+The parent then executed the 11 selected actual descriptors with the explicit
+root: 38 Created, zero Reused and 17 Unavailable across 55 mappings. All 38
+created files were opened and copy content confirmed, with MIME/size and
+preserved-location reading recorded. All 55 coordinates are Git ignored and
+tracked `media/` is empty. These are local deployment/retrieval results, not
+visual QA, immutable seals or public availability. Exact native result/stdout
+locators and retrieval observations are in
+`/Users/asami/src/dev2025/cozy/.codex-workflow/phases/PHASE-75/placement-retrieval-COZY-75-09C2.json`;
+full native receipts are in `placement-evidence-COZY-75-09C2.json` in the same
+directory. Independent 09C acceptance, later 09D scoped upload/public retrieval/
+production registration and Step09/Phase75 closure remain pending. Earlier
+191/18-test receipts and original preservation/gap/edition dispositions remain.
+
+Phase75 retains its own final-only full SBT suite after all Step commits,
+including native integration 11+7+9 without cancellation, one full Phase
+review and release. Phase75.1 has not started.
+
+`cozy media register-site <media-file> --publication <existing-directory>
+--warehouse-profile <id> [--warehouse-root <absolute-directory>] [--target <resource-id>] [--dry-run]` explicitly
+selects canonical registration. `--warehouse-profile=<id>` is equivalent.
+Duplicate or missing profile values fail. Warehouse mode rejects any
+`--site-root` or `--site-config` value and never falls back to the historical
+site binding. `--profile` remains unsupported by register-site; omitting the
+new option retains the historical command and its evidence contracts.
+
+The existing warehouse plan validates the explicit profile/root environment,
+resource IDs, exact article/locale/role coordinates and direct paths. The
+descriptor's top-level `articleMedia.publicationProfile` must exactly equal
+the requested warehouse profile. Each selected resource is associated by its
+unique ID, and repeated selected article/locale/role keys fail. No project
+discovery, configured SmartDox profile, producer invocation or source
+substitution is required.
+
+Non-video registration reads availability at the actual canonical destination.
+An absent destination is `Unavailable`, even if an old generated output is
+present. A direct regular readable canonical file can register even when the
+original producer output, receipt or QA file is absent. Present unreadable,
+nonregular or symlinked input fails. The warehouse plan's ordinary refusal of
+differing existing source/destination bytes remains a no-overwrite check, not
+a currentness certificate. Infographic MIME/alt and both PDF labels remain
+explicit strict metadata; article and summary-slide PDFs stay separate.
+
+Video uses only its separately declared `articleMedia.production` relative
+path beneath the descriptor parent. Absolute/traversing paths and symlink
+leaves/ancestors fail. A missing record is `Unavailable`; a present malformed
+or nonobject JSON record fails. Exact category/article and language must
+match the selected tuple. Correct but unfinished render, QA or YouTube states
+are `Unavailable`. Published evidence requires render `completed`, QA
+`technical-and-visual-qa-passed`, YouTube `published` and a clean exact HTTPS
+`youtu.be/<id>` or `www.youtube.com/watch?v=<id>` URL. Optional `videoId`, if
+present, must equal the URL ID. Registration produces only an external-link,
+published, provider `youtube`, `watch_url` tuple. It requires no MP4 placement,
+upload or network operation and never registers a warehouse MP4 URL as a watch
+URL.
+
+`CozyArticleMediaRegistry.readCurrentSite` reads each configured direct JSON
+file as current semantic input and reuses the existing publication-bundle
+structure, entry and strict metadata parsers. Only
+`cncf-framework-publication.json` with exact
+`schemaVersion=cncf.framework-publication.v1` and
+`kind=framework-publication-contract`, without bundle-shaped fields, is
+excluded as a known unrelated contract. It is retained untouched and owns no
+media. Unknown/missing bundle types, malformed JSON, unsafe entry paths,
+duplicate keys/owners and bundle-shaped contract impostors fail. This
+exclusion is confined to the current-site route; legacy loading is unchanged.
+
+`CurrentSiteState(entries,bundleNames)` and
+`CurrentSiteMergeResult(bundlePaths,entryPaths,state)` carry semantic data,
+never copied source bytes or persisted proof. All ownership, duplicate and
+exact-role plans are completed before the first replacement. Strict and
+integrity entries jointly identify the existing article owner, including
+integrity-only owners; split ownership fails. A new identity uses only the
+canonical `article-media.json` default. Available selected roles replace only
+their exact locale/role fields; unavailable roles, other locales/articles,
+generic metadata, owner provenance and unknown semantic container/entry fields
+remain. Existing integrity metadata is historical separately owned evidence:
+it is preserved without synthesizing records or requiring its hash/public path
+to correlate with a migrated strict reference.
+
+Canonical registration assumes a local single user and single writer. The
+current compiler primitive reads the selected owner, transforms the requested
+strict paths and calls the existing atomic one-file writer. It uses no shared
+monitor/file lock, immutable snapshot comparison, receipt, hash, fileKey seal,
+retry, backup or rollback. Native later I/O failure propagates, possibly after
+earlier owners have been replaced; there is no all-bundle atomicity promise.
+This does not remove those mechanisms from historical routes.
+
+Dry-run returns planned semantic paths/state and `Planned` rows without
+creating directories, bundles, locks, receipts or snapshots. Real success
+reports `Registered` for available rows. Every selected row reports its
+resource, article identity, locale, role and canonical public path or actual
+YouTube URL; unavailable rows include a reason. The outcome is `complete`
+only when every selected role is available, otherwise `partial`. An
+all-unavailable selection is a valid zero-write partial result. Placement,
+registry registration and verified public availability require separate
+evidence; registration alone establishes neither deployment nor URL retrieval.
+
+The fifteen semantic scenarios and native-main/parser round trip are authored
+in `cozy.publication.CozyArticleMediaWarehouseSiteCommandSpec`. Step09's actual
+production registration remains pending 09C placement and 09D public
+verification; fixture authoring does not close Step09 or Phase75.
+
+### Exact selected warehouse upload
+
+The warehouse `upload-media.sh` entry point accepts optional literal first
+`--dry-run` followed by at least one exact relative
+`media/<ja|en>/<category>/<article>/<filename>` coordinate. Category and article
+are nonempty `[A-Za-z0-9_-]+` tokens. Filenames are exactly `infographic.png`,
+`infographic.jpg`, `infographic.jpeg`, `infographic.svg`, `infographic.webp`,
+`article.pdf` or `slides.pdf`. Absolute paths, whitespace, traversal, empty
+segments, wildcards, unknown locales, duplicates, extra nesting, video,
+CAR/repository coordinates, arbitrary destinations and other options fail.
+
+All arguments and selected readable direct regular files are preflighted before
+any AWS call. Symlink leaves and directory components below the actual script
+directory fail. The source is script-relative independently of caller cwd.
+Each selected file receives one ordered `aws s3 cp` to
+`s3://simplemodeling.org/<coordinate>` with fixed `image/png`, `image/jpeg`,
+`image/svg+xml`, `image/webp` or `application/pdf`. Dry-run adds only AWS
+`--dryrun` to each copy and never invalidates. Only after all real copies succeed
+does the existing script-relative CloudFront helper receive exact selected
+`/<coordinate>` paths in order. `CLOUDFRONT_INVALIDATE=false` suppresses it;
+the existing distribution override is retained. A broad legacy invalidation
+path override cannot select paths for this operation.
+
+A copy failure stops subsequent uploads and invalidation without retry; prior
+uploaded objects remain a visible partial operation. Invalidation failure
+returns nonzero after completed uploads. There is no sync, recursion, delete,
+ACL/credential/bucket-policy modification, lock, hash/freshness certificate,
+retry or rollback. Local availability, dry-run simulation, completed upload,
+invalidation submission and verified public retrieval are separate outcomes.
+Video masters remain local backups and site links remain declared YouTube watch
+URLs. All deployed media are ignored by warehouse Git; existing CAR upload and
+source/master ownership remain unchanged.
+
+`CozyMediaWarehouseUploadSpec` supplies seven native business scenarios against
+the actual selected warehouse programs and fixture-only AWS. External execution
+requires `cozy.media.warehouse.integration=true` and explicit absolute existing
+direct `cozy.media.warehouse.uploadRoot`; default cancellation is not acceptance.
+The paired warehouse operator guide is `docs/article-media-deployment.md` in
+the warehouse repository. Placement and remote availability still require actual
+operational evidence; this authoring does not close Step09 or Phase75.

@@ -5,7 +5,7 @@ import cozy.publication.{CozyArticleMediaSiteCommand, CozyArticleMediaWipCommand
 
 /*
  * @since   Sep. 2, 2026
- * @version Sep. 2, 2026
+ * @version Oct.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaDispatcher {
@@ -25,6 +25,9 @@ private[cozy] object CozyMediaDispatcher {
         true
       case "media" :: "publish" :: rest =>
         println(CozyMedia.publish(CozyMedia.CommandConfig.create(rest, requireProfile = true)))
+        true
+      case "media" :: "deploy" :: rest =>
+        println(CozyMediaWarehouse.render(CozyMediaWarehouse.deployCommand(CozyMediaWarehouse.DeployConfig.create(rest))))
         true
       case "media" :: "slide" :: "validate" :: rest =>
         println(CozyMedia._slide_validate(CozyMedia.CommandConfig.create(rest)))
