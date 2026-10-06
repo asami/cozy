@@ -13,7 +13,7 @@ import cozy._
 /*
  * @since   Aug. 20, 2025
  *  version Aug. 14, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  6, 2026
  * @author  ASAMI, Tomoharu
  */
 case object ModelerServiceClass extends ServiceClass {
@@ -33,7 +33,8 @@ case object ModelerServiceClass extends ServiceClass {
   private val _types = spec.Parameter("types", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.ZeroOne)
   private val _operations = spec.Parameter("operations", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.ZeroOne)
   private val _sealed_types = spec.Parameter("sealed-types", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.ZeroOne)
-  private val _dart_request = spec.Request(_model, _package, _save, _types, _operations, _sealed_types, _charset)
+  private val _json_field_style = spec.Parameter("json-field-style", spec.Parameter.PropertyKind, spec.XString, spec.Multiplicity.ZeroOne)
+  private val _dart_request = spec.Request(_model, _package, _save, _types, _operations, _sealed_types, _charset, _json_field_style)
 
   val operations = Operations(
     ClassOperationClass,
@@ -110,7 +111,8 @@ case object ModelerServiceClass extends ServiceClass {
           packageName = DartNaming.requirePackageName(packagename),
           typeNames = _selectors(req, "types"),
           operationNames = _selectors(req, "operations"),
-          sealedTypeNames = _selectors(req, "sealed-types").toSet
+          sealedTypeNames = _selectors(req, "sealed-types").toSet,
+          jsonFieldStyle = req.getPropertyString("json-field-style").map(DartJsonFieldStyle.parse).getOrElse(DartJsonFieldStyle.Source)
         )
         val ctx = env.toAppEnvironment[Context]
         _load_model(ctx, req) match {

@@ -10,10 +10,65 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  6, 2026
  */
 class DartModelerServiceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "The explicit modeler dart service" should {
+    "select the explicit JSON field profile without changing other request surfaces (DA-22)" which {
+      Vector("equals", "separate").foreach { syntax =>
+        Vector("absent", "source", "cncf-snake-case").foreach { style =>
+          s"save $style keys through $syntax property syntax" in {
+            Given(s"parsed source count/keyword/separator fields and an explicit Dart request with $style profile")
+            val workspace = _scratch(s"profile-$syntax-$style")
+            val model = _model_file(workspace, DartPackageSpecFixtures.source.replace("| count | int | 1 |", "| sourceCount | int | 1 |"))
+            val output = workspace.resolve("package")
+            val profile = if (style == "absent") Vector.empty else if (syntax == "equals")
+              Vector(s"--json-field-style=$style") else Vector("--json-field-style", style)
+            val arguments = (Vector("modeler", "dart", model.toString, "--package=phase65_api", s"--save=$output") ++ profile).toArray
+            When("the actual Cozy CLI parses the selected profile and saves its complete response")
+            val response = cozy.Cozy.build(arguments).execute(arguments)
+            val saved = _snapshot(output)
+            Then("the selected wire keys coexist with unchanged typed fields, original identities and complete response ownership")
+            response shouldBe a[FileRealmResponse]
+            saved shouldBe DartPackageSpecFixtures.products(response.asInstanceOf[FileRealmResponse].realm)
+            saved.keySet shouldBe DartPackageSpecFixtures.paths("phase65_api").toSet
+            val selected = style == "cncf-snake-case"
+            saved("lib/src/models.dart") should include(if (selected) "'source_count':" else "'sourceCount':")
+            saved("lib/src/models.dart") should include(if (selected) "'some_key':" else "'some-key':")
+            saved("lib/src/models.dart") should include("final int sourceCount;")
+            saved("lib/src/models.dart") should include("final String class_;")
+            saved("lib/src/models.dart") should include("dart.api.SharedResponse.sourceCount")
+            saved("README.md") should include(s"JSON field profile: `${if (selected) style else "source"}`")
+            ModelerServiceClass.ClassOperationClass.request.parameters.map(_.name) shouldBe List("model", "save", "charset")
+            ModelerServiceClass.ProjectOperationClass.request.parameters.map(_.name) shouldBe List("model", "save", "charset")
+          }
+        }
+        Vector("", " ", "source ", "snake-case", "Source").zipWithIndex.foreach { case (style, index) =>
+          Vector(false, true).foreach { existing =>
+            s"reject invalid profile $index through $syntax syntax with existing destination $existing" in {
+              Given(s"an invalid explicit profile '$style' and an ${if (existing) "existing" else "absent"} output destination")
+              val workspace = _scratch(s"invalid-profile-$syntax-$index-$existing")
+              val model = _model_file(workspace, DartPackageSpecFixtures.source)
+              val output = workspace.resolve("package")
+              if (existing) {
+                Files.createDirectories(output)
+                Files.write(output.resolve("sentinel.txt"), "existing output\n".getBytes(StandardCharsets.UTF_8))
+              }
+              val before = _snapshot(output)
+              val profile = if (syntax == "equals") Vector(s"--json-field-style=$style") else Vector("--json-field-style", style)
+              val arguments = (Vector("modeler", "dart", model.toString, "--package=phase65_api", s"--save=$output") ++ profile).toArray
+              When("the actual CLI receives the invalid profile before loading or generating the model")
+              val response = cozy.Cozy.build(arguments).execute(arguments)
+              Then("a structured conclusion preserves every existing file and creates no absent destination")
+              response shouldBe a[ConclusionResponse]
+              _snapshot(output) shouldBe before
+              Files.exists(output) shouldBe existing
+            }
+          }
+        }
+      }
+    }
+
     "save a complete response-owned package (DA-17, DA-18)" which {
       Vector("equals", "separate").foreach { syntax =>
         s"save the actual selected canonical Realm using $syntax property syntax and a declared charset" in {

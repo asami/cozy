@@ -8,11 +8,12 @@ import org.simplemodeling.model.domain.MDomainValue
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  6, 2026
  */
 private[modeler] final class DartModelProjection private (
   private val _objects: Vector[MObject],
-  private val _sealed_names: Set[String]
+  private val _sealed_names: Set[String],
+  val jsonFieldStyle: DartJsonFieldStyle
 ) {
   private val _index = _objects.map(x => x.qualifiedName -> x).toMap
 
@@ -21,6 +22,7 @@ private[modeler] final class DartModelProjection private (
   def typeName(source: MObject): String = DartNaming.typeName(source.name, source.qualifiedName)
   def fieldName(owner: MObject, field: MAttribute): String =
     DartNaming.memberName(field.name, location(owner, field))
+  def wireName(owner: MObject, field: MAttribute): String = jsonFieldStyle.fieldName(field.name)
   def location(owner: MObject, field: MAttribute): String = s"${owner.qualifiedName}.${field.name}"
   def reference(source: MObjectRef): MObject = _index(DartModelProjection.referenceName(source))
 
@@ -95,7 +97,8 @@ private[modeler] object DartModelProjection {
         case _ => RAISE.invalidArgumentFault(s"$name: sealed selection requires a selected finite powertype.")
       }
     }
-    val projection = new DartModelProjection(objects, options.sealedTypeNames)
+    val projection = new DartModelProjection(objects, options.sealedTypeNames, options.jsonFieldStyle)
+    _require_wire_keys(projection)
     _require_symbols(projection)
     projection
   }
@@ -148,6 +151,16 @@ private[modeler] object DartModelProjection {
     }.foreach(name => RAISE.invalidArgumentFault(s"$location: duplicate $category '$name'."))
   }
 
+  private def _require_wire_keys(projection: DartModelProjection): Unit =
+    projection.objects.foreach { source =>
+      source.attributes.groupBy(field => projection.wireName(source, field)).toVector.sortBy(_._1).foreach {
+        case (key, fields) if fields.size > 1 =>
+          val identities = fields.map(field => projection.location(source, field)).sorted.mkString(", ")
+          RAISE.invalidArgumentFault(s"${source.qualifiedName}: duplicate JSON wire key '$key' conflicts between $identities.")
+        case _ => ()
+      }
+    }
+
   private def _require_symbols(projection: DartModelProjection): Unit = {
     val globals = mutable.Map.empty[String, String]
     DartNaming.reservedTypes.foreach(name => globals.update(name, "Dart SDK/technical type"))
@@ -172,7 +185,8 @@ private[modeler] object DartModelProjection {
             m.kinds.foreach(kind => _reserve_(projection.typeName(source) + DartNaming.typeName(kind.name, location), s"$location.${kind.name}"))
           }
         case _ =>
-          val modelreserved = reserved ++ Set("int", "double", "bool")
+          val omissionreserved = if (projection.isScalar(source)) Set.empty[String] else Set("toJsonOmittingNullFields")
+          val modelreserved = reserved ++ Set("int", "double", "bool") ++ omissionreserved
           val members = source.attributes.map(field => projection.fieldName(source, field))
           _require_unique(members, location, "normalized field")
           members.foreach { name =>

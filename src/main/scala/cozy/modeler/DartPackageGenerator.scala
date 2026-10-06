@@ -6,28 +6,29 @@ import org.simplemodeling.model.SimpleModel
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  6, 2026
  */
 object DartPackageGenerator {
   case class Options(
     packageName: String,
     typeNames: Vector[String] = Vector.empty,
     operationNames: Vector[String] = Vector.empty,
-    sealedTypeNames: Set[String] = Set.empty
+    sealedTypeNames: Set[String] = Set.empty,
+    jsonFieldStyle: DartJsonFieldStyle = DartJsonFieldStyle.Source
   )
 
   def generate(model: KaleidoxModel, options: Options): Realm = {
     if (model.errors.nonEmpty)
       org.goldenport.RAISE.syntaxErrorFault(model.errors.map(_.en).mkString("; "))
     val packagename = DartNaming.requirePackageName(options.packageName)
-    val builder = Modeler.ModelBuilder(model)
+    val builder = DartCanonicalInputProjection.enrich(model, Modeler.ModelBuilder(model))
     val data = builder.buildValue()
     val operations = DartOperationProjection.select(model, builder, data, options.operationNames)
     val operationroots = operations.flatMap(operation => operation.input.toVector ++ operation.output.toVector).map(_.qualifiedName)
     val roots = (options.typeNames ++ operationroots).distinct.sorted
     val defaultall = options.typeNames.isEmpty && options.operationNames.isEmpty
     val selection = if (defaultall) data else if (roots.isEmpty) SimpleModel(Vector.empty) else data
-    val modeloptions = DartModelGenerator.Options(if (defaultall) Vector.empty else roots, options.sealedTypeNames)
+    val modeloptions = DartModelGenerator.Options(if (defaultall) Vector.empty else roots, options.sealedTypeNames, options.jsonFieldStyle)
     val projection = DartModelProjection.select(selection, modeloptions)
     val models = DartModelRenderer.render(projection)
     val api = DartApiRenderer.render(operations, projection)
@@ -58,6 +59,7 @@ object DartPackageGenerator {
       s"Future<$output> use(${operation.interfaceName} api$input) => api.${operation.methodName}($argument);\n"
     }.getOrElse("// Import the model and technical JSON contracts from this barrel.\n")
     s"# $packagename\n\nGenerated from canonical model and operation contracts. Dart SDK >=3.0.0 <4.0.0; SDK libraries only.\n\n" +
+      s"JSON field profile: `${projection.jsonFieldStyle.id}`. Canonical identities, Dart symbols and classification discriminator values retain their source contracts.\n\n" +
       "Canonical data identities:\n\n" + (if (models.isEmpty) "No data types selected." else models) + "\n\n" +
       "Canonical operation identities:\n\n" + (if (identities.isEmpty) "No operations declared or selected." else identities) + "\n\n" +
       s"```dart\nimport 'package:$packagename/$packagename.dart';\n\n$usage```\n\n" +

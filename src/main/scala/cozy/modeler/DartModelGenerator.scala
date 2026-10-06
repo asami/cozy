@@ -5,12 +5,13 @@ import org.simplemodeling.model.SimpleModel
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  6, 2026
  */
 object DartModelGenerator {
   case class Options(
     typeNames: Vector[String] = Vector.empty,
-    sealedTypeNames: Set[String] = Set.empty
+    sealedTypeNames: Set[String] = Set.empty,
+    jsonFieldStyle: DartJsonFieldStyle = DartJsonFieldStyle.Source
   )
 
   def generate(model: SimpleModel, options: Options = Options()): Realm = {

@@ -5,7 +5,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  6, 2026
  */
 private[modeler] object DartModelRenderer {
   def render(projection: DartModelProjection): String = {
@@ -50,8 +50,16 @@ private[modeler] object DartModelRenderer {
     val scalar = projection.isScalar(source)
     val encode = if (scalar) _encode(projection, source, fields.head, projection.fieldName(source, fields.head)) else {
       fields.map { field =>
-        s"    ${DartNaming.literal(field.name)}: ${_encode(projection, source, field, "this." + projection.fieldName(source, field))},"
+        s"    ${DartNaming.literal(projection.wireName(source, field))}: ${_encode(projection, source, field, "this." + projection.fieldName(source, field))},"
       }.mkString("<String, Object?>{\n", "\n", "\n  }")
+    }
+    val omission = if (scalar) "" else {
+      val entries = fields.map { field =>
+        val expression = "this." + projection.fieldName(source, field)
+        val condition = if (field.multiplicity == MZeroOne) s"if ($expression != null) " else ""
+        s"    $condition${DartNaming.literal(projection.wireName(source, field))}: ${_encode(projection, source, field, expression, omitnullfields = true)},"
+      }.mkString("<String, Object?>{\n", "\n", "\n  }")
+      s"  Map<String, Object?> toJsonOmittingNullFields() => $entries;\n\n"
     }
     val decode = if (scalar) {
       s"    return $typename(value: ${_decode_element(projection, source, fields.head, "_value")});"
@@ -65,7 +73,8 @@ private[modeler] object DartModelRenderer {
     // Empty objects still validate their input; avoid an unused local in Dart.
     val decoded = if (fields.isEmpty) decode.replace("final _json = ", "") else decode
     s"${_type_metadata(source)}\nclass $typename {\n$declarations\n\n$constructor\n\n" +
-      s"  Object? toJson() => $encode;\n\n  static $typename fromJson(Object? _value) {\n$decoded\n  }\n}"
+      s"  Object? toJson() => $encode;\n\n" + omission +
+      s"  static $typename fromJson(Object? _value) {\n$decoded\n  }\n}"
   }
 
   private def _construct(projection: DartModelProjection, source: MObject, field: MAttribute, expression: String): String = {
@@ -104,7 +113,7 @@ private[modeler] object DartModelRenderer {
     _check_element(projection, source, field, expression, true)
 
   private def _decode_field(projection: DartModelProjection, source: MObject, field: MAttribute): String = {
-    val key = DartNaming.literal(field.name)
+    val key = DartNaming.literal(projection.wireName(source, field))
     val location = DartNaming.literal(projection.location(source, field))
     val value = s"_json[$key]"
     val required = s"_dartJson.DartJsonCodec.requiredField(_json, $key, $location)"
@@ -118,24 +127,28 @@ private[modeler] object DartModelRenderer {
     }
   }
 
-  private def _encode_element(projection: DartModelProjection, source: MObject, field: MAttribute, expression: String): String = {
+  private def _encode_element(projection: DartModelProjection, source: MObject, field: MAttribute, expression: String, omitnullfields: Boolean = false): String = {
     val checked = _check_element(projection, source, field, expression, false)
     field.attributeType match {
-      case _: MObjectAttributeType => s"$checked.toJson()"
+      case reference: MObjectAttributeType =>
+        val target = projection.reference(reference.ref)
+        val method = if (omitnullfields && !projection.isScalar(target) && !target.isInstanceOf[MPowertype])
+          "toJsonOmittingNullFields" else "toJson"
+        s"$checked.$method()"
       case _ => checked
     }
   }
 
-  private def _encode(projection: DartModelProjection, source: MObject, field: MAttribute, expression: String): String = {
+  private def _encode(projection: DartModelProjection, source: MObject, field: MAttribute, expression: String, omitnullfields: Boolean = false): String = {
     field.multiplicity match {
-      case MZeroOne => s"$expression == null ? null : ${_encode_element(projection, source, field, expression)}"
+      case MZeroOne => s"$expression == null ? null : ${_encode_element(projection, source, field, expression, omitnullfields)}"
       case MZeroMore | MOneMore =>
         val location = DartNaming.literal(projection.location(source, field))
         val elementtype = projection.elementType(source, field)
         val nonempty = field.multiplicity == MOneMore
         s"_dartJson.DartJsonCodec.encodeList<$elementtype>($expression, $location, " +
-          s"(_element) => ${_encode_element(projection, source, field, "_element")}, nonempty: $nonempty)"
-      case _ => _encode_element(projection, source, field, expression)
+          s"(_element) => ${_encode_element(projection, source, field, "_element", omitnullfields)}, nonempty: $nonempty)"
+      case _ => _encode_element(projection, source, field, expression, omitnullfields)
     }
   }
 
@@ -221,7 +234,7 @@ private[modeler] object DartModelRenderer {
       case reference: MObjectAttributeType => DartModelProjection.referenceName(reference.ref)
       case datatype: MDataType => datatype.datatype.name
     }
-    _comment(Json.obj("identity" -> projection.location(source, field), "wireName" -> field.name,
+    _comment(Json.obj("identity" -> projection.location(source, field), "wireName" -> projection.wireName(source, field),
       "type" -> identity, "multiplicity" -> field.multiplicity.mark,
       "constraints" -> _constraints(field.constraints), "typeConstraints" -> _constraints(field.typeConstraints)))
   }
