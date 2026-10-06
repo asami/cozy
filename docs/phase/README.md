@@ -4,6 +4,8 @@ Purpose: engineering work management.
 
 Phase status index (individual Phase/checklist files are authoritative):
 
+- CLOSED: [Phase 65](phase-65.md), CBD Support Dart Model and API Code Generation. All nine outcomes/eight original boxes/four groups are closed; four native Steps, sole full Phase review PASS and repository-full tests PASS bind P65-RELEASE-CLOSURE-001 r1. The [checklist](phase-65-checklist.md) retains live007, historical limits and the exact separate Hygiene journal.
+
 - Historical closed phase: `phase-46.md`: Content Core Story Flow and
   per-unit Explanation Structure are frozen as one typed logical-presentation
   authority. The accepted handoff preserves the closed Phase 36/37/41/45.*

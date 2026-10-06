@@ -1,6 +1,6 @@
 # Dart model and API generation design
 
-Status: frozen Phase 65 design; S65.2/S65.3 accepted; S65.4G actual unit24 and [live007 product proof](../../target/phase65/s654/runs/live-gru8e1bo/result.json) PASS, fixture-catalog ready and overall degraded; actual251/14 suites/31 SDK commands/six real-CML products/unit20 reused; live006 CAR200/SAR404 failure retained; S65.4 independently accepted for its local Step commit by P65-S654-REVIEW-001 r1 PASS, zero blockers and one separate Hygiene; final Phase closure remains pending
+Status: CLOSED; frozen Phase 65 design; four native Steps accepted, sole full Phase review PASS, repository-full tests PASS; closure binding P65-RELEASE-CLOSURE-001 r1
 Date: 2026-10-06
 Scope: canonical source inventory and Cozy projection/consumer responsibilities
 
@@ -209,12 +209,12 @@ It accepted the malformed canonical-model error guard and valid-empty/CLI
 conformance. S65.3 is independently accepted at native
 `770bf6b380a292c027fa059c7f50cd58dfcbd00c`.
 Historically, the two remaining real CBD/Phase closure
-checklist boxes stayed unchecked at S65.3; now the real CBD box is checked and
-the final Phase closure box remains unchecked.
-Phase 65 remains IN_PROGRESS. At S65.3 acceptance, successful live real CBD/S65.4
+checklist boxes stayed unchecked at S65.3; now all eight original boxes are checked and
+all four groups and Phase 65 are CLOSED. At S65.3 acceptance, successful live real CBD/S65.4
 proof remained pending; actual S65.4G [live007 product proof](../../target/phase65/s654/runs/live-gru8e1bo/result.json)
-subsequently passed. S65.4 is independently accepted for its local Step commit.
-Full Phase review, repository-full tests and distinct manual release commit remain pending.
+subsequently passed. S65.4 is independently accepted and was manually committed at native
+`0237579262fd8b86c7b904ecca6cb49f18fd78e1`.
+Sole full Phase review P65-FULL-REVIEW-001 r1 PASS and repository-full tests PASS provide the final release closure basis P65-RELEASE-CLOSURE-001 r1.
 The S65.4 route below records the real consumer
 obligation and its evidence.
 
@@ -636,16 +636,16 @@ and strict cleanup passed. Complete submitted/native initial/terminal records
 remain after one evidence-only continuation, without rerender/replay; mistaken
 progress literals were superseded, retaining historical raw retention limits.
 Product live proof PASS supplies the real consumer evidence for independently
-accepted S65.4. The real CBD checkbox is checked; the final Phase closure box
-remains unchecked.
-Full Phase review, repository-full tests and distinct manual release commit remain pending.
+accepted S65.4. All eight original checklist boxes are checked; all four original groups are CLOSED.
+Sole full Phase review P65-FULL-REVIEW-001 r1 PASS and repository-full tests PASS provide the final release closure basis P65-RELEASE-CLOSURE-001 r1.
 
-S65.4 is independently accepted for its local Step commit.
+S65.4 is independently accepted and was manually committed at native
+`0237579262fd8b86c7b904ecca6cb49f18fd78e1`.
 P65-S654-REVIEW-001 r1 from `/root/p65_s654_review_001` returned PASS with zero
 Current Boundary Blockers and one separate nonblocking Hygiene item,
 HYG-P65-S654-MODELER-LOCAL-NAMING-001, recorded in the
 [Hygiene follow-up](../journal/2026/10/2026-10-05-phase-65-hygiene-follow-up.md).
-Independent Step acceptance recorded eight review entries, with zero Phase full reviews. DART-08 and DART-09
+At S65.4 Step acceptance on 2026-10-06, the historical snapshot recorded eight review entries and FULL0. After the sole full Phase review, P65-REVIEW-LEDGER-001 revision 11 records ten entries and FULL1, before the parent's following release M0 amendment. DART-08 and DART-09
 are completed in accepted S65.4; no external UI integration is claimed.
 Native acceptance history records local Step commits.
 
@@ -658,3 +658,49 @@ are the active assignment; local completed Phase 55 remains separate. The
 Phase 50–53 UI roadmap and [Phase 54](../phase/phase-54.md) semantic authority
 remain their own boundaries. This target does not generate Flutter widgets,
 navigation, synchronization, storage policy or consumer transport implementation.
+
+## Final acceptance — 2026-10-06
+
+Phase 65 is CLOSED: all nine original DART-01..09 outcomes and all eight
+original checkbox texts in four original groups are satisfied, as recorded in
+[Phase 65](../phase/phase-65.md) and its [checklist](../phase/phase-65-checklist.md).
+The four actual native Step commits are S65.1
+`f4a6e3b0f41fd929fba085664ae958330b82cff0`, S65.2
+`716d208ce8505746ac03a3cc3606299f5c4e10e4`, S65.3
+`770bf6b380a292c027fa059c7f50cd58dfcbd00c` and manually committed S65.4
+`0237579262fd8b86c7b904ecca6cb49f18fd78e1`.
+
+The sole full Phase review P65-FULL-REVIEW-001 r1 passed over 35 owned targets
+and 58 reviewed paths, with zero Current Phase Blockers. Its retained admission
+and receipt are [full-review-admission-001.json](../../.codex-workflow/phases/PHASE-65/full-review-admission-001.json)
+and [full-review-receipt-001.json](../../.codex-workflow/phases/PHASE-65/full-review-receipt-001.json).
+Review ledger revision 11 records ten entries/FULL1 before the parent's following
+release M0 amendment; eight entries/FULL0 is the historical S65.4 Step acceptance
+snapshot on 2026-10-06.
+
+Actual repository-full `sbt --batch test` passed 3,074 tests in 211 completed
+suites, with zero failures or aborted suites and nine pre-existing canceled
+cases. SBT/wrapper exit 0 and `lock=released` are retained in
+[release-full-validation-001.json](../../.codex-workflow/phases/PHASE-65/release-full-validation-001.json),
+invocation P65-RELEASE-FULL-ATTEMPT-001. The actual summary is
+`/private/tmp/skill.cncf.d/a-5604920c-ea8e-4321-80bc-8596e01d2550/34334-20261006T034510Z.summary.json`;
+the corresponding log is `34334-20261006T034510Z.log` in that same directory.
+
+Accepted product evidence remains unit24, all six real-CML SDK products and
+live007's two original MCP HTTP200 calls, complete actual typed-response
+roundtrips, genuine {} omission, marker echo, counts 5/4/1, CAR/SAR readiness
+and strict owned cleanup. Fixture-catalog is ready; overall remains degraded.
+The full review could not independently inspect the historical S65.3 raw16
+SDK report files: retained native metadata and SBT logs remain, and current31
+S65.4F reports plus live007 were inspected. No retrospective replacement
+success is claimed. Earlier failures and original raw retention limitations
+remain historical evidence. No clean rebuild, separately installed Dart 3.0,
+clean upstream release/source-JAR equivalence, all-source readiness, external
+UI completion, push, publication, deployment or version conversion is claimed.
+The exact existing HYG-P65-S654-MODELER-LOCAL-NAMING-001 record remains in its
+committed canonical [Hygiene journal](../journal/2026/10/2026-10-05-phase-65-hygiene-follow-up.md).
+
+Closure binding is P65-RELEASE-CLOSURE-001 r1. The distinct parent manual release commit records
+this closure; its native revision is recorded in Git history. The final commit
+must carry `Phase-Closure-Binding: P65-RELEASE-CLOSURE-001@1`; no release SHA
+is invented in this projection.

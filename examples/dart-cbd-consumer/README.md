@@ -19,16 +19,17 @@ full typed responses, genuine {} omission, marker echo, fixture-catalog ready
 and strict cleanup. Overall remains degraded because simplemodeling is degraded.
 S65.4F actual251/14 suites/31 SDK commands/six real-CML products/unit20 are reused;
 live006's CAR200/SAR404 failure remains historical.
-S65.4 is independently accepted for its local Step commit.
+S65.4 is independently accepted and was manually committed at native
+`0237579262fd8b86c7b904ecca6cb49f18fd78e1`.
 P65-S654-REVIEW-001 r1 from `/root/p65_s654_review_001` returned PASS with zero
 Current Boundary Blockers and one separate nonblocking Hygiene item,
 HYG-P65-S654-MODELER-LOCAL-NAMING-001, recorded in the
 [Hygiene follow-up](../../docs/journal/2026/10/2026-10-05-phase-65-hygiene-follow-up.md).
-Independent Step acceptance recorded eight review entries, with zero Phase full reviews. DART-08 and DART-09
+At S65.4 Step acceptance on 2026-10-06, the historical snapshot recorded eight review entries and FULL0. After the sole full Phase review, P65-REVIEW-LEDGER-001 revision 11 records ten entries and FULL1, before the parent's following release M0 amendment. DART-08 and DART-09
 are completed in accepted S65.4; no external UI integration is claimed.
 Native acceptance history records local Step commits.
-The real CBD checkbox is checked; the final Phase closure box remains unchecked.
-Full Phase review, repository-full tests and distinct manual release commit remain pending.
+All eight original checklist boxes are checked; all four original groups are CLOSED.
+Sole full Phase review P65-FULL-REVIEW-001 r1 PASS and repository-full tests PASS provide the final release closure basis P65-RELEASE-CLOSURE-001 r1.
 
 The source is the actual tracked working tree of
 `textus-cbd-support:src/main/cozy/textus-cbd-support.cml`, with the real
@@ -337,9 +338,8 @@ records remain retained after one evidence-only continuation, with no rerender/
 replay; mistaken runner progress literals were superseded. Historical raw
 retention limitations remain. Relevant 251/14/31 and six-product SDK evidence is
 reused. Product live proof PASS supplies the real consumer evidence for independently
-accepted S65.4. The real CBD checkbox is checked; the final Phase closure box
-remains unchecked.
-Full Phase review, repository-full tests and distinct manual release commit remain pending.
+accepted S65.4. All eight original checklist boxes are checked; all four original groups are CLOSED.
+Sole full Phase review P65-FULL-REVIEW-001 r1 PASS and repository-full tests PASS provide the final release closure basis P65-RELEASE-CLOSURE-001 r1.
 
 ## Later CBD UI reuse
 
@@ -349,3 +349,49 @@ transport, authentication, state and storage policy stay in the consumer.
 Do not create a parallel client-local domain model or infer enums from observed
 status strings. This accepted example proves a contract boundary; it does
 not claim that a CBD UI integration has occurred.
+
+## Final acceptance — 2026-10-06
+
+Phase 65 is CLOSED: all nine original DART-01..09 outcomes and all eight
+original checkbox texts in four original groups are satisfied, as recorded in
+[Phase 65](../../docs/phase/phase-65.md) and its [checklist](../../docs/phase/phase-65-checklist.md).
+The four actual native Step commits are S65.1
+`f4a6e3b0f41fd929fba085664ae958330b82cff0`, S65.2
+`716d208ce8505746ac03a3cc3606299f5c4e10e4`, S65.3
+`770bf6b380a292c027fa059c7f50cd58dfcbd00c` and manually committed S65.4
+`0237579262fd8b86c7b904ecca6cb49f18fd78e1`.
+
+The sole full Phase review P65-FULL-REVIEW-001 r1 passed over 35 owned targets
+and 58 reviewed paths, with zero Current Phase Blockers. Its retained admission
+and receipt are [full-review-admission-001.json](../../.codex-workflow/phases/PHASE-65/full-review-admission-001.json)
+and [full-review-receipt-001.json](../../.codex-workflow/phases/PHASE-65/full-review-receipt-001.json).
+Review ledger revision 11 records ten entries/FULL1 before the parent's following
+release M0 amendment; eight entries/FULL0 is the historical S65.4 Step acceptance
+snapshot on 2026-10-06.
+
+Actual repository-full `sbt --batch test` passed 3,074 tests in 211 completed
+suites, with zero failures or aborted suites and nine pre-existing canceled
+cases. SBT/wrapper exit 0 and `lock=released` are retained in
+[release-full-validation-001.json](../../.codex-workflow/phases/PHASE-65/release-full-validation-001.json),
+invocation P65-RELEASE-FULL-ATTEMPT-001. The actual summary is
+`/private/tmp/skill.cncf.d/a-5604920c-ea8e-4321-80bc-8596e01d2550/34334-20261006T034510Z.summary.json`;
+the corresponding log is `34334-20261006T034510Z.log` in that same directory.
+
+Accepted product evidence remains unit24, all six real-CML SDK products and
+live007's two original MCP HTTP200 calls, complete actual typed-response
+roundtrips, genuine {} omission, marker echo, counts 5/4/1, CAR/SAR readiness
+and strict owned cleanup. Fixture-catalog is ready; overall remains degraded.
+The full review could not independently inspect the historical S65.3 raw16
+SDK report files: retained native metadata and SBT logs remain, and current31
+S65.4F reports plus live007 were inspected. No retrospective replacement
+success is claimed. Earlier failures and original raw retention limitations
+remain historical evidence. No clean rebuild, separately installed Dart 3.0,
+clean upstream release/source-JAR equivalence, all-source readiness, external
+UI completion, push, publication, deployment or version conversion is claimed.
+The exact existing HYG-P65-S654-MODELER-LOCAL-NAMING-001 record remains in its
+committed canonical [Hygiene journal](../../docs/journal/2026/10/2026-10-05-phase-65-hygiene-follow-up.md).
+
+Closure binding is P65-RELEASE-CLOSURE-001 r1. The distinct parent manual release commit records
+this closure; its native revision is recorded in Git history. The final commit
+must carry `Phase-Closure-Binding: P65-RELEASE-CLOSURE-001@1`; no release SHA
+is invented in this projection.
