@@ -1,6 +1,6 @@
 # Phase 75: Historical Artifact Preservation and Canonical Media Deployment
 
-status=in-progress
+status=closed
 split_full_test_policy=each-phase
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -11,25 +11,12 @@ primary_owner=Cozy
 producer_dependency=none for independent existing-artifact delivery; source integration belongs to PHASE-75.1
 
 Planned at: 2026-09-28
-Development item: COZY-75-10 historical/current artifact preservation complete;
-accepted in Cozy `4961684204cae795e97bf2763bc57711df109c04` and site
-`eae537a15418e12bfdff85d1f0208a0a9813c58e`. COZY-75-09 is in progress:
-09A's bounded reusable placement contract is accepted by review
-`adebd1c2-d1f3-4e05-92d2-a142751fb762/1` with 39 focused tests. 09B1's
-11 declarations / 55 resource mappings are authored; 09B1V focused native
-validation passed all 11 tests; independent continuation
-`phase75-09b1v-focused-acceptance/1` is accepted at Step ledger revision 8.
-09B2 registration source and 15 scenarios are authored; 15 new plus 176 legacy
-tests passed focused validation; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews).
-09C upload/spec/Git exclusion and 09C2 explicit root input/local placement are
-accepted by independent PASS `phase75-09c2-focused-acceptance/1` at ledger 10
-(nine reviews, zero full Phase reviews). All 11 local commands completed:
-38 Created/retrieved, zero Reused, 17 Unavailable. 09D is in progress;
-36 exact non-video uploads/public full retrievals and 17 existing YouTube
-checks/reuse are complete. All 11 native dry-runs and 11 writes completed:
-53 Registered / 2 Unavailable, with 11 article identities and 53 roles
-reconciled in native `article-media.json`. Independent Step09 acceptance/exact
-commits and Phase75 full-suite/full-review/release remain open.
+Development item: COZY-75-10 preservation and COZY-75-09 canonical deployment
+are accepted and committed. The complete configured Cozy test task passed
+2,478 tests; all 27 required warehouse integration scenarios ran. The sole full
+Phase review is PASS at ledger revision 13. This final closure content becomes
+authoritative only when its distinct Phase release commit succeeds; preparation
+alone does not complete the Goal. See the final closure ledger below.
 
 Priority updated: 2026-10-05, by the user's site-recovery direction.
 Canonical media warehouse requirement added: 2026-10-06, by explicit owner direction.
@@ -38,7 +25,7 @@ Canonical media warehouse requirement added: 2026-10-06, by explicit owner direc
 
 The explicit `cncf-split-phase 75` invocation and the owner's subsequent
 “full test” selection apply the sequence **75 → 75.1**. Phase 75 retains its
-identity, in-progress status and every completed preservation/decision record.
+identity, its then-in-progress status and every completed preservation/decision record.
 Its remaining ownership is **COZY-75-10 → COZY-75-09**. The unfinished
 SDX-75-01–04 and COZY-75-04–08 move exactly once to
 [Phase 75.1](phase-75.1.md) and its [checklist](phase-75.1-checklist.md);
@@ -356,7 +343,11 @@ Canonical/public retrieval, source implementation, SBT validation, Phase full
 review and release remain unfinished; Phase 75 remains in progress and 75.1
 has not started.
 
-## Work outline
+## Historical work-outline checkpoint
+
+The table records the pre-Step09-commit checkpoint. Both Steps are now accepted
+and committed as listed in the final closure ledger; the earlier pending status
+below is not the current delivery state.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
@@ -685,6 +676,84 @@ or Phase75.1 work is claimed.
 - COZY-75-08: sole remaining owner [Phase 75.1](phase-75.1.md).
 
 ## Acceptance
+
+### Final closure ledger (2026-10-06)
+
+This ledger supersedes the dated pending checkpoints below without erasing
+their failures, unsubmitted requests or missing/uncertain dispositions.
+The release candidate is closed; actual release execution and committed-tree
+read-back are required before the owning Goal may be completed. The native
+release identity is recorded in the execution receipt, not predicted here.
+
+- COZY-75-10 acceptance commits: Cozy
+  `4961684204cae795e97bf2763bc57711df109c04`, SimpleModeling.org
+  `eae537a15418e12bfdff85d1f0208a0a9813c58e`.
+- COZY-75-09 acceptance commits: warehouse
+  `76e0484ff4721e21df6d850305f30a9d4dcface5`, SimpleModeling.org
+  `6fbcc2d2fb19cb3751940c3f74071763da49a104`, Cozy
+  `8b216309e33b5f7bf4427b10a191dceb595d4cbb`. Step09 completion and native
+  postchecks are recorded in
+  `.codex-workflow/phases/PHASE-75/step-commit-completion-COZY-75-09.json`.
+- Preservation retains all 57 associations and 19 protected gaps, the three
+  existing-policy recovery checkpoints, 21 fully read historical Git archives
+  and ten retrieved/probed legacy videos. No missing or uncertain asset was
+  replaced, declared obsolete, or silently adopted as a final edition.
+- Canonical placement: 55 four-role mappings across 11 descriptors;
+  38 Created and retrieved, zero Reused, 17 Unavailable. Fifteen absent video
+  masters and two absent article PDFs remain distinct from usable public URLs;
+  two auxiliary gaps remain outside those 55 mappings. Historical variants and
+  the JA 382.1s/353.5s edition difference retain their no-substitution decisions.
+- Public delivery: 36 exact non-video uploads and full HTTP 200 retrievals;
+  17 verified existing YouTube identities reused; exact CloudFront invalidation
+  completed. Eleven native preflights and eleven writes registered 53 roles,
+  excluding the two unavailable article PDFs. This does not claim video-master
+  recovery, stream playback, listening, or fresh rendering.
+- Own full validation: registered serial SBT invocation
+  `phase75-final-full-validation-1` finished with SBT/wrapper exit 0 and
+  `lock=released`; 183 completed suites, zero aborted, 2,478 succeeded,
+  zero failed, 12 canceled, zero ignored/pending. All Phase75 native declaration
+  (11), upload (7) and root-selection (9) scenarios executed without cancellation.
+  The 12 unrelated opt-in/registration-only cancellations are retained in
+  `.codex-workflow/phases/PHASE-75/validation-PHASE75-FULL.json`; they are not
+  claimed executed. No full validation is deferred to Phase75.1.
+- The actual full command retained forked Test, the explicit warehouse
+  environment value and the three literal integration properties stated in
+  this checklist. The repaired shared commit helper now admits that exact
+  command without relabeling or rerunning it. Its repair evidence is separate
+  from product acceptance and does not add another Phase review.
+- Warehouse full driver: the committed executable `upload-media.sh` completed
+  `--dry-run` for the exact 36 selected non-video paths at exit 0. Its simulated
+  AWS operations establish driver acceptance only, not another upload or public
+  retrieval. Evidence:
+  `.codex-workflow/phases/PHASE-75/validation-PHASE75-WAREHOUSE-DRYRUN.json`.
+  The site declaration/registry boundary is independently covered by the native
+  11-descriptor tests, actual registration results and Step09 postchecks.
+- The sole independent full Phase review
+  `phase75-full-integration-review/1` is PASS at
+  `e505891c-5442-4f2c-b07d-52a93d7deac5/13`, retaining 12 reviews, one full
+  review, the original PLAN epoch and zero post-full-review repair cycles.
+  It covers all three native Phase-base ranges, 38 changed paths, 86 owned/
+  affected paths and 12 whole target programs. No Current Phase Blocker remains.
+- Accepted Hygiene `HYG-P75-09-01` and `HYG-P75-09B2-01` remain in the
+  [canonical Hygiene journal](../journal/2026/10/2026-10-06-phase-75-hygiene-follow-up.md).
+  Accepted `DEV-P75-FULL-01` remains in the
+  [canonical Development Candidate journal](../journal/2026/10/2026-10-06-phase-75-development-candidate-follow-up.md).
+  Both unpersisted accepted-finding lists are empty; these follow-ups do not
+  block this Phase. The production launcher/profile readiness item belongs to
+  Phase75.1, not a global-environment workaround in Phase75.
+- Final canonical Phase/checklist and the Development Candidate journal enter
+  the distinct Cozy release commit. Shared `docs/phase/README.md` and
+  `docs/strategy/cozy-development-strategy.md` remain exact preserved concurrent
+  planning projections, with synchronization deferred. The complete concurrent
+  Phase71/successor planning set and unrelated source, fixture, generated and
+  journal changes are not adopted into this release. Site and warehouse Step
+  commits remain the accepted native baselines; no empty sibling release is needed.
+- Deployed media and preservation copies remain Git-ignored/untracked under
+  the selected warehouse. No payload GitHub push, cleanup, broad untracking,
+  release-version conversion or Phase75.1 execution is part of closure.
+  Phase75.1 consumes the existing 11 descriptors, native 53-role bundle,
+  publication/retrieval journal and gap/edition records; its site/cards/CSS/
+  SmartDox scope is not a Phase75 closure condition.
 
 ### Step09 accepted closure bookkeeping (2026-10-06)
 

@@ -1,6 +1,6 @@
 # Phase 75 Checklist: Historical Artifact Preservation and Canonical Media Deployment
 
-Phase status: in progress / COZY-75-10 preservation committed; COZY-75-09D accepted at ledger 11; Step09 exact commits pending
+Phase status: closed
 Ledger for: [Phase 75](phase-75.md)
 Priority updated: 2026-10-05
 Canonical four-role warehouse requirement added: 2026-10-06
@@ -10,7 +10,36 @@ Current delivery order: COZY-75-10 preservation → COZY-75-09 deployment.
 Article links and site recovery are solely in [Phase 75.1](phase-75.1-checklist.md).
 No unchecked item was completed by this split.
 
-Actual progress is recorded in the
+## Final closure candidate (2026-10-06)
+
+Both Steps are accepted and committed. Step10: Cozy
+`4961684204cae795e97bf2763bc57711df109c04`, site
+`eae537a15418e12bfdff85d1f0208a0a9813c58e`. Step09: warehouse
+`76e0484ff4721e21df6d850305f30a9d4dcface5`, site
+`6fbcc2d2fb19cb3751940c3f74071763da49a104`, Cozy
+`8b216309e33b5f7bf4427b10a191dceb595d4cbb`.
+The configured full Cozy test task passed 2,478 tests in 183 suites with zero
+failures/aborts; all 27 required Phase75 integration scenarios executed.
+Twelve unrelated opt-in/registration-only cancellations remain explicit, not
+accepted as executed. The exact committed warehouse executable completed its
+36-path dry-run. The sole full Phase review is PASS at ledger revision 13:
+12 reviews, one full review, no Current Phase Blocker, zero release repair cycles.
+The [final closure ledger](phase-75.md#final-closure-ledger-2026-10-06)
+names the exact evidence, two Hygiene records, one Development Candidate and
+the preserved concurrent index/strategy projections.
+
+The closed status is final release content, not proof that a commit ran.
+It becomes authoritative only after the distinct release commit and
+committed-tree read-back succeed. Until then the Goal remains active and
+the release-execution gate below remains unchecked. All historical missing/
+uncertain dispositions survive; no Phase75.1 or Phase71 continuation is started.
+
+## Retained historical progress checkpoints
+
+The dated pending observations in this section and the Slice narratives below
+remain historical. The final closure candidate and current checked obligations
+supersede them only where actual accepted evidence is recorded.
+Actual progress was recorded in the
 [preservation journal](../journal/2026/10/2026-10-05-phase-75-preservation-progress.md).
 Bounded artifact inventory, recovery copying, basic retrieval checks and the
 COZY-75-10B historical Git exports/full payload retrieval have run. COZY-75-10A
@@ -78,24 +107,29 @@ and Phase full validation/review/release remain unfinished; 75.1 has not started
       validation/review boundary, retaining its Goal/base/epoch, dirty work,
       accepted evidence, repair history and unfinished aggregate validation.
       Evidence: [actual pause](../journal/2026/10/2026-10-05-phase-71.4-pause-and-phase-75-priority.md).
-- [~] Select the article/locale scope and existing storage/publication
+- [x] Select the article/locale scope and existing storage/publication
       destinations for preservation and deployment; preserve unrelated work.
       Listed local roots and existing-policy recovery destination are recorded;
       the owner selected maven-repository as the canonical warehouse. Exact
-      four-role bindings, final editions and deployment selection remain open.
-- [ ] Freeze the exact warehouse/declaration scope and participating roots before
+      four-role bindings and deployment selection were subsequently frozen for
+      11 descriptors / 55 mappings. Uncertain editions retain protected
+      no-substitution dispositions; selecting scope does not settle those editions.
+- [x] Freeze the exact warehouse/declaration scope and participating roots before
       implementation or publication; preserve unrelated changes.
+      The admitted Cozy, site and warehouse boundaries and original bases are
+      retained through both Step commits and the sole full Phase review.
 
 ## COZY-75-10: Preserve historical and current artifacts first
 
 Stage Status:
 
-- Current status: DONE
+- Current status: CLOSED
 - Owner: Cozy Phase 75 / SimpleModeling.org artifact records
 - Update rule: update from actual preservation and association results; closure
   requires every checklist item below, not recovery-copy success alone.
 
-DONE records only the completed original preservation criterion below.
+CLOSED records the completed original preservation criterion and its accepted
+Step commits below; it does not claim recovery of missing/uncertain assets.
 The Step acceptance commits are Cozy `4961684204cae795e97bf2763bc57711df109c04`
 and site `eae537a15418e12bfdff85d1f0208a0a9813c58e`; canonical deployment and
 Phase closure are not claimed.
@@ -204,11 +238,11 @@ Fresh independent protected-focused review
 17 existing public YouTube identities, 11 native preflights and 11 writes,
 and 53 registered roles with two unavailable PDF roles excluded. Parent static
 checks passed (59 local links, no missing targets; three Git whitespace checks).
-Exact Step acceptance commits remain pending at this bookkeeping boundary;
-their native revisions are recorded after execution. This does not close
-Phase75 or recover the 15 missing video masters/two article PDFs. Phase75's
-own full suite, one full Phase review and release remain required. The dated
-earlier pending observations below remain historical.
+Exact Step acceptance commits subsequently completed in all three roots,
+as listed in the final closure candidate. This does not recover the 15 missing
+video masters/two article PDFs. The own full suite and sole full review passed;
+actual distinct Phase release execution remains required. Earlier pending
+observations below remain historical.
 
 09A's additive `media deploy` adapter, four-role placement contract and executable
 behavior specification are accepted by root review
@@ -313,8 +347,10 @@ gaps, legacy files/URLs and YouTube metadata retain their recorded dispositions.
       and independent focused continuation review for 09B2. Focused validation
       passed 15 new and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews). The implementation
       worker executed no tests, runtime operation or self-review.
-- [ ] Perform actual production registry migration after 09C canonical placement,
+- [x] Perform actual production registry migration after 09C canonical placement,
       retaining 09D public verification and all original Step09 outcomes.
+      Eleven native preflights and eleven writes completed: 53 Registered /
+      2 Unavailable. This is native bundle migration, not launcher readiness.
 
 Parent-focused validation on 2026-10-06 passed: 15 new registration scenarios and 176 legacy accumulator tests across eight suites, with zero failures/cancellations. The registered `cncf_command_runner` used invocation `phase75-09b2-validation-2`; SBT and wrapper exited 0 and the shared lock was released. The typed result reader accepted the current subject. The first invocation's Scala 2.12 underscore-interpolation compile failure is retained; exactly eight test references were corrected to braced interpolation without changing fixtures or expected values. Evidence: `validation-COZY-75-09B2.json` and log `/private/tmp/skill.cncf.d/a-b31c740e-991e-4626-ad11-802cef81382d/12139-20261006T011940Z.log`. Independent focused continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9, retaining eight reviews and zero full Phase reviews. Actual placement/publication and Phase75's own final full suite/full review/release remain pending.
 
@@ -334,8 +370,9 @@ release remain required; Phase75.1 has not started.
       upload scenarios and 11 actual declaration scenarios passed across two
       suites, with zero failed/canceled/aborted tests, SBT/wrapper exit 0,
       `lock=released` and typed current-subject acceptance.
-- [ ] Complete independent 09C focused continuation review; focused test PASS
+- [x] Complete independent 09C focused continuation review; focused test PASS
       does not establish independent acceptance.
+      Accepted `phase75-09c2-focused-acceptance/1` at ledger revision 10.
 - [x] Perform native placement and ordinary local retrieval for all 55 mappings:
       all 11 commands terminated at exit 0/no stderr; 38 Created with actual
       opened/copy-content/MIME/size/preserved-location observations, zero Reused,
@@ -347,11 +384,13 @@ release remain required; Phase75.1 has not started.
       sources, zero observed destinations and 55 pending native outcomes.
       The parent's current exact Cozy adapter cannot carry the required unset
       environment value; no deployment was submitted or refused.
-- [ ] Verify exact-coordinate Git exclusion and empty tracked `media/` state.
-- [ ] Complete later 09D remote publication, production registration and public
+- [x] Verify exact-coordinate Git exclusion and empty tracked `media/` state.
+      All 55 selected coordinates are ignored; no deployed media is tracked.
+- [x] Complete later 09D remote publication, production registration and public
       retrieval after independent acceptance. Preserve all 57 prior associations,
       19 gaps, two auxiliary gaps, ten historical Dropbox masters and edition
-      disputes. Step09/Phase75 stay open; Phase75.1 has not started.
+      disputes. See actual 09D receipts and accepted Step09 commits above;
+      Phase75.1 has not started.
 
 The final full suite must enable both 11 actual declaration scenarios and seven
 upload scenarios with explicit roots; cancellation is not acceptance. Phase75
@@ -410,7 +449,7 @@ review and release still required. Phase75.1 has not started.
       full Phase reviews, no blockers/new nonblocking findings. Evidence:
       `.codex-workflow/phases/PHASE-75/focused-source-COZY-75-09C2.json` and
       `focused-acceptance-COZY-75-09C2.json` in that directory.
-- [~] Execute the frozen parent-owned 09D publication/retrieval boundary:
+- [x] Execute the frozen parent-owned 09D publication/retrieval boundary:
       preserve selected existing remote objects before overwrite; upload only
       36 exact non-video keys and invalidate their exact paths; retrieve public
       content; independently check/reuse 17 existing YouTube URLs; complete
@@ -455,7 +494,7 @@ and Phase release remain pending. Phase75.1 has not started.
       CAR Maven area remains independent. The old `/repository/` upload mapping
       does not establish the new media mapping.
       Evidence: [warehouse requirement](../journal/2026/10/2026-10-06-phase-75-canonical-media-warehouse.md).
-- [~] Promote the four-role canonical placement/URL requirement into the
+- [x] Promote the four-role canonical placement/URL requirement into the
       existing article-media design/spec; configure the actual repository root
       without hardcoding machine paths in reusable code or public metadata.
       The dated Phase75 sections in the existing
@@ -466,19 +505,19 @@ and Phase release remain pending. Phase75.1 has not started.
       continuation `phase75-09b1v-focused-acceptance/1` at ledger 8.
       09B2 canonical registration is authored; focused validation passed 15 new
       and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews).
-- [~] Freeze role-specific warehouse coordinate/path bindings for video,
+- [x] Freeze role-specific warehouse coordinate/path bindings for video,
       infographic, article PDF and summary-slide PDF using existing conventions;
       apply `media/<ja|en>/<category>/<article>/` to all four roles; distinguish
       PDF roles and locales, and preserve older editions separately before update.
       09B1's frozen 11-descriptor / 55-resource bindings are authored in the
       linked migration journal; 09B1V focused native validation is PASS and
-      independent continuation is accepted at ledger 8. Later deployment
-      remains open.
+      independent continuation is accepted at ledger 8. Subsequent actual
+      placement/public delivery and Step09 commits are recorded above.
 - [x] Record the owner-selected operational path convention and full-path article
       identification requirement, with simple basenames and optional adjacent
       metadata; no mandatory reverse-lookup implementation or parallel registry.
       Evidence: [path convention decision](../journal/2026/10/2026-10-06-phase-75-media-path-convention.md).
-- [~] Promote and implement the convention in declarations/design/spec and
+- [x] Promote and implement the convention in declarations/design/spec and
       placement: article is the logical source filename stem, category/article
       identifies one article, and JA/EN share those names. Document a concrete
       reason for any exception rather than inventing a different hierarchy.
@@ -487,14 +526,15 @@ and Phase release remain pending. Phase75.1 has not started.
       is PASS, with independent continuation accepted at ledger 8.
       09B2 registration is authored with focused validation PASS for 15 new and
       176 legacy tests; its independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews).
-      Operational proof remains open.
-- [ ] Verify/configure media upload mapping to `/media/<ja|en>/<category>/<article>/`
+      Actual local placement, public retrieval and native registration provide
+      the operational evidence, independently of source test success.
+- [x] Verify/configure media upload mapping to `/media/<ja|en>/<category>/<article>/`
       independently of HTML `/en/` routing and the existing CAR `/repository/`
       upload. Record local placement and remote availability separately.
-- [ ] Prove full-path-to-article/locale association for all four roles without
+- [x] Prove full-path-to-article/locale association for all four roles without
       encoding identity in each basename or requiring a reverse-lookup service;
       optional metadata must not become a prerequisite for ordinary placement.
-- [~] Implement the non-video warehouse placement and declaration/registry
+- [x] Implement the non-video warehouse placement and declaration/registry
       mapping in Cozy; migrate participating `_images/` publication declarations
       and legacy archive-profile keys without losing originals or useful URLs.
       09A adapter/spec accepted; 09B1 declaration/public-path edits authored with
@@ -503,31 +543,39 @@ and Phase release remain pending. Phase75.1 has not started.
       at ledger 8. 09B2 registration is authored with focused validation PASS for
       15 new and 176 legacy tests; independent continuation `phase75-09b2-focused-acceptance/1` is accepted at ledger 9 (eight reviews, zero full Phase reviews);
       09C2 actual local placement is complete with 38 Created/retrieved and
-      17 Unavailable; 09D publication/production registration remains pending.
-- [~] Prove all four role mappings with focused executable specifications,
+      17 Unavailable; 09D public retrieval/native registration subsequently
+      completed with the same unavailable-source dispositions.
+- [x] Prove all four role mappings with focused executable specifications,
       including unavailable media, distinct editions and video compatibility.
       09A's 39 focused tests and accepted review cover the reusable contract;
       09B1V's real-input focused native validation passed all 11 tests;
       independent continuation is accepted at ledger 8. 09B2's 15 canonical
       registration scenarios and 176 legacy tests passed focused validation;
       independent continuation `phase75-09b2-focused-acceptance/1` is accepted;
-      later operational evidence remains open.
-- [ ] Exclude deployed warehouse payloads for all four roles from Git
+      Actual operational receipts and final configured full-test success are
+      recorded separately in the final closure ledger.
+- [x] Exclude deployed warehouse payloads for all four roles from Git
       staging/tracking; never commit or push them to GitHub. Preserve existing
       source/master tracking separately, without broad untracking/history rewrites.
-- [ ] Resolve existing YouTube channel/visibility, exact public artifact keys
+- [x] Resolve existing YouTube channel/visibility, exact public artifact keys
       and final editions within the selected warehouse; keep local placement
       separate from upload and actual remote availability.
-- [ ] Deploy selected completed videos to YouTube, reusing correct existing
+      All 17 existing YouTube identities/visibility and 36 non-video keys were
+      checked. Historical uncertain final editions remain explicitly protected,
+      not replaced or represented as settled by those checks.
+- [x] Deploy selected completed videos to YouTube, reusing correct existing
       uploads, and record their actual URLs as the site's video destinations.
-- [ ] Keep retrievable video master backups outside Git and disposable caches,
+- [x] Keep retrievable video master backups outside Git and disposable caches,
       using the established logical archive layout.
-- [ ] Place article PDFs, summary-slide PDFs, infographics and other selected
+      Available masters have recorded recovery/canonical retrieval; absent
+      masters retain their protected gap dispositions. Public YouTube URLs
+      do not prove master recovery and no substitutes were downloaded/generated.
+- [x] Place article PDFs, summary-slide PDFs, infographics and other selected
       deliverables at their specified canonical warehouse locations, preserving
       master rules; generated `_images/` copies alone are not acceptance.
-- [ ] Reflect logical artifact locations, article/locale associations, public
+- [x] Reflect logical artifact locations, article/locale associations, public
       URLs and actual deployment results in the existing project-owned declarations.
-- [ ] Verify public URLs and archive retrieval separately. Do not regenerate
+- [x] Verify public URLs and archive retrieval separately. Do not regenerate
       unchanged accepted media just to move it or treat local backup as publication.
 
 ## Relocation record (2026-10-06)
@@ -540,18 +588,21 @@ the same relocation; all checked history remains in this ledger.
 
 ## Closure evidence
 
-- [ ] Record historical artifact inventory, preservation results and explicit
+- [x] Record historical artifact inventory, preservation results and explicit
       gaps/dispositions without claiming fresh renders are recovered originals.
-- [ ] Record canonical deployment, actual public URLs and video master backup
+- [x] Record canonical deployment, actual public URLs and video master backup
       locations through the existing project records, separately from build success.
-- [ ] Record four-role warehouse design/spec promotion, implementation and
+- [x] Record four-role warehouse design/spec promotion, implementation and
       focused mapping evidence, declaration/URL migration and Git-untracked
       deployed-payload checks; distinguish these from recovery-copy evidence.
-- [ ] Complete focused validation, Step acceptance, independent full Phase review,
-      closure ledger and release for this child's preservation/deployment boundary.
-- [ ] Pass the complete Cozy SBT suite and each admitted changed repository's
+- [x] Complete focused validation, Step acceptance, independent full Phase review
+      and prepare the final closure ledger for this preservation/deployment boundary.
+- [ ] Execute the distinct final Phase release commit and verify its committed
+      closure receipt. This unchecked execution gate is resolved by the actual
+      runner receipt and native committed-tree read-back, not by preparing this file.
+- [x] Pass the complete Cozy SBT suite and each admitted changed repository's
       native full-validation boundary; record actual coverage separately from
       upload/public retrieval. No full suite is deferred to 75.1.
-- [ ] Hand accepted role/article/locale declarations, actual public/YouTube URLs,
+- [x] Hand accepted role/article/locale declarations, actual public/YouTube URLs,
       archive retrieval and explicit gap/edition dispositions to 75.1 without
       starting it; no successor implementation is a Phase 75 closure condition.
