@@ -505,3 +505,50 @@ preservation, canonical placement, remote non-video publication, YouTube links,
 registry writing and public retrieval retain separate evidence requirements.
 The initial 09C record contains all 55 declared mappings and existing preserved
 copies with placement pending; actual receipts belong to the parent operation.
+
+## Phase 75.1 canonical consumption ownership (2026-10-07)
+
+P751-02B freezes one canonical/legacy build compatibility boundary. Warehouse
+planning and current build consumption share the stable
+`CozyMediaWarehouse.canonicalPublicPath` coordinate owner and its private
+basename/path functions. Deployment retains all existing kind/MIME/source,
+declared-coordinate, destination and no-overwrite checks.
+
+After existing root/strategy normalization, `CozyArticleMediaBuildContext`
+reads current site state through the registry and obtains its canonical
+projection. Literal `/media/` infographic/article-PDF/summary-slide-PDF
+references select `CozyArticleMediaWarehouseBuildContext`; malformed selected
+references fail without fallback. The helper is a stable object containing its
+typed Result/Diagnostic and private internal models. Its direct file inspection
+uses the configured warehouse store root, exact lexical coordinates, supported
+MIME and no-symlink readable regular-file admission. It makes no bytes/hash or
+currentness claim, and requires no skill-managed lock or parallel exclusion.
+
+The registry remains the single strict native parser. Current-site admission
+rejects unknown native metadata/article/variant/role fields before helper
+materialization. The helper's legacy semantic adapter removes only canonical
+infographics, enumerates the actual remaining legacy image/site-video keys,
+selects their integrity and evaluates unchanged policy. It constructs
+`PublishMetadata.Entry` with existing Circe conversion and uses the native
+publication producer to preserve surviving recognized references, labels,
+alt text and video tuples. Canonical historical integrity remains separately
+retained; policy omissions and WIP integrity exclusion affect only effective
+output. This is no broad migration of the old policy.
+
+The final transformation rebuilds admitted native metadata through
+`CozyArticleMediaPublication.produce`, preserving original validated bundle
+containers, headers, entry wrappers, provenance and generic data. It never
+merges unknown native fields. Registry-admitted bundle names exclude the exact
+framework contract, rather than introducing filesystem discovery heuristics.
+The configured registry and warehouse are never mutated or recertified.
+
+One fresh direct target directory holds complete transformed bundle JSON.
+Failed materialization cleans only that newly owned directory without following
+symlinks. There is no snapshot-byte comparison, multi-file atomicity, retry,
+receipt or shared cache. The unchanged Context and consumer lease hand its
+publication path to the normal SmartDox generator. Without a selected canonical
+nonvideo reference, the original transaction/materialization/source-revalidation
+route remains. No media placement, rendering, deployment or network operation
+belongs to this helper. The new
+[executable specification](../../src/test/scala/cozy/publication/CozyArticleMediaWarehouseBuildContextSpec.scala)
+is authored; parent validation and independent review remain pending.

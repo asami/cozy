@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -120,10 +120,13 @@ private[cozy] trait CozyBokSitePages {
     val categories = _category_contents(config.sourcepath)
     categories.foreach { category =>
       val page = target.resolve(category.slug).resolve("index.html")
-      _write_text(
-        page,
-        _category_html_page(config, category, categories, locale, page)
-      )
+      val relative = config.websitePath.toAbsolutePath.normalize.relativize(page.toAbsolutePath.normalize)
+      val producerpage = config.arcadiaSitePath.resolve(relative)
+      if (!(config.arcadia.enabled && Files.isRegularFile(producerpage)))
+        _write_text(
+          page,
+          _category_html_page(config, category, categories, locale, page)
+        )
     }
   }
 

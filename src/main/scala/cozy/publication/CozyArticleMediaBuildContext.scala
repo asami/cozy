@@ -11,7 +11,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 /*
  * @since   Aug.  5, 2026
  *  version Aug. 30, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaBuildContext {
@@ -74,7 +74,15 @@ private[cozy] object CozyArticleMediaBuildContext {
     val projectroot = _require_direct_directory(projectrootarg, "Article-media build-context project root")
     val publicationroot = _create_direct_directory_chain(publicationrootarg, "Article-media build-context publication root")
     val repositoryroot = _normalize_root(repositoryrootarg, "Article-media build-context repository root")
-    val context = CozyArticleMediaRegistry.transaction(publicationroot) { transaction =>
+    val current = CozyArticleMediaRegistry.readCurrentSite(publicationroot.toRealPath())
+    val projection = CozyArticleMediaRegistry.canonicalProjection(CozyArticleMediaRegistry.Snapshot(current.entries))
+    val context = if (CozyArticleMediaWarehouseBuildContext.hasCanonicalReferences(projection)) {
+      val result = CozyArticleMediaWarehouseBuildContext.materialize(projectroot, publicationroot, repositoryroot, selected, current, projection)
+      result.diagnostics.foreach { diagnostic =>
+        Console.err.println(s"Article-media ${diagnostic.reason}: ${diagnostic.articleIdentity} [${diagnostic.locale}, ${diagnostic.role}] ${diagnostic.publicPath}")
+      }
+      result.context
+    } else CozyArticleMediaRegistry.transaction(publicationroot) { transaction =>
       _materialize(projectroot, publicationroot, repositoryroot, selected, beforesourcerevalidation, transaction)
     }
     _lease(context)(consumer)

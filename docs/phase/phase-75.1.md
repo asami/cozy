@@ -9,6 +9,244 @@ primary_owner=Cozy
 producer_dependency=SmartDox effective-content contract
 predecessor=PHASE-75
 
+## Current delivery priority — 2026-10-07
+
+The user's current instruction supersedes the broader completion scope and
+producer-first/Slice-first sequencing below: restore the **current
+simplemodeling.org site through its normal build entry point**. Until that
+works, the requested user-visible delivery is not achieved, regardless of
+component test counts, accepted Slices or review counts. Outstanding unrelated
+features may remain numerous; they do not block this delivery.
+
+The minimum is **everything that previously worked through
+`runweb-production.sh`**, not merely getting today's partially broken output
+to exit successfully. Recover the previously working user-visible behavior
+from existing site/history evidence and verify it with the current real inputs.
+Do not redefine the baseline by deleting articles, media, navigation or checks.
+The user describes the approximately two-week regression as "-100 points";
+restoring the old route removes that regression but does not deliver the new
+feature. The requested addition is correct management of **videos, article
+PDFs and summary-slide PDFs**, with working links from article cards.
+Both baseline recovery and this addition are required for completion.
+
+Use the current site sources, configuration, templates, declared locales and
+existing media references in `/Users/asami/src/dev2025/simplemodeling-org`.
+The existing entry is `etc/runweb-production.sh`, producing `website.d`;
+repair the normal entry where necessary rather than accepting a test-only
+launcher, reduced article fixture or hand-built output as its substitute.
+Current JA/EN content is part of this site; extra locale/layout combinations
+are not. Preserve originals and the accepted Phase 75 artifacts while using
+the supported local build/review route. No remote upload is needed for this
+delivery, and a build must not trigger one.
+
+### Current execution evidence — 2026-10-08
+
+Connected A/B implementation has actual focused and operational evidence;
+independent connected Step acceptance remains OPEN. SmartDox producer checks
+passed 34/34 with `exportClasspath`, the unchanged `2.4.19-SNAPSHOT` local
+refresh completed, and Cozy checks passed 145/145 with
+`cozyExportRuntimeClasspath`. These are focused results, not full suites.
+
+The first scoped native Application Modeling operation created six JA/EN
+nonvideo placements and registered eight locale/role rows, preserving the
+eleven existing entries and producing twelve registry identities. The native
+registration merge was not hand-written. Separately, normal
+`sh etc/runweb-production.sh` exited 0 with admission of twelve articles and
+all eleven required SITE outputs. Placement and Web construction remain
+separate; canonical payloads stay outside Git under the containing store's
+`media/`, without rendering, upload or predecessor deployment replay.
+
+Original A browser observations retain root/JA/EN homes, categories, article
+navigation, bodies/includes, diagrams, styles and images. Fresh bounded preview
+evidence with explicit `/media/` mapping records 56 native HTTP checks with
+zero failures, exit 0, terminal `finished` and `cleanup=true`. Actual JA/EN
+Application Modeling four-role cards, title navigation to localized styled
+articles, both infographic displays and published YouTube destinations were
+observed. HEAD coverage of 42 local nonvideo resources is not browser or full
+visual verification of every artifact; no new remote availability, video
+playback or popup-click success is claimed.
+
+Eight delivered PDFs (Application Modeling and AI Development Harness, JA/EN
+article and slides) returned 200 / `application/pdf`, parsed with `pdfinfo`
+and rendered visible localized first pages through Poppler. This is not an
+all-page layout review. IAB's embedded viewer remained blank/unverified;
+product corruption was not diagnosed. The prior preview expired during the
+native Preview UI timeout and cleaned up; its failed session remains retained.
+The fresh preview finished without opening a native PDF app. The enclosing
+runner PATH transcription omitted `/bin`; the selected child PATH was correct.
+That deviation remains separate: exact-submission conformance and registered
+candidate behavioral acceptance are not established, and no rerun is implied.
+
+Next complete the connected 47-path protected focused Step acceptance and
+exact local acceptance commits, then original C: one epoch-1 full Phase review,
+independent full Cozy and changed SmartDox suites, remaining integrated
+site-native/browser assurance, actual release commit and verified closure
+ledger. P751-02/03/04 and Phase remain OPEN; operational results close no boxes.
+Original Goal/authority/start/binding/bases/PLAN epoch 1, ledger 14, Step repair
+17 / Phase repair 0 / nonconverging 0 and 63 consumed SBT identities remain.
+No helper-only acceptance, new Phase/epoch or renewed repair allowance follows.
+See the [current checklist](phase-75.1-checklist.md#current-delivery-checklist--2026-10-08)
+and [operating note](../../../simplemodeling-org/docs/notes/web-only-production-build.md).
+
+### Historical execution baseline — 2026-10-07
+
+Observed on 2026-10-07; these are restart facts, not additional acceptance gates:
+
+| Boundary | Current evidence | Treatment on resume |
+| --- | --- | --- |
+| Phase 75 artifact preservation/deployment | Closed checklist and accepted warehouse/site/Cozy commits | Consume existing inventory, declarations, placements and explicit gaps; do not repeat recovery or deployment |
+| P751-01 producer work | Accepted and committed; later relevant SmartDox 21 / Cozy 140 focused checks retained | Reuse relevant evidence and implemented facilities; refresh changed dependencies only when needed |
+| P751-02F synthetic native site | Bodies/includes/diagrams generated; private listings and standalone single-JA links failed | Supporting diagnosis only; current real-site success is still unproven |
+| Public-catalogue repair13 | Ten-path plan frozen, editing not started | Use the diagnosed SmartDox public-selection / Cozy listing connection inside batch A; do not finish another synthetic-only cycle first |
+| Execution capacity | Development chat reports Goal blocked after agent start limit; control51 still IMPLEMENT; 12 repairs consumed, 13 reserved | Capacity recovery and actual Goal resume are prerequisites for execution, not missing feature approvals. Preserve both states and all counters |
+
+At that historical restart, the next substantive execution was batch A below.
+The instruction then was: do not blindly dispatch the
+old repair13 manifest: reconcile its necessary product changes with this
+real-site batch in the development task's existing work record. This planning
+edit does not change control records, reactivate a Goal, reset repair limits or
+claim capacity recovery. Do not repeatedly poll/retry an unchanged capacity stop.
+These capacity and repair13 instructions are historical, superseded for current
+execution by the evidence above; they are not a current capacity blocker.
+
+### A. Restore the previous normal build on current real inputs
+
+Historical Connected A authoring update (2026-10-07; superseded for current
+execution by the evidence above): frozen repair13 connects SmartDox's
+existing structural public admission to Cozy's shared catalogue/counts and
+the ordinary full-input `etc/runweb-production.sh`. The entry now consumes
+persistent `src/main/publication` with the configured containing store root
+`../../maven-repository`, and selects normal canonical SmartDox/Cozy development
+exports through project-owned Dox/Arcadia adapters. Media rendering, temporary
+registration and prepared/warehouse payload copying are removed from this Web
+entry. Existing Application Modeling site-source aliases remain configured
+direct assets. Its real descriptor and six assets exist, but its identity is
+absent from the accepted eleven-article registry: available-but-unregistered/
+unplaced is a remaining B gap, not absent artifacts or feature acceptance.
+
+Producer and consumer GWT regression scenarios are authored. Actual normal
+build, usable `website.d`, explicit `/media/` preview/browser evidence and all
+A/B/C acceptance remain pending. Historical capacity stops, repair outcomes,
+original authority/binding/base/epoch and counters are retained; this authoring
+record creates no execution, review, commit or Phase closure result.
+
+One connected batch spans the site entry, current producer/consumer connection
+and affected live templates. It is not a new Phase or a series of helper gates.
+
+- Use existing script history, site declarations and accepted artifact records
+  to identify the previously working pages/assets/links. Record only concrete
+  expected user-visible results needed for this comparison, not a new inventory
+  framework or an exhaustive historical reconstruction.
+- Fix the known public-list selection through SmartDox's existing selection
+  rules and Cozy's actual list/count consumers. Keep its focused regression
+  alongside the implementation, without a separate facade-only release cycle.
+- The former mixed `simplemodeling-org/etc/runweb-production.sh` invoked
+  `media build` for videos/PDFs and copied prepared payloads. The current
+  Web-only entry consumes accepted existing artifacts/declarations, with
+  placement/registration separate, without regenerating media or overwriting
+  preserved editions.
+  This minimum P751-03 connection comes forward into A; do not wait for all
+  P751-02 variants to finish. Retain previous visible functionality, not obsolete
+  internal copying arrangements. Use the configured canonical store.
+- Execute the normal full-input site build through its supported runner. Read
+  all observable failures from that run together, repair the connected causes,
+  and rebuild. Keep ordinary article/card/navigation checks active. Never
+  remove real articles or substitute fixture output to make the command pass.
+- Inspect the generated root/JA/EN home, categories, ordinary/package articles,
+  includes/diagrams, CSS/images and existing links in the local browser.
+  Exclude private package content and retain Arcadia page ownership.
+
+A's exit is restored previous site behavior with a real build result and
+usable local site. This is baseline recovery, not completion of the media
+feature. Report the exact failing stage if A is not met; no new optional work
+is admitted merely because a new corner case was found.
+
+### B. Complete artifact management through actual article cards
+
+Start with one real article/locale having available video, article PDF and
+summary-slide PDF. Connect its existing canonical storage/registration through
+the live card template to openable destinations in one batch. If no single
+article has all three, use the smallest real set covering them and state that
+fact; do not fabricate missing media or stop to render a demonstration set.
+
+Then apply the same connection to all applicable current site declarations,
+including JA/EN. Reuse Phase 75's selected article/locale/role inventory and
+known unavailable/uncertain dispositions. An available artifact omitted from
+a card is a defect; a genuinely absent artifact is not replaced or silently
+declared available. Keep infographic behavior working as part of the baseline.
+
+Videos retain declared YouTube URLs and archive/backup copies. Article PDFs
+and summary-slide PDFs retain canonical durable storage and correct article,
+locale and role mapping. Reuse accepted storage/deployment evidence; this
+batch implements missing management and consumption, not another recovery or
+upload campaign. Build caches cannot be the only artifact store. Configure
+the supported local `/media/` mapping where required to open real links.
+
+B's exit is the rebuilt normal site with correct management and usable
+video/article-PDF/summary-slide-PDF card links across applicable current
+content. A single representative article proves the connection early; it does
+not replace checking the remaining actual declarations. P751-02 and required
+P751-03 changes are implemented together where they meet at this boundary.
+
+### C. Validate the integrated delivery and close
+
+Reuse A/B's actual build/browser results for the same applicable inputs;
+repeat the normal build as needed to demonstrate that routine rebuilding can
+reuse managed artifacts. Do not build a new generic acceptance harness.
+Run the retained each-phase full Cozy and changed SmartDox validation on the
+integrated candidate, plus affected site-native checks. Complete required
+independent acceptance/review and normal Step/Phase closing. Combine review
+of related connected changes; do not add a review for each helper or temporary
+milestone. A/B implementation can span the original Steps before acceptance.
+
+After fixes, rerun affected behavior and required regressions; unchanged
+checks are not repeated solely because another helper or checkpoint exists.
+Full-suite or review failures remain failures requiring repair or explicit
+disposition; no requirement is silently bypassed. No remote upload follows
+automatically from local success.
+
+These three batches replace the old finish-02-before-starting-03-before-04
+ordering. Preserve original IDs for history and final disposition: P751-01 is
+reused, P751-02/03 deliver A/B together, and P751-04 gathers C's actual evidence.
+The earlier eight-hour estimate is exceeded and is not a remaining-time
+forecast. Estimate remaining work only from real A/B blockers, not test counts.
+
+The current private-document listing defect is on this route. Determine
+whether the standalone single-JA link defect affects the current site before
+scheduling it ahead of this delivery. Share a necessary fix when appropriate,
+but do not make an unused single-locale configuration a release prerequisite.
+Use small specs to diagnose and prevent concrete regressions, not as separate
+deliveries that postpone integration.
+
+### Retained work and deferred scope
+
+- SDX-75-01..04 / COZY-75-04..08: retain accepted implementation/evidence and
+  only the remaining work necessary for this actual site. Additional generic
+  parser, non-Arcadia, layout and locale coverage moves to
+  [DP-751-01](phase-75.1-deferred.md#dp-751-01-general-site-and-producer-coverage).
+- COZY-75-09: only additional reusable tooling and broader operational
+  combinations beyond this site's required artifact management move to
+  [DP-751-02](phase-75.1-deferred.md#dp-751-02-independent-media-and-web-operations).
+  Keep storage, placement/registration, existing artifact reuse and card-link
+  integration necessary for videos/article PDFs/summary-slide PDFs in this
+  delivery. Separate operations as needed to make that route correct; a generic
+  operations framework is not a prerequisite. Do not use this deferral to
+  postpone the user's artifact-management requirement.
+- Additional cleanup, tuning and optional features move to
+  [DP-751-03](phase-75.1-deferred.md#dp-751-03-optional-improvements).
+
+The [current delivery checklist](phase-75.1-checklist.md#current-delivery-checklist--2026-10-08)
+is the closure checklist for this reduced scope. Later broad requirements and
+dated Slice projections are retained as history/source IDs; they do not
+silently restore deferred work to this delivery. This is a work-scope decision,
+not a rewrite of product semantics or a claim that unfinished features pass.
+Preserve the existing Goal, original bases, PLAN epoch, findings, repair counts,
+failed runs and accepted work. Adopt this priority at the next safe execution
+boundary; no fresh Goal or general approval is needed to repeat the decision.
+Report baseline recovery and artifact-management/card-link acceptance separately,
+with the concrete remaining blockers and next actual-site action. Neither
+component progress nor baseline recovery alone is completion of the request.
+
 Planned at: 2026-10-06. Split from Phase 75.
 Implementation started at: 2026-10-06, P751-01A; P751-01B independently accepted
 PASS with 93/93 focused tests and review ledger revision 4. P751-01C1 is
@@ -36,6 +274,17 @@ describe the pre-review history and are superseded by this update only for
 current semantic acceptance. Step6/Phase0/nonconverging0 and all failures remain
 history. Phase acceptance remains OPEN; full suites, site/browser validation
 and the final Phase review/release remain required. No deployment is claimed.
+
+Current committed acceptance update (2026-10-07): P751-01 is CLOSED for the
+accepted producer subject. Actual local acceptance commits are SmartDox
+`38719e1` (producer contract) and Cozy `e0f7db2` (producer Step acceptance
+evidence). The pending-commit and earlier pending-review statements above and
+in the dated Slice history are superseded by these actual commits and the
+ledger-revision-8 PASS; all earlier failures and Step6/Phase0/nonconverging0
+history remain. This closes the producer Step only. Cozy consumer outcomes,
+P751-02 and Phase acceptance remain OPEN; full validation, native site/browser
+evidence and final Phase review/release are still required. No deployment is
+claimed by this update.
 
 ## Entry, provenance and handoff
 
@@ -293,6 +542,10 @@ of either local operation and not a Phase closure prerequisite.
 
 ## Acceptance
 
+Original broader acceptance is retained below for traceability. Apply the
+current delivery checklist and explicit deferrals first; these historical
+items do not reinstate optional breadth or the former execution order.
+
 - An ordinary `foo.dox` and a Document Project
   `foo.dox/index.dox` both resolve through one effective-document access path;
   the latter has logical identity `foo.dox` and public identity `foo.html`.
@@ -376,40 +629,17 @@ of either local operation and not a Phase closure prerequisite.
 
 ## Implementation sequence
 
-Prioritize COZY-75-08 article links, then COZY-75-07 page ownership, using the
-predecessor's accepted declaration/URL handoff. Take only concrete producer,
-CSS or Kroki prerequisites ahead of that outcome order. The producer/consumer
-closure remains required; do not regenerate the production tree until the
-preservation, exact source boundary and page-ownership safeguards are established.
-In the same bounded site integration, specify and separate COZY-75-09 before
-the downstream production run. Use the accepted existing placement handoff;
-do not repeat predecessor deployment just to exercise the new entry point.
+The current A/B/C sequence at the top of this document replaces the former
+producer -> consumer variants -> independent operations -> native-site order.
+Implement necessary P751-02 and P751-03 connections together, drive the normal
+real-site entry in A, complete real artifact/card consumption in B, then gather
+P751-04 integrated acceptance in C. Accepted producer work is reused.
 
-1. Freeze the SmartDox effective-content API, fixed package-input inventory,
-   and Markdown-source parsing behavior with focused producer specifications.
-2. Update each SmartDox site consumer to use that API, with no physical-path
-   conditionals outside the producer abstraction and no Dox parser applied to
-   Markdown source.
-3. Add the focused include-compatibility regression: an absolute physical base
-   and relative include must resolve through the effective source without
-   changing the established resolver contract.
-4. Refresh the exact local SmartDox development dependency and run Cozy's
-   focused consumer evidence.
-5. Coordinate the Cozy Kroki-port adapter with producer launch, readiness,
-   listener and Antora endpoint settings for target `8000`, then run focused
-   producer and consumer contract specifications.
-6. Verify locale-local CSS resolution and Arcadia-owned page preservation with
-   focused regressions, including single-locale and non-Arcadia controls.
-7. Promote the operating boundary into design/spec, separate the prepared-media
-   placement script and Web-only production entry point, and add site-native
-   checks for independence, missing inputs and absence of rendering/upload.
-   Configure the local `/media/` mapping for browser review without copying
-   warehouse payloads into `website.d`.
-8. Run downstream local site-build and browser verification; record selected
-   artifact deployment separately from local build success. Stop for operator
-   inspection before any separately requested upload, then
-   conduct the required review and release workflow in a separately authorized
-   execution of Phase 75.1.
+The former broad acceptance list above remains a source of original behavior
+and IDs. Its non-current-site portions are explicitly relocated to
+[DP-751-01..03](phase-75.1-deferred.md); it does not add prerequisites to A.
+Current closure is defined by the current delivery checklist. Historical
+per-Slice plans/estimates below do not reimpose the old ordering.
 
 ## Validation and release ownership
 
@@ -436,7 +666,10 @@ The split needs no prerequisite planning commit.
 
 ### P751-01: SmartDox producer contract
 
-- Current status: IN_PROGRESS; all outcome acceptance criteria remain OPEN.
+- Current status: CLOSED, 2026-10-07; accepted local commits `38719e1` and
+  `e0f7db2`, with ledger revision 8 PASS. Phase acceptance remains OPEN.
+- Historical registration: IN_PROGRESS before the actual Step acceptance
+  commits; dated Slice statements below retain that earlier state and evidence.
 - Owner: Cozy Phase 75.1 parent, SmartDox producer implementation.
 - Update rule: record attributable Slice implementation, then close only after
   parent-selected validation, independent review and Step acceptance.
@@ -668,6 +901,356 @@ The split needs no prerequisite planning commit.
 - Later independent full Phase review, complete SmartDox/Cozy suites and
   site-native/browser validation remain mandatory. This record claims no C2
   acceptance, Step commit, Phase closure, publication or deployment.
+
+### P751-02: Cozy consumer and site recovery (COZY-75-04–08)
+
+- Current status: IN_PROGRESS, 2026-10-07; all Cozy consumer outcomes and Step
+  acceptance remain OPEN.
+- Owner: Cozy Phase 75.1 parent; exact Slice ownership is frozen before edits.
+- Update rule: close only after all admitted Slices, actual focused consumer/
+  site evidence, independent whole-Step review and exact local acceptance.
+- Scope retains article-card links first, then Arcadia ownership/CSS after
+  evidenced prerequisites, and coordinated Kroki `8000` work. The integration
+  prerequisite below does not establish those outcomes or close this Step.
+
+### P751-02A: Accepted public-document generator integration
+
+- Current status: focused validation complete / independent Slice review
+  pending / acceptance OPEN, 2026-10-07. Whole P751-02 and Phase remain OPEN.
+- Owner: bounded Cozy implementation worker; parent owns dependency refresh,
+  source inspection, validation, independent review and transitions.
+- Update rule: Slice acceptance requires completed focused evidence and
+  independent Slice review. Whole-Step acceptance requires the remaining
+  Slices, independent whole-Step review and the exact Step acceptance commit;
+  Phase acceptance remains OPEN until its complete evidence exists.
+- Contract: [consumer spec](../spec/bok-public-document-integration.md) and
+  [consumer design](../design/bok-public-document-integration.md).
+- [CozyDocumentProjectSiteProjectionSpec](../../src/test/scala/cozy/publication/CozyDocumentProjectSiteProjectionSpec.scala)
+  authors P751-02A-SPEC-01–04 for native physical includes and canonical JA/EN
+  HTML/Antora routes; private direct/deep Markdown and bare `_source` exclusion
+  from public pages and notice/card metadata; published bilingual YAML and
+  literal Dox body grammar in both Markdown suffixes; incoming direct-source/
+  HTML aliases with canonical localized hrefs and a real package fragment.
+  The original package/sibling title and route assertions remain.
+- Historical authored dependency plan (superseded by current evidence below):
+  unchanged `org.smartdox:smartdox_2.12:2.4.19-SNAPSHOT`, accepted producer
+  commit `38719e1`. Parent-selected local refresh is `publishLocal`;
+  representative is `testOnly cozy.publication.CozyDocumentProjectSiteProjectionSpec`;
+  accumulator is `CozyArticleMediaBokAcceptanceSpec`, `CozyBokSiteRoutingSpec`
+  and `CozyBokBuildTargetSpec`. None is claimed executed by this authorship.
+- Historical unresolved integration observation (superseded by current
+  evidence below): accepted producer ordinary-hyperlink
+  rendering reconstructs a relative URI from the public path, while its site
+  hyperlink branch uses the resolved URI. The ordinary Markdown fragment
+  assertions remain as frozen. This source observation is not a runtime
+  failure; actual parent execution against the pinned dependency must determine
+  the result before any separate bounded repair is admitted.
+- Current evidence, 2026-10-07: the bounded SmartDox ordinary-hyperlink repair
+  preserves authored raw fragments, including existing percent-escapes.
+  Focused producer validation passed 206/206 tests in ten suites. Local
+  `publishLocal` refreshed the unchanged `2.4.19-SNAPSHOT` coordinate; Cozy
+  dependency `update` and the consumer representative passed, with 4/4 tests.
+  The separate accumulator passed 11/11 tests in three suites. Each SBT
+  invocation completed with `sbt_exit=0`, `wrapper_exit=0`, `lock=released`.
+  Original accepted producer commit `38719e1` remains the baseline; the
+  uncommitted fragment repair is not part of that commit. These completed
+  results supersede the historical authored plan and unresolved observation;
+  independent Slice review remains pending, and whole P751-02 and Phase
+  acceptance remain OPEN.
+- No Cozy production source is changed and no assertion is weakened. Real
+  whole-Cozy metadata walking,
+  article cards, Arcadia/CSS, coordinated Kroki and native `website.d`/browser
+  proof remain pending; generator evidence alone cannot close them. Phase 71
+  and predecessor preservation/deployment remain outside this Slice.
+
+### Current P751-02A accepted Slice projection (2026-10-07)
+
+- Current status: independently accepted PASS, review ledger revision 9
+  (eight reviews, zero full Phase reviews). This supersedes earlier pending
+  P2A review prose while retaining its historical receipts and repair cycle 1.
+- Accepted evidence: four Cozy consumer scenarios and eleven accumulator
+  regression tests, plus 206 SmartDox producer tests and the unchanged
+  `2.4.19-SNAPSHOT` local refresh. P2A is an accepted Slice only;
+  P751-02 and Phase acceptance remain OPEN. P751-01 remains CLOSED.
+- Owner: Phase 75.1 parent; no native/card/browser/full outcome is inferred.
+- Update rule: preserve exact accepted Slice subject and history; Step closure
+  requires the remaining Slices, complete-Step review and actual local commit.
+
+### P751-02B: Canonical warehouse build consumption
+
+- Current status: IN_PROGRESS, 2026-10-07. Implementation and executable
+  scenarios are authored; focused validation and independent review are pending.
+- Owner: bounded Cozy implementation worker; parent owns diff verification,
+  validation, independent review and every acceptance transition.
+- Update rule: close only on parent-selected focused evidence and independent
+  review. This registration checks off no article-card, media/CSS, native,
+  browser, full-suite, Step, release or Phase outcome.
+- Contract: [article-media spec](../spec/article-media-publication.md) and
+  [design](../design/article-media-publication.md); executable boundary:
+  [CozyArticleMediaWarehouseBuildContextSpec](../../src/test/scala/cozy/publication/CozyArticleMediaWarehouseBuildContextSpec.scala).
+- Scope: strict current-site admission, shared canonical coordinates, direct
+  warehouse availability, exact role omission, preserved external YouTube,
+  admitted wrapper/generic preservation and unchanged legacy-policy dispatch.
+- Parent-selected validation remains planned: new warehouse context Spec as
+  representative; existing BuildContext/Policy/Association/Warehouse/Root/
+  Registry/BokAcceptance/DocumentProjectSiteProjection Specs as accumulator.
+  P751-02/03/04 and Phase remain OPEN; site-native/browser evidence remains pending.
+
+### Current P751-02B accepted Slice projection (2026-10-07)
+
+- Current status: independently accepted PASS as a Slice only. Actual focused
+  evidence is 12/12 representative tests and 165/165 accumulator tests.
+  Independent source review and the parent's M0 disposition are accepted in
+  review ledger revision 11. This supersedes the earlier authored/pending
+  P2B status while preserving its dated history.
+- Owner: Phase 75.1 parent; validation, review and transitions remain with the
+  parent. Original authority, bases, binding and PLAN epoch remain unchanged;
+  cumulative Step repair 6 / Phase repair 0 / nonconverging 0 are retained.
+- Update rule: P751-02B acceptance does not close P751-02 or Phase 75.1 and
+  supplies no rendered-card, normal native site, browser or full-suite claim.
+
+### P751-02C: Native article-card rendering
+
+- Current status: AUTHORED / IN_PROGRESS, 2026-10-07; six native generator
+  scenarios and three ordinary classpath card-widget fixtures are authored.
+  Focused execution and independent review remain pending.
+- Owner: bounded Cozy implementation worker; parent owns diff verification,
+  focused validation, independent review and all acceptance transitions.
+- [Consumer spec](../spec/bok-public-document-integration.md),
+  [design](../design/bok-public-document-integration.md) and
+  [CozyArticleCardRenderingSpec](../../src/test/scala/cozy/publication/CozyArticleCardRenderingSpec.scala)
+  define normal availability context to actual SmartDox export/raw Notice to
+  pinned native Arcadia, all three JA/EN home/category widgets, exact roles,
+  gaps, external statuses, optional labels and private-package closure.
+- Parent-selected validation is planned: the six-scenario representative
+  and nine-suite regression accumulator. No worker validation is claimed.
+  The fixture templates do not certify live SimpleModeling templates.
+- Update rule: authorship closes no COZY-75-08, Step or Phase outcome.
+  P751-02/03/04, normal `website.d`, explicit local `/media/` mapping,
+  native/browser/full evidence and final Phase review/release remain OPEN.
+
+### Current P751-02C focused evidence projection (2026-10-07)
+
+- Current status: focused validation complete / independent complete-19-path
+  interim Step conformance review pending / Slice acceptance OPEN.
+  The authored/pending P2C registration above remains historical dated state
+  and is superseded here for current focused execution status only.
+- Actual parent evidence for `p751-02c-native-card-subject-20261007` revision 1:
+  `p751-02c-card-rendering-focused-20261007` passed 6/6 tests in one suite;
+  `p751-02c-card-regression-accumulator-20261007` passed 177/177 tests in nine
+  suites. Both completed with `sbt_exit=0`, `wrapper_exit=0`, `lock=released`,
+  zero failures/aborts/canceled/ignored/pending tests, and accepted public
+  current-request readers. Representative proof is recorded in
+  `.codex-workflow/phases/PHASE-75.1/card-rendering-focused-validation-20261007.json`;
+  accumulator proof is the actual invocation log and its serial summary.
+- This projection changes documentation only; actual runtime subject-1
+  evidence remains applicable to its unchanged runtime inputs. The parent
+  owns the documentation subject revision and subsequent review disposition.
+- No Slice, Step or Phase closure or commit is claimed. Live SimpleModeling
+  templates, normal native `website.d`, local `/media/` mapping, browser/full
+  evidence and final Phase review/release remain OPEN.
+
+### Current P751-02C accepted interim Slice projection (2026-10-07)
+
+- Current status: independent interim PASS, recorded in review ledger revision
+  12 by `p751-02c-independent-slice-review-20261007` revision 1.
+  This supersedes the earlier pending review projection for current P2C
+  acceptance while preserving the dated history and actual 6/6 native
+  representative and 177/177 nine-suite accumulator results.
+- Owner: Phase 75.1 parent. Acceptance is interim Slice evidence only;
+  P751-02 and Phase remain OPEN. Live SimpleModeling templates, normal native
+  site/browser acceptance, full validation and final release are not inferred.
+
+### P751-02D: Configured Arcadia category ownership (2026-10-07)
+
+- Current status: AUTHORED / IN_PROGRESS. The bounded six-path implementation
+  and [category executable specification](../../src/test/scala/cozy/bok/CozyBokArcadiaCategoryOwnershipSpec.scala)
+  implement the dated [spec](../spec/bok-site-home-ownership.md) and
+  [design](../design/bok-site-home-ownership.md) extension.
+- Owner: bounded implementation worker; parent owns diff verification,
+  validation, independent review and acceptance transitions.
+- Scenario mapping: P751-02D-01 default destinations/both layouts;
+  P751-02D-02 custom producer and website/both layouts; P751-02D-03 enabled
+  homes-only category fallback; P751-02D-04 disabled/stale producer output;
+  P751-02D-05 exact JA/category-A and EN/category-B ownership;
+  P751-02D-06 Antora-only final category fallback. Actual Cozy builds use
+  emulated external products; this is composition, not native site proof.
+- Parent-selected representative remains planned:
+  `testOnly cozy.bok.CozyBokArcadiaCategoryOwnershipSpec`.
+  The affected eight-suite accumulator is SiteRoutingSpec, CozyBokSpec,
+  CozyBokDashboardSpec, CozyBokMetadataFinalizationSpec, CozyBokBuildTargetSpec,
+  CozyDocumentProjectSiteProjectionSpec, CozyArticleMediaSiteBindingSpec and
+  CozyArticleCardRenderingSpec, retaining the existing fifty-trial CSS property.
+- Update rule: authorship checks off no COZY-75-07, Step or Phase outcome.
+  P2D runtime and independent review remain OPEN. Original authority/binding/
+  bases, PLAN epoch 1, ledger 12 (eleven reviews, zero full), Step repair 6 /
+  Phase repair 0 / nonconverging 0 and 35 consumed SBT identities are retained.
+  Coordinated Kroki 8000, Web-only production script/prepared-media separation,
+  normal `website.d` with explicit local `/media/` mapping, independent final
+  full Cozy/changed SmartDox suites, native/browser validation, one epoch-1
+  full Phase review and exact local Step/release commits remain mandatory.
+
+### Current P751-02D accepted interim Slice projection (2026-10-07)
+
+- Current status: independent interim PASS, review
+  `p751-02d-independent-slice-review-20261007` revision 1, recorded in review
+  ledger revision 13 (twelve reviews, zero full Phase reviews). Earlier P2D
+  authored/pending statements remain dated history and are superseded only
+  for current interim Slice acceptance.
+- Actual accepted subject revision 2 passed the same six category scenarios,
+  6/6 representative tests, and 134/134 tests in the eight-suite accumulator.
+  Both completed with `sbt_exit=0`, `wrapper_exit=0`, `lock=released`.
+  The initial 2/6 failure and the frozen headline-fixture FIX7 remain history;
+  the repair preserved product behavior and assertions.
+- Owner: Phase 75.1 parent. Original authority/binding/bases and PLAN epoch 1
+  remain; cumulative Step repair 7 / Phase repair 0 / nonconverging 0 and all
+  38 consumed SBT identities are retained. P751-01 remains CLOSED.
+- Update rule: interim Slice acceptance closes neither whole P751-02 nor
+  Phase 75.1. Emulated external products do not establish actual native
+  Arcadia/site/browser evidence, full validation or acceptance/release commits.
+
+### P751-02E: Coordinated Kroki endpoint (2026-10-07)
+
+- Current status: AUTHORED / IN_PROGRESS under frozen implementation manifest
+  `p751-02e-kroki-implementation-manifest-20261007` revision 2. Parent-owned
+  focused execution and independent complete-31-path interim Step review
+  remain pending; authorship is not acceptance.
+- Owner: bounded implementation worker; parent owns diff verification,
+  validation, artifact refresh, independent review and every transition.
+- [Cozy specification](../spec/bok-site-toolchain.md) and
+  [design](../design/bok-site-toolchain.md) pair the existing Docker Antora
+  settings `SMARTDOX_KROKI_PORT=8000` and `KROKI_LISTEN=127.0.0.1:8000`.
+  SmartDox's [producer specification](../../../smartdox/docs/spec/antora-kroki-endpoint.md)
+  and [design](../../../smartdox/docs/design/antora-kroki-endpoint.md) set the
+  generated `asciidoc.attributes.kroki-server-url` default to
+  `http://localhost:8000`. The existing wrapper uses the selected port for Java
+  launch/readiness; actual installed-image listener startup remains unproven.
+- [AntoraKrokiEndpointSpec](../../../smartdox/src/test/scala/org/smartdox/generators/AntoraKrokiEndpointSpec.scala)
+  authors two active generated-product behaviors: the single JA root playbook
+  and both JA/EN locale playbooks. Actual generator Realm products are parsed
+  as YAML for endpoint, SVG/fetch and wrong-layout absence. The existing
+  [CozyBokSpec](../../src/test/scala/cozy/CozyBokSpec.scala) configured-toolchain
+  scenario authors actual build orchestration in both layouts, exact one/two
+  recorded Antora commands, paired port settings, absence of obsolete `9609`
+  argv and all three host image settings.
+- Parent-selected sequence, still planned: producer endpoint representative;
+  producer accumulator with `AntoraKrokiEndpointSpec`, `DoxSiteGeneratorSpec`
+  and `KrokiGeneratorSpec`; exact local `publishLocal` refresh of unchanged
+  `org.smartdox:smartdox_2.12:2.4.19-SNAPSHOT`; Cozy dependency `update` and the
+  configured-toolchain representative; then the nine-suite Cozy accumulator:
+  `CozyBokSpec`, `CozyBokSiteRoutingSpec`, `CozyBokArcadiaCategoryOwnershipSpec`,
+  `CozyBokDashboardSpec`, `CozyBokMetadataFinalizationSpec`,
+  `CozyBokBuildTargetSpec`, `CozyDocumentProjectSiteProjectionSpec`,
+  `CozyArticleMediaSiteBindingSpec` and `CozyArticleCardRenderingSpec`.
+  The three existing ignored producer cases (`mini`, `plain`, `dfn`) remain
+  unchanged and cannot establish endpoint acceptance. No worker execution is
+  claimed; Cozy stays at `0.3.3-SNAPSHOT`.
+- Update rule: recorded argv and generated playbooks supply separate focused
+  seams only. COZY-75-05 actual listener/native evidence, whole Step and Phase
+  stay OPEN. Prepared-media/Web-only script separation, normal `website.d`,
+  explicit local `/media/` mapping, JA/EN browser resource/link/layout checks,
+  independent final full Cozy and changed SmartDox suites, one epoch-1 full
+  Phase review and exact Step/release commits remain required. Preserve Phase
+  75 deployment/editions/gaps and concurrent Phase 71 Arcadia/CSS work.
+
+### Current P751-02E accepted interim Slice projection (2026-10-07)
+
+- Current status: independent interim PASS in
+  `p751-02e-independent-slice-review-20261007` revision 1, review ledger
+  revision 14: thirteen reviews and zero full Phase reviews. Earlier P2E
+  authored/pending snapshots remain history. Current retained Hygiene is 13
+  accepted nonblocking items; Development Candidates remain zero.
+- Actual retained evidence: SmartDox endpoint representative 2/2 and producer
+  accumulator 21/21; exact unchanged SNAPSHOT local refresh; Cozy configured
+  toolchain representative 1/1 and nine-suite accumulator 140/140. Accepted
+  executions returned `sbt_exit=0`, `wrapper_exit=0`, `lock=released`.
+  These results establish the generated endpoint/command seams; native
+  listener/site execution remains separate.
+- Owner: Phase 75.1 parent. Original active Goal, authority/binding revision 1,
+  original bases and PLAN epoch 1 remain, with Step repair 7 / Phase repair 0 /
+  nonconverging 0. P751-01 remains CLOSED; P751-02/03/04 and Phase remain OPEN.
+
+### P751-02F: Standalone real-native site prerequisite (2026-10-07)
+
+- Current status: AUTHORED / IN_PROGRESS; compilation completed in FIX11,
+  whose native cases failed at the intermediate HomeOnly oracle. Fresh repair12
+  native execution and independent complete-32-path/15-target interim Step
+  review are pending.
+  The bounded worker owns only the driver and these four English projections;
+  the parent owns verification, execution, review and transitions.
+- [Specification](../spec/bok-site-toolchain.md),
+  [design](../design/bok-site-toolchain.md) and
+  [driver](../../src/test/scala/cozy/bok/CozyBokNativeSiteDriver.scala) register
+  P751-02F-NATIVE-01 SingleLocaleRoot JA and P751-02F-NATIVE-02
+  MultiLocaleSubdirs JA/EN. Both require actual normal Cozy composition,
+  selected current SmartDox/Cozy Runtime exports, pinned Arcadia 1.0.3,
+  installed Antora/Kroki image, canonical ordinary inline SVG and separately
+  fetched endpoint inline SVG, public/include/private
+  closure, native home/category ownership, locale CSS and owned cleanup.
+- Parent-selected sequence: canonical SmartDox `exportClasspath`, Cozy
+  `cozyExportRuntimeClasspath`, then explicit `Test / runMain` with the four
+  literal arguments documented in the specification. The accepted current
+  P2E accumulator is retained only under parent relevance admission; no
+  driver execution or validation success is claimed by authorship.
+- This prerequisite closes no requirement, whole Step or Phase. Preserve
+  concurrent Phase 71 and accepted predecessor deployment/editions/gaps.
+  Production template/normal SimpleModeling entry proof, prepared-media/
+  Web-only separation, repeated normal `website.d`, explicit local `/media/`,
+  JA/EN browser evidence, independent final full Cozy/changed SmartDox suites,
+  one epoch-1 comprehensive Phase review and exact local Step/release commits
+  remain mandatory.
+
+### Current P751-02F repair12 projection (2026-10-07)
+
+- Owner: Phase 75.1 parent; the bounded repair worker owns only five frozen
+  Cozy native-oracle/specification/design/Phase projection paths. The
+  complete Step remains 32 paths and 15 target programs. Parent owns
+  validation, independent review and transitions.
+- Update rule: supersede stale current pending projections only for recorded
+  partial results; retain all failed runs/products and close no acceptance item
+  until actual fresh native evidence and independent review are admitted.
+- Status: FIX8/9 resolved the Scala compile failures. FIX10 compiled, and
+  its actual SingleJA native SmartDox/Antora execution passed the secure
+  canonical inline-SVG oracle. The separately published endpoint page
+  contained `kroki-error`: Antora resolved `http://localhost:8000` to IPv6
+  `::1:8000` and failed with `ECONNREFUSED`, while the existing listener
+  selected IPv4 `127.0.0.1:8000`. SBT/wrapper returned 1 with `lock=released`;
+  owned processes were reaped and the allocated container was confirmed absent.
+  FIX11's generated IPv4 default and matching expectations passed the actual
+  producer accumulator 21/21 (three preexisting ignores separate), typed
+  same-coordinate `org.smartdox:smartdox_2.12:2.4.19-SNAPSHOT` local refresh
+  and nine-suite Cozy accumulator 140/140. Both original native cases failed
+  reading nested article HTML from intermediate HomeOnly `doxsite.d`, despite
+  fresh endpoint SVG in all three locale trees and complete cleanup: zero
+  owned processes and all three allocated containers absent. Neither case,
+  P751-02F, whole Step nor Phase is accepted by these partial results.
+  Repair12 requires unchanged `home_only` configuration, exactly one actual
+  `dox site` command and adjacent `-output.scope.policy home_only` argv pair,
+  intermediate ordinary/package HTML absence, actual global/category canonical
+  Notice keys for every locale and the three exact article-body expectations
+  on Antora-owned final `website.d` ordinary/package pages. All secure SVG,
+  native Arcadia/widget/CSS/private/cleanup predicates remain strict; incidental
+  cache/hash behavior is unchanged. Fresh both-case execution and independent
+  complete-32-path/15-target review remain pending. Dated accepted P2E
+  localhost seam results remain historical evidence.
+- Evidence: `.codex-workflow/phases/PHASE-75.1/native-interpolation8-compile-failure-20261007.json`
+  and `native-locale9-product-shape-failure-20261007.json`, followed by
+  `native-oracle10-endpoint-failure-20261007.json` and
+  `native-address11-public-html-failure-20261007.json`, retain the lineage.
+  Old `target/phase751-native-site-20261007` and
+  `target/phase751-native-site-repair10-20261007` and
+  `target/phase751-native-site-repair11-20261007` products remain retained. The
+  selected fresh invocation uses the absent
+  `target/phase751-native-site-repair12-20261007` workspace and literal
+  `Test / runMain` command documented in the paired specification.
+  Generated-docs fixture Git
+  registration records only the new endpoint path in an existing producer
+  repository, or the fresh generated docs initialization; it is isolated
+  fixture provenance, not source Git or acceptance evidence.
+- P751-02 and Phase remain OPEN. Original normal SimpleModeling/Web-only/media
+  separation, repeated `website.d`, explicit `/media/`, browser/full suites,
+  sole epoch-1 full review and exact Step/release/closure obligations remain.
+  Preserve Phase 75 deployment/editions/gaps and concurrent Phase 71 work.
 
 ## References
 

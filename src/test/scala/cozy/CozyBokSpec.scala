@@ -18,7 +18,8 @@ import org.scalacheck.{Gen, Prop, Test}
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
  *  version Aug. 28, 2026
- * @version Oct.  4, 2026
+ *  version Oct.  5, 2026
+ * @version Oct.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -1853,42 +1854,55 @@ class CozyBokSpec
       }
 
       "pass the configured Textus toolchain image to SmartDox Kroki execution" in {
-        _with_temp_dir("cozy-bok-smartdox-kroki-toolchain") { dir =>
-          Given("a BoK build with a configured Textus toolchain image")
-          Files.createDirectories(dir.resolve("src/main/doxsite"))
-          val runner = new EnvRecordingRunner
-          val config = CozyBok.BuildConfig.create(
-            List(dir.toString, "--docker-image", "example/toolchain:dev")
-          )
+        Vector(false, true).foreach { multilocale =>
+          Given("a fresh BoK project with a configured toolchain image and " +
+            (if (multilocale) "JA/EN locale subdirectories" else "a single JA locale root"))
+          val fixture = Paths.get("target/cozy-bok-kroki-toolchain-spec")
+          Files.createDirectories(fixture)
+          val dir = Files.createTempDirectory(fixture, "project-")
+          try {
+            _write(
+              dir.resolve("src/main/doxsite/site.conf"),
+              if (multilocale)
+                "simplemodelingorg = true\nsite.metadata.in_language = [\"ja\", \"en\"]\n"
+              else
+                "site { output { locale_mode = \"single_locale_root\" } }\nsite.metadata.in_language = [\"ja\"]\n"
+            )
+            val runner = new EnvRecordingRunner
+            val config = CozyBok.BuildConfig.create(
+              List(dir.toString, "--docker-image", "example/toolchain:dev")
+            )
 
-          When("Cozy builds through SmartDox and Docker Antora")
-          CozyBok.build(config, runner)
+            When("Cozy builds the selected locale layout through SmartDox and Docker Antora")
+            CozyBok.build(config, runner)
 
-          Then(
-            "SmartDox host-side commands receive the toolchain image as Kroki Docker image"
-          )
-          val smartdoxenvs = runner.envs.filter(_.nonEmpty)
-          smartdoxenvs should have size 2
-          smartdoxenvs.foreach { env =>
-            env("SMARTDOX_KROKI_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
-            env("SMARTDOX_PDF_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
-            env(
-              "SMARTDOX_COZY_TOOLCHAIN_IMAGE"
-            ) shouldBe "example/toolchain:dev"
-          }
+            Then("the configured locale layout is retained and emits exactly its required Antora commands")
+            config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
+            val antoracommands = runner.commands.filter(command =>
+              command.take(2) == Vector("docker", "run") && command.contains("antora")
+            )
+            antoracommands should have size (if (multilocale) 2 else 1)
 
-          And(
-            "every Docker Antora command coordinates the internal Kroki listener with SmartDox's Antora port"
-          )
-          val antoracommands = runner.commands.filter(command =>
-            command.take(2) == Vector("docker", "run") && command.contains("antora")
-          )
-          antoracommands should not be empty
-          antoracommands.foreach { command =>
-            command.sliding(2).toVector should contain (Vector("-e", "KROKI_LISTEN=127.0.0.1:9609"))
-            command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_PORT=9609"))
-            command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev"))
-            command.sliding(2).toVector should contain (Vector("example/toolchain:dev", "antora"))
+            Then("both SmartDox host-side commands receive all three configured toolchain image settings")
+            val smartdoxenvs = runner.envs.filter(_.nonEmpty)
+            smartdoxenvs should have size 2
+            smartdoxenvs.foreach { env =>
+              Then("each host-side command retains the Kroki, PDF and Cozy toolchain image")
+              env("SMARTDOX_KROKI_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
+              env("SMARTDOX_PDF_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
+              env("SMARTDOX_COZY_TOOLCHAIN_IMAGE") shouldBe "example/toolchain:dev"
+            }
+
+            antoracommands.foreach { command =>
+              Then("each Docker Antora command pairs port 8000 with the listener and configured image")
+              command.sliding(2).toVector should contain (Vector("-e", "KROKI_LISTEN=127.0.0.1:8000"))
+              command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_PORT=8000"))
+              command.exists(_.contains("9609")) shouldBe false
+              command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev"))
+              command.sliding(2).toVector should contain (Vector("example/toolchain:dev", "antora"))
+            }
+          } finally {
+            _delete(dir)
           }
         }
       }
@@ -2395,9 +2409,6 @@ class CozyBokSpec
                     |""".stripMargin
                 )
               val config = CozyBok.BuildConfig.create(List(dir.toString))
-              config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
-              if (multilocale)
-                config.languages shouldBe Vector("ja", "en")
               val locales = if (multilocale) Vector("ja", "en") else Vector(config.defaultLocale)
               val homes = locales.map { locale =>
                 val path = if (multilocale) s"$locale/index.html" else "index.html"
@@ -2411,21 +2422,29 @@ class CozyBokSpec
 
               When("Cozy builds the configured site through the real BoK orchestration")
               CozyBok.build(config, runner)
+              val observedhomes = homes.map { case (path, content) =>
+                val home = config.websitePath.resolve(path)
+                val specials = Vector("manual/index.html", "history/index.html", "glossary/index.html").map { special =>
+                  Files.isRegularFile(home.getParent.resolve(special))
+                }
+                (_read(home), content, specials)
+              }
+              val metadata = Vector("rdf/site.ttl", "rdf/site.jsonld", "metadata/rdf/graph.json", "metadata/cncf/knowledge-source.json").map { path =>
+                Files.isRegularFile(config.websitePath.resolve(path))
+              }
 
               Then("every Arcadia home retains its exact UTF-8 content and required generated surfaces remain")
-              homes.foreach { case (path, content) =>
-                val home = config.websitePath.resolve(path)
-                _read(home) shouldBe content
-                Vector("manual/index.html", "history/index.html", "glossary/index.html").foreach { special =>
-                  home.getParent.resolve(special) should be_regular_file
-                }
+              config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
+              if (multilocale)
+                config.languages shouldBe Vector("ja", "en")
+              observedhomes.foreach { case (actual, expected, specials) =>
+                actual shouldBe expected
+                specials shouldBe Vector(true, true, true)
               }
               runner.commands should contain(
-                Vector("arcadia", "site", "src/main/arcadiasite", "arcadiasite.d")
+                Vector("arcadia", "site", "src/main/arcadiasite", "doxsite.d")
               )
-              Vector("rdf/site.ttl", "rdf/site.jsonld", "metadata/rdf/graph.json", "metadata/cncf/knowledge-source.json").foreach { path =>
-                config.websitePath.resolve(path) should be_regular_file
-              }
+              metadata shouldBe Vector(true, true, true, true)
             }
           }
           true
@@ -2436,6 +2455,7 @@ class CozyBokSpec
 
         Then("all generated trials preserve homes in both locale layouts")
         check.passed shouldBe true
+        check.succeeded should be >= 50
       }
 
       "retain normal Dashboard homes when Arcadia is disabled" in {
@@ -2498,7 +2518,7 @@ class CozyBokSpec
           |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(List(dir.toString))
-          val runner = new RecordingRunner
+          val runner = new ArcadiaHomeRecordingRunner(Map("index.html" -> "Arcadia-authored home\n"))
 
           When("Cozy builds the BoK")
           CozyBok.build(config, runner)
@@ -2507,7 +2527,7 @@ class CozyBokSpec
             "the Arcadia generation step is included exactly when configured"
           )
           runner.commands should contain(
-            Vector("arcadia", "site", "src/main/arcadiasite", "arcadiasite.d")
+            Vector("arcadia", "site", "src/main/arcadiasite", "doxsite.d")
           )
         }
       }
@@ -3899,7 +3919,7 @@ class CozyBokSpec
       super.run(command, cwd)
       if (command.take(2) == Vector("arcadia", "site"))
         homes.foreach { case (path, content) =>
-          _write(cwd.resolve(command.last).resolve(path), content)
+          _write(cwd.resolve("arcadiasite.d").resolve(path), content)
         }
     }
   }

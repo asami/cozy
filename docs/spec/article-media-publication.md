@@ -800,3 +800,68 @@ direct `cozy.media.warehouse.uploadRoot`; default cancellation is not acceptance
 The paired warehouse operator guide is `docs/article-media-deployment.md` in
 the warehouse repository. Placement and remote availability still require actual
 operational evidence; this authoring does not close Step09 or Phase75.
+
+## Phase 75.1 canonical warehouse build context (2026-10-07)
+
+P751-02B adds current semantic build consumption for strict nonvideo references
+whose literal URI starts with `/media/`. The configured repository root is the
+warehouse store root: on the selected workstation it is
+`/Users/asami/src/maven-repository`, so
+`/media/ja/development-process/example/article.pdf` resolves to
+`/Users/asami/src/maven-repository/media/ja/development-process/example/article.pdf`.
+It never resolves through the CAR `repository/media` subtree.
+
+The single coordinate owner is `CozyMediaWarehouse.canonicalPublicPath`.
+Identity is exactly the existing category/article grammar, locale is `ja` or
+`en`, and basenames are `article.pdf`, `slides.pdf`, or
+`infographic.{svg,png,jpg,jpeg,webp}`. References must equal that literal path:
+no URI scheme, authority, query, fragment, case normalization, percent-decoding,
+dot-segment normalization, traversal or source aliases can make an input valid.
+PDF MIME is `application/pdf`; an optional infographic MIME must match its
+extension. Malformed `/media/` references enter this branch and fail.
+
+The warehouse root must be an existing direct canonical directory. Each exact
+destination and its existing ancestors are inspected without reading artifact
+bytes. An ordinary missing file or ancestor produces a typed `Unavailable`
+diagnostic carrying exact article identity, locale, role and public path, and
+omits only that role in both preview and production. Existing symlink,
+non-directory ancestor, nonregular file or unreadable media fails before the
+consumer or effective directory allocation. Other roles/locales survive;
+empty variants and media-free native article entries are removed. Published
+declared external YouTube tuples remain available without an MP4 prerequisite;
+SmartDox applies its normal draft/withdrawn status filtering.
+
+`CozyArticleMediaRegistry.readCurrentSite` is the mandatory admission gate.
+Native metadata, article, variant and recognized role fields retain the
+existing closed schema: every unknown native field remains invalid. The helper
+uses the admitted projection and `CozyArticleMediaPublication.produce` for
+complete effective native metadata. It retains admitted extra bundle/container,
+publication-header and entry-wrapper fields, provenance, path/key and generic
+non-native metadata from validated bundle objects. This preservation does not
+admit unknown native fields. Only the exactly typed unrelated framework
+contract is excluded, using the registry's admitted bundle names.
+
+For the legacy policy view only, canonical infographic references are removed;
+all other references, including external videos and PDFs, remain. Only actual
+remaining legacy infographic and site-hosted-video keys select integrity
+records for unchanged policy evaluation. Historical same-key canonical
+integrity records are preserved in output and source but are not dependencies
+of canonical availability. Policy role omissions and excluded WIP integrity
+apply only to effective output. With no canonical nonvideo reference, the
+original transaction, source revalidation, policy and materialization route
+remains in use.
+
+Each canonical invocation writes complete transformed bundles into one fresh
+direct `target/cozy-bok/article-media/<strategy>/warehouse-contexts/context-*/publication`
+directory and uses the existing consumer lease. Materialization failure owns
+cleanup only of its newly allocated directory. Originals, historical integrity,
+warehouse files and prior contexts remain owned by their existing operations.
+This route establishes direct availability, not integrity or currentness proof;
+it introduces no lock, hash, byte snapshot, retry, receipt or shared cache.
+It performs no generation, media copying, placement, deployment or upload.
+
+Executable scenarios are authored in
+[CozyArticleMediaWarehouseBuildContextSpec](../../src/test/scala/cozy/publication/CozyArticleMediaWarehouseBuildContextSpec.scala).
+Focused representative and compatibility validation, independent review, real
+article-card/site-native/browser evidence and Step/Phase acceptance remain
+pending; authorship does not establish those results.

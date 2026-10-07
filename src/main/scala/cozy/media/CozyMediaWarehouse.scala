@@ -9,7 +9,7 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Oct.  6, 2026
- * @version Oct.  6, 2026
+ * @version Oct.  7, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaWarehouse {
@@ -71,6 +71,13 @@ private[cozy] object CozyMediaWarehouse {
       case NonFatal(_) => _invalid("--warehouse-root must be a valid absolute path")
     }
     _require_warehouse_root(path)
+  }
+
+  def canonicalPublicPath(articleIdentity: String, locale: String, role: String, extension: String): String = {
+    if (articleIdentity == null) _invalid("Media articleIdentity must be defined")
+    _require_identity(articleIdentity)
+    if (!Set("ja", "en").contains(locale)) _invalid(s"Media locale must be ja or en: $locale")
+    _public_path(articleIdentity, locale, _canonical_basename(role, extension))
   }
 
   def plan(config: CozyMedia.CommandConfig, environment: Map[String, String] = sys.env): DeploymentPlan =
@@ -210,11 +217,11 @@ private[cozy] object CozyMediaWarehouse {
     _require_direct_path(sourcepath)
     val source = sourcepath.toAbsolutePath.normalize()
     val basename = _basename(resource, media, source)
-    val coordinate = s"media/$locale/$identity/$basename"
+    val publicpath = _public_path(identity, locale, basename)
+    val coordinate = publicpath.drop(1)
     if (resource.publications(profileid) != coordinate) {
       _invalid(s"Media deploy publication must equal $coordinate: ${resource.id}")
     }
-    val publicpath = "/" + coordinate
     if (media.role != "video" && media.publicPath != Some(publicpath)) {
       _invalid(s"Media deploy articleMedia.publicPath must equal $publicpath: ${resource.id}")
     }
@@ -235,21 +242,30 @@ private[cozy] object CozyMediaWarehouse {
         if (resource.kind != "document" || media.mediaType != Some("application/pdf") || extension != "pdf") {
           _invalid(s"Media deploy PDF role requires document, application/pdf and PDF source filename: ${resource.id}")
         }
-        if (media.role == "article_pdf") "article.pdf" else "slides.pdf"
       case "video" =>
         if (resource.kind != "video" || extension != "mp4") {
           _invalid(s"Media deploy video requires video kind and MP4 source filename: ${resource.id}")
         }
-        "video.mp4"
       case "infographic" =>
         val mimetypes = Map("svg" -> "image/svg+xml", "png" -> "image/png", "jpg" -> "image/jpeg", "jpeg" -> "image/jpeg", "webp" -> "image/webp")
         if (resource.kind != "infographic" || !mimetypes.get(extension).exists(value => media.mediaType.contains(value))) {
           _invalid(s"Media deploy infographic requires matching supported image format and MIME: ${resource.id}")
         }
-        s"infographic.$extension"
       case _ => _invalid(s"Unsupported media deploy role: ${media.role}")
     }
+    _canonical_basename(media.role, extension)
   }
+
+  private def _canonical_basename(role: String, extension: String): String = (role, extension) match {
+    case ("article_pdf", "pdf") => "article.pdf"
+    case ("summary_slides_pdf", "pdf") => "slides.pdf"
+    case ("video", "mp4") => "video.mp4"
+    case ("infographic", value) if Set("svg", "png", "jpg", "jpeg", "webp").contains(value) => s"infographic.$value"
+    case _ => _invalid(s"Unsupported canonical media role/extension: $role/$extension")
+  }
+
+  private def _public_path(identity: String, locale: String, basename: String): String =
+    s"/media/$locale/$identity/$basename"
 
   private def _preflight_item(item: DeploymentItem): DeploymentItem = {
     val available = !Files.notExists(item.source, LinkOption.NOFOLLOW_LINKS)

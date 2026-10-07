@@ -1,0 +1,42 @@
+      <div class="col-lg-4 mb-lg-0 mb-4">
+        <div class="card">
+          <c:optional binding="notice.title_image">
+            <div class="card-header p-0 m-3 mt-n4 position-relative z-index-2">
+              <a class="d-block blur-shadow-image">
+                <img src="${notice.title_image}" alt="img-blur-shadow" class="img-fluid border-radius-lg">
+              </a>
+            </div>
+          </c:optional>
+          <div class="card-body pt-2">
+            <span class="text-gradient text-warning text-uppercase text-xs font-weight-bold my-2"><a href="${home_locale}${notice.category.uri}" alt="${notice.category.description}">${notice.category.title}</a></span>
+            <a href="${home_locale}${notice.uri}" class="h5 d-block text-dark">
+              ${notice.title}
+            </a>
+            <p class="card-description mb-4">
+              ${notice.summary}
+            </p>
+            <c:optional binding="notice.published">
+              <p>${notice.published}</p>
+            </c:optional>
+            <c:optional binding="notice.media.infographic.public_path notice.media.article_pdf.public_path notice.media.summary_slides_pdf.public_path notice.media.video.watch_url notice.media.video.content_url">
+              <div class="simplemodeling-article-media-links d-flex flex-wrap gap-2 mt-3">
+                <c:optional binding="notice.media.infographic.public_path">
+                  <a href="${notice.media.infographic.public_path}" class="simplemodeling-article-media-infographic btn btn-sm btn-outline-info">${page_locale == 'ja' ? 'インフォグラフィックを見る' : 'View infographic'}</a>
+                </c:optional>
+                <c:optional binding="notice.media.article_pdf.public_path">
+                  <a href="${notice.media.article_pdf.public_path}" class="simplemodeling-article-media-article-pdf btn btn-sm btn-outline-info">${notice.media.article_pdf.label ? notice.media.article_pdf.label : (page_locale == 'ja' ? '記事 PDF' : 'Article PDF')}</a>
+                </c:optional>
+                <c:optional binding="notice.media.summary_slides_pdf.public_path">
+                  <a href="${notice.media.summary_slides_pdf.public_path}" class="simplemodeling-article-media-summary-slides-pdf btn btn-sm btn-outline-info">${notice.media.summary_slides_pdf.label ? notice.media.summary_slides_pdf.label : (page_locale == 'ja' ? 'まとめスライド PDF' : 'Summary slides PDF')}</a>
+                </c:optional>
+                <c:optional binding="notice.media.video.watch_url">
+                  <a href="${notice.media.video.watch_url}" class="simplemodeling-article-media-video btn btn-sm btn-outline-info" target="_blank" rel="noopener noreferrer">${page_locale == 'ja' ? '動画を見る' : 'Watch video'}</a>
+                </c:optional>
+                <c:optional binding="notice.media.video.content_url">
+                  <a href="${notice.media.video.content_url}" class="simplemodeling-article-media-video btn btn-sm btn-outline-info">${page_locale == 'ja' ? '動画を見る' : 'Watch video'}</a>
+                </c:optional>
+              </div>
+            </c:optional>
+          </div>
+        </div>
+      </div>
