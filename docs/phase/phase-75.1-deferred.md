@@ -50,12 +50,17 @@ Current outcome (2026-10-08): the first scoped native operation created six
 Application Modeling nonvideo placements and merged eight JA/EN role rows,
 preserving the eleven existing entries and producing twelve registry identities.
 The separate normal Web build exited 0 with twelve-article admission and eleven
-required SITE outputs. Connected independent Step acceptance and C remain OPEN;
+required SITE outputs. Connected protected Step review returned PASS and the
+joint P751-02/03 acceptance is locally committed at SmartDox `59d6d41`, Cozy
+`094370b` and site `73de27e`. Final C evidence and disposition are recorded in
+the canonical Phase/checklist, effective only in their verified bound release;
 no media management or current JA/EN/private/page-ownership/role-mapping
 requirement is newly deferred. Browser/PDF coverage and retained session/PATH
 limitations are in the [current execution evidence](phase-75.1.md#current-execution-evidence--2026-10-08).
-Next complete connected 47-path protected focused Step acceptance/exact local
-commits, then original C/full Phase review/full suites/release closure.
+The sole epoch-1 comprehensive review and both required full SBT suites have
+passed. The distinct final release is bound to
+`phase75-1-final-closure-20261008@1`; no execution or closure is inferred from
+this deferred-work list. Deferred work is not reopened or claimed complete.
 
 ## DP-751-03: Optional improvements
 

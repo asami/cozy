@@ -3,7 +3,7 @@
 ## Current delivery checklist — 2026-10-08
 
 Stage Status:
-- Current status: IN_PROGRESS
+- Current status: CLOSED on 2026-10-08
 - Owner: SimpleModeling development / Cozy Phase 75.1
 - Update rule: close only after the actual current simplemodeling.org build
   and observable site behavior below pass, with required validation/review.
@@ -30,10 +30,20 @@ fresh preview finished without opening a native PDF app. Enclosing runner PATH
 omitted `/bin` while child PATH was correct; exact-submission conformance and
 registered candidate behavioral acceptance remain unproved, with no rerun.
 
-All A/B/C boxes and P751-02/03/04/Phase acceptance remain OPEN. Next complete
-connected 47-path protected focused Step acceptance and exact local commits,
-then original C/full Phase review/full Cozy and changed SmartDox suites/release
-closure. No helper-only review, new Phase/epoch or renewed repair allowance.
+A/B and the joint P751-02/03 Step are accepted at actual local commits
+SmartDox `59d6d41`, Cozy `094370b`, site `73de27e`, with protected connected
+review PASS. The sole epoch-1 comprehensive review returned PASS, ledger 16 /
+fifteen reviews / one full review. Final Cozy full validation passed 2,511/2,511
+in 187 suites (twelve explicit optional cancellations); SmartDox passed 461/461
+in 42 suites (four historical ignored cases). Both returned SBT/wrapper 0/0
+and `lock=released`. All eleven current declaration and seven fake-AWS upload
+scenarios ran. C/P751-04 gathers this final assurance and documentation, not
+another implementation Step. This final closure record takes effect only in
+the distinct local release bound to `phase75-1-final-closure-20261008@1` with
+its verified closure receipt; the execution remains PHASE_RELEASE_COMMIT
+until that receipt exists. Shared Phase index/strategy synchronization is
+deferred to preserve concurrent Phase 71 planning. No helper-only
+acceptance, new Phase/epoch or renewed repair allowance.
 See [current evidence](phase-75.1.md#current-execution-evidence--2026-10-08).
 The retained synthetic native matrices are already deferred diagnostics under
 [DP-751-01](phase-75.1-deferred.md#dp-751-01-general-site-and-producer-coverage).
@@ -62,23 +72,23 @@ out-of-scope portions are relocated by original ID in the
 [deferred list](phase-75.1-deferred.md). No historical failure or acceptance is
 erased, and no functional success is recorded by this planning change.
 
-- [ ] A — The current site's ordinary `etc/runweb-production.sh` entry produces
+- [x] A — The current site's ordinary `etc/runweb-production.sh` entry produces
   its `website.d` from actual sources/configuration and existing artifacts,
   restoring the user-visible behavior that worked before this feature work.
   Use the existing history/site evidence for that baseline; reduced inputs or
   a successful exit with missing pages do not count as recovery.
-- [ ] A — The intended root/JA/EN home and category pages, article navigation,
+- [x] A — The intended root/JA/EN home and category pages, article navigation,
   public bodies/includes/diagrams, CSS and images work in local browser review;
   private package material is excluded and BoK pages do not replace Arcadia pages.
-- [ ] B — Videos, article PDFs and summary-slide PDFs are correctly managed for
+- [x] B — Videos, article PDFs and summary-slide PDFs are correctly managed for
   this site: prior artifacts/editions preserved, canonical placement and
   article/locale/role registration usable, video YouTube URLs and backup copies
   retained. Reuse accepted Phase 75 evidence; build caches are not the sole store.
-- [ ] B — Article cards expose the applicable video, article-PDF and summary-slide
+- [x] B — Article cards expose the applicable video, article-PDF and summary-slide
   PDF links, with correct labels/article/locale and usable destinations. Keep
   existing infographic behavior. Retained gaps remain explicit; neither hiding
   available media nor adding URL strings without usable targets is acceptance.
-- [ ] C — Required integrated regression/full validation and independent review
+- [x] C — Required integrated regression/full validation and independent review
   complete, and actual acceptance/closing evidence is recorded. Preserve
   original Goal/history and accepted artifacts; no remote upload is implied.
 

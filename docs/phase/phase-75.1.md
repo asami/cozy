@@ -1,6 +1,6 @@
 # Phase 75.1: Public Document Contract and Site Recovery
 
-status=in-progress
+status=closed
 split_full_test_policy=each-phase
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -41,8 +41,10 @@ delivery, and a build must not trigger one.
 
 ### Current execution evidence — 2026-10-08
 
-Connected A/B implementation has actual focused and operational evidence;
-independent connected Step acceptance remains OPEN. SmartDox producer checks
+Connected A/B implementation is independently accepted and locally committed:
+SmartDox `59d6d41`, Cozy `094370b` and SimpleModeling.org `73de27e`.
+The protected connected Step review returned PASS; P751-02/03 are jointly
+CLOSED at that boundary. SmartDox producer checks
 passed 34/34 with `exportClasspath`, the unchanged `2.4.19-SNAPSHOT` local
 refresh completed, and Cozy checks passed 145/145 with
 `cozyExportRuntimeClasspath`. These are focused results, not full suites.
@@ -77,14 +79,34 @@ runner PATH transcription omitted `/bin`; the selected child PATH was correct.
 That deviation remains separate: exact-submission conformance and registered
 candidate behavioral acceptance are not established, and no rerun is implied.
 
-Next complete the connected 47-path protected focused Step acceptance and
-exact local acceptance commits, then original C: one epoch-1 full Phase review,
-independent full Cozy and changed SmartDox suites, remaining integrated
-site-native/browser assurance, actual release commit and verified closure
-ledger. P751-02/03/04 and Phase remain OPEN; operational results close no boxes.
-Original Goal/authority/start/binding/bases/PLAN epoch 1, ledger 14, Step repair
-17 / Phase repair 0 / nonconverging 0 and 63 consumed SBT identities remain.
+The sole epoch-1 comprehensive Phase review returned PASS with zero blockers;
+ledger 16 retains fifteen reviews and exactly one full review. Final Cozy
+validation passed 2,511/2,511 tests in 187 suites, with no failures/aborts;
+twelve optional cancellations remain explicit, not passed coverage. All eleven
+current declaration and seven fake-AWS upload scenarios ran. Final SmartDox
+validation passed 461/461 tests in 42 suites, with no failures/aborts/cancellations
+and four historical ignored cases. Both actual SBT/wrapper results are 0/0
+with `lock=released`. Native A/B build/browser evidence above remains applicable;
+no source change, upload, media placement replay or second full review follows.
+
+Final C disposition: the integrated validation, sole comprehensive review,
+normal site rebuild and applicable browser evidence above meet the adopted
+current-site boundary. P751-04 gathers this evidence; it is not a new
+implementation Step requiring another source change or review. This final
+closure record is effective only with the distinct local release commit bound
+to `phase75-1-final-closure-20261008@1` and its verified closure receipt.
+Before that receipt exists, the execution state remains PHASE_RELEASE_COMMIT;
+completed Steps and tests alone are not a release.
+Original Goal/authority/start/binding/bases/PLAN epoch 1, Step repair
+17 / Phase repair 0 / nonconverging 0 and 66 consumed SBT identities remain.
+The SmartDox pre-render stop and reviewed common-runner recovery are retained
+in the [final-validation journal](../journal/2026/10/2026-10-08-phase-75.1-final-validation-runner-recovery.md).
 No helper-only acceptance, new Phase/epoch or renewed repair allowance follows.
+The shared Phase index and strategy retain concurrent Phase 71 planning;
+their projection synchronization is deferred, not adopted into this release.
+P751-01 retains its producer acceptance commits, P751-02/03 retain their joint
+A/B acceptance commits, and P751-04/C is closed by this final evidence/release
+record. Earlier dated open/interim statuses below are retained history.
 See the [current checklist](phase-75.1-checklist.md#current-delivery-checklist--2026-10-08)
 and [operating note](../../../simplemodeling-org/docs/notes/web-only-production-build.md).
 
@@ -904,7 +926,10 @@ The split needs no prerequisite planning commit.
 
 ### P751-02: Cozy consumer and site recovery (COZY-75-04–08)
 
-- Current status: IN_PROGRESS, 2026-10-07; all Cozy consumer outcomes and Step
+- Current status: CLOSED on 2026-10-08
+  through the joint P751-02/03 protected connected acceptance and actual local
+  commits SmartDox `59d6d41`, Cozy `094370b`, site `73de27e`. Phase release remains OPEN.
+- Historical status: IN_PROGRESS, 2026-10-07; all Cozy consumer outcomes and Step
   acceptance remain OPEN.
 - Owner: Cozy Phase 75.1 parent; exact Slice ownership is frozen before edits.
 - Update rule: close only after all admitted Slices, actual focused consumer/
