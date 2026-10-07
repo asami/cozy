@@ -3,6 +3,24 @@ package cozy.ui
 import cozy.ui.CozyLogicalUi._
 import cozy.ui.CozyLogicalUiReview._
 import cozy.ui.CozyLogicalUiSemantics._
+import cozy.ui.CozyLogicalUiSalesOrderFixtures.{
+  salesOrder => _sales_order,
+  businessUseCase => _business_use_case,
+  systemUseCase => _system_use_case,
+  uiUseCase => _ui_use_case,
+  useCases => _use_cases,
+  entityBinding => _entity_binding,
+  aggregateBinding => _aggregate_binding,
+  serviceBinding => _service_binding,
+  operationBinding => _operation_binding,
+  valueBinding => _value_binding,
+  datatypeBinding => _datatype_binding,
+  viewBinding => _view_binding,
+  workflowBinding => _workflow_binding,
+  powertypeBinding => _powertype_binding,
+  stateMachineBinding => _state_machine_binding,
+  allBindings => _all_bindings
+}
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -10,7 +28,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 2, 2026
- * @version Sep. 2, 2026
+ * @version Oct. 8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -191,270 +209,11 @@ final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers
   }
 
   private def _fixture(reversed: Boolean = false): (AcceptedLogicalUi, LogicalUiProjection, LogicalUiSemanticProjection) = {
-    val candidate = _right(CozyLogicalUi.candidate(_candidate_input))
-    val projection = _right(CozyLogicalUi.project(candidate, _projection(candidate, reversed)))
-    val semantics = _right(CozyLogicalUiSemantics.project(projection, _semantics(projection, reversed)))
+    val fixture = _right(CozyLogicalUiSalesOrderFixtures.candidate(reversed))
+    val candidate = fixture._1
     val accepted = _right(CozyLogicalUi.accept(candidate, AcceptanceDecision("accepted-sales-order", candidate.identity)))
-    (accepted, projection, semantics)
+    (accepted, fixture._2, fixture._3)
   }
-
-  private def _projection(candidate: LogicalUiCandidate, reversed: Boolean): UseCaseScreenProjection = {
-    val usecases = candidate.input.useCases
-    val uiusecase = usecases.ui
-    val values = UseCaseScreenProjection(
-      candidate.identity,
-      Vector(usecases),
-      Vector(
-        UiUseCaseStep(uiusecase, "confirm", NormalPath),
-        UiUseCaseStep(uiusecase, "enter", AlternativePath),
-        UiUseCaseStep(uiusecase, "failure", ExceptionPath),
-        UiUseCaseStep(uiusecase, "system-check", SystemOnlyPath)
-      ),
-      Vector(_list_screen, _detail_screen),
-      Vector(
-        ScreenInteractionMapping(uiusecase, "confirm", "order-list", "entry"),
-        ScreenInteractionMapping(uiusecase, "confirm", "order-list", "to-detail"),
-        ScreenInteractionMapping(uiusecase, "confirm", "order-detail", "select"),
-        ScreenInteractionMapping(uiusecase, "confirm", "order-detail", "invoke"),
-        ScreenInteractionMapping(uiusecase, "confirm", "order-detail", "observe"),
-        ScreenInteractionMapping(uiusecase, "enter", "order-detail", "input"),
-        ScreenInteractionMapping(uiusecase, "failure", "order-detail", "feedback")
-      ),
-      Vector(AggregateBoundary(_aggregate_binding, _aggregate_binding, Vector(_aggregate_binding, _entity_binding), Vector(_operation_binding)))
-    )
-    if (reversed) values.copy(steps = values.steps.reverse, screens = values.screens.reverse, mappings = values.mappings.reverse) else values
-  }
-
-  private def _semantics(projection: LogicalUiProjection, reversed: Boolean): LogicalUiSemanticsInput = {
-    val usecase = projection.input.catalog.head.ui
-    val values = LogicalUiSemanticsInput(
-      projection.identity,
-      Vector(
-        ScreenSemantics(
-          "order-list",
-          BrowsePurpose,
-          Vector(RegionDisplayBinding("list-root", CollectionDisplay)),
-          Vector(
-            InteractionPatternBinding("entry", ObservePattern),
-            InteractionPatternBinding("to-detail", NavigatePattern)
-          ),
-          Vector(
-            InteractionStateBinding("entry", IdleInteractionState),
-            InteractionStateBinding("to-detail", IdleInteractionState)
-          )
-        ),
-        ScreenSemantics(
-          "order-detail",
-          ConfirmPurpose,
-          Vector(
-            RegionDisplayBinding("detail-body", DetailDisplay),
-            RegionDisplayBinding("detail-root", DetailDisplay)
-          ),
-          Vector(
-            InteractionPatternBinding("input", InputPattern),
-            InteractionPatternBinding("select", SelectPattern),
-            InteractionPatternBinding("invoke", CommandPattern),
-            InteractionPatternBinding("observe", ObservePattern),
-            InteractionPatternBinding("feedback", ObservePattern)
-          ),
-          Vector(
-            InteractionStateBinding("input", PendingInteractionState),
-            InteractionStateBinding("select", IdleInteractionState),
-            InteractionStateBinding("invoke", SucceededInteractionState),
-            InteractionStateBinding("observe", IdleInteractionState),
-            InteractionStateBinding("feedback", FailedInteractionState)
-          )
-        )
-      ),
-      Vector(
-        ComponentSemanticBinding(EntityRole, _entity_binding),
-        ComponentSemanticBinding(AggregateRole, _aggregate_binding),
-        ComponentSemanticBinding(ServiceRole, _service_binding),
-        ComponentSemanticBinding(OperationRole, _operation_binding),
-        ComponentSemanticBinding(ValueRole, _value_binding, Some(ExactlyOneMultiplicity)),
-        ComponentSemanticBinding(DatatypeRole, _datatype_binding, Some(ZeroOrMoreMultiplicity)),
-        ComponentSemanticBinding(ViewRole, _view_binding),
-        ComponentSemanticBinding(WorkflowRole, _workflow_binding),
-        ComponentSemanticBinding(PowertypeRole, _powertype_binding, powertypeVariantId = Some("awaiting-confirmation")),
-        ComponentSemanticBinding(
-          StateMachineRole,
-          _state_machine_binding,
-          domainStates = Vector(
-            DomainStateReference(_state_machine_binding, "draft"),
-            DomainStateReference(_state_machine_binding, "confirmed")
-          )
-        )
-      ),
-      Vector(
-        ConstraintDeclaration(
-          ConstraintIdentity("sales-order-code", "DATATYPE_FORMAT"),
-          DatatypeConstraint,
-          _datatype_binding,
-          LocalDeterministicValidation
-        ),
-        ConstraintDeclaration(
-          ConstraintIdentity("confirm-order", "VALUE_LOCAL"),
-          ValueConstraint,
-          _value_binding,
-          ContextDependentValidation
-        ),
-        ConstraintDeclaration(
-          ConstraintIdentity("sales-order", "AGGREGATE_INVARIANT"),
-          AggregateInvariant,
-          _aggregate_binding,
-          ServerAuthoritativeValidation
-        ),
-        ConstraintDeclaration(
-          ConstraintIdentity("confirm-order", "SALES_ORDER_PRE"),
-          OperationPrecondition,
-          _operation_binding,
-          LocalDeterministicValidation
-        ),
-        ConstraintDeclaration(
-          ConstraintIdentity("confirm-order", "SALES_ORDER_POST"),
-          OperationPostcondition,
-          _operation_binding,
-          ServerAuthoritativeValidation
-        )
-      ),
-      Vector(
-        FeedbackConstraintAssociation("validation-failed", ConstraintIdentity("confirm-order", "VALUE_LOCAL")),
-        FeedbackConstraintAssociation("conflict", ConstraintIdentity("confirm-order", "SALES_ORDER_PRE"))
-      ),
-      Vector(
-        StateMachineTransitionAction(
-          UiUseCaseStep(usecase, "confirm", NormalPath),
-          "order-detail",
-          "invoke",
-          _operation_binding,
-          _state_machine_binding,
-          DomainStateReference(_state_machine_binding, "draft"),
-          DomainStateReference(_state_machine_binding, "confirmed"),
-          Some(WorkflowStateReference("sales-order-workflow", "awaiting")),
-          SucceededInteractionState
-        )
-      )
-    )
-    if (reversed) values.copy(
-      screens = values.screens.reverse,
-      componentBindings = values.componentBindings.reverse,
-      constraints = values.constraints.reverse,
-      feedbackAssociations = values.feedbackAssociations.reverse,
-      transitionActions = values.transitionActions.reverse
-    ) else values
-  }
-
-  private val _sales_order = ComponentCoordinate("org.example.sales", "SalesOrder", "1.0.0")
-  private val _business_use_case = UseCaseReference(Business, "business-confirm-sales-order")
-  private val _system_use_case = UseCaseReference(System, "system-confirm-sales-order")
-  private val _ui_use_case = UseCaseReference(Ui, "ui-confirm-sales-order")
-  private val _use_cases = UseCaseLayers(
-    _business_use_case,
-    _system_use_case,
-    _ui_use_case,
-    Vector(
-      UseCaseRealization(_business_use_case, _system_use_case),
-      UseCaseRealization(_system_use_case, _ui_use_case)
-    )
-  )
-
-  private val _entity_binding = ComponentBinding(_sales_order, "entity")
-  private val _aggregate_binding = ComponentBinding(_sales_order, "aggregate")
-  private val _service_binding = ComponentBinding(_sales_order, "service")
-  private val _operation_binding = ComponentBinding(_sales_order, "operation")
-  private val _value_binding = ComponentBinding(_sales_order, "value")
-  private val _datatype_binding = ComponentBinding(_sales_order, "datatype")
-  private val _view_binding = ComponentBinding(_sales_order, "view")
-  private val _workflow_binding = ComponentBinding(_sales_order, "workflow")
-  private val _powertype_binding = ComponentBinding(_sales_order, "powertype")
-  private val _state_machine_binding = ComponentBinding(_sales_order, "state-machine")
-  private val _all_bindings = Vector(
-    _entity_binding,
-    _aggregate_binding,
-    _service_binding,
-    _operation_binding,
-    _value_binding,
-    _datatype_binding,
-    _view_binding,
-    _workflow_binding,
-    _powertype_binding,
-    _state_machine_binding
-  )
-  private val _candidate_input = CandidateInput(
-    Vector(ComponentSurface(_sales_order, _all_bindings.map(_.exportId))),
-    _all_bindings,
-    _use_cases
-  )
-
-  private val _list_screen = LogicalScreen(
-    "order-list",
-    "browse",
-    Vector("search", "sort"),
-    ScreenSubject(ViewRole, _view_binding),
-    Vector(SemanticRegion("list-root", None, 0)),
-    Vector(
-      ScreenInteraction("entry", EntryInteraction, Vector(ComponentUsage(EntityRole, _entity_binding)), None, None),
-      ScreenInteraction("to-detail", NavigationInteraction, Vector.empty, None, Some(NavigationEndpoint("to-detail", "order-detail")))
-    ),
-    Vector(NormalFeedback, LoadingFeedback, EmptyFeedback, UnavailableFeedback)
-  )
-
-  private val _detail_screen = LogicalScreen(
-    "order-detail",
-    "confirm",
-    Vector("review"),
-    ScreenSubject(WorkflowRole, _workflow_binding),
-    Vector(
-      SemanticRegion("detail-root", None, 0),
-      SemanticRegion("detail-body", Some("detail-root"), 1)
-    ),
-    Vector(
-      ScreenInteraction(
-        "input",
-        InputInteraction,
-        Vector(ComponentUsage(ValueRole, _value_binding), ComponentUsage(DatatypeRole, _datatype_binding)),
-        None,
-        None
-      ),
-      ScreenInteraction(
-        "select",
-        SelectionInteraction,
-        Vector(ComponentUsage(PowertypeRole, _powertype_binding)),
-        None,
-        None
-      ),
-      ScreenInteraction(
-        "invoke",
-        InvocationInteraction,
-        Vector(
-          ComponentUsage(ServiceRole, _service_binding),
-          ComponentUsage(OperationRole, _operation_binding),
-          ComponentUsage(StateMachineRole, _state_machine_binding)
-        ),
-        Some(MutationAction(_aggregate_binding, _operation_binding)),
-        None
-      ),
-      ScreenInteraction(
-        "observe",
-        ObservationInteraction,
-        Vector(
-          ComponentUsage(AggregateRole, _aggregate_binding)
-        ),
-        None,
-        None
-      ),
-      ScreenInteraction("feedback", FeedbackInteraction, Vector.empty, None, None)
-    ),
-    Vector(
-      NormalFeedback,
-      LoadingFeedback,
-      EmptyFeedback,
-      UnavailableFeedback,
-      ValidationFailedFeedback,
-      ConflictFeedback,
-      OperationFailedFeedback
-    )
-  )
 
   private def _right[A](value: Either[LogicalUiError, A]): A = value match {
     case Right(result) => result

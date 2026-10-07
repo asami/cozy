@@ -318,3 +318,135 @@ selection are specified in
 [`logical-ui-runtime-contract.md`](logical-ui-runtime-contract.md). CNCF Phase
 96 may consume that local provisional contract before a separate Android mock
 integration acceptance is completed.
+
+## 10. Candidate preview and currentness
+
+`CozyLogicalUiReview.renderCandidate(candidate, projection, semantics)` admits
+one genuine `LogicalUiCandidate`, its `LogicalUiProjection`, and its bound
+`LogicalUiSemanticProjection` without constructing an `AcceptanceDecision` or
+accepted authority. Candidate preview is not acceptance. The package-local API
+is:
+
+```scala
+def renderCandidate(
+  candidate: LogicalUiCandidate,
+  projection: LogicalUiProjection,
+  semantics: LogicalUiSemanticProjection
+): Either[LogicalUiError, LogicalUiCandidateReview]
+
+def verifyCandidateCurrent(
+  candidate: LogicalUiCandidate,
+  projection: LogicalUiProjection,
+  semantics: LogicalUiSemanticProjection,
+  reviewValue: LogicalUiCandidateReview
+): Either[LogicalUiError, Unit]
+
+def writeCandidate(
+  reviewValue: LogicalUiCandidateReview,
+  parent: Path,
+  target: Path
+): Either[LogicalUiError, Unit]
+```
+
+`LogicalUiCandidateReview` exposes immutable `html`, `receipt`, `diagnostics`,
+and UTF-8 `htmlBytes`. Its `copy(html, receipt, diagnostics)` retains the
+private declared candidate/projection/semantics tuple. `CandidateReviewReceipt`
+has exactly these fields, in order:
+
+```scala
+final case class CandidateReviewReceipt(
+  schema: String, version: Int, rendererProfile: String,
+  candidateIdentity: String, consumedInputIdentity: String,
+  projectionIdentity: String, semanticProjectionIdentity: String
+)
+```
+
+Schema is `cozy.logical-ui-candidate-review.v1`, version is `1`, and renderer
+profile is `cozy.logical-ui-candidate-review.renderer.v1`. The four identity
+fields equal the supplied candidate identity, candidate consumed-input
+identity, screen projection identity, and semantic projection identity. There
+is no accepted identity, decision, HTML hash, receipt hash, or additional
+identity. Candidate identity alone does not bind screen or semantic extensions.
+
+Admission requires three non-null inputs, a projected candidate, and nonempty
+canonical identities. Candidate identity, consumed-input identity, and
+canonical content must equal those of `projection.candidate` exactly, and
+`semantics.projectionIdentity` must equal `projection.identity`. Factories own
+normalization and semantic validation. Failure is a structured
+`LUI50_CANDIDATE_REVIEW_IDENTITY_MISMATCH` with the precise path and reason;
+the renderer performs no normalization or source lookup.
+
+The overview displays `Candidate preview`, status `candidate (not accepted)`,
+schema/profile and all four bound identities. Accepted identity and decision
+evidence are absent. The other sections and informational diagnostics use the
+same structural builders as accepted review in section 8. Dynamic text is
+escaped; output is self-contained read-only HTML with inline CSS, without
+scripts, forms, remote resources, route execution, or an acceptance action.
+The accepted APIs, receipt fields, HTML and identities retain their section 8
+contract.
+
+`verifyCandidateCurrent` renders the supplied tuple and compares complete HTML,
+receipt and diagnostics. Null review, invalid tuple, or any stale observable
+returns `LUI50_CANDIDATE_REVIEW_CURRENTNESS_INVALID` with its pertinent path
+and reason. This is product currentness, not workflow integrity control.
+`writeCandidate` first verifies the result against its stored declared tuple,
+then shares section 8's direct-parent, traversal/symlink, HTML suffix and
+same-parent atomic UTF-8 write boundary. Shared path/write failures retain
+`LUI43_REVIEW_OUTPUT_INVALID`; rejected stale or invalid output preserves prior
+bytes. Only HTML is installed, without a receipt side file. The failure model
+covers tuple/currentness and the existing explicit output failures; it adds no
+locks, retries, backups, snapshots, checksums, or interference detection.
+
+The executable specification is
+`src/test/scala/cozy/ui/CozyLogicalUiCandidateReviewSpec.scala`. It consumes the
+shared SalesOrder fixture, exercises factory-admitted foreign and changed
+tuples, result-field currentness, at least twenty reordered constructions,
+escaped purpose text, and direct writer admission/preservation.
+
+## 11. Shared SalesOrder compact success contract
+
+`CozyLogicalUiSalesOrderFixtures` is a test-owned, target-neutral immutable
+fixture shared by the Phase43 accepted specification and candidate preview.
+Its pure `candidate(reversed)` composes existing candidate, screen projection,
+and semantic factories with `Either` and never accepts a candidate. The
+Phase43 acceptance specification explicitly calls
+`accept(candidate, AcceptanceDecision("accepted-sales-order", candidate.identity))`.
+`projectionInput(candidate, reversed)` and `semanticsInput(projection, reversed)`
+expose the same logical values and mappings. Reordered constructions permute
+candidate exports/bindings/realizations, screen vectors, and semantic vectors
+without changing canonical meaning.
+
+The existing Phase43 IR and Phase74 public Purpose, Display and Interaction
+Pattern vocabulary already represent exact public bindings, the normal UI
+step, list/detail screens, navigation, selection, command, transition admission,
+and distinct UI success. They suffice for this compact contract. No core IR,
+codec, runtime, or vocabulary expansion is required. Medium and exhaustive
+missing-IR work remain owned by Phase50.1.
+
+`compactSuccess` has fixture ID `sales-order-compact-v1` and coverage ID
+`P50-COMPACT-NORMAL-001`. Its `DemoOrder` initial/result records both contain
+order ID `SO-001`, label `Sales order SO-001`, and amount `100.00`. They differ
+only in `DomainStateReference(stateMachineBinding, "draft")` versus
+`DomainStateReference(stateMachineBinding, "confirmed")`.
+`successUiState` is the distinct `SucceededInteractionState`. This is a
+repeatable simulated result and executes no mutation, Operation, Workflow,
+domain transition, or server success authority. Its action is the existing
+normal `confirm` step at `order-detail/invoke` in the shared semantic tuple.
+
+The exact public coordinate for all fixture bindings is
+`org.example.sales.SalesOrder@1.0.0`. The binding set used by the canonical row
+is `Entity:#entity`, `Aggregate:#aggregate`, `Service:#service`,
+`Operation:#operation`, `Value:#value`, `Datatype:#datatype`, `View:#view`,
+`Workflow:#workflow`, `Powertype:#powertype`, and `StateMachine:#state-machine`,
+where each `#export` is bound to that exact coordinate. Invocation uses the
+public Operation and StateMachine bindings and the Aggregate root mutation
+admission already present in Phase43.
+
+| Coverage ID | Fixture | UI step | Screen interactions in order | Exact public bindings | Profile | Outcome | Phase50 requirements | Evidence status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P50-COMPACT-NORMAL-001 | sales-order-compact-v1 | normal `confirm` | `order-list/entry`, `order-list/to-detail`, `order-detail/select`, `order-detail/invoke`, `order-detail/observe` | SalesOrder exact public binding set declared above | compact | simulated success: domain draft to confirmed, UI succeeded | P50-MAIN-02/03/04/05/06 | contract-only; generated Web and browser evidence pending S50.2 |
+
+This is the single canonical coverage row to extend with S50.2 evidence. It
+does not claim browser success or target-ready acceptance. The original
+full-outcome checklist rows remain open in Phase50.1; no second coverage
+matrix or target/framework/browser fields are added to Logical UI semantic IR.

@@ -2,8 +2,9 @@
 
 Document role: normative design for the Cozy-owned Logical UI authority kernel.
 The executable contract is [`docs/spec/logical-ui-model.md`](../spec/logical-ui-model.md).
-This design owns `cozy.logical-ui.v1` only; it does not define screen projection,
-HTML rendering, target-framework generation, or CML/CNCF source semantics.
+This design owns the Cozy Logical UI authority kernel and its documented screen
+projection, semantic projection, and read-only review extensions. It does not
+own target-framework generation or CML/CNCF source semantics.
 
 ## 1. Authority boundary
 
@@ -215,3 +216,76 @@ in that parent and uses an atomic move. It never stores a receipt beside the
 page, reads an HTML page as authority, or publishes/registers an artifact.
 Renderer changes therefore remain a non-authoritative review concern and
 cannot stale Logical UI semantic authority by mutation.
+
+## 9. Additive candidate preview boundary
+
+`renderCandidate` takes the genuine declared candidate, its normalized screen
+projection, and its bound semantic projection. It adds an inspection entry
+without calling `accept`, creating a decision, or wrapping a candidate in
+synthetic accepted authority. The exact candidate/input identities and canonical
+content match the projected candidate, and the semantic projection binds the
+exact screen projection identity. Factories retain normalization responsibility.
+
+`LogicalUiCandidateReview` retains its private declared tuple and exposes
+immutable HTML, a separate `CandidateReviewReceipt`, diagnostics and UTF-8
+bytes. Observable-field copies retain that tuple. The separate receipt has
+schema `cozy.logical-ui-candidate-review.v1`, version `1`, renderer profile
+`cozy.logical-ui-candidate-review.renderer.v1`, and only the four reused
+candidate, consumed-input, projection and semantic identities. Screen and
+semantic extensions need their own bindings because candidate identity does
+not include those layers. No hash or additional identity is introduced.
+
+The accepted and candidate entries share the structural section builders and
+informational diagnostics. The common HTML builder receives the candidate and
+an explicit overview. Accepted review passes its existing overview unchanged;
+candidate preview shows `Candidate preview`, `candidate (not accepted)`, the
+candidate schema/profile and four identities, omitting accepted identity and
+decision evidence. Both paths use the established escaping and inline CSS
+without execution surfaces or remote resources.
+
+`verifyCandidateCurrent` recomputes all HTML, receipt and diagnostics from the
+supplied tuple. `writeCandidate` verifies the retained tuple before sharing the
+existing direct-parent validation and atomic UTF-8 HTML writer. Identity and
+currentness failures use the distinct `LUI50_CANDIDATE_REVIEW_*` diagnostics;
+filesystem output failures retain `LUI43_REVIEW_OUTPUT_INVALID`. The accepted
+API, receipt arity, HTML, diagnostics, output behavior and legacy identities
+remain compatible. The declared failure model adds no concurrency, retries,
+checksums, backup, snapshot, or interference mechanisms.
+
+## 10. Compact fixture reuse
+
+Phase43 candidate/projection/semantic modeling and Phase74's existing public
+vocabulary suffice for the compact normal SalesOrder flow. This increment needs
+no core, codec, runtime vocabulary or selection changes. Medium and exhaustive
+missing-IR work remain owned by Phase50.1; runtime integration is outside this
+contract.
+
+The shared test-owned `CozyLogicalUiSalesOrderFixtures` extracts the existing
+Phase43 model construction, retaining its logical values, Workflow subject,
+constraints, feedback and normal `confirm` mappings. It composes existing pure
+factories into a candidate tuple; accepted specification construction keeps its
+explicit original acceptance decision. Equivalent reordering includes candidate
+surface exports/bindings/realizations and projection/semantic vectors.
+
+The immutable `DemoOrder` and `CompactSuccessFixture` add repeatable initial and
+simulated result values for S50.2: `SO-001`, `Sales order SO-001`, `100.00`, and
+the exact public StateMachine binding in domain `draft` and `confirmed` states.
+The result's distinct UI state is `SucceededInteractionState`. The declared
+action remains the existing normal `confirm` / `order-detail` / `invoke`
+transition admission using the public Operation and StateMachine. Consuming
+these records executes no Operation, Workflow or domain transition and creates
+no accepted authority.
+
+The sole canonical coverage row is `P50-COMPACT-NORMAL-001` in
+[the specification, section 11](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract),
+fixture `sales-order-compact-v1`, profile compact, and simulated success. It
+binds normal `confirm` to `order-list/entry`, `order-list/to-detail`,
+`order-detail/select`, `order-detail/invoke`, and `order-detail/observe`, exact
+SalesOrder public bindings, and P50-MAIN-02/03/04/05/06. Its evidence status is
+`contract-only; generated Web and browser evidence pending S50.2`. S50.2 extends
+that same row. Browser success and target-ready acceptance are pending; the
+original full-outcome checklist rows remain open in Phase50.1.
+
+`CozyLogicalUiCandidateReviewSpec` provides executable coverage of this additive
+preview and fixture contract alongside the unchanged explicit accepted flow.
+Target/framework/browser fields remain outside Logical UI semantic IR.
