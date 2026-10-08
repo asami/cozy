@@ -1,0 +1,109 @@
+# Phase 50.1 Checklist: Complete Logical UI Target-Readiness and Static Web
+
+Status: PLANNED; split from Phase 50 on 2026-10-08. All 59 original outcomes
+below retain their IDs and wording and remain open. This is their sole full
+completion ledger. Phase 50's [narrow main-route ledger](phase-50-checklist.md)
+supplies partial evidence only; no completed history existed to move.
+
+The [Phase 50.1 execution sequence](phase-50.1.md#execution-sequence) owns E3/E4.
+E3 completes remaining PREP-01/03–04, IR, both projections and responsive
+branches. E4 completes exact acceptance binding PREP-02, feedback, complete
+driver coverage and closure. Reuse predecessor E1/E2 evidence through the one
+coverage matrix; never mark broad rows complete from compact success alone.
+Full serialized Cozy validation is final-only / sbt-full-suite, owned here for
+PHASE-50 and PHASE-50.1. Both members retain their own focused validation,
+independent full Phase review, Step acceptance, closure ledger and release.
+
+## Execution preparation
+
+- [ ] P50-PREP-01: Record Phase 43/74 reuse and gaps, medium-intent disposition,
+      and the necessary/conditional disposition of every IR extension.
+- [ ] P50-PREP-02: Freeze candidate review without synthetic acceptance and
+      the exact target-ready acceptance/input binding in design/spec.
+- [ ] P50-PREP-03: Define one SalesOrder fixture, output/entry boundary and
+      coverage matrix linking checklist IDs, UI steps, outcomes and profiles.
+- [ ] P50-PREP-04: Allocate focused suites, actual browser evidence, per-batch
+      review and final full validation without duplicating their responsibilities.
+
+Evidence rule: check a row only when its outcome is proved. For an existing
+conditional item (“as needed”, “where practical” or equivalent), retain the row
+and record the explicit applicability decision and rationale. Do not silently
+waive a required behavior. Historical closure evidence does not mark new work
+complete. One evidence record may satisfy multiple explicitly mapped rows.
+
+## Target-readiness IR
+
+- [ ] P50-01-01: Review Phase 43 Logical UI against later iPhone/Android and Flutter needs.
+- [ ] P50-01-02: Add only target-neutral missing semantics.
+- [ ] P50-01-03: Admit responsive/window-class intent for compact/medium/expanded.
+- [ ] P50-01-04: Admit form-factor hints only where semantically useful.
+- [ ] P50-01-05: Add region adaptation/layout constraints without target coordinates.
+- [ ] P50-01-06: Add accessibility/focus semantics as needed.
+- [ ] P50-01-07: Add localization/text source identity as needed.
+- [ ] P50-01-08: Add target-neutral keyboard/input and semantic control roles as needed.
+- [ ] P50-01-09: Add target-projection provenance/currentness hooks.
+- [ ] P50-01-10: Reject Flutter/Dart/Material/Cupertino/widget-specific vocabulary.
+- [ ] P50-01-11: Preserve exact candidate/accepted Logical UI identity semantics.
+
+## Structural Review HTML
+
+- [ ] P50-02-01: Expose all new IR semantics in the deterministic Review HTML.
+- [ ] P50-02-02: Expose responsive intent and diagnostics.
+- [ ] P50-02-03: Expose accessibility/localization information.
+- [ ] P50-02-04: Preserve read-only, self-contained, deterministic behavior.
+- [ ] P50-02-05: Bind exact candidate/accepted input identity and output receipt.
+
+## Progressive Static Web
+
+- [ ] P50-03-01: Generate a deterministic static Web application from Logical UI.
+- [ ] P50-03-02: Support screen navigation/reachability.
+- [ ] P50-03-03: Support selection and input.
+- [ ] P50-03-04: Support admitted interaction patterns.
+- [ ] P50-03-05: Support local-deterministic validation.
+- [ ] P50-03-06: Simulate admitted action invocation without claiming server execution.
+- [ ] P50-03-07: Support loading/success/conflict/unavailable/operation-failed paths.
+- [ ] P50-03-08: Support retry/recovery paths where admitted.
+- [ ] P50-03-09: Support deterministic fixture reset/replay.
+- [ ] P50-03-10: Do not duplicate domain StateMachine, Workflow, authorization, or server
+  authority in client fixtures.
+
+## Responsive interactive review
+
+- [ ] P50-04-01: Run compact preview.
+- [ ] P50-04-02: Run medium preview.
+- [ ] P50-04-03: Run expanded preview.
+- [ ] P50-04-04: Provide side-by-side review where practical.
+- [ ] P50-04-05: Diagnose overflow and unreachable required content.
+- [ ] P50-04-06: Diagnose missing actions/feedback/navigation.
+- [ ] P50-04-07: Diagnose focus-order and responsive-intent inconsistencies.
+- [ ] P50-04-08: Keep responsive review as evidence, not semantic authority.
+
+## Feedback and acceptance
+
+- [ ] P50-05-01: Review candidate through Review HTML.
+- [ ] P50-05-02: Review candidate through Progressive Static Web walkthrough.
+- [ ] P50-05-03: Record explicit reviewer feedback.
+- [ ] P50-05-04: Revise candidate without treating generated Web files as source.
+- [ ] P50-05-05: Explicitly accept one exact target-ready Logical UI identity.
+
+## Representative driver
+
+- [ ] P50-DR-01: Exercise SalesOrder list -> detail navigation.
+- [ ] P50-DR-02: Exercise confirm interaction.
+- [ ] P50-DR-03: Exercise loading state.
+- [ ] P50-DR-04: Exercise success state.
+- [ ] P50-DR-05: Exercise conflict state.
+- [ ] P50-DR-06: Exercise unavailable/service-failure state.
+- [ ] P50-DR-07: Exercise validation and admitted retry/recovery.
+- [ ] P50-DR-08: Preserve UI UseCase and Component provenance.
+- [ ] P50-DR-09: Exercise compact/medium/expanded variants.
+
+## Closure
+
+- [ ] P50-CLOSE-01: Focused Executable Specifications pass.
+- [ ] P50-CLOSE-02: No Flutter-specific value has leaked into Logical UI authority.
+- [ ] P50-CLOSE-03: Review HTML and Progressive Static Web project the same IR identity.
+- [ ] P50-CLOSE-04: Deterministic identities/currentness/provenance are complete.
+- [ ] P50-CLOSE-05: Independent Phase review has no Current Phase Blocker.
+- [ ] P50-CLOSE-06: Full serialized Cozy validation passes.
+- [ ] P50-CLOSE-07: Closure explicitly leaves Flutter policy/plan/source generation to Phase 51.
