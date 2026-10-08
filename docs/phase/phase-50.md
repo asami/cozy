@@ -1,6 +1,6 @@
 # Phase 50: Logical UI Candidate Preview and Compact Static Web
 
-status=planned
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -11,7 +11,7 @@ aggregate_validation_sequence=["PHASE-50","PHASE-50.1"]
 Plan date: 2026-09-06
 
 Execution plan updated: 2026-10-08 (main-route-first optimization, then split;
-planning only, implementation remains unstarted).
+planning only; implementation was unstarted at that split).
 
 Predecessor: accepted Phase 43 Logical UI Model closure; reuse the accepted
 Phase 74 vocabulary and compact runtime fixture without requiring CNCF/Android
@@ -177,6 +177,32 @@ pre-apply proposal's exhaustive-E1, medium-successor and per-member-full-test
 assumptions; the current main-route-first plan retains medium and final
 acceptance decisions in E3/E4. All 59 original full outcomes have one owner,
 Phase 50.1. The new P50-MAIN rows describe narrower deliverables only.
+
+## Execution and local closure (2026-10-08)
+
+The narrow producer increment is closed through `P50-CLOSURE-001@1` and the
+distinct native local release identified by its `Phase-Closure-Binding` Git
+trailer. This status is effective when that release is committed and its native
+closure audit succeeds. The dated split statements above describe the earlier
+planning operation; execution followed in this task.
+
+S50.1 and S50.2 are accepted in local commits
+`4418f8b2e5263488869902a6b4658ec1f9d45e5d` and
+`0464ec966bec0c80fd9eefb0254f7cbedebfba2b`. Focused validation passed 61 tests
+in seven suites and 74 tests in eight suites respectively. The actual compact
+Chrome walkthrough retained six states and screenshots with successful cleanup.
+The sole independent full Phase review, `P50-PHASE-FULL-REVIEW-001@1`, passed
+with no Current Phase Blocker. The reviewed reciprocal plans were saved in
+management commit `09963e8dcce9b03bfbbd05e0ae3e1c3982347a01`; that save starts no successor.
+
+The [closure ledger](phase-50-closure-ledger.md) maps all ten narrow MAIN
+requirements to evidence. The [successor handoff](phase-50.1-handoff.md) retains
+the declared inputs, projections, browser evidence and validation responsibility.
+`repository_full_suite=deferred-not-run`: aggregate assurance remains pending
+with PHASE-50.1 under the unchanged final-only / sbt-full-suite sequence.
+All 59 original successor outcomes remain open. Shared Phase-index and strategy
+status projections are preserved concurrent planning; their synchronization is
+deferred without altering this canonical closure.
 
 ## References
 
