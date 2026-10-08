@@ -1,6 +1,6 @@
 # Phase 71.5: Management Hash and Artifact Protection Removal
 
-status=planned
+status=in-progress
 depends_on=phase-71.4.md
 execution_priority=after_phase_71.4_closure
 split_full_test_policy=final-only
@@ -10,7 +10,7 @@ validation_ownership=aggregate-deferred
 aggregate_validation_owner=PHASE-71.7
 aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4","PHASE-71.5","PHASE-71.6","PHASE-71.7"]
 
-Status: planned; implementation not started
+Status: in-progress, P715-01 inventory implementation pending acceptance
 Planned at: 2026-10-03
 Primary owner: Cozy
 Predecessor: [Phase 71.4](phase-71.4.md).
@@ -18,6 +18,7 @@ Planned successor: [Phase 71.6](phase-71.6.md), per-tool execution and video
 encoder selection, only after this Phase closes.
 Completion ledger: [Phase 71.5 Checklist](phase-71.5-checklist.md).
 Policy: [Artifact protection removal](../design/artifact-protection-removal.md).
+Selected work list: [Phase 71.5 remaining removal work list](../design/phase-71.5-removal-work-list.md).
 
 ## Goal
 

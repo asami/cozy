@@ -1,13 +1,13 @@
 # Phase 71.5 Checklist
 
-Phase status: PLANNED
+Phase status: IN-PROGRESS
 Updated: 2026-10-08
 Ledger for: [Phase 71.5](phase-71.5.md)
 Primary owner: Cozy
 Predecessor: [Phase 71.4](phase-71.4.md), closed before entry
 Repository-full validation: deferred-not-run to PHASE-71.7
 
-Implementation not started. Include unfinished management-hash removal from
+P715-01 inventory in progress; no product removal accepted. Include unfinished management-hash removal from
 71.4; preserve removals and actual results already obtained there. Completion
 is selected removal plus passing existing Executable Specifications for retained
 behavior, the working representative route after removal, normal review and commits. Add no removal-proof specs, new test suites
@@ -27,9 +27,11 @@ Phase acceptance still applies, and all states below remain unchanged.
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: IN-PROGRESS
 - Owner: Cozy
 - Update rule: close only against the following accepted inventory outcomes
+
+Selected work list: [Phase 71.5 remaining removal work list](../design/phase-71.5-removal-work-list.md).
 
 - [ ] Existing inventories and actual remaining callers define a finite removal list, including management hashes unfinished in 71.4, retained-integrity rows and non-hash protection. Completed removals/results are reused.
 - [ ] Each target identifies the removed behavior, its callers/supporting contracts and any independently meaningful product behavior; the inventory grants no protection exception.
