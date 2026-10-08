@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -73,10 +73,12 @@ private[cozy] trait CozyVideoRenderTemplates {
       else
         0
     }
+    val actualaudiodurations = audio.files.map(_wav_duration)
     val contentframes = math.max(
       1,
-      audio.entries.zip(scenesectiontransitions).map { case (entry, transitionframes) =>
-        math.max(1, math.round(_effective_render_duration(entry) * fps).toInt) + transitionframes
+      audio.entries.zip(actualaudiodurations).zip(scenesectiontransitions).map { case ((entry, actualduration), transitionframes) =>
+        VideoTiming.evaluate(entry.targetDuration, entry.leadSilence, actualduration, entry.tailSilence, fps).
+          effectiveFrameCount.toInt + transitionframes
       }.sum
     )
     val isfirstpart = plan.parts.filter(_.renderable).headOption.exists(_.id == part.id)
@@ -124,11 +126,13 @@ private[cozy] trait CozyVideoRenderTemplates {
     val finalframes = if (isfinalpart) math.max(0, math.round(holdseconds * fps).toInt) else 0
     val totalframes = openingframes + contentframes + summarystandaloneframes + creditframes + finalframes
     var startframe = 0
-    val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).zip(scenesectiontransitions).map {
-      case (((scene, entry), file), transitionframes) =>
-        val authoreddurationframes = math.max(1, math.round(_effective_render_duration(entry) * fps).toInt)
+    val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).zip(actualaudiodurations).zip(scenesectiontransitions).map {
+      case ((((scene, entry), file), actualduration), transitionframes) =>
+        val authoreddurationframes = VideoTiming.evaluate(
+          entry.targetDuration, entry.leadSilence, actualduration, entry.tailSilence, fps
+        ).effectiveFrameCount.toInt
         val authoredleadframes = math.max(0, math.round(entry.leadSilence * fps).toInt)
-        val audiodurationframes = math.max(1, math.round(entry.audioDuration * fps).toInt)
+        val audiodurationframes = math.max(1, math.ceil(actualduration * fps).toInt)
         val durationframes = authoreddurationframes + transitionframes
         val leadinframes = authoredleadframes + transitionframes
         val requestedtailsilence = scene.tailSilence.getOrElse(0.0)
@@ -154,7 +158,7 @@ private[cozy] trait CozyVideoRenderTemplates {
           "audioDurationFrames" -> Json.fromInt(audiodurationframes),
           "requestedTailSilenceSeconds" -> Json.fromDoubleOrNull(requestedtailsilence),
           "effectiveTailSilenceSeconds" -> Json.fromDoubleOrNull(entry.tailSilence),
-          "effectiveTailSilenceFrames" -> Json.fromInt(math.max(0, math.round(entry.tailSilence * fps).toInt))
+          "effectiveTailSilenceFrames" -> Json.fromInt(math.max(0, math.ceil(entry.tailSilence * fps).toInt))
         )
         startframe += durationframes
         json
@@ -227,7 +231,7 @@ private[cozy] trait CozyVideoRenderTemplates {
   }
 
   private[video] val _character_dialogue_template_id = "cozy-character-dialogue-v1"
-  private[video] val _character_dialogue_template_sha256 = "a3d9df7640383fe75848afd995ac78dca391fb6ec8b066362ee02b988b06399a"
+  private[video] val _character_dialogue_template_sha256 = "e24212630ce6b50203513bc0777b0fd7b179a00f3b963504cede75cdb7242707"
   private[video] val _character_dialogue_diagram_layout_sha256 = "9f36dd5c7765af8613cbe3924de5aae14b4b7e8c92d54418e58b95f798e81b56"
   private[video] val _character_web_demo_template_id = "cozy-character-web-demo-v1"
 
@@ -344,9 +348,11 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const entry = path.join(scriptDir, 'Root.tsx');
       |const publicDir = path.join(workDir, 'public');
       |const output = path.resolve(projectRoot, props.outputPath);
+      |const cliOutput = path.join(workDir, 'pcm-mux.mov');
       |fs.mkdirSync(path.dirname(output), {recursive: true});
-      |const renderArgs = ['render', entry, 'CozyVideo', output, '--overwrite', `--public-dir=${publicDir}`, `--crf=${props.crf}`];
+      |const renderArgs = ['render', entry, 'CozyVideo', cliOutput, '--codec=h264', '--overwrite', `--config=${path.join(workDir, 'remotion.config.js')}`, `--public-dir=${publicDir}`, `--crf=${props.crf}`];
       |if (props.x264Preset) renderArgs.push(`--x264-preset=${props.x264Preset}`);
+      |fs.rmSync(cliOutput, {force: true});
       |execFileSync('remotion', renderArgs, {
       |  cwd: workDir,
       |  stdio: 'inherit',
@@ -355,6 +361,44 @@ private[cozy] trait CozyVideoRenderTemplates {
       |    NODE_PATH: process.env.NODE_PATH || '/usr/local/lib/node_modules',
       |    NODE_OPTIONS: [process.env.NODE_OPTIONS, '--dns-result-order=ipv4first'].filter(Boolean).join(' ')
       |  }
+      |});
+      |if (!fs.existsSync(cliOutput) || !fs.statSync(cliOutput).isFile()) {
+      |  throw new Error(`Cozy Remotion render did not produce a regular private MP4 file: ${cliOutput}`);
+      |}
+      |fs.renameSync(cliOutput, output);
+      |""".stripMargin
+
+  private[video] val _remotion_config_js: String =
+    """import fs from 'node:fs';
+      |import path from 'node:path';
+      |import {Config} from '@remotion/cli/config';
+      |
+      |const props = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'props.json'), 'utf8'));
+      |const frames = props.timing?.totalFrames;
+      |const fps = props.fps;
+      |if (!Number.isSafeInteger(frames) || frames <= 0 || !Number.isSafeInteger(fps) || fps <= 0) {
+      |  throw new Error('Cozy PCM mux requires positive safe integer timing.totalFrames and fps; rerender with valid composition timing');
+      |}
+      |const samples = BigInt(frames) * 48000n / BigInt(fps);
+      |if (samples <= 0n) throw new Error('Cozy PCM mux composition has no 48k presentation samples');
+      |Config.setAudioCodec('pcm-16');
+      |Config.overrideFfmpegCommand(({type, args}) => {
+      |  if (type !== 'pre-stitcher' && type !== 'stitcher') return args;
+      |  const result = [...args];
+      |  if (type === 'pre-stitcher') {
+      |    result.splice(result.length - 1, 0, '-f', 'mp4');
+      |    return result;
+      |  }
+      |  const audio = result.indexOf('-c:a');
+      |  if (audio !== -1) {
+      |    if (result[audio + 1] !== 'copy' || result.lastIndexOf('-c:a') !== audio) {
+      |      throw new Error('Cozy PCM mux expected one stitcher -c:a copy pair; rerender using the configured PCM audio codec');
+      |    }
+      |    result.splice(audio, 2, '-c:a', 'libfdk_aac', '-b:a', '320k', '-cutoff', '18000', '-ar', '48000', '-ac', '2');
+      |    result.splice(result.length - 1, 0, '-af', `apad,atrim=end_sample=${samples},asetpts=PTS-STARTPTS`);
+      |  }
+      |  result.splice(result.length - 1, 0, '-movie_timescale', '48000', '-f', 'mp4');
+      |  return result;
       |});
       |""".stripMargin
 
@@ -368,6 +412,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  text: string;
       |  audioPath: string;
       |  duration: number;
+      |  durationFrames?: number;
       |};
       |
       |type Primitive = {
@@ -527,7 +572,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |    <AbsoluteFill>
       |      {opening && timing.openingFrames > 0 ? <Sequence from={0} durationInFrames={timing.openingFrames}><Opening title={title} effect={opening} asset={roleAsset(assets, 'opening')} durationInFrames={timing.openingFrames} /></Sequence> : null}
       |      {scenes.map((scene) => {
-      |        const duration = Math.max(1, Math.round((scene.duration || 1) * fps));
+      |        const duration = Math.max(1, scene.durationFrames ?? Math.ceil((scene.duration || 1) * fps));
       |        const sequence = <Sequence key={scene.id} from={start} durationInFrames={duration}><SceneCard scene={scene} /></Sequence>;
       |        start += duration;
       |        return sequence;
@@ -617,7 +662,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  const scene = (props.scenes || []).find((candidate) => frame >= candidate.startFrame && frame < candidate.startFrame + candidate.durationFrames) || props.scenes?.[0];
       |  const localFrame = Math.max(0, frame - (scene?.startFrame || 0));
       |  const character = scene?.speaker ? props.characters?.[scene.speaker] : null;
-      |  const audioDurationFrames = Math.max(1, Number(scene?.audioDurationFrames || Math.round(Number(scene?.audioDuration || 0) * Number(props.fps || 1)) || ((scene?.durationFrames || 1) - (scene?.leadInFrames || 0))));
+      |  const audioDurationFrames = Math.max(1, Number(scene?.audioDurationFrames || Math.ceil(Number(scene?.audioDuration || 0) * Number(props.fps || 1)) || ((scene?.durationFrames || 1) - (scene?.leadInFrames || 0))));
       |  const mouthOpen = !scene?.silent && character?.mouthOpenAsset && character?.mouthClosedAsset && localFrame >= (scene?.leadInFrames || 0) && localFrame < (scene?.leadInFrames || 0) + audioDurationFrames && Math.floor(localFrame / 4) % 2 === 0;
       |  const source = mouthOpen ? character.mouthOpenAsset : (character?.mouthClosedAsset || character?.asset);
       |  const side = character?.side === 'right' ? 'right' : 'left';

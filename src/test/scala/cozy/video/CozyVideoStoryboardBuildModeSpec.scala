@@ -16,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyVideoStoryboardBuildModeSpec {
@@ -1406,6 +1406,9 @@ final class CozyVideoStoryboardBuildModeSpec
       }).noSpaces,
       StandardCharsets.UTF_8
     )
+    sceneids.zipWithIndex.foreach { case (_, index) =>
+      CozyVideoImplementation._write_silence_wav(part.audioDir.get.resolve(f"${index + 1}%02d.wav"), 1.0)
+    }
     val props = Json.obj(
       "partId" -> Json.fromString(part.id),
       "encodingPolicy" -> Json.fromString(encoding.policy.name),
@@ -1663,7 +1666,7 @@ final class CozyVideoStoryboardBuildModeSpec
           case Some(result) =>
             _probe_results = _probe_results.tail
             result
-          case None => CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[{"codec_type":"video"}]}""", "")
+          case None => CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[{"codec_type":"video","duration_ts":18000,"time_base":"1/18000","duration":"1.000","start_time":"0"}]}""", "")
         }
       } else {
         CozyVideo.VideoCommandResult(0, "ok", "")

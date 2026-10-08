@@ -27,14 +27,26 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
+private[cozy] object CozyVideoBuildReplay {
+  private[video] final case class MediaDuration(numerator: BigInt, denominator: BigInt) {
+    def +(other: MediaDuration): MediaDuration =
+      MediaDuration(numerator * other.denominator + other.numerator * denominator, denominator * other.denominator)
+    def <=(other: MediaDuration): Boolean = numerator * other.denominator <= other.numerator * denominator
+    def sampleFloor: BigInt = numerator * 48000 / denominator
+    def decimal: String = new java.math.BigDecimal(numerator.bigInteger)
+      .divide(new java.math.BigDecimal(denominator.bigInteger), 18, java.math.RoundingMode.HALF_UP).toPlainString
+  }
+  private[video] final case class PartMediaTimeline(duration: MediaDuration, hasaudio: Boolean)
+}
+
 private[cozy] trait CozyVideoBuildReplay {
   self: CozyVideoTypes with CozyVideoRuntime with CozyVideoCommand with CozyVideoNarration with CozyVideoToolValidation with CozyVideoTranscription with CozyVideoReviewEvidence with CozyVideoRdf with CozyVideoRenderWorkspace with CozyVideoRenderTemplates with CozyVideoPlanning with CozyVideoPresentation =>
+  import CozyVideoBuildReplay.{MediaDuration, PartMediaTimeline}
   private[video] def _build_project(plan: VideoPlan, runner: VideoProcessRunner): VideoBuildResult = {
     plan.credits.requireValid()
-    val creditfiles = _write_credit_outputs(plan)
     val partoutputs = plan.parts.filter(_.renderable).map(_.outputPath)
     if (partoutputs.isEmpty)
       RAISE.invalidArgumentFault("No rendered video part outputs found for final assembly.")
@@ -42,16 +54,18 @@ private[cozy] trait CozyVideoBuildReplay {
       if (!Files.isRegularFile(path))
         RAISE.invalidArgumentFault(s"Missing rendered part output: $path. Run: cozy video render <project-file> --renderer=remotion|simple-java2d")
     }
-    val executionparts = _build_execution_parts(plan.projectRoot, plan.execution, partoutputs)
-    val executionoutput = _build_execution_output(plan.projectRoot, plan.execution, plan.outputPath)
-    val concatlist = _ffmpeg_concat_list_path(plan.projectRoot)
+    val workspace = _assembly_workspace(plan.projectRoot, partoutputs, plan.outputPath)
+    val executionparts = _build_execution_parts(workspace, plan.execution, partoutputs)
+    val executionoutput = _build_execution_output(workspace)
+    val concatlist = _ffmpeg_concat_list_path(workspace)
     _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, executionparts)
-    Files.deleteIfExists(executionoutput)
-    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, executionoutput, runner)
+    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, executionparts, executionoutput, runner)
     if (!Files.isRegularFile(executionoutput))
       RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: $executionoutput")
     val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, executionoutput, runner)
     val summary = _ffprobe_summary(ffprobe)
+    _require_final_media_presentation(summary, executionoutput)
+    val creditfiles = _write_credit_outputs(plan)
     if (executionoutput != plan.outputPath) {
       Option(plan.outputPath.getParent).foreach(Files.createDirectories(_))
       Files.copy(executionoutput, plan.outputPath, StandardCopyOption.REPLACE_EXISTING)
@@ -72,17 +86,42 @@ private[cozy] trait CozyVideoBuildReplay {
     )
   }
 
-  private[video] def _ffmpeg_concat_list_path(projectroot: Path): Path =
-    projectroot.resolve("target/cozy-video/ffmpeg/concat.txt").normalize()
+  private def _assembly_physical_path(path: Path): Path = {
+    val normalized = path.toAbsolutePath.normalize()
+    if (Files.exists(normalized)) normalized.toRealPath()
+    else _assembly_physical_path(normalized.getParent).resolve(normalized.getFileName)
+  }
+
+  private def _assembly_workspace(projectroot: Path, inputs: Vector[Path], output: Path): Path = {
+    val stageparent = projectroot.resolve("target/cozy-video/ffmpeg").toAbsolutePath.normalize()
+    val physicalroot = _assembly_physical_path(projectroot)
+    val physicalparent = _assembly_physical_path(stageparent)
+    if (!physicalparent.startsWith(physicalroot))
+      RAISE.invalidArgumentFault(s"Assembly staging parent $stageparent resolves outside project root $projectroot: $physicalparent")
+    Files.createDirectories(stageparent)
+    val workspace = Files.createTempDirectory(stageparent, "assembly-").toAbsolutePath.normalize()
+    val physicalworkspace = _assembly_physical_path(workspace)
+    (inputs :+ output).foreach { path =>
+      val normalized = path.toAbsolutePath.normalize()
+      val physical = _assembly_physical_path(path)
+      if (workspace.startsWith(normalized) || normalized.startsWith(workspace) ||
+          physicalworkspace.startsWith(physical) || physical.startsWith(physicalworkspace))
+        RAISE.invalidArgumentFault(s"Assembly workspace $workspace ($physicalworkspace) overlaps selected input or final output $path ($physical)")
+    }
+    workspace
+  }
+
+  private[video] def _ffmpeg_concat_list_path(workspace: Path): Path =
+    workspace.resolve("concat.txt")
 
   private[video] def _build_execution_parts(
-    projectroot: Path,
+    workspace: Path,
     execution: VideoExecutionConfig,
     partoutputs: Vector[Path]
   ): Vector[Path] =
     execution.toolMode match {
       case VideoToolMode.Docker =>
-        val directory = projectroot.resolve("target/cozy-video/ffmpeg/parts").normalize()
+        val directory = workspace.resolve("parts")
         Files.createDirectories(directory)
         partoutputs.zipWithIndex.map { case (source, index) =>
           val staged = directory.resolve(f"part-${index + 1}%02d.mp4")
@@ -92,15 +131,8 @@ private[cozy] trait CozyVideoBuildReplay {
       case _ => partoutputs
     }
 
-  private[video] def _build_execution_output(
-    projectroot: Path,
-    execution: VideoExecutionConfig,
-    output: Path
-  ): Path =
-    execution.toolMode match {
-      case VideoToolMode.Docker => projectroot.resolve("target/cozy-video/ffmpeg/rendered.mp4").normalize()
-      case _ => output
-    }
+  private[video] def _build_execution_output(workspace: Path): Path =
+    workspace.resolve("rendered.mp4")
 
   private[video] def _write_credit_outputs(plan: VideoPlan): Option[CozyVideoCredits.OutputFiles] =
     plan.credits.profile.map { _ =>
@@ -132,27 +164,153 @@ private[cozy] trait CozyVideoBuildReplay {
     projectroot: Path,
     execution: VideoExecutionConfig,
     concatlist: Path,
+    executionparts: Vector[Path],
     output: Path,
     runner: VideoProcessRunner
   ): Unit = {
     Files.createDirectories(output.getParent)
-    val concatarg = _execution_path(projectroot, execution, concatlist)
-    val outputarg = _execution_path(projectroot, execution, output)
-    val args = _execution_command(projectroot, execution, "ffmpeg", Vector(
-      "-y",
-      "-f",
-      "concat",
-      "-safe",
-      "0",
-      "-i",
-      concatarg,
-      "-c",
-      "copy",
-      outputarg
-    ))
-    val result = runner.run(args, projectroot)
+    val timelines = if (executionparts.size > 1) executionparts.map { input =>
+      val summary = try _ffprobe_summary(_run_build_ffprobe(projectroot, execution, input, runner))
+      catch { case NonFatal(error) => RAISE.invalidArgumentFault(s"Input media probe failed for $input: ${error.getMessage}") }
+      _part_media_timeline(summary, input)
+    } else Vector.empty
+    if (!timelines.exists(_.hasaudio)) {
+      _run_assembly_stage(projectroot, execution, runner, output, "final copy mux", Vector(
+        "-y", "-copyts", "-f", "concat", "-safe", "0", "-i", _execution_path(projectroot, execution, concatlist),
+        "-c", "copy", "-movie_timescale", "48000", _execution_path(projectroot, execution, output)))
+    } else {
+      val directory = concatlist.getParent.resolve("presentation")
+      Files.createDirectories(directory)
+      val allocations = _media_sample_allocations(timelines, executionparts)
+      val videos = executionparts.zipWithIndex.map { case (input, index) =>
+        val staged = directory.resolve(f"video-${index + 1}%02d.mp4")
+        _run_assembly_stage(projectroot, execution, runner, staged, s"video extraction from $input", Vector(
+          "-y", "-copyts", "-i", _execution_path(projectroot, execution, input), "-map", "0:v:0", "-an", "-c:v", "copy",
+          "-movie_timescale", "48000", _execution_path(projectroot, execution, staged)))
+        staged
+      }
+      val waves = executionparts.zip(timelines).zip(allocations).zipWithIndex.map { case (((input, timeline), samples), index) =>
+        val staged = directory.resolve(f"audio-${index + 1}%02d.wav")
+        val source = if (timeline.hasaudio) Vector("-i", _execution_path(projectroot, execution, input), "-map", "0:a:0")
+          else Vector("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo")
+        _run_assembly_stage(projectroot, execution, runner, staged, s"PCM allocation for $input", Vector("-y") ++ source ++ Vector(
+          "-vn", "-af", s"aresample=48000:first_pts=0,apad,atrim=end_sample=$samples,asetpts=PTS-STARTPTS",
+          "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2", _execution_path(projectroot, execution, staged)))
+        staged
+      }
+      val videolist = directory.resolve("video-concat.txt")
+      val videolines = videos.zip(timelines).map { case (video, timeline) =>
+        s"file '${_ffmpeg_concat_escape(_execution_path(projectroot, execution, video))}'\nduration ${timeline.duration.decimal}"
+      }
+      Files.writeString(videolist, videolines.mkString("", "\n", "\n"), StandardCharsets.UTF_8)
+      val audiolist = directory.resolve("pcm-concat.txt")
+      _write_ffmpeg_concat_list(projectroot, execution, audiolist, waves)
+      val combined = directory.resolve("combined.wav")
+      _run_assembly_stage(projectroot, execution, runner, combined, "lossless PCM concatenation", Vector(
+        "-y", "-f", "concat", "-safe", "0", "-i", _execution_path(projectroot, execution, audiolist),
+        "-c:a", "copy", _execution_path(projectroot, execution, combined)))
+      _run_assembly_stage(projectroot, execution, runner, output, "final PCM/AAC mux", Vector(
+        "-y", "-copyts", "-f", "concat", "-safe", "0", "-i", _execution_path(projectroot, execution, videolist),
+        "-i", _execution_path(projectroot, execution, combined), "-map", "0:v:0", "-map", "1:a:0",
+        "-c:v", "copy", "-c:a", "aac", "-b:a", "320k", "-cutoff", "18000", "-ar", "48000", "-ac", "2",
+        "-movie_timescale", "48000", "-movflags", "+faststart", _execution_path(projectroot, execution, output)))
+    }
+  }
+
+  private def _run_assembly_stage(
+    projectroot: Path, execution: VideoExecutionConfig, runner: VideoProcessRunner,
+    output: Path, context: String, args: Vector[String]
+  ): Unit = {
+    Files.deleteIfExists(output)
+    val result = runner.run(_execution_command(projectroot, execution, "ffmpeg", args), projectroot)
+    Files.writeString(output.resolveSibling(s"${output.getFileName}.stderr.txt"), result.stderr, StandardCharsets.UTF_8)
     if (!result.isSuccess)
-      RAISE.invalidArgumentFault(s"ffmpeg concat/mux failed: ${result.stderr.trim}")
+      RAISE.invalidArgumentFault(s"ffmpeg concat/mux failed: $context: ${result.stderr.trim}")
+    if (!Files.isRegularFile(output))
+      RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: $output ($context); ${result.stderr.trim}")
+  }
+
+  private def _media_sample_allocations(timelines: Vector[PartMediaTimeline], inputs: Vector[Path]): Vector[Long] = {
+    var cumulative = MediaDuration(0, 1)
+    var previous = BigInt(0)
+    timelines.zip(inputs).map { case (timeline, input) =>
+      cumulative = cumulative + timeline.duration
+      val total = cumulative.sampleFloor
+      val count = total - previous
+      if (count <= 0 || !count.isValidLong)
+        _media_timeline_failure(input, "video duration cannot allocate a positive Long-representable 48k sample count")
+      previous = total
+      count.toLong
+    }
+  }
+
+  private def _media_timeline_failure(input: Path, message: String): Nothing =
+    RAISE.invalidArgumentFault(s"Invalid media presentation for $input: $message. Rerender this part before final assembly.")
+
+  private def _media_field(stream: Json, name: String): Option[String] =
+    stream.hcursor.downField(name).focus.flatMap(value => value.asString.orElse(value.asNumber.map(_.toString)))
+
+  private def _media_decimal(value: String, input: Path, label: String): MediaDuration = {
+    val decimal = Try(BigDecimal(value).bigDecimal).getOrElse(_media_timeline_failure(input, s"invalid $label: $value"))
+    val scale = decimal.scale
+    if (scale >= 0) MediaDuration(BigInt(decimal.unscaledValue), BigInt(10).pow(scale))
+    else MediaDuration(BigInt(decimal.unscaledValue) * BigInt(10).pow(-scale), 1)
+  }
+
+  private def _media_time_base(stream: Json, input: Path): MediaDuration = {
+    val text = _media_field(stream, "time_base").getOrElse(_media_timeline_failure(input, "missing time_base"))
+    val fields = text.split("/", -1)
+    val rational = if (fields.length == 2) Try(MediaDuration(BigInt(fields(0)), BigInt(fields(1)))).toOption else None
+    rational.filter(value => value.numerator > 0 && value.denominator > 0)
+      .getOrElse(_media_timeline_failure(input, s"invalid time_base: $text"))
+  }
+
+  private def _media_duration(stream: Json, input: Path): MediaDuration = {
+    val duration = _media_field(stream, "duration_ts") match {
+      case Some(text) =>
+        val ticks = Try(BigInt(text)).getOrElse(_media_timeline_failure(input, s"invalid duration_ts: $text"))
+        val base = _media_time_base(stream, input)
+        MediaDuration(ticks * base.numerator, base.denominator)
+      case None => _media_decimal(_media_field(stream, "duration").getOrElse(_media_timeline_failure(input, "missing stream duration")), input, "duration")
+    }
+    if (duration.numerator <= 0) _media_timeline_failure(input, "stream duration must be positive")
+    duration
+  }
+
+  private def _media_origin(stream: Json, input: Path): MediaDuration =
+    _media_field(stream, "start_pts") match {
+      case Some(text) =>
+        val ticks = Try(BigInt(text)).getOrElse(_media_timeline_failure(input, s"invalid start_pts: $text"))
+        val base = _media_time_base(stream, input)
+        MediaDuration(ticks * base.numerator, base.denominator)
+      case None => _media_decimal(_media_field(stream, "start_time").getOrElse(_media_timeline_failure(input, "missing stream presentation origin")), input, "start_time")
+    }
+
+  private def _media_streams(summary: Json, kind: String): Vector[Json] =
+    summary.hcursor.get[Vector[Json]]("streams").toOption.getOrElse(Vector.empty)
+      .filter(_.hcursor.get[String]("codec_type").toOption.contains(kind))
+
+  private def _part_media_timeline(summary: Json, input: Path): PartMediaTimeline = {
+    val videos = _media_streams(summary, "video")
+    if (videos.size != 1) _media_timeline_failure(input, "expected exactly one usable video stream")
+    val video = videos.head
+    val duration = _media_duration(video, input)
+    if (_media_origin(video, input).numerator != 0) _media_timeline_failure(input, "video presentation must start at zero")
+    val audios = _media_streams(summary, "audio")
+    audios.foreach { audio =>
+      val origin = _media_origin(audio, input)
+      if (origin.numerator < 0) _media_timeline_failure(input, "audio presentation origin must be nonnegative")
+      val end = origin + _media_duration(audio, input)
+      if (!(end <= (duration + MediaDuration(1, 48000))))
+        _media_timeline_failure(input, "audio presentation overruns video by more than one 48k sample")
+    }
+    PartMediaTimeline(duration, audios.nonEmpty)
+  }
+
+  private[video] def _require_final_media_presentation(summary: Json, output: Path): Unit = {
+    if (!CozyVideoStoryboardRecordValidation.ffprobeSummaryValid(summary))
+      RAISE.invalidArgumentFault(s"Final output $output ffprobe summary has no finite positive duration and video stream")
+    if (_media_streams(summary, "audio").nonEmpty) _part_media_timeline(summary, output)
   }
 
   private[video] def _run_build_ffprobe(

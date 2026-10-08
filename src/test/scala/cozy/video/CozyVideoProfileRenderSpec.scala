@@ -14,7 +14,7 @@ import cozy.CozySpecVocabulary
  *  version Jul. 20, 2026
  *  version Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -243,7 +243,7 @@ final class CozyVideoProfileRenderSpec
         )
         val audiodir = pkg.resolve("build/audio/explanation")
         Files.createDirectories(audiodir)
-        Files.write(audiodir.resolve("01-explanation.wav"), Array[Byte](0, 1, 2, 3))
+        CozyVideoImplementation._write_silence_wav(audiodir.resolve("01-explanation.wav"), 10.5)
         _write(
           audiodir.resolve("manifest.json"),
           """[{"sceneId":"explanation","speaker":null,"file":"01-explanation.wav",
@@ -287,7 +287,7 @@ final class CozyVideoProfileRenderSpec
         val audiodir = dir.resolve("build/audio/lecture")
         Files.createDirectories(audiodir)
         Vector("first-section", "changed-section", "same-section", "effects-fallback", "visual-fallback", "default-fallback").zipWithIndex.foreach { case (sceneid, index) =>
-          Files.write(audiodir.resolve(f"${index + 1}%02d-$sceneid.wav"), Array[Byte](0, 1, 2, 3))
+          CozyVideoImplementation._write_silence_wav(audiodir.resolve(f"${index + 1}%02d-$sceneid.wav"), 2.0)
         }
         _write(
           audiodir.resolve("manifest.json"),
@@ -356,7 +356,7 @@ final class CozyVideoProfileRenderSpec
             val audiodir = fixture.resolve("build/audio/lecture")
             Files.createDirectories(audiodir)
             Vector("first-section", "changed-section").zipWithIndex.foreach { case (sceneid, index) =>
-              Files.write(audiodir.resolve(f"${index + 1}%02d-$sceneid.wav"), Array[Byte](0, 1, 2, 3))
+              CozyVideoImplementation._write_silence_wav(audiodir.resolve(f"${index + 1}%02d-$sceneid.wav"), 2.0)
             }
             _write(
               audiodir.resolve("manifest.json"),
@@ -1129,7 +1129,7 @@ final class CozyVideoProfileRenderSpec
     partids.foreach { partid =>
       val dir = pkg.resolve(s"build/audio/$partid")
       Files.createDirectories(dir)
-      Files.write(dir.resolve(s"01-$partid.wav"), Array[Byte](0, 1, 2, 3))
+      CozyVideoImplementation._write_silence_wav(dir.resolve(s"01-$partid.wav"), 8.0)
       _write(
         dir.resolve("manifest.json"),
         s"""[{"sceneId":"$partid","speaker":null,"file":"01-$partid.wav","leadSilence":0.0,"audioDuration":8.0,"targetDuration":8.0,"tailSilence":0.0}]"""
@@ -1139,7 +1139,7 @@ final class CozyVideoProfileRenderSpec
   private def _write_credit_audio_manifest(pkg: Path): Unit = {
     val dir = pkg.resolve("build/audio/explanation")
     Files.createDirectories(dir)
-    Files.write(dir.resolve("01-explanation.wav"), Array[Byte](0, 1, 2, 3))
+    CozyVideoImplementation._write_silence_wav(dir.resolve("01-explanation.wav"), 8.0)
     _write(
       dir.resolve("manifest.json"),
       """[{"sceneId":"explanation","speaker":"zundamon","file":"01-explanation.wav","leadSilence":0.0,"audioDuration":8.0,"targetDuration":8.0,"tailSilence":0.0,"provider":"voicevox","executionMode":"external-http","voiceIdentity":"ずんだもん","voiceId":"3"}]"""
@@ -1260,13 +1260,15 @@ private[video] final case class ProfileRenderRunner()
       _touch(_command_path(cwd, output))
       CozyVideo.VideoCommandResult(0, "remotion ok", "")
     } else if (args.contains("ffmpeg")) {
-      val concatarg = args.dropWhile(_ != "-i").drop(1).head
-      val concatpath = _command_path(cwd, concatarg)
-      concatInputs += concatpath -> Files.readString(concatpath, StandardCharsets.UTF_8)
+      if (args.sliding(2).exists(_ == Vector("-f", "concat"))) {
+        val concatarg = args.dropWhile(_ != "-i").drop(1).head
+        val concatpath = _command_path(cwd, concatarg)
+        concatInputs += concatpath -> Files.readString(concatpath, StandardCharsets.UTF_8)
+      }
       _touch(_command_path(cwd, args.last))
       CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
     } else if (args.contains("ffprobe")) {
-      CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[{"codec_type":"video"}]}""", "")
+      CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[{"codec_type":"video","duration_ts":18000,"time_base":"1/18000","duration":"1.000","start_time":"0"}]}""", "")
     } else {
       CozyVideo.VideoCommandResult(0, "ok", "")
     }

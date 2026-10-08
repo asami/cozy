@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 15, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[video] final case class VideoTiming(
@@ -52,9 +52,12 @@ private[video] object VideoTiming {
       requestedTailSilence,
       math.max(targetDuration - leadSilence - audioDuration, 0.0)
     )
+    val leadframes = math.max(0L, math.round(leadSilence * fps.toDouble))
+    val audioframes = math.max(1L, math.ceil(audioDuration * fps.toDouble).toLong)
+    val tailframes = math.max(0L, math.ceil(requestedTailSilence * fps.toDouble).toLong)
     val effectiveframecount = math.max(
-      1L,
-      math.round(effectivesceneduration * fps.toDouble)
+      math.max(1L, math.ceil(effectivesceneduration * fps.toDouble).toLong),
+      leadframes + audioframes + tailframes
     )
     VideoTiming(effectivesceneduration, effectivetrailing, effectiveframecount)
   }

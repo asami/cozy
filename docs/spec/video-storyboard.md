@@ -678,6 +678,51 @@ output interval, not the authored requested input. Phase 61.1 realizes that
 timing from the actual normalized WAV and carries both values through Remotion
 props and deterministic review evidence.
 
+On the renderer's integer frame grid at positive `fps`, the same timing request
+uses this coverage-preserving envelope (with Long arithmetic). At the render
+and review boundaries, `A` MUST be measured from the selected actual normalized
+WAV; the millisecond-rounded stored `audioDuration` MUST NOT determine integer
+audio or scene coverage:
+
+```text
+leadFrames = max(0, round(L * fps))
+audioFrames = max(1, ceil(A * fps))
+tailFrames = max(0, ceil(E * fps))
+effectiveFrameCount = max(1, ceil(effectiveSceneDuration * fps),
+                          leadFrames + audioFrames + tailFrames)
+```
+
+Here `E` is the interval supplied at that boundary: authored requested tail
+during synthesis, generated effective tail during rendering and review. The
+target floor MUST NOT be added a second time to a supplied effective tail.
+The integer scene envelope uses the existing `VideoTiming(T,L,actualA,E,fps)`
+contract. Continuous manifest and props seconds, including historical rounded
+`audioDuration`, and the selected `T`, `L` and supplied `E` remain unchanged.
+Missing or malformed required WAVs MUST fail actionably rather than guessing
+their duration from the manifest.
+Authored lead keeps nearest-frame rounding; audio and tail use ceiling so
+their final fractional samples and requested intervals fit inside the scene.
+
+Each section transition adds its integer frames once to the scene envelope
+and lead, shifting speech once. Scene starts are adjacent accumulated integer
+durations; content, summary, credits, final-page starts and composition total
+derive from that same accumulation. Independently configured card holds keep
+their existing semantics. Renderer Audio and speech/mouth activity consume
+the emitted integer audio duration. Review selects the first whole tail frame
+after the full ceiling audio window. Props without the optional audio-frame
+field remain supported, but explicitly under-covering fractional timings are
+contradictions requiring rerender. These contracts are specified by
+`CozyVideoSpec`, `CozyVideoDialogueContinuitySpec` and `CozyVideoMediaEndingSpec`;
+they do not establish player EOF behavior or provider listening acceptance.
+The [public synthesis boundary regression](../../src/test/scala/cozy/video/CozyVideoMediaEndingSpec.scala)
+retains 24001 actual samples at 24k with stored `audioDuration=1.000`, requiring
+19 audio frames at 18 fps through synthesis, rendering, final build and review.
+It also specifies sample offsets across frame rates, optional-field acceptance
+and rejection of explicit under-covering windows before extraction, using
+injected provider and render runners. Native media measurement remains a
+separate scenario; this regression does not establish actual provider or
+player acceptance.
+
 The Cozy-only executable acceptance fixture uses Article-9-shaped Japanese
 source and display text containing U+30FB (`・`) with a deterministic local
 provider. It proves that only provider speech loses U+30FB, while source,
@@ -691,6 +736,87 @@ The same fixture proves that the independently configured five-second summary
 infographic and credits cards remain separate holds and do not inherit or
 duplicate the final scene tail. It performs no external-provider call, external
 Article 9 project acceptance, publication, upload, or deployment.
+
+## MP4 audio presentation and final assembly
+
+Direct Remotion rendering keeps the merged PCM WAV until the official CLI
+stitcher encodes it once into MP4 with the existing bundled `libfdk_aac`,
+320k bitrate, 18000Hz cutoff, stereo 48k audio and a 48000 movie timescale.
+The private CLI filename is `pcm-mux.mov` because Remotion validates the
+H264/PCM16 filename before its FFmpeg override. Explicit `--codec=h264` retains
+the existing H264 selection rather than letting `.mov` infer ProRes. The
+generated JavaScript Config forces actual MP4 with output `-f mp4` in both
+pre-stitcher and stitcher. The pre-stitcher retains parallel encoding and every
+original argument, including the 90000 video-track timescale, even though PCM16
+selects an internal `.mkv` filename. The stitcher retains every original video,
+renderer and metadata argument while encoding PCM to AAC inside actual MP4.
+The exact private CLI output is removed before rendering, required to be a
+regular file after successful CLI exit, and renamed to the existing private
+`props.outputPath` stage without another encode or remux. Public part paths and
+manifests retain `.mp4`; only the existing successful-install lifecycle publishes
+that staged media. Native readback requires actual H264, AAC stereo 48k and a
+positive MP4 major-brand family (`isom`/`iso*`, `mp41`, `mp42` or `avc1`), excluding
+QuickTime and Matroska. Positive safe integer
+`timing.totalFrames` and `fps` determine the finite audio envelope as
+`floor(totalFrames * 48000 / fps)` samples. Padding supplies silence within that
+envelope; the accepted actual-WAV frame coverage retains every narration sample
+and the authored opaque final-card hold. Invalid timing or an unexpected audio
+codec pair fails explicitly. Audio-free compositions force actual MP4 through
+the same overrides without adding audio.
+
+Single-part final assembly uses concat/copy with `copyts` to retain the MP4
+edit-list priming semantics and the precise movie timescale. Multiple selected
+inputs require exact video presentation durations from `duration_ts*time_base`,
+or the exact decimal video-stream duration when rational data is absent. Format
+duration and encoded audio packet counts do not define those input timelines.
+Video origins must be zero. An audio origin must be finite and nonnegative;
+its presented end may exceed video by at most one 48k sample. Missing, invalid
+or genuinely overrunning presentation data identifies the affected input and
+requires rerender before output installation.
+
+Multiple audio-bearing or mixed inputs copy their video frames into a private
+video-only concat sequence, with explicit exact durations rendered to 18 decimal
+places. Each audio input is decoded independently so its edit/skip semantics are
+consumed before concatenation. Resampling represents admitted positive audio
+origins as leading silence. Audio-free intervals receive finite stereo 48k
+silence. If cumulative video ends are `V_i`, PCM boundary `i` is
+`floor(V_i * 48000)` and each part receives the difference of adjacent boundaries.
+The accumulated allocation is never longer than the video timeline and loses
+less than one sample, rather than one rounding loss per part. The WAVs are
+concatenated losslessly; the selected final FFmpeg encodes AAC LC only once at
+the existing bitrate, cutoff, sample rate and channels. No fixed priming delay is
+subtracted. All-video-only inputs retain concat/copy without inventing audio.
+Final assembly never reencodes video, changes frame rate, appends frames or
+shortens the end-card hold.
+
+Both ordinary and Storyboard final builds require a positive format duration
+and video stream, then validate stream presentation ends when audio exists.
+Each FFmpeg stage retains its complete stderr beside its private output,
+including any DTS warning. Tool failures, malformed JSON, missing intermediates and contradictory media
+remain actionable failures. Ordinary Host and Docker builds allocate a fresh
+`assembly-` directory under `target/cozy-video/ffmpeg` for each attempt. Before
+creating that staging parent, its physical path must remain under the physical
+project root. Before any assembly media write or copy, the entire workspace
+must be disjoint from every selected original input and the configured final
+destination in both normalized absolute and physical paths; neither path may
+contain the other. Docker part copies, concat lists, presentation intermediates,
+mux output and stderr remain inside that private workspace. Attempts are retained
+on success and failure. The prior successful destination and manifest remain
+until mux and probe validation pass, including configured destinations and inputs
+at the formerly fixed `rendered.mp4`, `presentation`, `parts` or `concat.txt`
+staging paths.
+Ordinary credits are written after media validation; Storyboard retains its
+existing atomic artifact installation. This does not extend ordinary final
+assembly into a general multi-file disk-failure transaction. The descriptive
+`concatListPath` records the actual retained per-attempt concat list in selected
+part order. Configured public paths, `partOutputs`, `parts[].script`, manifest schema and historical
+non-hash evidence retain their established meaning.
+
+`CozyVideoAssemblyAudioSpec` specifies allocation, mixed/no-audio command effects
+and failure preservation. `CozyVideoMediaEndingSpec` specifies native one-part,
+two-part and mixed-input onset, complete-tail, frame, timestamp and opaque-card
+evidence. Native specifications require actual tools when explicitly enabled;
+they do not substitute for actual-provider listening or player EOF acceptance.
 
 The historical Phase 61 fixture preserves Storyboard v1/v2 strict schemas
 and canonical serialization; S04 subsequently removes the general identity API. This Slice also does not change their historical generated audio

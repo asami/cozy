@@ -15,7 +15,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Oct.  2, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  5, 2026
  */
 final class CozyVideoDialogueContinuitySpec
     extends AnyWordSpec
@@ -72,12 +72,12 @@ final class CozyVideoDialogueContinuitySpec
               _int(answer, "startFrame") shouldBe _int(base, "startFrame") + _int(base, "durationFrames")
               _int(answer, "sectionTransitionFrames") shouldBe 0
               _int(answer, "leadInFrames") shouldBe math.round(lead * fps).toInt
-              _int(answer, "durationFrames") shouldBe math.round(duration * fps).toInt
+              _int(answer, "durationFrames") shouldBe math.ceil(duration * fps).toInt
             }
             And("the genuine section change adds its entrance separately and source staging is read-only")
             _int(scenes(2), "sectionTransitionFrames") shouldBe math.round(1.2 * fps).toInt
             _int(scenes(2), "leadInFrames") shouldBe math.round(lead * fps).toInt + math.round(1.2 * fps).toInt
-            _int(scenes(2), "durationFrames") shouldBe math.round(duration * fps).toInt + math.round(1.2 * fps).toInt
+            _int(scenes(2), "durationFrames") shouldBe math.ceil(duration * fps).toInt + math.round(1.2 * fps).toInt
             images shouldBe Vector(diagram, diagram)
             after shouldBe before
           }

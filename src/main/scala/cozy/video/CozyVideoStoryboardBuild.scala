@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoStoryboardBuild {
@@ -734,10 +734,11 @@ private[cozy] trait CozyVideoStoryboardBuild {
       val executionparts = _stage_execution_parts(plan, staging, partoutputs)
       val concatlist = staging.resolve("concat.txt")
       _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, executionparts)
-      _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, stageoutput, runner)
+      _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, executionparts, stageoutput, runner)
       _require_direct_regular_file(stageoutput, s"Staged Storyboard ${mode.name} output")
       val ffprobe = _ffprobe_summary(_run_build_ffprobe(plan.projectRoot, plan.execution, stageoutput, runner))
       _require_valid_ffprobe_summary(ffprobe, s"Staged Storyboard ${mode.name} output")
+      _require_final_media_presentation(ffprobe, stageoutput)
       val creditfiles = _stage_credit_files(plan, staging)
       val handoffs = parts.map { part =>
         val staged = staging.resolve("handoffs").resolve(s"${part.partplan.id}.json")

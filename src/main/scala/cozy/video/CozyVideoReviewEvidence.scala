@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
@@ -125,19 +125,20 @@ private[cozy] trait CozyVideoReviewEvidence {
           savedir.resolve("frames").resolve(_review_scene_frame_name(evidence.part.index, sceneindex, sceneid, "speech"))
         )
         val audio = evidence.audioentries.get(sceneid)
+        val actualduration = audio.map(entry => _review_audio_duration(evidence.part, entry))
         audio.foreach { entry =>
           effectiveprop.foreach { value =>
             if (!_review_same_seconds(value, entry.tailSilence))
               RAISE.invalidArgumentFault(s"Remotion scene $sceneid effectiveTailSilenceSeconds does not match the audio manifest.")
           }
           audiodurationframesprop.foreach { value =>
-            val expected = math.max(1, math.round(entry.audioDuration * evidence.fps).toInt)
+            val expected = _review_audio_frames(actualduration.get, evidence.fps, s"audioDurationFrames for Remotion scene $sceneid")
             if (value != expected)
               RAISE.invalidArgumentFault(s"Remotion scene $sceneid audioDurationFrames does not match the audio manifest.")
           }
         }
         val tail = audio.filter(_.tailSilence > 0).map { entry =>
-          val audiodurationframes = math.max(1, math.round(entry.audioDuration * evidence.fps).toInt)
+          val audiodurationframes = _review_audio_frames(actualduration.get, evidence.fps, s"audioDurationFrames for Remotion scene $sceneid")
           val tailframe = math.min(duration - 1, math.max(0, leadin + audiodurationframes))
           ReviewEvidenceFrame(
             "tail",
@@ -305,13 +306,13 @@ private[cozy] trait CozyVideoReviewEvidence {
           val leadin = _review_nonnegative_int(scene, "leadInFrames", s"Remotion scene $sceneid")
           val transition = _review_nonnegative_int(scene, "sectionTransitionFrames", s"Remotion scene $sceneid")
           val audio = audioentries(sceneid)
-          val expectedduration = _review_timing_frames(
-            math.max(audio.targetDuration, audio.leadSilence + audio.audioDuration + audio.tailSilence),
-            fps,
-            1L,
-            transition,
-            s"durationFrames for Remotion scene $sceneid"
-          )
+          val actualduration = _review_audio_duration(part, audio)
+          val expectedduration = _review_scene_frames(audio, actualduration, fps, transition, s"durationFrames for Remotion scene $sceneid")
+          _review_optional_nonnegative_int(scene, "audioDurationFrames", s"Remotion scene $sceneid").foreach { value =>
+            val expected = _review_audio_frames(actualduration, fps, s"audioDurationFrames for Remotion scene $sceneid")
+            if (value != expected)
+              RAISE.invalidArgumentFault(s"Remotion scene $sceneid audioDurationFrames does not match the audio manifest.")
+          }
           val expectedleadin = _review_timing_frames(
             audio.leadSilence,
             fps,
@@ -444,6 +445,42 @@ private[cozy] trait CozyVideoReviewEvidence {
     if (rounded > Long.MaxValue - transition.toLong)
       RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
     rounded + transition.toLong
+  }
+
+  private def _review_audio_frames(seconds: Double, fps: Int, label: String): Int = {
+    val scaled = seconds * fps.toDouble
+    if (!java.lang.Double.isFinite(scaled) || scaled < 0 || math.ceil(scaled) > Int.MaxValue.toDouble)
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    math.max(1, math.ceil(scaled).toInt)
+  }
+
+  private def _review_audio_duration(part: VideoPartPlan, entry: VideoAudioManifestEntry): Double = {
+    val directory = part.audioDir.getOrElse(
+      RAISE.invalidArgumentFault(s"Missing audio directory for part ${part.id}. Rerender before requesting review evidence.")
+    )
+    val path = directory.resolve(entry.file).normalize()
+    if (!Files.isRegularFile(path))
+      RAISE.invalidArgumentFault(s"Missing audio file for part ${part.id}, scene ${entry.sceneId}: $path. Rerender before requesting review evidence.")
+    _wav_duration(path)
+  }
+
+  private def _review_scene_frames(audio: VideoAudioManifestEntry, actualduration: Double, fps: Int, transition: Int, label: String): Long = {
+    val seconds = Vector(audio.targetDuration, audio.leadSilence, audio.audioDuration, audio.tailSilence,
+      audio.leadSilence + audio.audioDuration + audio.tailSilence,
+      actualduration, audio.leadSilence + actualduration + audio.tailSilence)
+    if (seconds.exists(value => !java.lang.Double.isFinite(value) || value < 0 ||
+        math.ceil(value * fps.toDouble) >= Long.MaxValue.toDouble))
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    val leadframes = math.max(0L, math.round(audio.leadSilence * fps.toDouble))
+    val audioframes = math.max(1L, math.ceil(actualduration * fps.toDouble).toLong)
+    val tailframes = math.max(0L, math.ceil(audio.tailSilence * fps.toDouble).toLong)
+    if (leadframes > Long.MaxValue - audioframes || leadframes + audioframes > Long.MaxValue - tailframes)
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    val frames = VideoTiming.evaluate(audio.targetDuration, audio.leadSilence, actualduration, audio.tailSilence, fps).
+      effectiveFrameCount
+    if (frames > Long.MaxValue - transition.toLong)
+      RAISE.invalidArgumentFault(s"$label is outside the supported frame range.")
+    frames + transition.toLong
   }
 
   private[video] def _review_validated_video_manifest(plan: VideoPlan, finalvideo: Path): Path = {

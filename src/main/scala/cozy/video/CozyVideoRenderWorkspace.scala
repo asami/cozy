@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 16, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoRenderWorkspace {
@@ -201,6 +201,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
     val srcdir = workdir.resolve("src")
     Files.createDirectories(srcdir)
     Files.writeString(workdir.resolve("package.json"), _remotion_package_json, StandardCharsets.UTF_8)
+    Files.writeString(workdir.resolve("remotion.config.js"), _remotion_config_js, StandardCharsets.UTF_8)
     val characterdialogue = _is_character_dialogue(part, script, plan.project.renderer)
     val characterwebdemo = part.partType == "web-demo"
     val template = if (characterdialogue) Some(_load_character_dialogue_template()) else None
