@@ -444,9 +444,126 @@ admission already present in Phase43.
 
 | Coverage ID | Fixture | UI step | Screen interactions in order | Exact public bindings | Profile | Outcome | Phase50 requirements | Evidence status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P50-COMPACT-NORMAL-001 | sales-order-compact-v1 | normal `confirm` | `order-list/entry`, `order-list/to-detail`, `order-detail/select`, `order-detail/invoke`, `order-detail/observe` | SalesOrder exact public binding set declared above | compact | simulated success: domain draft to confirmed, UI succeeded | P50-MAIN-02/03/04/05/06 | contract-only; generated Web and browser evidence pending S50.2 |
+| P50-COMPACT-NORMAL-001 | sales-order-compact-v1 | normal `confirm` | `order-list/entry`, `order-list/to-detail`, `order-detail/select`, `order-detail/invoke`, `order-detail/observe` | SalesOrder exact public binding set declared above; command `#operation` / `#state-machine`, selection `#powertype` variant `awaiting-confirmation` | compact, NavigateToDetail | simulated success: domain draft to confirmed, UI succeeded | P50-MAIN-02/03/04/05/06/07 | selected eight suites: 74/74 passed; actual compact browser PASS, Chrome 154.0.8037.94 at 390 × 844, parent inspected six screenshots; retained [app](../evidence/phase-50/compact/index.html), [structural review](../evidence/phase-50/compact/review.html), [complete receipt](../evidence/phase-50/compact/compact-preview-receipt.json), [portable observations](../evidence/phase-50/compact/browser-observations.json), [six screenshots and evidence scope](../evidence/phase-50/compact/README.md); partial compact normal simulation only, broader target/profile/outcome and aggregate full-suite assurance pending Phase50.1; independent Step/Phase acceptance pending |
 
-This is the single canonical coverage row to extend with S50.2 evidence. It
-does not claim browser success or target-ready acceptance. The original
+This is the single canonical coverage row extended with actual S50.2
+compact normal-flow browser evidence. It does not claim full target-ready
+acceptance. The original
 full-outcome checklist rows remain open in Phase50.1; no second coverage
 matrix or target/framework/browser fields are added to Logical UI semantic IR.
+
+## 12. Compact candidate Web target
+
+`CozyLogicalUiCompactWeb.render(candidate, projection, semantics, scenario)`
+first consumes `CozyLogicalUiReview.renderCandidate` for the exact source tuple,
+its precise errors and diagnostics. It then binds a complete `CompactScenario`
+to the existing normal UI step, distinct list/detail screens and five typed,
+step-mapped source interactions. List requires typed Browse/Collection and
+detail Confirm/Detail. Navigation targets detail. Selection derives its sole
+Powertype usage and explicit semantic variant; invocation derives the matching
+transition action's exact public Operation and StateMachine usages and mutation.
+Initial/result domain references equal that action's `from`/`to`; success UI
+state equals both the action's UI state and `SucceededInteractionState`.
+Workflow, domain and UI state remain separate source values.
+
+`compactWebScenario` translates the existing `compactSuccess` records and
+normal confirm flow without changing any value or accepting the candidate.
+Fixture/coverage/flow identifiers are non-null, nonempty and trimmed; records,
+domain references and success UI state are required. Label and amount are
+nonempty opaque presentation text. Initial and result retain the same order
+ID, label and amount. Invalid declarations report
+`LUI50_WEB_CONTRACT_INVALID` with the specific scenario path and reason.
+
+The private-constructor `CompactWebPreview` retains the complete declared
+tuple and exposes immutable `html`, `reviewHtml`, `receipt`, `receiptJson`,
+diagnostics and UTF-8 HTML byte vectors. Its observable-field `copy` retains
+the original inputs. The receipt schema is `cozy.logical-ui-compact-web.v1`,
+version `1`, renderer `cozy.logical-ui-compact-web.renderer.v1`, profile
+`compact`, placement `navigate-to-detail`, and `simulated=true`. It reuses
+the candidate review's four source identities and carries the complete
+scenario, normalized public binding set, exact derived command/selection
+bindings and variant. Outputs are ordered `index.html`, `review.html`,
+`compact-preview-receipt.json`. Fixed-order JSON includes coordinates, exports,
+UI step/path, flow IDs, both records/domain references and separate UI state;
+it contains no machine path, port, timestamp or acceptance assertion.
+
+The app is one self-contained accessible single-column page. At 390 × 844,
+the list initially displays the supplied order and draft domain state, with
+detail hidden and Open detail disabled. Select order records target UI context
+and enables navigation. Open detail hides the list, shows the distinct detail
+screen, and sets the encoded logical screen hash and active-screen attribute.
+The confirmation select has a placeholder and the exact derived Powertype
+variant; Confirm order is enabled only for that variant. Confirmation displays
+the supplied successful record and distinct succeeded UI state, reveals
+`Simulated success`, and disables the command. It executes no Operation,
+StateMachine, Workflow or domain transition. Candidate and simulated assurance
+labels accompany the flow; source identities stay in machine attributes and
+the linked read-only review. Reset/replay/error/input behavior remains pending.
+
+The frozen DOM boundary is `main#compact-preview` with four source identities,
+fixture/coverage/profile/placement, active screen and selected order attributes;
+`#order-list-screen`, `#order-detail-screen`, `#select-order`, `#selected-order`,
+`#open-detail`, `#confirmation-option`, `#confirm-order`, `#domain-state`,
+`#ui-state`, and `#simulated-result`. Source regions/controls carry interaction
+and UI step IDs. Selection carries `data-powertype-binding`; command carries
+`data-operation-binding` and `data-state-machine-binding`, each encoded as
+`canonicalIdentity#exportId`. Domain and UI outputs retain separate state
+attributes. The list's selection context introduces no new source interaction.
+
+Dynamic markup and attributes are HTML escaped. The inert `application/json`
+element contains the full receipt, escaping literal `<`, `>`, `&`, U+2028 and
+U+2029 as Unicode escapes. One fixed script uses `textContent` and declared
+values; arbitrary records are never interpolated into executable JavaScript.
+There are no external assets, provider/domain calls, storage, forms, backend,
+acceptance actions, retries or timers in the app. Structural `reviewHtml`
+retains all candidate review sections/diagnostics and inserts a read-only
+`Compact simulated scenario` section immediately before the closing main.
+This section binds the same declaration and exact public command/selection
+bindings; it adds no script, form or action to the structural renderer.
+
+`verifyCurrent` re-renders all supplied inputs and compares all five observable
+values. A changed record or flow under the same fixture ID is stale. Null
+preview, invalid current inputs and changed observables report
+`LUI50_WEB_CURRENTNESS_INVALID` at the precise input or result path.
+`write(preview, siteParent, receiptParent)` checks the retained tuple first,
+then preflights both existing canonical absolute distinct parents and all three
+direct destinations. Traversal, intermediate/target symlinks, missing/relative
+parents and non-regular targets report `LUI50_WEB_OUTPUT_INVALID` before any
+write. Prior bytes survive contract/currentness/path rejection. Same-parent
+temporary UTF-8 files and atomic moves install each output and owned temporary
+files are cleaned up. An I/O failure after one installation does not provide
+group rollback; unrelated files are preserved. The S50.1 candidate writer
+continues to write only its existing direct HTML output.
+
+`CozyLogicalUiCompactWebSpec` covers genuine/full alignment, invalid tuples and
+declarations, changed-source/currentness behavior, at least twenty ScalaCheck
+reordered constructions, hostile opaque text round trips, and production
+writer success/preflight rejection. Its meaningful generation scenario uses
+the production writer and retains
+`target/phase50-compact-preview/site/{index.html,review.html}` and
+`target/phase50-compact-preview/evidence/compact-preview-receipt.json` for
+actual browser validation. The parent runs the selected suites through the
+serialized SBT runner.
+
+The actual browser entry is the executable Node ESM driver
+`scripts/test/phase50/run-compact-browser.mjs` with exactly
+`--site <absolute site directory> --receipt <absolute receipt file>
+--evidence <absolute owned run directory> --playwright <absolute installed package>
+--browser <absolute installed Chrome executable>`. Its parent-owned session
+uses the selected installed package, isolated temporary Chrome profile and
+390 × 844 viewport, and serves only GET of the two generated pages at an owned
+127.0.0.1 ephemeral port. Readiness checks actual generated bytes/source data.
+External requests, HTTP mutations, page errors and console errors fail the
+run. Bounded actions walk list, selection, distinct detail, confirmation ready,
+simulated success and aligned structural review against the full receipt,
+retaining six screenshots and literal observations. Portable
+`browser-observations.json` has schema `cozy.logical-ui-compact-browser.v1`,
+full source receipt, browser/viewport, ordered observed states, control/binding
+facts, relative screenshots, network/errors and actual PASS/FAIL; native PID,
+base URL and lifecycle facts stay in target-only `server-process.json` and
+`browser-result.json`. All exit, signal and 180-second timeout paths await
+owned context/browser/server cleanup. The single section 11 row records the
+actual compact normal-flow browser PASS and durable evidence links; broad
+target/profile/outcome coverage and the repository full suite remain pending
+Phase50.1. That row is
+the normative coverage record.

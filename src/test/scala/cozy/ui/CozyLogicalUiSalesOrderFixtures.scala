@@ -299,6 +299,23 @@ private[cozy] object CozyLogicalUiSalesOrderFixtures {
     SucceededInteractionState
   )
 
+  val compactWebScenario: CozyLogicalUiCompactWeb.CompactScenario = {
+    val fixture = compactSuccess
+    def _record_(order: DemoOrder): CozyLogicalUiCompactWeb.OrderRecord =
+      CozyLogicalUiCompactWeb.OrderRecord(order.orderId, order.label, order.amount, order.domainState)
+    CozyLogicalUiCompactWeb.CompactScenario(
+      fixture.fixtureId,
+      fixture.coverageId,
+      CozyLogicalUiCompactWeb.CompactFlow(
+        UiUseCaseStep(uiUseCase, "confirm", NormalPath),
+        listScreen.id, "entry", "to-detail", detailScreen.id, "select", "invoke", "observe"
+      ),
+      _record_(fixture.initialOrder),
+      _record_(fixture.successfulOrder),
+      fixture.successUiState
+    )
+  }
+
   def candidate(reversed: Boolean = false): Either[LogicalUiError,
     (LogicalUiCandidate, LogicalUiProjection, LogicalUiSemanticProjection)] = {
     val input = if (reversed) candidateInput.copy(

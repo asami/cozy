@@ -281,11 +281,94 @@ The sole canonical coverage row is `P50-COMPACT-NORMAL-001` in
 fixture `sales-order-compact-v1`, profile compact, and simulated success. It
 binds normal `confirm` to `order-list/entry`, `order-list/to-detail`,
 `order-detail/select`, `order-detail/invoke`, and `order-detail/observe`, exact
-SalesOrder public bindings, and P50-MAIN-02/03/04/05/06. Its evidence status is
-`contract-only; generated Web and browser evidence pending S50.2`. S50.2 extends
-that same row. Browser success and target-ready acceptance are pending; the
+SalesOrder public bindings, and P50-MAIN-02/03/04/05/06/07. S50.2 extends
+that same row with the compact contract and actual browser evidence. Compact
+normal-flow browser validation passed; full target-ready acceptance remains
+pending, and the
 original full-outcome checklist rows remain open in Phase50.1.
 
 `CozyLogicalUiCandidateReviewSpec` provides executable coverage of this additive
 preview and fixture contract alongside the unchanged explicit accepted flow.
 Target/framework/browser fields remain outside Logical UI semantic IR.
+
+## 11. Compact Web projection and declared simulation
+
+`CozyLogicalUiCompactWeb` is a package-private target projection over the
+existing candidate, screen projection, semantic projection and complete
+declared `CompactScenario`. It consumes the candidate review's tuple admission
+and diagnostics before binding the scenario. It introduces no second logical,
+domain or server authority. The public core IR, vocabulary, selection, codecs,
+runtime and both accepted/candidate review APIs retain their responsibilities.
+
+The contract is deliberately one compact normal flow: Browse/Collection list
+entry, source navigation to a distinct Confirm/Detail screen, source Powertype
+selection, public Operation/StateMachine invocation and source observation.
+Every source interaction maps to the exact existing normal UI step. The
+matching source transition action binds the declared initial/result domain
+references and separate succeeded UI state. Binding the transition evidence
+does not execute that action. Workflow state remains in the source structural
+review rather than being conflated with either displayed state. The test-owned
+`compactWebScenario` translates `compactSuccess` without changing its original
+values or the Phase43 acceptance decision/assertions.
+
+The receipt reuses the four source identities from `CandidateReviewReceipt`
+and serializes the complete declaration and normalized public binding set in
+fixed order. It adds no accepted identity or new hash. Fixture identity alone
+cannot bind changed data or flow. The private-constructor preview retains all
+declared inputs through observable-field copies. Currentness regenerates app,
+aligned review, complete receipt/JSON and diagnostics and compares every
+observable. Scenario null/contract errors are distinct from currentness and
+filesystem errors, each with precise paths.
+
+The app carries source provenance in data attributes and embeds its full
+receipt as inert JSON. Fixed client code consumes declared values with
+`textContent`. HTML escaping and HTML-safe JSON escapes prevent opaque labels
+or amounts from creating markup or executable code. A compact single-column
+flow uses target selection context, then NavigateToDetail to another logical
+screen and encoded location hash. Selecting the exact source Powertype variant
+enables confirmation; confirmation displays the supplied successful record,
+domain state and separate UI state, reveals `Simulated success`, and disables
+the command. Candidate/simulation labels explain the assurance to the user.
+No provider, backend, real form, storage, timer, retry or simulation engine is
+introduced. Broader profile/outcome/replay/recovery behavior remains successor
+work.
+
+The structural page reuses the unchanged candidate renderer and inserts one
+read-only scenario section immediately before its closing main. The declaration
+includes fixture/coverage/profile, exact UI step/flow, initial/result records
+and distinct states, public command/selection bindings and Powertype variant.
+It has no interaction surface. App and review share the same receipt inputs.
+
+The three-file writer first verifies retained currentness, then preflights
+both distinct existing canonical absolute parents and every direct destination.
+It rejects traversal, all symlink components and directory/non-regular targets
+before writing. Each UTF-8 installation uses an owned same-parent temporary
+file and atomic move. Rejected inputs or paths preserve prior bytes; an I/O
+failure after an individual move may leave a partial installation. This is
+per-file atomic installation with temporary cleanup, without group transaction
+or rollback semantics. Unrelated files stay untouched.
+
+`CozyLogicalUiCompactWebSpec` is the executable contract and retains one exact
+production-writer SalesOrder bundle under `target/phase50-compact-preview` for
+actual browser acceptance. Its generation and the browser entrypoints are
+specified in [specification section 12](../spec/logical-ui-model.md#12-compact-candidate-web-target).
+The executable Node ESM driver receives five explicit canonical paths, uses
+the selected installed Playwright package and Google Chrome, owns an isolated
+temporary profile/context/browser plus one loopback ephemeral HTTP server,
+and exposes only the two generated HTML files to GET requests. It has bounded
+actions and a 180-second overall timeout. It records actual DOM facts against
+the complete source receipt through six stages/screenshots, rejects external
+or mutating requests, and treats browser errors as failures. Cleanup waits for
+in-flight startup before closing acquired resources; all normal, error, signal
+and timeout paths await owned context/browser/server teardown and profile
+removal. The parent owns execution and evidence inspection.
+
+Portable observations retain full source receipt, observed states/control
+bindings, browser version/viewport, relative screenshot names, network/error
+facts and actual result. Native run paths, PID and ephemeral URL stay in
+private target lifecycle receipts. Durable retention occurs only after actual
+successful parent-supplied validation and screenshot inspection. Evidence
+links extend the sole `P50-COMPACT-NORMAL-001` row; the row records actual
+compact normal-flow browser PASS and retained evidence. Broad target-ready/profile/
+outcome assurance and the full suite remain owned by Phase50.1, without
+starting successor execution here.
