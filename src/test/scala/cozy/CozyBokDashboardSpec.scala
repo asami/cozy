@@ -13,7 +13,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 21, 2026
  *  version Jun. 29, 2026
- * @version Jul.  1, 2026
+ *  version Jul.  1, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokDashboardSpec
@@ -1220,96 +1221,86 @@ class CozyBokDashboardSpec
 
           When("Cozy builds the multi-locale dashboard pages")
           CozyBok.build(config, new LocaleFragmentRunner)
+          val jahome = _read(dir.resolve("website.d/ja/index.html"))
+          val enhome = _read(dir.resolve("website.d/en/index.html"))
+          val jacategory = _read(dir.resolve("website.d/ja/concept/index.html"))
+          val encategory = _read(dir.resolve("website.d/en/concept/index.html"))
+          val englossary = _read(dir.resolve("website.d/en/glossary/index.html"))
+          val enmanual = _read(dir.resolve("website.d/en/manual/index.html"))
 
           Then(
             "each locale output is generated from the same source index.dox with locale filtering"
           )
           config.localeMode shouldBe CozyBok.LocaleMode.MultiLocaleSubdirs
           config.defaultLocale shouldBe "ja"
-          _read(dir.resolve("website.d/ja/index.html")) should include(
+          jahome should include(
             """<html lang="ja">"""
           )
-          _read(dir.resolve("website.d/en/index.html")) should include(
+          enhome should include(
             """<html lang="en">"""
           )
-          _read(dir.resolve("website.d/ja/index.html")) should include(
+          jahome should include(
+            """href="_/css/bootstrap-grid.min.css""""
+          )
+          jahome should include(
+            """href="_/css/site.css""""
+          )
+          jahome should include(
+            """href="_/css/cozy-bok-dashboard.css""""
+          )
+          enhome should include(
+            """href="_/css/bootstrap-grid.min.css""""
+          )
+          enhome should include(
+            """href="_/css/site.css""""
+          )
+          enhome should include(
+            """href="_/css/cozy-bok-dashboard.css""""
+          )
+          jacategory should include(
             """href="../_/css/bootstrap-grid.min.css""""
           )
-          _read(dir.resolve("website.d/ja/index.html")) should include(
+          jacategory should include(
             """href="../_/css/site.css""""
           )
-          _read(dir.resolve("website.d/ja/index.html")) should include(
+          jacategory should include(
             """href="../_/css/cozy-bok-dashboard.css""""
           )
-          _read(dir.resolve("website.d/en/index.html")) should include(
+          encategory should include(
             """href="../_/css/bootstrap-grid.min.css""""
           )
-          _read(dir.resolve("website.d/en/index.html")) should include(
+          encategory should include(
             """href="../_/css/site.css""""
           )
-          _read(dir.resolve("website.d/en/index.html")) should include(
-            """href="../_/css/cozy-bok-dashboard.css""""
+          englossary should include(
+            """href="../_/css/site.css""""
           )
-          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
-            """href="../../_/css/bootstrap-grid.min.css""""
-          )
-          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
-            """href="../../_/css/site.css""""
-          )
-          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
-            """href="../../_/css/cozy-bok-dashboard.css""""
-          )
-          _read(dir.resolve("website.d/en/concept/index.html")) should include(
-            """href="../../_/css/bootstrap-grid.min.css""""
-          )
-          _read(dir.resolve("website.d/en/concept/index.html")) should include(
-            """href="../../_/css/site.css""""
-          )
-          _read(dir.resolve("website.d/en/glossary/index.html")) should include(
-            """href="../../_/css/site.css""""
-          )
-          _read(dir.resolve("website.d/ja/index.html")) should include(
+          jahome should include(
             "日本語ホーム本文"
           )
-          _read(
-            dir.resolve("website.d/ja/index.html")
-          ) should not include ("English home narrative")
-          _read(dir.resolve("website.d/en/index.html")) should include(
+          jahome should not include ("English home narrative")
+          enhome should include(
             "English home narrative"
           )
-          _read(
-            dir.resolve("website.d/en/index.html")
-          ) should not include ("日本語ホーム本文")
-          _read(
-            dir.resolve("website.d/en/index.html")
-          ) should not include ("This dashboard aggregates the whole BoK status")
-          _read(
-            dir.resolve("website.d/en/index.html")
-          ) should not include ("BoK全体の状態")
-          _read(dir.resolve("website.d/ja/concept/index.html")) should include(
+          enhome should not include ("日本語ホーム本文")
+          enhome should not include ("This dashboard aggregates the whole BoK status")
+          enhome should not include ("BoK全体の状態")
+          jacategory should include(
             "日本語カテゴリ本文"
           )
-          _read(dir.resolve("website.d/en/concept/index.html")) should include(
+          encategory should include(
             "English category narrative"
           )
-          _read(
-            dir.resolve("website.d/en/concept/index.html")
-          ) should not include ("This dashboard aggregates this category")
-          _read(
-            dir.resolve("website.d/en/concept/index.html")
-          ) should not include ("このカテゴリの目的")
-          _read(dir.resolve("website.d/en/glossary/index.html")) should include(
+          encategory should not include ("This dashboard aggregates this category")
+          encategory should not include ("このカテゴリの目的")
+          englossary should include(
             "Dashboard for terms and vocabulary shared across the BoK."
           )
-          _read(
-            dir.resolve("website.d/en/glossary/index.html")
-          ) should not include ("BoK全体で共有する用語")
-          _read(dir.resolve("website.d/en/manual/index.html")) should include(
+          englossary should not include ("BoK全体で共有する用語")
+          enmanual should include(
             "Manual pages are excluded from automatic glossary linking."
           )
-          _read(
-            dir.resolve("website.d/en/manual/index.html")
-          ) should not include ("Manualは自動用語リンク対象外")
+          enmanual should not include ("Manualは自動用語リンク対象外")
         }
       }
     }

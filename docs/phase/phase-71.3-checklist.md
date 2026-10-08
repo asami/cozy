@@ -4,7 +4,11 @@ Phase status: CLOSED
 Updated: 2026-10-04
 Ledger for: [Phase 71.3](phase-71.3.md)
 Primary owner: Cozy
-Repository-full validation: aggregate-deferred to PHASE-71.4
+Repository-full validation: deferred-not-run; current aggregate owner PHASE-71.7
+
+Ownership update (2026-10-05): see [Phase 71.7](phase-71.7.md).
+Earlier text naming 71.4 is historical. Closed items and their evidence remain
+unchanged; this transfers pending full validation without claiming it passed.
 
 Current frontier: **full Phase review PASS; final release content prepared**. The dated S20 acceptance below supersedes the
 earlier S19 pending-review projection while preserving its failed oracle.

@@ -25,7 +25,8 @@ import play.api.libs.json.Json
 /*
  * @since   Jul. 28, 2026
  *  version Aug. 21, 2026
- * @version Sep. 27, 2026
+ *  version Sep. 27, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArchivePackagerCv06Spec
@@ -633,22 +634,20 @@ final class CozyArchivePackagerCv06Spec
       dir.resolve("target/scala-3.3.8/src_managed/main/domain/Sample.scala"),
       "package domain\nfinal class Sample\n"
     )
-    val snapshot =
-      GenerationProvenance.requireSourceSnapshot(
+    val selected =
+      GenerationProvenance.requireSourceInput(
         sourcePath = source,
         sourceIdentity = "src/main/cozy/sample.cml"
       )
     GenerationProvenance.write(
       outputRoot = dir,
-      sourceSnapshot = snapshot,
+      sourceInput = selected,
       inputs = GenerationProvenance.Inputs(
         cncfTargetVersion = cncfversion,
-        runtimeDescriptorSha256 = "a" * 64,
         cozyGeneratorVersion = cozyversion,
         simpleModelerBackendVersion = "0.2.0",
         simpleModelingModelVersion = "0.2.0",
-        sourceIdentity = snapshot.identity,
-        sourceSha256 = snapshot.sha256
+        sourceIdentity = selected.identity
       )
     )
     dir.resolve(GenerationProvenance.METADATA_PATH)

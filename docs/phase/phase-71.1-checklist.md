@@ -9,7 +9,11 @@ Latest compilation: user-run clean Test / compile at 20:28:10 JST; 257 main / 17
 Release commit: not-created, per user instruction
 Ledger for: [Phase 71.1](phase-71.1.md)
 Primary owner: Cozy
-Repository-full validation: deferred-not-run; existing aggregate plan PHASE-71.4
+Repository-full validation: deferred-not-run; current aggregate owner PHASE-71.7
+
+Ownership update (2026-10-05): see [Phase 71.7](phase-71.7.md).
+Earlier text naming 71.4 is historical. Closed items and their evidence remain
+unchanged; this transfers pending full validation without claiming it passed.
 Runtime classpath export: not-run on latest tree
 
 The user explicitly requested normal closure. The current completion criteria

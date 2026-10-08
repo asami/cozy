@@ -2,7 +2,6 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{AtomicMoveNotSupportedException, Files, Path, StandardCopyOption}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 
 import cozy.compatibility.CarMetadataCompatibility
@@ -14,11 +13,12 @@ import play.api.libs.json.{JsArray, JsObject, Json}
  * CNCF-owned runtime admission evidence for a mutable CAR development root.
  *
  * This deliberately differs from CozyCarRuntimeManifest.  A development root
- * proves its stable project contract and prepared runtime inputs; it never
+ * declares its project contract and validates current runtime inputs; it never
  * claims that compiled class bytes or the whole directory are immutable.
  *
  * @since   Jul. 29, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDevelopmentRuntimeManifest {
@@ -71,14 +71,14 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
     if (componentknowledge.isEmpty)
       CozyComponentKnowledgeCarrier.removeDevelopmentCopy(projectroot)
     val runtime = contract.runtimeCompatibility
-    val classpathidentity = _classpath_identity(projectroot, classpath)
+    _validate_classpath(classpath)
     val evidence = Vector(
-      _evidence_entry(RUNTIME_CLASSPATH_IDENTITY, classpath, Some(classpathidentity)),
-      _evidence_entry(descriptoridentity, descriptor, None)
-    ) ++ componentknowledge.toVector.map { path =>
-      _evidence_entry(COMPONENT_KNOWLEDGE_IDENTITY, path, None)
+      _evidence_entry(RUNTIME_CLASSPATH_IDENTITY),
+      _evidence_entry(descriptoridentity)
+    ) ++ componentknowledge.toVector.map { _ =>
+      _evidence_entry(COMPONENT_KNOWLEDGE_IDENTITY)
     } ++ Vector(
-      _evidence_entry(ABI_MANIFEST_IDENTITY, abi, None)
+      _evidence_entry(ABI_MANIFEST_IDENTITY)
     )
     val manifest = Json.obj(
       "schemaVersion" -> schemaversion,
@@ -96,11 +96,7 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
           "tested" -> runtime.tested
         )
       ),
-      "evidence" -> JsArray(evidence),
-      "integrity" -> Json.obj(
-        "algorithm" -> "SHA-256",
-        "evidenceSha256" -> _evidence_digest(evidence)
-      )
+      "evidence" -> JsArray(evidence)
     )
     _write_atomically(output.toAbsolutePath.normalize(), Json.prettyPrint(manifest) + "\n")
   }
@@ -157,18 +153,15 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
     normalized
   }
 
-  private def _evidence_entry(identity: String, path: Path, logicaldigest: Option[String]): JsObject =
-    Json.obj(
-      "path" -> identity,
-      "sha256" -> _sha256(path)
-    ) ++ logicaldigest.map(value => Json.obj("logicalSha256" -> value)).getOrElse(Json.obj())
+  private def _evidence_entry(identity: String): JsObject =
+    Json.obj("path" -> identity)
 
-  private def _classpath_identity(root: Path, path: Path): String = {
-    val identities = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
+  private def _validate_classpath(path: Path): Unit = {
+    Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
       .flatMap(_.split(java.util.regex.Pattern.quote(java.io.File.pathSeparator)).toVector)
       .map(_.trim)
       .filter(_.nonEmpty)
-      .map { value =>
+      .foreach { value =>
         val entry = try Path.of(value).toAbsolutePath.normalize()
         catch {
           case exception: Exception =>
@@ -176,14 +169,7 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
         }
         if (!Files.exists(entry))
           RAISE.invalidArgumentFault(s"Development runtime classpath entry is missing: $entry (declared by $path)")
-        if (entry.startsWith(root))
-          s"project:${root.relativize(entry).toString.replace('\\', '/')}"
-        else
-          s"external:${entry.getFileName.toString}"
       }
-      .distinct
-      .sorted
-    _sha256(identities.mkString("\n").getBytes(StandardCharsets.UTF_8))
   }
 
   private def _read_json(path: Path, source: String): play.api.libs.json.JsValue =
@@ -213,17 +199,4 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
     }
   }
 
-  private def _sha256(path: Path): String =
-    _sha256(Files.readAllBytes(path))
-
-  private def _evidence_digest(entries: Vector[JsObject]): String =
-    _sha256(entries.map { entry =>
-      val path = (entry \ "path").as[String]
-      val digest = (entry \ "sha256").as[String]
-      val logical = (entry \ "logicalSha256").asOpt[String].getOrElse("")
-      s"$path\t$digest\t$logical"
-    }.mkString("\n").getBytes(StandardCharsets.UTF_8))
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 }

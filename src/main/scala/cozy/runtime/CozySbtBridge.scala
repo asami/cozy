@@ -21,7 +21,8 @@ import java.nio.file.{Files, Path, Paths}
  *  version Jun. 27, 2026
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -218,25 +219,16 @@ private[cozy] object CozySbtBridge {
       _required_value(args.toList, "mode"),
       _required_value(args.toList, "license")
     )
-    val evidence = _release_source_build_evidence(args.toList)
     val projectroot = _required_path(args.toList, "project-dir")
     val output = _required_path(args.toList, "save")
-    val mainsources = _json_paths(args.toList, "managed-main-sources")
-    val mainroots = _json_paths(args.toList, "managed-main-roots")
-    val testsources = _json_paths(args.toList, "managed-test-sources")
-    val testroots = _json_paths(args.toList, "managed-test-roots")
     if (_option(args.toList, "verify-existing").contains("true"))
-      ComponentReleaseSourceProjection.verify(
-        output,
-        projectroot,
-        policy,
-        mainsources,
-        mainroots,
-        testsources,
-        testroots,
-        evidence
-      )
-    else
+      ComponentReleaseSourceProjection.verify(output, projectroot, policy)
+    else {
+      val evidence = _release_source_build_evidence(args.toList)
+      val mainsources = _json_paths(args.toList, "managed-main-sources")
+      val mainroots = _json_paths(args.toList, "managed-main-roots")
+      val testsources = _json_paths(args.toList, "managed-test-sources")
+      val testroots = _json_paths(args.toList, "managed-test-roots")
       ComponentReleaseSourceProjection.stage(
         projectroot,
         output,
@@ -247,6 +239,7 @@ private[cozy] object CozySbtBridge {
         testroots,
         evidence
       )
+    }
   }
 
   private def _release_source_build_evidence(args: List[String]): ComponentReleaseSourceProjection.BuildEvidence = {

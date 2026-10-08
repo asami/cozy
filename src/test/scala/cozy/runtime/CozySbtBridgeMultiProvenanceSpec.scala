@@ -2,7 +2,6 @@ package cozy.runtime
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import java.util.Comparator
 import scala.collection.JavaConverters._
 import cozy.modeler.GenerationProvenance
@@ -13,7 +12,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Sep. 17, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozySbtBridgeMultiProvenanceSpec {
@@ -78,18 +77,19 @@ final class CozySbtBridgeMultiProvenanceSpec
         When("the actual V1 bridge dispatches the explicit pair transport")
         CozySbtBridge.execute(List("v1", "--request", request.toString))
 
-        Then("the aggregate authority publishes V2 evidence for both forwarded sources")
         val aggregate = GenerationProvenance.requireValidForPackaging(
           provenancePath = projectroot.resolve(GenerationProvenance.METADATA_PATH),
           projectRoot = projectroot,
           expectedCncfTargetVersion = Some("0.5.2-SNAPSHOT"),
           expectedCozyGeneratorVersion = Some("0.3.2-SNAPSHOT")
         )
-        aggregate.schemaVersion shouldBe GenerationProvenance.AGGREGATE_SCHEMA_VERSION
         val published = Json.parse(Files.readString(
           projectroot.resolve(GenerationProvenance.METADATA_PATH),
           StandardCharsets.UTF_8
         ))
+        Then("the actual bridge publishes exactly the known V2 sources and artifact paths")
+        aggregate.schemaVersion shouldBe GenerationProvenance.AGGREGATE_SCHEMA_VERSION
+        published shouldBe aggregate.toJson
         (published \ "sources").as[Vector[play.api.libs.json.JsObject]].map { source =>
           (source \ "identity").as[String]
         } shouldBe Vector(
@@ -129,10 +129,12 @@ final class CozySbtBridgeMultiProvenanceSpec
           CozySbtBridge.execute(List("v1", "--request", malformedrequest.toString))
         }
 
+        val published = Files.exists(projectroot.resolve(GenerationProvenance.METADATA_PATH))
+
         Then("both requests fail before aggregate publication")
         emptyerror.getMessage should include("Invalid --delegated-inputs-json")
         malformederror.getMessage should include("Invalid --delegated-inputs-json")
-        Files.exists(projectroot.resolve(GenerationProvenance.METADATA_PATH)) shouldBe false
+        published shouldBe false
       }
     }
   }
@@ -146,15 +148,13 @@ final class CozySbtBridgeMultiProvenanceSpec
     _write(outputroot.resolve(artifact._1), artifact._2)
     val manifest = GenerationProvenance.write(
       outputroot,
-      GenerationProvenance.requireSourceSnapshot(source, sourceidentity),
+      GenerationProvenance.requireSourceInput(source, sourceidentity),
       GenerationProvenance.Inputs(
         cncfTargetVersion = "0.5.2-SNAPSHOT",
-        runtimeDescriptorSha256 = "a" * 64,
         cozyGeneratorVersion = "0.3.2-SNAPSHOT",
         simpleModelerBackendVersion = "0.5.2-SNAPSHOT",
         simpleModelingModelVersion = "0.5.2-SNAPSHOT",
-        sourceIdentity = sourceidentity,
-        sourceSha256 = _sha256(source)
+        sourceIdentity = sourceidentity
       )
     )
     Delegated(
@@ -188,13 +188,6 @@ final class CozySbtBridgeMultiProvenanceSpec
     Files.writeString(path, content, StandardCharsets.UTF_8)
     path.toAbsolutePath.normalize()
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest
-      .getInstance("SHA-256")
-      .digest(Files.readAllBytes(path))
-      .map(byte => f"${byte & 0xff}%02x")
-      .mkString
 
   private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
     val workroot = Path.of("target/cozy-test/work/cozy-sbt-bridge-multi-provenance-spec").toAbsolutePath.normalize()

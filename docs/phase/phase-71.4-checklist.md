@@ -1,16 +1,24 @@
 # Phase 71.4 Checklist
 
-Phase status: IN-PROGRESS
+Phase status: CLOSED
 Updated: 2026-10-08
 Ledger for: [Phase 71.4](phase-71.4.md)
 Primary owner: Cozy
 Repository-full validation: deferred-not-run to PHASE-71.7
 
-Implementation is in progress. These are the only OPEN obligations owned by this
+The final release transaction closes this Phase. These are the only obligations owned by this
 Phase; the original P710-03/P710-04 labels are partitioned, not additional work.
 No child execution or acceptance is implied by applying the planning split.
 
-Current execution state (2026-10-08 resume): the same Goal is active.
+Earlier Step acceptance update (2026-10-08, before the full Phase review): P710-F04 is independently accepted and
+committed as `d0b646aa725c90f6239b65b38313b1853becd744`. The exact 20 paths,
+single parent and message were verified; the index is empty and 91 other dirty
+paths are preserved. Its three Step items below are closed from accepted actual
+behavior/specification/review/commit evidence. The four Phase closure items
+remain OPEN. The factual M0 status projection continues the same review chain
+at revision 18; full Phase review remains unconsumed.
+
+Earlier preparation state (before that commit): the same Goal is active.
 The owning task's historical S07 pause remains recorded in the
 [actual handoff](../journal/2026/10/2026-10-05-phase-71.4-pause-and-phase-75-priority.md).
 The historical site-recovery priority was 75 -> 75.1 before authorized resumption.
@@ -52,17 +60,31 @@ Keep removals already made; unfinished removal/inventory belongs to Phase 71.5.
 `[>]` means transferred, not passed and not a current Phase exit condition.
 Existing evidence and all review/repair history remain.
 
+## Final release evidence — 2026-10-08
+
+The four Phase items are satisfied by the accepted actual representative route,
+203 passing focused/consumer scenarios, applicable retained removal/site Specs,
+sole 144-path full Phase review and accepted M0 closure chain at ledger revision
+20. All 18 original Hygiene records are persisted; no accepted finding is pending.
+The COMMIT item and CLOSED status are transactional: effective only with the
+verified distinct native release carrying `Phase-Closure-Binding: 09ea777a-ce7c-4ac2-9290-8015b6af1099@1`.
+The [normal closure journal](../journal/2026/10/2026-10-08-phase-71.4-normal-closure.md)
+records the exact evidence and transfer boundaries. All earlier OPEN statements
+are historical preparation observations, not the current release state.
+The `[>]` items remain transferred/not passed; repository-full SBT remains
+deferred-not-run to 71.7. No successor has started.
+
 ## P710-F04: Non-black common media ending with all narration retained
 
 Stage Status:
 
-- Current status: IN-PROGRESS
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only against the following checklist and accepted executable evidence
 
-- [ ] P710-F04-BEHAVIOR: The existing JA VOICEVOX 34-scene route works through normal Cozy generation and final assembly; actual audible playback through EOF confirms retained narration, no black tail and the complete opaque end card. Main-route failures are resolved here before branch expansion.
-- [ ] P710-F04-SPEC: Affected subsystem specification and Given/When/Then executable specifications, including changed consumers and relevant failure behavior, are reconciled and focused validation succeeds.
-- [ ] P710-F04-ACCEPT: Independent Step acceptance review and the exact Step acceptance commit bind this owned result without claiming successor implementation.
+- [x] P710-F04-BEHAVIOR: The existing JA VOICEVOX 34-scene route works through normal Cozy generation and final assembly; actual audible playback through EOF confirms retained narration, no black tail and the complete opaque end card. Main-route failures are resolved here before branch expansion.
+- [x] P710-F04-SPEC: Affected subsystem specification and Given/When/Then executable specifications, including changed consumers and relevant failure behavior, are reconciled and focused validation succeeds.
+- [x] P710-F04-ACCEPT: Independent Step acceptance review and the exact Step acceptance commit bind this owned result without claiming successor implementation.
 
 Internal Slice P710-F04-S01 is accepted by focused independent review
 `63ad94ec-aa97-4d7c-b758-476b7f65a940@1`. Applicable focused evidence is
@@ -116,12 +138,12 @@ Stage Status:
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only when all owned Step items and the following release ledger are satisfied
 
-- [ ] RELEASE-71.4-HANDOFF: Video implementation/Executable Spec Step and real representative route are accepted; hand over working commands, inputs/settings, final media and playback results. Preserve existing changes/results and send unfinished removal/remaining integration to 71.5/71.7.
-- [ ] RELEASE-71.4-REVIEW: The mandatory Phase review and any bounded closure repair complete for this exact Phase tree; closure journals and checklist agree.
-- [ ] RELEASE-71.4-VALIDATION: Corresponding video Executable Specifications pass; relevant existing results for retained changes are reused, with revalidation only for affected behavior. Actual representative generation/playback also passes. Removal completion, broad native integration and full SBT are not exit conditions.
+- [x] RELEASE-71.4-HANDOFF: Video implementation/Executable Spec Step and real representative route are accepted; hand over working commands, inputs/settings, final media and playback results. Preserve existing changes/results and send unfinished removal/remaining integration to 71.5/71.7.
+- [x] RELEASE-71.4-REVIEW: The mandatory Phase review and any bounded closure repair complete for this exact Phase tree; closure journals and checklist agree.
+- [x] RELEASE-71.4-VALIDATION: Corresponding video Executable Specifications pass; relevant existing results for retained changes are reused, with revalidation only for affected behavior. Actual representative generation/playback also passes. Removal completion, broad native integration and full SBT are not exit conditions.
 - [>] RELEASE-71.4-AGGREGATE: Remaining broad native/aggregate obligations are consolidated into P717-01/02/04; full SBT remains deferred-not-run, not waived.
-- [ ] RELEASE-71.4-COMMIT: The distinct Phase release commit includes its final closure ledger and correct aggregate validation disposition; no successor is started.
+- [x] RELEASE-71.4-COMMIT: The distinct Phase release commit includes its final closure ledger and correct aggregate validation disposition; no successor is started.

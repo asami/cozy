@@ -22,7 +22,8 @@ import play.api.libs.json.{Json, JsObject, JsValue}
  *  version May. 22, 2026
  *  version Jun. 18, 2026
  *  version Jul. 31, 2026
- * @version Aug. 25, 2026
+ *  version Aug. 25, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -1609,265 +1610,329 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
   }
 
-    "package verified public Scaladoc staging" should {
-    "copy exactly the manifest-declared Scaladoc bytes into the CAR" in {
-    _with_temp_dir("cozy-car-scaladoc") { dir =>
-      Given("one current public Scaladoc staging directory and a component source input")
-      val projectdir = dir.resolve("project")
-      _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "package fixture\nfinal class PublicApi\n")
-      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
-      val staging = _write_scaladoc_staging(projectdir)
-      val archive = dir.resolve("out/sample.car")
-
-      When("Cozy packages the CAR with the staged Scaladoc directory")
-      CarPackagingSpecSupport.buildCarWithContract(List(
-        "--save", archive.toString,
-        "--project-dir", projectdir.toString,
-        "--main-jar", mainjar.toString,
-        "--scaladoc-dir", staging.toString,
-        "--name", "sample-component",
-        "--version", "0.1.0-SNAPSHOT",
-        "--component", "Component"
-      ))
-
-      Then("the CAR contains exactly the verified staging entries and manifest under scaladoc")
-      val stagedentries = _scaladoc_manifest_entries(staging)
-      _zip_entries(archive).filter(_.startsWith("scaladoc/")) shouldBe
-        (stagedentries.map { case (path, _) => s"scaladoc/$path" }.toSet + "scaladoc/scaladoc-manifest.json")
-      stagedentries.foreach { case (path, _) =>
-        _zip_text(archive, s"scaladoc/$path") shouldBe Files.readString(staging.resolve(path), StandardCharsets.UTF_8)
+    "admitted staged distributions" which {
+      "package prebuilt Scaladoc after current source changes and removal with normalized historical metadata" in {
+        _with_temp_dir("cozy-car-scaladoc-prebuilt") { dir =>
+          Given("a complete public Scaladoc stage and its required manifest")
+          val projectdir = dir.resolve("project")
+          val source = _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "original source")
+          val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+          val staging = _write_scaladoc_staging(projectdir)
+          val controlpath = "fixture/Line\nBreak.html"
+          _write(staging.resolve(controlpath), "<html>valid path</html>")
+          _write_scaladoc_manifest(staging)
+          val manifestpath = staging.resolve("scaladoc-manifest.json")
+          val canonical = Json.parse(Files.readString(manifestpath))
+          val historical = _manifest_with_extras(manifestpath)
+          val payload = _scaladoc_manifest_entries(staging).map { case (path, _) =>
+            path -> Files.readAllBytes(staging.resolve(path)).toVector
+          }
+          val archive = dir.resolve("out/prebuilt.car")
+          _write(source, "changed current source")
+          When("the CAR consumes the supplied Scaladoc stage after a source edit")
+          _package_staged_car(projectdir, mainjar, archive, Some(staging), None)
+          Then("the CAR projects only valid required manifest fields and exactly preserves payload bytes")
+          Json.parse(_zip_text(archive, "scaladoc/scaladoc-manifest.json")) shouldBe canonical
+          payload.foreach { case (path, bytes) => _zip_bytes(archive, s"scaladoc/$path").toVector shouldBe bytes }
+          _zip_entries(archive).filter(_.startsWith("scaladoc/")) shouldBe
+            (payload.map { case (path, _) => s"scaladoc/$path" }.toSet + "scaladoc/scaladoc-manifest.json")
+          Files.readString(manifestpath) shouldBe historical
+          Given("the same prebuilt distribution after current sources are removed")
+          _delete_tree(projectdir.resolve("src/main/scala"))
+          When("Cozy packages the supplied stage again")
+          _package_staged_car(projectdir, mainjar, archive, Some(staging), None)
+          Then("source absence does not add a freshness authority or alter the original manifest")
+          Json.parse(_zip_text(archive, "scaladoc/scaladoc-manifest.json")) shouldBe canonical
+          Files.readString(manifestpath) shouldBe historical
+        }
       }
-      _zip_text(archive, "scaladoc/scaladoc-manifest.json") shouldBe
-        Files.readString(staging.resolve("scaladoc-manifest.json"), StandardCharsets.UTF_8)
+
+      Vector("public", "restricted").foreach { mode =>
+        s"package prebuilt $mode release-source after authored and managed sources change or disappear" in {
+          _with_temp_dir(s"cozy-car-release-source-$mode") { dir =>
+            Given(s"a $mode release-source stage with typed policy, license and build evidence")
+            val projectdir = _write_release_source_project(dir.resolve("project"), mode)
+            val source = _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "original source")
+            val managedroot = projectdir.resolve("target/managed")
+            val managed = _write(managedroot.resolve("fixture/Generated.scala"), "original managed source")
+            val evidence = ComponentReleaseSourceProjection.BuildEvidence(
+              Vector("-deprecation"), Vector("-source:future"), Vector("org.example:generator:1.0.0"), Vector("backend:cozy")
+            )
+            val staging = ComponentReleaseSourceProjection.stage(
+              projectdir, projectdir.resolve("target/cozy/release-source"),
+              ComponentReleaseSourceProjection.Policy(mode, "Apache-2.0"),
+              Vector(managed), Vector(managedroot), Vector.empty, Vector.empty, evidence
+            )
+            val manifestpath = staging.resolve("release-source-manifest.json")
+            val canonical = Json.parse(Files.readString(manifestpath))
+            val paths = (canonical \ "entries").as[Vector[JsObject]].map(value => (value \ "path").as[String])
+            val payload = paths.map(path => path -> Files.readAllBytes(staging.resolve(path)).toVector)
+            val historical = _manifest_with_extras(manifestpath)
+            val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+            val archive = dir.resolve("out/prebuilt.car")
+            _write(source, "changed source")
+            _write(managed, "changed managed source")
+            When("Cozy packages the admitted stage without current build snapshot flags")
+            _package_staged_car(projectdir, mainjar, archive, None, Some(staging))
+            Then("the CAR retains every required nonhash value and exact staged payload while normalizing extras")
+            Json.parse(_zip_text(archive, "source/release-source-manifest.json")) shouldBe canonical
+            payload.foreach { case (path, bytes) => _zip_bytes(archive, s"source/$path").toVector shouldBe bytes }
+            _zip_entries(archive).filter(_.startsWith("source/")) shouldBe
+              (paths.map(path => s"source/$path").toSet + "source/release-source-manifest.json")
+            Files.readString(manifestpath) shouldBe historical
+            if (mode == "restricted") paths shouldBe Vector.empty
+            Given("the same stage after authored and managed source removal")
+            _delete_tree(projectdir.resolve("src/main/scala"))
+            _delete_tree(managedroot)
+            When("Cozy packages the stage again while upstream generic CLI extras carry no currentness authority")
+            _package_staged_car(projectdir, mainjar, archive, None, Some(staging), List(
+              "--release-source-managed-main-sources", "malformed unused JSON",
+              "--release-source-managed-main-roots", "malformed unused JSON",
+              "--release-source-managed-test-sources", "malformed unused JSON",
+              "--release-source-managed-test-roots", "malformed unused JSON",
+              "--release-source-build-evidence", "malformed unused JSON"
+            ))
+            Then("the supplied distribution still packages and its input manifest stays untouched")
+            Json.parse(_zip_text(archive, "source/release-source-manifest.json")) shouldBe canonical
+            Files.readString(manifestpath) shouldBe historical
+          }
+        }
+      }
     }
-  }
-  }
 
-    "reject invalid public Scaladoc staging" should {
-    "fail closed for a tampered or missing declared entry and a changed Scala source" in {
-    _with_temp_dir("cozy-car-scaladoc-strict") { dir =>
-      Given("a staged public Scaladoc manifest, its declared files, and one Scala source")
-      val projectdir = dir.resolve("project")
-      val source = _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "package fixture\nfinal class PublicApi\n")
-      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
-      val staging = _write_scaladoc_staging(projectdir)
-
-      When("a declared staging entry is tampered, removed, or made stale by a source change")
-      _write(staging.resolve("index.js"), "tampered")
-      val tampered = intercept[Throwable] {
-        CarPackagingSpecSupport.buildCarWithContract(List(
-          "--save", dir.resolve("out/tampered.car").toString,
-          "--project-dir", projectdir.toString,
-          "--main-jar", mainjar.toString,
-          "--scaladoc-dir", staging.toString,
-          "--name", "sample-component",
-          "--version", "0.1.0-SNAPSHOT",
-          "--component", "Component"
-        ))
-      }
-      _write_scaladoc_staging(projectdir, staging, replace = true)
-      Files.delete(staging.resolve("fixture/PublicApi.html"))
-      val missing = intercept[Throwable] {
-        CarPackagingSpecSupport.buildCarWithContract(List(
-          "--save", dir.resolve("out/missing.car").toString,
-          "--project-dir", projectdir.toString,
-          "--main-jar", mainjar.toString,
-          "--scaladoc-dir", staging.toString,
-          "--name", "sample-component",
-          "--version", "0.1.0-SNAPSHOT",
-          "--component", "Component"
-        ))
-      }
-      _write_scaladoc_staging(projectdir, staging, replace = true)
-      _write(source, "package fixture\nfinal class PublicApi { def changed = true }\n")
-      val stale = intercept[Throwable] {
-        CarPackagingSpecSupport.buildCarWithContract(List(
-          "--save", dir.resolve("out/stale.car").toString,
-          "--project-dir", projectdir.toString,
-          "--main-jar", mainjar.toString,
-          "--scaladoc-dir", staging.toString,
-          "--name", "sample-component",
-          "--version", "0.1.0-SNAPSHOT",
-          "--component", "Component"
-        ))
-      }
-
-      Then("Cozy rejects every failed integrity boundary before CAR output")
-      tampered.getMessage should include ("Scaladoc staged entry digest differs")
-      missing.getMessage should include ("Scaladoc staging entries differ")
-      stale.getMessage should include ("Scaladoc source-input digest differs")
-      Files.exists(dir.resolve("out/tampered.car")) shouldBe false
-      Files.exists(dir.resolve("out/missing.car")) shouldBe false
-      Files.exists(dir.resolve("out/stale.car")) shouldBe false
-    }
-  }
-
-    "package verified release-source staging" should {
-    "copy public payloads exactly, keep restricted staging manifest-only, and reject tampering" in {
-    _with_temp_dir("cozy-car-release-source") { dir =>
-      Given("public and restricted release-source stages with their project policies")
-      val publicproject = dir.resolve("public-project")
-      _write(publicproject.resolve("src/main/scala/fixture/PublicApi.scala"), "package fixture\nfinal class PublicApi\n")
-      _write(publicproject.resolve("project.yaml"), Json.prettyPrint(Json.obj(
-        "project" -> Json.obj(
-          "namespace" -> "org.sample",
-          "id" -> "Component",
-          "name" -> "sample-component",
-          "kind" -> "car",
-          "component" -> Json.obj("version" -> "0.1.0-SNAPSHOT")
-        ),
-        "build" -> Json.obj(
-          "cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
-          "dependencies" -> Json.obj("compile" -> Json.arr("org.goldenport::goldenport-cncf:0.5.17"))
-        ),
-        "packaging" -> Json.obj(
-          "kind" -> "car",
-          "car" -> Json.obj(
-            "include_dependencies" -> false,
-            "runtime" -> Json.obj("cncf" -> Json.obj("minimum" -> "0.5.17", "tested" -> Json.arr("0.5.17"))),
-            "release_source" -> Json.obj("mode" -> "public", "license" -> "Apache-2.0")
-          )
+    "Scaladoc preflight failures" which {
+      "preserve a previous successful CAR for each required semantic, payload and disclosure failure" in {
+        val cases = Vector(
+          "entry" -> "staged entry digest differs", "missing" -> "staging entries differ",
+          "extra" -> "staging entries differ", "symlink" -> "symbolic link",
+          "manifestMissing" -> "Scaladoc manifest is missing", "manifestSymlink" -> "Scaladoc manifest is missing",
+          "content" -> "staged-content digest differs", "schema" -> "schema is unsupported",
+          "requiredType" -> "missing entries", "entryType" -> "missing sha256",
+          "unsafePath" -> "unsafe staged path", "duplicate" -> "not uniquely sorted",
+          "sourcePage" -> "source-page material is forbidden", "sourceLink" -> "source link or source-page material is forbidden",
+          "indexMissing" -> "missing index.html", "searchMissing" -> "missing generated search or symbol evidence"
         )
-      )))
-      val publicstage = ComponentReleaseSourceProjection.stage(
-        publicproject,
-        publicproject.resolve("target/cozy/release-source"),
-        ComponentReleaseSourceProjection.Policy("public", "Apache-2.0"),
-        Vector.empty,
-        Vector.empty,
-        Vector.empty,
-        Vector.empty,
-        ComponentReleaseSourceProjection.BuildEvidence(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
-      )
-      val publicarchive = dir.resolve("out/public.car")
-      val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
-      val runtimejar = _write_zip(
-        dir.resolve("artifacts/goldenport-cncf_3-0.5.17.jar"),
-        "META-INF/cncf/runtime.yaml",
-        "runtime: cncf\nmodule: org.goldenport:goldenport-cncf_3:0.5.17\nversion: 0.5.17\n"
-      )
-      val releaseverification = List(
-        "--release-source-managed-main-sources", "[]",
-        "--release-source-managed-main-roots", "[]",
-        "--release-source-managed-test-sources", "[]",
-        "--release-source-managed-test-roots", "[]",
-        "--release-source-build-evidence",
-        "{\"compileScalacOptions\":[],\"testScalacOptions\":[],\"dependencies\":[],\"generators\":[]}"
-      )
-
-      When("Cozy packages the verified public release-source stage")
-      CozyArchivePackager.buildCar(releaseverification ++ List(
-        "--save", publicarchive.toString,
-        "--project-dir", publicproject.toString,
-        "--main-jar", mainjar.toString,
-        "--lib-jars", runtimejar.toString,
-        "--release-source-dir", publicstage.toString,
-        "--name", "sample-component",
-        "--version", "0.1.0-SNAPSHOT",
-        "--component", "Component"
-      ))
-
-      Then("the public CAR contains the exact staged source payload and manifest")
-      val publicentries = _zip_entries(publicarchive).filter(_.startsWith("source/"))
-      publicentries.toSet shouldBe Set(
-        "source/project.yaml",
-        "source/src/main/scala/fixture/PublicApi.scala",
-        "source/release-source-manifest.json"
-      )
-      _zip_text(publicarchive, "source/src/main/scala/fixture/PublicApi.scala") shouldBe
-        Files.readString(publicstage.resolve("src/main/scala/fixture/PublicApi.scala"), StandardCharsets.UTF_8)
-
-      Given("a verified restricted release-source stage for the same component contract")
-      val restrictedproject = dir.resolve("restricted-project")
-      _write(restrictedproject.resolve("src/main/scala/fixture/RestrictedApi.scala"), "package fixture\nfinal class RestrictedApi\n")
-      _write(restrictedproject.resolve("project.yaml"), Json.prettyPrint(Json.obj(
-        "project" -> Json.obj(
-          "namespace" -> "org.sample",
-          "id" -> "Component",
-          "name" -> "sample-component",
-          "kind" -> "car",
-          "component" -> Json.obj("version" -> "0.1.0-SNAPSHOT")
-        ),
-        "build" -> Json.obj(
-          "cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
-          "dependencies" -> Json.obj("compile" -> Json.arr("org.goldenport::goldenport-cncf:0.5.17"))
-        ),
-        "packaging" -> Json.obj(
-          "kind" -> "car",
-          "car" -> Json.obj(
-            "include_dependencies" -> false,
-            "runtime" -> Json.obj("cncf" -> Json.obj("minimum" -> "0.5.17", "tested" -> Json.arr("0.5.17"))),
-            "release_source" -> Json.obj("mode" -> "restricted", "license" -> "Apache-2.0")
-          )
-        )
-      )))
-      val restrictedstage = ComponentReleaseSourceProjection.stage(
-        restrictedproject,
-        restrictedproject.resolve("target/cozy/release-source"),
-        ComponentReleaseSourceProjection.Policy("restricted", "Apache-2.0"),
-        Vector.empty,
-        Vector.empty,
-        Vector.empty,
-        Vector.empty,
-        ComponentReleaseSourceProjection.BuildEvidence(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
-      )
-      val restrictedarchive = dir.resolve("out/restricted.car")
-
-      When("Cozy packages the verified restricted release-source stage")
-      CozyArchivePackager.buildCar(releaseverification ++ List(
-        "--save", restrictedarchive.toString,
-        "--project-dir", restrictedproject.toString,
-        "--main-jar", mainjar.toString,
-        "--lib-jars", runtimejar.toString,
-        "--release-source-dir", restrictedstage.toString,
-        "--name", "sample-component",
-        "--version", "0.1.0-SNAPSHOT",
-        "--component", "Component"
-      ))
-
-      Then("the restricted CAR contains only the release-source manifest")
-      _zip_entries(restrictedarchive).filter(_.startsWith("source/")) shouldBe Set("source/release-source-manifest.json")
-
-      Given("the previously verified public release-source stage")
-      When("the staged source is tampered with and its manifest is removed")
-      _write(publicstage.resolve("src/main/scala/fixture/PublicApi.scala"), "tampered\n")
-      val tamperederror = intercept[Throwable] {
-        CozyArchivePackager.buildCar(releaseverification ++ List(
-          "--save", dir.resolve("out/tampered.car").toString,
-          "--project-dir", publicproject.toString,
-          "--main-jar", mainjar.toString,
-          "--lib-jars", runtimejar.toString,
-          "--release-source-dir", publicstage.toString,
-          "--name", "sample-component",
-          "--version", "0.1.0-SNAPSHOT",
-          "--component", "Component"
-        ))
+        cases.foreach { case (kind, diagnostic) =>
+          _with_temp_dir("cozy-car-scaladoc-rejection") { dir =>
+            Given("a valid Scaladoc stage and an output CAR destination")
+            val projectdir = dir.resolve("project")
+            _write(projectdir.resolve("src/main/scala/Api.scala"), "source")
+            val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+            val staging = _write_scaladoc_staging(projectdir)
+            val archive = dir.resolve("out/previous.car")
+            When("the valid distribution is packaged")
+            _package_staged_car(projectdir, mainjar, archive, Some(staging), None)
+            Then("the previous successful CAR is available for failure preservation")
+            Files.isRegularFile(archive) shouldBe true
+            val previous = Files.readAllBytes(archive).toVector
+            Given(s"the supplied stage with a $kind failure")
+            val manifestpath = staging.resolve("scaladoc-manifest.json")
+            val json = Json.parse(Files.readString(manifestpath)).as[JsObject]
+            val entries = (json \ "entries").as[Vector[JsObject]]
+            kind match {
+              case "entry" => _write(staging.resolve("index.js"), "tampered")
+              case "missing" => Files.delete(staging.resolve("fixture/PublicApi.html"))
+              case "extra" => _write(staging.resolve("extra.html"), "extra")
+              case "symlink" => Files.createSymbolicLink(staging.resolve("alias.html"), staging.resolve("index.html"))
+              case "manifestMissing" => Files.delete(manifestpath)
+              case "manifestSymlink" =>
+                val copy = _write(projectdir.resolve("manifest-copy.json"), Files.readString(manifestpath))
+                Files.delete(manifestpath)
+                Files.createSymbolicLink(manifestpath, copy)
+              case "content" => _write(manifestpath, Json.stringify(json + ("contentDigest" -> Json.toJson("0" * 64))))
+              case "schema" => _write(manifestpath, Json.stringify(json + ("schema" -> Json.toJson("unsupported"))))
+              case "requiredType" => _write(manifestpath, Json.stringify(json + ("entries" -> Json.toJson(false))))
+              case "entryType" =>
+                val invalid = entries.map(value => value + ("sha256" -> Json.toJson(false)))
+                _write_json(manifestpath, json + ("entries" -> Json.toJson(invalid)))
+              case "unsafePath" =>
+                val invalid = entries.head + ("path" -> Json.toJson("../escape"))
+                _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
+              case "duplicate" => _write(manifestpath, Json.stringify(json + ("entries" -> Json.toJson(entries ++ entries))))
+              case "sourcePage" => _write(staging.resolve("src-html/Api.html"), "source"); _write_scaladoc_manifest(staging)
+              case "sourceLink" => _write(staging.resolve("index.html"), "<a href=\"Api.scala\">source</a>"); _write_scaladoc_manifest(staging)
+              case "indexMissing" => Files.delete(staging.resolve("index.html")); _write_scaladoc_manifest(staging)
+              case "searchMissing" => Files.delete(staging.resolve("index.js")); _write_scaladoc_manifest(staging)
+            }
+            When("Cozy attempts to package the invalid stage over the successful output")
+            val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, Some(staging), None)
+            Then("the specific preflight rejection leaves previous CAR bytes unchanged")
+            error.getMessage should include(diagnostic)
+            Files.readAllBytes(archive).toVector shouldBe previous
+          }
+        }
       }
-
-      When("the public release-source manifest is removed")
-      Files.delete(publicstage.resolve("release-source-manifest.json"))
-      val missingerror = intercept[Throwable] {
-        CozyArchivePackager.buildCar(releaseverification ++ List(
-          "--save", dir.resolve("out/missing.car").toString,
-          "--project-dir", publicproject.toString,
-          "--main-jar", mainjar.toString,
-          "--lib-jars", runtimejar.toString,
-          "--release-source-dir", publicstage.toString,
-          "--name", "sample-component",
-          "--version", "0.1.0-SNAPSHOT",
-          "--component", "Component"
-        ))
-      }
-
-      Then("Cozy rejects both tampered and manifest-missing release-source stages")
-      tamperederror.getMessage should include ("Release-source staged entry digest differs from the manifest")
-      missingerror.getMessage should include ("Release-source manifest is missing, unsafe, or not a regular file")
-      Files.exists(dir.resolve("out/tampered.car")) shouldBe false
-      Files.exists(dir.resolve("out/missing.car")) shouldBe false
     }
-  }
-  }
-  }
+
+    "release-source preflight failures" which {
+      Vector("public", "restricted").foreach { mode =>
+        s"preserve a previous successful CAR when every required $mode evidence array contains leading or trailing LF CR or NUL" in {
+          _with_temp_dir("cozy-car-release-source-raw-controls") { dir =>
+            Given(s"a valid $mode release-source stage and a CAR output destination")
+            val projectdir = _write_release_source_project(dir.resolve("project"), mode)
+            _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "original source")
+            val staging = ComponentReleaseSourceProjection.stage(
+              projectdir, projectdir.resolve("target/cozy/release-source"),
+              ComponentReleaseSourceProjection.Policy(mode, "Apache-2.0"),
+              Vector.empty, Vector.empty, Vector.empty, Vector.empty,
+              ComponentReleaseSourceProjection.BuildEvidence(
+                Vector("-deprecation"), Vector("-source:future"), Vector("org.example:generator:1.0.0"), Vector("backend:cozy")
+              )
+            )
+            val manifestpath = staging.resolve("release-source-manifest.json")
+            val required = Json.parse(Files.readString(manifestpath)).as[JsObject]
+            val payload = (required \ "entries").as[Vector[JsObject]].map { entry =>
+              val path = (entry \ "path").as[String]
+              path -> Files.readAllBytes(staging.resolve(path)).toVector
+            }
+            val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+            val archive = dir.resolve("out/previous.car")
+            When("Cozy packages the valid release-source distribution")
+            _package_staged_car(projectdir, mainjar, archive, None, Some(staging))
+            Then("a real successful CAR contains the required release-source manifest")
+            Json.parse(_zip_text(archive, "source/release-source-manifest.json")) shouldBe required
+            val previous = Files.readAllBytes(archive).toVector
+            val fields = Vector(
+              "compileScalacOptions" -> "compile scalacOptions",
+              "testScalacOptions" -> "test scalacOptions",
+              "dependencies" -> "dependency", "generators" -> "generator"
+            )
+            for {
+              (field, label) <- fields
+              (controlname, control) <- Vector("LF" -> "\n", "CR" -> "\r", "NUL" -> "\u0000")
+              placement <- Vector("leading", "trailing")
+            } {
+              Given(s"the supplied $mode manifest with a $placement $controlname in $field")
+              val value = if (placement == "leading") control + "-deprecation" else "-deprecation" + control
+              val evidence = (required \ "buildEvidence").as[JsObject] + (field -> Json.arr(value))
+              val historical = " \n" + Json.prettyPrint(required + ("buildEvidence" -> evidence)) + "\n "
+              _write(manifestpath, historical)
+              When("Cozy attempts to replace the previous CAR with the invalid supplied stage")
+              val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, None, Some(staging))
+              Then("the field-specific preflight rejection preserves previous CAR bytes and the supplied stage")
+              error.getMessage should include(s"$label evidence")
+              Files.readAllBytes(archive).toVector shouldBe previous
+              Files.readString(manifestpath) shouldBe historical
+              payload.foreach { case (path, bytes) => Files.readAllBytes(staging.resolve(path)).toVector shouldBe bytes }
+            }
+          }
+        }
+      }
+
+      "preserve a previous successful CAR for public staged semantics and payload mismatches" in {
+        val cases = Vector(
+          "entry" -> "staged entry digest differs", "missing" -> "staging entries differ",
+          "extra" -> "staging entries differ", "symlink" -> "symbolic link",
+          "manifestMissing" -> "Release-source manifest is missing", "manifestSymlink" -> "Release-source manifest is missing",
+          "content" -> "content digest differs", "schema" -> "missing schema",
+          "policy" -> "mode must be", "identity" -> "source identity",
+          "buildEvidence" -> "must contain strings", "unsafeEvidence" -> "local path",
+          "entryType" -> "invalid sha256", "unsafePath" -> "unsafe entry",
+          "duplicate" -> "not uniquely sorted", "policyAgreement" -> "policy differs from project.yaml",
+          "stageLocation" -> "must reside at"
+        )
+        cases.foreach { case (kind, diagnostic) =>
+          _with_temp_dir("cozy-car-source-rejection") { dir =>
+            Given("a valid public source distribution with a matching project policy")
+            val projectdir = _write_release_source_project(dir.resolve("project"), "public")
+            _write(projectdir.resolve("src/main/scala/fixture/PublicApi.scala"), "original source")
+            val staging = ComponentReleaseSourceProjection.stage(
+              projectdir, projectdir.resolve("target/cozy/release-source"), ComponentReleaseSourceProjection.Policy("public", "Apache-2.0"),
+              Vector.empty, Vector.empty, Vector.empty, Vector.empty,
+              ComponentReleaseSourceProjection.BuildEvidence(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+            )
+            val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+            val archive = dir.resolve("out/previous.car")
+            When("the valid source distribution is packaged")
+            _package_staged_car(projectdir, mainjar, archive, None, Some(staging))
+            Then("a previous successful CAR exists")
+            Files.isRegularFile(archive) shouldBe true
+            val previous = Files.readAllBytes(archive).toVector
+            Given(s"the stage with a $kind violation")
+            val manifestpath = staging.resolve("release-source-manifest.json")
+            val json = Json.parse(Files.readString(manifestpath)).as[JsObject]
+            val entries = (json \ "entries").as[Vector[JsObject]]
+            val entry = entries.head
+            kind match {
+              case "entry" => _write(staging.resolve("src/main/scala/fixture/PublicApi.scala"), "tampered")
+              case "missing" => Files.delete(staging.resolve("src/main/scala/fixture/PublicApi.scala"))
+              case "extra" => _write(staging.resolve("extra.scala"), "extra")
+              case "symlink" => Files.createSymbolicLink(staging.resolve("alias.scala"), staging.resolve("src/main/scala/fixture/PublicApi.scala"))
+              case "manifestMissing" => Files.delete(manifestpath)
+              case "manifestSymlink" =>
+                val copy = _write(projectdir.resolve("manifest-copy.json"), Files.readString(manifestpath))
+                Files.delete(manifestpath)
+                Files.createSymbolicLink(manifestpath, copy)
+              case "content" => _write(manifestpath, Json.stringify(json + ("contentDigest" -> Json.toJson("0" * 64))))
+              case "schema" => _write(manifestpath, Json.stringify(json - "schema"))
+              case "policy" => _write(manifestpath, Json.stringify(json + ("policy" -> Json.obj("mode" -> false, "license" -> "Apache-2.0"))))
+              case "identity" => _write(manifestpath, Json.stringify(json + ("sourceIdentity" -> Json.toJson(false))))
+              case "buildEvidence" =>
+                val invalid = (json \ "buildEvidence").as[JsObject] + ("dependencies" -> Json.arr(false))
+                _write_json(manifestpath, json + ("buildEvidence" -> invalid))
+              case "unsafeEvidence" =>
+                val invalid = (json \ "buildEvidence").as[JsObject] + ("generators" -> Json.arr("/tmp/local"))
+                _write_json(manifestpath, json + ("buildEvidence" -> invalid))
+              case "entryType" =>
+                val invalid = entry + ("sha256" -> Json.toJson("invalid"))
+                _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
+              case "unsafePath" =>
+                val invalid = entry + ("path" -> Json.toJson("../escape"))
+                _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
+              case "duplicate" => _write(manifestpath, Json.stringify(json + ("entries" -> Json.toJson(entries ++ entries))))
+              case "policyAgreement" => _write_release_source_project(projectdir, "restricted")
+              case "stageLocation" => ()
+            }
+            val suppliedstage = if (kind == "stageLocation") projectdir.resolve("target/elsewhere") else staging
+            When("the invalid source distribution is packaged over the previous CAR")
+            val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, None, Some(suppliedstage))
+            Then("the stage-specific rejection preserves the successful CAR bytes")
+            error.getMessage should include(diagnostic)
+            Files.readAllBytes(archive).toVector shouldBe previous
+          }
+        }
+      }
+
+      "reject restricted payloads and ambiguous CAR manifest replacements before deleting prior output" in {
+        Vector("restrictedExtra", "restrictedDeclared", "sourceCollision", "scaladocCollision").foreach { kind =>
+          _with_temp_dir("cozy-car-stage-intake") { dir =>
+            Given("valid restricted source and Scaladoc stages with a prior successful CAR")
+            val projectdir = _write_release_source_project(dir.resolve("project"), "restricted")
+            val source = ComponentReleaseSourceProjection.stage(projectdir, projectdir.resolve("target/cozy/release-source"),
+              ComponentReleaseSourceProjection.Policy("restricted", "Apache-2.0"), Vector.empty, Vector.empty, Vector.empty, Vector.empty,
+              ComponentReleaseSourceProjection.BuildEvidence(Vector.empty, Vector.empty, Vector.empty, Vector.empty))
+            val scaladoc = _write_scaladoc_staging(projectdir)
+            val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
+            val archive = dir.resolve("out/previous.car")
+            When("both admitted distributions are packaged")
+            _package_staged_car(projectdir, mainjar, archive, Some(scaladoc), Some(source))
+            Then("a successful CAR is available before the intake violation")
+            Files.isRegularFile(archive) shouldBe true
+            val previous = Files.readAllBytes(archive).toVector
+            Given(s"an intake violation of $kind")
+            kind match {
+              case "restrictedExtra" => _write(source.resolve("Private.scala"), "private")
+              case "restrictedDeclared" =>
+                val path = source.resolve("release-source-manifest.json")
+                val json = Json.parse(Files.readString(path)).as[JsObject]
+                _write(path, Json.stringify(json + ("entries" -> Json.arr(Json.obj("path" -> "Private.scala", "sha256" -> ("0" * 64))))))
+              case "sourceCollision" => _write(projectdir.resolve("src/main/car/source/release-source-manifest.json"), "ambiguous")
+              case "scaladocCollision" => _write(projectdir.resolve("src/main/car/scaladoc/scaladoc-manifest.json"), "ambiguous")
+            }
+            When("the stage is packaged over the successful CAR")
+            val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, Some(scaladoc), Some(source))
+            Then("the actual restricted or collision failure preserves previous output")
+            val diagnostic = kind match {
+              case "restrictedExtra" => "staging entries differ"
+              case "restrictedDeclared" => "Restricted release-source manifest must not declare source entries"
+              case _ => "CAR payload collides with admitted staging manifest"
+            }
+            error.getMessage should include(diagnostic)
+            Files.readAllBytes(archive).toVector shouldBe previous
+          }
+        }
+      }
+    }
 
     "assemble SAR surfaces" should {
     "write descriptor at SAR top level" in {
@@ -1909,6 +1974,10 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     finally _delete_tree(dir)
   }
 
+  private def _write_json(path: Path, value: JsValue): Unit = {
+    _write(path, Json.stringify(value))
+  }
+
   private def _write(path: Path, content: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, content.getBytes("UTF-8"))
@@ -1927,16 +1996,70 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     _write(staging.resolve("index.html"), "<html><body>PublicApi</body></html>")
     _write(staging.resolve("index.js"), "window.searchIndex = ['PublicApi']")
     _write(staging.resolve("fixture/PublicApi.html"), "<html><body>PublicApi</body></html>")
-    val entries = _scaladoc_entries(staging)
-    val source = CozyScaladocStaging.sourceDigest(projectdir)
-    val content = _digest(entries.map { case (path, digest) => s"$path\t$digest\n" }.mkString.getBytes(StandardCharsets.UTF_8))
-    val entriesjson = entries.map { case (path, digest) =>
-      s"""{"path":"$path","sha256":"$digest"}"""
-    }.mkString("[", ",", "]")
-    val manifest =
-      s"""{"schema":"cozy.component-scaladoc.v1","sourceDigest":"$source","contentDigest":"$content","entries":$entriesjson}"""
-    _write(staging.resolve("scaladoc-manifest.json"), manifest)
+    _write_scaladoc_manifest(staging)
     staging
+  }
+
+  private def _write_scaladoc_manifest(staging: Path): Unit = {
+    val entries = _scaladoc_entries(staging)
+    val content = _digest(entries.map { case (path, digest) => s"$path\t$digest\n" }.mkString.getBytes(StandardCharsets.UTF_8))
+    val manifest = Json.obj(
+      "schema" -> "cozy.component-scaladoc.v1",
+      "contentDigest" -> content,
+      "entries" -> entries.map { case (path, digest) => Json.obj("path" -> path, "sha256" -> digest) }
+    )
+    _write(staging.resolve("scaladoc-manifest.json"), Json.stringify(manifest))
+  }
+
+  private def _manifest_with_extras(path: Path): String = {
+    def _extras_(value: JsValue): JsValue = value match {
+      case obj: JsObject => JsObject(obj.fields.reverse.map { case (key, child) => key -> _extras_(child) }) +
+        ("unknown" -> Json.arr(false, Json.obj("nested" -> "value")))
+      case play.api.libs.json.JsArray(values) => play.api.libs.json.JsArray(values.map(_extras_))
+      case other => other
+    }
+    val json = _extras_(Json.parse(Files.readString(path))).as[JsObject] ++ Json.obj(
+      "sourceDigest" -> Json.arr(false), "buildEvidenceDigest" -> Json.obj("invalid" -> true)
+    )
+    val historical = " \n" + Json.prettyPrint(json) + "\n "
+    _write(path, historical)
+    historical
+  }
+
+  private def _write_release_source_project(projectdir: Path, mode: String): Path = {
+    _write(projectdir.resolve("project.yaml"), Json.prettyPrint(Json.obj(
+      "project" -> Json.obj("namespace" -> "org.sample", "id" -> "Component", "name" -> "sample-component",
+        "kind" -> "car", "component" -> Json.obj("version" -> "0.1.0-SNAPSHOT")),
+      "build" -> Json.obj("cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
+        "dependencies" -> Json.obj("compile" -> Json.arr("org.goldenport::goldenport-cncf:0.5.17"))),
+      "packaging" -> Json.obj("kind" -> "car", "car" -> Json.obj("include_dependencies" -> false,
+        "runtime" -> Json.obj("cncf" -> Json.obj("minimum" -> "0.5.17", "tested" -> Json.arr("0.5.17"))),
+        "release_source" -> Json.obj("mode" -> mode, "license" -> "Apache-2.0")))
+    )))
+    projectdir
+  }
+
+  private def _package_staged_car(
+    projectdir: Path,
+    mainjar: Path,
+    archive: Path,
+    scaladoc: Option[Path],
+    source: Option[Path],
+    extraargs: List[String] = Nil
+  ): Unit =
+    CarPackagingSpecSupport.buildCarWithContract(List(
+      "--save", archive.toString, "--project-dir", projectdir.toString,
+      "--main-jar", mainjar.toString, "--name", "sample-component",
+      "--version", "0.1.0-SNAPSHOT", "--component", "Component"
+    ) ++ scaladoc.toList.flatMap(path => List("--scaladoc-dir", path.toString)) ++
+      source.toList.flatMap(path => List("--release-source-dir", path.toString)) ++ extraargs)
+
+  private def _zip_bytes(archive: Path, name: String): Array[Byte] = {
+    val zip = new ZipFile(archive.toFile)
+    try {
+      val input = zip.getInputStream(zip.getEntry(name))
+      try input.readAllBytes() finally input.close()
+    } finally zip.close()
   }
 
   private def _scaladoc_manifest_entries(staging: Path): Vector[(String, String)] =

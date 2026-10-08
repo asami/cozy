@@ -65,6 +65,143 @@ and grants no local freshness or approval hash exception. Unchanged English-PDF
 admission, actual declared-input diagnostics, complete isolated-site proof,
 Step/Phase closure, and the Phase 71.4 global removal audit remain pending.
 
+## CML model source metadata
+
+`CmlModelMetadata` describes its source with exactly `path`, `compiler`, and
+`cozyVersion`, alongside the unchanged semantic surface, ordered model elements,
+and optional component-style snapshot. JSON and YAML keep the
+`cozy.cml.model-metadata.v1` schema. They emit no local CML source digest or
+replacement identity, and this producer adds no historical-document decoder.
+
+Both `fromCml` and `fromKaleidox` require the actual normalized source to be a
+readable regular file, independently of metadata provenance. A missing,
+nonregular, or unreadable source raises an invalid-argument fault with
+`CML_MODEL_SOURCE_UNREADABLE`, the concrete path, and the required corrective
+action. Opening and closing the source exposes actual access failures without
+copying its content or recording a file-time receipt. Existing source-path
+selection, symlink handling, parsed-model semantics, and parser/component-style
+failures remain. Required-input failure occurs before metadata writing, so
+existing JSON/YAML destinations remain unchanged. No source immutability or
+historical-currentness guarantee is added.
+
+The executable contract is
+[CmlModelMetadataSpec](../../src/test/scala/cozy/modeler/CmlModelMetadataSpec.scala):
+actual JSON/YAML provenance, both source routes, twenty generated relative-path
+and Entity cases, and missing-source failure with prior-output preservation.
+This is one bounded producer migration. The separate generation-provenance
+producer, aggregate, and CLI migration is implemented under the contract below,
+with 136/136 focused scenarios passed and its bounded independent review PASS.
+The global audit
+and Step/Phase closure remain unfinished. Named CAR distribution-byte
+integrity retains its independent purpose and owner.
+
+## Generation provenance metadata
+
+Direct `cozy.generation-provenance.v1` and aggregate
+`cozy.generation-provenance.v2` keep
+`target/cozy/generation-provenance.json`. Both emit only `schemaVersion`,
+`target{cncfVersion}`, `generator{cozyVersion,simpleModelerBackendVersion,
+simpleModelingModelVersion}`, and `output{artifacts:[{path}]}`. V1 also emits
+`source{identity}`; v2 emits sorted nonempty unique
+`sources:[{identity,output:{artifacts:[{path}]}}]`. Every artifact list is a
+nonempty sorted unique inventory of canonical safe relative paths. Required
+known fields and object/array-entry types remain strict. Ordinary loading
+ignores arbitrary historical extras of any type at every object level and
+re-emits only the known nonhash projection.
+
+`SourceInput(path, identity)` is the explicit normalized selected readable
+regular-file reference. Source identity/version inputs are normalized and
+nonempty, while persisted source/artifact claims must already be canonical.
+Absolute paths, Windows-drive paths, parent escape and noncanonical claims
+fail. Source accessibility is checked by opening/closing its stream; no full
+source read/copy/hash, timestamp capture, or historical-content certificate is
+added. Actual generation and CML metadata read that selected path directly.
+The metadata writer independently checks source readability and identity
+agreement at its stage.
+
+Direct and aggregate validation enumerate actual regular Scala paths under
+the existing target/excluded-delegate rules and open/close each selected file.
+Declared and actual path inventories must agree. Changed readable source or
+output contents alone are valid. Missing/added/removed/unreadable required
+output, unavailable source, malformed known fields, unsafe paths and exact
+selected-version contradictions remain actionable typed stage failures.
+Aggregate input is the same explicit nonempty manifest/output-root pair list;
+every v1 pair is checked, canonical source identities are unique/sorted, and
+all target/generator versions agree. Installed output excludes selected delegate
+work, and the sorted source/path union is checked. Shared paths deduplicate
+without comparing content or creating a replacement ownership certificate.
+
+Both metadata producers validate before creating/replacing final metadata,
+validate temporary JSON, atomically replace the final path, and clean temporary
+files on failure. Previous successful metadata and preflight outputs survive
+stage/preflight failure; eager CLI metadata deletion is removed. This does not
+promise transactional backend source installation. Stable SourceTampered and
+OutputTampered codes describe actual source-access/path-inventory failures.
+Packaged-only `requireValidPackagedMetadata`/`validatePackagedMetadata` validate
+known schemas, exact target/generator, canonical declarations and v2 union
+without local source or digest access. The metadata validator CLI needs the
+model path, `--save`, `--cncf-version`, `--cozy-generator-version`, explicit
+`--generation-source-identity`, and optional current model version; it prints
+the successful path without an evidence token.
+
+G03 remains the actual distributed descriptor pin and component-style resource
+byte integrity. Descriptor arguments still apply to generation/bridge preflight.
+A04 remains actual CAR entry SHA verification, exact file set, coordinates,
+ranges and ABI, plus the named source-to-package provenance byte transfer.
+Those verifiers retain their existing staging/materialization and do not infer
+local source currentness. Changed readable local source/generated contents
+alone do not invalidate an intact prebuilt CAR; genuine packaged corruption
+continues to fail independently.
+
+The executable contracts are
+[Phase51Cv05GenerationProvenanceSpec](../../src/test/scala/cozy/modeler/Phase51Cv05GenerationProvenanceSpec.scala),
+[Phase63McmlGenerationProvenanceSpec](../../src/test/scala/cozy/modeler/Phase63McmlGenerationProvenanceSpec.scala),
+[CozySbtBridgeMultiProvenanceSpec](../../src/test/scala/cozy/runtime/CozySbtBridgeMultiProvenanceSpec.scala),
+[CozyArchivePackagerCv06Spec](../../src/test/scala/cozy/archive/CozyArchivePackagerCv06Spec.scala), and
+[CozyCarPublisherSpec](../../src/test/scala/cozy/CozyCarPublisherSpec.scala).
+Implementation, selected focused validation (136/136), and bounded independent
+review are accepted; global audit and whole Step/Phase acceptance remain open.
+The actual evidence is recorded in the
+[provenance journal](../journal/2026/10/2026-10-05-phase-71.4-generation-provenance-without-hashes.md).
+External build/plugin owners
+must adopt current nonhash metadata/validator inputs through their own scope.
+
+## CAR development runtime evidence
+
+The development writer retains `write(projectRoot, runtimeClasspathFile, output):
+Unit`, `car-runtime-manifest.json`, `cncf.car-development-runtime-manifest.v2`,
+`sourceKind=development-directory`, exact CAR name/version/component and the
+declared CNCF minimum/maximum/excluded/tested range. Evidence is an ordered
+path-only array: `target/cncf.d/runtime-classpath.txt`,
+`target/cncf.d/component-descriptor.json`, optional
+`target/cncf.d/component-knowledge.json`, and `src/main/car/abi-manifest.json`.
+It emits no `sha256`, `logicalSha256`, or root `integrity` block and computes no
+local evidence or normalized classpath digest or replacement certificate.
+
+Required evidence stays contained within the project root and must be regular
+and nonempty. Classpath UTF-8 lines and platform path-separator operands are
+trimmed and filtered; invalid paths and missing actual entries fail with the
+declared path and actionable diagnostic. Descriptor schema 3, exact project and
+descriptor coordinates, and the ABI format/coordinate contract remain required.
+Valid classpath whitespace/order/duplicates, ABI JSON formatting and compiled
+byte changes alone do not change the known development projection. This equality
+does not certify historical file contents or complete runtime admission.
+
+Generated descriptor and optional raw carrier preparation retain their existing
+contract validation and byte transfer. A04 verifies named packaged CAR entry
+bytes; A08 verifies named carrier transport bytes against its descriptor
+declaration. Their independent mismatch rejection remains required.
+
+Preflight errors preserve the prior final manifest. Final writing retains atomic
+replacement and temporary cleanup; descriptor/carrier preparation before a later
+error has no all-artifact rollback guarantee. The executable contract is
+[CozyCarRuntimeManifestSpec](../../src/test/scala/cozy/archive/CozyCarRuntimeManifestSpec.scala).
+The bounded producer edit is implemented; selected validation passed 104/104 and
+independent review remains PENDING in the [A05 journal](../journal/2026/10/2026-10-05-phase-71.4-development-runtime-without-hashes.md).
+CNCF reader adoption is an explicit separate handoff; external compatibility is
+unproven. Global audit, complete combined-tree/site acceptance and Step/Phase
+closure remain open.
+
 ## Character-dialogue template resources
 
 The character-dialogue renderer verifies the named distributed resources
@@ -321,6 +458,64 @@ directory-or-file status guard remain. The upload prototype retains its
 existing contract. The actual generated products are specified by
 [CozyBokSpec](../../src/test/scala/cozy/CozyBokSpec.scala). This bounded S09
 migration does not claim complete-site proof or Step/Phase closure.
+
+## Source inventory and admitted CAR distributions
+
+Standalone component source inventory is an ordered relative path inventory;
+it reads no selected content for identity and emits no local source, entry or
+archive hash. Fresh release-source production validates authored path selection,
+explicit managed-source/root operands, typed policy/license and safe build
+evidence. Public staging copies selected bytes before calculating its named
+payload entry SHA-256 and sorted content inventory digest; restricted staging
+contains only its required manifest and performs no source-content hashing.
+
+Explicit release-source and Scaladoc admission validates the supplied stage
+independently of current authored/managed source bytes or build hashes.
+Release-source admission retains exact safe output location and current declared
+project policy agreement. Both loaders positively require their v1 schema and
+safe ordered unique entry paths/checksums; release-source additionally requires
+SourceCode identity, typed license/policy and safe string-array build evidence.
+Unknown JSON properties at every object are ignored generically. CAR packaging
+projects normalized manifest text from required semantic fields, preserves all
+required nonhash metadata and leaves the supplied manifest untouched. Manifest
+path provenance remains available separately from payload-only archive entries.
+
+Named distributed entry and content inventory mismatch checks remain mandatory,
+as do missing/extra/unsafe/symlink stage rejection, restricted no-payload policy,
+and Scaladoc index/search evidence and source-disclosure guards. Staging failures
+remove only the failed new stage; an existing stage is untouched. Actual admission
+failures and ambiguous source/Scaladoc manifest replacement by CAR input payloads
+reject before archive writing deletes a prior successful CAR. No additional
+crash, concurrency or broad archive transaction guarantee is introduced.
+Executable contracts are
+[ComponentSourceArchiveProjectionSpec](../../src/test/scala/cozy/archive/ComponentSourceArchiveProjectionSpec.scala),
+[ComponentReleaseSourceProjectionSpec](../../src/test/scala/cozy/archive/ComponentReleaseSourceProjectionSpec.scala)
+and [CozyArchivePackagerSpec](../../src/test/scala/cozy/CozyArchivePackagerSpec.scala).
+This bounded A06/A07 contract does not establish global audit, site, Step or
+Phase completion.
+
+## Local component API dependency selection
+
+Cozy selects a required `apiClass` among the exact declared CAR dependency
+coordinates, retaining actual `provided.version` and `artifactPath` projections,
+assembly membership and missing/optional/ambiguous-provider checks. Ordinary
+descriptor loading ignores unknown historical hash extras of any JSON type;
+they supply no ABI compatibility guarantee. Repeated selected artifacts are
+consolidated by exact dependency coordinate, normalized archive path and artifact
+path in first selected order, after ambiguity checks. All selected API JARs are
+extracted into a sibling stage before output replacement, preserving the prior
+successful output on actual resolution or extraction failure. Installation
+failure attempts restoration and preserves the original install error, with
+restoration or empty-backup cleanup failures as suppressed diagnostics. A
+recovery backup is reported only when restoration itself fails. After a complete
+installation, failure to delete the prior backup emits an actionable warning
+with its path and original cause, retains the remaining backup for cleanup, and
+returns the successfully installed final paths. Successful empty optional
+selection installs an empty directory. The executable contract is
+[ComponentApiDependencyResolverSpec](../../src/test/scala/cozy/ComponentApiDependencyResolverSpec.scala).
+This is the Cozy local selection boundary: the external descriptor producer and
+runtime reader remain unchanged, and their migration and the global removal
+audit remain open. This amendment grants no Step or Phase closure.
 
 ## Implementation ownership after the 2026-09-29 split
 

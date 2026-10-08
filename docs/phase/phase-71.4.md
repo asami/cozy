@@ -1,6 +1,6 @@
 # Phase 71.4: Video Ending and Narration Repair
 
-status=in-progress
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -10,13 +10,13 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.3.md
 execution_priority=resumed_ja_representative
 
-Status: in-progress; internal Slices P710-F04-S01 and P710-F04-S02 accepted by focused independent review; P710-F04-S03 bounded JA/EN native collection retained; Step/Phase closure remains open under the revised scope below
+Status: CLOSED on 2026-10-08; P710-F04 accepted in d0b646aa725c90f6239b65b38313b1853becd744; distinct release binds the closure ledger below
 Planned at: 2026-09-29
 Development item: DEV-034
 Primary owner: Cozy
 Split from [Phase 71](phase-71.md).
 Predecessor: [Phase 71.3](phase-71.3.md).
-Current execution state (2026-10-08): the same Goal is active after the
+Earlier preparation state (2026-10-08, before the F04 commit): the same Goal is active after the
 user-authorized resume. The S07 pause and selected
 [75](phase-75.md) -> [75.1](phase-75.1.md) site-recovery priority remain historical.
 The current Slice is P710-F04-S04-JA-REPRESENTATIVE; its new JA render and build
@@ -37,6 +37,26 @@ review is accepted; the exact Step commit and Phase closure remain OPEN.
 The latest active-Goal observation and human report are linked in the resumed
 JA journal. Phase 71.5 remains the structural successor after closure.
 Former numeric successor: [Phase 72](phase-72.md), unchanged and not started.
+
+## Final closure — 2026-10-08
+
+The sole independent full Phase review covered 144 selected paths. Its two
+management status findings were resolved by the accepted factual M0 chain
+`f8e13cbb-7656-4219-b431-80e41410ced9@1`, original ledger revision 20.
+No product blocker remains. All 18 accepted nonblocking Hygiene records remain
+in their original canonical journal; no Development Candidate is newly recorded.
+F04 is the one declared owned Step; the Integration Step is transferred rather
+than passed. Retained implemented removal/site work is included in this reviewed
+release without claiming completion of the receiving Phases.
+
+The final local commit carries `Phase-Closure-Binding: 09ea777a-ce7c-4ac2-9290-8015b6af1099@1`.
+The closed status and final commit checkbox take effect through that distinct
+commit and its native closure receipt; an uncommitted overlay is not closure.
+See [normal closure and handoff](../journal/2026/10/2026-10-08-phase-71.4-normal-closure.md).
+Repository-full validation is **deferred-not-run to PHASE-71.7**, not waived or
+passed. Remaining removal belongs to 71.5 and remaining broad native/media/site
+acceptance to 71.7. Successors remain planned and have not started.
+Earlier preparation/status observations below retain their historical meaning.
 
 ## Goal
 
@@ -61,7 +81,12 @@ Phase reviews, F04 repair cycle 5/nonconverging 0, Integration repair cycle
 7/nonconverging 0 and Phase repair cycle 0. The first factual pass recorded no
 new execution. The later parent-admitted render/build and native inspection
 results and accepted whole-F04 Step review are now linked in the journal.
-The exact Step commit and mandatory full Phase review/release remain OPEN.
+At that preparation pass the exact Step commit remained OPEN. The subsequent
+native commit `d0b646aa725c90f6239b65b38313b1853becd744` is verified against its
+single parent, exact message and 20 owned paths. P710-F04 is accepted and committed;
+the mandatory full Phase review and distinct release remain OPEN. The factual
+post-commit M0 projection continues the same review chain at ledger revision 18,
+without consuming a full Phase review or changing repair counts.
 
 1. Select the existing JA VOICEVOX 34-scene Model Harness project and its normal
    Cozy entry, task-private outputs and an available audible playback route.

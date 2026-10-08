@@ -21,7 +21,8 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
  * release provenance before accepting a prebuilt CAR.
  *
  * @since   Jul. 28, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarRuntimeManifest {
@@ -356,7 +357,7 @@ private[cozy] object CozyCarRuntimeManifest {
     val temporary = Files.createTempFile(workroot, "provenance-", ".json")
     try {
       Files.write(temporary, packagedbytes)
-      GenerationProvenance.requireValidPackagedEvidence(
+      GenerationProvenance.requireValidPackagedMetadata(
         temporary,
         contract.cncfCompileTarget.version,
         contract.cozyVersion

@@ -2,8 +2,9 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
+import java.nio.file.attribute.FileTime
 
+import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -11,7 +12,7 @@ import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 
 /*
  * @since   Aug. 24, 2026
- * @version Aug. 24, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentSourceArchiveProjectionSpec
@@ -38,19 +39,13 @@ final class ComponentSourceArchiveProjectionSpec
           val archive = ComponentSourceArchiveProjection.project(projectroot)
           val rendered = ComponentSourceArchiveProjection.render(archive)
           val json = Json.parse(rendered).as[JsObject]
-          val expectedentries = contents.map { case (path, content) =>
-            path -> _sha256(content)
-          }.sortBy(_._1)
-          val expecteddigest = _sha256(expectedentries.map {
-            case (path, digest) => s"$path\t$digest\n"
-          }.mkString)
+          val expectedentries = contents.map(_._1).sorted
 
-          Then("the canonical JSON is structurally valid and has only fixed-order inventory evidence")
-          archive.entries.map(entry => entry.path -> entry.sha256) shouldBe expectedentries
-          archive.archiveDigest shouldBe expecteddigest
-          rendered shouldBe _canonical_json(expecteddigest, expectedentries)
+          Then("the canonical JSON contains only the schema and ordered relative path entries")
+          archive.entries.map(_.path) shouldBe expectedentries
+          rendered shouldBe _canonical_json(expectedentries)
+          json.keys shouldBe Set("schema", "entries")
           json.value("schema") shouldBe JsString("cozy.component-source-archive.v1")
-          json.value("archiveDigest") shouldBe JsString(expecteddigest)
           _entries(json) shouldBe expectedentries
           rendered should not include projectroot.toAbsolutePath.normalize().toString
           rendered should not include "provenance"
@@ -59,7 +54,7 @@ final class ComponentSourceArchiveProjectionSpec
     }
 
     "DOC03-SRC-AC-02 exclude hostile and host state" which {
-      "omit generated, transient, secret, and symbolic-link material from paths and digest provenance" in {
+      "omit generated, transient, secret, and symbolic-link material from the inventory" in {
         _with_temp_dir("cozy-doc03-source-archive-hostile") { projectroot =>
           Given("an admitted source alongside generated, host-local, and symbolic-link material")
           val admitted = "src/main/cozy/model.cml" -> "component Model\n"
@@ -105,7 +100,7 @@ final class ComponentSourceArchiveProjectionSpec
       }
     }
 
-    "DOC03-SRC-AC-03 preserve writer bytes and digests across repeats" which {
+    "DOC03-SRC-AC-03 preserve writer output across repeats" which {
       "write byte-identical canonical output under target without including its own output" in {
         _with_temp_dir("cozy-doc03-source-archive-repeat") { projectroot =>
           Given("an unchanged ordinary project and a target path that does not yet exist")
@@ -126,34 +121,90 @@ final class ComponentSourceArchiveProjectionSpec
           val secondbytes = Files.readAllBytes(secondpath)
           val secondjson = Json.parse(new String(secondbytes, StandardCharsets.UTF_8)).as[JsObject]
 
-          Then("the target-only writer creates deterministic bytes, entries, and archive digest")
+          Then("the target-only writer creates deterministic bytes and path entries")
           firstpath shouldBe output
           secondpath shouldBe output
           java.util.Arrays.equals(firstbytes, secondbytes) shouldBe true
           _entries(firstjson) shouldBe _entries(secondjson)
-          (firstjson \ "archiveDigest").as[String] shouldBe (secondjson \ "archiveDigest").as[String]
-          _entries(secondjson).map(_._1) shouldBe contents.map(_._1).sorted
-          _entries(secondjson).map(_._1) should not contain "target/cozy/component-source-archive.json"
+          _entries(secondjson) shouldBe contents.map(_._1).sorted
+          _entries(secondjson) should not contain "target/cozy/component-source-archive.json"
           firstbytes.last should not be '\n'.toByte
+        }
+      }
+    }
+    "path-only selection" which {
+      "ignore varied bytes and modification times while reflecting eligible path additions and removals" in {
+        val bytegen = Gen.choose(0, 256).flatMap(length => Gen.listOfN(length, Gen.choose(0, 255)))
+        val property = Prop.forAll(bytegen, Gen.choose(1L, 1000000L)) { (bytes, timestamp) =>
+          _with_temp_dir("cozy-source-path-inventory") { root =>
+            Given("one selected source path with arbitrary bytes and a modification time")
+            val source = _write(root.resolve("src/main/scala/Api.scala"), "initial")
+            val original = ComponentSourceArchiveProjection.project(root)
+            Files.write(source, bytes.map(_.toByte).toArray)
+            Files.setLastModifiedTime(source, FileTime.fromMillis(timestamp))
+            When("the same paths are projected after byte and time changes")
+            val changed = ComponentSourceArchiveProjection.project(root)
+            Then("the semantic inventory and rendered path-only output are identical")
+            changed shouldBe original
+            ComponentSourceArchiveProjection.render(changed) shouldBe ComponentSourceArchiveProjection.render(original)
+            Given("an additional eligible file")
+            val added = _write(root.resolve("src/test/scala/ApiSpec.scala"), "spec")
+            When("the file is added and then removed from path selection")
+            val expanded = ComponentSourceArchiveProjection.project(root)
+            Files.delete(added)
+            val restored = ComponentSourceArchiveProjection.project(root)
+            Then("only the addition changes the ordered inventory")
+            expanded.entries.map(_.path) shouldBe Vector("src/main/scala/Api.scala", "src/test/scala/ApiSpec.scala")
+            restored shouldBe original
+            true
+          }
+        }
+        Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property).passed shouldBe true
+      }
+
+      "reject a symbolic-link writer destination and an escaping target ancestor" in {
+        _with_temp_dir("cozy-source-writer-safety") { root =>
+          Given("an ordinary project and an outside file linked from its target directory")
+          _write(root.resolve("README.md"), "readme")
+          val outside = _write(root.resolve("outside.json"), "preserved")
+          val destination = root.resolve("target/inventory.json")
+          Files.createDirectories(destination.getParent)
+          Files.createSymbolicLink(destination, outside)
+          When("the writer is asked to replace the symbolic-link output")
+          val linked = the[IllegalArgumentException] thrownBy ComponentSourceArchiveProjection.write(root, destination)
+          Then("the link is rejected and the referenced bytes remain unchanged")
+          linked.getMessage should include("symbolic link")
+          Files.readString(outside) shouldBe "preserved"
+          Given("a target child directory linked outside the project")
+          val escaped = Files.createTempDirectory(root.getParent, "cozy-source-outside-")
+          try {
+            val alias = root.resolve("target/escaped")
+            Files.createSymbolicLink(alias, escaped)
+            When("the writer is asked to create an inventory through that ancestor")
+            val error = the[IllegalArgumentException] thrownBy ComponentSourceArchiveProjection.write(root, alias.resolve("inventory.json"))
+            Then("real containment rejects the escaping output")
+            error.getMessage should include("outside the project root")
+          } finally _delete_tree(escaped)
         }
       }
     }
   }
 
-  private def _entries(json: JsObject): Vector[(String, String)] =
+  private def _entries(json: JsObject): Vector[String] =
     (json \ "entries").as[JsArray].value.toVector.map { value =>
       val entry = value.as[JsObject]
-      (entry \ "path").as[String] -> (entry \ "sha256").as[String]
+      entry.keys shouldBe Set("path")
+      (entry \ "path").as[String]
     }
 
-  private def _canonical_json(archiveDigest: String, entries: Vector[(String, String)]): String =
-    s"""{"schema":"cozy.component-source-archive.v1","archiveDigest":"$archiveDigest","entries":""" +
-      entries.map { case (path, digest) =>
-        s"""{"path":"$path","sha256":"$digest"}"""
-      }.mkString("[", ",", "]") + "}"
+  private def _canonical_json(entries: Vector[String]): String =
+    "{\"schema\":\"cozy.component-source-archive.v1\",\"entries\":" +
+      entries.map(path => s"""{"path":"$path"}""").mkString("[", ",", "]") + "}"
 
   private def _with_temp_dir[A](prefix: String)(f: Path => A): A = {
-    val directory = Files.createTempDirectory(prefix)
+    val workroot = Path.of("target/cozy-test/work/component-source-archive").toAbsolutePath.normalize()
+    Files.createDirectories(workroot)
+    val directory = Files.createTempDirectory(workroot, prefix)
     try f(directory)
     finally _delete_tree(directory)
   }
@@ -172,10 +223,4 @@ final class ComponentSourceArchiveProjectionSpec
     }
   }
 
-  private def _sha256(content: String): String =
-    MessageDigest
-      .getInstance("SHA-256")
-      .digest(content.getBytes(StandardCharsets.UTF_8))
-      .map(byte => f"${byte & 0xff}%02x")
-      .mkString
 }

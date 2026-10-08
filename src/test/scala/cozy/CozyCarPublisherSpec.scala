@@ -29,7 +29,7 @@ import cozy.modeler.GenerationProvenance
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
  *  version Aug. 28, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -395,7 +395,7 @@ class CozyCarPublisherSpec
         }
       }
 
-      "rejects a prebuilt release CAR after owning generated output changes" in {
+      "admits an intact prebuilt release CAR after readable owning generated contents change" in {
         _with_temp_dir("cozy-publish-car-stale-generated-output") { dir =>
           Given("a release CAR and matching owning-project generation evidence")
           val projectdir = dir.resolve("project")
@@ -422,30 +422,17 @@ class CozyCarPublisherSpec
             "final class ReplacedOutput\n"
           )
 
-          When("publication revalidates the prebuilt release CAR")
-          val error = intercept[Throwable] {
-            _publish_with_immutable_evidence(
-              List(
-                projectdir.toString,
-                "--warehouse",
-                warehouse.toString,
-                "--name",
-                "sample-component",
-                "--version",
-                "0.1.0",
-                "--car",
-                car.toString
-              ),
-              "0.5.17",
-              "0.3.1"
-            )
-          }
-
-          Then("the stale generation boundary is rejected before repository writes")
-          error.getMessage should include(
-            "GENERATION_PROVENANCE_OUTPUT_TAMPERED"
+          When("publication admits the intact CAR with the same selected versions and required output paths")
+          _publish_with_immutable_evidence(
+            List(projectdir.toString, "--warehouse", warehouse.toString,
+              "--name", "sample-component", "--version", "0.1.0", "--car", car.toString),
+            "0.5.17", "0.3.1"
           )
-          Files.exists(warehouse) shouldBe false
+          val target = warehouse.resolve("repository/car/org/sample/sample-component/0.1.0/sample-component-0.1.0.car")
+          val stored = Files.isRegularFile(target)
+
+          Then("the intact private fixture CAR is accepted independently of local generated file contents")
+          stored shouldBe true
         }
       }
 
@@ -1163,21 +1150,19 @@ class CozyCarPublisherSpec
     val source = projectdir.resolve(s"src/main/cozy/$name.cml")
     val generated = _generated_fixture_path(projectdir, name)
     _write(generated, s"final class ${name.replace("-", "")}\n")
-    val snapshot = GenerationProvenance.requireSourceSnapshot(
+    val selected = GenerationProvenance.requireSourceInput(
       source,
       s"src/main/cozy/$name.cml"
     )
     GenerationProvenance.write(
       projectdir,
-      snapshot,
+      selected,
       GenerationProvenance.Inputs(
         cncfTargetVersion = cncfversion,
-        runtimeDescriptorSha256 = "a" * 64,
         cozyGeneratorVersion = cozyversion,
         simpleModelerBackendVersion = "0.2.0",
         simpleModelingModelVersion = "0.2.0",
-        sourceIdentity = snapshot.identity,
-        sourceSha256 = snapshot.sha256
+        sourceIdentity = selected.identity
       )
     )
     _write(

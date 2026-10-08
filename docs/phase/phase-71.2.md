@@ -5,10 +5,19 @@ split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
 validation_ownership=aggregate-deferred
-aggregate_validation_owner=PHASE-71.4
-aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4"]
+aggregate_validation_owner=PHASE-71.7
+aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4","PHASE-71.5","PHASE-71.6","PHASE-71.7"]
 depends_on=phase-71.1.md
 execution_priority=current_video_generation_blocker
+
+
+Current validation ownership (2026-10-05): the still deferred-not-run full suite
+is now owned by [Phase 71.7](phase-71.7.md), under the
+[completion-scope decision](../journal/2026/10/2026-10-05-phase-71-completion-boundaries.md).
+Historical acceptance text/handoffs below naming Phase 71.4 preserve the prior
+contract, not the current destination. Closed status, focused results, commits,
+review/repair history and original bases are unchanged; no Phase is reopened.
+
 
 Status: closed
 

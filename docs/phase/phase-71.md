@@ -5,9 +5,18 @@ split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
 validation_ownership=aggregate-deferred
-aggregate_validation_owner=PHASE-71.4
-aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4"]
+aggregate_validation_owner=PHASE-71.7
+aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4","PHASE-71.5","PHASE-71.6","PHASE-71.7"]
 execution_priority=current_video_generation_blocker
+
+
+Current validation ownership (2026-10-05): the still deferred-not-run full suite
+is now owned by [Phase 71.7](phase-71.7.md), under the
+[completion-scope decision](../journal/2026/10/2026-10-05-phase-71-completion-boundaries.md).
+Historical acceptance text/handoffs below naming Phase 71.4 preserve the prior
+contract, not the current destination. Closed status, focused results, commits,
+review/repair history and original bases are unchanged; no Phase is reopened.
+
 
 Status: closed with focused assurance; P710-F03/P710-01/P710-02 accepted; repository-full SBT aggregate-deferred to PHASE-71.4
 Planned at: 2026-09-21; split applied 2026-09-29
@@ -15,6 +24,36 @@ Development item: DEV-034
 Primary owner: Cozy
 Predecessor baseline: [Phase 60.1](phase-60.1.md).
 Successor: [Phase 71.1](phase-71.1.md).
+
+## Current series execution plan — 2026-10-08
+
+Phase 71 through 71.3 remain closed at their actual acceptance scope. The
+historical priority 75 -> 75.1 is complete: their accepted releases are
+`218ea19` and `e1e1db5`. The user explicitly resumed the same Phase 71.4 Goal;
+representative JA generation, final build and audible EOF are accepted, with
+F04 committed as `d0b646a`. Phase 71.4 remains in progress pending its distinct
+release and closure. The planned sequence stays 71.4 -> 71.5 -> 71.6 -> 71.7;
+no successor has started. Do not restart preservation or accepted predecessors.
+This status correction starts no new implementation or Goal.
+
+| Remaining Phase | Connected work order | Completion boundary |
+| --- | --- | --- |
+| [71.4](phase-71.4.md#execution-plan--2026-10-08) | Run the existing JA 34-scene route through normal generation, final build and audible EOF; fix route defects, then bounded remaining video work | Working representative video, corresponding Specs, required reviews/commits; S08 and broad matrix stay later |
+| [71.5](phase-71.5.md#execution-plan--2026-10-08) | Bound callers once; remove protection on the working route and actually generate/play it; then finish remaining publication/packaging readers | Selected removals, retained-behavior Specs and working post-removal route, ordinary review/commits |
+| [71.6](phase-71.6.md#execution-plan--2026-10-08) | Connect settings to producer commands; actually run Docker frames -> host software -> final video; then actual hardware and remaining branches | Working representative software/hardware routes, Specs and ordinary review/commits; benchmark stays later |
+| [71.7](phase-71.7.md#execution-plan--2026-10-08) | Consume working routes; finish remaining locale/media/site/packaging coverage, fixed encoder matrix and aggregate validation | Remaining actual outcomes, measured comparison and one consolidated full suite, final review/release |
+
+Implement related changes and Executable Specifications together. Use the
+existing Step/Phase acceptance boundaries and exact commit rules; do not add
+helper-by-helper review gates or new child Phases. Keep completed work, original
+IDs, review/repair history and actual evidence. Former full-suite owner 71.4
+and retained publication-integrity exceptions are historical, not new work to
+restore. The current final owner is 71.7; 75/75.1 retain their separate validation.
+Deferring the repository-full suite does not defer main-route execution. Fix
+main-route failures in the owning development Phase before branch expansion
+or closure; do not hand a known broken route to 71.7. Reuse applicable real
+results and rerun only affected behavior, without per-helper or per-run reviews.
+See the [replanning record](../journal/2026/10/2026-10-08-phase-71-main-route-first.md).
 
 ## Goal
 

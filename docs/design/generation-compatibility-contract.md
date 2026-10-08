@@ -82,69 +82,62 @@ ambient generator. When the selected generator cannot be launched, the failure
 names its CNCF or Cozy coordinate and gives the publish/select recovery action. Exact CAR dependency
 archives are resolved independently of source-project builds.
 
-CV-06C1 carries validated generation provenance into the CAR as the top-level
-`generation-provenance.json` entry. When
-`target/cozy/generation-provenance.json` exists, package admission reruns the
-authoritative source, generated-artifact, aggregate-output, and evidence-digest
-validation. It additionally requires the recorded CNCF target and Cozy
-generator to equal the accepted CAR project contract. Invalid or contradictory
-provenance fails before archive creation. Validation and archive writing use
-one immutable byte snapshot, so a later source-path replacement cannot change
-the packaged evidence. A CAR without generated provenance remains valid for
-non-generated and legacy sources. `src/main/car/generation-provenance.json`
-is a reserved generic source name and cannot substitute for the validated
-target artifact.
+CV-06C1 carries generation metadata into the CAR as top-level
+`generation-provenance.json`. Package admission validates known versions and
+canonical declarations, actual selected source readability and generated Scala
+path inventory, and the accepted CNCF/Cozy pair. It copies the accepted metadata
+snapshot unchanged to the CAR; this source-to-package byte transfer retains its
+distribution owner. Invalid metadata or contradictory inputs fail before
+archive writing. Nongenerated and legacy provenance absence remains allowed,
+and `src/main/car/generation-provenance.json` remains reserved.
 
-Cozy remains the schema, aggregation, validation, and digest-evidence owner.
-Direct isolated generation continues to publish the one-source
-`cozy.generation-provenance.v1` format and package admission continues to
-read it for existing one-CML projects. The project aggregate/rebind API is the
-separate V2 producer: it accepts a non-empty, explicit list of `(delegated
-manifest path, delegated output root)` pairs and publishes
-`cozy.generation-provenance.v2`. A single accepted delegated v1 pair is a
-valid V2 aggregate input and needs no migration; direct v1 generation and
-legacy v1 package admission remain supported.
+Cozy owns both existing provenance schemas and their validation. Direct isolated
+generation writes v1 with `schemaVersion`, `target{cncfVersion}`,
+`generator{cozyVersion,simpleModelerBackendVersion,simpleModelingModelVersion}`,
+`source{identity}`, and `output{artifacts:[{path}]}`. The aggregate writes v2 with
+`sources:[{identity,output:{artifacts:[{path}]}}]` in place of `source`.
+Both emit only these known fields. Ordinary JSON loading ignores unknown extras
+of any type at every object level; it retains strict known fields and types,
+nonempty exact versions, canonical safe relative source/output paths, unique
+ordered claims, and v2 source/output union. Historical extras supply no content
+claim, special decoder, or compatibility hash adapter.
 
-The V2 representation preserves one exact project target and generator
-identity, followed by a `sources` list sorted by canonical project-relative
-source identity. Every source records that identity and its digest, the
-accepted delegated source-output claims, and the delegated v1 evidence digest.
-The top-level output is the deterministic sorted union of
-project-output-relative artifact path/digest claims, with its deterministic
-output digest. Its evidence digest covers every preceding V2 field. Identity
-comes only from the canonical project-relative source representation; source
-and output digests are integrity evidence and must neither derive identity nor
-control source selection.
+The selected source is `SourceInput(path, identity)`, a normalized actual readable
+regular-file reference. The producer checks access by opening and closing the
+stream without capturing content or time. The modeler and CML metadata read the
+actual selected path directly. The provenance stage checks its source identity
+and readability independently. Generated Scala enumeration follows the existing
+`target`/delegate-exclusion rules and opens/closes each selected regular file.
+Validation compares only declared and actual path inventories. Readable source
+and generated content changes alone are valid; missing, added, removed, or
+unreadable required paths remain genuine failures.
 
-The aggregate/rebind API validates every selected delegated v1 input before
-V2 publication. It rejects a missing or unreadable manifest/output root,
-malformed evidence, duplicate or ambiguous canonical source identity, stale
-source/output, inconsistent expected target/generator, and internally
-contradictory evidence before it writes V2. The deterministic typed boundary
-uses `GENERATION_PROVENANCE_MISSING`,
-`GENERATION_PROVENANCE_MALFORMED`,
-`GENERATION_PROVENANCE_SOURCE_TAMPERED` (or the existing output-tampered
-equivalent), `GENERATION_PROVENANCE_INPUT_MISMATCH`, and
-`GENERATION_PROVENANCE_EVIDENCE_TAMPERED` respectively. It adds
-`GENERATION_PROVENANCE_SOURCE_AMBIGUOUS` for duplicate or ambiguous canonical
-source identity. No enumeration order, input position, or digest is a fallback
-selection rule.
+The aggregate accepts a nonempty explicit list of delegated manifest/output-root
+pairs, validates every v1 pair, rejects duplicate canonical source identities
+and target/generator disagreement, and verifies the final installed path set
+excluding delegated work. It sorts sources by identity and records the sorted
+path union. Shared output paths deduplicate independently of different readable
+contents. No order-based source winner or replacement ownership certificate is
+introduced. Empty or malformed inputs, unsafe paths, genuine access failures,
+missing evidence, and contradictory source/top-level unions remain typed
+failures. Stable source/output-tampered codes describe actual access and path
+inventory failures; hash-only evidence-tamper and output-content-conflict checks
+are retired.
 
-Distinct accepted sources claiming the same project-output-relative path and
-digest contribute one V2 artifact claim. The same path with differing digests
-is rejected before publication as
-`GENERATION_PROVENANCE_OUTPUT_CONFLICT`; no source wins by order. Cozy writes
-the fully validated V2 bytes at a temporary path and atomically replaces the
-project target only after the whole aggregate succeeds. Package admission reads
-and validates either v1 or V2 while preserving its one immutable snapshot
-before archive writing.
+Both producers validate their stage before creating/replacing final metadata,
+then validate temporary JSON and publish by atomic replacement with temporary
+cleanup. Failure preserves previous successful metadata. CLI preflight also
+preserves that metadata by removing eager deletion. The backend's source output
+installation is not redesigned into a new transaction. Packaged-only validation
+uses `requireValidPackagedMetadata` and aggregate `validatePackagedMetadata`
+without local source access or digest calculations.
 
-Phase 63 freezes and implements the Cozy aggregate/rebind API, preserving the
+Historically, Phase 63 froze and implemented the Cozy aggregate/rebind API, preserving the
 legacy single-rebind API as a wrapper or one-source aggregate equivalent. It
 does not change CozySbtBridge request grammar, sbt-cozy collection,
 generated-side installation, incremental state, plugin behavior, or a
-downstream driver. Those transport/orchestration responsibilities belong
-exclusively to Phase 63.1, which may invoke the settled Cozy API, delete
+downstream driver. Those transport/orchestration responsibilities were assigned
+to Phase 63.1, whose owning build may invoke the settled Cozy API, delete
 delegate work after successful rebind, and require an installed final manifest
 before incremental reuse.
 
@@ -182,58 +175,32 @@ typed source-conflict diagnostic instead of applying override precedence.
 Ambient global `~/.cozy` operation defaults are not a generation source and
 are excluded from sbt-bridge generation resolution.
 Version-only legacy commands remain outside the selected descriptor contract.
-When the complete descriptor contract selects CNCF-aware generation, Cozy
-writes `target/cozy/generation-provenance.json` after Scala generation and
-other model metadata. The packaged metadata uses
-`cozy.generation-provenance.v1`; generated Scala remains free of embedded
-provenance. The document records the exact CNCF target, descriptor SHA-256,
-executing Cozy version, compiled simple-modeler backend version, selected
-`simplemodeling-model` version, stable project-relative CML identity and
-SHA-256, and a sorted relative identity/SHA-256 entry for every generated Scala
-file.
+When the complete descriptor contract selects CNCF-aware generation, Cozy writes
+the v1 nonhash metadata after Scala and model metadata generation. The exact
+CNCF/Cozy/backend/model versions and canonical source/output declarations are
+local descriptive contracts. They are not content immutability or historical
+currentness certificates.
 
-The generated-output digest hashes the ordered relative-path and file-digest
-pairs. The evidence digest hashes the canonical provenance payload before the
-evidence-digest field is added. Neither digest includes an absolute path,
-timestamp, output-root identity, filesystem traversal order, or provenance
-file itself. Validation recomputes source, artifact, aggregate-output, and
-evidence digests and compares every recorded generation input with the owning
-build's expected contract. A malformed schema, changed source, changed artifact
-set or bytes, contradictory input, or changed provenance field is rejected
-with a typed deterministic diagnostic.
+Descriptor validation retains one immutable distributed byte snapshot for
+actual pin checking, schema/target validation, predefined Result catalog
+construction and component-style resources. Those G03 byte-integrity consumers
+continue to use `ValidatedDescriptor`; local provenance no longer records its
+digest. CNCF-aware generation still requires `--generation-source-identity` as
+a canonical project-relative logical path. The bridge derives it only when the
+source is within explicit `sbt.project_dir`; otherwise the owning build provides
+`generation.source.identity`.
 
-Descriptor validation reads one immutable byte snapshot. Digest calculation,
-schema/target validation, predefined Result catalog construction, and
-provenance all consume the resulting `ValidatedDescriptor`; generation never
-re-reads the path without the owning-build digest or copies an unvalidated raw
-digest into evidence. CNCF-aware CLI generation requires
-`--generation-source-identity` with a non-empty canonical project-relative
-path. Absolute, parent-escaping, and Windows drive-prefixed identities are
-rejected. The sbt bridge derives the same identity only when the source is
-contained by its explicit `sbt.project_dir`; otherwise its owning build must
-provide `generation.source.identity`.
+CV-05A owns the producer/validator. The `generation-provenance-validate` CLI takes
+the actual model path, output root, selected CNCF target, Cozy coordinate, source
+identity and optional model version. It derives the compiled backend and current
+default model versions, checks exact inputs and actual source/output access, and
+prints the successful path without an evidence token. Source/descriptor digest
+arguments are not metadata-validator inputs. Generation descriptor preflight
+continues to require its exact distributed pin independently.
 
-Cozy captures the normalized CML identity and bytes before invoking the
-modeler, computes SHA-256 from that one capture, and makes the modeler and CML
-model-metadata producer consume an isolated materialization of the captured
-bytes instead of re-reading the mutable source path. Provenance is written only
-when the original source path still contains those exact bytes after generation;
-a changed, removed, or unreadable source fails with typed source-tamper
-evidence. A stale manifest is removed before generation, and a new manifest is
-validated at a temporary path before an atomic replacement publishes it. The
-manifest therefore binds the actual generation bytes and cannot remain visible
-from a failed provenance validation.
-
-CV-05A owns this Cozy producer/validator core. CNCF adoption of the schema at
-its build boundary is CV-05B. Cozy exposes the same authoritative validator as
-the `generation-provenance-validate` CLI command. Its caller must supply the
-source file, generation output root, CNCF target, descriptor digest, executing
-Cozy coordinate, stable source identity, and pre-launch source digest; the
-command recomputes and validates the complete manifest rather than accepting a
-build-local reconstruction of evidence.
-
-The CNCF development build pins published-local Cozy `0.3.2-SNAPSHOT`, passes
-its project-relative CML identity during generation, and invokes this validator
-before accepting generated Scala. This explicit development SNAPSHOT pair
-requires no persistent SNAPSHOT-pair registration and does not claim a
-released-generator result. CV-05 does not defer descriptor preflight integrity.
+CV-05B owns external CNCF build adoption. The historical development build used
+Cozy `0.3.2-SNAPSHOT` with explicit source identity and validator invocation;
+that history does not assert a current downstream migration. External build and
+sbt-cozy owners must adopt the settled nonhash projection/current CLI inputs in
+their own repositories. This bounded Cozy implementation preserves those
+ownership edges and does not claim their validation or Phase acceptance.

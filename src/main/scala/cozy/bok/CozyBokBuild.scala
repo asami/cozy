@@ -32,7 +32,8 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 23, 2026
+ *  version Aug. 23, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -116,7 +117,15 @@ private[cozy] trait CozyBokBuild {
     _write_component_reference_metadata(config)
     _delete_directory(config.project.resolve(s"doxsite-cache-${config.strategy}.d"))
     if (config.arcadia.enabled) {
-      runner.run(Vector("arcadia", "site", config.arcadia.source, config.arcadiaSite), config.project)
+      val producerpath = config.project.resolve("arcadiasite.d").toAbsolutePath.normalize()
+      val destinationpath = config.arcadiaSitePath.toAbsolutePath.normalize()
+      if (producerpath != destinationpath)
+        _delete_directory(producerpath)
+      runner.run(Vector("arcadia", "site", config.arcadia.source, config.doxsite), config.project)
+      if (!Files.isDirectory(producerpath))
+        RAISE.invalidArgumentFault(s"Arcadia site completed without its required output directory: ${producerpath}; inputs: ${config.arcadia.source}, ${config.doxsite}")
+      if (producerpath != destinationpath)
+        _copy_directory(producerpath, destinationpath)
       _copy_directory(config.arcadiaSitePath, config.websitePath)
     }
     _write_bok_pages(config)

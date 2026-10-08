@@ -23,17 +23,10 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] final case class ReleaseSourceVerification(
-  managedmainsources: Vector[Path],
-  managedmainroots: Vector[Path],
-  managedtestsources: Vector[Path],
-  managedtestroots: Vector[Path],
-  buildevidence: ComponentReleaseSourceProjection.BuildEvidence
-)
-
 private[cozy] object CozyArchivePackager {
   private val _model_metadata_schema = "cozy.cml.model-metadata.v1"
 
@@ -157,7 +150,7 @@ private[cozy] object CozyArchivePackager {
       _validate_unique_spi_jars(spijars)
       val cardir = _path(args, "car-dir").orElse(_car_dir(projectdir, config))
       val scaladoc = _path(args, "scaladoc-dir").map { path =>
-        CozyScaladocStaging.verify(path, projectdir.get)
+        CozyScaladocStaging.verify(path)
       }
       val releasesource = (_release_source_policy(projectmetadata), _path(args, "release-source-dir")) match {
         case (None, Some(path)) =>
@@ -165,15 +158,9 @@ private[cozy] object CozyArchivePackager {
             s"--release-source-dir requires project.yaml packaging.car.release_source policy: $path"
           )
         case (Some(policy), Some(path)) =>
-          val verification = _release_source_verification(args)
           Some(ComponentReleaseSourceProjection.verifyForPackaging(
             path,
-            projectdir.get,
-            verification.managedmainsources,
-            verification.managedmainroots,
-            verification.managedtestsources,
-            verification.managedtestroots,
-            verification.buildevidence
+            projectdir.get
           ) match {
             case verified if verified.policy == policy => verified
             case verified =>
@@ -186,6 +173,16 @@ private[cozy] object CozyArchivePackager {
             "project.yaml declares packaging.car.release_source but no verified --release-source-dir was supplied"
           )
         case (None, None) => None
+      }
+      val manifesttexts = scaladoc.toVector.map(verified =>
+        s"scaladoc/${CozyScaladocStaging.ManifestFileName}" -> verified.manifestText
+      ) ++ releasesource.toVector.map(verified =>
+        s"source/${ComponentReleaseSourceProjection.MANIFEST_FILE_NAME}" -> verified.manifestText
+      )
+      val carentries = _car_entries(cardir)
+      manifesttexts.foreach { case (logicalpath, _) =>
+        if (carentries.exists(_._2 == logicalpath))
+          RAISE.invalidArgumentFault(s"CAR payload collides with admitted staging manifest: $logicalpath")
       }
       _require_no_source_generation_provenance(cardir)
       _require_no_source_runtime_manifest(cardir)
@@ -290,7 +287,7 @@ private[cozy] object CozyArchivePackager {
           Vector(
             packagedmainjar -> "component/main.jar"
           ) ++
-            _car_entries(cardir).filterNot(_._2 == CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH) ++
+            carentries.filterNot(_._2 == CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH) ++
             carrier.toVector.map(value => value.source -> CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH) ++
             scaladoc.toVector.flatMap(_.archiveEntries) ++
             releasesource.toVector.flatMap(_.archiveEntries) ++
@@ -306,7 +303,8 @@ private[cozy] object CozyArchivePackager {
             Vector(abimanifest -> "abi-manifest.json") ++
             Vector(componentdescriptor -> "component-descriptor.json"),
           Vector("component", "lib", "spi", "config", "web"),
-          runtimemanifest
+          runtimemanifest,
+          manifesttexts
         )
       }
       val workroot = _package_work_root(projectdir)
@@ -808,45 +806,6 @@ private[cozy] object CozyArchivePackager {
     }
   }
 
-  private def _release_source_verification(
-    args: List[String]
-  ): ReleaseSourceVerification = {
-    val managedmainsources = _json_paths(args, "release-source-managed-main-sources")
-    val managedmainroots = _json_paths(args, "release-source-managed-main-roots")
-    val managedtestsources = _json_paths(args, "release-source-managed-test-sources")
-    val managedtestroots = _json_paths(args, "release-source-managed-test-roots")
-    val buildevidence = _value(args, "release-source-build-evidence").map { value =>
-      val json = Try(Json.parse(value).as[JsObject]).getOrElse(
-        RAISE.invalidArgumentFault("Invalid release-source verification build evidence JSON")
-      )
-      def _values_(key: String): Vector[String] =
-        (json \ key).asOpt[Vector[String]].getOrElse(
-          RAISE.invalidArgumentFault(s"Release-source verification build evidence is missing $key")
-        )
-      ComponentReleaseSourceProjection.BuildEvidence(
-        _values_("compileScalacOptions"),
-        _values_("testScalacOptions"),
-        _values_("dependencies"),
-        _values_("generators")
-      )
-    }.getOrElse(
-      RAISE.invalidArgumentFault("--release-source-dir requires release-source verification build evidence")
-    )
-    ReleaseSourceVerification(
-      managedmainsources,
-      managedmainroots,
-      managedtestsources,
-      managedtestroots,
-      buildevidence
-    )
-  }
-
-  private def _json_paths(args: List[String], key: String): Vector[Path] =
-    _value(args, key).map { value =>
-      try Json.parse(value).as[Vector[String]].map(path => Paths.get(path).toAbsolutePath.normalize())
-      catch { case _: Throwable => RAISE.invalidArgumentFault(s"Invalid release-source verification $key JSON") }
-    }.getOrElse(RAISE.invalidArgumentFault(s"--release-source-dir requires --$key"))
-
   private def _source_component_descriptor(cardir: Option[Path]): Option[Path] =
     cardir.map(_.resolve("component-descriptor.json")).filter(Files.isRegularFile(_))
 
@@ -982,7 +941,8 @@ private[cozy] object CozyArchivePackager {
     projectdir: Option[Path],
     entries: Vector[(Path, String)],
     placeholderdirs: Vector[String],
-    runtimemanifest: Option[RuntimeManifestContext] = None
+    runtimemanifest: Option[RuntimeManifestContext] = None,
+    manifesttexts: Vector[(String, String)] = Vector.empty
   ): Unit = {
     Files.createDirectories(archive.getParent)
     Files.deleteIfExists(archive)
@@ -999,6 +959,9 @@ private[cozy] object CozyArchivePackager {
         val target = tempdir.resolve(dir)
         if (!Files.exists(target) || _is_empty_dir(target))
           _write_text(target.resolve(".keep"), "")
+      }
+      manifesttexts.foreach { case (logicalpath, text) =>
+        _write_text(tempdir.resolve(logicalpath), text)
       }
       runtimemanifest.foreach { context =>
         CozyCarRuntimeManifest.write(
@@ -1291,11 +1254,6 @@ private[cozy] object CozyArchivePackager {
     spec.Parameter.propertyFileOption("model-metadata"),
     spec.Parameter.propertyFileOption("scaladoc-dir"),
     spec.Parameter.propertyFileOption("release-source-dir"),
-    spec.Parameter.property("release-source-managed-main-sources"),
-    spec.Parameter.property("release-source-managed-main-roots"),
-    spec.Parameter.property("release-source-managed-test-sources"),
-    spec.Parameter.property("release-source-managed-test-roots"),
-    spec.Parameter.property("release-source-build-evidence"),
     spec.Parameter.propertyFileOption("source-dir"),
     spec.Parameter.property("source-files"),
     spec.Parameter.property("extension-jars"),
@@ -1364,25 +1322,19 @@ private[cozy] object CozyScaladocStaging {
 
   final case class Entry(path: String, sha256: String)
 
-  final case class Verified(directory: Path, manifest: Path, entries: Vector[Entry]) {
+  final case class Verified(directory: Path, manifest: Path, manifestText: String, entries: Vector[Entry]) {
     def archiveEntries: Vector[(Path, String)] =
-      entries.map(entry => directory.resolve(entry.path) -> s"scaladoc/${entry.path}") :+
-        (manifest -> s"scaladoc/$ManifestFileName")
+      entries.map(entry => directory.resolve(entry.path) -> s"scaladoc/${entry.path}")
   }
 
-  def verify(stagingdir: Path, projectdir: Path): Verified = {
-    val directory = stagingdir.toAbsolutePath.normalize()
-    val projectroot = projectdir.toAbsolutePath.normalize()
+  def verify(stagingDirectory: Path): Verified = {
+    val directory = stagingDirectory.toAbsolutePath.normalize()
     _require_directory(directory, "Scaladoc staging directory")
     val manifest = directory.resolve(ManifestFileName)
     _require_regular_file(manifest, "Scaladoc manifest")
     val parsed = _parse_manifest(manifest)
     if (parsed.schema != Schema)
       _invalid(s"Scaladoc manifest schema is unsupported: ${parsed.schema}")
-    if (Files.readString(manifest, StandardCharsets.UTF_8) != _render(parsed))
-      _invalid(s"Scaladoc manifest is not canonical: $manifest")
-    if (parsed.sourceDigest != sourceDigest(projectroot))
-      _invalid(s"Scaladoc source-input digest differs from current Scala sources: $manifest")
     _require_manifest_entries(parsed.entries, directory)
     val actual = _actual_entries(directory)
     if (actual.map(_.path) != parsed.entries.map(_.path))
@@ -1391,43 +1343,19 @@ private[cozy] object CozyScaladocStaging {
       if (actualentry.sha256 != declared.sha256)
         _invalid(s"Scaladoc staged entry digest differs from its manifest: ${declared.path}")
     }
-    if (parsed.contentDigest != _inventory_digest(parsed.entries))
+    if (parsed.contentdigest != _inventory_digest(parsed.entries))
       _invalid(s"Scaladoc staged-content digest differs from its manifest: $manifest")
     if (!parsed.entries.exists(_.path == "index.html"))
       _invalid(s"Scaladoc staging is missing index.html: $directory")
     if (!parsed.entries.exists(entry => _is_search_or_symbol_evidence(entry.path)))
       _invalid(s"Scaladoc staging is missing generated search or symbol evidence: $directory")
     _require_no_source_disclosure(directory, parsed.entries)
-    Verified(directory, manifest, parsed.entries)
-  }
-
-  def sourceDigest(projectdir: Path): String = {
-    val root = projectdir.toAbsolutePath.normalize()
-    val sourcedir = root.resolve("src/main/scala")
-    if (!Files.exists(sourcedir))
-      _inventory_digest(Vector.empty)
-    else {
-      _require_directory(sourcedir, "Scala source directory")
-      val stream = Files.walk(sourcedir)
-      try {
-        val entries = stream.iterator().asScala.toVector.collect {
-          case path if path != sourcedir && Files.isSymbolicLink(path) =>
-            _invalid(s"Scala source input must not be a symbolic link: $path")
-          case path if Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala") =>
-            val relative = root.relativize(path).toString.replace('\\', '/')
-            Entry(relative, _sha256(Files.readAllBytes(path)))
-        }.sortBy(_.path)
-        _inventory_digest(entries)
-      } finally {
-        stream.close()
-      }
-    }
+    Verified(directory, manifest, _render(parsed), parsed.entries)
   }
 
   private final case class Manifest(
     schema: String,
-    sourceDigest: String,
-    contentDigest: String,
+    contentdigest: String,
     entries: Vector[Entry]
   )
 
@@ -1436,7 +1364,6 @@ private[cozy] object CozyScaladocStaging {
       _invalid(s"Scaladoc manifest is invalid JSON: $path")
     )
     val schema = (json \ "schema").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing schema: $path"))
-    val source = (json \ "sourceDigest").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing sourceDigest: $path"))
     val content = (json \ "contentDigest").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing contentDigest: $path"))
     val entries = (json \ "entries").asOpt[Vector[JsObject]].getOrElse(
       _invalid(s"Scaladoc manifest is missing entries: $path")
@@ -1446,7 +1373,9 @@ private[cozy] object CozyScaladocStaging {
         (entry \ "sha256").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest entry is missing sha256: $path"))
       )
     }
-    Manifest(schema, source, content, entries)
+    if (!_is_sha256(content))
+      _invalid(s"Scaladoc manifest contains an invalid contentDigest: $path")
+    Manifest(schema, content, entries)
   }
 
   private def _require_manifest_entries(entries: Vector[Entry], directory: Path): Unit = {
@@ -1496,7 +1425,7 @@ private[cozy] object CozyScaladocStaging {
     val entries = manifest.entries.map { entry =>
       s"""{"path":${_quote(entry.path)},"sha256":${_quote(entry.sha256)}}"""
     }.mkString("[", ",", "]")
-    s"""{"schema":${_quote(manifest.schema)},"sourceDigest":${_quote(manifest.sourceDigest)},"contentDigest":${_quote(manifest.contentDigest)},"entries":$entries}"""
+    s"""{"schema":${_quote(manifest.schema)},"contentDigest":${_quote(manifest.contentdigest)},"entries":$entries}"""
   }
 
   private def _inventory_digest(entries: Vector[Entry]): String =
@@ -1539,7 +1468,7 @@ private[cozy] object CozyScaladocStaging {
   private def _is_sha256(value: String): Boolean = _sha256_pattern.pattern.matcher(value).matches()
 
   private def _quote(value: String): String =
-    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    Json.stringify(JsString(value))
 
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 }

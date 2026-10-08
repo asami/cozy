@@ -4,7 +4,11 @@ Phase status: CLOSED
 Updated: 2026-10-03
 Ledger for: [Phase 71.2](phase-71.2.md)
 Primary owner: Cozy
-Repository-full validation: aggregate-deferred to PHASE-71.4
+Repository-full validation: deferred-not-run; current aggregate owner PHASE-71.7
+
+Ownership update (2026-10-05): see [Phase 71.7](phase-71.7.md).
+Earlier text naming 71.4 is historical. Closed items and their evidence remain
+unchanged; this transfers pending full validation without claiming it passed.
 
 Implementation started. P710-03-V-S01 removes local renderer-template digests
 and is accepted after focused validation (3 suites, 138 tests) and independent
