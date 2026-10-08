@@ -37,14 +37,23 @@ Candidate schema crosses this boundary.
 
 `CozyLogicalUiSelection` is a thin, pure realization-intent boundary. It first
 admits a List model and selected item, then returns a shared logical
-`Selection` and `DetailRequest`. Compact and expanded clients differ only by
-returned placement/pattern: navigation versus detail-region update. A client
+`Selection` and `DetailRequest`. Compact and medium clients receive navigation;
+expanded clients receive detail-region update, with the corresponding shared
+Navigate/Select pattern. A client
 later realizes that intent and resolves a matching Detail; Cozy does neither.
 
 This keeps resource selection and Detail identity independent from visual
 realization while allowing the planned List/Detail fixture to prove both
 adaptive forms. Generic Action descriptors remain inert command-pattern
 metadata.
+
+The additive `MediumIntent` shares compact placement without a second selection
+algorithm. Complete readiness profiles import the same `AdaptiveIntent` and
+`DetailPlacement` types. Their navigation persistence and primary/secondary
+region availability are logical declarations; target breakpoints, geometry and
+actual navigation belong to later projections. Existing compact/expanded and
+null/model/item diagnostic precedence remains the same. The paired executable
+specification is `CozyLogicalUiRuntimeSpec`.
 
 ## Ownership and acceptance
 

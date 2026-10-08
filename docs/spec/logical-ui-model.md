@@ -445,10 +445,42 @@ admission already present in Phase43.
 | Coverage ID | Fixture | UI step | Screen interactions in order | Exact public bindings | Profile | Outcome | Phase50 requirements | Evidence status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | P50-COMPACT-NORMAL-001 | sales-order-compact-v1 | normal `confirm` | `order-list/entry`, `order-list/to-detail`, `order-detail/select`, `order-detail/invoke`, `order-detail/observe` | SalesOrder exact public binding set declared above; command `#operation` / `#state-machine`, selection `#powertype` variant `awaiting-confirmation` | compact, NavigateToDetail | simulated success: domain draft to confirmed, UI succeeded | P50-MAIN-02/03/04/05/06/07 | selected eight suites: 74/74 passed; actual compact browser PASS, Chrome 154.0.8037.94 at 390 × 844, parent inspected six screenshots; retained [app](../evidence/phase-50/compact/index.html), [structural review](../evidence/phase-50/compact/review.html), [complete receipt](../evidence/phase-50/compact/compact-preview-receipt.json), [portable observations](../evidence/phase-50/compact/browser-observations.json), [six screenshots and evidence scope](../evidence/phase-50/compact/README.md); partial compact normal simulation only, broader target/profile/outcome and aggregate full-suite assurance pending Phase50.1; independent Step reviews `P50-S5011-STEP-REVIEW-001@1` / `P50-S5021-STEP-REVIEW-001@1` and sole Phase review `P50-PHASE-FULL-REVIEW-001@1` PASS; narrow increment closure is bound to [the distinct local release and native audit](../phase/phase-50-closure-ledger.md) |
+| P501-COMPACT-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | compact | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-COMPACT-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | compact | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-COMPACT-EMPTY-001 | sales-order-target-ready-v1 | normal confirm; alternative recover | list entry; recover list entry | same exact SalesOrder public binding set | compact | empty: draft/idle; retry entry | empty/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-empty.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-COMPACT-VALIDATION-001 | sales-order-target-ready-v1 | alternative enter/recover | detail input/feedback; recover input | same exact SalesOrder public binding set | compact | validation-failed: draft/failed; edit input | input/local validation/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-validation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-COMPACT-CONFLICT-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover input | same exact SalesOrder public binding set | compact | conflict: draft/failed; edit input | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-conflict.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-COMPACT-UNAVAILABLE-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | compact | unavailable: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-unavailable.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-COMPACT-OPERATION-FAILED-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | compact | operation-failed: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-operation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | medium | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | medium | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-EMPTY-001 | sales-order-target-ready-v1 | normal confirm; alternative recover | list entry; recover list entry | same exact SalesOrder public binding set | medium | empty: draft/idle; retry entry | empty/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-empty.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-VALIDATION-001 | sales-order-target-ready-v1 | alternative enter/recover | detail input/feedback; recover input | same exact SalesOrder public binding set | medium | validation-failed: draft/failed; edit input | input/local validation/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-validation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-CONFLICT-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover input | same exact SalesOrder public binding set | medium | conflict: draft/failed; edit input | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-conflict.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-UNAVAILABLE-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | medium | unavailable: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-unavailable.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-OPERATION-FAILED-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | medium | operation-failed: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-operation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | expanded | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | expanded | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-EMPTY-001 | sales-order-target-ready-v1 | normal confirm; alternative recover | list entry; recover list entry | same exact SalesOrder public binding set | expanded | empty: draft/idle; retry entry | empty/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-empty.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-VALIDATION-001 | sales-order-target-ready-v1 | alternative enter/recover | detail input/feedback; recover input | same exact SalesOrder public binding set | expanded | validation-failed: draft/failed; edit input | input/local validation/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-validation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-CONFLICT-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover input | same exact SalesOrder public binding set | expanded | conflict: draft/failed; edit input | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-conflict.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-UNAVAILABLE-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | expanded | unavailable: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-unavailable.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-OPERATION-FAILED-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | expanded | operation-failed: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-operation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 
-This is the single canonical coverage row extended with actual S50.2
-compact normal-flow browser evidence. It does not claim full target-ready
-acceptance. The original
+All complete-fixture rows share `sales-order-target-ready-v1`, the exact
+SalesOrder public binding set above, and one complete input across every
+profile and outcome. All 21 P501 rows now retain actual candidate browser
+simulation PASS and individually linked case evidence from the admitted
+run007; [the portable review](../evidence/phase-50.1/readiness-candidate-001/browser-review.md)
+records binding, executed scope and limits. IR admission and browser success
+do not establish human acceptance. Failure rows include mapped
+`recover` interactions, and validation uses `enter/input` plus exact local
+constraint feedback. Expanded placement updates the detail region; compact and
+medium placement navigates. Medium and expanded declare persistent navigation.
+
+This is the single canonical coverage matrix retaining historical S50.2
+compact evidence and the 21 S50.1.1 complete-candidate browser cases. It does
+not claim exact human target-ready acceptance. The original
 full-outcome checklist rows remain open in Phase50.1; no second coverage
 matrix or target/framework/browser fields are added to Logical UI semantic IR.
 
@@ -567,3 +599,341 @@ actual compact normal-flow browser PASS and durable evidence links; broad
 target/profile/outcome coverage and the repository full suite remain pending
 Phase50.1. That row is
 the normative coverage record.
+
+## 13. Complete target-ready Logical UI contract
+
+`CozyLogicalUiReadiness` composes the existing factory-produced kernel
+candidate, exact screen projection, exact semantic projection and one typed
+`ReadinessInput` into `cozy.logical-ui-target-ready.v1`, version `1`.
+It is package-local, like the existing kernel. Legacy schema, codec fields,
+factory signatures, identities and accepted behavior remain unchanged.
+There is no new transport codec or runtime model field.
+
+The complete input consists of `semanticProjectionIdentity`, `profiles`,
+`controls`, `fields`, `textSources` and `outcomes`. The same input is shared
+by compact, medium and expanded views; it is not a per-profile authority.
+`candidate(kernelCandidate, projection, semantics, input)` returns
+`Either[LogicalUiError, TargetReadyCandidate]`. The private-constructor value
+exposes `identity`, `inputIdentity`, `kernelCandidate`, `projection`,
+`semantics`, normalized `input` and `canonicalContent`. Root and exact chain
+identity disagreement is rejected before metadata traversal. Pure existing
+factories retain kernel, projection and semantic admission responsibility.
+
+`ProfileIntent(windowClass, detailPlacement, persistentNavigation, regions)`
+uses the existing `AdaptiveIntent` and `DetailPlacement`. Exactly one compact,
+medium and expanded declaration is required. Compact/medium navigate to
+detail; expanded updates the detail region. Each `RegionIntent` references
+one exact projected `RegionRef(screenId, regionId)`, has a closed
+`PrimaryRegion` or `SecondaryRegion` role and declares semantic persistence.
+Every projected region occurs exactly once per profile; every screen has a
+primary region. Persistence means availability, not fixed positioning.
+The fixture's compact/medium regions are nonpersistent, with list-root and
+detail-root primary and detail-body secondary; expanded makes all three
+persistent. Compact navigation is nonpersistent; medium/expanded navigation
+is persistent. Form-factor-specific hints are not applicable: global window
+intent supplies all distinct meaning admitted by this contract.
+
+`ControlSemantics(control, role, labelTextId, focusOrder)` covers every exact
+`InteractionRef(screenId, interactionId)` once. Entry, Navigation, Input,
+Selection, Invocation, Observation/Query and Feedback interactions correspond
+to Entry, Navigation, Input, Selection, Command, Observation and Feedback
+control roles. Navigation/Input/Selection/Command require a positive globally
+unique focus rank; other controls have `None`. The fixture ranks are list
+navigation 1, detail input 2, selection 3 and invocation 4.
+No DOM, tabindex, ARIA, widget or geometry belongs to this authority.
+
+`TextSource(textId, sourceIdentity, defaultText)` provides unique trimmed text
+IDs, trimmed opaque source identities and nonblank display text. Supplied
+display whitespace is preserved byte-for-byte. Every metadata label/message
+joins a declared text source exactly. Source identity participates in complete
+identity. Errors remain structured and language-neutral; no localization
+framework, catalog or service is introduced.
+
+`InputField(fieldId, control, valueBinding, datatypeBinding, labelTextId,
+inputIntent, required, initialValue, localRules)` covers each Input interaction
+once. Value and Datatype bindings must match both that interaction's exact
+usages and existing semantic role bindings. `TextInputIntent` and
+`DecimalInputIntent` express keyboard/input meaning only. Initial text is
+nonnull and opaque, including empty or invalid review values. Each
+`LocalRule(constraint, ruleKind, feedbackId, messageTextId)` binds the exact
+`ConstraintIdentity(constraintId, detailCode)` of a local deterministic Value
+or Datatype declaration for that field, a declared screen feedback state and
+the exact semantic feedback association. Rules are unique by constraint pair
+and kind. Required fields declare `RequiredTextRule`; its later target
+interpretation is nonblank text. `AsciiIdentifierRule` means at least one
+uppercase ASCII letter, digit or hyphen, with every character in that set.
+The factory evaluates neither predicate nor any domain constraint. Context,
+server, Aggregate and Operation declarations cannot become local field rules.
+The fixture adds the exact datatype/validation-failed association and both
+predicates for `order-reference`, label `Order reference`, initial `SO-001`.
+Its messages are `Enter an order reference` and
+`Use uppercase letters, digits and hyphen`.
+
+`OutcomeBinding(outcomeId, step, trigger, feedbackControl, feedbackState,
+uiState, domainState, workflowState, recoveries, messageTextId)` describes
+visible simulated UI evidence. Both interactions join exact source step
+mappings; feedback belongs to its feedback screen. Normal maps to succeeded,
+loading to pending, empty to idle and validation-failed/conflict/unavailable/
+operation-failed to failed. Domain state must be admitted StateMachine data;
+optional Workflow state equals source transition evidence for the trigger.
+Workflow evidence is never advanced or executed. The SalesOrder declaration
+uses confirmed only for normal success and draft otherwise, retaining the
+separate source Workflow awaiting evidence on invocation outcomes.
+
+`RecoveryBinding(kind, step, target)` joins an exact mapped source step and
+interaction. `RetryInteraction` targets the same Entry or Invocation trigger;
+`EditInput` targets Input; `ReturnToEntry` targets Entry. Empty recovery vectors
+are valid. The fixture uses `recover` for empty/entry retry, conflict/input
+edit, validation/input edit and unavailable or operation-failed/invocation
+retry. Success/loading have no recovery. No retry policy, backoff, timer or
+server execution is specified. Reset/replay are later deterministic Web
+fixture controls, not logical domain recovery operations.
+
+All unordered declaration vectors normalize by structural keys. Explicit
+focus ranks and text bytes remain unchanged. Fixed-order canonical JSON binds
+schema/version, kernel candidate/consumed-input, projection and semantic
+identities and every readiness declaration. Escaped JSON framing preserves
+opaque Unicode, quote, control and delimiter-bearing values injectively.
+`CozyLogicalUiProjection.identity` supplies product identity; candidate and
+consumed-input roles are distinct. No management hashes, generated file bytes,
+paths, timestamps, HTML or CSS occur in complete logical content.
+
+`verifyCurrent(value, kernelCandidate, projection, semantics, input)` rebuilds
+the complete chain and compares candidate identity, consumed-input identity
+and content. Equivalent reordering is current. Any changed source, label,
+profile, local rule, field or outcome invalidates the old complete value,
+even if its legacy candidate is unchanged. Generated files cannot revise
+authoritative input.
+
+`accept(completeCandidate, TargetReadyAcceptanceDecision(decisionId,
+candidateIdentity, reviewerId))` returns
+`Either[LogicalUiError, AcceptedTargetReadyLogicalUi]`. IDs are nonnull,
+nonempty and exactly trimmed. Candidate identity equals the exact complete
+candidate, never the kernel-only identity. Decision identity binds that
+candidate plus decision/reviewer attribution; accepted identity also binds
+complete consumed input. The accepted private-constructor value exposes
+`identity`, `candidate` and `decision`. This API validates data, not human
+consent. Fixture construction and generation never accept implicitly; all
+specification decisions are explicit fixtures, not final Phase acceptance.
+
+Malformed null roots, vectors, elements, references or Option containers return
+stable `LogicalUiError` codes and dotted/indexed input paths without null
+exceptions. The `LUI501_` categories are `CHAIN_INVALID`, `INPUT_INVALID`,
+`ELEMENT_INVALID`, `DUPLICATE_INVALID`, `PROFILE_INVALID`, `REGION_INVALID`,
+`CONTROL_INVALID`, `FOCUS_INVALID`, `TEXT_INVALID`, `TEXT_REFERENCE_INVALID`,
+`FIELD_INVALID`, `RULE_INVALID`, `SOURCE_INVALID`, `OUTCOME_INVALID`,
+`RECOVERY_INVALID`, `CURRENTNESS_INVALID` and `ACCEPTANCE_INVALID`.
+Executable specifications are `CozyLogicalUiReadinessSpec` and the additive
+three-intent scenario in `CozyLogicalUiRuntimeSpec`.
+
+At the IR slice, structural readiness HTML, one Progressive Static Web
+simulation and browser evidence for the then-planned section 11 rows were
+subsequent work. The current complete E3 candidate structural/Web producers
+and browser proof are recorded in [section 14](#14-complete-structural-and-progressive-static-web-producers)
+and [design section 13](../design/logical-ui-model.md#13-shared-complete-review-and-one-web-interpreter),
+with the sole current coverage matrix in [section 11](#11-shared-salesorder-compact-success-contract).
+Projections must bind complete/kernel/input/projection/semantic identities and
+full declarations, not fixture ID alone. Target breakpoints, routes, DOM/ARIA,
+buttons and reset/replay realization stay in those projections. The admitted
+browser evidence includes normal and admitted failure/recovery flows in
+compact, medium and expanded, keyboard/focus and visible content/overflow,
+viewport switching and retained input/selection. The IR slice alone did not
+close E3, Phase50.1 or the 59 original outcome obligations. Independent E3 Step
+review is accepted following the focused re-review PASS; parent manual local
+Step commit remains pending. E4 still must record actual attributable
+feedback, applicable revision/currentness and explicit acceptance of one exact
+complete identity, then bind both regenerated projections; Phase closure and
+the 59 original outcome obligations remain outstanding.
+
+## 14. Complete structural and Progressive Static Web producers
+
+`CozyLogicalUiReadinessReview` and `CozyLogicalUiReadinessWeb` are package-local
+pure projections of the complete readiness authority. Each exposes
+`renderCandidate(completeCandidate, scenario)` and `renderAccepted(accepted,
+scenario)`, returning a structured `Either[LogicalUiError, ...Preview]`.
+The candidate entry does not accept. The accepted entry consumes a genuine
+`AcceptedTargetReadyLogicalUi`, reconstructs its complete source chain and
+re-admits its exact attributed decision through the readiness factory.
+No legacy `AcceptedLogicalUi` is constructed and no fixture decision proves
+human consent. Null, foreign and unsupported declarations fail with precise
+`LUI501_REVIEW_*` or `LUI501_WEB_*` paths.
+
+The common `CoverageCase(coverageId, windowClass, outcomeId)` and
+`ReadinessScenario(normal, coverage)` reuse the existing `CompactScenario`,
+`CompactFlow` and `OrderRecord`. The normal declaration names the sole shared
+`sales-order-target-ready-v1` fixture and its compact normal coverage case.
+Every admitted profile/outcome pair appears exactly once, with unique trimmed
+coverage IDs, no null, missing, duplicate or foreign value. Coverage normalizes
+by structural profile/outcome key. Existing CompactWeb admission supplies
+exact normal source step, navigation, Powertype/variant and public
+Operation/StateMachine from/to/succeeded evidence; using that factory does
+not grant its historical browser evidence to a revised complete input.
+The bounded driver requires one of each seven control roles, natural global
+focus ranks 1/2/3/4, one labeled input, one list region and two detail regions
+with consistent primary/secondary roles, and all seven outcome categories.
+Normal/loading join the normal command, invocation failures join that same
+command, empty joins Entry and validation joins the input. Normal retains the
+successful source state; all other outcomes retain the initial domain state.
+Recovery targets remain exactly factory-admitted source interactions.
+
+`CompleteBinding` carries `candidateIdentity`, `consumedInputIdentity`,
+`kernelCandidateIdentity`, `kernelInputIdentity`, `projectionIdentity`,
+`semanticProjectionIdentity`, optional `acceptedIdentity`, optional
+`decisionIdentity` and optional explicit decision. `SourceInputs` retains
+`kernelContent`, `projectionContent`, `semanticContent`, `readinessContent`
+from existing canonical APIs. Receipt JSON includes these as complete parsed
+JSON subtrees, including every profile, control, field, rule, text, outcome
+and recovery. SourceFlow keeps exact Operation/StateMachine/Powertype/variant,
+from/to domain references, success UI and separate optional Workflow evidence.
+These are product provenance, without output hashes, timestamps, absolute
+paths or workflow certificates.
+
+`ReviewReceipt` has schema `cozy.logical-ui-target-ready-review.v1`, version
+`1`, renderer `cozy.logical-ui-target-ready-review.renderer.v1`, the common
+binding, full normalized scenario, source declarations and flow, sorted source
+diagnostics and outputs `review.html`, `readiness-review-receipt.json`.
+`WebReceipt` has schema `cozy.logical-ui-target-ready-web.v1`, version `1`,
+renderer `cozy.logical-ui-target-ready-web.renderer.v1`, that complete review
+receipt, `simulated=true` and outputs, in order: `index.html`, `review.html`,
+`compare.html`, `readiness-review-receipt.json`, `readiness-web-receipt.json`.
+Serialization uses fixed field order and escaped structural data. Candidate
+accepted/decision fields are consistently JSON null; accepted mode retains
+actual complete decision/reviewer attribution and identities.
+
+The structural preview exposes `html`, `receipt`, `receiptJson`, `diagnostics`
+and UTF-8 `htmlBytes`. The Web preview exposes `html`, `reviewHtml`,
+`compareHtml`, `receipt`, `receiptJson`, `reviewReceiptJson`, `diagnostics` and
+UTF-8 byte accessors for its five output strings. Private constructors and
+observable-only `copy` preserve the original candidate/accepted/scenario.
+`verifyCandidateCurrent` and `verifyAcceptedCurrent` rerender supplied complete
+authority and compare every observable, mode, declaration and decision.
+Input, source, label, rule, profile, outcome, record, coverage or reviewer
+revisions invalidate prior output even under the same kernel or fixture ID;
+equivalent declaration order is current. No separate unchanged-file
+certificate or management digest substitutes for recomposition.
+
+Structural HTML reuses the unchanged candidate source renderer, with a
+prominent complete authority overview and distinct `Kernel candidate evidence`
+heading. Labeled tables expose all readiness metadata, normal records/flow,
+every coverage case and exact source flow. Full canonical declarations are
+escaped read-only details. Padded text preserves its supplied value.
+No script, form, controller or external asset occurs on the structural page.
+
+`index.html` contains one inert `application/json#readiness-data` WebReceipt
+and one fixed inline interpreter. Embedded data escapes `<`, `>`, `&`, U+2028
+and U+2029; source text is rendered with `textContent` or native `value`.
+No executable source interpolation, eval, source innerHTML, fetch, XHR,
+remote asset, storage, service worker or backend/domain/Workflow execution is
+introduced. Source identity attributes cover screens, regions, interactions,
+roles, focus, labels, fields, Value/Datatype, constraints, components, steps,
+outcomes and recoveries. The source navigation selects the declared record
+and opens detail in one native action, recording order/resource and source
+UseCase provenance, then focusing the input. Natural DOM focus order is
+navigation/input/selection/command, without positive tabindex. The input
+preserves initial text, text/decimal inputmode, source label and
+aria-required/invalid/describedby; feedback is live and pending is busy.
+
+Only declared RequiredTextRule (nonblank first) and AsciiIdentifierRule
+(uppercase ASCII letters, digits and hyphen) execute locally, on blur or
+invocation, with exact constraint/feedback/message attribution. Invalid text
+keeps the command enabled after declared record and variant selection so
+invocation can expose the local error. Pending and completed disable repeated
+invocation. Valid confirmation displays the exact loading outcome first;
+the separately labeled `complete-confirmation` fixture button produces the
+menu-selected normal/conflict/unavailable/operation-failed terminal outcome.
+The `fixture-outcome` menu also permits empty, validation-failed and loading
+inspection. No timer or random completion exists. Terminal state/messages
+come from the payload, keep order ID/label/amount and change only the declared
+domain reference. Source Workflow awaiting is shown separately and never
+advanced.
+
+Recovery buttons derive solely from the active outcome's exact kind/step/
+target. EditInput clears failure to idle, retains domain, selects normal as
+the next simulated result and focuses input. Invocation retry keeps input
+and selection and walks pending then fixture-completed normal; Entry retry
+restores list/initial record and reachable navigation. Admitted ReturnToEntry
+selects the list view without a domain action. `reset-fixture` restores exact
+initial text, no selected order/variant, initial domain/idle UI, list view,
+normal fixture choice and no result/error/recovery/pending. `replay-fixture`
+uses those same reset inputs and walks declared order navigation, variant,
+loading and normal deterministically. Invalid revised initial input is
+preserved and diagnosed instead of replaced. Repeated replay has the same
+semantic state. These helpers are explicitly fixture controls outside logical
+focus ranking and semantic authority.
+
+Actual `window.innerWidth` selects compact below 600, medium from 600 through
+1023 and expanded at 1024 or greater. Compact shows one active screen; medium
+retains navigation and one active content screen; expanded keeps list/detail
+regions available with unselected detail controls disabled. Source field,
+order, variant, outcome, pending and recovery state survive viewport changes.
+When visibility hides a focused source control, an available declared
+counterpart receives focus; otherwise current focus is retained. CSS uses
+minmax(0,1fr), min-width:0, wrapped opaque content and visible focus rings.
+Runtime geometry/control inspection exposes code/path/reason diagnostics in
+`preview-diagnostics`: `LUI501_WEB_OVERFLOW`,
+`REQUIRED_CONTENT_UNREACHABLE`, `ACTION_MISSING`, `FEEDBACK_MISSING`,
+`NAVIGATION_MISSING`, `FOCUS_ORDER_INCONSISTENT`,
+`RESPONSIVE_INTENT_INCONSISTENT` (all with the LUI501_WEB_ prefix).
+They assess actual geometry, active content and source controls while
+respecting legitimate initial/pending disabled states. Actual candidate browser
+evidence inspects them alongside independent DOM geometry and control checks;
+diagnostics alone do not establish PASS.
+
+`compare.html` is a local shell with three titled interactive iframes of
+the same `index.html`: 390 × 844, 834 × 1112 and 1440 × 900. Each starts from
+the same declared list fixture and exact provenance. The comparison shell
+may intentionally scroll horizontally; each app viewport retains its own
+diagnostics. No cross-frame controller or per-profile source copy exists.
+
+`Web.write(preview, siteParent, receiptParent)` is the sole five-file writer.
+It recomposes captured original authority/mode/scenario and rejects stale
+observables before any destination mutation. Both distinct parents must be
+existing canonical absolute normalized nonsymlink directories, without
+traversal or symlink components. All five direct targets are preflighted as
+absent or regular nonsymlink files before any temporary creation or writing.
+Owned UTF-8 sibling temporaries are staged and installed by per-file atomic
+replacement, without a non-atomic fallback or cross-file transaction promise.
+Structured IOException/SecurityException failures retain precise output
+paths; only owned temporaries are cleaned and unrelated files are preserved.
+
+Executable contracts are
+[CozyLogicalUiReadinessReviewSpec](../../src/test/scala/cozy/ui/CozyLogicalUiReadinessReviewSpec.scala)
+and [CozyLogicalUiReadinessWebSpec](../../src/test/scala/cozy/ui/CozyLogicalUiReadinessWebSpec.scala).
+Their explicit accepted values are specification fixtures. The Web writer
+scenario retains candidate output under `target/phase501-readiness-preview/site`
+and receipts under its `evidence` sibling. The bounded executable browser
+specification is [run-readiness-browser.mjs](../../scripts/test/phase501/run-readiness-browser.mjs),
+with exactly `--site`, `--receipt`, `--evidence`, `--playwright` and `--browser`
+absolute flag/value pairs. A supervised exclusive run directory, GET-only
+three-resource loopback server and invocation-owned Chrome profile bound its
+actual execution; success/failure/interruption await owned cleanup.
+
+The current admitted run007 supplied 21 individually attributed cases, 1067 observations
+and 23 parent-inspected images, covering all declared recoveries, actual local
+validation, keyboard/focus, reset/two semantic replays, state-preserving resize
+including 599/600/1023/1024 boundaries, structural review and three independent
+comparison frames. Source provenance, geometry/availability, ARIA and current
+diagnostics accompany observed states. It additionally records 12 normal
+pointer recoveries from focused editable input across the four editable failure
+outcomes and three profiles, plus five focused source-recovery resize walks,
+including empty entry retry, through all profile transitions and boundary widths.
+The historical run006 PASS retains its 21 cases, 778 observations and 23 images
+in local history; its coverage omitted these two transitions.
+The [CPB-P501-E3-001 repair](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-review-fix-manifest-001.json)
+retains recovery nodes/listeners when the exact active outcome is unchanged.
+Parent-admitted focused validation and run007 passed; independent focused
+re-review passed and was accepted in review ledger revision 3, resolving
+CPB-P501-E3-001 as recorded in the [accepted re-review checkpoint](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-recovery-rereview-checkpoint-001.json).
+Parent manual local Step commit remains pending. The retained
+[app](../evidence/phase-50.1/readiness-candidate-001/site/index.html),
+[structural review](../evidence/phase-50.1/readiness-candidate-001/site/review.html),
+[comparison](../evidence/phase-50.1/readiness-candidate-001/site/compare.html),
+[complete Web receipt](../evidence/phase-50.1/readiness-candidate-001/evidence/readiness-web-receipt.json),
+[complete review receipt](../evidence/phase-50.1/readiness-candidate-001/evidence/readiness-review-receipt.json)
+and [portable observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json)
+share the same complete candidate; section 11 owns the sole coverage matrix.
+The [browser review](../evidence/phase-50.1/readiness-candidate-001/browser-review.md)
+records versions, relative screenshots, limits and retained prior-run history.
+Portable copies supply product review rather than host-specific management
+proof. Attributed feedback/revision, exact human acceptance, parent manual local
+Step commit, independent Phase acceptance and final full-suite validation remain separate gates.

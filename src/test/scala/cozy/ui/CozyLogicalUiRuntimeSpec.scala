@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct. 8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -299,6 +299,26 @@ final class CozyLogicalUiRuntimeSpec extends AnyWordSpec with Matchers with Give
   }
 
   "Cozy Logical UI runtime selection" should {
+    "preserve resource and Detail identity across compact, medium and expanded placement intents" in {
+      Given("one admitted resource List and the three shared adaptive intents")
+      val model = CozyLogicalUiRuntimeFixtures.listModel
+      val intents = Vector(CompactIntent, MediumIntent, ExpandedIntent)
+
+      When("the same existing resource is selected in every window class")
+      val results = intents.map(intent => select(model, "resource-a", intent))
+
+      Then("selection and request are identical while medium shares compact navigation and expanded updates its detail region")
+      val transitions = results.map {
+        case Right(value) => value
+        case Left(error) => fail(error.toString)
+      }
+      transitions.map(_.selection).distinct shouldBe Vector(Selection(model.screen.id, "resource-a"))
+      transitions.map(_.detailRequest).distinct shouldBe Vector(DetailRequest(
+        model.screen.asInstanceOf[ResourceList].detailTarget.screenId, "resource-a"))
+      transitions.map(_.placement) shouldBe Vector(NavigateToDetail, NavigateToDetail, UpdateDetailRegion)
+      transitions.map(_.pattern) shouldBe Vector(NavigatePattern, NavigatePattern, SelectPattern)
+    }
+
     "reject invalid targets and selections without mutating the supplied model" in {
       Given("a valid List, self, absent, and malformed non-null DetailTargets, empty and unknown item IDs, a null intent, and an admitted Detail")
       val base = CozyLogicalUiRuntimeFixtures.listModel

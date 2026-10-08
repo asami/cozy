@@ -1,9 +1,29 @@
 # Phase 50.1 Checklist: Complete Logical UI Target-Readiness and Static Web
 
-Status: PLANNED; split from Phase 50 on 2026-10-08. All 59 original outcomes
+Status: IN_PROGRESS; split from Phase 50 on 2026-10-08. All 59 original outcomes
 below retain their IDs and wording and remain open. This is their sole full
 completion ledger. Phase 50's [narrow main-route ledger](phase-50-checklist.md)
-supplies partial evidence only; no completed history existed to move.
+supplies partial evidence only; at the split, no completed history existed to move.
+
+Current status: IN_PROGRESS
+Owner: parent execution task `/root`; explicit acceptance remains with the human reviewer.
+Update rule: Update progress from admitted evidence; check an outcome only when
+its full evidence and required acceptance gates are satisfied, retaining every
+original ID and wording.
+
+E3 candidate implementation, structural/Web projections and browser proof are
+implemented. CPB-P501-E3-001 recovery repair passed parent-admitted focused
+validation and actual run007: 21 cases, 1067 observations, 23 parent-inspected
+images, 12 pointer recoveries from focused input and five focused-recovery
+resize walks. Historical run006 PASS remains retained. Independent focused
+Step re-review passed and was accepted in review ledger revision 3, resolving
+CPB-P501-E3-001; the [accepted re-review checkpoint](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-recovery-rereview-checkpoint-001.json)
+records that closure. Parent manual local Step commit remains pending. E4 attributed
+feedback/revision, explicit exact-complete human
+acceptance and both accepted projections remain outstanding, together with
+independent Phase review, aggregate full validation, closure ledger and release.
+The [sole coverage matrix](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract)
+records current candidate proof; all 59 original outcomes below remain unchecked.
 
 The [Phase 50.1 execution sequence](phase-50.1.md#execution-sequence) owns E3/E4.
 E3 completes remaining PREP-01/03–04, IR, both projections and responsive

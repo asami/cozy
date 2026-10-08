@@ -5,12 +5,13 @@ import cozy.ui.CozyLogicalUiVocabulary._
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct. 8, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyLogicalUiSelection {
   sealed abstract class AdaptiveIntent
   case object CompactIntent extends AdaptiveIntent
+  case object MediumIntent extends AdaptiveIntent
   case object ExpandedIntent extends AdaptiveIntent
 
   sealed abstract class DetailPlacement
@@ -43,6 +44,7 @@ object CozyLogicalUiSelection {
           else
             intent match {
               case CompactIntent => Right(_transition(list, itemId, NavigateToDetail))
+              case MediumIntent => Right(_transition(list, itemId, NavigateToDetail))
               case ExpandedIntent => Right(_transition(list, itemId, UpdateDetailRegion))
               case _ => Left(_error("LUI74_ADAPTIVE_INTENT_INVALID", "intent", "null adaptive intent"))
             }

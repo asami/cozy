@@ -372,3 +372,216 @@ links extend the sole `P50-COMPACT-NORMAL-001` row; the row records actual
 compact normal-flow browser PASS and retained evidence. Broad target-ready/profile/
 outcome assurance and the full suite remain owned by Phase50.1, without
 starting successor execution here.
+
+## 12. Complete readiness composition
+
+`CozyLogicalUiReadiness` is one package-local target-neutral extension over the
+existing kernel candidate, screen projection and semantic projection. Its
+complete immutable candidate is private-constructor and consumes the exact
+factory-produced source chain plus typed readiness metadata. Existing pure
+factories are reused for source normalization; exact chain identities and
+canonical kernel content are checked before traversing readiness metadata.
+No renderer dependency, second domain model, codec change or runtime schema
+field is introduced. The paired contract is
+[specification section 13](../spec/logical-ui-model.md#13-complete-target-ready-logical-ui-contract).
+
+Closed Scala 2 alternatives describe primary/secondary regions, control roles,
+text/decimal input meaning, required/ASCII local predicates and retry/edit/
+entry recoveries. Profiles reuse the public Selection object's sole window
+and placement vocabulary, including additive MediumIntent. Every projected
+region and interaction joins by structural screen/local identity, with one
+field per Input control and positive unique explicit global focus ranks only
+on interactive controls. Navigation persistence and region persistence mean
+availability; CSS geometry and viewport breakpoints remain projection-owned.
+Global window intent is sufficient for this fixture; form-factor hints have
+no independently useful semantics and are explicitly not applicable.
+
+Text sources retain opaque source attribution and nonblank padded display
+content. Local rules join exact existing constraint pairs, local Value/Datatype
+authority and declared feedback associations; no context/server or Operation
+condition is evaluated. Outcomes join exact mapped source steps and feedback
+and keep UI lifecycle, admitted domain state and optional Workflow evidence
+separate. Recovery declarations admit visible source interactions without
+adding an executor, retry policy or domain operation. Reset/replay belong to
+later deterministic Web fixture controls.
+
+Admission is sequential and fail-closed: source roots and consumed semantic
+identity, declaration vector shape, text/source identity, profiles and complete
+region coverage, control compatibility/focus/coverage, exact field/rule joins,
+then mapped outcome/state/recovery evidence. Null vectors, elements, Option
+containers and `Some(null)` are checked before use. New diagnostics use stable
+`LUI501_*` codes and exact declaration paths. Source factory diagnostics retain
+their existing semantics.
+
+One small fixed-order Play JSON serializer writes the full normalized input
+and all source identities. Structural tuple sorting avoids delimiter-derived
+keys; JSON escaping protects opaque strings while preserving their value.
+Product hash roles distinguish complete candidate and consumed input. Exact
+attributed acceptance adds decision and accepted identities; private accepted
+construction requires a valid decision naming that complete candidate.
+`verifyCurrent` recomposes authoritative input and compares complete identity,
+content and consumed-input role. Source or metadata changes stale the old
+value under an unchanged legacy kernel; permutation alone remains current.
+Management certificates and target output bytes are outside logical content.
+
+The SalesOrder fixture is additive: legacy helpers/compact data are unchanged,
+while ready helpers add recover mappings, exact datatype feedback association,
+three profiles, all seven controls, order-reference rules/text sources and all
+seven feedback outcomes. The one complete fixture identity is
+`sales-order-target-ready-v1`; no profile/outcome copies exist. Fixture data
+retain SO-001, Sales order SO-001, 100.00 and draft/confirmed source states.
+At the IR slice, the sole specification section 11 matrix preserved historical
+compact proof and marked complete target/profile/outcome rows planned. The
+[current section 11 matrix](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract)
+now records the complete E3 candidate browser proof; [section 13](#13-shared-complete-review-and-one-web-interpreter)
+and [specification section 14](../spec/logical-ui-model.md#14-complete-structural-and-progressive-static-web-producers)
+record the complete structural/Web producers and their browser evidence.
+
+Readiness executable specifications pair Given/When/Then with observable
+admission, precise structured failures, independent input permutation PBT,
+opaque JSON framing, source/metadata currentness and explicit attributed
+fixture decisions. The legacy accumulator remains the compatibility proof.
+No fixture decision authenticates human acceptance. At the IR slice,
+structural/Web projection receipts and actual browser evidence belonged to
+later slices; their current E3 candidate proof is recorded in section 13 and
+the sole specification section 11 matrix. Independent E3 Step review is accepted
+following the focused re-review PASS; parent manual local Step commit remains
+pending. E4 still owns attributable feedback, source
+revision/regeneration when applicable and actual explicit exact-complete
+acceptance. Neither the historical IR slice nor current candidate proof claims
+human acceptance or Step/Phase closure.
+
+## 13. Shared complete review and one Web interpreter
+
+`CozyLogicalUiReadinessReview` owns the shared complete binding, explicit
+scenario admission, normalized coverage, source flow and structural receipt.
+`CozyLogicalUiReadinessWeb` consumes that result for one interactive app,
+one local comparison shell and the sole five-file writer. Both remain
+package-local projections over existing readiness factories. The paired
+contract is [specification section 14](../spec/logical-ui-model.md#14-complete-structural-and-progressive-static-web-producers),
+with [ReadinessReviewSpec](../../src/test/scala/cozy/ui/CozyLogicalUiReadinessReviewSpec.scala)
+and [ReadinessWebSpec](../../src/test/scala/cozy/ui/CozyLogicalUiReadinessWebSpec.scala).
+The existing kernel, codecs, Selection, Review and CompactWeb producers and
+all legacy APIs remain their original authorities.
+
+Candidate and genuine complete accepted entrypoints rebuild the same exact
+source chain. Accepted mode re-admits its explicit complete decision and
+retains accepted/decision/reviewer identities; it never synthesizes a legacy
+accepted value. Full canonical kernel, projection, semantic and readiness
+declarations are retained in `SourceInputs` and parsed as receipt subtrees.
+The common binding separates complete candidate/consumed input from kernel
+candidate/input and exact projection/semantic identities. SourceFlow adds
+normal operation/state machine/powertype/variant, from/to state and separate
+UI/Workflow evidence. This is product provenance, without management hashes,
+output hashes, timestamps, machine paths or unchanged-file certificates.
+
+The explicit scenario reuses CompactScenario records and source flow.
+CompactWeb.render supplies pure exact source admission, independent of its
+earlier compact browser observation. The shared producer requires all seven
+feedback categories and every profile/outcome pair exactly once, with unique
+trimmed IDs and structural normalization. It rejects foreign source joins,
+contradictory failure domain states and metadata that this bounded one-field,
+seven-control, list/detail driver cannot realize. One primary list region,
+one primary and one secondary detail region share consistent roles across
+profiles; navigation and region persistence agree with the supported window
+intent. No new domain model, StateMachine/Workflow record or fallback source
+meaning is introduced.
+
+The structural page inserts complete authority and readable metadata tables
+ahead of a separately identified kernel candidate overview from the unchanged
+Review producer. It retains all source diagnostics and read-only source
+sections. Escaped text/JSON and preserved display whitespace carry opaque
+source values without executable markup. ReviewReceipt's fixed-order JSON
+is embedded whole in WebReceipt, with simulated=true and five exact output
+names. Candidate optional acceptance fields are consistently null; accepted
+mode carries actual complete attribution. Both private previews retain
+original authority/mode/scenario through observable-only copies. Currentness
+always recomposes supplied complete values and compares all output strings,
+typed receipts and diagnostics; declaration reordering alone is equivalent.
+
+One fixed JavaScript interpreter consumes the inert complete WebReceipt.
+HTML-safe JSON escaping prevents closing-script or delimiter-bearing text
+from entering code; dynamic source display uses textContent/value. Source
+attributes and natural native button/input/select ordering preserve exact
+source identities, roles, labels, steps, component bindings and global focus
+rank. The only local predicates are admitted RequiredTextRule before
+AsciiIdentifierRule. No context, server, aggregate or operation condition is
+evaluated. Live feedback, pending busy state and field ARIA are target
+realization rather than additions to target-neutral IR.
+
+The interpreter holds target UI selection, input, active screen, variant,
+outcome, pending/completed flags and local error. The source command starts
+the declared loading outcome only after local input validation and declared
+order/variant selection. A separate labeled fixture completion selects exact
+terminal declaration data, with no timer, network or domain execution.
+Recovery controls come only from active source outcome bindings. Input edit
+retains domain and focuses the admitted field; invocation retry preserves
+selection/input and starts loading; entry retry and return-to-entry use
+declared source entry. Reset and replay are review fixture helpers, outside
+logical rank and authority, restoring exact source initial data and retaining
+invalid initial input as diagnosed review data. Successful record display
+retains ID/label/amount; Workflow evidence is visible separately and inert.
+
+Viewport width alone selects compact (<600), medium (600..1023) or expanded
+(>=1024). One shared DOM becomes one active compact content screen, persistent
+medium navigation with active content, or simultaneously available expanded
+regions. Unselected expanded detail controls are disabled. Resize preserves
+source input and target selection/outcome state and moves hidden source focus
+to an available declared counterpart. minmax/min-width/wrapping/focus CSS
+supports opaque content. Structured runtime diagnostics inspect actual
+geometry, reachable content, declared actions, feedback, navigation, source
+rank and responsive intent; generated markup or a hardcoded PASS cannot
+replace later browser inspection. The comparison page uses three differently
+sized titled iframes of the same index.html, with local independent interaction
+and common complete provenance. Its own horizontal scrolling is intentional.
+
+The writer recomposes retained authority before output preflight. Both
+existing absolute canonical parents and all five direct destinations are
+checked for traversal, symlinks and non-regular target kinds before any write.
+All UTF-8 sibling temporaries are staged first; each file is installed with
+atomic replacement. IOException/SecurityException become structured output
+failures; owned temporaries alone are cleaned. Atomicity is per file, without
+rollback, cross-file transaction or non-atomic fallback. Unrelated files are
+preserved. One executable scenario retains the production candidate bundle
+under target/phase501-readiness-preview for actual browser observation; other
+writer scenarios create and clean only their fresh owned target fixtures.
+
+Independent ScalaCheck permutations exercise complete source/readiness and
+coverage ordering, while behavior scenarios cover exact receipt content,
+every typed profile/outcome and recovery, complete attribution/currentness,
+opaque safe data and all five writer targets. These specifications provide
+typed projection/generation contracts. The paired actual browser specification
+is [run-readiness-browser.mjs](../../scripts/test/phase501/run-readiness-browser.mjs),
+consuming the full production receipt through five absolute path flags.
+It uses a supervised exclusive output directory, one GET-only loopback server
+for the three HTML resources and a fresh owned Chrome profile, with awaited
+startup/interruption cleanup and terminal evidence. Browser observations stay
+outside Logical UI authority.
+
+The current admitted run007 exercised all 21 source coverage pairs and every declared
+recovery across compact/medium/expanded, actual local invalid input, normal
+loading/completion, duplicate invocation, native keyboard/focus, reset/replay,
+state-preserving viewport changes and boundary widths, structural review and
+independent comparison frames. Its 1067 observations retain provenance, actual
+geometry/availability, ARIA and diagnostics; the parent inspected all 23
+images. Twelve separately prepared pointer recoveries begin with actual focused
+editable input across the four failure outcomes and three profiles. Five focused
+source-recovery resize walks, including empty entry retry, retain actual focus,
+connection, availability and semantics through profile transitions and boundary
+widths. The historical run006 PASS retains 21 cases, 778 observations and
+23 images locally; it omitted those two transitions.
+The [CPB-P501-E3-001 repair](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-review-fix-manifest-001.json)
+keeps the same recovery nodes/listeners while the exact active outcome reference
+is unchanged, rebuilding only on outcome change or clearing. Parent-admitted
+focused validation and run007 passed; independent focused re-review passed and
+was accepted in review ledger revision 3, resolving CPB-P501-E3-001 as recorded
+in the [accepted re-review checkpoint](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-recovery-rereview-checkpoint-001.json).
+Parent manual local Step commit remains pending.
+[The portable candidate review](../evidence/phase-50.1/readiness-candidate-001/browser-review.md)
+links the regenerated three HTML/two complete receipts, observed data and images,
+with relative screenshot references and scope limits. Private session/PID/temp/
+endpoint records remain local; portable copies are product-review material.
+The sole [specification section 11 matrix](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract)
+records these 21 browser cases and preserves the historical P50 compact row.
+Attributable feedback/revision and genuine exact human acceptance belong to
+E4; no producer or fixture closes E3, Step, Phase or the full-suite gate.

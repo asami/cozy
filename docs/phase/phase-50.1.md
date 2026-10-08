@@ -1,6 +1,6 @@
 # Phase 50.1: Logical UI Target-Readiness and Complete Static Web Acceptance
 
-status=planned
+status=in_progress
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -11,10 +11,30 @@ depends_on=phase-50.md
 
 Plan date: 2026-10-08
 
+Current status: IN_PROGRESS
+Owner: parent execution task `/root`; explicit acceptance remains with the human reviewer.
+Update rule: Update this status when admitted evidence or pending gates change;
+record acceptance and closure only through their explicit authorized gates.
+
+E3 candidate implementation, structural/Web projections and browser proof are
+implemented. CPB-P501-E3-001 recovery repair passed parent-admitted focused
+validation and actual run007: 21 cases, 1067 observations, 23 parent-inspected
+images, 12 pointer recoveries from focused input and five focused-recovery
+resize walks. Historical run006 PASS remains retained. Independent focused
+Step re-review passed and was accepted in review ledger revision 3, resolving
+CPB-P501-E3-001; the [accepted re-review checkpoint](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-recovery-rereview-checkpoint-001.json)
+records that closure. Parent manual local Step commit remains pending. E4 attributed
+feedback/revision, explicit acceptance of one exact
+complete identity and both accepted projections remain outstanding, as do the
+independent Phase review, aggregate full validation, closure ledger and release.
+The [sole coverage matrix](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract)
+records current candidate evidence. All 59 original outcomes remain unchecked.
+
 Split from Phase 50 on 2026-10-08 under the explicit `$cncf-split-phase 50`
 invocation. Predecessor: [Phase 50](phase-50.md) accepted compact producer
 increment. Successor: unchanged [Phase 51](phase-51.md), Flutter Target Projection.
-Implementation remains unstarted; this document records no acceptance.
+Implementation was unstarted at the split; this historical split-time statement
+records no acceptance. Current progress is recorded above.
 
 ## Execution sequence
 
@@ -75,8 +95,9 @@ per-Phase validation. Preserve Phase 50's historical deferred disposition.
 Repair-triggered reruns follow the actual changed boundary; no duplicate full
 suite per batch or documentation-only edit is required.
 
-No implementation/test/Goal starts during this split. No new branch/worktree
-or publication is authorized; the normal-checkout policy remains in effect.
+No implementation/test/Goal started during the historical split operation.
+No new branch/worktree or publication is authorized; the normal-checkout policy
+remains in effect.
 
 ## Phase Plan Gate
 

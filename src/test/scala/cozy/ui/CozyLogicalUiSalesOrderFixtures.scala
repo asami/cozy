@@ -2,6 +2,8 @@ package cozy.ui
 
 import cozy.ui.CozyLogicalUi._
 import cozy.ui.CozyLogicalUiSemantics._
+import cozy.ui.CozyLogicalUiReadiness._
+import cozy.ui.CozyLogicalUiSelection._
 
 /*
  * @since   Oct. 8, 2026
@@ -329,4 +331,119 @@ private[cozy] object CozyLogicalUiSalesOrderFixtures {
       semantics <- CozyLogicalUiSemantics.project(projection, semanticsInput(projection, reversed))
     } yield (candidate, projection, semantics)
   }
+
+  val readyFixtureId: String = "sales-order-target-ready-v1"
+
+  def readinessWebScenario(reversed: Boolean = false): CozyLogicalUiReadinessReview.ReadinessScenario = {
+    import CozyLogicalUiReadinessReview._
+    val outcomes = Vector("NORMAL" -> "normal", "LOADING" -> "loading", "EMPTY" -> "empty",
+      "VALIDATION" -> "validation-failed", "CONFLICT" -> "conflict", "UNAVAILABLE" -> "unavailable",
+      "OPERATION-FAILED" -> "operation-failed")
+    val profiles = Vector("COMPACT" -> CompactIntent, "MEDIUM" -> MediumIntent, "EXPANDED" -> ExpandedIntent)
+    val coverage = profiles.flatMap { case (profile, intent) => outcomes.map { case (category, outcome) =>
+      CoverageCase("P501-" + profile + "-" + category + "-001", intent, outcome)
+    } }
+    ReadinessScenario(compactWebScenario.copy(fixtureId = readyFixtureId, coverageId = "P501-COMPACT-NORMAL-001"),
+      if (reversed) coverage.reverse else coverage)
+  }
+
+  def readyProjectionInput(candidate: LogicalUiCandidate, reversed: Boolean = false): UseCaseScreenProjection = {
+    val base = projectionInput(candidate, reversed)
+    val recover = UiUseCaseStep(candidate.input.useCases.ui, "recover", AlternativePath)
+    val mappings = Vector(
+      ScreenInteractionMapping(uiUseCase, "confirm", "order-detail", "feedback"),
+      ScreenInteractionMapping(uiUseCase, "enter", "order-detail", "feedback"),
+      ScreenInteractionMapping(uiUseCase, "failure", "order-detail", "invoke"),
+      ScreenInteractionMapping(uiUseCase, "recover", "order-detail", "invoke"),
+      ScreenInteractionMapping(uiUseCase, "recover", "order-detail", "input"),
+      ScreenInteractionMapping(uiUseCase, "recover", "order-list", "entry"),
+      ScreenInteractionMapping(uiUseCase, "recover", "order-list", "to-detail")
+    )
+    base.copy(steps = base.steps :+ recover, mappings = base.mappings ++ (if (reversed) mappings.reverse else mappings))
+  }
+
+  def readySemanticsInput(projection: LogicalUiProjection, reversed: Boolean = false): LogicalUiSemanticsInput = {
+    val base = semanticsInput(projection, reversed)
+    base.copy(feedbackAssociations = base.feedbackAssociations :+
+      FeedbackConstraintAssociation("validation-failed", ConstraintIdentity("sales-order-code", "DATATYPE_FORMAT")))
+  }
+
+  def readinessInput(semantics: LogicalUiSemanticProjection, reversed: Boolean = false): ReadinessInput = {
+    val input = InteractionRef("order-detail", "input")
+    val invoke = InteractionRef("order-detail", "invoke")
+    val entry = InteractionRef("order-list", "entry")
+    val feedback = InteractionRef("order-detail", "feedback")
+    val normalstep = UiUseCaseStep(uiUseCase, "confirm", NormalPath)
+    val inputstep = UiUseCaseStep(uiUseCase, "enter", AlternativePath)
+    val failurestep = UiUseCaseStep(uiUseCase, "failure", ExceptionPath)
+    val recoverstep = UiUseCaseStep(uiUseCase, "recover", AlternativePath)
+    val draft = DomainStateReference(stateMachineBinding, "draft")
+    val confirmed = DomainStateReference(stateMachineBinding, "confirmed")
+    val workflow = Some(WorkflowStateReference("sales-order-workflow", "awaiting"))
+    def _regions_(persistent: Boolean): Vector[RegionIntent] = Vector(
+      RegionIntent(RegionRef("order-list", "list-root"), PrimaryRegion, persistent),
+      RegionIntent(RegionRef("order-detail", "detail-root"), PrimaryRegion, persistent),
+      RegionIntent(RegionRef("order-detail", "detail-body"), SecondaryRegion, persistent))
+    val controls = Vector(
+      ControlSemantics(entry, EntryControl, "entry-label", None),
+      ControlSemantics(InteractionRef("order-list", "to-detail"), NavigationControl, "navigation-label", Some(1)),
+      ControlSemantics(input, InputControl, "input-label", Some(2)),
+      ControlSemantics(InteractionRef("order-detail", "select"), SelectionControl, "selection-label", Some(3)),
+      ControlSemantics(invoke, CommandControl, "command-label", Some(4)),
+      ControlSemantics(InteractionRef("order-detail", "observe"), ObservationControl, "observation-label", None),
+      ControlSemantics(feedback, FeedbackControl, "feedback-label", None))
+    val texts = Vector(
+      "entry-label" -> "Sales orders", "navigation-label" -> "Open order",
+      "input-label" -> "Order reference", "selection-label" -> "Confirmation choice",
+      "command-label" -> "Confirm order", "observation-label" -> "Order status",
+      "feedback-label" -> "Order feedback", "required-message" -> "Enter an order reference",
+      "format-message" -> "Use uppercase letters, digits and hyphen",
+      "normal-message" -> "Sales order confirmed", "loading-message" -> "Confirmation pending",
+      "empty-message" -> "No sales orders", "validation-failed-message" -> "Review the order reference",
+      "conflict-message" -> "Order conflict; edit the reference", "unavailable-message" -> "Confirmation unavailable; retry",
+      "operation-failed-message" -> "Confirmation failed; retry"
+    ).map { case (id, text) => TextSource(id, "sales-order-ui:" + id, text) }
+    val edit = Vector(RecoveryBinding(EditInput, recoverstep, input))
+    val retry = Vector(RecoveryBinding(RetryInteraction, recoverstep, invoke))
+    val outcomes = Vector(
+      OutcomeBinding("normal", normalstep, invoke, feedback, NormalFeedback, SucceededInteractionState,
+        confirmed, workflow, Vector.empty, "normal-message"),
+      OutcomeBinding("loading", normalstep, invoke, feedback, LoadingFeedback, PendingInteractionState,
+        draft, workflow, Vector.empty, "loading-message"),
+      OutcomeBinding("empty", normalstep, entry, entry, EmptyFeedback, IdleInteractionState,
+        draft, None, Vector(RecoveryBinding(RetryInteraction, recoverstep, entry)), "empty-message"),
+      OutcomeBinding("validation-failed", inputstep, input, feedback, ValidationFailedFeedback, FailedInteractionState,
+        draft, None, edit, "validation-failed-message"),
+      OutcomeBinding("conflict", failurestep, invoke, feedback, ConflictFeedback, FailedInteractionState,
+        draft, workflow, edit, "conflict-message"),
+      OutcomeBinding("unavailable", failurestep, invoke, feedback, UnavailableFeedback, FailedInteractionState,
+        draft, workflow, retry, "unavailable-message"),
+      OutcomeBinding("operation-failed", failurestep, invoke, feedback, OperationFailedFeedback, FailedInteractionState,
+        draft, workflow, retry, "operation-failed-message"))
+    val values = ReadinessInput(
+      semantics.identity,
+      Vector(ProfileIntent(CompactIntent, NavigateToDetail, false, _regions_(false)),
+        ProfileIntent(MediumIntent, NavigateToDetail, true, _regions_(false)),
+        ProfileIntent(ExpandedIntent, UpdateDetailRegion, true, _regions_(true))),
+      controls,
+      Vector(InputField("order-reference", input, valueBinding, datatypeBinding, "input-label", TextInputIntent,
+        true, "SO-001", Vector(
+          LocalRule(ConstraintIdentity("sales-order-code", "DATATYPE_FORMAT"), RequiredTextRule, "validation-failed", "required-message"),
+          LocalRule(ConstraintIdentity("sales-order-code", "DATATYPE_FORMAT"), AsciiIdentifierRule, "validation-failed", "format-message")))),
+      texts, outcomes)
+    if (reversed) values.copy(
+      profiles = values.profiles.reverse.map(profile => profile.copy(regions = profile.regions.reverse)),
+      controls = values.controls.reverse,
+      fields = values.fields.reverse.map(field => field.copy(localRules = field.localRules.reverse)),
+      textSources = values.textSources.reverse,
+      outcomes = values.outcomes.reverse.map(outcome => outcome.copy(recoveries = outcome.recoveries.reverse)))
+    else values
+  }
+
+  def readyCandidate(reversed: Boolean = false): Either[LogicalUiError, TargetReadyCandidate] = for {
+    legacy <- candidate(reversed)
+    projection <- CozyLogicalUi.project(legacy._1, readyProjectionInput(legacy._1, reversed))
+    semantics <- CozyLogicalUiSemantics.project(projection, readySemanticsInput(projection, reversed))
+    ready <- CozyLogicalUiReadiness.candidate(legacy._1, projection, semantics, readinessInput(semantics, reversed))
+  } yield ready
 }
