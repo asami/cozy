@@ -94,3 +94,57 @@ The structured model and deterministic diagram are intended to be consumed by re
 ## Follow-up
 
 Define a future Cozy phase for the metamodel, CML surface, SAR/CAR projection, deterministic renderer contract, and compatibility with existing component-model generation. Do not make Message Flow a replacement for Workflow or State Machine.
+
+
+## Confirmed notation grammar
+
+The following grammar is confirmed for the reference Message Flow Diagram.
+
+### One relationship, one line
+
+A semantic relationship is rendered with exactly one line. Control flow and data flow of the same relationship are encoded at the endpoints of that line; they are never split into parallel control/data lines.
+
+Multiple lines between the same components are allowed only when they represent genuinely different semantic relationships, not request/response details of one relationship.
+
+### Endpoint symbols
+
+Endpoint symbols are independent of the line itself.
+
+- **filled arrow**: control flow and data flow arrive at that endpoint
+- **open line arrow**: control flow only arrives at that endpoint
+- **hollow arrow**: data flow only arrives at that endpoint
+- **no arrow**: neither control nor data arrives at that endpoint
+
+For example, a human operating a dashboard while reading information from it is represented by one relationship with:
+
+- open control arrow at the dashboard endpoint,
+- hollow data arrow at the Human endpoint.
+
+The existence of a technical request/response exchange does not make a relationship semantically bidirectional.
+
+### Interaction attributes
+
+Interaction attributes modify the same relationship line.
+
+- synchronous: normal/dark line treatment
+- asynchronous: asynchronous line treatment, with color usable as an auxiliary cue
+- continuation-IoC: circled `I` at the center of the same line; color may be used as an auxiliary cue
+
+Color is never the sole carrier of semantics.
+
+### Continuation / IoC
+
+A Continuation/IoC relationship represents the complete stable interaction pattern, including initial command, continuation callbacks/responses, and final end/result.
+
+The diagram shows the architectural delegation direction, for example:
+
+- `textus-orchestrator -> Dots`
+- `textus-orchestrator -> OpenClaw`
+- `sm-workflow -> Codex`
+
+Physical continuation callbacks in the reverse direction are protocol details and do not create additional architectural Message Flow lines.
+
+### Review interpretation
+
+Message Flow expresses the primary logical control and data relationship, not all physical messages. This preserves review value: otherwise ordinary request/response behavior would make most relationships appear bidirectional and obscure responsibility boundaries.
+
