@@ -20,13 +20,38 @@ A message-flow relationship should be representable as structured data. Candidat
 - logical control direction
 - data direction
 - communication timing: synchronous / asynchronous
-- control style: normal / continuation-IoC
+- interaction pattern: normal / continuation-IoC
 - protocol / message type where known
 - annotations and provenance
 
-These dimensions are orthogonal. In particular, synchronous/asynchronous and normal/IoC are different axes.
+These dimensions are orthogonal. In particular, synchronous/asynchronous and normal/continuation-IoC are different axes.
 
-For IoC, the normative control direction is the *logical* control direction, not the physical API-call direction. Continuation Protocol may physically be invoked by an orchestrator while logical control is delegated to the reasoning agent.
+### Continuation / IoC interaction pattern
+
+Continuation/IoC is modeled as a property of the relationship as a whole, not as one exceptional message inside the relationship.
+
+A typical interaction has a protocol sequence such as:
+
+```text
+controller -> worker : initial command / goal
+worker -> controller : continuation request(s)
+controller -> worker : continuation response(s)
+worker -> controller : end / final result
+```
+
+The individual messages and their physical call directions belong to the protocol/sequence level. The Message Flow model intentionally abstracts them into one stable interaction relationship.
+
+For example:
+
+- `textus-orchestrator -> Dots`
+- `textus-orchestrator -> OpenClaw`
+- `sm-workflow -> Codex`
+
+may each be represented as one `continuation-IoC` relationship even though the worker physically calls the controller during continuation and returns the final response to the initial command.
+
+The normative control direction of that relationship expresses the architectural delegation direction: the controller delegates a unit of work and its internal reasoning/execution control to the worker. It must not be reversed merely because a continuation callback is physically initiated by the worker.
+
+This abstraction keeps Message Flow at the component-interaction level rather than turning it into a sequence diagram.
 
 ## Diagram notation
 
@@ -40,7 +65,7 @@ Endpoint symbols encode flow semantics:
 - line/open arrow: control only
 - hollow arrow: data only
 
-Line treatment may supplement interaction semantics. IoC should be indicated on the same line, with a circled `I` marker at the line center; color may be used only as a secondary aid for synchronous, asynchronous, and IoC distinctions.
+Line treatment may supplement interaction semantics. A `continuation-IoC` relationship should be indicated on the same single relationship line, with a circled `I` marker at the line center; color may be used only as a secondary aid for synchronous, asynchronous, and IoC distinctions. Initial command, continuation callback/response, and final end/result are not rendered as separate relationship lines in the architectural Message Flow view.
 
 The exact rendering specification should remain subordinate to the semantic model.
 
