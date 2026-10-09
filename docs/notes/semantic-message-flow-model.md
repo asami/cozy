@@ -126,11 +126,12 @@ The existence of a technical request/response exchange does not make a relations
 
 Interaction attributes modify the same relationship line.
 
-- synchronous: normal/dark line treatment
-- asynchronous: asynchronous line treatment, with color usable as an auxiliary cue
-- continuation-IoC: circled `I` at the center of the same line; color may be used as an auxiliary cue
+- synchronous: solid line
+- asynchronous: dashed line
+- continuation-IoC: circled `I` at the center of the same solid or dashed line
+- color: supplementary information only; semantics must remain complete in monochrome
 
-Color is never the sole carrier of semantics.
+Color is never the sole carrier of semantics. Synchronous/asynchronous and normal/Continuation-IoC are orthogonal, so asynchronous IoC is represented by a dashed line with the circled `I` marker.
 
 ### Continuation / IoC
 
@@ -148,3 +149,15 @@ Physical continuation callbacks in the reverse direction are protocol details an
 
 Message Flow expresses the primary logical control and data relationship, not all physical messages. This preserves review value: otherwise ordinary request/response behavior would make most relationships appear bidirectional and obscure responsibility boundaries.
 
+
+### Drawing-tool constraint
+
+The reference notation MUST be reproducible with ordinary Draw Editor primitives: straight line, dashed line, standard arrowheads, circle, and text. It must not depend on custom SVG-only geometry. Arrowheads must remain distinct from the relationship line and must not overlap component shapes.
+
+## Reference assets
+
+- `semantic-message-flow-grammar-v4.svg`: precise grammar/reference notation.
+- `semantic-message-flow-infographic-v4.svg`: explanatory infographic using the same deterministic symbols.
+- `semantic-message-flow-overall-architecture.svg`: architecture example using the notation.
+
+The grammar SVG is authoritative for the reference rendering. The infographic is explanatory and must not introduce additional symbols.
