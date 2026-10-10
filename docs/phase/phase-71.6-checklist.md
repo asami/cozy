@@ -1,6 +1,6 @@
 # Phase 71.6 Checklist: Per-Tool Execution and Video Encoder Selection
 
-Phase status: in-progress / S01 accepted at `eb3664c`, S02 accepted and committed at `3a4ca3e`; S03 consumer implementation pending validation/review
+Phase status: closed on 2026-10-11 under distinct Phase release binding `P716-RELEASE-20261011@1`; all three Steps accepted and committed; sole full Phase review PASS. This final closed projection takes effect only on parent verification of the distinct native release commit carrying that binding.
 Ledger for: [Phase 71.6](phase-71.6.md)
 Repository-full validation: deferred-not-run to PHASE-71.7
 
@@ -11,8 +11,12 @@ and commits. `[>]` marks remaining integration/benchmark work transferred to
 
 S01 software validation, independent focused review and exact Step commit are
 accepted. S02 hardware implementation, native hearing and Step review are
-accepted; its exact Step commit is verified at `3a4ca3e`. Phase closure remains pending. Checklist
-items requiring the complete operation boundary remain open.
+accepted; its exact Step commit is verified at `3a4ca3e`. S03 consumer
+compatibility, focused validation and independent Step review are accepted;
+its exact Step commit is verified at `fa856382741d9dc0e84c1e4b3c14dc2a480be859`.
+The sole full Phase review is accepted PASS at ledger revision 8. The distinct
+release is projected under `P716-RELEASE-20261011@1`, subject to the native
+commit-verification closure basis below.
 
 Parent observation (2026-10-10): the two new and five planned compatibility
 suites passed 196/196 tests in one serialized invocation, with SBT/wrapper
@@ -37,22 +41,22 @@ VideoToolbox execution and remaining configuration branches. Write matching
 Specs with the connected implementation and retain normal review/release.
 P716-04 performance comparison remains transferred to P717-03.
 
-- [ ] Consume Phase 71.5 closure and the accepted video-ending behavior.
-- [ ] Select exact implementation files from the current tree; preserve unrelated
+- [x] Consume Phase 71.5 closure and the accepted video-ending behavior.
+- [x] Select exact implementation files from the current tree; preserve unrelated
       work. Reuse the accepted 71.4/71.5 representative input and baseline.
-- [ ] Identify installed tools and host/Docker/hardware prerequisites for the
+- [x] Identify installed tools and host/Docker/hardware prerequisites for the
       selected main routes here; remaining benchmark cases belong to P717-03.
       Do not select a different environment automatically.
 
 ## P716-01: Per-tool operating configuration
 
-- [ ] Define design/specification and Executable Specifications for independent
+- [x] Define design/specification and Executable Specifications for independent
       tool selections with Docker defaults and `~/.cozy/config.*` settings.
-- [ ] Inventory Remotion, FFmpeg, ffprobe and other participating tool calls.
-- [ ] Define keys, executable/image settings and precedence, including existing
+- [x] Inventory Remotion, FFmpeg, ffprobe and other participating tool calls.
+- [x] Define keys, executable/image settings and precedence, including existing
       CLI/project options and global `--tool-mode` compatibility.
-- [ ] Keep local hardware/executable settings separate from portable content.
-- [ ] Expose effective per-tool settings and diagnose contradictory inputs.
+- [x] Keep local hardware/executable settings separate from portable content.
+- [x] Expose effective per-tool settings and diagnose contradictory inputs.
 
 ## P716-02: Encoder invocation
 
@@ -76,12 +80,12 @@ are supported by actual execution and review, not configuration alone.
       the normal Cozy entry through final video and audible playback before
       expanding encoder/configuration branches.
 - [x] Implement Docker Remotion rendering with host hardware encoding.
-- [ ] Specify and exercise frame/audio handoff and host/container path mapping.
-- [ ] Preserve existing Docker/software and complete host paths.
-- [ ] Pass corresponding Executable Specifications for frame counts, narration
+- [x] Specify and exercise frame/audio handoff and host/container path mapping.
+- [x] Preserve existing Docker/software and complete host paths.
+- [x] Pass corresponding Executable Specifications for frame counts, narration
       coverage and timing; actual representative software/hardware final-card and
       audible player EOF acceptance also passes here. Remaining coverage is P717-01/03.
-- [ ] Use ordinary temporary files and error reporting without new protection
+- [x] Use ordinary temporary files and error reporting without new protection
       checks, hashes, comparison copies or unchanged-intermediate proofs.
 
 ## P716-04: Benchmark and remaining native combinations — transferred to P717-03
@@ -106,17 +110,21 @@ are supported by actual execution and review, not configuration alone.
 - [x] Complete S02 selected hardware acceptance and exact local Step commit
       `3a4ca3ec623d0b836bea5aa21d8c60cc7162322a`, verified by the retained
       `s02-step-commit-checkpoint.json` result `STEP_COMMITTED_VERIFIED`.
-- [ ] Complete S03 remaining consumer compatibility and exact local Step commit.
+- [x] Complete S03 remaining consumer compatibility and exact local Step commit
+      `fa856382741d9dc0e84c1e4b3c14dc2a480be859`, verified by the retained
+      `s03-step-commit-checkpoint.json` result `STEP_COMMITTED_VERIFIED`.
 
-- [ ] Focused Executable Specifications pass for selection, defaults,
+- [x] Focused Executable Specifications pass for selection, defaults,
       precedence, command construction, failures and media behavior.
-- [ ] Preserve the accepted baseline and record actual representative mixed/
+- [x] Preserve the accepted baseline and record actual representative mixed/
       software and selected hardware results, commands and playback outcomes.
       Only remaining combinations and performance comparison move to P717-03.
-- [ ] Independent Phase review is complete and actionable findings are resolved.
+- [x] Independent Phase review is complete and actionable findings are resolved.
 - [>] Repository-full Cozy SBT validation is consolidated into P717-04.
-- [ ] Complete the normal distinct Phase release commit and update the ledger.
-- [ ] Preserve earlier Phase history and record the current aggregate owner as
+- [x] Complete the normal distinct Phase release commit and update the ledger
+      under `P716-RELEASE-20261011@1`; effective only with parent-verified
+      native release commit evidence as specified in the closure basis below.
+- [x] Preserve earlier Phase history and record the current aggregate owner as
       Phase 71.7 without rewriting past results.
 
 ## S02 current evidence annotation — 2026-10-11
@@ -194,3 +202,51 @@ contract coverage only. S01/S02 accepted native and hearing evidence is retained
 No S03 acceptance, Step commit, full Phase review or release is claimed here;
 their boxes remain open. Model-size maintenance remains a parent PLAN candidate
 pending independent classification in the canonical Hygiene journal.
+
+## S03 current acceptance annotation — 2026-10-11
+
+This annotation supersedes the earlier pending S03 and model-size classification
+text while retaining every historical observation above. S01, S02 and S03 are
+accepted and exactly committed at `eb3664c`, `3a4ca3e` and
+`fa856382741d9dc0e84c1e4b3c14dc2a480be859`, respectively. The retained Step
+checkpoints under `.codex-workflow/phases/PHASE-71.6/` support the checked
+implementation and Step acceptance items.
+
+S03 passed 233/233 focused specifications in nine suites, with no warnings,
+SBT/wrapper exits 0/0 and terminal serial lock release, as admitted in
+`s03-validation02-admission.json`. Independent Step review
+`2a96c369-1931-4892-ad5a-1bbd664aee52@1` is PASS with zero Current Boundary
+Blockers at ledger revision 7 in `s03-step-review-admission.json`.
+HYG-P716-S03-MODEL-SIZE is accepted nonblocking existing Hygiene in the
+[canonical Hygiene journal](../journal/2026/10/2026-10-10-phase-71.6-hygiene-follow-up.md).
+
+Accepted S01/S02 actual representative media and current hearing remain
+applicable without repeated native execution. Full Phase review and distinct
+release remain unchecked and pending. Every `[>]` transfer remains
+deferred-not-run to PHASE-71.7; no repository-full validation or benchmark pass
+is claimed.
+
+## Phase release closure basis — 2026-10-11
+
+The parent admitted the sole full Phase review
+`107704e9-a669-40fa-98c2-6f040484b9ee@1` as PASS with zero Current Boundary
+Blockers at ledger revision 8 in
+`.codex-workflow/phases/PHASE-71.6/full-phase-review-admission.json`, retaining
+the sealed result. All three exact Step commit checkpoints remain verified.
+The latest selected validation is 233/233 specifications in nine suites with
+no warnings, SBT/wrapper exits 0/0 and terminal serial lock release.
+
+The final closed projection and checked release item are acceptance only when
+the parent actually verifies the distinct native release commit carrying
+`P716-RELEASE-20261011@1`. No release commit hash is invented here; the same
+Goal stays active until that receipt is verified. Earlier pending annotations
+remain verbatim historical observations.
+
+HYG-P716-S02-LEGACY-SPEC-WORKDIR, HYG-P716-S03-MODEL-SIZE and
+HYG-P716-FULL-MACOS-SAY-WORKDIR remain accepted nonblocking maintenance in
+the [canonical Hygiene journal](../journal/2026/10/2026-10-10-phase-71.6-hygiene-follow-up.md);
+resolved HYG-P716-S01-RR01-HEADER history is retained. Existing accepted native
+media and current hearing supply representative execution; no rerender or
+playback is claimed by this projection. All `[>]` items, repository-full SBT,
+remaining native combinations and timed benchmark remain deferred-not-run to
+PHASE-71.7, which is planned and unstarted.

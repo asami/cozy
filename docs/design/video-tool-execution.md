@@ -1,7 +1,16 @@
 # Video tool execution design
 
-Status: frozen PHASE-71.6 S03 consumer design after accepted S01 and S02;
-S03 implementation is not acceptance.
+Status: PHASE-71.6 all Steps accepted and committed: S01 at `eb3664c`,
+S02 at `3a4ca3e`, S03 at `fa856382741d9dc0e84c1e4b3c14dc2a480be859`.
+Phase closed projection: 2026-10-11 under `P716-RELEASE-20261011@1`, effective
+only when the parent verifies the distinct native release commit carrying that
+binding. Sole full Phase review `107704e9-a669-40fa-98c2-6f040484b9ee@1`
+is accepted PASS at ledger revision 8. Latest focused validation: 233/233
+specifications, nine suites, no warnings, SBT/wrapper exits 0/0 and lock release.
+Repository-full SBT, remaining native combinations and benchmark remain
+deferred-not-run to PHASE-71.7, planned and unstarted. Accepted legacy-spec
+workspace, Model-size and macOS say workspace Hygiene remain separate
+maintenance in the canonical Hygiene journal; resolved header history is retained.
 
 CozyVideoOperatingConfig owns the finite tool identities, layered field
 resolution, validation and source projection. VideoExecutionConfig appends
@@ -41,7 +50,7 @@ separate parent acceptance obligations. Assembly/extraction/normalization/mux
 remain unchanged, including stream copy at build.
 S02 acceptance commit `3a4ca3e` retains actual hardware generation/decode/EOF
 and current user hearing acceptance. Transcription model and replay compatibility
-work remain explicitly S03;
+work are accepted in S03 at `fa856382741d9dc0e84c1e4b3c14dc2a480be859`;
 remaining combinations, benchmark and full-suite ownership remain PHASE-71.7.
 
 The static VideoTranscribeExecution appends a defaulted selections map and
@@ -59,4 +68,6 @@ receives the explicit logical tool for both paths and commands. Existing failure
 and transcript output semantics remain. Replay adds effective projection and
 Unsupported handling without changing assembly, mux, renderer or JavaScript.
 The existing large static Model remains in place; an owner-preserving model/alias
-split is a parent PLAN candidate pending independent classification, outside S03.
+split is accepted nonblocking existing Hygiene HYG-P716-S03-MODEL-SIZE in the
+canonical Hygiene journal, for separate compatibility-preserving maintenance
+outside S03.

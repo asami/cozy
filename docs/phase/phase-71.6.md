@@ -1,6 +1,8 @@
 # Phase 71.6: Per-Tool Execution and Video Encoder Selection
 
-status=in-progress
+status=closed
+closed_at=2026-10-11
+release_binding=P716-RELEASE-20261011@1
 depends_on=phase-71.5.md
 execution_priority=after_phase_71.5_closure
 split_full_test_policy=final-only
@@ -11,7 +13,7 @@ aggregate_validation_owner=PHASE-71.7
 aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4","PHASE-71.5","PHASE-71.6","PHASE-71.7"]
 primary_owner=Cozy
 
-Status: in-progress; S01 accepted and committed at `eb3664c`; S02 accepted and committed at `3a4ca3e`; S03 consumer implementation pending validation/review
+Status: closed on 2026-10-11 under distinct Phase release binding `P716-RELEASE-20261011@1`; S01, S02 and S03 accepted and committed; sole full Phase review PASS. This final closed projection takes effect only when the parent verifies the distinct native release commit carrying that binding; see the closure basis below.
 Planned at: 2026-10-05 (Asia/Tokyo)
 Development item: DEV-036
 Predecessor: [Phase 71.5](phase-71.5.md).
@@ -284,3 +286,56 @@ The sole full Phase review and distinct verified release remain pending. The
 [S03 journal](../journal/2026/10/2026-10-11-phase-71.6-consumer-compatibility.md)
 records the frozen scope and handoff. Model-size follow-up is a parent PLAN
 candidate pending independent classification, not an accepted finding or closure.
+
+## S03 current acceptance annotation — 2026-10-11
+
+This current annotation supersedes the earlier S03 pending observations and
+model-size classification text without changing their history. All three Steps
+are accepted and exactly committed: S01 at
+`eb3664c0e95484948c043a761674f4229ab9118e`, S02 at
+`3a4ca3ec623d0b836bea5aa21d8c60cc7162322a`, and S03 at
+`fa856382741d9dc0e84c1e4b3c14dc2a480be859`, as recorded by the respective
+`s01-step-commit-checkpoint.json`, `s02-step-commit-checkpoint.json` and
+`s03-step-commit-checkpoint.json` under `.codex-workflow/phases/PHASE-71.6/`.
+
+The parent-admitted S03 validation passed 233/233 focused specifications across
+nine suites, with no warnings, SBT/wrapper exits 0/0 and terminal serial lock
+release. Independent Step review `2a96c369-1931-4892-ad5a-1bbd664aee52@1`
+is PASS with zero Current Boundary Blockers at ledger revision 7. The retained
+`s03-validation02-admission.json` and `s03-step-review-admission.json` supply
+these acceptance facts. HYG-P716-S03-MODEL-SIZE is accepted nonblocking existing
+Hygiene for separate compatibility-preserving maintenance in the
+[canonical Hygiene journal](../journal/2026/10/2026-10-10-phase-71.6-hygiene-follow-up.md).
+
+Accepted S01/S02 actual media and current hearing remain applicable; S03 adds
+no native rerender or repeated playback claim. Phase status remains in-progress:
+the sole full Phase review and distinct release are pending. Repository-full
+validation, remaining native combinations and timed benchmark remain
+deferred-not-run to PHASE-71.7.
+
+## Phase release closure basis — 2026-10-11
+
+The final closed projection is bound to `P716-RELEASE-20261011@1`, distinct
+from the three verified Step commits recorded above. The sole full Phase review
+`107704e9-a669-40fa-98c2-6f040484b9ee@1` is parent-admitted PASS with zero
+Current Boundary Blockers at ledger revision 8, supported by
+`.codex-workflow/phases/PHASE-71.6/full-phase-review-admission.json` and its
+retained sealed result. The latest selected validation remains 233/233 focused
+specifications across nine suites, no warnings, SBT/wrapper exits 0/0 and
+terminal serial lock release; no repository-full validation is implied.
+
+This closed projection and the final release checkbox are acceptance only when
+the parent actually verifies the distinct native release commit carrying
+`P716-RELEASE-20261011@1`. No release commit hash is asserted here. The same
+Goal remains active until that receipt is verified. Earlier pending annotations
+remain historical and are superseded only for current status.
+
+Three accepted nonblocking maintenance Hygiene records remain separate:
+HYG-P716-S02-LEGACY-SPEC-WORKDIR, HYG-P716-S03-MODEL-SIZE and
+HYG-P716-FULL-MACOS-SAY-WORKDIR. Their exact records and the resolved
+HYG-P716-S01-RR01-HEADER history remain in the
+[canonical Hygiene journal](../journal/2026/10/2026-10-10-phase-71.6-hygiene-follow-up.md).
+Accepted software/hardware native evidence and current hearing are retained;
+this projection adds no native execution. Repository-full SBT, remaining native
+combinations and timed benchmark remain deferred-not-run to PHASE-71.7.
+Every `[>]` transfer remains; Phase 71.7 is planned and unstarted.

@@ -126,9 +126,14 @@ Phase status index (individual Phase/checklist files are authoritative):
     Four-root repository-full SBT and broader integration remain deferred-not-run
     to 71.7; retained warnings and unverified historical records are not rewritten.
   - [Phase 71.6](phase-71.6.md): per-tool host/Docker selection, local encoders
-    and mixed rendering/encoding; PLANNED. Actually run mixed software first,
-    then selected hardware before completing remaining configuration branches;
-    include corresponding Executable Specifications.
+    and mixed rendering/encoding; CLOSED projection on 2026-10-11 under distinct
+    release binding `P716-RELEASE-20261011@1`, effective only on parent verification
+    of its native release commit. All three Steps and representative software/
+    hardware media/current hearing are accepted; 233 focused specifications in
+    nine suites pass with no warnings and serial lock release. Sole full Phase
+    review PASS is accepted at ledger revision 8; three nonblocking maintenance
+    Hygiene records remain separate. Remaining combinations, benchmark and
+    repository-full SBT remain deferred-not-run to 71.7.
   - [Phase 71.7](phase-71.7.md): remaining media/site/packaging and locale/player
     coverage, native encoder comparison and one aggregate full SBT
     suite; PLANNED, after 71.6.
@@ -139,7 +144,9 @@ Phase status index (individual Phase/checklist files are authoritative):
   the same 71.4 Goal; representative JA generation, final build and audible EOF
   are accepted, with F04 committed as `d0b646a`. Its distinct Phase release
   closes 71.4. Phase 71.5 subsequently closes under `P715-RELEASE-20261010@1`;
-  remaining planning is 71.6 -> 71.7, and those successors have not started. Do not repeat accepted preservation work
+  Phase 71.6 has its final closed projection under `P716-RELEASE-20261011@1`,
+  effective only on verification of the distinct native release commit;
+  remaining planning is 71.7, which is planned and unstarted. Do not repeat accepted preservation work
   or use the old S08 manifest to expand 71.4 again.
   71.4 first delivers the working real video route; 71.5 keeps it working while
   removing protection; 71.6 runs software and hardware mixed routes before

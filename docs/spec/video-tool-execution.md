@@ -1,7 +1,16 @@
 # Video tool execution
 
-Status: PHASE-71.6 S01 accepted at `eb3664c`; S02 accepted at `3a4ca3e`.
-S03 consumer implementation remains subject to parent validation and review.
+Status: PHASE-71.6 all Steps accepted and committed: S01 at `eb3664c`,
+S02 at `3a4ca3e`, S03 at `fa856382741d9dc0e84c1e4b3c14dc2a480be859`.
+Phase closed projection: 2026-10-11 under `P716-RELEASE-20261011@1`, effective
+only when the parent verifies the distinct native release commit carrying that
+binding. Sole full Phase review `107704e9-a669-40fa-98c2-6f040484b9ee@1`
+is accepted PASS at ledger revision 8. Latest focused validation: 233/233
+specifications, nine suites, no warnings, SBT/wrapper exits 0/0 and lock release.
+Repository-full SBT, remaining native combinations and benchmark remain
+deferred-not-run to PHASE-71.7, planned and unstarted. Accepted legacy-spec
+workspace, Model-size and macOS say workspace Hygiene remain separate
+maintenance in the canonical Hygiene journal; resolved header history is retained.
 
 ## Operating settings
 
@@ -78,8 +87,8 @@ independent probe.
 
 Executable contracts: CozyVideoExecutionSpec, CozyVideoMixedRenderSpec and
 CozyVideoHardwareEncodingSpec. S01 software native evidence is accepted.
-Focused specifications and fresh hardware generation/decode/audio/EOF/hearing
-remain parent-owned acceptance gates;
+Focused specifications and hardware generation/decode/audio/EOF/hearing
+have parent-admitted Step acceptance;
 S02 hardware native generation, decode, EOF and current user hearing are accepted.
 Repository-full validation,
 remaining native combinations and benchmark remain deferred-not-run to 71.7.
