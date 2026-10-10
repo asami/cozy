@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPresentation {
@@ -51,6 +51,7 @@ private[cozy] trait CozyVideoPresentation {
     b += s"output: ${plan.outputPath}"
     b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
     b ++= _render_effective_encoding(plan.encoding)
+    b ++= _render_encoder_policy(plan.execution, plan.encoding)
     val narrationproviders = _plan_narration_providers(plan).toVector.sorted
     if (narrationproviders.nonEmpty)
       b += s"narrationProviders: ${narrationproviders.mkString(", ")}"
@@ -102,6 +103,7 @@ private[cozy] trait CozyVideoPresentation {
     b ++= _render_effective_tools(plan.execution)
     b += s"output: ${plan.outputPath}"
     b ++= _render_effective_encoding(plan.encoding)
+    b ++= _render_encoder_policy(plan.execution, plan.encoding)
     b += s"parts: ${plan.parts.size}"
     b ++= _render_credit_inspection(plan.credits)
     b ++= _render_artifacts(plan.artifacts)
@@ -165,12 +167,26 @@ private[cozy] trait CozyVideoPresentation {
 
   private[video] def _render_effective_encoding(encoding: ResolvedEncodingSettings): Vector[String] =
     Vector(
+      "encodingSettingsRole: authored",
       s"encodingPolicy: ${encoding.policy.name}",
       s"encodingFps: ${encoding.fps}",
       s"encodingDimensions: ${encoding.width}x${encoding.height}",
       s"encodingCrf: ${encoding.crf}",
       s"encodingX264Preset: ${encoding.x264Preset.getOrElse("none")}"
     )
+
+  private def _render_encoder_policy(execution: VideoExecutionConfig, encoding: ResolvedEncodingSettings): Vector[String] = {
+    val effective = CozyVideoEncoder.resolve(execution, encoding)
+    Vector(
+      s"effectiveEncoder: ${effective.name}",
+      s"effectiveEncoderBitrate: ${effective.bitrate.getOrElse("none")}",
+      s"effectiveEncoderBitrateOrigin: ${effective.bitrateOrigin}",
+      s"hardwareRequired: ${effective.hardwareRequired} (selection intent)",
+      s"activeEncoderCrf: ${effective.crf.map(_.toString).getOrElse("none")}",
+      s"activeEncoderX264Preset: ${effective.x264Preset.getOrElse("none")}",
+      s"activeEncoderTune: ${effective.tune.getOrElse("none")}"
+    )
+  }
 
   private[video] def _render_credit_inspection(credits: CozyVideoCredits.EffectiveSet): Vector[String] = {
     val b = Vector.newBuilder[String]

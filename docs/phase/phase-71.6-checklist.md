@@ -1,6 +1,6 @@
 # Phase 71.6 Checklist: Per-Tool Execution and Video Encoder Selection
 
-Phase status: in-progress / S01 validation and review accepted, Step commit pending
+Phase status: in-progress / S01 accepted at `eb3664c`, S02 hardware implementation, native hearing and Step review accepted; local Step commit pending
 Ledger for: [Phase 71.6](phase-71.6.md)
 Repository-full validation: deferred-not-run to PHASE-71.7
 
@@ -9,9 +9,10 @@ actual representative mixed/software then selected hardware execution, review
 and commits. `[>]` marks remaining integration/benchmark work transferred to
 71.7, not a pass or a Phase 71.6 exit condition.
 
-S01 software validation and independent focused review are accepted. Step
-commit, hardware acceptance and Phase closure remain pending. Checklist items
-that also require hardware or the complete operation boundary remain open.
+S01 software validation, independent focused review and exact Step commit are
+accepted. S02 hardware implementation, native hearing and Step review are
+accepted; its exact Step commit and Phase closure remain pending. Checklist
+items requiring the complete operation boundary remain open.
 
 Parent observation (2026-10-10): the two new and five planned compatibility
 suites passed 196/196 tests in one serialized invocation, with SBT/wrapper
@@ -55,21 +56,26 @@ P716-04 performance comparison remains transferred to P717-03.
 
 ## P716-02: Encoder invocation
 
-- [ ] Retain explicit software H.264 and implement host VideoToolbox H.264.
-- [ ] Pass selected executable, encoder and supported quality controls to the
+S02 selected hardware generation, decode, audible natural EOF/current hearing
+and protected-focused Step review are accepted under the frozen manifest.
+The exact local Step commit remains pending. The checked hardware items below
+are supported by actual execution and review, not configuration alone.
+
+- [x] Retain explicit software H.264 and implement host VideoToolbox H.264.
+- [x] Pass selected executable, encoder and supported quality controls to the
       actual encoder, including renderer-owned invocation paths.
-- [ ] Reject unsupported selection or hardware initialization failure without
+- [x] Reject unsupported selection or hardware initialization failure without
       silent software fallback.
-- [ ] Verify actual selected hardware execution using invocation/results and
+- [x] Verify actual selected hardware execution using invocation/results and
       available diagnostics here; do not equate encoder availability with
       successful use. Missing prerequisites leave this outcome open.
 
 ## P716-03: Mixed pipeline
 
-- [ ] Implement Docker Remotion rendering with host software encoding and run
+- [x] Implement Docker Remotion rendering with host software encoding and run
       the normal Cozy entry through final video and audible playback before
       expanding encoder/configuration branches.
-- [ ] Implement Docker Remotion rendering with host hardware encoding.
+- [x] Implement Docker Remotion rendering with host hardware encoding.
 - [ ] Specify and exercise frame/audio handoff and host/container path mapping.
 - [ ] Preserve existing Docker/software and complete host paths.
 - [ ] Pass corresponding Executable Specifications for frame counts, narration
@@ -94,6 +100,12 @@ P716-04 performance comparison remains transferred to P717-03.
 
 ## Closure
 
+- [x] Complete exact S01 local acceptance Step commit
+      `eb3664c0e95484948c043a761674f4229ab9118e` after software native evidence,
+      current hearing, 202 passing focused tests and independent focused PASS.
+- [ ] Complete S02 selected hardware acceptance and exact local Step commit.
+- [ ] Complete S03 remaining consumer compatibility and exact local Step commit.
+
 - [ ] Focused Executable Specifications pass for selection, defaults,
       precedence, command construction, failures and media behavior.
 - [ ] Preserve the accepted baseline and record actual representative mixed/
@@ -104,3 +116,68 @@ P716-04 performance comparison remains transferred to P717-03.
 - [ ] Complete the normal distinct Phase release commit and update the ledger.
 - [ ] Preserve earlier Phase history and record the current aggregate owner as
       Phase 71.7 without rewriting past results.
+
+## S02 current evidence annotation — 2026-10-11
+
+The earlier S02 pending observations retain the implementation-handoff history.
+Current focused/native automated validation passed: eight selected suites,
+214/214 specifications, one registered serial SBT invocation, SBT/wrapper exits
+0/0 and terminal lock release. No compile warning lines were observed. The same
+code remains current; no full suite or repeated compile was run.
+
+Normal JA34 Docker Remotion frame/PCM production -> host FFmpeg 9.0.1
+`h264_videotoolbox` with `2M -allow_sw 0 -require_sw 0` and ordinary Cozy build
+with `-c copy`/probe succeeded. Actual output was 104120282 bytes, 8091 frames at
+18 fps, 1280x720, 449.5 seconds, 48 kHz stereo AAC. Independent direct/final
+full decode exited zero, all 34 ordered WAV windows were covered, 36 final card
+frames were legible, and presented/packet A/V ending differences were zero.
+
+Fresh hardware-player02 reached start 0 -> natural 449.5-second EOF at volume 1,
+unmuted, rate 1, no seek and media error null. The entire retained machine-rendered
+`execution_request` with its full 14-element prefix and full justification was
+submitted unchanged via separate store/load tool calls. The same native handle
+18725 reached terminal exit 0; ownership/readiness/clients/cleanup were true and
+the process was terminal. Player02 native stderr was empty ("Empty log").
+Automated EOF/cleanup does not supply current human hearing.
+
+Retained gaps: render transport loss allowed the original producer to continue;
+terminal receipt and owned group absence were independently observed without
+duplicate rendering. Decode01's manually copied prefix mismatch retains its
+observations; clean decode02 was used. Player01's manually copied prefix and
+shortened justification mismatch retains natural EOF/cleanup observations;
+clean player02 was used. Its two browser-request `BrokenPipeError` stderr traces
+remain recorded, with media error null, natural EOF and owned listener cleanup
+passed. The parent independently read the actual helper and rendered 14-element
+prefix; no shared-skill correction was made. The
+[S02 journal](../journal/2026/10/2026-10-11-phase-71.6-hardware-route.md) records
+checkpoint and receipt locations.
+
+The earlier human text `自然に聞こえた。71.6を再開して` is S01 software evidence.
+Current hardware hearing, fresh independent protected-focused S02 review and
+exact Step commit remain pending; hardware acceptance and Phase closure boxes
+remain open. S03 compatibility, one full Phase review and distinct release remain
+open. Aggregate full suite, remaining native matrix and timed benchmark remain
+deferred-not-run to Phase 71.7. This annotation accepts no review, Step commit or
+closure and changes no checkbox.
+
+## S02 current acceptance annotation — 2026-10-11
+
+The user's current hardware observation `自然に聞こえた` resolves hardware hearing;
+the earlier software hearing remains separate. The current native render/build,
+decode, narration windows, final card, natural EOF and cleanup evidence above
+is accepted. The earlier pending annotations remain historical observations.
+
+Independent protected-focused S02 review identified CPB-S02-R01, the new
+hardware specification's workspace allocation outside `target/`. The private
+allocation parent is now `target/cozy-video/work/hardware-spec`. Its directly
+covering 12 specifications passed after the correction, with no warnings,
+SBT/wrapper exits 0/0 and shared lock release. The remaining 202 cases from the
+earlier eight-suite run are retained as relevant evidence; this was a one-suite
+rerun. Parent M1 repair admission resolves the sole current blocker at ledger
+revision 6. HYG-P716-S02-LEGACY-SPEC-WORKDIR remains separate persisted
+maintenance in the canonical Hygiene journal.
+
+Only the verified encoder and representative mixed-route implementation items
+above are checked. S02's exact Step commit, S03 remaining compatibility, the
+sole full Phase review and distinct Phase release remain open. The full suite,
+remaining native combinations and benchmark remain deferred-not-run to 71.7.

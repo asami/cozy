@@ -10,7 +10,7 @@ import CozyVideoModel.VideoToolSettings
 /** Finite, explicitly authored operating settings; availability is not resolution. */
 /*
  * @since   Oct. 10, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoOperatingConfig {
@@ -88,12 +88,16 @@ private[cozy] object CozyVideoOperatingConfig {
         Map("mode" -> mode._2, "executable" -> executable._2, "docker-image" -> image._2))
     }
     val encoder = _field_("video.encoder.name")
-    encoder.foreach { case (value, _) =>
-      if (_nonblank(value, "video.encoder.name") != "libx264")
-        RAISE.invalidArgumentFault(s"Unsupported video encoder in software increment: $value")
-    }
-    baseline.copy(selections = selections, encoderName = encoder.map(_._1.trim).getOrElse("libx264"),
-      encoderOrigin = encoder.map(_._2).getOrElse("tool-default"), encoderExplicit = encoder.isDefined)
+    val bitrate = layers.reverseIterator.flatMap { case (source, config) =>
+      config.json.flatMap(_.hcursor.downField("video").downField("encoder").downField("bitrate").focus)
+        .map(value => CozyVideoEncoder.normalizeBitrate(value) -> s"$source:video.encoder.bitrate")
+    }.toVector.headOption
+    val resolved = baseline.copy(selections = selections,
+      encoderName = encoder.map(value => CozyVideoEncoder.validateName(value._1)).getOrElse("libx264"),
+      encoderOrigin = encoder.map(_._2).getOrElse("tool-default"), encoderExplicit = encoder.isDefined,
+      encoderBitrate = bitrate.map(_._1), encoderBitrateOrigin = bitrate.map(_._2).getOrElse("profile-default"))
+    CozyVideoEncoder.validateExecution(resolved)
+    resolved
   }
 
   private def _nonblank(value: String, field: String): String = {
@@ -131,9 +135,13 @@ private[cozy] object CozyVideoOperatingConfig {
     config.json.flatMap(_.hcursor.downField("video").downField("encoder").focus).foreach { encoder =>
       val fields = encoder.asObject.getOrElse(RAISE.invalidArgumentFault(s"video.encoder must be an object: $source"))
       fields.toVector.foreach { case (field, value) =>
-        if (field != "name") RAISE.invalidArgumentFault(s"Unsupported video.encoder.$field in software increment: $source")
-        val name = value.asString.getOrElse(RAISE.invalidArgumentFault(s"video.encoder.name must be a string: $source"))
-        if (_nonblank(name, "video.encoder.name") != "libx264") RAISE.invalidArgumentFault(s"Unsupported video encoder: $name")
+        field match {
+          case "name" =>
+            val name = value.asString.getOrElse(RAISE.invalidArgumentFault(s"video.encoder.name must be a string: $source"))
+            CozyVideoEncoder.validateName(_nonblank(name, "video.encoder.name"))
+          case "bitrate" => CozyVideoEncoder.normalizeBitrate(value)
+          case _ => RAISE.invalidArgumentFault(s"Unsupported video.encoder.$field: $source")
+        }
       }
     }
   }

@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoBuildReplay {
@@ -316,8 +316,10 @@ private[cozy] trait CozyVideoBuildReplay {
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
       "effectiveTools" -> plan.execution.effectiveToolsJson,
       "encoder" -> Json.fromString(plan.execution.encoderName),
+      "effectiveEncoder" -> CozyVideoEncoder.resolve(plan.execution, plan.encoding).toJson,
       "concatListPath" -> Json.fromString(concatlist.toString),
       "encoding" -> _encoding_json(plan.encoding),
+      "encodingSettingsRole" -> Json.fromString("authored"),
       "creditProfile" -> plan.credits.profileId.map(Json.fromString).getOrElse(Json.Null),
       "creditsPath" -> creditfiles.map(x => Json.fromString(x.jsonFile.toString)).getOrElse(Json.Null),
       "creditEvidence" -> Json.fromValues(plan.credits.items.flatMap(_.evidence).distinct.sorted.map(Json.fromString)),

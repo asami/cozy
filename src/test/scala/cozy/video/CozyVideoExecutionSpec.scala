@@ -134,14 +134,14 @@ final class CozyVideoExecutionSpec extends AnyWordSpec with Matchers with GivenW
         }
       }
 
-      "leave hardware unsupported until the software native gate" in {
-        Given("an explicitly selected VideoToolbox encoder")
+      "reject VideoToolbox with unresolved default Docker FFmpeg" in {
+        Given("an explicitly selected VideoToolbox encoder with no host FFmpeg setting")
         _with_project { (root, _) =>
           _write(root.resolve(".cozy/config.json"), Json.obj("video" -> Json.obj("encoder" -> Json.obj("name" -> Json.fromString("h264_videotoolbox")))))
-          When("S01 settings are resolved")
+          When("encoder and tool settings are resolved together")
           val failure = intercept[Throwable](_resolve(root))
-          Then("the hardware request fails explicitly instead of selecting software")
-          failure.getMessage should include("Unsupported video encoder")
+          Then("the hardware request fails before a producer because its selected FFmpeg is Docker")
+          failure.getMessage should include("requires explicitly selected host FFmpeg")
         }
       }
     }

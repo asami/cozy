@@ -507,20 +507,17 @@ private[cozy] trait CozyVideoRenderWorkspace {
     encoding: ResolvedEncodingSettings = ResolvedEncodingSettings.lightweight
   ): Unit = {
     Files.createDirectories(outputpath.getParent)
-    val baseargs = Vector(
+    val encoder = CozyVideoEncoder.resolve(execution, encoding, stillImage = true)
+    val inputargs = Vector(
       "-y",
       "-loop",
       "1",
       "-i",
       _execution_path(projectroot, execution, frame),
       "-i",
-      _execution_path(projectroot, execution, audiofile),
-      "-c:v",
-      execution.encoderName,
-      "-crf",
-      encoding.crf.toString,
-      "-tune",
-      "stillimage",
+      _execution_path(projectroot, execution, audiofile)
+    )
+    val outputargs = Vector(
       "-c:a",
       "aac",
       "-shortest",
@@ -528,13 +525,12 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "yuv420p",
       _execution_path(projectroot, execution, outputpath)
     )
-    val qualityargs = encoding.x264Preset.toVector.flatMap(value => Vector("-preset", value))
-    val effectiveargs = baseargs.dropRight(1) ++ qualityargs ++ baseargs.takeRight(1)
+    val effectiveargs = inputargs ++ encoder.arguments ++ outputargs
     val args = _execution_command(projectroot, execution, "ffmpeg", effectiveargs,
       mounts = _selected_path_mounts(projectroot, Vector(frame, audiofile), Vector(outputpath)))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
-      RAISE.invalidArgumentFault(s"simple-java2d ffmpeg encode failed for part ${part.id}: ${result.stderr.trim}")
+      RAISE.invalidArgumentFault(s"simple-java2d ffmpeg encode failed for part ${part.id}: exit=${result.exitCode} ${result.text}")
   }
 
   private[video] def _run_remotion(
@@ -565,7 +561,8 @@ private[cozy] trait CozyVideoRenderWorkspace {
         "exitCode" -> Json.fromInt(encoded.exitCode), "stderr" -> Json.fromString(encoded.stderr),
         "frameCount" -> Json.fromInt(handoff.frameCount), "audioPath" -> Json.fromString(handoff.audioPath.toString),
         "outputPath" -> Json.fromString(part.outputPath.toString), "selection" -> execution.selected("ffmpeg").toJson,
-        "encoder" -> Json.fromString(execution.encoderName))
+        "encoder" -> Json.fromString(execution.encoderName),
+        "effectiveEncoder" -> CozyVideoEncoder.fromProps(execution, props).toJson)
       Files.writeString(workdir.resolve("encoding-result.json"), evidence.spaces2, StandardCharsets.UTF_8)
       if (!encoded.isSuccess) RAISE.invalidArgumentFault(s"Selected FFmpeg frame encoding failed for ${part.id}: ${encoded.text}")
       evidence

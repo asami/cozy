@@ -81,7 +81,9 @@ private[cozy] object CozyVideoTools {
     selections: Map[String, CozyVideoOperatingConfig.ToolSelection] = Map.empty,
     encoderName: String = "libx264",
     encoderOrigin: String = "tool-default",
-    encoderExplicit: Boolean = false
+    encoderExplicit: Boolean = false,
+    encoderBitrate: Option[String] = None,
+    encoderBitrateOrigin: String = "profile-default"
   ) {
     def selected(tool: String): CozyVideoOperatingConfig.ToolSelection =
       selections.getOrElse(CozyVideoOperatingConfig.identity(tool), CozyVideoOperatingConfig.defaultSelection(tool, toolMode, dockerImage))
@@ -91,7 +93,7 @@ private[cozy] object CozyVideoTools {
     def externalFrameEncoding: Boolean = {
       val renderer = selected("remotion")
       val encoder = selected("ffmpeg")
-      encoderExplicit || encoder.origins("executable") != "tool-default" ||
+      encoderName == "h264_videotoolbox" || encoderExplicit || encoder.origins("executable") != "tool-default" ||
         encoder.origins("docker-image").contains("video.tools.") ||
         renderer.mode != encoder.mode || renderer.dockerImage != encoder.dockerImage
     }
