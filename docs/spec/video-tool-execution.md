@@ -1,6 +1,7 @@
 # Video tool execution
 
-Status: PHASE-71.6 S01 accepted at `eb3664c`; S02 hardware implementation in progress.
+Status: PHASE-71.6 S01 accepted at `eb3664c`; S02 accepted at `3a4ca3e`.
+S03 consumer implementation remains subject to parent validation and review.
 
 ## Operating settings
 
@@ -79,5 +80,41 @@ Executable contracts: CozyVideoExecutionSpec, CozyVideoMixedRenderSpec and
 CozyVideoHardwareEncodingSpec. S01 software native evidence is accepted.
 Focused specifications and fresh hardware generation/decode/audio/EOF/hearing
 remain parent-owned acceptance gates;
-replay/transcription model compatibility is S03. Repository-full validation,
+S02 hardware native generation, decode, EOF and current user hearing are accepted.
+Repository-full validation,
 remaining native combinations and benchmark remain deferred-not-run to 71.7.
+
+## Transcription and replay consumers
+
+Transcription resolves the ordinary operating layers and retains only FFmpeg
+and whisper-cpp selections in its source-compatible adapter. Existing four-field
+construction retains global dispatch. The global mode/image and result fields
+remain compatibility summaries; there is no binary-compatibility claim.
+Selected Host whisper requires the existing CLI/YAML host model precedence,
+even with global Docker. Selected Docker whisper uses
+`/opt/textus/models/ggml-base.bin`, even with global Host. All authored operating
+layers validate through the common resolver; no new CLI options are added.
+
+Before work creation, project/input/save paths normalize to absolute paths.
+Selected Docker FFmpeg requires input within the project. Either selected
+Docker consumer requires save/audio/output within the project. Both Host permit
+external input and save; Host FFmpeg with Docker whisper permits external input.
+Command and path dispatch identify the consuming tool explicitly. No mount or
+container model expansion is introduced.
+
+Preflight requires selected FFmpeg, selected Host whisper, and daemon/image
+checks only when either consuming tool is Docker. Unrelated checks and images
+do not gate transcription. Required Missing, Unchecked and Unsupported fail with
+the existing contextual hint; absent checks in partial injected registries remain
+compatible. Docker whisper stays image-managed Unchecked: only its actual
+process proves execution. Extraction failure stops before whisper; whisper
+failure has no retry, and an optional version failure is nonfatal.
+
+Transcription and replay manifests append `effectiveTools` from their actual
+execution settings without changing schemas, old summaries or output shapes.
+Replay retains selected Playwright paths, argv, recording and dry-run behavior;
+required Unsupported also fails. Public inspection/dry-run preserves authored
+profiles, effective encoders, normal renderMedia and independent ffprobe.
+CozyVideoCompatibilitySpec supplies consumer contracts with injected producers;
+these fixtures are never native evidence. Existing mixed-render and hardware
+specifications retain rendering, narration, encoding and ending coverage.

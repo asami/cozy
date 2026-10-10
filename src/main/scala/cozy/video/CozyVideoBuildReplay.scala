@@ -494,6 +494,7 @@ private[cozy] trait CozyVideoBuildReplay {
       "outputVideo" -> output.map(path => Json.fromString(path.toString)).getOrElse(Json.Null),
       "toolMode" -> Json.fromString(execution.toolMode.label),
       "dockerImage" -> Json.fromString(execution.dockerImage),
+      "effectiveTools" -> execution.effectiveToolsJson,
       "stepCount" -> Json.fromInt(script.steps.size),
       "commands" -> Json.fromValues(Vector(Json.obj(
         "name" -> Json.fromString(command.stepName),

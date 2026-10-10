@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 15, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[video] final case class VideoTiming(
@@ -769,10 +769,11 @@ private[cozy] object CozyVideoModel {
     toolMode: VideoToolMode,
     dockerImage: String,
     modelPath: String,
-    hostWhisperModel: Option[Path]
+    hostWhisperModel: Option[Path],
+    selections: Map[String, CozyVideoOperatingConfig.ToolSelection] = Map.empty
   ) {
     def toVideoExecutionConfig: VideoExecutionConfig =
-      VideoExecutionConfig(toolMode, dockerImage, VideoToolSettings.DEFAULT_VOICEVOX_URL)
+      VideoExecutionConfig(toolMode, dockerImage, VideoToolSettings.DEFAULT_VOICEVOX_URL, selections = selections)
   }
 
   final case class VideoPartPlan(

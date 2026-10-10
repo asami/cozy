@@ -94,13 +94,12 @@ private[cozy] trait CozyVideoToolValidation {
 
   private[video] def _validate_transcribe_tools(execution: VideoTranscribeExecution, checks: Vector[VideoToolCheck]): Unit =
     if (checks.nonEmpty) {
-      val required =
-        execution.toolMode match {
-          case VideoToolMode.Docker => Set("docker-toolchain", "docker-image", "textus-toolchain-image")
-          case VideoToolMode.Host => Set("ffmpeg", "whisper-cpp")
-          case VideoToolMode.ExternalService => Set.empty[String]
-        }
-      checks.filter(x => required.contains(x.name) && (x.status == VideoToolStatus.Missing || x.status == VideoToolStatus.Unchecked)).headOption.foreach { check =>
+      val resolved = execution.toVideoExecutionConfig
+      val required = Set("ffmpeg") ++
+        (if (resolved.selected("whisper-cpp").mode == VideoToolMode.Host) Set("whisper-cpp") else Set.empty[String]) ++
+        (if (Set("ffmpeg", "whisper-cpp").exists(tool => resolved.selected(tool).mode == VideoToolMode.Docker))
+          Set("docker-toolchain", "docker-image") else Set.empty[String])
+      checks.filter(x => required.contains(x.name) && _is_required_dependency_unavailable(x)).headOption.foreach { check =>
         val hint = check.setupHint.map(x => s" $x").getOrElse("")
         RAISE.invalidArgumentFault(s"Cannot transcribe video: ${check.name} is not available.${hint}")
       }
@@ -109,29 +108,22 @@ private[cozy] trait CozyVideoToolValidation {
   private[video] def _validate_replay_tools(execution: VideoExecutionConfig, checks: Vector[VideoToolCheck]): Unit =
     if (checks.nonEmpty) {
       val required = _required_tool_checks(execution, Set("playwright"))
-      checks.filter(x => required.contains(x.name) && (x.status == VideoToolStatus.Missing || x.status == VideoToolStatus.Unchecked)).headOption.foreach { check =>
+      checks.filter(x => required.contains(x.name) && _is_required_dependency_unavailable(x)).headOption.foreach { check =>
         val hint = check.setupHint.map(x => s" $x").getOrElse("")
         RAISE.invalidArgumentFault(s"Cannot replay video demo: ${check.name} is not available.${hint}")
       }
     }
 
   private[video] def _transcribe_execution(config: TranscribeConfig): VideoTranscribeExecution = {
+    val resolved = VideoExecutionConfig.create(config.projectRoot, None, config.toolMode, config.dockerImage, None)
     val defaults = CozyProjectYamlConfig.loadOperationDefaults(config.projectRoot)
-    val mode = config.toolMode.
-      orElse(defaults.value("video.tool-mode")).
-      getOrElse("docker")
-    val dockerimage = config.dockerImage.
-      orElse(defaults.value("video.docker-image")).
-      orElse(defaults.value("cozy.docker-image")).
-      getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
-    val toolmode = VideoToolMode.parse(mode)
     val hostmodel = _resolve_whisper_model(config.projectRoot, config.whisperModel.
       orElse(defaults.value("tools.whisperModel")).
       orElse(defaults.value("tools.whisper-model")).
       orElse(defaults.value("video.whisper.model")).
       orElse(defaults.value("video.whisper-model")))
     val modelpath =
-      toolmode match {
+      resolved.selected("whisper-cpp").mode match {
         case VideoToolMode.Docker => _docker_whisper_model
         case VideoToolMode.Host =>
           hostmodel.map(_.toString).getOrElse(
@@ -140,7 +132,8 @@ private[cozy] trait CozyVideoToolValidation {
         case VideoToolMode.ExternalService =>
           RAISE.invalidArgumentFault("Transcription does not support external-service tool mode.")
       }
-    VideoTranscribeExecution(toolmode, dockerimage, modelpath, hostmodel)
+    VideoTranscribeExecution(resolved.toolMode, resolved.dockerImage, modelpath, hostmodel,
+      selections = resolved.selections.filter { case (tool, _) => tool == "ffmpeg" || tool == "whisper-cpp" })
   }
 
   private[video] def _resolve_whisper_model(projectroot: Path, value: Option[String]): Option[Path] =

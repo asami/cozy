@@ -11,7 +11,7 @@ aggregate_validation_owner=PHASE-71.7
 aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4","PHASE-71.5","PHASE-71.6","PHASE-71.7"]
 primary_owner=Cozy
 
-Status: in-progress; S01 accepted and committed at `eb3664c`; S02 hardware implementation, native hearing and Step review accepted, local Step commit pending
+Status: in-progress; S01 accepted and committed at `eb3664c`; S02 accepted and committed at `3a4ca3e`; S03 consumer implementation pending validation/review
 Planned at: 2026-10-05 (Asia/Tokyo)
 Development item: DEV-036
 Predecessor: [Phase 71.5](phase-71.5.md).
@@ -116,7 +116,8 @@ policy, also projected beside authored settings in inspection and manifests.
 Focused validation, actual hardware initialization/render/build/decode,
 unmuted natural EOF and current hardware hearing are accepted. Independent
 protected-focused Step review is accepted after its sole blocker was repaired
-with the parent-verified M1 waiver. The local S02 Step commit remains pending.
+with the parent-verified M1 waiver. The exact local S02 Step commit is verified at
+`3a4ca3ec623d0b836bea5aa21d8c60cc7162322a`.
 Configured hardware intent alone is not proof of hardware execution. See the
 [S02 journal](../journal/2026/10/2026-10-11-phase-71.6-hardware-route.md).
 
@@ -259,7 +260,27 @@ placement maintenance, HYG-P716-S02-LEGACY-SPEC-WORKDIR, is persisted separately
 in the [Hygiene journal](../journal/2026/10/2026-10-10-phase-71.6-hygiene-follow-up.md).
 This is Step review acceptance, not the still-required full Phase review.
 
-S02 is ready for its exact local Step commit. S03 remaining consumer
+S02's exact local Step commit is verified at
+`3a4ca3ec623d0b836bea5aa21d8c60cc7162322a`, with parent
+`eb3664c0e95484948c043a761674f4229ab9118e`, using the retained
+`s02-step-commit-checkpoint.json` result `STEP_COMMITTED_VERIFIED`.
+S03 remaining consumer
 compatibility, the sole full Phase review and the distinct final release remain
 open. Aggregate full validation, remaining native combinations and timed
 benchmark remain deferred-not-run to Phase 71.7.
+
+## S03 consumer implementation handoff — 2026-10-11
+
+The frozen consumer contract extends the source-compatible transcription adapter
+with operation-scoped FFmpeg/whisper selections, selected model/path/preflight
+semantics and effective manifest projection. Replay retains selected Playwright
+dispatch and adds effective projection and required Unsupported handling.
+CozyVideoCompatibilitySpec documents public mixed/default/Host behavior with
+injected contract fixtures. These outputs supply no native acceptance evidence.
+Existing S01 software and S02 hardware native/current hearing remain accepted.
+
+S03 focused validation, independent review and exact Step commit are pending.
+The sole full Phase review and distinct verified release remain pending. The
+[S03 journal](../journal/2026/10/2026-10-11-phase-71.6-consumer-compatibility.md)
+records the frozen scope and handoff. Model-size follow-up is a parent PLAN
+candidate pending independent classification, not an accepted finding or closure.

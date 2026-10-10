@@ -1,6 +1,6 @@
 # Phase 71.6 Checklist: Per-Tool Execution and Video Encoder Selection
 
-Phase status: in-progress / S01 accepted at `eb3664c`, S02 hardware implementation, native hearing and Step review accepted; local Step commit pending
+Phase status: in-progress / S01 accepted at `eb3664c`, S02 accepted and committed at `3a4ca3e`; S03 consumer implementation pending validation/review
 Ledger for: [Phase 71.6](phase-71.6.md)
 Repository-full validation: deferred-not-run to PHASE-71.7
 
@@ -11,7 +11,7 @@ and commits. `[>]` marks remaining integration/benchmark work transferred to
 
 S01 software validation, independent focused review and exact Step commit are
 accepted. S02 hardware implementation, native hearing and Step review are
-accepted; its exact Step commit and Phase closure remain pending. Checklist
+accepted; its exact Step commit is verified at `3a4ca3e`. Phase closure remains pending. Checklist
 items requiring the complete operation boundary remain open.
 
 Parent observation (2026-10-10): the two new and five planned compatibility
@@ -58,7 +58,7 @@ P716-04 performance comparison remains transferred to P717-03.
 
 S02 selected hardware generation, decode, audible natural EOF/current hearing
 and protected-focused Step review are accepted under the frozen manifest.
-The exact local Step commit remains pending. The checked hardware items below
+The exact local Step commit is verified at `3a4ca3e`. The checked hardware items below
 are supported by actual execution and review, not configuration alone.
 
 - [x] Retain explicit software H.264 and implement host VideoToolbox H.264.
@@ -103,7 +103,9 @@ are supported by actual execution and review, not configuration alone.
 - [x] Complete exact S01 local acceptance Step commit
       `eb3664c0e95484948c043a761674f4229ab9118e` after software native evidence,
       current hearing, 202 passing focused tests and independent focused PASS.
-- [ ] Complete S02 selected hardware acceptance and exact local Step commit.
+- [x] Complete S02 selected hardware acceptance and exact local Step commit
+      `3a4ca3ec623d0b836bea5aa21d8c60cc7162322a`, verified by the retained
+      `s02-step-commit-checkpoint.json` result `STEP_COMMITTED_VERIFIED`.
 - [ ] Complete S03 remaining consumer compatibility and exact local Step commit.
 
 - [ ] Focused Executable Specifications pass for selection, defaults,
@@ -178,6 +180,17 @@ revision 6. HYG-P716-S02-LEGACY-SPEC-WORKDIR remains separate persisted
 maintenance in the canonical Hygiene journal.
 
 Only the verified encoder and representative mixed-route implementation items
-above are checked. S02's exact Step commit, S03 remaining compatibility, the
+and exact S02 Step commit above are checked. S03 remaining compatibility, the
 sole full Phase review and distinct Phase release remain open. The full suite,
 remaining native combinations and benchmark remain deferred-not-run to 71.7.
+
+## S03 consumer implementation annotation — 2026-10-11
+
+The frozen S03 changes and CozyVideoCompatibilitySpec are implemented for
+parent-owned focused validation and independent review. Public transcription
+uses operation-scoped selections; replay records effective settings and rejects
+required Unsupported dependencies. Injected fixture output is executable
+contract coverage only. S01/S02 accepted native and hearing evidence is retained.
+No S03 acceptance, Step commit, full Phase review or release is claimed here;
+their boxes remain open. Model-size maintenance remains a parent PLAN candidate
+pending independent classification in the canonical Hygiene journal.
