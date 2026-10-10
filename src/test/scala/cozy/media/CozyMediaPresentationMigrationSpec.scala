@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyMediaPresentationMigrationSpec {
@@ -47,7 +47,7 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
         }
         val saved = CozyVisualPage.load(fixture.output, fixture.catalog)
 
-        Then("it atomically saves the canonical target set and emits the deterministic non-hash migration report")
+        Then("it directly writes the canonical target set and emits the deterministic non-hash migration report")
         Files.readString(fixture.output, StandardCharsets.UTF_8) shouldBe CozyVisualPage.canonicalJson(fixture.pageset) + "\n"
         saved.document shouldBe fixture.pageset
         saved.document shouldBe fixture.pageset
@@ -61,7 +61,7 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
       }
     }
 
-    "reject invalid or lossy migration inputs without a claimed output or replacement of existing bytes" in {
+    "reject invalid or lossy migration inputs before writing without a claimed output or replacement of existing bytes" in {
       _with_work("migration-rejections") { root =>
         Given("a valid migration fixture, a pre-existing output, and source/map/target failure variants")
         val fixture = _fixture(root)
@@ -122,7 +122,7 @@ final class CozyMediaPresentationMigrationSpec extends AnyWordSpec with Matchers
           name -> (result._1, result._2, Files.readAllBytes(fixture.output))
         }.toMap
 
-        Then("every structured migration diagnostic leaves no report and preserves the previously claimed output bytes")
+        Then("every structured migration diagnostic rejects before writing, leaves no report and preserves existing output bytes")
         failures.values.foreach { case (failure, stdout, outputbytes) =>
           failure.getMessage should include("MIGRATION_")
           failure.getMessage should include("path=")

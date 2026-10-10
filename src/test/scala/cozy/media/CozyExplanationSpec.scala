@@ -16,7 +16,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Aug. 28, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyExplanationSpec
@@ -24,7 +24,7 @@ final class CozyExplanationSpec
     with GivenWhenThen
     with CozySpecVocabulary {
   "Cozy Explanation catalog" should {
-    "normalize equivalent JSON key-order variants into one canonical catalog identity" in {
+    "normalize equivalent JSON key-order variants into one canonical catalog value" in {
       Given("the complete accepted v1 catalog represented by generated root-key orders")
       val canonical = CozyExplanation.parseCatalogJson(_catalog_json())
       val keys = Vector("schema", "version", "id", "revision", "subjectPatterns", "explanationPatterns", "reservedNarrativeArgumentIds")
@@ -33,22 +33,20 @@ final class CozyExplanationSpec
       When("ScalaCheck strictly parses at least thirty admissible JSON representations")
       val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(orders) { order =>
         val parsed = CozyExplanation.parseCatalogJson(_catalog_json(order))
-        CozyExplanation.canonicalCatalogJson(parsed) == CozyExplanation.canonicalCatalogJson(canonical) &&
-          CozyExplanation.catalogIdentity(parsed) == CozyExplanation.catalogIdentity(canonical)
+        CozyExplanation.canonicalCatalogJson(parsed) == CozyExplanation.canonicalCatalogJson(canonical)
       })
 
-      Then("input key order is not retained, while canonical catalog bytes and SHA-256 identity converge")
+      Then("input key order is not retained, while canonical catalog values converge")
       check.passed shouldBe true
       check.succeeded should be >= 30
       CozyExplanation.canonicalCatalogJson(canonical) should include_text("\"subjectPatterns\"")
-      CozyExplanation.catalogIdentity(canonical) should startWith("sha256:")
     }
   }
 
   "Cozy Explanation Composition" should {
-    "discard obsolete catalog selector identities through public parsing and loading while preserving required input validity" in {
-      _with_work("catalog-selector-migration") { root =>
-        Given("current named catalogs, direct material bindings, and generated obsolete selector value shapes")
+    "reject malformed required catalog selectors and Composition and Plan syntax" in {
+      _with_work("catalog-selectors") { root =>
+        Given("current named catalogs, direct resource bindings, and an authored Composition and expanded Plan")
         val catalogfile = _write(root.resolve("explanation-catalog.json"), CozyExplanation.canonicalCatalogJson(_catalog))
         val presentationfile = _write(root.resolve("presentation-catalog.json"), CozyVisualPage.canonicalCatalogJson(_presentation_catalog))
         val bindings = CozyExplanation.ResourceBindings(
@@ -60,47 +58,33 @@ final class CozyExplanationSpec
         val compositionfile = _write(root.resolve("composition.json"), canonical)
         val plan = CozyExplanation.expand(CozyExplanation.loadComposition(compositionfile, catalogfile, presentationfile, bindings))
         val planjson = CozyExplanation.canonicalPlanJson(plan)
-        val obsolete = Vector("\"obsolete\"", "{}", "[]", "true", "null", "1.5", "9223372036854775808")
-        def _historical_(text: String, name: String, raw: String): String = parse(text).toOption.get.mapObject { fields =>
-          fields.add(name, fields(name).get.mapObject(_.add("identity", parse(raw).toOption.get)))
-        }.noSpaces
-
-        When("public parse and load paths process each historical value and ScalaCheck varies both Plan selectors")
-        val loaded = obsolete.map { raw =>
-          val input = _write(root.resolve("historical-composition.json"), _historical_(canonical, "explanationCatalog", raw))
-          CozyExplanation.parseCompositionJson(Files.readString(input)).explanationCatalog shouldBe composition.explanationCatalog
-          CozyExplanation.loadComposition(input, catalogfile, presentationfile, bindings).composition
-        }
-        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(Gen.oneOf(obsolete), Gen.oneOf(Vector("explanationCatalog", "presentationCatalog"))) { (raw, name) =>
-          val text = _historical_(planjson, name, raw)
-          val input = _write(root.resolve("historical-plan.json"), text)
-          CozyExplanation.parsePlanJson(text) == plan && CozyExplanation.loadPlan(input, compositionfile, catalogfile, presentationfile, bindings).plan == plan
-        })
         val invalid = Vector(
           canonical.replace("\"revision\":1", "\"revision\":true"),
           canonical.replace("\"revision\":1", "\"revision\":0"),
           canonical.replace("\"id\":\"software-explanation\"", "\"id\":null"),
-          _historical_(canonical, "explanationCatalog", "{}").replace("\"identity\":{}", "\"unknown\":{}"),
-          _historical_(canonical, "explanationCatalog", "{}").replace("\"identity\":{}", "\"identity\":{\"duplicate\":1,\"duplicate\":2}"),
-          _historical_(canonical, "explanationCatalog", "{}").replace("\"identity\":{}", "\"identity\":{},\"identity\":[]"),
+          canonical.replace("\"explanationCatalog\":{", "\"explanationCatalog\":{\"unknown\":{},"),
+          canonical.replace("\"revision\":1", "\"revision\":1,\"revision\":2"),
           canonical + "{}", canonical.dropRight(1)
         )
-        val failures = invalid.map(text => _failure(CozyExplanation.parseCompositionJson(text)))
         val invalidplans = Vector("explanationCatalog", "presentationCatalog").flatMap { name =>
-          Vector(Json.obj("id" -> Json.Null, "revision" -> Json.fromInt(1)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromBoolean(true)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(0)), Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(1), "unknown" -> Json.obj())).map { selector =>
+          Vector(Json.obj("id" -> Json.Null, "revision" -> Json.fromInt(1)),
+            Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromBoolean(true)),
+            Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(0)),
+            Json.obj("id" -> Json.fromString("required"), "revision" -> Json.fromInt(1), "unknown" -> Json.obj()),
+            Json.obj("revision" -> Json.fromInt(1))).map { selector =>
             parse(planjson).toOption.get.mapObject(_.add(name, selector)).noSpaces
           }
-        } ++ Vector(_historical_(planjson, "presentationCatalog", "{}").replace("\"identity\":{}", "\"identity\":{\"duplicate\":1,\"duplicate\":2}"), planjson + "{}", planjson.dropRight(1))
+        } ++ Vector(planjson.replace("\"presentationCatalog\":{", "\"presentationCatalog\":{\"revision\":1,"), planjson + "{}", planjson.dropRight(1))
+
+        When("the public parsers encounter malformed required IDs and revisions, unknown fields, duplicates, and invalid syntax")
+        val failures = invalid.map(text => _failure(CozyExplanation.parseCompositionJson(text)))
         val planfailures = invalidplans.map(text => _failure(CozyExplanation.parsePlanJson(text)))
 
-        Then("historical values disappear from typed selectors while malformed required fields, unknown fields, duplicates and syntax still reject")
-        loaded.distinct shouldBe Vector(composition)
-        check.passed shouldBe true
-        check.succeeded should be >= 30
+        Then("normal required-field and JSON constraints reject every malformed document")
         failures should have size invalid.size
         planfailures should have size invalidplans.size
+        (failures ++ planfailures).foreach(_.getMessage should include_text("EXPLANATION_"))
         plan.presentationCatalog shouldBe CozyExplanation.CatalogSelector(_presentation_catalog.id, _presentation_catalog.revision)
-        CozyExplanation.canonicalPlanJson(plan) should not include ("\"identity\":\"obsolete\"")
       }
     }
 
@@ -127,7 +111,6 @@ final class CozyExplanationSpec
         first.steps.map(_.logical) shouldBe composition.explanation.steps.map(_.logical)
         first.steps.head.parameterProvenance.values shouldBe loaded.composition.explanation.parameters
         first.presentationCatalog shouldBe CozyExplanation.CatalogSelector(_presentation_catalog.id, _presentation_catalog.revision)
-        first.compositionIdentity shouldBe CozyExplanation.compositionIdentity(composition)
         CozyExplanation.canonicalPlanJson(first) should not include ("\"pageId\"")
         CozyExplanation.canonicalPlanJson(first) should not include ("\"sceneId\"")
         CozyExplanation.canonicalPlanJson(first) should not include ("\"timing\"")
@@ -151,7 +134,7 @@ final class CozyExplanationSpec
         val first = CozyExplanation.expand(loaded)
         val second = CozyExplanation.expand(loaded)
 
-        Then("the ordered problem and solution steps preserve selected parameter values, authored logical data, and canonical identities")
+        Then("the ordered problem and solution steps preserve selected parameter values, authored logical data, and canonical serialization")
         first shouldBe second
         loaded.composition shouldBe composition
         first.steps.map(_.semanticRole) shouldBe Vector("problem", "solution")
@@ -160,9 +143,7 @@ final class CozyExplanationSpec
           Vector("solution" -> CozyExplanation.JsonString("Bind every declaration to explicit direct bytes."))
         )
         first.steps.map(_.logical) shouldBe composition.explanation.steps.map(_.logical)
-        first.compositionIdentity shouldBe CozyExplanation.compositionIdentity(composition)
         CozyExplanation.canonicalPlanJson(first) shouldBe CozyExplanation.canonicalPlanJson(second)
-        first.identity shouldBe CozyExplanation.planIdentity(first)
       }
     }
 
@@ -224,10 +205,9 @@ final class CozyExplanationSpec
       val reordered = CozyExplanation.parseCompositionJson(_json_text(reorderedjson))
       val canonicaljson = CozyExplanation.canonicalCompositionJson(reordered)
 
-      Then("canonical JSON and Composition identity ignore nested object-key order while authored arrays stay ordered")
+      Then("canonical JSON ignores nested object-key order while authored arrays stay ordered")
       _json_text(reorderedjson) should not be _json_text(originaljson)
       canonicaljson shouldBe CozyExplanation.canonicalCompositionJson(original)
-      CozyExplanation.compositionIdentity(reordered) shouldBe CozyExplanation.compositionIdentity(original)
       canonicaljson should include ("\"value\":[{\"id\":\"goal-1\",\"label\":\"Reliable plans\",\"sourceRefs\":[\"source\"],\"assetRefs\":[\"asset\"]}]")
       canonicaljson should include ("\"value\":{\"id\":\"scenario-1\",\"label\":\"Expand an explanation\",\"steps\":[{\"id\":\"scenario-step-1\",\"label\":\"Validate authored inputs\",\"sourceRefs\":[\"source\"],\"assetRefs\":[\"asset\"]}]}")
       canonicaljson should include ("\"value\":[{\"id\":\"link-1\",\"goalId\":\"goal-1\",\"useCaseId\":\"use-case-1\",\"mechanismId\":\"mechanism-1\",\"sourceRefs\":[\"source\"],\"assetRefs\":[\"asset\"]}]")
@@ -307,7 +287,7 @@ final class CozyExplanationSpec
         val planfile = _write(root.resolve("plan.json"), CozyExplanation.canonicalPlanJson(plan))
         val output = root.resolve("converted-plan.json")
 
-        When("the Plan is loaded, inspected, validated, and atomically converted through the direct explanation command route")
+        When("the Plan is loaded, inspected, validated, and directly converted through the direct explanation command route")
         val loaded = CozyExplanation.loadPlan(planfile, compositionfile, catalogfile, presentationfile, bindings)
         val inspect = CozyExplanation.execute(List(
           "inspect", planfile.toString, "--composition", compositionfile.toString,
@@ -325,16 +305,34 @@ final class CozyExplanationSpec
           "--source", s"source=$sourcefile", "--asset", s"asset=$assetfile", "--save", output.toString
         ))
 
-        Then("the serialized Plan remains current and byte-deterministic, while command output reports schema and step identity without adding ProjectionMap or Projection fields")
+        Then("the serialized Plan remains current and byte-deterministic, while command output reports schema and step facts without adding ProjectionMap or Projection fields")
         loaded.plan shouldBe plan
         Files.readString(output, StandardCharsets.UTF_8) shouldBe CozyExplanation.canonicalPlanJson(plan) + "\n"
         inspect should include_text("schema: cozy.explanation-plan.v1")
         inspect should include_text("step: 1:mechanism-step")
         validate should include_text("presentationCatalogRevision")
-        convert should include_text("identity: sha256:")
+        convert should include_text("steps: 1")
         CozyExplanation.canonicalPlanJson(plan) should not include ("projectionMap")
         CozyExplanation.canonicalPlanJson(plan) should not include ("visualPageSet")
         CozyExplanation.canonicalPlanJson(plan) should not include ("storyboard")
+
+        Given("Plans with incompatible catalog selectors, pattern references, or changed authored claims")
+        val variants = Vector(
+          plan.copy(explanationCatalog = plan.explanationCatalog.copy(id = "another-catalog")),
+          plan.copy(presentationCatalog = plan.presentationCatalog.copy(revision = 2)),
+          plan.copy(subjectPattern = plan.subjectPattern.copy(version = 2)),
+          plan.copy(explanationPattern = plan.explanationPattern.copy(id = "problem-solution")),
+          plan.copy(steps = plan.steps.updated(0, plan.steps.head.copy(
+            claims = plan.steps.head.claims.map(_.copy(text = "Another authored claim"))
+          )))
+        ).zipWithIndex.map { case (variant, index) =>
+          _write(root.resolve(s"invalid-plan-$index.json"), CozyExplanation.canonicalPlanJson(variant))
+        }
+        When("Plan loading compares actual selectors, pattern references, and typed expanded steps")
+        val failures = variants.map(input => _failure(CozyExplanation.loadPlan(input, compositionfile, catalogfile, presentationfile, bindings)))
+        Then("selector and pattern conflicts differ from an authored expansion conflict")
+        failures.take(4).foreach(_.getMessage should include_text("EXPLANATION_CATALOG_MISMATCH"))
+        failures.last.getMessage should include_text("EXPLANATION_EXPANSION_INCOMPLETE")
       }
     }
   }

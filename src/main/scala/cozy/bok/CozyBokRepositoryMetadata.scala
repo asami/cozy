@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -223,7 +223,6 @@ private[cozy] object CozyBokRepositoryMetadata {
     runtimecncfminimum: Option[String],
     runtimecncfmaximum: Option[String],
     runtimecncftested: Vector[String],
-    checksumsha256: Option[String],
     componentdescriptor: Option[Json],
     abimanifest: Option[Json],
     componentknowledge: Option[RepositoryCarComponentKnowledge],
@@ -248,7 +247,6 @@ private[cozy] object CozyBokRepositoryMetadata {
             "tested" -> runtimecncftested.asJson
           )
         ),
-        "checksum" -> Json.obj("sha256" -> checksumsha256.asJson),
         "component_descriptor" -> componentdescriptor.asJson,
         "abi_manifest" -> abimanifest.asJson,
         "component_knowledge" -> componentknowledge.map(_.toJson).asJson,
@@ -352,7 +350,7 @@ private[cozy] trait CozyBokRepositoryMetadata {
   private[bok] lazy val RepositoryCarMetadataCoordinate = CozyBokRepositoryMetadata.RepositoryCarMetadataCoordinate
 
   /**
-   * A version-scoped, digest-bound consumer-contract sidecar.  `source` is
+   * A version-scoped consumer-contract sidecar.  `source` is
    * build-only and is never serialized into published catalog metadata.
    */
   private[bok] def _write_repository_car_metadata(config: BuildConfig): Unit = {

@@ -27,7 +27,7 @@ private object CozyArticleMediaWipCommandFixture {
  * @since   Aug. 12, 2026
  *  version Aug. 30, 2026
  *  version Sep.  8, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -69,8 +69,6 @@ final class CozyArticleMediaWipCommandSpec extends AnyWordSpec with Matchers wit
           )
           val integrity = snapshot.entries.find(_.path ==
             "metadata/article-media-integrity/development-process/example/ja/video.json").get.metadata
-          (integrity \ "sha256").as[String] shouldBe _sha256(fixture.sourceja)
-          (integrity \ "artifact" \ "version").as[String] shouldBe _sha256(fixture.sourceja)
           (integrity \ "provenance" \ "kind").as[String] shouldBe "wip-site-video"
           (integrity \ "publicPath").as[String] shouldBe "/ja/development-process/videos/example.mp4"
         }

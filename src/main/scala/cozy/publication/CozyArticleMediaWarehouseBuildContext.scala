@@ -3,7 +3,6 @@ package cozy.publication
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import scala.collection.JavaConverters._
 import cozy.media.CozyMediaWarehouse
 import org.goldenport.RAISE
 import org.smartdox.metadata.PublishMetadata
@@ -12,7 +11,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
 
 /*
  * @since   Oct.  7, 2026
- * @version Oct.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[publication] object CozyArticleMediaWarehouseBuildContext {
@@ -91,18 +90,12 @@ private[publication] object CozyArticleMediaWarehouseBuildContext {
     }
     val parent = _context_parent(projectRoot, strategy)
     val work = Files.createTempDirectory(parent, "context-")
-    var completed = false
-    try {
-      val publication = Files.createDirectory(work.resolve("publication"))
-      bundles.foreach { case (name, bundle) =>
-        writeBundle(publication.resolve(s"$name.json"), bundle)
-      }
-      val context = CozyArticleMediaBuildContext.Context(strategy, publication, root, policy.omittedKeys, policy.diagnostics)
-      completed = true
-      Result(context, diagnostics)
-    } finally {
-      if (!completed) _delete_owned(work)
+    val publication = Files.createDirectory(work.resolve("publication"))
+    bundles.foreach { case (name, bundle) =>
+      writeBundle(publication.resolve(s"$name.json"), bundle)
     }
+    val context = CozyArticleMediaBuildContext.Context(strategy, publication, root, policy.omittedKeys, policy.diagnostics)
+    Result(context, diagnostics)
   }
 
   private def _write_bundle(path: Path, bundle: JsObject): Unit = {
@@ -193,12 +186,6 @@ private[publication] object CozyArticleMediaWarehouseBuildContext {
         _invalid(s"Article-media warehouse context parent must have direct directory components: $current")
     }
     parent
-  }
-
-  private def _delete_owned(work: Path): Unit = {
-    val stream = Files.walk(work)
-    try stream.iterator.asScala.toVector.sortBy(x => (-x.getNameCount, x.toString)).foreach(Files.deleteIfExists)
-    finally stream.close()
   }
 
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)

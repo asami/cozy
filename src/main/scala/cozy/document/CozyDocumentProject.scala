@@ -4,15 +4,15 @@ import org.goldenport.RAISE
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import io.circe.Json
-import java.security.MessageDigest
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 10, 2026
+ *  version Sep. 10, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProject {
@@ -115,13 +115,8 @@ private[cozy] object CozyDocumentProject {
                 val diagnostic = coverage.diagnostics.head
                 _failure(diagnostic.code, coverage.diagnostics.map(value => s"${value.code} path=${value.path} reason=${value.reason}").mkString("; "))
               }
-              val receipt = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
               val destination = CozyDocumentProjectProjection.admitDestination(project, save, "presentation-confirmation.html")
               CozyDocumentProjectProjection.publish(destination, rendered.html)
-              if (save.isEmpty) {
-                val receiptdestination = project.resolve("target").resolve("document-project").resolve("presentation-confirmation.receipt.yaml").normalize()
-                CozyDocumentProjectProjection.publish(receiptdestination, CozyDocumentCrossMediaReceipt.canonicalJson(receipt) + "\n")
-              }
               println(CozyDocumentProjectProjection.projectionResult("Presentation Confirmation", project, descriptor, destination))
             case "review" =>
               val reviewkind = kind.getOrElse(_failure("DP-CLI-002", "review requires --kind core|article|slides|video|slide-logical-chart|video-logical-chart|presentation"))
@@ -620,7 +615,7 @@ private[cozy] object CozyDocumentProject {
       case CozyDocumentProjectProvider.Executed(outputs, diagnostics, receipt)
           if outputs.nonEmpty && diagnostics.nonEmpty && receipt.identity.trim.nonEmpty && receipt.value.trim.nonEmpty =>
         val outputlines = outputs.map { output =>
-          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}\n    sha256: ${output.sha256}"
+          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}"
         }.mkString("\n")
         Vector(
           "outcome: executed",
@@ -672,7 +667,7 @@ private[cozy] object CozyDocumentProject {
     descriptor: Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
     binding: CozyDocumentWorkflow.ProviderBinding,
-    inputs: Vector[CozyDocumentProjectEvidence.FileIdentity],
+    inputs: Vector[CozyDocumentProjectEvidence.FileReference],
     result: CozyDocumentProjectProvider.ProviderResult
   ): String = result match {
     case blocked: CozyDocumentProjectProvider.Blocked =>
@@ -688,7 +683,7 @@ private[cozy] object CozyDocumentProject {
     descriptor: Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
     binding: CozyDocumentWorkflow.ProviderBinding,
-    inputs: Vector[CozyDocumentProjectEvidence.FileIdentity],
+    inputs: Vector[CozyDocumentProjectEvidence.FileReference],
     result: CozyDocumentProjectProvider.ProviderResult
   ): String = {
     val closure = CozyDocumentProjectEvidence.closeNativeExecution(project, descriptor, operation, inputs, result)
@@ -708,7 +703,7 @@ private[cozy] object CozyDocumentProject {
     val details = closure match {
       case CozyDocumentProjectEvidence.NativeAcceptedClosure(attempt, diagnostics) =>
         val outputlines = attempt.outputs.map { output =>
-          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}\n    sha256: ${output.sha256}"
+          s"  - identity: ${output.identity}\n    path: ${output.path}\n    mediaType: ${output.mediaType}"
         }.mkString("\n")
         val output = attempt.outputs.head
         Vector(
@@ -719,7 +714,7 @@ private[cozy] object CozyDocumentProject {
         ) ++ diagnostics.map(value => s"  - $value") ++ Vector(
           "receipt:",
           s"  identity: ${CozyDocumentProjectProvider.NATIVE_RECEIPT_IDENTITY}",
-          s"  value: ${CozyDocumentProjectProvider.nativeReceiptValue(operation.id, output.path, output.mediaType, output.sha256)}",
+          s"  value: ${CozyDocumentProjectProvider.nativeReceiptValue(operation.id, output.path, output.mediaType)}",
           s"attempt: ${attempt.path.path}",
           "evidence: accepted",
           s"currentness: ${product.currentness}"
@@ -779,14 +774,8 @@ private[cozy] object CozyDocumentProject {
     val stateyaml = _state_yaml(project, descriptor, snapshot)
     try {
       Files.createDirectories(statedirectory)
-      val temporary = Files.createTempFile(statedirectory, ".state-", ".tmp")
-      try {
-        Files.writeString(temporary, stateyaml, StandardCharsets.UTF_8)
-        Files.move(temporary, state, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        state
-      } finally {
-        Files.deleteIfExists(temporary)
-      }
+      Files.writeString(state, stateyaml, StandardCharsets.UTF_8)
+      state
     } catch {
       case NonFatal(_) => _failure("DP-PATH-001", "state cache cannot be written")
     }
@@ -831,9 +820,6 @@ private[cozy] object CozyDocumentProject {
   private[cozy] def _core_has_accepted_entries(project: Path, descriptor: Descriptor): Boolean =
     _load_json(project.resolve(descriptor.contentCore), "Content Core").hcursor.downField("accepted").focus.flatMap(_.asArray).exists(_.nonEmpty)
 
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
-
   private[cozy] def presentationSemanticsAuthoringInstruction(descriptor: Descriptor): String =
     s"Author the project-local sibling content/presentation-semantics-${descriptor.language}.yaml to the strict v2 contract (cozy.content-core.presentation-semantics.v2); after authoring, use document-project verify <project> only for validation."
 
@@ -844,28 +830,20 @@ private[cozy] object CozyDocumentProject {
       _failure("DP-PATH-001", "scaffold destination path is unsafe")
     if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
       _failure("DP-SCAFFOLD-001", s"scaffold destination already exists: $destination")
-    var temporary: Option[Path] = None
     try {
-      val staging = Files.createTempDirectory(parent, ".cozy-document-project-")
-      temporary = Some(staging)
-      _write(staging.resolve("document-project.yaml"), _descriptor_yaml(slug, profile, language, workspace))
-      _write(staging.resolve("index.dox"), s"$slug\n${"=" * slug.length}\n\nDocument Project source.\n")
-      val core = staging.resolve(s"content/core-$language.yaml")
-      _write(core, _core_yaml(slug, language))
-      _write(staging.resolve(s"content/presentation-semantics-$language.yaml"), _presentation_semantics_yaml(slug, language, _sha256(core)))
-      _write(staging.resolve("infographic/infographic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Document Project infographic</title></svg>\n")
-      _write(staging.resolve("presentation/visual-pages.yaml"), "pages: []\n")
-      _write(staging.resolve("review/README.md"), "# Review\n\nReview material belongs here.\n")
+      Files.createDirectory(destination)
+      _write(destination.resolve("document-project.yaml"), _descriptor_yaml(slug, profile, language, workspace))
+      _write(destination.resolve("index.dox"), s"$slug\n${"=" * slug.length}\n\nDocument Project source.\n")
+      _write(destination.resolve(s"content/core-$language.yaml"), _core_yaml(slug, language))
+      _write(destination.resolve(s"content/presentation-semantics-$language.yaml"), _presentation_semantics_yaml(slug, language))
+      _write(destination.resolve("infographic/infographic.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"><title>Document Project infographic</title></svg>\n")
+      _write(destination.resolve("presentation/visual-pages.yaml"), "pages: []\n")
+      _write(destination.resolve("review/README.md"), "# Review\n\nReview material belongs here.\n")
       if (CozyDocumentWorkflow.isVideoProfile(profile))
-        _write(staging.resolve("video/storyboard.md"), "# Storyboard\n\nStoryboard source belongs here.\n")
-      Files.move(staging, destination, StandardCopyOption.ATOMIC_MOVE)
-      temporary = None
+        _write(destination.resolve("video/storyboard.md"), "# Storyboard\n\nStoryboard source belongs here.\n")
       destination
     } catch {
-      case _: AtomicMoveNotSupportedException => _failure("DP-SCAFFOLD-001", "atomic scaffold installation is not supported")
-      case NonFatal(e) => _failure("DP-SCAFFOLD-001", s"scaffold installation failed: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
-    } finally {
-      temporary.foreach(_delete_temporary)
+      case NonFatal(e) => _failure("DP-SCAFFOLD-001", s"scaffold writes failed: ${Option(e.getMessage).getOrElse(e.getClass.getSimpleName)}")
     }
   }
 
@@ -981,13 +959,12 @@ private[cozy] object CozyDocumentProject {
        |accepted: []
        |""".stripMargin
 
-  private[cozy] def _presentation_semantics_yaml(slug: String, language: String, coreidentity: String): String =
+  private[cozy] def _presentation_semantics_yaml(slug: String, language: String): String =
     s"""schema: cozy.content-core.presentation-semantics.v2
        |id: $slug-presentation-$language
        |contentCore:
        |  id: $slug:core:$language
        |  language: $language
-       |  identity: sha256:$coreidentity
        |composition: {}
        |storyFlow:
        |  id: $slug-story-flow-$language
@@ -1007,13 +984,6 @@ private[cozy] object CozyDocumentProject {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.writeString(path, value, StandardCharsets.UTF_8)
   }
-
-  private def _delete_temporary(path: Path): Unit =
-    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-      val stream = Files.walk(path)
-      try stream.iterator().asScala.toVector.sortBy(_.toString.length).reverse.foreach(Files.deleteIfExists)
-      finally stream.close()
-    }
 
   private[cozy] def _descriptor_failure(cause: String): Nothing = _failure("DP-DESC-002", cause)
 

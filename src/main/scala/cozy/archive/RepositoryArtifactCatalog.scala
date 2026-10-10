@@ -11,7 +11,8 @@ import org.goldenport.RAISE
 /*
  * @since   May. 20, 2026
  *  version Jul. 13, 2026
- * @version Aug. 21, 2026
+ *  version Aug. 21, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final case class RepositoryArtifactCatalog(
@@ -50,9 +51,7 @@ final case class RepositoryArtifactCatalogVersion(
   component: Option[String],
   publishedAt: Option[String],
   file: Option[String],
-  runtime: Option[RepositoryArtifactRuntimeRequirement],
-  checksumSha256: Option[String],
-  integrityKey: Option[String] = None
+  runtime: Option[RepositoryArtifactRuntimeRequirement]
 ) {
   def effectiveStatus: String = status.getOrElse("active")
 }
@@ -193,9 +192,7 @@ object RepositoryArtifactCatalog {
       component = _non_empty(values.get("component")),
       publishedAt = _non_empty(values.get("publishedAt")),
       file = _non_empty(values.get("file")),
-      runtime = _runtime(values),
-      checksumSha256 = _non_empty(values.get("checksum.sha256")),
-      integrityKey = _non_empty(values.get("integrityKey"))
+      runtime = _runtime(values)
     )
 
   private def _runtime(values: Map[String, String]): Option[RepositoryArtifactRuntimeRequirement] = {
@@ -239,11 +236,7 @@ object RepositoryArtifactCatalog {
         val coordinate = _car_coordinate(catalog, version.version)
         _projection(coordinate.mavenArtifactId, catalog.artifactId, "artifactId", "catalog")
         _projection(s"repository/car/${coordinate.carRepositoryRelativePath}", version.file.get, "file", "catalog")
-        val digest = version.checksumSha256.getOrElse(
-          throw new IllegalArgumentException(s"component.repository.integrity.mismatch source=catalog field=checksum.sha256 expected=lowercase-64-hex actual=missing")
-        )
-        _require(_sha256.pattern.matcher(digest).matches(), s"component.repository.integrity.mismatch source=catalog field=checksum.sha256 expected=lowercase-64-hex actual=$digest")
-        _projection(coordinate.integrityKey(digest), version.integrityKey.getOrElse("missing"), "integrityKey", "catalog")
+
       }
     }
   }
@@ -270,9 +263,7 @@ object RepositoryArtifactCatalog {
       _optional_line("component", version.component, 4) ++
       _optional_line("publishedAt", version.publishedAt, 4) ++
       _optional_line("file", version.file, 4) ++
-      version.runtime.toVector.flatMap(_runtime_lines) ++
-      version.checksumSha256.toVector.flatMap(value => Vector("    checksum:", s"      sha256: $value")) ++
-      _optional_line("integrityKey", version.integrityKey, 4)
+      version.runtime.toVector.flatMap(_runtime_lines)
 
   private def _runtime_lines(runtime: RepositoryArtifactRuntimeRequirement): Vector[String] =
     Vector("    runtime:", "      cncf:") ++
@@ -325,7 +316,7 @@ object RepositoryArtifactCatalog {
         val versioncontext = s"catalog.versions[$index]"
         val versioncursor = _json_object(value, versioncontext, "version")
         if (canonical)
-          _json_only_fields(versioncursor, Set("version", "channel", "status", "component", "publishedAt", "file", "runtime", "checksum", "integrityKey"), versioncontext)
+          _json_only_fields(versioncursor, Set("version", "channel", "status", "component", "publishedAt", "file", "runtime"), versioncontext)
         RepositoryArtifactCatalogVersion(
           version = _json_string(versioncursor, "version", versioncontext).getOrElse(""),
           channel = _json_string(versioncursor, "channel", versioncontext),
@@ -333,9 +324,7 @@ object RepositoryArtifactCatalog {
           component = _json_string(versioncursor, "component", versioncontext),
           publishedAt = _json_string(versioncursor, "publishedAt", versioncontext).orElse(_json_string(versioncursor, "published_at", versioncontext)),
           file = _json_string(versioncursor, "file", versioncontext),
-          runtime = _json_runtime(versioncursor, versioncontext, canonical),
-          checksumSha256 = _json_checksum(versioncursor, versioncontext, canonical).orElse(_json_string(versioncursor, "checksumSha256", versioncontext)),
-          integrityKey = _json_string(versioncursor, "integrityKey", versioncontext)
+          runtime = _json_runtime(versioncursor, versioncontext, canonical)
         )
     }
     RepositoryArtifactCatalog(
@@ -355,8 +344,6 @@ object RepositoryArtifactCatalog {
     )
   }
 
-  private val _sha256 = "[0-9a-f]{64}".r
-
   private def _require_no_json_duplicate_fields(text: String): Unit = {
     val input = new JsonFactory().enable(JacksonParser.Feature.STRICT_DUPLICATE_DETECTION).createParser(text)
     try {
@@ -370,7 +357,7 @@ object RepositoryArtifactCatalog {
 
   private def _validate_canonical_shape(parsed: YamlParser.Parsed): Unit = {
     val rootallowed = Set("schemaVersion", "kind", "namespace", "id", "artifactId", "recommended", "latestStable", "latestSnapshot", "status", "aliases", "tags", "terms", "versions")
-    val versionallowed = Set("version", "channel", "status", "component", "publishedAt", "file", "runtime", "runtime.cncf", "runtime.cncf.minimum", "runtime.cncf.maximum", "runtime.cncf.excluded", "runtime.cncf.tested", "checksum", "checksum.sha256", "integrityKey")
+    val versionallowed = Set("version", "channel", "status", "component", "publishedAt", "file", "runtime", "runtime.cncf", "runtime.cncf.minimum", "runtime.cncf.maximum", "runtime.cncf.excluded", "runtime.cncf.tested")
     val rootseen = parsed.values.keySet ++ parsed.lists.keySet.map(_.takeWhile(_ != '.')) ++ parsed.rootfields.map(_.takeWhile(_ != '.'))
     val rootunknown = rootseen.filterNot(rootallowed).toVector.sorted
     _require(rootunknown.isEmpty, s"component.release-coordinate.projection-mismatch source=catalog field=unknown expected=canonical-fields actual=${rootunknown.mkString(",")}")
@@ -434,16 +421,6 @@ object RepositoryArtifactCatalog {
         }
     }
   }
-
-  private def _json_checksum(cursor: HCursor, context: String, strict: Boolean): Option[String] =
-    _json_field(cursor, "checksum") match {
-      case None => None
-      case Some(value) =>
-        val checksumcursor = _json_object(value, s"$context.checksum", "checksum")
-        if (strict)
-          _json_only_fields(checksumcursor, Set("sha256"), s"$context.checksum")
-        _json_string(checksumcursor, "sha256", s"$context.checksum")
-    }
 
   private def _json_field(cursor: HCursor, name: String): Option[Json] =
     cursor.downField(name).focus

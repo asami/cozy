@@ -7,7 +7,6 @@ import java.awt.{Color, Font, RenderingHints}
 import java.awt.image.BufferedImage
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, StandardCopyOption}
-import java.nio.file.attribute.FileTime
 import org.scalacheck.{Gen, Prop, Test}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import javax.imageio.ImageIO
@@ -19,8 +18,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- *  version Oct.  1, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -296,7 +294,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
       }
     }
 
-    "compare current material bytes across different project roots and preserve prior evidence on disagreement or unsafe proof paths" in {
+    "resolve current materials across different project roots and reject unsafe actual input before writing" in {
       _with_temp_dir("cross-material-closure") { root =>
         Given("semantically equal PageSets with equal material IDs and media types under separate safe presentation and video roots")
         val presentationroot = root.resolve("presentation")
@@ -312,7 +310,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         val output = presentationroot.resolve("target/cozy-media/cross-review.json")
         val config = CozyMediaCrossReview.BuildConfig(media, "slides", project, "target/cozy-media/cross-review.json")
 
-        When("Cross-media Review compares the equal resources through their own project roots")
+        When("Cross-media Review resolves the declared resources through their own project roots")
         val accepted = CozyMediaCrossReview.build(config)
         val review = parser.parse(Files.readString(output, StandardCharsets.UTF_8)).toOption.get
 
@@ -322,24 +320,7 @@ final class CozyMediaCrossReviewSpec extends AnyWordSpec with Matchers with Give
         review.hcursor.downField("visualPages").downArray.downField("assets").downArray.focus.get shouldBe
           Json.obj("id" -> Json.fromString("infographic"), "mediaType" -> Json.fromString("image/png"))
 
-        Given("the video asset changes valid bytes at the same observed FileTime, followed by an unsafe material proof path")
-        val prior = Files.readAllBytes(output).toVector
-        val asset = videoroot.resolve("assets/infographic.png")
-        val bytes = Files.readAllBytes(asset)
-        val modified = Files.getLastModifiedTime(asset, java.nio.file.LinkOption.NOFOLLOW_LINKS)
-        Files.write(asset, bytes ++ Array[Byte](1))
-        Files.setLastModifiedTime(asset, modified)
-
-        When("Cross-media Review sees actual material disagreement despite matching IDs media types and current observations")
-        val mismatch = intercept[RuntimeException](CozyMediaCrossReview.build(config))
-
-        Then("byte disagreement rejects without replacing the prior aggregate")
-        mismatch.getMessage should include("assets differ from presentation")
-        Files.readAllBytes(output).toVector shouldBe prior
-
-        Given("equal material bytes are restored and the video Binding alone changes a physical slot")
-        Files.write(asset, bytes)
-        Files.setLastModifiedTime(asset, modified)
+        Given("the video Binding alone changes a valid physical slot")
         val bindingpath = videoroot.resolve("binding.json")
         val originalbinding = Files.readString(bindingpath, StandardCharsets.UTF_8)
         _write(bindingpath, originalbinding.replace("nodes-slot", "revised-nodes-slot"))

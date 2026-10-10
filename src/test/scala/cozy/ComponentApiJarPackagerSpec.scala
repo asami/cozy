@@ -13,7 +13,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 12, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -142,6 +143,50 @@ final class ComponentApiJarPackagerSpec extends AnyWordSpec with Matchers with G
 
         Then("no provider API artifact remains")
         Files.exists(output) shouldBe false
+      }
+    }
+
+    "reject selected-input aliases and nonregular API output leaves" in {
+      Vector("same-main", "hard-main", "symbolic-main", "hard-descriptor", "directory").foreach { kind =>
+        _with_temp_dir(s"cozy-component-api-ownership-$kind") { dir =>
+          Given(s"a valid public JAR and descriptor with a $kind selected output")
+          val mainjar = _write_zip(
+            dir.resolve("example-api-api.jar"),
+            Map("example/api/ExampleApi.class" -> "api")
+          )
+          val descriptor = _write(
+            dir.resolve("component-api-descriptor.json"),
+            _descriptor(
+              """[{"version":"0.1.0","artifactPath":"spi/example-api-api.jar","publicTypes":[
+                |{"className":"example.api.ExampleApi","artifactPatterns":["example/api/ExampleApi.class"]}
+                |]}]""".stripMargin
+            )
+          )
+          val output =
+            if (kind == "same-main") mainjar
+            else {
+              val destination = dir.resolve("output/example-api-api.jar")
+              Files.createDirectories(destination.getParent)
+              if (kind == "hard-main") Files.createLink(destination, mainjar)
+              else if (kind == "symbolic-main") Files.createSymbolicLink(destination, mainjar)
+              else if (kind == "hard-descriptor") Files.createLink(destination, descriptor)
+              else Files.createDirectory(destination)
+              destination
+            }
+
+          When("the API packager admits the selected destination")
+          val error = intercept[Throwable] {
+            ComponentApiJarPackager._build_api_jar(mainjar, descriptor, output)
+          }
+
+          Then("the destination is rejected with an actionable output ownership and path diagnostic")
+          error.getMessage should include("Component API output")
+          error.getMessage should include(output.toString)
+          if (kind == "symbolic-main" || kind == "directory")
+            error.getMessage should include("symbolic link or nonregular leaf")
+          else
+            error.getMessage should include("cannot alias its selected input")
+        }
       }
     }
 

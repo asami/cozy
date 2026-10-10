@@ -6,7 +6,7 @@ import org.goldenport.io.InputSource
 import io.circe.{Decoder, HCursor, Json}
 import io.circe.parser.parse
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path}
 import java.nio.file.attribute.FileTime
 import java.time.Instant
 import scala.util.control.NonFatal
@@ -17,7 +17,7 @@ import cozy.video.CozyVideo
 /*
  * @since   Aug. 25, 2026
  *  version Sep. 22, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaReceipt {
@@ -83,8 +83,7 @@ private[cozy] object CozyMediaReceipt {
 
   final case class Captured(
     inputs: Vector[Evidence],
-    producer: Producer,
-    observedFiles: Vector[(Path, FileTime)]
+    producer: Producer
   )
 
   final case class ResourceReceipt(
@@ -207,7 +206,7 @@ private[cozy] object CozyMediaReceipt {
     val duplicates = inputs.groupBy(_.id).collect { case (id, values) if values.size > 1 => id }.toVector.sorted
     duplicates.headOption.foreach(id => _invalid(s"Media receipt input ids must be unique: $id"))
     val producer = _producer(config)
-    Captured(inputs, producer, observeInputs(descriptor))
+    Captured(inputs, producer)
   }
 
   def receipt(captured: Captured, target: Option[String], profile: Option[String]): ResourceReceipt =
@@ -393,15 +392,6 @@ private[cozy] object CozyMediaReceipt {
     requireCurrent(plan, resource)
   }
 
-  def requirePreparedInputSet(publication: CozyMedia.PreparedPublication): Unit = {
-    val plan = CozyMedia.resolvePlan(publication.commandConfig)
-    if (plan.siteContext != publication.siteContext)
-      _invalid("Prepared media publication site context has changed")
-    val observations = observeInputs(plan)
-    if (observations != publication.observedInputs)
-      _invalid(s"Prepared media publication inputs have changed: ${publication.resource.id}")
-  }
-
   def write(
     plan: CozyMedia.Plan,
     selected: Vector[CozyMedia.ResolvedResource],
@@ -427,6 +417,7 @@ private[cozy] object CozyMediaReceipt {
   ): PreparedAcceptance = {
     val receiptvalue = receipt(captured, target, plan.effectiveProfile.map(_.id))
     val selectedids = selected.map(_.resource.id).toSet
+    val declaredids = plan.resources.map(_.resource.id).toSet
     if (selectedids.size != selected.size)
       _invalid("Media selected resources must be unique")
     val existing = manifest(_manifest_path(plan)).getOrElse(Manifest(plan.descriptor.knowledge.id, Vector.empty))
@@ -446,7 +437,7 @@ private[cozy] object CozyMediaReceipt {
         if (resolved.resource.build == "presentation") CozyMediaPresentation.artifacts(plan, resolved) else Vector.empty
       )
     }
-    val retained = if (target.isDefined) existing.resources.filterNot(x => selectedids.contains(x.id)) else Vector.empty
+    val retained = if (target.isDefined || selectedids != declaredids) existing.resources.filterNot(x => selectedids.contains(x.id)) else Vector.empty
     val merged = (retained ++ replacements).sortBy(_.id)
     val ids = merged.map(_.id)
     if (ids.distinct.size != ids.size)
@@ -472,9 +463,9 @@ private[cozy] object CozyMediaReceipt {
     catch { case NonFatal(_) => false }
 
   /**
-   * Makes prepared review states visible before the receipt, which is the sole
-   * acceptance visibility record.  This is rollback-safe for in-process errors;
-   * it deliberately makes no process-crash atomicity claim across directories.
+   * Writes prepared review states directly in order, followed by the receipt.
+   * An I/O failure propagates and may leave earlier or partial documents;
+   * successful acceptance requires every write to complete.
    */
   private[cozy] def commit(reviewStates: Vector[PreparedDocument], receipt: PreparedDocument): Unit = {
     val documents = reviewStates ++ Vector(receipt)
@@ -493,41 +484,10 @@ private[cozy] object CozyMediaReceipt {
           case _: java.io.IOException => _invalid("Media acceptance target alias check failed")
         }
     }
-    val staged = scala.collection.mutable.ArrayBuffer.empty[(Path, Path)]
-    val backups = scala.collection.mutable.ArrayBuffer.empty[(Path, Option[Path])]
-    val installed = scala.collection.mutable.ArrayBuffer.empty[Path]
-    try {
-      documents.zip(paths).foreach { case (document, targetpath) =>
-        val parent = Option(targetpath.getParent).getOrElse(_invalid(s"Media acceptance target requires parent: $targetpath"))
-        Files.createDirectories(parent)
-        val temporary = Files.createTempFile(parent, ".cozy-media-accept-", ".tmp")
-        Files.write(temporary, document.bytes)
-        staged += targetpath -> temporary
-      }
-      staged.foreach { case (targetpath, temporary) =>
-        val backup = if (Files.exists(targetpath, LinkOption.NOFOLLOW_LINKS)) {
-          if (!_direct_regular_file(targetpath)) _invalid(s"Media acceptance target must be a direct regular file: $targetpath")
-          val parent = targetpath.getParent
-          val saved = Files.createTempFile(parent, ".cozy-media-before-", ".tmp")
-          Files.copy(targetpath, saved, StandardCopyOption.REPLACE_EXISTING)
-          Some(saved)
-        } else None
-        backups += targetpath -> backup
-        _replace(temporary, targetpath)
-        installed += targetpath
-      }
-    } catch {
-      case error: Throwable =>
-        installed.reverse.foreach { targetpath =>
-          backups.find(_._1 == targetpath).foreach {
-            case (_, Some(saved)) => _replace(saved, targetpath)
-            case (_, None) => Files.deleteIfExists(targetpath)
-          }
-        }
-        throw error
-    } finally {
-      staged.foreach { case (_, temporary) => try Files.deleteIfExists(temporary) catch { case NonFatal(_) => () } }
-      backups.foreach { case (_, saved) => saved.foreach(path => try Files.deleteIfExists(path) catch { case NonFatal(_) => () }) }
+    documents.zip(paths).foreach { case (document, targetpath) =>
+      val parent = Option(targetpath.getParent).getOrElse(_invalid(s"Media acceptance target requires parent: $targetpath"))
+      Files.createDirectories(parent)
+      Files.write(targetpath, document.bytes)
     }
   }
 
@@ -854,13 +814,6 @@ private[cozy] object CozyMediaReceipt {
     }
     target
   }
-
-  private def _replace(source: Path, target: Path): Unit =
-    try Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-    catch {
-      case _: AtomicMoveNotSupportedException =>
-        _invalid(s"cozy.media.receipt.v2 acceptance requires same-parent ATOMIC_MOVE: $target")
-    }
 
   private def _relative_path(root: Path, value: String, label: String): Path = {
     val exact = _require_identity(value, label)

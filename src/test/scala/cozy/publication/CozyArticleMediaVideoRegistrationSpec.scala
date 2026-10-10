@@ -14,7 +14,8 @@ import play.api.libs.json.{JsNull, JsObject, JsString, JsValue, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  5, 2026
+ *  version Aug.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaVideoRegistrationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -164,88 +165,83 @@ final class CozyArticleMediaVideoRegistrationSpec extends AnyWordSpec with Match
         }
       }
 
-      "prepare staged video evidence before final artifact admission" in {
+      "prepare rendered video evidence before final artifact admission" in {
         Given("a bound prepared publication whose final repository artifact is still absent")
         _with_fixture() { fixture =>
-          val staged = fixture.root.resolve("staged/final.mp4")
-          Files.createDirectories(staged.getParent)
-          Files.write(staged, Files.readAllBytes(fixture.artifact))
+          val rendered = fixture.root.resolve("rendered/final.mp4")
+          Files.createDirectories(rendered.getParent)
+          Files.write(rendered, Files.readAllBytes(fixture.artifact))
           Files.delete(fixture.artifact)
           val prepared = CozyVideoPublisher.PreparedPublication(
             _publication(_video(Some(_binding(VideoStatus.Published))), fixture.artifact),
-            staged,
-            Vector.empty,
-            force = false
+            rendered,
+            Vector.empty
           )
 
-          When("registration projects the prepared staged source against the final repository target")
+          When("registration projects the prepared rendered source against the final repository target")
           val result = CozyArticleMediaVideoRegistration.prepare(prepared, _snapshot(fixture), fixture.repositoryroot).get
 
-          Then("the staged bytes satisfy projected evidence while the returned path remains the absent final target")
+          Then("the selected rendered source supplies publication evidence while the returned path remains the absent final target")
           result.evidence.artifactPath shouldBe fixture.artifact.toAbsolutePath.normalize()
           Files.exists(fixture.artifact) shouldBe false
-          result.roleUpdate.integrity.record.sha256 shouldBe _sha256(staged)
         }
       }
 
-      "prepare staged video evidence under an absent lexical repository root without creating it" in {
+      "prepare rendered video evidence under an absent lexical repository root without creating it" in {
         Given("a bound prepared publication whose contained final root and artifact do not yet exist")
         _with_fixture() { fixture =>
-          val staged = fixture.root.resolve("staged/absent-root.mp4")
+          val rendered = fixture.root.resolve("rendered/absent-root.mp4")
           val repositoryroot = fixture.root.resolve("absent-repository-root")
           val artifact = repositoryroot.resolve("video/example-video/1.0.0/example-video-1.0.0.mp4")
-          Files.createDirectories(staged.getParent)
-          Files.write(staged, Files.readAllBytes(fixture.artifact))
+          Files.createDirectories(rendered.getParent)
+          Files.write(rendered, Files.readAllBytes(fixture.artifact))
           val prepared = CozyVideoPublisher.PreparedPublication(
             _publication(_video(Some(_binding(VideoStatus.Published))), artifact),
-            staged,
-            Vector.empty,
-            force = false
+            rendered,
+            Vector.empty
           )
 
-          When("registration projects staged bytes to the future lexical repository target")
+          When("registration projects rendered bytes to the future lexical repository target")
           val result = CozyArticleMediaVideoRegistration.prepare(prepared, _snapshot(fixture), repositoryroot).get
 
           Then("it returns the contained final target without creating the absent repository root")
           result.evidence.artifactPath shouldBe artifact.toAbsolutePath.normalize()
           Files.exists(repositoryroot) shouldBe false
-          result.roleUpdate.integrity.record.sha256 shouldBe _sha256(staged)
         }
       }
 
-      "reject a staged projection when its repository root is a symlink" in {
-        Given("a bound prepared publication with a direct staged source and a symbolic-link repository root")
+      "reject a rendered projection when its repository root is a symlink" in {
+        Given("a bound prepared publication with a direct rendered source and a symbolic-link repository root")
         _with_fixture() { fixture =>
-          val staged = fixture.root.resolve("staged/root-link.mp4")
+          val rendered = fixture.root.resolve("rendered/root-link.mp4")
           val alias = fixture.root.resolve("repository-root-alias")
-          Files.createDirectories(staged.getParent)
-          Files.write(staged, Files.readAllBytes(fixture.artifact))
+          Files.createDirectories(rendered.getParent)
+          Files.write(rendered, Files.readAllBytes(fixture.artifact))
           Files.createSymbolicLink(alias, fixture.repositoryroot)
           val prepared = CozyVideoPublisher.PreparedPublication(
             _publication(_video(Some(_binding(VideoStatus.Published))), fixture.artifact),
-            staged,
-            Vector.empty,
-            force = false
+            rendered,
+            Vector.empty
           )
 
-          When("registration validates the staged repository-root boundary")
+          When("registration validates the rendered repository-root boundary")
           val error = intercept[IllegalArgumentException](
             CozyArticleMediaVideoRegistration.prepare(prepared, _snapshot(fixture), alias)
           )
 
-          Then("the staged target cannot be projected through a symbolic-link repository root")
+          Then("the rendered target cannot be projected through a symbolic-link repository root")
           error.getMessage should include("direct non-symlink directory")
         }
       }
 
-      "reject a staged projection when an existing final-target parent is a symlink" in {
-        Given("a bound prepared publication with a direct staged source and a symbolic-link final-target parent")
+      "reject a rendered projection when an existing final-target parent is a symlink" in {
+        Given("a bound prepared publication with a direct rendered source and a symbolic-link final-target parent")
         _with_fixture() { fixture =>
-          val staged = fixture.root.resolve("staged/parent-link.mp4")
+          val rendered = fixture.root.resolve("rendered/parent-link.mp4")
           val external = fixture.root.resolve("external-video-parent")
           val videoroot = fixture.repositoryroot.resolve("video")
-          Files.createDirectories(staged.getParent)
-          Files.write(staged, Files.readAllBytes(fixture.artifact))
+          Files.createDirectories(rendered.getParent)
+          Files.write(rendered, Files.readAllBytes(fixture.artifact))
           Files.delete(fixture.artifact)
           Files.delete(videoroot.resolve("example-video/1.0.0"))
           Files.delete(videoroot.resolve("example-video"))
@@ -254,12 +250,11 @@ final class CozyArticleMediaVideoRegistrationSpec extends AnyWordSpec with Match
           Files.createSymbolicLink(videoroot, external)
           val prepared = CozyVideoPublisher.PreparedPublication(
             _publication(_video(Some(_binding(VideoStatus.Published))), fixture.artifact),
-            staged,
-            Vector.empty,
-            force = false
+            rendered,
+            Vector.empty
           )
 
-          When("registration validates the staged final-target parent boundary")
+          When("registration validates the rendered final-target parent boundary")
           val error = intercept[IllegalArgumentException](
             CozyArticleMediaVideoRegistration.prepare(prepared, _snapshot(fixture), fixture.repositoryroot)
           )
@@ -269,24 +264,23 @@ final class CozyArticleMediaVideoRegistrationSpec extends AnyWordSpec with Match
         }
       }
 
-      "reject a staged projection when its final target is a symlink" in {
-        Given("a bound prepared publication with a direct staged source and a symlink final target")
+      "reject a rendered projection when its final target is a symlink" in {
+        Given("a bound prepared publication with a direct rendered source and a symlink final target")
         _with_fixture() { fixture =>
-          val staged = fixture.root.resolve("staged/final.mp4")
-          Files.createDirectories(staged.getParent)
-          Files.write(staged, Files.readAllBytes(fixture.artifact))
+          val rendered = fixture.root.resolve("rendered/final.mp4")
+          Files.createDirectories(rendered.getParent)
+          Files.write(rendered, Files.readAllBytes(fixture.artifact))
           val redirected = fixture.root.resolve("redirected.mp4")
           Files.write(redirected, "redirected".getBytes(StandardCharsets.UTF_8))
           Files.delete(fixture.artifact)
           Files.createSymbolicLink(fixture.artifact, redirected)
           val prepared = CozyVideoPublisher.PreparedPublication(
             _publication(_video(Some(_binding(VideoStatus.Published))), fixture.artifact),
-            staged,
-            Vector.empty,
-            force = false
+            rendered,
+            Vector.empty
           )
 
-          When("registration validates the staged final-target boundary")
+          When("registration validates the rendered final-target boundary")
           val error = intercept[IllegalArgumentException](
             CozyArticleMediaVideoRegistration.prepare(prepared, _snapshot(fixture), fixture.repositoryroot)
           )
@@ -366,8 +360,7 @@ final class CozyArticleMediaVideoRegistrationSpec extends AnyWordSpec with Match
       packageDir = packagedir,
       saveDir = packagedir.resolve("publication"),
       warehouseDir = packagedir.resolve("warehouse"),
-      version = None,
-      force = false
+      version = None
     )
 
   private def _descriptor(

@@ -5,7 +5,6 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.nio.file.attribute.FileTime
-import java.security.MessageDigest
 import javax.imageio.ImageIO
 import scala.collection.JavaConverters._
 import org.scalacheck.{Gen, Prop, Test}
@@ -19,7 +18,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
 /*
  * @since   Aug.  5, 2026
  *  version Aug. 25, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -50,26 +49,17 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
         When("the typed command prepares, commits, and merges the resource")
         val result = CozyArticleMediaInfographicCommand.publish(_config(root))
 
-        Then("the hash-free receipt admits copied PNG bytes and matching strict/integrity registry records")
-        result.map(_.roleUpdate.integrity.record.artifact.identity) shouldBe Vector("one")
+        Then("the copied PNG output has matching strict and integrity registry roles")
+        result.map(_.roleUpdate.integrity.record.artifact.get.identity) shouldBe Vector("one")
         val destination = root.resolve("repository/images/example.png")
         Files.isRegularFile(destination) shouldBe true
-        _sha256(destination) shouldBe _sha256(fixture.output)
-        result.head.result.integrity.record.sha256 shouldBe _sha256(destination)
+        Files.readAllBytes(destination).toVector shouldBe Files.readAllBytes(fixture.output).toVector
         result.head.roleUpdate.variant.infographic.map(_.publicPath.toString) shouldBe Some("/images/example.png")
-        val receipts = (Json.parse(Files.readString(fixture.manifest)) \ "resources").as[JsArray].value
-        receipts.foreach { entry =>
-          (entry \ "sha256").toOption shouldBe None
-          (entry \ "receipt" \ "inputs").as[JsArray].value.foreach { input =>
-            (input \ "sha256").toOption shouldBe None
-          }
-        }
         val entries = (Json.parse(Files.readString(root.resolve("src/main/publication/article-media.json"))) \ "entries").as[JsArray].value
         val strict = entries.find(entry => (entry \ "path").as[String] == "metadata/article-media/development-process/example.json").get \ "metadata"
         val integrity = entries.find(entry => (entry \ "path").as[String] == "metadata/article-media-integrity/development-process/example/ja/infographic.json").get \ "metadata"
         (strict \ "variants" \ "ja" \ "infographic" \ "public_path").as[String] shouldBe "/images/example.png"
         (integrity \ "publicPath").as[String] shouldBe "/images/example.png"
-        (integrity \ "sha256").as[String] shouldBe _sha256(destination)
         (integrity \ "artifact" \ "identity").as[String] shouldBe "one"
         (integrity \ "artifact" \ "version").as[String] shouldBe "1.0.0"
         (integrity \ "publicationState").as[String] shouldBe "published"
@@ -81,7 +71,7 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
     }
 
     "commit the exact prevalidated plan without rediscovering newly appearing descriptors" in {
-      Given("one valid descriptor and an immutable plan produced before a different malformed candidate appears")
+      Given("one valid descriptor and its initial plan produced before a different malformed candidate appears")
       _with_root { root =>
         _media(root, "prepared", "development-process/prepared", "ja", "images/prepared.png", _png(0xff3366cc))
         val config = _config(root)
@@ -93,7 +83,7 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
         val result = CozyArticleMediaInfographicCommand.commit(config, plan)
 
         Then("it installs only the original validated evidence without rediscovering or reparsing the newly appearing candidate")
-        result.map(_.roleUpdate.integrity.record.artifact.identity) shouldBe Vector("prepared")
+        result.map(_.roleUpdate.integrity.record.artifact.get.identity) shouldBe Vector("prepared")
         Files.isRegularFile(root.resolve("repository/images/prepared.png")) shouldBe true
         Files.exists(root.resolve("repository/images/appeared.png")) shouldBe false
         _entry_paths(root.resolve("src/main/publication/article-media.json")) shouldBe Vector(
@@ -133,7 +123,7 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
         val result = CozyArticleMediaInfographicCommand.publish(_config(root))
 
         Then("every exact basename is decoded and its selected PNG is published")
-        result.map(_.roleUpdate.integrity.record.artifact.identity) shouldBe Vector("descriptor-0", "descriptor-1", "descriptor-2", "descriptor-3", "descriptor-4")
+        result.map(_.roleUpdate.integrity.record.artifact.get.identity) shouldBe Vector("descriptor-0", "descriptor-1", "descriptor-2", "descriptor-3", "descriptor-4")
         names.indices.foreach(index => Files.isRegularFile(root.resolve(s"repository/images/descriptor-$index.png")) shouldBe true)
       }
     }
@@ -165,29 +155,30 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
     "retain deterministic command order under generated descriptor creation orders" in {
       Given("two independent descriptors and an unrelated generic configured bundle")
       val names = Vector("alpha", "beta")
+      When("ScalaCheck evaluates distinct descriptor creation orders")
       val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(Gen.oneOf(names.permutations.toVector)) { order =>
         _with_root { root =>
+          Given("a generated descriptor creation order and an existing generic bundle")
           _write_bundle(root.resolve("src/main/publication"), "generic", "metadata/generic.json")
           order.zipWithIndex.foreach { case (name, index) =>
             _media(root, name, s"development-process/$name", "ja", s"images/$name.png", _png(0xff3366cc + index))
           }
+          When("the generated descriptor selection is published")
           val results = CozyArticleMediaInfographicCommand.publish(_config(root))
-          results.map(_.roleUpdate.integrity.record.artifact.identity) == names &&
+          Then("the artifact order and existing generic entry remain selected")
+          results.map(_.roleUpdate.integrity.record.artifact.get.identity) == names &&
             _entry_paths(root.resolve("src/main/publication/generic.json")) == Vector("metadata/generic.json")
         }
       })
 
-      When("ScalaCheck evaluates distinct descriptor creation orders")
-      val passed = check.passed
-
       Then("the committed artifact identities and generic owner content remain deterministic")
-      passed shouldBe true
+      check.passed shouldBe true
       check.succeeded should be >= 30
     }
 
     }
 
-    "publication, force, and artifact failure boundaries" which {
+    "direct publication and artifact failure boundaries" which {
     "leave every registry bundle unchanged when a later artifact installation fails after complete validation" in {
       Given("two valid prepared infographics and an existing generic registry bundle")
       _with_root { root =>
@@ -195,18 +186,16 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
         val first = _media(root, "first", "development-process/first", "ja", "images/first.png", _png(0xff3366cc))
         val second = _media(root, "second", "development-process/second", "ja", "images/second.png", _png(0xffcc6633))
         val before = _registry_tree(root.resolve("src/main/publication"))
-        val interloper = _png(0xff339966)
 
-        When("the post-validation hook creates an interloper only at the second prepared destination")
+        When("the before-install callback creates a directory at the second selected destination")
         val error = intercept[IllegalArgumentException](CozyArticleMediaInfographicCommand.publish(
           _config(root),
-          () => _write_bytes(root.resolve("repository/images/second.png"), interloper)
+          () => { Files.createDirectories(root.resolve("repository/images/second.png")); () }
         ))
 
         Then("the first installation remains, the second installation actually fails, and registry bytes stay unchanged")
-        error.getMessage should include("Media publication failed")
-        _sha256(root.resolve("repository/images/first.png")) shouldBe _sha256(first.output)
-        Files.readAllBytes(root.resolve("repository/images/second.png")).toVector shouldBe interloper.toVector
+        error.getMessage should include("destination must be absent or a direct regular non-symlink file")
+        Files.readAllBytes(root.resolve("repository/images/first.png")).toVector shouldBe Files.readAllBytes(first.output).toVector
         Files.isRegularFile(second.output) shouldBe true
         _registry_tree(root.resolve("src/main/publication")) shouldBe before
       }
@@ -411,36 +400,19 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
       }
     }
 
-    "reject a differing destination without explicit force" in {
-      Given("an existing destination whose bytes differ from the declared output")
-      _with_root { root =>
-        _media(root, "conflict", "development-process/conflict", "ja", "images/conflict.png", _png(0xff3366cc))
-        val destination = root.resolve("repository/images/conflict.png")
-        _write_bytes(destination, _png(0xffcc6633))
-
-        When("publication is attempted without force")
-        val error = intercept[IllegalArgumentException](CozyArticleMediaInfographicCommand.publish(_config(root)))
-
-        Then("the existing destination remains and no article-media bundle is created")
-        error.getMessage should include("use force")
-        _sha256(destination) should not be _sha256(root.resolve("src/main/doxsite/conflict/target/cozy-media/conflict.png"))
-        Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe false
-      }
-    }
-
-    "replace a differing destination when explicit force is supplied" in {
+    "replace a differing destination through ordinary direct copying" in {
       Given("an existing destination whose bytes differ from the declared output")
       _with_root { root =>
         val fixture = _media(root, "force", "development-process/force", "ja", "images/force.png", _png(0xff3366cc))
         val destination = root.resolve("repository/images/force.png")
         _write_bytes(destination, _png(0xffcc6633))
 
-        When("publication is attempted with force")
-        val completed = CozyArticleMediaInfographicCommand.publish(_config(root, force = true))
+        When("the selected infographic is published")
+        val completed = CozyArticleMediaInfographicCommand.publish(_config(root))
 
-        Then("the destination is atomically replaced with the declared output and registry evidence")
+        Then("the destination receives the declared PNG output and registry role")
         completed should have size 1
-        _sha256(destination) shouldBe _sha256(fixture.output)
+        Files.readAllBytes(destination).toVector shouldBe Files.readAllBytes(fixture.output).toVector
         Files.exists(root.resolve("src/main/publication/article-media.json")) shouldBe true
       }
     }
@@ -448,20 +420,21 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
     }
 
     "CLI compatibility and configuration isolation" which {
-    "derive publish-media force only from its explicit switch while preserving legacy video configuration" in {
-      Given("a project configuration that enables the legacy video force property")
+    "reject an unsupported publication option after normalizing publication inputs" in {
+      Given("a project and explicit publication version")
       _with_root { root =>
-        _write_bytes(root.resolve(".cozy/config.yaml"), "bok:\n  video:\n    force: true\n".getBytes(StandardCharsets.UTF_8))
+        When("the media publication configuration is normalized")
+        val media = CozyBok.PublicationConfig.create("publish-media", List(root.toString, "--version", "1.0.0"))
 
-        When("publication configurations are created for media, video, and explicit media force")
-        val media = CozyBok.PublicationConfig.create("publish-media", List(root.toString))
-        val video = CozyBok.PublicationConfig.create("publish-video", List(root.toString))
-        val forcedmedia = CozyBok.PublicationConfig.create("publish-media", List(root.toString, "--force"))
+        Then("the selected publication root and version are retained")
+        media.publicationPath shouldBe root.resolve("src/main/publication")
+        media.version shouldBe Some("1.0.0")
 
-        Then("only the explicit publish-media switch enables media replacement")
-        media.force shouldBe false
-        video.force shouldBe true
-        forcedmedia.force shouldBe true
+        When("publish-media receives its unsupported force switch")
+        val error = intercept[org.goldenport.context.FaultException](CozyBok.PublicationConfig.create("publish-media", List(root.toString, "--force")))
+
+        Then("the real strict parser rejects the undeclared switch")
+        error.getMessage should include("Too many arguments: --force")
       }
     }
 
@@ -477,7 +450,7 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
       Then("the command advertises only its authoritative syntax and description")
       dispatched shouldBe true
       bytes.toString("UTF-8").trim shouldBe
-        "Usage: cozy bok publish-media <project-dir> [--publication <dir>] [--repository <dir>] [--version <version>] [--force]\n" +
+        "Usage: cozy bok publish-media <project-dir> [--publication <dir>] [--repository <dir>] [--version <version>]\n" +
           "Publish explicit detailed-infographic media packages into the BoK article-media registry and artifact repository."
     }
 
@@ -499,8 +472,8 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
 
   private final class MediaFixture(val manifest: Path, val output: Path)
 
-  private def _config(root: Path, version: Option[String] = Some("1.0.0"), force: Boolean = false, dryrun: Boolean = false): CozyBok.PublicationConfig =
-    CozyBok.PublicationConfig(root, "src/main/doxsite", "src/main/publication", None, "repository", version, force, true, dryrun, "production")
+  private def _config(root: Path, version: Option[String] = Some("1.0.0"), dryrun: Boolean = false): CozyBok.PublicationConfig =
+    CozyBok.PublicationConfig(root, "src/main/doxsite", "src/main/publication", None, "repository", version, true, dryrun, "production")
 
   private def _media(root: Path, id: String, article: String, locale: String, destination: String, png: Array[Byte], descriptorname: String = "media.json"): MediaFixture = {
     Files.createDirectories(root.resolve("repository"))
@@ -600,9 +573,6 @@ final class CozyArticleMediaInfographicCommandSpec extends AnyWordSpec with Matc
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, bytes)
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(x => f"${x & 0xff}%02x").mkString
 
   private def _with_root[A](f: Path => A): A = {
     val work = Paths.get("target/cozy-article-media-infographic-command/work").toAbsolutePath.normalize()

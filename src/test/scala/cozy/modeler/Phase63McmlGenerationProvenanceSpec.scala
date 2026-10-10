@@ -13,7 +13,7 @@ import play.api.libs.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsVa
 
 /*
  * @since   Sep. 16, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 object Phase63McmlGenerationProvenanceSpec {
@@ -317,7 +317,7 @@ final class Phase63McmlGenerationProvenanceSpec
         }
       }
 
-      "reject every invalid aggregate boundary before V2 publication" in {
+      "reject every invalid aggregate boundary before writing final V2 metadata" in {
         _with_temp_dir("cozy-phase63-mcml-rejections") { directory =>
           Given("empty, missing, malformed, duplicate, unavailable-source, mismatched, malformed-known-field, and missing-output delegated inputs")
           val emptyproject = directory.resolve("empty-project")
@@ -465,13 +465,7 @@ final class Phase63McmlGenerationProvenanceSpec
           }
 
           val current = projects.map(root => Files.readString(_provenance_path(root), StandardCharsets.UTF_8))
-          val leftovers = projects.flatMap { root =>
-            val stream = Files.list(_provenance_path(root).getParent)
-            try stream.iterator().asScala.filter(_.getFileName.toString.startsWith(".generation-provenance-")).toVector
-            finally stream.close()
-          }
-
-          Then("each genuine stage failure preserves previous metadata and removes temporary documents")
+          Then("each genuine stage rejection precedes the final write and previous metadata remains unchanged")
           emptyerror.getMessage should include("GENERATION_PROVENANCE_INPUT_MISMATCH")
           missingerror.getMessage should include("GENERATION_PROVENANCE_MISSING")
           malformederror.getMessage should include("GENERATION_PROVENANCE_MALFORMED")
@@ -481,7 +475,6 @@ final class Phase63McmlGenerationProvenanceSpec
           contradictoryerror.getMessage should include("GENERATION_PROVENANCE_MALFORMED")
           conflicterror.getMessage should include("GENERATION_PROVENANCE_OUTPUT_TAMPERED")
           current shouldBe previous
-          leftovers shouldBe empty
         }
       }
 
@@ -549,7 +542,7 @@ final class Phase63McmlGenerationProvenanceSpec
         }
       }
 
-      "preserve previous aggregate metadata when the installed output inventory is incomplete" in {
+      "reject an incomplete installed output inventory before writing final aggregate metadata" in {
         _with_temp_dir("cozy-phase63-mcml-installed-failure") { directory =>
           Given("a valid delegated input and previous aggregate metadata for its installed output")
           val projectroot = directory.resolve("project")
@@ -562,20 +555,16 @@ final class Phase63McmlGenerationProvenanceSpec
           GenerationProvenance.aggregateForPackaging(Vector(_input(delegated)), projectroot)
           val previous = Files.readString(_provenance_path(projectroot), StandardCharsets.UTF_8)
 
-          When("the next aggregation finds the actual installed path missing")
+          Given("the actual installed output path is now missing")
           Files.delete(projectroot.resolve(artifact))
+          When("the next aggregation validates its installed-output inventory before writing metadata")
           val error = intercept[Exception] {
             GenerationProvenance.aggregateForPackaging(Vector(_input(delegated)), projectroot)
           }
           val current = Files.readString(_provenance_path(projectroot), StandardCharsets.UTF_8)
-          val stream = Files.list(_provenance_path(projectroot).getParent)
-          val leftovers = try stream.iterator().asScala.filter(_.getFileName.toString.startsWith(".generation-provenance-")).toVector
-          finally stream.close()
-
-          Then("the path failure preserves the prior successful metadata and leaves no temporary JSON")
+          Then("the path rejection precedes the final write and prior successful metadata remains unchanged")
           error.getMessage should include("GENERATION_PROVENANCE_OUTPUT_TAMPERED")
           current shouldBe previous
-          leftovers shouldBe empty
         }
       }
 

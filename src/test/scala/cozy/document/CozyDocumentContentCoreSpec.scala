@@ -4,7 +4,6 @@ import io.circe.Json
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.nio.file.attribute.FileTime
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.scalacheck.{Gen, Prop, Test}
@@ -16,12 +15,12 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentContentCoreSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Content Core" should {
-    "emit Content Core candidate, failed attempt, feedback, and acceptance provenance without hash fields" in {
+    "record Content Core candidate, failed attempt, feedback, and human acceptance provenance" in {
       _with_temp_dir("content-core-evidence") { root =>
         Given("a scaffolded project with succeeded and failed dialogue inputs plus explicit human feedback and acceptance")
         val project = _scaffolded_project(root, "content-core-evidence")
@@ -40,14 +39,21 @@ final class CozyDocumentContentCoreSpec extends AnyWordSpec with Matchers with G
         val feedbackevidence = _load(project.resolve("evidence/content-core/feedback/feedback-evidence.yaml"))
         val acceptanceevidence = _load(project.resolve("evidence/content-core/acceptances/acceptance-evidence.yaml"))
 
-        Then("parsed evidence retains semantic payloads and references without any hash property")
+        Then("parsed evidence retains dialogue payloads, logical candidate links, and the human decision")
         candidateevidence.hcursor.downField("source").downField("text").focus.flatMap(_.asString) shouldBe Some("source document")
+        candidateevidence.hcursor.downField("idea").downField("text").focus.flatMap(_.asString) shouldBe Some("content-core idea")
+        candidateevidence.hcursor.downField("request").downField("text").focus.flatMap(_.asString) shouldBe Some("completed provider request")
+        candidateevidence.hcursor.downField("response").downField("text").focus.flatMap(_.asString) shouldBe Some("completed provider response")
+        candidateevidence.hcursor.downField("model").downField("id").focus.flatMap(_.asString) shouldBe Some("model-local")
         candidateevidence.hcursor.downField("provider").downField("id").focus.flatMap(_.asString) shouldBe Some("provider-local")
         attemptevidence.hcursor.downField("outcome").downField("value").focus.flatMap(_.asString) shouldBe Some("failed")
         feedbackevidence.hcursor.downField("candidate").downField("path").focus.flatMap(_.asString) shouldBe Some("evidence/content-core/candidates/candidate-evidence.yaml")
-        acceptanceevidence.hcursor.downField("priorCore").downField("modifiedTime").focus.flatMap(_.asString).nonEmpty shouldBe true
+        feedbackevidence.hcursor.downField("reviewer").downField("id").focus.flatMap(_.asString) shouldBe Some("human-reviewer")
+        feedbackevidence.hcursor.downField("decision").downField("value").focus.flatMap(_.asString) shouldBe Some("changes-requested")
+        acceptanceevidence.hcursor.downField("priorCore").downField("path").focus.flatMap(_.asString) shouldBe Some("content/core-en.yaml")
+        acceptanceevidence.hcursor.downField("reviewer").downField("id").focus.flatMap(_.asString) shouldBe Some("human-reviewer")
+        acceptanceevidence.hcursor.downField("decision").downField("value").focus.flatMap(_.asString) shouldBe Some("accepted")
         acceptanceevidence.hcursor.downField("resultingCore").downField("path").focus.flatMap(_.asString) shouldBe Some("content/core-en.yaml")
-        Vector(candidateevidence, attemptevidence, feedbackevidence, acceptanceevidence).foreach(value => _has_hash_field(value) shouldBe false)
       }
     }
 
@@ -75,104 +81,27 @@ final class CozyDocumentContentCoreSpec extends AnyWordSpec with Matchers with G
       }
     }
 
-    "treat an already-applied metadata-free historical Content Core acceptance as idempotent without mutation" in {
-      _with_temp_dir("content-core-metadata-free-applied") { root =>
-        Given("a completed acceptance whose historical evidence has no prior timestamp")
-        val project = _scaffolded_project(root, "content-core-metadata-free-applied")
-        val candidate = _write(root.resolve("candidate.json"), _succeeded_dialogue("candidate-metadata-free-applied", "metadata-free applied content"))
-        val acceptance = _write(root.resolve("acceptance.json"), _acceptance("acceptance-metadata-free-applied", "candidate-metadata-free-applied"))
+    "reapply the selected Content Core candidate for the same human acceptance record" in {
+      _with_temp_dir("content-core-acceptance-retry") { root =>
+        Given("a completed human acceptance and its selected candidate")
+        val project = _scaffolded_project(root, "content-core-acceptance-retry")
+        val candidate = _write(root.resolve("candidate.json"), _succeeded_dialogue("candidate-retry", "accepted retry content"))
+        val acceptance = _write(root.resolve("acceptance.json"), _acceptance("acceptance-retry", "candidate-retry"))
         _execute(List("document-project", "content-core", "candidate", project.toString, candidate.toString))
-        _execute(List("document-project", "content-core", "accept", project.toString, "candidate-metadata-free-applied", acceptance.toString))
+        _execute(List("document-project", "content-core", "accept", project.toString, "candidate-retry", acceptance.toString))
         val core = project.resolve("content/core-en.yaml")
-        val evidence = project.resolve("evidence/content-core/acceptances/acceptance-metadata-free-applied.yaml")
-        Files.writeString(evidence, _without_modified_time(Files.readString(evidence, StandardCharsets.UTF_8)), StandardCharsets.UTF_8)
-        val corebefore = Files.readAllBytes(core)
-        val modifiedbefore = Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS)
-        val evidencebefore = Files.readAllBytes(evidence)
+        val evidence = project.resolve("evidence/content-core/acceptances/acceptance-retry.yaml")
 
-        When("the exact Content Core acceptance is retried")
-        val output = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-metadata-free-applied", acceptance.toString))
+        When("the same human acceptance is retried")
+        val output = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-retry", acceptance.toString))
 
-        Then("semantic equality succeeds without changing Core bytes, Core time, or historical evidence")
+        Then("the selected candidate is applied and the same logical acceptance record is reused")
         output should include("decision: accepted")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS) shouldBe modifiedbefore
-        Files.readAllBytes(evidence) shouldBe evidencebefore
-      }
-    }
-
-    "reject a metadata-free pending Content Core acceptance before overwriting a different current Core" in {
-      _with_temp_dir("content-core-metadata-free-pending") { root =>
-        Given("a pending historical acceptance without timestamp metadata and an independently changed valid Core")
-        val project = _scaffolded_project(root, "content-core-metadata-free-pending")
-        val candidate = _write(root.resolve("candidate.json"), _succeeded_dialogue("candidate-metadata-free-pending", "pending replacement"))
-        val acceptance = _write(root.resolve("acceptance.json"), _acceptance("acceptance-metadata-free-pending", "candidate-metadata-free-pending"))
-        _execute(List("document-project", "content-core", "candidate", project.toString, candidate.toString))
-        val evidence = project.resolve("evidence/content-core/acceptances/acceptance-metadata-free-pending.yaml")
-        Files.createDirectories(evidence.getParent)
-        Files.writeString(evidence, _acceptance_record("acceptance-metadata-free-pending", "candidate-metadata-free-pending", "human-reviewer", "content/core-en.yaml", None), StandardCharsets.UTF_8)
-        val core = project.resolve("content/core-en.yaml")
-        Files.writeString(core, _core_yaml("content-core-metadata-free-pending", "independent current content"), StandardCharsets.UTF_8)
-        val corebefore = Files.readAllBytes(core)
-        val evidencebefore = Files.readAllBytes(evidence)
-
-        When("the pending Content Core acceptance is retried")
-        val failure = _failure(List("document-project", "content-core", "accept", project.toString, "candidate-metadata-free-pending", acceptance.toString))
-
-        Then("the conservative historical boundary rejects without replacing Core or evidence")
-        failure should include("DP-OP-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.readAllBytes(evidence) shouldBe evidencebefore
-      }
-    }
-
-    "reject a timestamp-mismatched pending Content Core replay when a copied Core retains valid semantics" in {
-      _with_temp_dir("content-core-timestamp-mismatch") { root =>
-        Given("a pending acceptance with a captured Core FileTime and a copied valid Core at a deterministic later time")
-        val project = _scaffolded_project(root, "content-core-timestamp-mismatch")
-        val candidate = _write(root.resolve("candidate.json"), _succeeded_dialogue("candidate-timestamp-mismatch", "timestamp replacement"))
-        val acceptance = _write(root.resolve("acceptance.json"), _acceptance("acceptance-timestamp-mismatch", "candidate-timestamp-mismatch"))
-        _execute(List("document-project", "content-core", "candidate", project.toString, candidate.toString))
-        val core = project.resolve("content/core-en.yaml")
-        val prior = Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS)
-        val evidence = project.resolve("evidence/content-core/acceptances/acceptance-timestamp-mismatch.yaml")
-        Files.createDirectories(evidence.getParent)
-        Files.writeString(evidence, _acceptance_record("acceptance-timestamp-mismatch", "candidate-timestamp-mismatch", "human-reviewer", "content/core-en.yaml", Some(prior)), StandardCharsets.UTF_8)
-        Files.writeString(core, "schema: \"cozy.content-core.v1\"\nid: \"content-core-timestamp-mismatch:core:en\"\nlanguage: \"en\"\naccepted: []\n", StandardCharsets.UTF_8)
-        Files.setLastModifiedTime(core, FileTime.from(prior.toInstant.plusSeconds(1)))
-        val corebefore = Files.readAllBytes(core)
-        val evidencebefore = Files.readAllBytes(evidence)
-
-        When("the timestamp-mismatched Content Core acceptance is retried")
-        val failure = _failure(List("document-project", "content-core", "accept", project.toString, "candidate-timestamp-mismatch", acceptance.toString))
-
-        Then("timestamp currentness rejects the replay while preserving the copied valid Core and evidence")
-        failure should include("DP-OP-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.readAllBytes(evidence) shouldBe evidencebefore
-      }
-    }
-
-    "keep a formatting-only already-applied Content Core acceptance idempotent with its bytes preserved" in {
-      _with_temp_dir("content-core-formatting-idempotent") { root =>
-        Given("an accepted candidate whose direct Core has only a comment-formatting change")
-        val project = _scaffolded_project(root, "content-core-formatting-idempotent")
-        val candidate = _write(root.resolve("candidate.json"), _succeeded_dialogue("candidate-formatting-idempotent", "formatting semantic content"))
-        val acceptance = _write(root.resolve("acceptance.json"), _acceptance("acceptance-formatting-idempotent", "candidate-formatting-idempotent"))
-        _execute(List("document-project", "content-core", "candidate", project.toString, candidate.toString))
-        _execute(List("document-project", "content-core", "accept", project.toString, "candidate-formatting-idempotent", acceptance.toString))
-        val core = project.resolve("content/core-en.yaml")
-        Files.writeString(core, "# retained formatting-only comment\n" + Files.readString(core, StandardCharsets.UTF_8), StandardCharsets.UTF_8)
-        val corebefore = Files.readAllBytes(core)
-        val modifiedbefore = Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS)
-
-        When("the exact Content Core acceptance is retried after the formatting-only change")
-        val output = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-formatting-idempotent", acceptance.toString))
-
-        Then("ordered accepted-entry equality succeeds and preserves the supplied Core bytes and FileTime")
-        output should include("decision: accepted")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS) shouldBe modifiedbefore
+        _load(core).hcursor.downField("accepted").downArray.downField("text").focus.flatMap(_.asString) shouldBe Some("accepted retry content")
+        _load(evidence).hcursor.downField("id").focus.flatMap(_.asString) shouldBe Some("acceptance-retry")
+        val stream = Files.list(evidence.getParent)
+        try stream.iterator().asScala.map(_.getFileName.toString).toVector shouldBe Vector("acceptance-retry.yaml")
+        finally stream.close()
       }
     }
 
@@ -329,39 +258,11 @@ diagnostics:
 }
 """
 
-  private def _acceptance_record(acceptanceid: String, candidateid: String, reviewer: String, corepath: String, modifiedtime: Option[FileTime]): String = {
-    val time = modifiedtime.map(value => "  modifiedTime: \"" + value.toInstant.toString + "\"\n").getOrElse("")
-    s"""schema: cozy.content-core-acceptance-record.v1
-id: "$acceptanceid"
-candidate:
-  id: "$candidateid"
-  path: "evidence/content-core/candidates/$candidateid.yaml"
-reviewer:
-  id: "$reviewer"
-decision:
-  value: accepted
-priorCore:
-  path: "$corepath"
-${time}resultingCore:
-  path: "$corepath"
-"""
-  }
-
-  private def _core_yaml(slug: String, text: String): String =
-    s"schema: cozy.content-core.v1\nid: $slug:core:en\nlanguage: en\naccepted:\n  - id: independent-core\n    text: $text\n"
-
   private def _with_nested_legacy_hash(path: Path, field: String, value: String): Unit = {
     val original = Files.readString(path, StandardCharsets.UTF_8)
     val marker = s"$field:\n"
     Files.writeString(path, original.replace(marker, marker + s"  sha256: $value\n"), StandardCharsets.UTF_8)
   }
-
-  private def _without_modified_time(value: String): String =
-    value.replaceFirst("(?m)^  modifiedTime: .*\\n", "")
-
-  private def _has_hash_field(value: Json): Boolean =
-    value.asObject.exists(_.toMap.exists { case (name, item) => name == "sha256" || _has_hash_field(item) }) ||
-      value.asArray.exists(_.exists(_has_hash_field))
 
   private def _load(path: Path): Json =
     StructuredDocumentLoader.loadJson(InputSource(path.toFile)).take

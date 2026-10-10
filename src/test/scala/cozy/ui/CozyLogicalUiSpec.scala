@@ -8,7 +8,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 2, 2026
+ *  version Sep. 2, 2026
+ * @version Oct. 9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -101,26 +102,22 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
   }
 
   "Cozy Logical UI v1 acceptance" should {
-    "separate candidate, consumed-input, feedback-decision, and accepted identities" in {
-      Given("one constructed candidate and an explicit decision bound to that exact candidate")
+    "accept normalized candidate input through an explicit decision" in {
+      Given("one constructed candidate and an explicit review decision")
       val candidate = _right(CozyLogicalUi.candidate(_valid_input))
-      val decision = AcceptanceDecision("review-001", candidate.identity)
-      val mismatched = AcceptanceDecision("review-002", "sha256:" + "0" * 64)
+      val decision = AcceptanceDecision("review-001")
 
-      When("acceptance is requested with the bound decision and with an unbound decision")
+      When("acceptance is requested with the explicit decision")
       val accepted = _right(CozyLogicalUi.accept(candidate, decision))
-      val rejection = CozyLogicalUi.accept(candidate, mismatched)
 
-      Then("only the bound decision creates accepted authority and every authority role has a distinct identity")
-      accepted.candidate.identity shouldBe candidate.identity
-      accepted.decision.decisionIdentity shouldBe decision.decisionIdentity
-      Set(candidate.identity, candidate.inputIdentity, decision.decisionIdentity, accepted.identity).size shouldBe 4
-      _left(rejection).code shouldBe "LUI43_ACCEPTANCE_CANDIDATE_MISMATCH"
+      Then("accepted authority retains normalized input and the explicit decision ID")
+      accepted.candidate.input shouldBe candidate.input
+      accepted.decision.decisionId shouldBe "review-001"
     }
   }
 
   "Cozy Logical UI v1 codec" should {
-    "preserve deterministic semantic identity across canonical ordering and a strict codec roundtrip" in {
+    "preserve normalized semantic content across canonical ordering and a strict codec roundtrip" in {
       Given("equivalent ordered and reversed canonical inputs plus a ScalaCheck ordering generator")
       val reversed = _valid_input.copy(
         componentSurfaces = _valid_input.componentSurfaces.reverse.map(surface => surface.copy(exportIds = surface.exportIds.reverse)),
@@ -132,25 +129,23 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
         val first = CozyLogicalUi.candidate(input)
         val second = CozyLogicalUi.candidate(_valid_input)
         (first, second) match {
-          case (Right(left), Right(right)) => left.identity == right.identity && left.inputIdentity == right.inputIdentity
+          case (Right(left), Right(right)) => left.input == right.input && left.canonicalJson == right.canonicalJson
           case _ => false
         }
       }
 
-      When("the candidate is normalized, encoded, decoded, and challenged with unknown or mismatched identity fields")
+      When("the candidate is normalized, encoded, decoded, and challenged with an unknown field")
       val candidate = _right(CozyLogicalUi.candidate(reversed))
       val encoded = CozyLogicalUiCodec.encodeCandidate(candidate)
       val decoded = CozyLogicalUiCodec.decodeCandidate(encoded)
       val unknown = CozyLogicalUiCodec.decodeCandidate(encoded.stripSuffix("}") + ",\"unknown\":true}")
-      val mismatched = CozyLogicalUiCodec.decodeCandidate(encoded.replace(candidate.identity, "sha256:" + "f" * 64))
       val propertyresult = Test.check(Test.Parameters.default.withMinSuccessfulTests(20), property)
 
-      Then("canonical bytes and SHA-256 identities remain stable while closed malformed documents are rejected")
+      Then("normalized input and canonical bytes remain stable while unknown fields are rejected")
       encoded shouldBe _right(decoded).canonicalJson
-      _right(decoded).identity shouldBe candidate.identity
+      _right(decoded).input shouldBe candidate.input
       propertyresult.passed shouldBe true
       _left(unknown).code shouldBe "LUI43_CODEC_SCHEMA_INVALID"
-      _left(mismatched).code shouldBe "LUI43_CODEC_IDENTITY_MISMATCH"
     }
   }
 
@@ -161,27 +156,28 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
       val candidate = _right(CozyLogicalUi.candidate(_valid_input))
       val codecbytes = CozyLogicalUiCodec.encodeCandidate(candidate)
       val reviewhtml = "<main data-logical-ui=\"candidate\">review only</main>"
-      val decision = AcceptanceDecision("review-003", candidate.identity)
+      val decision = AcceptanceDecision("review-003")
 
-      When("only the explicit candidate and bound acceptance decision are supplied to the authority constructor")
+      When("only the explicit candidate and acceptance decision are supplied to the authority constructor")
       val accepted = _right(CozyLogicalUi.accept(candidate, decision))
 
-      Then("the accepted identity depends on the candidate and decision, never on prompts, serialized formatting, or review projection bytes")
+      Then("accepted authority retains the normalized candidate and explicit decision without raw prompts or projection bytes")
       accepted.candidate.canonicalContent should not include rawprompt
       accepted.candidate.canonicalContent should not include codecbytes
       accepted.candidate.canonicalContent should not include reviewhtml
-      accepted.identity should not be candidate.identity
-      accepted.decision.candidateIdentity shouldBe candidate.identity
+      accepted.candidate.input shouldBe candidate.input
+      accepted.decision.decisionId shouldBe "review-003"
     }
   }
 
   "Cozy UseCase-to-Screen projection v1" should {
+    "screen structure and public Component admission" which {
     "admit one-to-many, many-to-one, reused-screen, and system-only step mappings" in {
       Given("two opaque catalog UseCaseLayers values, four paths on one UI UseCase, and one reused Logical Screen")
       val candidate = _right(CozyLogicalUi.candidate(_projection_input))
       val projection = _projection(candidate)
 
-      When("the typed projection is normalized against the exact candidate identity")
+      When("the typed projection is normalized against the supplied candidate")
       val result = CozyLogicalUi.project(candidate, projection)
 
       Then("normal, alternative, and exception steps may map to one or many interactions while system-only remains unmapped")
@@ -190,7 +186,6 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
       normalized.input.steps.count(_.path == SystemOnlyPath) shouldBe 1
       normalized.input.mappings.count(_.stepId == "alternative-path") shouldBe 2
       normalized.input.mappings.count(_.screenId == "order-detail") should be >= 1
-      normalized.identity should startWith("sha256:")
     }
 
     "normalize delimiter-shaped UseCase, step, and mapping identities without collision" in {
@@ -245,7 +240,6 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
         ScreenInteractionMapping(firstui, "c", "order-detail", "entry"),
         ScreenInteractionMapping(secondui, "b:c", "order-detail", "entry")
       )
-      normalized.identity should startWith("sha256:")
     }
 
     "preserve purpose, subject, ordered regions, all Component roles, interactions, feedback, and navigation" in {
@@ -310,7 +304,7 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
       When("each variant is submitted to the typed projection boundary")
       val unknownresult = CozyLogicalUi.project(candidate, unknown)
-      val unusedresult = CozyLogicalUi.project(unusedcandidate, valid.copy(candidateIdentity = unusedcandidate.identity))
+      val unusedresult = CozyLogicalUi.project(unusedcandidate, valid)
       val missingresult = CozyLogicalUi.project(candidate, missingcoverage)
       val systemresult = CozyLogicalUi.project(candidate, systemmapping)
       val screenresult = CozyLogicalUi.project(candidate, unusedscreen)
@@ -451,16 +445,16 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
         mappings = workflowprojection.mappings.reverse
       )))
 
-      Then("Workflow remains a mapped Logical Screen pattern source under one exact public binding and canonical identity")
+      Then("Workflow remains a mapped Logical Screen pattern source under one exact public binding and normalized structure")
       normalized.input.screens.head.subject shouldBe ScreenSubject(WorkflowRole, _workflow_binding)
       normalized.input.screens.head.subject.binding shouldBe _workflow_binding
       normalized.input.mappings should contain allElementsOf _projection_mappings
-      normalized.identity shouldBe permuted.identity
+      normalized.input shouldBe permuted.input
       _left(unexportedresult).code shouldBe "LUI43_COMPONENT_EXPORT_CLOSED"
       _left(unknownresult).code shouldBe "LUI43_PROJECTION_COMPONENT_CLOSED"
     }
 
-    "normalize catalog, step, screen, mapping, and boundary permutations to one projection identity" in {
+    "normalize catalog, step, screen, mapping, and boundary permutations to one projection structure" in {
       Given("a valid projection and a permutation generator over its canonical vectors")
       val candidate = _right(CozyLogicalUi.candidate(_projection_input))
       val projection = _projection(candidate)
@@ -480,7 +474,7 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
           ))
         ) else projection
         CozyLogicalUi.project(candidate, value) match {
-          case Right(result) => result.identity == _right(CozyLogicalUi.project(candidate, projection)).identity && result.canonicalContent == _right(CozyLogicalUi.project(candidate, projection)).canonicalContent
+          case Right(result) => result.input == _right(CozyLogicalUi.project(candidate, projection)).input && result.canonicalContent == _right(CozyLogicalUi.project(candidate, projection)).canonicalContent
           case Left(_) => false
         }
       }
@@ -488,8 +482,9 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
       When("the candidate and projection are normalized repeatedly")
       val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(20), property)
 
-      Then("equivalent ordering produces identical canonical content and projection identity")
+      Then("equivalent ordering produces identical normalized structure and canonical content")
       result.passed shouldBe true
+    }
     }
   }
 
@@ -636,7 +631,6 @@ final class CozyLogicalUiSpec extends AnyWordSpec with Matchers with GivenWhenTh
   )
 
   private def _projection(candidate: LogicalUiCandidate): UseCaseScreenProjection = UseCaseScreenProjection(
-    candidate.identity,
     Vector(_other_use_cases, candidate.input.useCases),
     _projection_steps,
     Vector(_projection_screen),

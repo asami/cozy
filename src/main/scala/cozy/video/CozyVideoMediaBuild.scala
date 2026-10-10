@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoMediaBuild {
@@ -50,31 +50,24 @@ private[cozy] trait CozyVideoMediaBuild {
     if (config.dryRun)
       return s"Cozy Video Media Build (dry-run)\nrender: ${selected.map(_.part.id).mkString(", ")}\nassemble: $assemble"
     val plan = graph.plan
-    val products = if (assemble) _media_products(plan) else _media_credit_paths(plan)
     // Preflight every producer destination before renderers can write any output.
     CozyVideoStoryboardArtifacts.preflightProduction(plan.projectRoot, _media_products(plan), graph.inputs.toSet)
-    val before = _media_observations(graph.inputs)
-    CozyVideoStoryboardArtifacts.preserveDuringProduction(plan.projectRoot, products, graph.inputs.toSet) {
-      selected.foreach { selectedpart =>
-        val renderconfig = RenderConfig(plan.projectFile, selectedpart.engine, Some(selectedpart.part.id),
-          config.checkTools, config.toolMode, config.dockerImage)
-        render(renderconfig, tools, runner)
-        _media_probe(plan, selectedpart.part.outputPath, runner)
-      }
-      val result = if (assemble) {
-        val built = build(config.copy(mode = if (_media_native(plan)) Some("final") else config.mode), tools, runner)
-        _media_probe(plan, plan.outputPath, runner)
-        built
-      } else s"Cozy Video Media Build\nstatus: reused\noutput: ${plan.outputPath}"
-      CozyVideoCredits.write(plan.outputPath.getParent.resolve("credits"), plan.credits)
-      val aftergraph = _media_graph(_plan(config.projectFile, config.toolMode, config.dockerImage), additionalInputs)
-      if (_media_observations(aftergraph.inputs) != before)
-        RAISE.invalidArgumentFault(s"Video producer inputs changed during Media build: ${plan.projectFile}")
-      val findings = verifyCredits(plan.projectFile)
-      if (findings.nonEmpty)
-        RAISE.invalidArgumentFault(findings.mkString("Video Media build credit verification failed: ", "; ", ""))
-      result
+    selected.foreach { selectedpart =>
+      val renderconfig = RenderConfig(plan.projectFile, selectedpart.engine, Some(selectedpart.part.id),
+        config.checkTools, config.toolMode, config.dockerImage)
+      render(renderconfig, tools, runner)
+      _media_probe(plan, selectedpart.part.outputPath, runner)
     }
+    val result = if (assemble) {
+      val built = build(config.copy(mode = if (_media_native(plan)) Some("final") else config.mode), tools, runner)
+      _media_probe(plan, plan.outputPath, runner)
+      built
+    } else s"Cozy Video Media Build\nstatus: reused\noutput: ${plan.outputPath}"
+    CozyVideoCredits.write(plan.outputPath.getParent.resolve("credits"), plan.credits)
+    val findings = verifyCredits(plan.projectFile)
+    if (findings.nonEmpty)
+      RAISE.invalidArgumentFault(findings.mkString("Video Media build credit verification failed: ", "; ", ""))
+    result
   }
 
   private def _media_graph(plan: VideoPlan, additionalinputs: Vector[Path]): MediaGraph = {

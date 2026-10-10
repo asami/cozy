@@ -2,11 +2,9 @@ package cozy.config
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.FileTime
-import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
-import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -14,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Aug. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -39,9 +37,6 @@ final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenW
           val projectmarker = context.project.map(_.marker).get
           val projectfile = context.layers.find(_.name == "project-conf").flatMap(_.files.find(_.path == marker)).get
           (projectmarker eq projectfile) shouldBe true
-          projectmarker.size shouldBe Files.size(marker)
-          projectmarker.modifiedTime shouldBe Files.getLastModifiedTime(marker, LinkOption.NOFOLLOW_LINKS)
-          projectmarker.fileKey shouldBe projectfile.fileKey
           context.publicationProfile("project-site").map(_.resolvedRoot) shouldBe Some(project.toAbsolutePath.normalize())
           context.valueProvenance("video.credits.default-profile").map(_.sourcePath) shouldBe Some(marker)
         }
@@ -229,118 +224,6 @@ final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenW
       }
     }
 
-    "retain revalidation evidence" which {
-      "accept unchanged evidence and reject configuration, marker, and user-home drift" in {
-        _with_work("revalidate") { root =>
-          Given("a marked package and a stable user home")
-          val home = _directory(root.resolve("home"))
-          _set_home(home)
-          val project = root.resolve("project")
-          val marker = _write(project.resolve("conf/cozy/config.yaml"), _project_yaml("site", ".", "smartdox"))
-          val packagepath = _directory(project.resolve("package"))
-          val context = CozyProjectContext.resolve(packagepath)
-
-          When("the unchanged snapshot is revalidated")
-          val unchanged = CozyProjectContext.revalidate(context)
-
-          Then("the exact context remains equal")
-          unchanged shouldBe context
-
-          And("configuration byte drift, atomic file replacement, marker removal, and user-home drift are rejected")
-          _write(marker, _project_yaml("site", ".", "changed"))
-          _failure(CozyProjectContext.revalidate(context)).getMessage should include("snapshot")
-          val context2 = CozyProjectContext.resolve(packagepath)
-          val replacement = _write(project.resolve("replacement.yaml"), _project_yaml("site", ".", "changed"))
-          Files.move(replacement, marker, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-          _failure(CozyProjectContext.revalidate(context2)).getMessage should include("snapshot")
-          val context3 = CozyProjectContext.resolve(packagepath)
-          Files.delete(marker)
-          _failure(CozyProjectContext.revalidate(context3)).getMessage should include("snapshot")
-          _write(marker, _project_yaml("site", ".", "changed"))
-          val context4 = CozyProjectContext.resolve(packagepath)
-          _set_home(_directory(root.resolve("other-home")))
-          _failure(CozyProjectContext.revalidate(context4)).getMessage should include("snapshot")
-        }
-      }
-
-      "invalidate an unchanged configuration when only its modification time advances" in {
-        _with_work("revalidate-mtime") { root =>
-          Given("a captured direct configuration with a deterministic modification time")
-          val packagepath = _directory(root.resolve("package"))
-          val config = _write(packagepath.resolve(".cozy/config.yaml"), _project_yaml("site", ".", "kind"))
-          val context = CozyProjectContext.resolve(packagepath)
-          Files.setLastModifiedTime(config, FileTime.fromMillis(context.layers.find(_.name == "package-local").get.files.head.modifiedTime.toMillis + 1000L))
-
-          When("the file content is unchanged but its captured modification time is later")
-          val error = _failure(CozyProjectContext.revalidate(context))
-
-          Then("the context is no longer current")
-          error.getMessage should include("snapshot")
-        }
-      }
-
-      "revalidate semantically equivalent equal-length bytes when their modification time is restored" in {
-        _with_work("revalidate-equivalent") { root =>
-          Given("a direct configuration whose equal-length comment bytes can change")
-          val packagepath = _directory(root.resolve("package"))
-          val initial = _project_yaml("site", ".", "kind") + "# A\n"
-          val config = _write(packagepath.resolve(".cozy/config.yaml"), initial)
-          val context = CozyProjectContext.resolve(packagepath)
-          val modifiedtime = Files.getLastModifiedTime(config, LinkOption.NOFOLLOW_LINKS)
-
-          When("equivalent comment bytes replace the file and restore its captured modification time")
-          _write(config, initial.replace("# A\n", "# B\n"))
-          Files.setLastModifiedTime(config, modifiedtime)
-          val revalidated = CozyProjectContext.revalidate(context)
-
-          Then("the complete semantic context remains current without a byte identity")
-          revalidated shouldBe context
-        }
-      }
-
-      "invalidate equal-length semantic changes even when modification time is restored" in {
-        _with_work("revalidate-semantic-change") { root =>
-          Given("a direct configuration with an equal-length changed project identifier")
-          val packagepath = _directory(root.resolve("package"))
-          val initial = _project_yaml("site", ".", "kind")
-          val config = _write(packagepath.resolve(".cozy/config.yaml"), initial)
-          val context = CozyProjectContext.resolve(packagepath)
-          val modifiedtime = Files.getLastModifiedTime(config, LinkOption.NOFOLLOW_LINKS)
-
-          When("the equal-length changed semantic values restore the captured modification time")
-          _write(config, initial.replace("  id: site\n", "  id: sita\n"))
-          Files.setLastModifiedTime(config, modifiedtime)
-          val error = _failure(CozyProjectContext.revalidate(context))
-
-          Then("recomputed configuration semantics still invalidate the context")
-          error.getMessage should include("snapshot")
-        }
-      }
-
-      "revalidate at least twenty semantically equivalent generated byte variations" in {
-        _with_work("revalidate-equivalent-property") { root =>
-          Given("direct configurations with generated equal-length comment variations")
-          val variations = Gen.choose(0, 99999)
-
-          When("ScalaCheck replaces each variation while restoring its captured modification time")
-          val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(20), Prop.forAll(variations) { value =>
-            val packagepath = _directory(root.resolve(s"package-$value"))
-            val initial = _project_yaml("site", ".", "kind") + s"# A$value\n"
-            val config = _write(packagepath.resolve(".cozy/config.yaml"), initial)
-            val context = CozyProjectContext.resolve(packagepath)
-            val modifiedtime = Files.getLastModifiedTime(config, LinkOption.NOFOLLOW_LINKS)
-            _write(config, initial.replace(s"# A$value\n", s"# B$value\n"))
-            Files.setLastModifiedTime(config, modifiedtime)
-            CozyProjectContext.revalidate(context) == context
-          })
-
-          Then("every generated byte-only variation retains the captured semantic context")
-          check.passed shouldBe true
-          check.succeeded should be >= 20
-        }
-      }
-    }
-
     "read the fixed supported configuration candidates" which {
       "load exact candidate names in declared order as their native formats without a broad scan" in {
         _with_work("formats") { root =>
@@ -434,31 +317,6 @@ final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenW
         errors.foreach { case (_, error) =>
           error.getMessage should include("HOCON include is not allowed")
           error.getMessage should include("config.conf")
-        }
-      }
-
-      "reject same-size in-place mutation between captured file reads" in {
-        _with_work("snapshot-race") { root =>
-          Given("a direct project marker and a deterministic mutation callback that restores modification time")
-          val project = root.resolve("project")
-          val initial = _project_yaml("site", ".", "before")
-          val replacement = _project_yaml("site", ".", "after!")
-          initial.getBytes(StandardCharsets.UTF_8).length shouldBe replacement.getBytes(StandardCharsets.UTF_8).length
-          val marker = _write(project.resolve("conf/cozy/config.yaml"), initial)
-          val modifiedtime = Files.getLastModifiedTime(marker, LinkOption.NOFOLLOW_LINKS)
-          val previous = CozyProjectContext._file_snapshot_between_reads
-          CozyProjectContext._file_snapshot_between_reads = () => {
-            _write(marker, replacement)
-            Files.setLastModifiedTime(marker, modifiedtime)
-          }
-
-          When("project discovery captures the marker while its same-size bytes change")
-          val error = try _failure(CozyProjectContext.resolve(_directory(project.resolve("package"))))
-          finally CozyProjectContext._file_snapshot_between_reads = previous
-
-          Then("the torn snapshot is rejected rather than used as configuration evidence")
-          error.getMessage should include("project marker")
-          error.getMessage should include("changed while being read")
         }
       }
 

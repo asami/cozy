@@ -26,7 +26,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  2, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoRuntime {
@@ -95,7 +95,8 @@ private[cozy] trait CozyVideoRuntime {
     execution: VideoExecutionConfig,
     tool: String,
     args: Vector[String],
-    networkdisabled: Boolean = false
+    networkdisabled: Boolean = false,
+    mounts: Vector[DockerMount] = Vector.empty
   ): Vector[String] =
     execution.toolMode match {
       case VideoToolMode.Docker =>
@@ -105,9 +106,13 @@ private[cozy] trait CozyVideoRuntime {
           "--rm"
         ) ++ (if (networkdisabled) Vector("--network=none") else Vector.empty) ++ Vector(
           "-v",
-          s"${projectroot}:/workspace",
+          s"${projectroot.toAbsolutePath.normalize()}:/workspace",
           "-w",
-          "/workspace",
+          "/workspace"
+        ) ++ mounts.flatMap { mount =>
+          val access = if (mount.readonly) "ro" else "rw"
+          Vector("-v", s"${mount.hostpath}:${mount.containerpath}:$access")
+        } ++ Vector(
           execution.dockerImage,
           tool
         ) ++ args
@@ -144,10 +149,22 @@ private[cozy] trait CozyVideoRuntime {
     }
 
   private[video] def _docker_path(projectroot: Path, path: Path): String = {
+    val root = projectroot.toAbsolutePath.normalize()
     val normalized = path.toAbsolutePath.normalize()
-    if (normalized.startsWith(projectroot))
-      "/workspace/" + projectroot.relativize(normalized).toString
+    if (normalized.startsWith(root))
+      "/workspace/" + root.relativize(normalized).toString
     else
       normalized.toString
+  }
+
+  private[video] def _selected_path_mounts(projectroot: Path, inputs: Vector[Path], outputs: Vector[Path] = Vector.empty): Vector[DockerMount] = {
+    val root = projectroot.toAbsolutePath.normalize()
+    val parents = outputs.map(_.toAbsolutePath.normalize().getParent).distinct
+    parents.foreach(Files.createDirectories(_))
+    val externalparents = parents.filterNot(_.startsWith(root))
+    val files = inputs.map(_.toAbsolutePath.normalize()).distinct
+      .filterNot(path => path.startsWith(root) || externalparents.exists(path.startsWith(_)))
+    files.map(path => DockerMount(path, path.toString, readonly = true)) ++
+      externalparents.map(path => DockerMount(path, path.toString, readonly = false))
   }
 }

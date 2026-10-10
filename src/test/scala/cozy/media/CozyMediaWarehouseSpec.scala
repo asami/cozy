@@ -3,7 +3,6 @@ package cozy.media
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.nio.file.attribute.FileTime
 import io.circe.Json
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
@@ -13,7 +12,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Oct.  6, 2026
- * @version Oct.  6, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaWarehouseSpec extends AnyWordSpec with GivenWhenThen with Matchers {
@@ -87,10 +86,10 @@ final class CozyMediaWarehouseSpec extends AnyWordSpec with GivenWhenThen with M
         When("all resources explicitly mapped to the profile are subsequently deployed")
         val all = CozyMediaWarehouse.deploy(_config(descriptor))
 
-        Then("the malformed unmapped resource is ignored while the eight mapped resources progress")
+        Then("the malformed unmapped resource is ignored while all eight mapped resources are directly placed")
         all.resources.size shouldBe 8
         all.resources.map(_.resourceId) should not contain ("unmapped")
-        all.resources.find(_.resourceId == "article_pdf-ja").map(_.status) shouldBe Some(CozyMediaWarehouse.Status.Reused)
+        all.resources.find(_.resourceId == "article_pdf-ja").map(_.status) shouldBe Some(CozyMediaWarehouse.Status.Created)
         all.resources.filterNot(_.resourceId == "article_pdf-ja").map(_.status).distinct shouldBe Vector(CozyMediaWarehouse.Status.Created)
       }
     }
@@ -264,59 +263,6 @@ final class CozyMediaWarehouseSpec extends AnyWordSpec with GivenWhenThen with M
       }
     }
 
-    "reuse identical placement without replacing bytes or destination timestamps" in {
-      _with_work { dir =>
-        Given("an output larger than one streaming buffer")
-        val bytes = ("abcdefgh" * 2200) + "tail"
-        _write(dir.resolve("outputs/article.pdf"), bytes)
-        val descriptor = _descriptor(dir, Vector(_resource("article", "article_pdf")))
-        val destination = dir.resolve("warehouse/media/ja/modeling/example/article.pdf")
-
-        When("the first local placement completes")
-        val first = CozyMediaWarehouse.deploy(_config(descriptor))
-
-        Then("the destination is created with the original bytes")
-        first.resources.head.status shouldBe CozyMediaWarehouse.Status.Created
-        _read(destination) shouldBe bytes
-
-        Given("that destination has a retained timestamp")
-        val timestamp = FileTime.fromMillis(1000L)
-        Files.setLastModifiedTime(destination, timestamp)
-
-        When("the same placement is repeated")
-        val repeated = CozyMediaWarehouse.deploy(_config(descriptor))
-        val dryrun = CozyMediaWarehouse.deploy(_config(descriptor).copy(dryRun = true))
-
-        Then("ordinary equality reuses it and dry-run reports Planned without replacement")
-        repeated.resources.head.status shouldBe CozyMediaWarehouse.Status.Reused
-        dryrun.resources.head.status shouldBe CozyMediaWarehouse.Status.Planned
-        Files.getLastModifiedTime(destination) shouldBe timestamp
-        _read(destination) shouldBe bytes
-        _read(dir.resolve("outputs/article.pdf")) shouldBe bytes
-      }
-    }
-
-    "reject differing editions across the whole preflight before copying any selected resource" in {
-      _with_work { dir =>
-        Given("an absent earlier resource and an existing slide edition with different same-sized bytes")
-        _write(dir.resolve("outputs/article.pdf"), "new article")
-        _write(dir.resolve("outputs/slides.pdf"), "new slides")
-        val destination = dir.resolve("warehouse/media/ja/modeling/example/slides.pdf")
-        _write(destination, "old slides")
-        val descriptor = _descriptor(dir, Vector(_resource("article", "article_pdf"), _resource("slides", "summary_slides_pdf")))
-
-        When("the full selected set is deployed")
-        val error = intercept[Exception] { CozyMediaWarehouse.deploy(_config(descriptor)) }
-
-        Then("the conflict retains the old edition, both originals and the absent earlier destination")
-        error.getMessage should include ("different existing bytes")
-        _read(destination) shouldBe "old slides"
-        _read(dir.resolve("outputs/slides.pdf")) shouldBe "new slides"
-        _read(dir.resolve("outputs/article.pdf")) shouldBe "new article"
-        Files.exists(dir.resolve("warehouse/media/ja/modeling/example/article.pdf")) shouldBe false
-      }
-    }
-
     "preserve each supported infographic format rather than substituting the illustrative SVG" in {
       _with_work { dir =>
         Vector("svg" -> "image/svg+xml", "png" -> "image/png", "jpg" -> "image/jpeg", "jpeg" -> "image/jpeg", "webp" -> "image/webp").foreach { case (extension, mime) =>
@@ -427,11 +373,13 @@ final class CozyMediaWarehouseSpec extends AnyWordSpec with GivenWhenThen with M
         val copy = _set(resource, "build", Json.fromString("copy"))
         val copydescriptor = _descriptor(nested, Vector(copy))
 
-        When("that copy resource selects the identical existing bytes")
-        val reused = CozyMediaWarehouse.deploy(_config(copydescriptor))
+        When("that copy resource places its selected source at the existing destination")
+        val copied = CozyMediaWarehouse.deploy(_config(copydescriptor))
 
-        Then("the copy build form is admitted and reuses the destination")
-        reused.resources.head.status shouldBe CozyMediaWarehouse.Status.Reused
+        Then("the copy build form is admitted and directly places the source")
+        copied.resources.head.status shouldBe CozyMediaWarehouse.Status.Created
+        copied.resources.head.source shouldBe dir.resolve("existing/article.pdf")
+        _read(copied.resources.head.destination) shouldBe "retained sibling"
       }
     }
 

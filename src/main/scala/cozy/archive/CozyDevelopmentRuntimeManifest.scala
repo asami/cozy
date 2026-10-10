@@ -1,7 +1,7 @@
 package cozy.archive
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, Path, StandardCopyOption}
+import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
 
 import cozy.compatibility.CarMetadataCompatibility
@@ -18,7 +18,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
  *
  * @since   Jul. 29, 2026
  *  version Aug. 26, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDevelopmentRuntimeManifest {
@@ -98,7 +98,9 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
       ),
       "evidence" -> JsArray(evidence)
     )
-    _write_atomically(output.toAbsolutePath.normalize(), Json.prettyPrint(manifest) + "\n")
+    val outputpath = output.toAbsolutePath.normalize()
+    Option(outputpath.getParent).foreach(Files.createDirectories(_))
+    Files.writeString(outputpath, Json.prettyPrint(manifest) + "\n", StandardCharsets.UTF_8)
   }
 
   private final case class Coordinate(
@@ -182,21 +184,5 @@ private[cozy] object CozyDevelopmentRuntimeManifest {
   private def _require_safe_identity(value: String): Unit =
     if (value.isEmpty || value.startsWith("/") || value.contains("\\") || value.split('/').contains(".."))
       RAISE.invalidArgumentFault(s"Development runtime evidence has unsafe identity: $value")
-
-  private def _write_atomically(path: Path, content: String): Unit = {
-    Option(path.getParent).foreach(Files.createDirectories(_))
-    val temporary = Files.createTempFile(path.getParent, s".${path.getFileName.toString}.", ".tmp")
-    try {
-      Files.writeString(temporary, content, StandardCharsets.UTF_8)
-      try
-        Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      catch {
-        case _: AtomicMoveNotSupportedException =>
-          Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING)
-      }
-    } finally {
-      Files.deleteIfExists(temporary)
-    }
-  }
 
 }

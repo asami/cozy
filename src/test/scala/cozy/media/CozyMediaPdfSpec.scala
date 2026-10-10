@@ -13,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
  * @since   Aug. 29, 2026
  *  version Aug. 30, 2026
  *  version Sep.  7, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -72,7 +72,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         _write(descriptor, _descriptor(articleoutput = "../" + escaped.getFileName.toString))
         var rendererinvoked = false
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             rendererinvoked = true
             _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "unexpected")
             0
@@ -103,7 +103,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
           _write(descriptor, _descriptor())
           var rendererinvoked = false
           val runner = new CozyMedia.ProcessRunner {
-            def run(command: Vector[String], workingdirectory: Path): Int = {
+            def run(command: Vector[String], workingDirectory: Path): Int = {
               rendererinvoked = true
               _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "unexpected")
               0
@@ -221,7 +221,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         _write(descriptor, _descriptor())
         var recordedcommand = Vector.empty[String]
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             recordedcommand = command
             _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "new")
             0
@@ -231,11 +231,8 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         When("Cozy builds the resource")
         CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
 
-        Then("the renderer receives only its configured argv followed by source, staged output, locale, and canonical format")
-        val staged = recordedcommand(4)
-        recordedcommand shouldBe Vector("smartdox", "pdf", root.resolve("knowledge/article.dox").toString, "--output", staged, "--locale", "ja", "--latex-format", "business")
-        Path.of(staged).getParent shouldBe root.resolve("target/cozy-media")
-        Path.of(staged).getFileName.toString should startWith(".cozy-media-pdf-")
+        Then("the renderer receives only its configured argv followed by source, declared output, locale, and canonical format")
+        recordedcommand shouldBe Vector("smartdox", "pdf", root.resolve("knowledge/article.dox").toString, "--output", root.resolve("target/cozy-media/article-ja.pdf").toString, "--locale", "ja", "--latex-format", "business")
         recordedcommand should not contain root.resolve("infographic/article-ja.svg").toString
         Files.readString(root.resolve("target/cozy-media/article-ja.pdf"), StandardCharsets.US_ASCII) should include("%PDF-")
       }
@@ -254,7 +251,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         _write(descriptor, _descriptor())
         var recordedcommand = Vector.empty[String]
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             recordedcommand = command
             _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "site-context")
             0
@@ -270,10 +267,9 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         ), runner)
 
         Then("SmartDox receives the existing PDF operands followed only by canonical root and config")
-        val staged = recordedcommand(4)
         recordedcommand shouldBe Vector(
           "smartdox", "pdf", site.resolve("knowledge/article.dox").toRealPath().toString,
-          "--output", staged,
+          "--output", site.resolve("target/cozy-media/article-ja.pdf").toString,
           "--locale", "ja",
           "--latex-format", "business",
           "--site-root", site.toRealPath().toString,
@@ -308,7 +304,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
           Files.createSymbolicLink(linkedroot, site)
           var rendererinvoked = false
           val runner = new CozyMedia.ProcessRunner {
-            def run(command: Vector[String], workingdirectory: Path): Int = {
+            def run(command: Vector[String], workingDirectory: Path): Int = {
               rendererinvoked = true
               _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "unexpected")
               0
@@ -354,7 +350,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
       }
     }
 
-    "preserve prior output and receipt visibility when rendering fails" in {
+    "reject renderer failure without fresh receipt acceptance" in {
       _with_temp_dir("failure") { root =>
         Given("an existing PDF and manifest before a failing render")
         _write(root.resolve("knowledge/article.dox"), "article")
@@ -365,22 +361,21 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = 9
+          def run(command: Vector[String], workingDirectory: Path): Int = 9
         }
 
         When("the configured renderer exits unsuccessfully")
         val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
 
-        Then("the former output and receipt bytes remain visible")
+        Then("the renderer failure reports its exit without replacing receipt acceptance")
         failure.getMessage should include("exit=9")
-        Files.readString(root.resolve("target/cozy-media/article-ja.pdf"), StandardCharsets.US_ASCII) should include("previous")
         Files.readString(manifest, StandardCharsets.UTF_8) shouldBe "previous-receipt"
       }
     }
 
-    "preserve prior output and receipt bytes when staged output is not a PDF" in {
-      _with_temp_dir("invalid-staged-output") { root =>
-        Given("an existing PDF and manifest before a renderer writes a regular non-PDF staged file")
+    "reject a direct renderer output that is not a PDF without fresh receipt acceptance" in {
+      _with_temp_dir("invalid-output") { root =>
+        Given("an existing PDF and manifest before a renderer writes a regular non-PDF output")
         _write(root.resolve("knowledge/article.dox"), "article")
         _write_infographic(root)
         val output = root.resolve("target/cozy-media/article-ja.pdf")
@@ -390,79 +385,18 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             _write(Path.of(command(command.indexOf("--output") + 1)), "not-a-pdf")
             0
           }
         }
 
-        When("the renderer exits successfully with a non-PDF staged file")
+        When("the renderer exits successfully with a non-PDF output")
         val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
 
-        Then("the renderer output is rejected and prior output and receipt bytes remain unchanged")
+        Then("the renderer output is rejected without replacing the accepted receipt")
         failure.getMessage should include("did not create a direct regular PDF output")
-        Files.readString(output, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nprevious-invalid-output"
         Files.readString(manifest, StandardCharsets.UTF_8) shouldBe "previous-invalid-receipt"
-      }
-    }
-
-    "preserve prior output and receipt bytes when renderer input changes before return" in {
-      _with_temp_dir("input-race") { root =>
-        Given("an existing PDF and manifest before a renderer changes the article source")
-        val source = root.resolve("knowledge/article.dox")
-        _write(source, "article")
-        _write_infographic(root)
-        val output = root.resolve("target/cozy-media/article-ja.pdf")
-        _write_pdf(output, "previous-race-output")
-        val manifest = root.resolve("target/cozy-media/manifest.json")
-        _write(manifest, "previous-race-receipt")
-        val descriptor = root.resolve("media.json")
-        _write(descriptor, _descriptor())
-        val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
-            _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "raced")
-            _write(source, "article-changed-during-render")
-            0
-          }
-        }
-
-        When("the renderer returns after changing a declared input")
-        val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
-
-        Then("the input race is rejected and prior output and receipt bytes remain unchanged")
-        failure.getMessage should include("inputs changed during build")
-        Files.readString(output, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nprevious-race-output"
-        Files.readString(manifest, StandardCharsets.UTF_8) shouldBe "previous-race-receipt"
-      }
-    }
-
-    "preserve prior output and receipt bytes when the infographic authority changes during rendering" in {
-      _with_temp_dir("infographic-input-race") { root =>
-        Given("an existing PDF and manifest before a renderer changes the selected infographic source")
-        _write(root.resolve("knowledge/article.dox"), "article")
-        val infographic = root.resolve("infographic/article-ja.svg")
-        _write_infographic(root)
-        val output = root.resolve("target/cozy-media/article-ja.pdf")
-        _write_pdf(output, "previous-infographic-race-output")
-        val manifest = root.resolve("target/cozy-media/manifest.json")
-        _write(manifest, "previous-infographic-race-receipt")
-        val descriptor = root.resolve("media.json")
-        _write(descriptor, _descriptor())
-        val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
-            _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "raced")
-            _write(infographic, "infographic-changed-during-render")
-            0
-          }
-        }
-
-        When("the renderer returns after changing the explicit infographic authority")
-        val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
-
-        Then("the authority race is rejected and prior output and receipt bytes remain unchanged")
-        failure.getMessage should include("inputs changed during build")
-        Files.readString(output, StandardCharsets.US_ASCII) shouldBe "%PDF-1.7\nprevious-infographic-race-output"
-        Files.readString(manifest, StandardCharsets.UTF_8) shouldBe "previous-infographic-race-receipt"
       }
     }
 
@@ -475,7 +409,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "accepted")
             0
           }
@@ -499,7 +433,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "regenerated")
             0
           }
@@ -526,7 +460,7 @@ final class CozyMediaPdfSpec extends AnyWordSpec with Matchers with GivenWhenThe
         val descriptor = root.resolve("media.json")
         _write(descriptor, _descriptor())
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             _write_pdf(Path.of(command(command.indexOf("--output") + 1)), "accepted")
             0
           }

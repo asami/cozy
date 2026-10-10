@@ -19,7 +19,7 @@ import cozy.CozySpecVocabulary
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
  *  version Sep. 16, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -926,7 +926,7 @@ final class CozyVideoSpec
             runner
           )
 
-          Then("ffmpeg and ffprobe use container-visible staging before publishing the result")
+          Then("ffmpeg reads the selected container-visible parts and ffprobe validates the declared final output")
           out should include_text("Cozy Video Build")
           out should include_text("output: " + dir.resolve("build/final.mp4").normalize())
           out should include_text("manifest: " + dir.resolve("build/manifest.json").normalize())
@@ -945,21 +945,22 @@ final class CozyVideoSpec
           val probes = runner.commands.filter(_.args.contains("ffprobe"))
           val mux = runner.commands.find(_.args.contains("ffmpeg")).get
           val containeroutput = Paths.get(mux.args.last)
-          val containerworkspace = containeroutput.getParent
+          val containerworkspace = Paths.get(mux.args(mux.args.indexOf("-i") + 1)).getParent
           val workspace = dir.resolve(containerworkspace.toString.stripPrefix("/workspace/")).normalize()
           workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
           workspace.getFileName.toString should startWith("assembly-")
-          containeroutput.getFileName.toString shouldBe "rendered.mp4"
+          containeroutput.toString shouldBe "/workspace/build/final.mp4"
           probes.take(2).map(_.args.last) shouldBe Vector(
-            containerworkspace.resolve("parts/part-01.mp4").toString,
-            containerworkspace.resolve("parts/part-02.mp4").toString)
+            "/workspace/build/parts/lecture.mp4",
+            "/workspace/build/parts/board.mp4")
           mux.args should contain(containerworkspace.resolve("concat.txt").toString)
           mux.args should contain(containeroutput.toString)
           mux.args should contain("-copyts")
           probes.last.args should contain(containeroutput.toString)
           val concat = _read(workspace.resolve("concat.txt"))
-          concat should include_text(s"file '${containerworkspace.resolve("parts/part-01.mp4")}'")
-          concat should include_text(s"file '${containerworkspace.resolve("parts/part-02.mp4")}'")
+          concat shouldBe "file '/workspace/build/parts/lecture.mp4'\nfile '/workspace/build/parts/board.mp4'\n"
+          Files.readAllBytes(dir.resolve("build/parts/lecture.mp4")).toVector shouldBe Vector[Byte](1, 2, 3)
+          Files.readAllBytes(dir.resolve("build/parts/board.mp4")).toVector shouldBe Vector[Byte](4, 5, 6)
           dir.resolve("build/final.mp4") should be_regular_file
           val manifest = _read(dir.resolve("build/manifest.json"))
           parser.parse(manifest).toOption.flatMap(_.hcursor.get[String]("status").toOption) shouldBe Some("validated")
@@ -993,7 +994,7 @@ final class CozyVideoSpec
           )
           val runner = AssemblyRunner()
 
-          When("the public final build stages and validates its output")
+          When("the public final build writes and validates its selected output")
           val out = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -1005,12 +1006,12 @@ final class CozyVideoSpec
             runner
           )
 
-          Then("the two commands validate the private stage before installing the final output and manifest")
+          Then("the two commands write and probe the declared final output before its manifest")
           val output = Paths.get(runner.commands(0).args.last)
-          val workspace = output.getParent
+          val workspace = Paths.get(runner.commands(0).args(runner.commands(0).args.indexOf("-i") + 1)).getParent
           workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
           workspace.getFileName.toString should startWith("assembly-")
-          output.getFileName.toString shouldBe "rendered.mp4"
+          output shouldBe dir.resolve("build/final.mp4")
           runner.commands(1).args.last shouldBe output.toString
           runner.commands(0).args should contain(workspace.resolve("concat.txt").toString)
           runner.commands(0).args should contain("-copyts")
@@ -1057,12 +1058,12 @@ final class CozyVideoSpec
             )) shouldBe true)
           }
 
-          Then("the validated private stage becomes the final MP4 with its existing manifest shape")
+          Then("the selected final MP4 is probed and recorded with its existing manifest shape")
           val output = Paths.get(runner.commands(0).args.last)
-          val workspace = output.getParent
+          val workspace = Paths.get(runner.commands(0).args(runner.commands(0).args.indexOf("-i") + 1)).getParent
           workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
           workspace.getFileName.toString should startWith("assembly-")
-          output.getFileName.toString shouldBe "rendered.mp4"
+          output shouldBe dir.resolve("build/final.mp4")
           runner.commands(1).args.last shouldBe output.toString
           runner.commands(0).args should contain(workspace.resolve("concat.txt").toString)
           ((out.contains("Cozy Video Build")) shouldBe true)
@@ -2227,7 +2228,7 @@ final class CozyVideoSpec
           propsjson.hcursor.get[Int]("width").toOption shouldBe Some(1280)
           propsjson.hcursor.get[Int]("height").toOption shouldBe Some(720)
           propsjson.hcursor.get[Int]("crf").toOption shouldBe Some(32)
-          _read(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs")) should include_text("`--crf=${props.crf}`")
+          propsjson.hcursor.get[String]("outputPath").toOption shouldBe Some("build/parts/lecture.mp4")
           ((Files.isRegularFile(
             dir.resolve(
               "target/cozy-video/remotion/lecture/public/audio/01-title.wav"
@@ -2259,7 +2260,7 @@ final class CozyVideoSpec
         }
       }
 
-      "video render remotion projects configured CRF and x264 preset into the generated command" in {
+      "video render remotion retains configured CRF, x264 preset and selected output" in {
         Given("a Remotion video project with explicit encoding settings")
         _with_temp_dir("cozy-video-render-remotion-explicit-encoding") { dir =>
           _write(dir.resolve("dialogue.json"), _script_json)
@@ -2285,16 +2286,15 @@ final class CozyVideoSpec
             ProfileRenderRunner()
           )
 
-          Then("the generated props and command retain the configured CRF and preset")
+          Then("the generated props retain the configured CRF, preset and declared output")
           val propsjson = parser.parse(Files.readString(
             dir.resolve("target/cozy-video/remotion/lecture/props.json"),
             StandardCharsets.UTF_8
           )).toOption.get
-          val command = _read(dir.resolve("target/cozy-video/remotion/lecture/src/render.mjs"))
           propsjson.hcursor.get[Int]("crf").toOption shouldBe Some(21)
           propsjson.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
-          command should include_text("`--crf=${props.crf}`")
-          command should include_text("`--x264-preset=${props.x264Preset}`")
+          propsjson.hcursor.get[String]("outputPath").toOption shouldBe Some("build/parts/lecture.mp4")
+          dir.resolve("build/parts/lecture.mp4") should be_regular_file
         }
       }
 
@@ -2434,22 +2434,17 @@ final class CozyVideoSpec
         }
       }
 
-      "video render rejects missing or mismatched bundled character-dialogue renderer resources" in {
-        Given("a missing renderer resource and a bundled resource with a mismatched expected integrity digest")
-        val failures = Vector(
-          ("MissingRenderer.jsx", "mismatched-digest", "Missing Cozy character-dialogue renderer resource: cozy/video/remotion/MissingRenderer.jsx"),
-          ("DialogueVideo.jsx", "mismatched-digest", "Cozy character-dialogue renderer resource digest does not match the bundled template contract: DialogueVideo.jsx")
-        )
+      "video render rejects a missing bundled character-dialogue renderer resource" in {
+        Given("a named renderer resource that is absent from the bundle")
+        val name = "MissingRenderer.jsx"
 
-        failures.foreach { case (name, expecteddigest, diagnostic) =>
-          When(s"Cozy loads $name against the supplied integrity contract")
-          val fault = intercept[IllegalArgumentException] {
-            CozyVideoImplementation._load_character_dialogue_template_resource(name, expecteddigest)
-          }
-
-          Then("the invalid-argument exception identifies the rejected renderer resource and its failure")
-          fault.getMessage should include_text(diagnostic)
+        When(s"Cozy loads $name")
+        val fault = intercept[IllegalArgumentException] {
+          CozyVideoImplementation._load_character_dialogue_template_resource(name)
         }
+
+        Then("the invalid-argument exception identifies the missing named renderer resource")
+        fault.getMessage should include_text("Missing Cozy character-dialogue renderer resource: cozy/video/remotion/MissingRenderer.jsx")
       }
 
       "video render keeps requested legacy tail distinct from effective audio timing in character props" in {
@@ -3165,11 +3160,11 @@ final class CozyVideoSpec
           ((framefailure.getMessage
             .contains("simple-java2d frame render failed")) shouldBe true)
 
-          Given("a prior successful part output before the encode attempt")
+          Given("the selected part output before the encode attempt")
           Files.createDirectories(dir.resolve("build/parts"))
           Files.write(dir.resolve("build/parts/intro.mp4"), "previous-successful-output".getBytes(StandardCharsets.UTF_8))
 
-          When("the staged ffmpeg encode fails")
+          When("the selected ffmpeg encode fails")
           val ffmpegfailure = intercept[Throwable] {
             CozyVideo.render(
               CozyVideo.RenderConfig(
@@ -3180,9 +3175,8 @@ final class CozyVideoSpec
               RenderingRunner(failTool = Some("ffmpeg"))
             )
           }
-          Then("the renderer reports the failure without replacing the previous part output")
+          Then("the renderer reports the actual encode failure")
           ffmpegfailure.getMessage should include("simple-java2d ffmpeg encode failed")
-          Files.readString(dir.resolve("build/parts/intro.mp4"), StandardCharsets.UTF_8) shouldBe "previous-successful-output"
 
           val missingtool = intercept[Throwable] {
             CozyVideo.render(
@@ -5473,8 +5467,7 @@ final class CozyVideoSpec
               yamlpkg,
               dir.resolve("publication"),
               dir.resolve("warehouse"),
-              None,
-              force = false
+              None
             )
           )
 
@@ -5513,8 +5506,7 @@ final class CozyVideoSpec
               jsonpkg,
               dir.resolve("publication"),
               dir.resolve("warehouse"),
-              Some("0.2.0"),
-              force = false
+              Some("0.2.0")
             )
           )
 
@@ -5545,8 +5537,7 @@ final class CozyVideoSpec
                 pkg,
                 dir.resolve("publication"),
                 dir.resolve("warehouse"),
-                None,
-                force = false
+                None
               )
             )
           }
@@ -5597,8 +5588,7 @@ final class CozyVideoSpec
               pkg,
               publication,
               warehouse,
-              None,
-              force = false
+              None
             ),
             RecordingVoicevoxClient(),
             runner
@@ -5807,23 +5797,6 @@ final class CozyVideoSpec
             result.workspaceRoot.resolve("source/assets/legacy/nested-overlay.svg")
           ) should include("legacy overlay")
 
-          And(
-            "existing release artifacts are protected unless force is supplied"
-          )
-          val exists = intercept[RuntimeException] {
-            CozyVideoPublisher.publish(
-              CozyVideoPublisher.PublishVideoConfig(
-                pkg,
-                publication,
-                warehouse,
-                None,
-                force = false
-              ),
-              RecordingVoicevoxClient(),
-              PublishingRunner()
-            )
-          }
-          exists.getMessage should include("already exists")
         }
       }
 
@@ -5859,7 +5832,6 @@ final class CozyVideoSpec
               publication,
               warehouse,
               None,
-              force = false,
               Some(repository)
             ),
             RecordingVoicevoxClient(),
@@ -5921,8 +5893,7 @@ final class CozyVideoSpec
               pkg,
               publication,
               warehouse,
-              None,
-              force = false
+              None
             ),
             RecordingVoicevoxClient(),
             PublishingRunner()
@@ -6282,6 +6253,13 @@ object CozyVideoSpec {
           )
         if (args.contains("ffmpeg"))
           Files.write(_command_path(cwd, args.last), Array[Byte](0, 0, 0, 0))
+        if (args.contains("node") && args.exists(_.endsWith("render.mjs"))) {
+          val script = args.find(_.endsWith("render.mjs")).map(_command_path(cwd, _)).get
+          val props = parser.parse(Files.readString(script.getParent.getParent.resolve("props.json"), StandardCharsets.UTF_8)).toOption.get
+          val output = _command_path(cwd, props.hcursor.get[String]("outputPath").toOption.get)
+          Files.createDirectories(output.getParent)
+          Files.write(output, Array[Byte](0, 0, 0, 0))
+        }
         CozyVideo.VideoCommandResult(0, "ok", "")
       }
     }
@@ -6339,10 +6317,10 @@ object CozyVideoSpec {
           .find(_.endsWith("render.mjs"))
           .map(_command_path(cwd, _))
           .get
-        Files.write(
-          script.getParent.getParent.resolve("rendered.mp4"),
-          Array[Byte](0, 0, 0, 0)
-        )
+        val props = parser.parse(Files.readString(script.getParent.getParent.resolve("props.json"), StandardCharsets.UTF_8)).toOption.get
+        val output = _command_path(cwd, props.hcursor.get[String]("outputPath").toOption.get)
+        Files.createDirectories(output.getParent)
+        Files.write(output, Array[Byte](0, 0, 0, 0))
         CozyVideo.VideoCommandResult(0, "node ok", "")
       } else if (args.contains("ffprobe")) {
         Files.createDirectories(cwd.resolve("build"))

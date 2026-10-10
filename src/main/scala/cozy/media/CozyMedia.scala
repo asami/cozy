@@ -10,7 +10,6 @@ import io.circe.{Decoder, HCursor, Json}
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
@@ -19,7 +18,7 @@ import scala.util.control.NonFatal
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
  *  version Sep. 14, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -215,13 +214,13 @@ private[cozy] object CozyMedia {
   }
 
   trait ProcessRunner {
-    def run(command: Vector[String], workingdirectory: Path): Int
+    def run(command: Vector[String], workingDirectory: Path): Int
   }
   object ProcessRunner {
     val default: ProcessRunner = new ProcessRunner {
-      def run(command: Vector[String], workingdirectory: Path): Int = {
+      def run(command: Vector[String], workingDirectory: Path): Int = {
         val process = new ProcessBuilder(command: _*).
-          directory(workingdirectory.toFile).
+          directory(workingDirectory.toFile).
           inheritIO().
           start()
         process.waitFor()
@@ -232,36 +231,12 @@ private[cozy] object CozyMedia {
   type CommandConfig = CozyMediaSiteContext.CommandConfig
   val CommandConfig = CozyMediaSiteContext.CommandConfig
 
-  sealed trait DestinationState
-  object DestinationState {
-    case object Absent extends DestinationState
-    final case class Existing(sha256: String) extends DestinationState
-  }
-
-  sealed trait PublicationDisposition {
-    def label: String
-  }
-  object PublicationDisposition {
-    case object Create extends PublicationDisposition {
-      val label = "create"
-    }
-    case object Reuse extends PublicationDisposition {
-      val label = "reuse"
-    }
-    case object Replace extends PublicationDisposition {
-      val label = "replace"
-    }
-  }
-
   sealed trait PublicationOutcome {
     def label: String
   }
   object PublicationOutcome {
     case object Created extends PublicationOutcome {
       val label = "created"
-    }
-    case object Reused extends PublicationOutcome {
-      val label = "reused"
     }
     case object Replaced extends PublicationOutcome {
       val label = "replaced"
@@ -272,7 +247,6 @@ private[cozy] object CozyMedia {
     descriptorFile: Path,
     descriptorRoot: Path,
     descriptor: Descriptor,
-    observedInputs: Vector[(Path, java.nio.file.attribute.FileTime)],
     resource: Resource,
     target: Option[String],
     context: CozyProjectContext.Context,
@@ -280,24 +254,9 @@ private[cozy] object CozyMedia {
     effectiveProfile: EffectiveProfile,
     profile: String,
     profileRoot: Path,
-    profileRootIdentity: Path,
     publishablePath: Path,
-    destination: Path,
-    destinationIdentity: Path,
-    sourceSha256: String,
-    destinationState: DestinationState,
-    force: Boolean,
-    disposition: PublicationDisposition
-  ) {
-    def commandConfig: CommandConfig =
-      CommandConfig(
-        descriptorFile,
-        target = target,
-        profile = Some(profile),
-        siteRoot = siteContext.map(_.root),
-        siteConfig = siteContext.map(_.config)
-      )
-  }
+    destination: Path
+  )
 
   final case class PublicationResult(
     prepared: PreparedPublication,
@@ -444,10 +403,8 @@ private[cozy] object CozyMedia {
       val findings = _verify_plan(mediaplan, selected, None, requirereceipt = false)
       if (findings.nonEmpty)
         RAISE.invalidArgumentFault("Media build structural verification failed:\n" + findings.map(x => s"- $x").mkString("\n"))
-      val acceptedidentity = CozyMediaReceipt.capture(mediaplan)
-      if (plannedidentity.exists(_.observedFiles != acceptedidentity.observedFiles))
-        RAISE.invalidArgumentFault("Media receipt inputs changed during selected build; no fresh acceptance evidence was written")
-      val reviewstates = selected.filter(_.resource.build == "presentation").map(resolved => CozyMediaReviewState.prepareRefresh(mediaplan, resolved))
+      val acceptedidentity = plannedidentity.get
+      val reviewstates = selected.filter(_.resource.build == "presentation").map(resolved => CozyMediaReviewState.prepareRefresh(mediaplan, resolved, rendered = resolved.action == Action.Build))
       val acceptance = CozyMediaReceipt.prepareAcceptance(mediaplan, selected, acceptedidentity, config.target)
       val pdfreviewstate = CozyMediaPdfReviewState.prepare(mediaplan, acceptance.manifest, selected, acceptedidentity)
       CozyMediaReceipt.commit(reviewstates ++ pdfreviewstate.toVector, acceptance.document)
@@ -476,18 +433,15 @@ private[cozy] object CozyMedia {
     val findings = _verify_plan(mediaplan, candidates, None, requirereceipt = true)
     if (findings.nonEmpty)
       RAISE.invalidArgumentFault("Media publication preflight failed:\n" + findings.map(x => s"- $x").mkString("\n"))
-    val preflight = _prepare_legacy_publications(mediaplan, candidates, profile, config.target, force = true)
+    val preflight = _prepare_legacy_publications(mediaplan, candidates, profile, config.target)
     val prepared =
       if (config.dryRun) preflight
       else {
         _create_and_bind_legacy_profile_root(mediaplan, profile)
-        _prepare_publications(mediaplan, candidates, profile, config.target, force = true)
+        _prepare_publications(mediaplan, candidates, profile, config.target)
       }
     if (!config.dryRun)
-      commitPublication(prepared, () => {
-        CozyMediaReceipt.requireCurrent(mediaplan, candidates)
-        CozyMediaPdfReviewState.requireCurrent(mediaplan, candidates)
-      })
+      commitPublication(prepared)
     val results =
       if (config.dryRun)
         candidates.map { resolved =>
@@ -505,7 +459,7 @@ private[cozy] object CozyMedia {
     (Vector("Cozy Media Publish", s"profile: $profile") ++ results.map(x => s"  - $x")).mkString("\n")
   }
 
-  def preparePublication(config: CommandConfig, force: Boolean = false): Vector[PreparedPublication] = {
+  def preparePublication(config: CommandConfig): Vector[PreparedPublication] = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
     val profile = config.profile.getOrElse(RAISE.invalidArgumentFault("Missing --profile for media publish"))
@@ -520,7 +474,7 @@ private[cozy] object CozyMedia {
     }
     CozyMediaReceipt.requireCurrent(mediaplan, pdfcandidates)
     CozyMediaPdfReviewState.requireCurrent(mediaplan, pdfcandidates)
-    _prepare_publications(mediaplan, candidates, profile, config.target, force)
+    _prepare_publications(mediaplan, candidates, profile, config.target)
   }
 
   def commitPublication(prepared: Vector[PreparedPublication]): Vector[PublicationResult] =
@@ -777,19 +731,17 @@ private[cozy] object CozyMedia {
     plan: Plan,
     candidates: Vector[ResolvedResource],
     profile: String,
-    target: Option[String],
-    force: Boolean
+    target: Option[String]
   ): Vector[PreparedPublication] =
-    CozyMediaPublicationTransaction.prepare(plan, candidates, profile, target, force)
+    CozyMediaPublicationTransaction.prepare(plan, candidates, profile, target)
 
   private def _prepare_legacy_publications(
     plan: Plan,
     candidates: Vector[ResolvedResource],
     profile: String,
-    target: Option[String],
-    force: Boolean
+    target: Option[String]
   ): Vector[PreparedPublication] =
-    CozyMediaPublicationTransaction.prepareLegacy(plan, candidates, profile, target, force)
+    CozyMediaPublicationTransaction.prepareLegacy(plan, candidates, profile, target)
 
   private def _create_and_bind_legacy_profile_root(plan: Plan, profile: String): Path =
     CozyMediaPublicationTransaction.createAndBindLegacyProfileRoot(plan, profile)
@@ -832,16 +784,13 @@ private[cozy] object CozyMedia {
     val selected = _presentation_selected(mediaplan, config.target)
     if (config.dryRun)
       return (Vector("Cozy Media Slide Build") ++ selected.map(resolved => s"  - ${resolved.resource.id}: ${resolved.action.label} (dry-run)")).mkString("\n")
-    val before = CozyMediaReceipt.capture(mediaplan)
+    val captured = CozyMediaReceipt.capture(mediaplan)
     val results = selected.map { resolved =>
       CozyMediaPresentation.requireDependenciesCurrent(mediaplan, resolved)
       CozyMediaPresentation.build(mediaplan, resolved, runner)
     }
-    val after = CozyMediaReceipt.capture(mediaplan)
-    if (before.observedFiles != after.observedFiles)
-      RAISE.invalidArgumentFault("Media receipt inputs changed during presentation build; no fresh acceptance evidence was written")
-    val reviewstates = selected.map(resolved => CozyMediaReviewState.prepareRefresh(mediaplan, resolved))
-    val receipt = CozyMediaReceipt.prepare(mediaplan, selected, after, config.target)
+    val reviewstates = selected.map(resolved => CozyMediaReviewState.prepareRefresh(mediaplan, resolved, rendered = true))
+    val receipt = CozyMediaReceipt.prepare(mediaplan, selected, captured, config.target)
     CozyMediaReceipt.commit(reviewstates, receipt)
     (Vector("Cozy Media Slide Build") ++ results.map(value => s"  - $value")).mkString("\n")
   }
@@ -921,11 +870,9 @@ private[cozy] object CozyMedia {
         case Some(path) => Vector(s"${resource.id}: missing output $path")
         case None => Vector(s"${resource.id}: missing output declaration")
       }
-      val publishsource = resolved.output.orElse(if (resource.build == "prebuilt") resolved.source else None)
       val publicationfindings = profile.toVector.flatMap { name =>
         resolved.publications.get(name) match {
           case Some(path) if !Files.isRegularFile(path) => Vector(s"${resource.id}: missing publication $path")
-          case Some(path) if publishsource.exists(output => _sha256(output) != _sha256(path)) => Vector(s"${resource.id}: publication differs from output $path")
           case Some(_) => Vector.empty
           case None => Vector.empty
         }
@@ -979,20 +926,6 @@ private[cozy] object CozyMedia {
       val buffer = ByteBuffer.wrap(bytes, 16, 8)
       Some(buffer.getInt -> buffer.getInt)
     }
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val stream = Files.newInputStream(path)
-    try {
-      val buffer = new Array[Byte](8192)
-      var size = stream.read(buffer)
-      while (size >= 0) {
-        if (size > 0) digest.update(buffer, 0, size)
-        size = stream.read(buffer)
-      }
-    } finally stream.close()
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
   }
 
   private def _is_direct_regular_file(path: Path): Boolean = path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)

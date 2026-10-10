@@ -2,7 +2,6 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.nio.file.{Files, LinkOption, Path}
 import cozy.media.CozyMedia
 import cozy.media.CozyMediaPdfReviewState
@@ -16,7 +15,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
  *  version Sep. 22, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteBinding {
@@ -47,10 +46,7 @@ private[cozy] object CozyArticleMediaSiteBinding {
 
   final case class FileEvidence(
     path: Path,
-    identity: Path,
-    size: Long,
-    modifiedTime: FileTime,
-    fileKey: AnyRef
+    identity: Path
   )
 
   sealed trait Evidence {
@@ -78,7 +74,6 @@ private[cozy] object CozyArticleMediaSiteBinding {
     config: Config,
     descriptor: CozyMedia.Descriptor,
     descriptorEvidence: FileEvidence,
-    descriptorBytes: Vector[Byte],
     descriptorRoot: Path,
     descriptorRootIdentity: Path,
     context: cozy.config.CozyProjectContext.Context,
@@ -163,7 +158,6 @@ private[cozy] object CozyArticleMediaSiteBinding {
       config = config,
       descriptor = descriptor,
       descriptorEvidence = descriptorsnapshot.evidence,
-      descriptorBytes = descriptorsnapshot.bytes,
       descriptorRoot = descriptorroot,
       descriptorRootIdentity = descriptorrootidentity,
       context = mediaplan.context,
@@ -176,18 +170,9 @@ private[cozy] object CozyArticleMediaSiteBinding {
     )
   }
 
-  def revalidate(value: Plan): Plan = {
-    if (value == null || value.config == null)
-      _invalid("Article-media site binding plan must be defined")
-    val recomputed = plan(value.config)
-    if (recomputed != value)
-      _invalid("Article-media site binding evidence has changed")
-    recomputed
-  }
-
   private final case class FileSnapshot(evidence: FileEvidence, bytes: Vector[Byte])
 
-  private final case class FileIdentity(lexical: Path, identity: Path, fileKey: AnyRef)
+  private final case class FileIdentity(lexical: Path, identity: Path)
 
   private final case class DirectoryIdentity(lexical: Path, identity: Path)
 
@@ -243,12 +228,12 @@ private[cozy] object CozyArticleMediaSiteBinding {
           _invalid(s"Article-media site binding infographic publicPath must be defined: $resourceid")
         ), "infographic")
         val publication = _publication_destination(resource, resourceid, profile)
-        val destination = _root_file_snapshot(profileroot, publication, s"infographic destination for $resourceid")
+        val destination = _root_file(profileroot, publication, s"infographic destination for $resourceid")
         val variant = _normalized_variant(articleidentity, CozyArticleMediaPublication.Variant(
           locale = locale,
           infographic = Some(ImageReference(publicpath, articlemedia.mediaType, articlemedia.alt))
         ))
-        Candidate(resourceid, locale, Role.Infographic, variant, InfographicEvidence(destination.evidence))
+        Candidate(resourceid, locale, Role.Infographic, variant, InfographicEvidence(destination))
       case "video" =>
         if (resource.kind != "video")
           _invalid(s"Article-media site binding video resource kind is invalid: $resourceid")
@@ -305,7 +290,7 @@ private[cozy] object CozyArticleMediaSiteBinding {
     ).getOrElse(
       _invalid(s"Article-media site binding PDF output must be defined: $resourceid")
     )
-    val evidence = _file_snapshot(output, s"${role.serializedName} output for $resourceid")
+    val evidence = _direct_regular_file_identity(output, s"${role.serializedName} output for $resourceid")
     CozyMediaReceipt.requireCurrent(mediaplan, resolved)
     CozyMediaPdfReviewState.requireCurrent(mediaplan, Vector(resolved))
     val pdf = PdfDocumentReference(publicpath, "application/pdf", articlemedia.label)
@@ -319,7 +304,7 @@ private[cozy] object CozyArticleMediaSiteBinding {
       locale,
       role,
       _normalized_variant(articleidentity, variant),
-      PdfEvidence(evidence.evidence)
+      PdfEvidence(FileEvidence(evidence.lexical, evidence.identity))
     )
   }
 
@@ -436,6 +421,16 @@ private[cozy] object CozyArticleMediaSiteBinding {
   private def _relative_path(value: String, label: String): String =
     CozyArticleMediaNormalization.normalizeRelativePath(value, label)
 
+  private def _root_file(root: DirectoryIdentity, relative: String, label: String): FileEvidence = {
+    val path = root.lexical.resolve(relative).normalize()
+    if (!path.startsWith(root.lexical) || path == root.lexical)
+      _invalid(s"Article-media site binding $label escapes its root")
+    val file = _direct_regular_file_identity(path, label)
+    if (!file.identity.startsWith(root.identity))
+      _invalid(s"Article-media site binding $label real identity escapes its root")
+    FileEvidence(file.lexical, file.identity)
+  }
+
   private def _root_file_snapshot(root: DirectoryIdentity, relative: String, label: String): FileSnapshot = {
     val path = root.lexical.resolve(relative).normalize()
     if (!path.startsWith(root.lexical) || path == root.lexical)
@@ -448,19 +443,8 @@ private[cozy] object CozyArticleMediaSiteBinding {
 
   private def _file_snapshot(path: Path, label: String): FileSnapshot = {
     val file = _direct_regular_file_identity(path, label)
-    val before = _file_attributes(file.lexical, label)
-    val firstbytes = _read_file_bytes(file.lexical, label)
-    val middle = _file_attributes(file.lexical, label)
-    val secondbytes = _read_file_bytes(file.lexical, label)
-    val after = _file_attributes(file.lexical, label)
-    if (file.fileKey != before.fileKey() || !_same_file_attributes(before, middle) ||
-      !_same_file_attributes(before, after) || firstbytes.length.toLong != before.size() ||
-      secondbytes.length.toLong != before.size() || !firstbytes.sameElements(secondbytes))
-      _invalid(s"Article-media site binding $label changed while being read: ${file.lexical}")
-    FileSnapshot(
-      FileEvidence(file.lexical, file.identity, before.size(), before.lastModifiedTime(), file.fileKey),
-      firstbytes.toVector
-    )
+    val bytes = _read_file_bytes(file.lexical, label)
+    FileSnapshot(FileEvidence(file.lexical, file.identity), bytes.toVector)
   }
 
   private def _read_file_bytes(path: Path, label: String): Array[Byte] =
@@ -468,32 +452,16 @@ private[cozy] object CozyArticleMediaSiteBinding {
       case NonFatal(e) => _invalid(s"Article-media site binding $label cannot be read: $path: ${e.getMessage}")
     }
 
-  private def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
-    before.fileKey() == after.fileKey() &&
-      before.size() == after.size() &&
-      before.lastModifiedTime() == after.lastModifiedTime()
-
   private def _direct_regular_file_identity(path: Path, label: String): FileIdentity = {
     val lexical = _normalized_host_path(path, label)
-    _file_attributes(lexical, label)
+    if (Files.isSymbolicLink(lexical) || !Files.isRegularFile(lexical, LinkOption.NOFOLLOW_LINKS))
+      _invalid(s"Article-media site binding $label must be an existing direct regular non-symlink file: $lexical")
     val identity = try lexical.toRealPath() catch {
       case NonFatal(e) => _invalid(s"Article-media site binding $label cannot be resolved: ${e.getMessage}")
     }
     if (identity != lexical)
       _invalid(s"Article-media site binding $label must not use a lexical or symlink alias: $lexical")
-    val attributes = _file_attributes(lexical, label)
-    FileIdentity(lexical, identity, attributes.fileKey())
-  }
-
-  private def _file_attributes(path: Path, label: String): BasicFileAttributes = {
-    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Article-media site binding $label must be an existing direct regular non-symlink file: $path")
-    val attributes = try Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => _invalid(s"Article-media site binding $label attributes cannot be read: ${e.getMessage}")
-    }
-    if (attributes.fileKey() == null)
-      _invalid(s"Article-media site binding $label has no stable file identity: $path")
-    attributes
+    FileIdentity(lexical, identity)
   }
 
   private def _direct_directory(path: Path, label: String): DirectoryIdentity = {

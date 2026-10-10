@@ -34,7 +34,7 @@ import io.circe.syntax._
  * @since   Aug. 14, 2026
  *  version Aug. 28, 2026
  *  version Sep.  2, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -196,10 +196,6 @@ private[cozy] trait CozyBokSiteDocument {
        |  strategy: production
        |  website: website.d
        |  website-staging: ${config.map(_default_website_staging).getOrElse("../website-staging")}
-       |  backup:
-       |    enabled: false
-       |    dir: website.backup
-       |    compressed: true
        |  antora: antora.d
        |  doxsite: doxsite.d
        |  rdf:

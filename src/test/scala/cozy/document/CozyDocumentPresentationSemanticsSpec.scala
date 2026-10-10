@@ -5,7 +5,6 @@ import io.circe.Json
 import io.circe.parser.parse
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -14,14 +13,13 @@ import scala.collection.JavaConverters._
 /*
  * @since   Sep.  4, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyDocumentPresentationSemanticsSpec {
   private final case class Fixture(
     root: Path,
-    coreBytes: Array[Byte],
-    coreValue: Json,
+    corebytes: Array[Byte],
     semantics: Json,
     composition: CozyExplanation.Composition,
     catalogs: CozyDocumentPresentationSemantics.Catalogs,
@@ -51,43 +49,32 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
     }
 
     "closed Article and binding input" which {
-      "reject unknown and renderer-alias fields, malformed and conflicting Cores, and a mismatched direct v1 Core identity" in {
-        Given("otherwise valid canonical Article 8 fields, direct Core A bytes, malformed UTF-8 embedded in an otherwise-valid Core JSON value, and a v1-bound sibling document")
+      "reject unknown and renderer-alias fields, malformed Cores, and wrong Core id or language" in {
+        Given("canonical Article fields, a direct v1 Core, and incompatible authored variants")
         val fixture = _fixture()
         val unknown = _with_field(fixture.semantics, "unknown", Json.fromString("no"))
         val alias = _replace_article_field(fixture.semantics, "visualIntent", "intent")
-        val conflictingcore = Json.obj(
-          "schema" -> Json.fromString("cozy.content-core.v1"),
-          "id" -> Json.fromString("article-8:core:en"),
-          "language" -> Json.fromString("en"),
-          "accepted" -> Json.arr(Json.obj("id" -> Json.fromString("core"), "text" -> Json.fromString("different accepted Core B content")))
-        )
-        val changedcore = fixture.coreBytes ++ Array[Byte](1)
-        val malformedcoreprefix = """{"schema":"cozy.content-core.v1","id":"article-8:core:en","language":"en","accepted":[{"id":"core","text":"accepted Core """.getBytes(StandardCharsets.UTF_8)
-        val malformedcoresuffix = "\"}]}".getBytes(StandardCharsets.UTF_8)
-        val malformedcore = malformedcoreprefix ++ Array[Byte](0xc3.toByte, 0x28.toByte) ++ malformedcoresuffix
-        val malformedcorevalue = Json.obj(
-          "schema" -> Json.fromString("cozy.content-core.v1"),
-          "id" -> Json.fromString("article-8:core:en"),
-          "language" -> Json.fromString("en"),
-          "accepted" -> Json.arr(Json.obj("id" -> Json.fromString("core"), "text" -> Json.fromString("accepted Core \uFFFD(")))
-        )
-        val malformedsemantics = _semantics(malformedcore, fixture.composition, fixture.semantics)
+        val malformedprefix = """{"schema":"cozy.content-core.v1","id":"article-8:core:en","language":"en","accepted":[{"id":"core","text":"accepted Core """.getBytes(StandardCharsets.UTF_8)
+        val malformedsuffix = "\"}]}".getBytes(StandardCharsets.UTF_8)
+        val malformedcore = malformedprefix ++ Array[Byte](0xc3.toByte, 0x28.toByte) ++ malformedsuffix
+        val invalidcore = """{"schema":"cozy.content-core.v1","id":"article-8:core:en","language":"en","accepted":[],"unknown":true}""".getBytes(StandardCharsets.UTF_8)
+        val binding = fixture.semantics.asObject.get("contentCore").get
+        val wrongid = _with_field(fixture.semantics, "contentCore", _with_field(binding, "id", Json.fromString("other:core:en")))
+        val wronglanguage = _with_field(fixture.semantics, "contentCore", _with_field(binding, "language", Json.fromString("ja")))
 
-        When("an unknown field, an intent alias, embedded malformed UTF-8 Core bytes, conflicting parsed Core B, and unbound Core bytes are submitted")
+        When("each closed-input, strict UTF-8, Core-shape, or semantic association variant is admitted")
         val failures = Vector(
           _failure(_validate(fixture.copy(semantics = unknown))),
           _failure(_validate(fixture.copy(semantics = alias))),
-          _failure(CozyDocumentPresentationSemantics.validate(malformedcore, malformedcorevalue, malformedsemantics, fixture.catalogs, fixture.bindings)),
-          _failure(CozyDocumentPresentationSemantics.validate(fixture.coreBytes, conflictingcore, fixture.semantics, fixture.catalogs, fixture.bindings)),
-          _failure(CozyDocumentPresentationSemantics.validate(changedcore, fixture.coreValue, fixture.semantics, fixture.catalogs, fixture.bindings))
+          _failure(CozyDocumentPresentationSemantics.validate(malformedcore, fixture.semantics, fixture.catalogs, fixture.bindings)),
+          _failure(CozyDocumentPresentationSemantics.validate(invalidcore, fixture.semantics, fixture.catalogs, fixture.bindings)),
+          _failure(_validate(fixture.copy(semantics = wrongid))),
+          _failure(_validate(fixture.copy(semantics = wronglanguage)))
         )
 
-        Then("each form is rejected through the closed DP-SEM boundary rather than accepted as a placeholder")
-        failures.map(_.code) should contain allOf ("DP-SEM-001", "DP-SEM-002", "DP-SEM-005")
-        failures(2).code shouldBe "DP-SEM-001"
-        failures(3).code shouldBe "DP-SEM-005"
-        failures.foreach(_.code should startWith ("DP-SEM-"))
+        Then("unknown fields, malformed bytes, malformed v1 shape, and incompatible semantic associations have exact diagnostics")
+        failures.map(_.code) shouldBe Vector("DP-SEM-002", "DP-SEM-002", "DP-SEM-001", "DP-SEM-005", "DP-SEM-005", "DP-SEM-005")
+        failures.drop(4).map(_.path) shouldBe Vector("$.contentCore", "$.contentCore")
       }
 
       "reject duplicate or missing Structure-Step bindings and invalid Story Transition endpoints" in {
@@ -113,12 +100,12 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
       "select one compatible base Visual per medium and reject missing, ambiguous, and incompatible override forms" in {
         Given("a policy with complete compatible selections for every inherited Logical Pattern")
         val fixture = _fixture()
-        val accepted = _validate(fixture)
         val missing = _remove_policy_binding(fixture.semantics, "article", "sequence")
         val ambiguous = _duplicate_policy_binding(fixture.semantics, "article", "sequence")
         val incompatible = _replace_first_override_visual(fixture.semantics, "mapping-columns")
 
         When("the policy resolves and each invalid policy form is normalized")
+        val accepted = _validate(fixture)
         val failures = Vector(
           _failure(_validate(fixture.copy(semantics = missing))),
           _failure(_validate(fixture.copy(semantics = ambiguous))),
@@ -147,15 +134,6 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
 
         Then("both media retain the same Step, Structure, Logical, claim, reference, and selected medium Visual identities")
         projection.contentCoreId shouldBe "article-8:core:en"
-        projection.contentCoreIdentity shouldBe validated.contentCore.identity
-        projection.compositionIdentity shouldBe validated.composition.identity
-        projection.planIdentity shouldBe validated.plan.identity
-        projection.explanationCatalogIdentity shouldBe validated.explanationCatalogIdentity
-        canonical.asObject.get.keys should not contain "presentationCatalogIdentity"
-        canonical.asObject.get.keys should not contain "presentationLogicalCatalogIdentity"
-        canonical.asObject.get.keys should not contain "presentationCatalogValue"
-        canonical.asObject.get.keys should not contain "presentationLogicalCatalogValue"
-        projection.policyIdentity shouldBe validated.policy.identity
         projection.sources shouldBe validated.sources
         projection.assets shouldBe validated.assets
         canonical.asObject.get("sources").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("source")))
@@ -177,8 +155,8 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         projection.storyboardScenes.head.visual.pattern shouldBe "flow-horizontal"
         projection.storyFlow shouldBe validated.storyFlow
 
-        And("the fixed-order result has a stable identity without inferred narration or timing")
-        CozyDocumentCrossMediaProjection.project(validated).identity shouldBe projection.identity
+        And("repeated projection retains the same ordered typed pages and scenes")
+        CozyDocumentCrossMediaProjection.project(validated) shouldBe projection
         projection.storyboardScenes.head.caption shouldBe "The prior reader path was permissive."
       }
 
@@ -210,7 +188,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         When("the aggregate is projected into slide pages and Storyboard scenes")
         val failure = _projection_failure(CozyDocumentCrossMediaProjection.project(withsibling))
 
-        Then("the empty Structure fails atomically instead of being covered by its sibling or replaced with a placeholder")
+        Then("the empty Structure has its own projection completeness diagnostic")
         failure.code shouldBe "DP-PROJ-001"
         failure.path shouldBe "$.slidePages"
         failure.reason should include("empty-problem-structure")
@@ -218,7 +196,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
     }
 
     "cross-media confirmation HTML" should {
-      "render deterministic UTF-8 bytes with Story Flow before structure details and a matching identity" in {
+      "render deterministic HTML with Story Flow before structure details" in {
         Given("a valid typed cross-media projection with a transition and both media mappings")
         val projection = CozyDocumentCrossMediaProjection.project(_validate(_fixture()))
 
@@ -226,10 +204,8 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         val first = CozyDocumentCrossMediaConfirmationHtml.render(projection)
         val second = CozyDocumentCrossMediaConfirmationHtml.render(projection)
 
-        Then("the HTML bytes and their SHA-256 identity remain exactly equal")
+        Then("the ordinary HTML and fixed semantic renderer and profile are deterministic")
         first shouldBe second
-        first.identity shouldBe "sha256:" + _sha256(first.html.getBytes(StandardCharsets.UTF_8))
-        first.projectionIdentity shouldBe projection.identity
         first.rendererIdentity shouldBe CozyDocumentCrossMediaConfirmationHtml._renderer_identity
         first.profileIdentity shouldBe CozyDocumentCrossMediaConfirmationHtml._profile_identity
         first.html should include("<!doctype html>")
@@ -273,116 +249,46 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
       }
     }
 
-    "cross-media receipt and semantic coverage" should {
-      "bind deterministic typed identities and exact UTF-8 output bytes" in {
-        Given("a validated aggregate, its typed Projection, and deterministic confirmation HTML")
-        val projection = CozyDocumentCrossMediaProjection.project(_validate(_fixture()))
-        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
+    "cross-media semantic coverage" should {
+      "admit valid source and asset materials and retain their actual declarations in projection" in {
+        Given("a valid fixture with declared source and asset text materials")
+        val fixture = _fixture(sourcetext = "valid source material", assettext = "valid asset material")
 
-        When("the same typed values are captured twice and the actual canonical receipt JSON is parsed")
-        val first = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
-        val second = CozyDocumentCrossMediaReceipt.receipt(projection, rendered)
-        val canonical = parse(CozyDocumentCrossMediaReceipt.canonicalJson(first)).fold(error => throw error, identity)
-
-        Then("the immutable receipts and canonical bytes are deterministic and current")
-        first shouldBe second
-        CozyDocumentCrossMediaReceipt.canonicalJson(first) shouldBe CozyDocumentCrossMediaReceipt.canonicalJson(second)
-        canonical.asObject.get("sources").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("source")))
-        canonical.asObject.get("assets").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("asset"), "mediaType" -> Json.fromString("text/plain")))
-        first.contentCoreIdentity shouldBe projection.contentCoreIdentity
-        first.planIdentity shouldBe projection.planIdentity
-        first.explanationCatalogIdentity shouldBe projection.explanationCatalogIdentity
-        canonical.asObject.get.keys should not contain "presentationCatalogIdentity"
-        canonical.asObject.get.keys should not contain "presentationLogicalCatalogIdentity"
-        canonical.asObject.get.keys should not contain "presentationCatalogValue"
-        canonical.asObject.get.keys should not contain "presentationLogicalCatalogValue"
-        first.policyIdentity shouldBe projection.policyIdentity
-        first.outputSha256 shouldBe ("sha256:" + _sha256(rendered.html.getBytes(StandardCharsets.UTF_8)))
-        CozyDocumentCrossMediaReceipt.currentness(first, projection, rendered) shouldBe CozyDocumentCrossMediaReceipt.Currentness(true, "receipt inputs and exact UTF-8 output are current")
-      }
-
-      "propagate source, asset, and output changes as precise stale reasons" in {
-        Given("a current receipt and independent typed source and asset declaration ID changes and an output byte change")
-        val fixture = _fixture()
-        val projection = CozyDocumentCrossMediaProjection.project(_validate(fixture))
-        val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
-        val receipt = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
-        val changedprojection = projection.copy(sources = projection.sources.map(source => source.copy(id = "changed-source")))
-        val changedrendered = CozyDocumentCrossMediaConfirmationHtml.render(changedprojection)
-        val changedassetprojection = projection.copy(assets = projection.assets.map(asset => asset.copy(id = "changed-asset")))
-        val tamperedhtml = rendered.html.replace("Unprojected content: none.", "Unprojected content: changed.")
-        val tampered = rendered.copy(html = tamperedhtml, identity = "sha256:" + _sha256(tamperedhtml.getBytes(StandardCharsets.UTF_8)))
-
-        When("receipt currentness compares changed typed declarations or output bytes")
-        val sourcestatus = CozyDocumentCrossMediaReceipt.currentness(receipt, changedprojection, changedrendered)
-        val assetstatus = CozyDocumentCrossMediaReceipt.currentness(receipt, changedassetprojection, CozyDocumentCrossMediaConfirmationHtml.render(changedassetprojection))
-        val outputstatus = CozyDocumentCrossMediaReceipt.currentness(receipt, projection, tampered)
-
-        Then("the first deterministic stale reason identifies the changed boundary")
-        sourcestatus.isCurrent shouldBe false
-        sourcestatus.reason shouldBe "declared source identities changed"
-        assetstatus.isCurrent shouldBe false
-        assetstatus.reason shouldBe "declared asset identities changed"
-        outputstatus.isCurrent shouldBe false
-        outputstatus.reason shouldBe "rendered output identity changed"
-      }
-
-      "retain current declaration bindings after valid source and asset bytes are replaced at the same paths" in {
-        Given("a valid fixture with bound source and asset files, its typed Projection, rendered HTML, and a current receipt")
-        val fixture = _fixture()
+        When("the materials are admitted, projected, rendered, and checked for semantic coverage")
         val validated = _validate(fixture)
         val projection = CozyDocumentCrossMediaProjection.project(validated)
         val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
-        val receipt = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
-        val sourcepath = fixture.bindings.sources("source")
-        val assetpath = fixture.bindings.assets("asset")
-        val sourcebytes = Files.readAllBytes(sourcepath).toVector
-        val assetbytes = Files.readAllBytes(assetpath).toVector
+        val canonical = parse(CozyDocumentCrossMediaProjection.canonicalJson(projection)).fold(error => throw error, identity)
+        val coverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, projection, rendered)
 
-        When("both files receive changed valid text at their bound paths and the same fixture is revalidated, reprojected, and rerendered")
-        _write(sourcepath, "changed valid source")
-        _write(assetpath, "changed valid asset")
-        val changedsourcebytes = Files.readAllBytes(sourcepath).toVector
-        val changedassetbytes = Files.readAllBytes(assetpath).toVector
-        val currentvalidated = _validate(fixture)
-        val currentprojection = CozyDocumentCrossMediaProjection.project(currentvalidated)
-        val currentrendered = CozyDocumentCrossMediaConfirmationHtml.render(currentprojection)
-        val currentreceipt = CozyDocumentCrossMediaReceipt.capture(currentprojection, currentrendered)
-        val projectioncanonical = parse(CozyDocumentCrossMediaProjection.canonicalJson(currentprojection)).fold(error => throw error, identity)
-        val receiptcanonical = parse(CozyDocumentCrossMediaReceipt.canonicalJson(currentreceipt)).fold(error => throw error, identity)
-        val currentness = CozyDocumentCrossMediaReceipt.currentness(receipt, currentprojection, currentrendered)
-
-        Then("the actual bytes differ while declarations and canonical material arrays stay equal without digest rebinding at this typed comparison boundary")
-        changedsourcebytes should not be sourcebytes
-        changedassetbytes should not be assetbytes
-        currentvalidated.sources shouldBe validated.sources
-        currentvalidated.assets shouldBe validated.assets
-        currentprojection.sources shouldBe projection.sources
-        currentprojection.assets shouldBe projection.assets
-        currentreceipt.sources shouldBe receipt.sources
-        currentreceipt.assets shouldBe receipt.assets
-        projectioncanonical.asObject.get("sources").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("source")))
-        projectioncanonical.asObject.get("assets").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("asset"), "mediaType" -> Json.fromString("text/plain")))
-        receiptcanonical.asObject.get("sources").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("source")))
-        receiptcanonical.asObject.get("assets").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("asset"), "mediaType" -> Json.fromString("text/plain")))
-        currentness shouldBe CozyDocumentCrossMediaReceipt.Currentness(true, "receipt inputs and exact UTF-8 output are current")
+        Then("the real declarations and media references participate in complete semantic coverage")
+        projection.sources shouldBe validated.sources
+        projection.assets shouldBe validated.assets
+        canonical.asObject.get("sources").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("source")))
+        canonical.asObject.get("assets").get shouldBe Json.arr(Json.obj("id" -> Json.fromString("asset"), "mediaType" -> Json.fromString("text/plain")))
+        projection.slidePages.head.sourceRefs shouldBe Vector("source")
+        projection.storyboardScenes.head.assetRefs shouldBe Vector("asset")
+        coverage.satisfied shouldBe true
       }
 
-      "reject malformed or incompatible rendering before producing a receipt" in {
-        Given("a typed Projection and its accepted Rendered value")
-        val projection = CozyDocumentCrossMediaProjection.project(_validate(_fixture()))
+      "reject incompatible semantic renderer and profile during coverage verification" in {
+        Given("accepted semantics, a typed Projection, and its rendered HTML")
+        val validated = _validate(_fixture())
+        val projection = CozyDocumentCrossMediaProjection.project(validated)
         val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
 
-        When("a renderer identity or exact HTML byte identity is corrupted")
-        val rendererfailure = _receipt_failure(CozyDocumentCrossMediaReceipt.capture(projection, rendered.copy(rendererIdentity = "other.renderer.v1")))
-        val outputfailure = _receipt_failure(CozyDocumentCrossMediaReceipt.capture(projection, rendered.copy(html = "<html>tampered</html>")))
+        When("coverage is checked with an incompatible renderer or profile")
+        val renderercoverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, projection, rendered.copy(rendererIdentity = "other.renderer.v1"))
+        val profilecoverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, projection, rendered.copy(profileIdentity = "other.profile.v1"))
 
-        Then("receipt construction fails atomically with structured incompatibility diagnostics")
-        rendererfailure.code shouldBe "DP-REC-001"
-        outputfailure.code shouldBe "DP-REC-003"
+        Then("the actual renderer and profile incompatibilities have precise coverage diagnostics")
+        renderercoverage.satisfied shouldBe false
+        profilecoverage.satisfied shouldBe false
+        renderercoverage.diagnostics.map(value => value.code -> value.path) shouldBe Vector("DP-COV-INCOMPATIBLE" -> "$.rendered.rendererIdentity")
+        profilecoverage.diagnostics.map(value => value.code -> value.path) shouldBe Vector("DP-COV-INCOMPATIBLE" -> "$.rendered.profileIdentity")
       }
 
-      "verify every declared Plan Step and Structure independently of receipt currentness" in {
+      "verify every declared Plan Step and Structure" in {
         Given("accepted Validated semantics, a complete Projection, and its Rendered confirmation HTML")
         val validated = _validate(_fixture())
         val projection = CozyDocumentCrossMediaProjection.project(validated)
@@ -459,7 +365,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         coverage.diagnostics.exists(diagnostic => diagnostic.path == "$.videoMappings.unprojected-step.storyStepId" && diagnostic.code == "DP-COV-UNPROJECTED") shouldBe true
       }
 
-      "fail coverage for an incomplete projection even when its receipt is current" in {
+      "fail coverage for an incomplete projection" in {
         Given("a Projection with its slide pages and slide mappings deliberately removed")
         val validated = _validate(_fixture())
         val projection = CozyDocumentCrossMediaProjection.project(validated)
@@ -468,70 +374,56 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
           slideMappings = projection.slideMappings.map(mapping => mapping.copy(pageIds = Vector.empty))
         )
         val rendered = CozyDocumentCrossMediaConfirmationHtml.render(incomplete)
-        val receipt = CozyDocumentCrossMediaReceipt.capture(incomplete, rendered)
 
-        When("receipt currentness and independent typed coverage are checked")
-        val currentness = CozyDocumentCrossMediaReceipt.currentness(receipt, incomplete, rendered)
+        When("typed semantic coverage is checked")
         val coverage = CozyDocumentCrossMediaReceipt.verifyCoverage(validated, incomplete, rendered)
 
-        Then("receipt freshness remains separate from semantic completeness")
-        currentness.isCurrent shouldBe true
+        Then("missing slide projections produce semantic completeness diagnostics")
         coverage.satisfied shouldBe false
         coverage.diagnostics.map(_.code) should contain("DP-COV-MISSING")
         coverage.diagnostics.exists(_.reason.contains("slide coverage")) shouldBe true
       }
     }
 
-    "canonical and currentness identity" should {
-      "change for semantic contract inputs while accepting changed valid bound material bytes" in {
-        Given("a self-contained fixture, independently changed semantic contract inputs, and changed valid source and asset bytes with unchanged required declarations")
+    "normalized semantic inputs" should {
+      "retain actual heading, Composition, named catalog, Visual, policy, and material values" in {
+        Given("valid independently changed authored semantic inputs and declared materials")
         val fixture = _fixture()
-        val baseline = _validate(fixture)
-        val changedcore = _fixture(coreText = "accepted Core revision")
         val changedsemantic = fixture.copy(semantics = _replace_article_heading(fixture.semantics, "Changed problem"))
         val changedcomposition = fixture.copy(composition = fixture.composition.copy(id = "changed-composition"))
         val changedcatalog = fixture.copy(catalogs = _catalogs("presentation-2", 2))
         val changedpolicy = fixture.copy(semantics = _replace_policy_visual(fixture.semantics, "slides", "sequence", "flow-vertical"))
-        val changedresources = _fixture(sourceText = "changed source", assetText = "changed asset")
+        val materials = _fixture(sourcetext = "valid source", assettext = "valid asset")
 
-        When("the changed semantic inputs and current valid material bindings are admitted through the v2 document")
-        val results = Vector(
-          _validate(changedcore),
-          _validate(changedsemantic),
-          _validate(changedcomposition),
-          _validate(changedcatalog),
-          _validate(changedpolicy)
-        )
-        val currentresources = _validate(changedresources)
+        When("the actual semantic inputs and valid material bindings are normalized")
+        val semantic = _validate(changedsemantic)
+        val validatedcomposition = _validate(changedcomposition)
+        val catalog = _validate(changedcatalog)
+        val policy = _validate(changedpolicy)
+        val validatedmaterials = _validate(materials)
 
-        Then("semantic changes affect their identities while current valid material bytes retain the required declarations without digest rebinding")
-        results.map(_.currentnessIdentity) should not contain baseline.currentnessIdentity
-        _changed_semantic_result(results, 1).semanticIdentity should not be baseline.semanticIdentity
-        _changed_composition_result(results, 2).composition.identity should not be baseline.composition.identity
-        _changed_catalog_result(results, 3).plan.presentationCatalog should not be baseline.plan.presentationCatalog
-        _changed_policy_result(results, 4).policy.identity should not be baseline.policy.identity
-        currentresources.sources shouldBe baseline.sources
-        currentresources.assets shouldBe baseline.assets
-        currentresources.composition.composition shouldBe baseline.composition.composition
-        currentresources.currentnessIdentity shouldBe baseline.currentnessIdentity
+        Then("the typed values describe the selected authored semantics")
+        semantic.structures.head.article.articleHeading shouldBe "Changed problem"
+        validatedcomposition.composition.composition.id shouldBe "changed-composition"
+        catalog.plan.presentationCatalog shouldBe CozyExplanation.CatalogSelector("presentation-2", 2)
+        policy.policy.id shouldBe "article-policy"
+        policy.policy.revision shouldBe 1
+        policy.structures.head.visualSelections.find(_.medium == "slides").get.visual.pattern shouldBe "flow-vertical"
+        validatedmaterials.sources.map(_.id) shouldBe Vector("source")
+        validatedmaterials.assets.map(value => value.id -> value.mediaType) shouldBe Vector("asset" -> "text/plain")
       }
     }
   }
 
-  private def _changed_semantic_result(values: Vector[CozyDocumentPresentationSemantics.Validated], index: Int): CozyDocumentPresentationSemantics.Validated = values(index)
-  private def _changed_composition_result(values: Vector[CozyDocumentPresentationSemantics.Validated], index: Int): CozyDocumentPresentationSemantics.Validated = values(index)
-  private def _changed_catalog_result(values: Vector[CozyDocumentPresentationSemantics.Validated], index: Int): CozyDocumentPresentationSemantics.Validated = values(index)
-  private def _changed_policy_result(values: Vector[CozyDocumentPresentationSemantics.Validated], index: Int): CozyDocumentPresentationSemantics.Validated = values(index)
-
-  private def _fixture(coreText: String = "accepted Core", sourceText: String = "source", assetText: String = "asset"): Fixture = {
+  private def _fixture(coretext: String = "accepted Core", sourcetext: String = "source", assettext: String = "asset"): Fixture = {
     val root = Files.createTempDirectory("cozy-document-presentation-semantics-")
-    val source = _write(root.resolve("source.txt"), sourceText)
-    val asset = _write(root.resolve("asset.txt"), assetText)
+    val source = _write(root.resolve("source.txt"), sourcetext)
+    val asset = _write(root.resolve("asset.txt"), assettext)
     val corevalue = Json.obj(
       "schema" -> Json.fromString("cozy.content-core.v1"),
       "id" -> Json.fromString("article-8:core:en"),
       "language" -> Json.fromString("en"),
-      "accepted" -> Json.arr(Json.obj("id" -> Json.fromString("core"), "text" -> Json.fromString(coreText)))
+      "accepted" -> Json.arr(Json.obj("id" -> Json.fromString("core"), "text" -> Json.fromString(coretext)))
     )
     val corefile = _write(root.resolve("core.json"), corevalue.noSpaces)
     val corebytes = Files.readAllBytes(corefile)
@@ -539,8 +431,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
     Fixture(
       root,
       corebytes,
-      corevalue,
-      _semantics(corebytes, composition),
+      _semantics(composition),
       composition,
       _catalogs(),
       CozyExplanation.ResourceBindings(Map("source" -> source), Map("asset" -> asset))
@@ -548,7 +439,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
   }
 
   private def _validate(fixture: Fixture): CozyDocumentPresentationSemantics.Validated =
-    CozyDocumentPresentationSemantics.validate(fixture.coreBytes, fixture.coreValue, _semantics(fixture.coreBytes, fixture.composition, fixture.semantics), fixture.catalogs, fixture.bindings)
+    CozyDocumentPresentationSemantics.validate(fixture.corebytes, _semantics(fixture.composition, fixture.semantics), fixture.catalogs, fixture.bindings)
 
   private def _failure(body: => Any): CozyDocumentPresentationSemantics.PresentationSemanticsFault =
     intercept[CozyDocumentPresentationSemantics.PresentationSemanticsFault](body)
@@ -556,17 +447,13 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
   private def _projection_failure(body: => Any): CozyDocumentCrossMediaProjection.ProjectionFault =
     intercept[CozyDocumentCrossMediaProjection.ProjectionFault](body)
 
-  private def _receipt_failure(body: => Any): CozyDocumentCrossMediaReceipt.ReceiptFault =
-    intercept[CozyDocumentCrossMediaReceipt.ReceiptFault](body)
-
-  private def _semantics(corebytes: Array[Byte], composition: CozyExplanation.Composition, original: Json = Json.Null): Json = {
+  private def _semantics(composition: CozyExplanation.Composition, original: Json = Json.Null): Json = {
     val base = Json.fromFields(Vector(
       "schema" -> Json.fromString("cozy.content-core.presentation-semantics.v2"),
       "id" -> Json.fromString("article-8-presentation"),
       "contentCore" -> Json.obj(
         "id" -> Json.fromString("article-8:core:en"),
-        "language" -> Json.fromString("en"),
-        "identity" -> Json.fromString("sha256:" + _sha256(corebytes))
+        "language" -> Json.fromString("en")
       ),
       "composition" -> _composition_json(composition),
       "storyFlow" -> Json.obj(
@@ -591,7 +478,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
     val basefields = base.asObject.get
     val originalfields = original.asObject.get
     Json.fromFields(basefields.toVector.map { case (name, value) =>
-      if (Set("contentCore", "composition").contains(name)) name -> value else name -> originalfields(name).getOrElse(value)
+      if (name == "composition") name -> value else name -> originalfields(name).getOrElse(value)
     } ++ originalfields.toVector.filterNot { case (name, _) => basefields(name).nonEmpty })
   }
 
@@ -708,7 +595,7 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
         CozyVisualPage.VisualPattern("mapping-columns", Vector("mapping"), Vector(CozyVisualPage.ParameterDefinition("showRelationLabels", "boolean", false), CozyVisualPage.ParameterDefinition("sourceColumnTitle", "string", true), CozyVisualPage.ParameterDefinition("targetColumnTitle", "string", true)))
       )
     )
-    val explanation = CozyExplanation.ValidatedCatalog(_explanation_catalog, CozyExplanation.canonicalCatalogJson(_explanation_catalog), CozyExplanation.catalogIdentity(_explanation_catalog))
+    val explanation = CozyExplanation.ValidatedCatalog(_explanation_catalog, CozyExplanation.canonicalCatalogJson(_explanation_catalog))
     CozyDocumentPresentationSemantics.Catalogs(explanation, CozyExplanation.PresentationCatalog(presentation))
   }
 
@@ -810,6 +697,4 @@ final class CozyDocumentPresentationSemanticsSpec extends AnyWordSpec with Match
     path
   }
 
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 }

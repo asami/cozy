@@ -15,7 +15,7 @@ import cozy.bok.CozyBok
 
 /*
  * @since   Aug.  5, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyArticleMediaBuildHandoffSpec {
@@ -265,11 +265,10 @@ final class CozyArticleMediaBuildHandoffSpec extends AnyWordSpec with Matchers w
       articleIdentity = "development-process/example",
       locale = "ja",
       role = CozyArticleMediaIntegrity.Role.Video,
-      artifact = CozyArticleMediaIntegrity.Artifact("example", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example", "1.0.0")),
       publicPath = new URI("/repository/video/example.mp4"),
       repositoryPath = "video/example.mp4",
       mediaType = "video/mp4",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example/1.0.0/manifest.json", "metadata/artifacts/repository/example.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Registered
     ))

@@ -48,7 +48,7 @@ Consequently, changing only the Document Description does not make a current art
 
 The command uses ordinary file modification times to select build or reuse, in this order: missing required input, `--force`, missing output, a strictly newer input or generated prerequisite, then current/reuse. Equal timestamps reuse. This is make-style timestamp comparison and therefore retains filesystem timestamp-resolution, future-time, same-time-replacement, and restored-time limitations. `--force` explicitly rebuilds even a current target. Timestamp freshness is not content equivalence, prose reflection, human approval, or publication approval.
 
-Rendering completes before installation. If a target fails to render or install, the command reports failure without reporting a new result, and that target's prior successful `index.html` remains unchanged.
+Rendering completes before output writing, so a renderer fault leaves the prior output untouched. The command creates missing admitted directories and directly writes rendered UTF-8 HTML to the selected `index.html`. An ordinary directory or write failure reports failure without a new result and may leave partial output. It provides no staging, atomic install, post-create race check, cleanup, rollback, or preservation promise for I/O failure; recovery is regeneration.
 
 ## Preserved exclusions
 

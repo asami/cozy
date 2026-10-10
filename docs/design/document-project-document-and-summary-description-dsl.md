@@ -66,8 +66,10 @@ visible traceability, or command reporting. Determinism means equal semantic
 input produces equal HTML bytes.
 
 The closed CLI forms select Document or Summary rendering, report their
-logical IDs and destination, and maintain safe destination admission,
-before-move recheck, same-directory temporary cleanup, and atomic replacement.
+logical IDs and destination, retain initial safe destination admission, and
+directly write UTF-8 HTML. Ordinary write failure reports `DESCRIPTION_PATH`;
+partial output may remain and recovery is regeneration. No pre-move recheck,
+staging, atomic replacement, rollback, or preservation guarantee is provided.
 The command does not decide whether an output is production-current or
 publish an output as an authority.
 
@@ -83,7 +85,8 @@ ignored without weakening nested grammar.
 The executable specifications demonstrate the semantic load/render/CLI chain
 with canonical no-hash authorities, ignored historical extras, changed valid
 bytes, wrong logical-ID rejection, complete model and HTML equivalence,
-source safety, escaping, deterministic HTML, and atomic output safety.
+source safety, escaping, deterministic HTML, initial destination admission,
+and direct output semantics.
 
 This DM05 slice is not V2 migration, stale-state architecture, timestamp or
 receipt design, source generation, publication, deployment, or Phase closure.

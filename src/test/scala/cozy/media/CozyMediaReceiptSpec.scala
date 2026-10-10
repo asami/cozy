@@ -14,7 +14,7 @@ import org.scalacheck.{Gen, Prop, Test}
  * @since   Aug. 25, 2026
  *  version Aug. 29, 2026
  *  version Sep. 22, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -197,7 +197,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
           siteConfig = Some(siteconfig)
         )
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             _write(Path.of(command(command.indexOf("--output") + 1)), "%PDF-1.7\naccepted")
             0
           }
@@ -238,7 +238,6 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
 
         Then("the captured route evidence and currentness distinguish the new source-to-public-page identity")
         rerouted.inputs.find(_.id == "cozy:site-document-route").map(_.path) shouldBe Some("knowledge/remapped-article.dox")
-        rerouted.observedFiles should not be changedconfiguration
         CozyMedia.plan(config) should include("article-pdf-ja: build")
       }
     }
@@ -251,7 +250,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
         val descriptor = root.resolve("media.json")
         _write(descriptor, _article_pdf_descriptor)
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             _write(Path.of(command(command.indexOf("--output") + 1)), "%PDF-1.7\naccepted")
             0
           }
@@ -683,26 +682,6 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
       }
     }
 
-    "reject prepared publication input changes before destination writes" in {
-      _with_temp_dir("prepared-input-race") { root =>
-        Given("a prepared publication with a captured current input identity")
-        _write(root.resolve("knowledge/article.dox"), "knowledge")
-        _write(root.resolve("source.txt"), "source")
-        val descriptor = root.resolve("media.json")
-        _write(descriptor, _descriptor(""))
-        CozyMedia.build(CozyMedia.CommandConfig(descriptor))
-        Files.createDirectories(root.resolve("publication"))
-        val prepared = CozyMedia.preparePublication(CozyMedia.CommandConfig(descriptor, profile = Some("site")), force = true)
-        _write(root.resolve("knowledge/article.dox"), "knowledge-race")
-
-        When("the stale preparation is committed")
-        val raced = intercept[RuntimeException](CozyMedia.commitPublication(prepared))
-
-        Then("the input rejection occurs with no destination write")
-        raced.getMessage should include("inputs have changed")
-        Files.exists(root.resolve("publication/example.txt")) shouldBe false
-      }
-    }
     }
   }
 
@@ -723,7 +702,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
           _write(root.resolve("video/en/production.json"), "{\"status\":\"updated\"}")
           Vector("index.dox", "video/en/production.json").foreach(path => Files.setLastModifiedTime(root.resolve(path), newer))
           val verified = CozyMedia.verify(config)
-          val prepared = CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org")), force = true)
+          val prepared = CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org")))
 
           Then("ordinary selected verification and publication preparation reuse the English PDF without adoption or receipt transfer")
           verified should include("status: valid")
@@ -752,7 +731,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
             Files.setLastModifiedTime(source, FileTime.fromMillis(Files.getLastModifiedTime(output).toMillis + offset))
             val planned = CozyMedia.plan(config)
             val verification = intercept[RuntimeException](CozyMedia.verify(config))
-            val preflight = intercept[RuntimeException](CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org")), force = true))
+            val preflight = intercept[RuntimeException](CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org"))))
 
             Then("Build is selected and both gates explain the actual source and the next copy operation without mutation")
             planned should include("publication-article-en: build")
@@ -801,7 +780,7 @@ final class CozyMediaReceiptSpec extends AnyWordSpec with Matchers with GivenWhe
 
             When("selected verification and publication preparation consume the defective evidence")
             val verification = intercept[RuntimeException](CozyMedia.verify(config))
-            val preflight = intercept[RuntimeException](CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org")), force = true))
+            val preflight = intercept[RuntimeException](CozyMedia.preparePublication(config.copy(profile = Some("simplemodeling-org"))))
 
             Then("both gates reject with the selected resource, producer and rebuild operation while preserving existing files")
             Vector(verification, preflight).foreach { error =>

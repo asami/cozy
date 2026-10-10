@@ -2,15 +2,15 @@ package cozy.document
 
 import cozy.video.{CozyVideo, CozyVideoImplementation}
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.util.control.NonFatal
 import org.smartdox.{Dox, Document, Paragraph, Section}
 import org.smartdox.parser.Dox2Parser
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 10, 2026
+ *  version Sep. 10, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectProjection {
@@ -48,14 +48,14 @@ private[cozy] object CozyDocumentProjectProjection {
     }.mkString("\n")
     val attemptrows = if (snapshot.attempts.isEmpty) "<tr><td colspan=\"2\">none retained</td></tr>" else snapshot.attempts.map { attempt =>
       val authority =
-        if (attempt.schema == "cozy.document-operation-attempt.v2" && attempt.outcome == "accepted") "accepted v2 evidence; currentness is derived from its exact input and output identities"
+        if (attempt.schema == "cozy.document-operation-attempt.v2" && attempt.outcome == "accepted") "accepted v2 evidence; state is derived from available declared input and output paths"
         else if (attempt.schema == "cozy.document-operation-attempt.v2") "v2 failed history; it never establishes accepted evidence or currentness"
         else "historical v1 attempt; no receipt/currentness authority"
       s"""<tr><th scope="row">${_html_escape(attempt.path.path)}</th><td>${_html_escape(attempt.outcome)}; $authority</td></tr>"""
     }.mkString("\n")
     val publicsource = snapshot.sidecar match {
       case Some(sidecar) =>
-        s"""<h2>Safe public source</h2><table aria-label="Safe public source"><thead><tr><th scope="col">Kind</th><th scope="col">Identity</th><th scope="col">Project-local path</th><th scope="col">SHA-256</th></tr></thead><tbody><tr><td>smartdox</td><td>${_html_escape(sidecar.publicSource.identity)}</td><td>${_html_escape(sidecar.publicSource.path.path)}</td><td>${_html_escape(sidecar.publicSource.path.sha256)}</td></tr></tbody></table><p class="notice">This safe mapping intentionally excludes Content Core, media source, review material, receipt content, and target files.</p>"""
+        s"""<h2>Safe public source</h2><table aria-label="Safe public source"><thead><tr><th scope="col">Kind</th><th scope="col">Identity</th><th scope="col">Project-local path</th></tr></thead><tbody><tr><td>smartdox</td><td>${_html_escape(sidecar.publicSource.identity)}</td><td>${_html_escape(sidecar.publicSource.path.path)}</td></tr></tbody></table><p class="notice">This safe mapping intentionally excludes Content Core, media source, review material, receipt content, and target files.</p>"""
       case None => ""
     }
     val dashboardparent = dashboardDestination.getParent
@@ -101,7 +101,7 @@ private[cozy] object CozyDocumentProjectProjection {
       descriptor.language,
       s"""<h1>Cozy Document Project Dashboard</h1>
          |<p>Project: <code>${_html_escape(descriptor.id)}</code>; profile: <code>${_html_escape(descriptor.profile)}</code>; workspace: <code>${_html_escape(descriptor.workspace)}</code>; schema: <code>cozy.document-project.v2</code>.</p>
-         |<p class="notice">Current snapshot is derived from admitted authored sources and the closed workflow. A valid accepted native v2 attempt derives Article review currentness only while its exact input and output identities remain current; v1 attempts remain historical only.</p>
+         |<p class="notice">Current snapshot is derived from admitted authored sources and the closed workflow. A valid accepted native v2 attempt derives Article review availability from usable declared input and output paths; v1 attempts remain historical only.</p>
          |<main id="primary-action-surface">
          |<h2>Current production stage / 現在の制作段階</h2>
          |<p>$stage</p>
@@ -210,7 +210,7 @@ private[cozy] object CozyDocumentProjectProjection {
     val mediaplacement = _article_declaration(sections, "Media placement")
     val executionnotice = executionoutputpath match {
       case Some(outputpath) =>
-        s"Native article.render-review execution produced this HTML at the declared output <code>${_html_escape(outputpath)}</code>. A valid provider result is closed only by a separate append-only v2 Operation Attempt that binds the declared output and exact direct input identities; it writes no standalone receipt file or state authority. This output is not a renderer, publication, compatibility adapter, or successor-owned persistence."
+        s"Native article.render-review execution produced this HTML at the declared output <code>${_html_escape(outputpath)}</code>. A valid provider result is closed only by a separate append-only v2 Operation Attempt that records the declared output and ordered direct input paths; it writes no standalone receipt file or state authority. This output is not a renderer, publication, compatibility adapter, or successor-owned persistence."
       case None =>
         "No provider execution, renderer input, production receipt, rendered frame, candidate, feedback, acceptance, state-cache persistence, or authored-input mutation occurs. The default generated-review receipt is local output evidence only, not a renderer or production receipt."
     }
@@ -232,8 +232,8 @@ private[cozy] object CozyDocumentProjectProjection {
          |<table aria-label="Article terminology and media placement"><thead><tr><th scope="col">Article semantic information</th><th scope="col">Declared result</th></tr></thead><tbody><tr><th scope="row">Terminology</th><td>${_html_escape(terminology)}</td></tr><tr><th scope="row">Media placement</th><td>${_html_escape(mediaplacement)}</td></tr></tbody></table>
          |<h2>Infographic relationship</h2>
          |<p>The editable infographic remains a separate expression authority related to the article and its visual flow; this review does not render or alter it.</p>
-         |<h2>Current verified input identities</h2>
-         |${_input_identity_table(project, Vector(articlepath, visualpagespath, infographicpath, project.resolve(descriptor.contentCore)))}
+         |<h2>Selected input paths</h2>
+         |${_input_reference_table(project, Vector(articlepath, visualpagespath, infographicpath, project.resolve(descriptor.contentCore)))}
          |<p class="notice">$executionnotice</p>
          |<script>(function(){var root=document.getElementById('article-review-pages');if(!root){return;}var pages=Array.prototype.slice.call(root.querySelectorAll('.review-page'));var state=document.getElementById('article-review-page-state');var current=0;function show(index){if(!pages.length){return;}current=Math.max(0,Math.min(index,pages.length-1));pages.forEach(function(page,position){page.hidden=position!==current;});root.setAttribute('data-current-page',String(current+1));state.textContent='Page '+(current+1)+' of '+pages.length;}root.querySelector('[data-page-action="previous"]').addEventListener('click',function(){show(current-1);});root.querySelector('[data-page-action="next"]').addEventListener('click',function(){show(current+1);});root.addEventListener('keydown',function(event){if(event.key==='ArrowLeft'){event.preventDefault();show(current-1);}if(event.key==='ArrowRight'){event.preventDefault();show(current+1);}if(event.key==='Home'){event.preventDefault();show(0);}if(event.key==='End'){event.preventDefault();show(pages.length-1);}});root.tabIndex=0;show(0);}());</script>""".stripMargin
     )
@@ -331,8 +331,8 @@ private[cozy] object CozyDocumentProjectProjection {
          |<table aria-label="Ordered semantic video scenes"><thead><tr><th scope="col">Scene</th><th scope="col">Intent and role</th><th scope="col">Narration</th><th scope="col">Speaker and pronunciation</th><th scope="col">Screen, diagram, and assets</th><th scope="col">Timing</th><th scope="col">Transition</th><th scope="col">Direction</th></tr></thead><tbody>$scenrows</tbody></table>
          |<h2>Storyboard infographic use</h2>
          |<p>${_html_escape(infographicuse)}</p>
-         |<h2>Currentness evidence</h2>
-         |${_input_identity_table(project, Vector(storyboardpath, visualpagespath, infographicpath, project.resolve(descriptor.contentCore)))}
+         |<h2>Available input paths</h2>
+         |${_input_reference_table(project, Vector(storyboardpath, visualpagespath, infographicpath, project.resolve(descriptor.contentCore)))}
          |<table aria-label="Unavailable video evidence"><thead><tr><th scope="col">Evidence input</th><th scope="col">Status</th></tr></thead><tbody><tr><th scope="row">Renderer input</th><td>unavailable; no renderer input is admitted or executed</td></tr><tr><th scope="row">Production receipt</th><td>unavailable; no renderer or production receipt is present or claimed</td></tr><tr><th scope="row">Rendered frame</th><td>unavailable; no rendered frame or video is present or claimed</td></tr></tbody></table>
          |<p class="notice">No provider execution, candidate persistence, feedback persistence, acceptance, production receipt, state-cache persistence, or authored-input mutation occurs. The default generated-review receipt is local output evidence only.</p>""".stripMargin
     )
@@ -461,13 +461,14 @@ private[cozy] object CozyDocumentProjectProjection {
   private def _scene_timing(scene: CozyVideo.StoryboardScene): String =
     s"duration ${scene.duration.bigDecimal.toPlainString}s; lead silence ${scene.leadSilence.bigDecimal.toPlainString}s"
 
-  private def _input_identity_table(project: Path, paths: Vector[Path]): String = {
+  private def _input_reference_table(project: Path, paths: Vector[Path]): String = {
     val rows = paths.map { path =>
       val relative = CozyDocumentProject._project_relative(project, path)
-      val digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
-      s"""<tr><th scope="row">${_html_escape(relative)}</th><td>current verified input</td><td>${_html_escape(digest)}</td></tr>"""
+      val available = CozyDocumentProjectNativeEvidence.fileAvailable(project, CozyDocumentProjectEvidence.FileReference(relative))
+      val status = if (available) "available direct input" else "input unavailable"
+      s"""<tr><th scope="row">${_html_escape(relative)}</th><td>${_html_escape(status)}</td></tr>"""
     }.mkString("\n")
-    s"""<table aria-label="Current verified input identities"><thead><tr><th scope="col">Project-local input</th><th scope="col">Currentness</th><th scope="col">SHA-256</th></tr></thead><tbody>$rows</tbody></table>"""
+    s"""<table aria-label="Selected input paths"><thead><tr><th scope="col">Project-local input</th><th scope="col">Availability</th></tr></thead><tbody>$rows</tbody></table>"""
   }
 
   private def _next_action(
@@ -510,7 +511,7 @@ private[cozy] object CozyDocumentProjectProjection {
         val reason = item.reason.getOrElse("no reason is recorded")
         s"<strong>${_html_escape(product.label)}</strong> <code>${_html_escape(product.id)}</code> — ${_html_escape(item.currentness)}: ${_html_escape(reason)}"
       case None =>
-        "Current identities show no stale or missing participating Work Product. / 現在の識別情報では、参加中の成果物に古いものも欠落したものもありません。"
+        "Available sources and semantic evidence show no stale or missing participating Work Product. / 利用可能な入力と意味的証拠では、参加中の成果物に古いものも欠落したものもありません。"
     }
   }
 
@@ -744,23 +745,13 @@ private[cozy] object CozyDocumentProjectProjection {
   }
 
   private[cozy] def publish(destination: Path, content: String): Unit = {
-    var temporary: Option[Path] = None
     try {
       _admit_projection_parent(destination.getParent)
       if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)))
         CozyDocumentProject._failure("DP-PATH-001", "projection output destination must be a direct regular file")
-      val temporaryfile = Files.createTempFile(destination.getParent, s".${destination.getFileName}-", ".tmp")
-      temporary = Some(temporaryfile)
-      Files.writeString(temporaryfile, content, StandardCharsets.UTF_8)
-      if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)))
-        CozyDocumentProject._failure("DP-PATH-001", "projection output destination became unsafe")
-      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      temporary = None
+      Files.writeString(destination, content, StandardCharsets.UTF_8)
     } catch {
-      case _: AtomicMoveNotSupportedException => CozyDocumentProject._failure("DP-PATH-001", "projection output requires an atomic move")
-      case NonFatal(_) => CozyDocumentProject._failure("DP-PATH-001", "projection output cannot be published atomically")
-    } finally {
-      temporary.foreach(Files.deleteIfExists)
+      case NonFatal(_) => CozyDocumentProject._failure("DP-PATH-001", "projection output cannot be written")
     }
   }
 }

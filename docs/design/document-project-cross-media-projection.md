@@ -1,6 +1,6 @@
 # Document Project Cross-Media Projection Design
 
-Status: Phase 46.1 design with the Phase 71.1 material-declaration contract
+Status: Phase 46.1 design with Phase 71.1 declarations and Phase 71.5 S05 typed semantics
 
 ## Ownership
 
@@ -19,7 +19,7 @@ SlidePage          StoryboardScene
   |                     |
   +----------+----------+
              v
-  confirmation HTML and receipt (later Phase 46.1 stages)
+  confirmation HTML and in-operation semantic coverage
 ```
 
 The projection is an immutable, package-local value. It is neither a new
@@ -54,17 +54,12 @@ absent: the accepted input provides none, so Phase 46.1 must not infer them.
 The Projection copies typed material declarations in stable ID order. Canonical
 source objects contain exactly `{id}` and asset objects exactly
 `{id, mediaType}`. Material hashes are neither calculated, parsed, compared,
-nor emitted by this projection. Valid byte replacement at the same bound
-source or asset path leaves unchanged declarations equal; that equality
-describes the typed declaration boundary and does not establish file freshness.
+nor emitted by this projection. These are semantic declarations for the actual admitted direct inputs.
 
-The remaining Core, Explanation catalog, semantic/currentness, projection, renderer,
-output, and receipt hash layers are still unfinished migration work in Phase
-71.1. Operation/FileTime timestamp and adoption behavior is also mandatory in
-this same Phase. The current identity implementation is transitional, not an
-accepted end state or an integrity exemption. This bounded material change
-preserves semantic, validation, safety, and typed coverage contracts and does
-not establish production same-path reuse.
+The actual result carries Content Core id, declarations, StoryFlow, media values,
+and mappings directly. Canonical JSON serializes those values deterministically.
+Upstream Explanation hash removal and remaining independent media contracts
+remain separately bounded work.
 
 ## DM14 catalog proof removal
 
@@ -83,8 +78,9 @@ Coverage is checked at both levels: a Structure's output cannot be credited to
 another Structure merely because both are bound to the same Plan Step. A
 missing Structure binding or an empty derived mapping fails projection before
 any output exists with `DP-PROJ-001`. This is a projection completeness error,
-not a placeholder case. The later receipt stage records identities and output
-bytes; it does not replace this semantic-coverage check.
+not a placeholder case. The coverage boundary checks actual Step/Structure/mapping/HTML presence and
+association, including fixed semantic renderer/profile compatibility. It returns
+an in-operation result and carries no receipt or output certificate.
 
 ## Non-goals
 
@@ -92,3 +88,21 @@ This initial projection does not create a Phase 36 Visual Page source file,
 parse or write Storyboard source, render PowerPoint/PDF/video, assign layout
 coordinates, or write a Document Project. Those remain separate medium or
 operation boundaries.
+
+## Phase 71.5 implementation and validation status
+
+S05 implements the current semantic association, typed projection, coverage,
+confirmation HTML, and direct scaffold contracts under
+`P715-02-S05-PRESENTATION-SEMANTIC-COVERAGE`; its focused validation is pending.
+S04's three existing suites completed with 120 successes, zero failures, zero
+canceled cases, no warnings, exit 0, and terminal shared-lock release, as recorded
+in `p715-02-s04-focused-validation-result.json`. The first 119-success/one-failure
+run and the bounded existing MediaReceipt fixture correction remain retained
+history. This is implementation progress, not Step or Phase acceptance.
+
+External E715-01 through E715-04 reconciliation and the same full 34-scene JA
+ModelHarness VOICEVOX generation, final assembly, audible correct end card, and
+player EOF remain open. Repository-full validation is deferred-not-run to
+Phase 71.7. Independent Alignment, upstream Explanation hashes, delegated
+MediaReceipt, and Core/Description/Confirmation writer removal remain on the
+finite frontier; no exception or replacement certificate is introduced.

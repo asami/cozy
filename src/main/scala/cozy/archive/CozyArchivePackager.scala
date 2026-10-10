@@ -13,7 +13,6 @@ import play.api.libs.json._
 import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import java.security.MessageDigest
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.util.Try
 import scala.collection.JavaConverters._
@@ -24,7 +23,7 @@ import scala.sys.process._
  *  version May. 22, 2026
  *  version Jun. 18, 2026
  *  version Aug. 26, 2026
- * @version Oct. 5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -328,30 +327,23 @@ private[cozy] object CozyArchivePackager {
     carcontract: CarMetadataCompatibility.Contract,
     requireprovenance: Boolean
   )(body: Option[Path] => A): A = {
-    var snapshot: Option[Path] = None
-    try {
-      val provenance = projectdir.flatMap { root =>
-        val path = root.resolve(GenerationProvenance.METADATA_PATH)
-        Option(path).filter(Files.isRegularFile(_)).map { source =>
-          val copied = _snapshot_temp(projectdir, "generation-provenance", source)
-          snapshot = Some(copied)
-          GenerationProvenance.requireValidForPackaging(
-            provenancePath = copied,
-            projectRoot = root,
-            expectedCncfTargetVersion = Some(carcontract.cncfCompileTarget.version),
-            expectedCozyGeneratorVersion = Some(carcontract.cozyVersion)
-          )
-          copied
-        }
-      }
-      if (requireprovenance && provenance.isEmpty)
-        RAISE.invalidArgumentFault(
-          "Generated release CAR requires target/cozy/generation-provenance.json before archive output."
+    val provenance = projectdir.flatMap { root =>
+      val path = root.resolve(GenerationProvenance.METADATA_PATH)
+      Option(path).filter(Files.isRegularFile(_)).map { source =>
+        GenerationProvenance.requireValidForPackaging(
+          provenancePath = source,
+          projectRoot = root,
+          expectedCncfTargetVersion = Some(carcontract.cncfCompileTarget.version),
+          expectedCozyGeneratorVersion = Some(carcontract.cozyVersion)
         )
-      body(provenance)
-    } finally {
-      snapshot.foreach(Files.deleteIfExists(_))
+        source
+      }
     }
+    if (requireprovenance && provenance.isEmpty)
+      RAISE.invalidArgumentFault(
+        "Generated release CAR requires target/cozy/generation-provenance.json before archive output."
+      )
+    body(provenance)
   }
 
   private def _is_snapshot_version(version: String): Boolean =
@@ -1285,14 +1277,6 @@ private[cozy] object CozyArchivePackager {
     path.toAbsolutePath.normalize()
   }
 
-  private def _snapshot_temp(projectdir: Option[Path], prefix: String, source: Path): Path = {
-    val root = _package_work_root(projectdir)
-    Files.createDirectories(root)
-    val path = Files.createTempFile(root, s"$prefix-", ".json")
-    Files.write(path, Files.readAllBytes(source))
-    path.toAbsolutePath.normalize()
-  }
-
   private def _is_empty_dir(path: Path): Boolean =
     !Files.exists(path) || {
       val stream = Files.walk(path)
@@ -1312,15 +1296,15 @@ private[cozy] object CozyArchivePackager {
 }
 
 /*
- * The staged Scaladoc manifest is deliberately checked in Cozy as well as by
- * sbt-cozy.  The bridge transports a directory, not a second disclosure or
- * resource-selection policy; this admission is the sole CAR consumer of it.
+ * Admit the declared Scaladoc distribution for CAR packaging with ordinary
+ * selected-path and public-disclosure semantics. The bridge transports the
+ * producer directory; admission leaves that input unchanged.
  */
 private[cozy] object CozyScaladocStaging {
   val Schema = "cozy.component-scaladoc.v1"
   val ManifestFileName = "scaladoc-manifest.json"
 
-  final case class Entry(path: String, sha256: String)
+  final case class Entry(path: String)
 
   final case class Verified(directory: Path, manifest: Path, manifestText: String, entries: Vector[Entry]) {
     def archiveEntries: Vector[(Path, String)] =
@@ -1336,15 +1320,7 @@ private[cozy] object CozyScaladocStaging {
     if (parsed.schema != Schema)
       _invalid(s"Scaladoc manifest schema is unsupported: ${parsed.schema}")
     _require_manifest_entries(parsed.entries, directory)
-    val actual = _actual_entries(directory)
-    if (actual.map(_.path) != parsed.entries.map(_.path))
-      _invalid(s"Scaladoc staging entries differ from its manifest: $directory")
-    actual.zip(parsed.entries).foreach { case (actualentry, declared) =>
-      if (actualentry.sha256 != declared.sha256)
-        _invalid(s"Scaladoc staged entry digest differs from its manifest: ${declared.path}")
-    }
-    if (parsed.contentdigest != _inventory_digest(parsed.entries))
-      _invalid(s"Scaladoc staged-content digest differs from its manifest: $manifest")
+    _require_selected_entries(directory, parsed.entries)
     if (!parsed.entries.exists(_.path == "index.html"))
       _invalid(s"Scaladoc staging is missing index.html: $directory")
     if (!parsed.entries.exists(entry => _is_search_or_symbol_evidence(entry.path)))
@@ -1355,7 +1331,6 @@ private[cozy] object CozyScaladocStaging {
 
   private final case class Manifest(
     schema: String,
-    contentdigest: String,
     entries: Vector[Entry]
   )
 
@@ -1364,18 +1339,14 @@ private[cozy] object CozyScaladocStaging {
       _invalid(s"Scaladoc manifest is invalid JSON: $path")
     )
     val schema = (json \ "schema").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing schema: $path"))
-    val content = (json \ "contentDigest").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest is missing contentDigest: $path"))
     val entries = (json \ "entries").asOpt[Vector[JsObject]].getOrElse(
       _invalid(s"Scaladoc manifest is missing entries: $path")
     ).map { entry =>
       Entry(
-        (entry \ "path").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest entry is missing path: $path")),
-        (entry \ "sha256").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest entry is missing sha256: $path"))
+        (entry \ "path").asOpt[String].getOrElse(_invalid(s"Scaladoc manifest entry is missing path: $path"))
       )
     }
-    if (!_is_sha256(content))
-      _invalid(s"Scaladoc manifest contains an invalid contentDigest: $path")
-    Manifest(schema, content, entries)
+    Manifest(schema, entries)
   }
 
   private def _require_manifest_entries(entries: Vector[Entry], directory: Path): Unit = {
@@ -1386,25 +1357,18 @@ private[cozy] object CozyScaladocStaging {
     entries.foreach { entry =>
       if (!_is_safe_relative_path(entry.path) || entry.path == ManifestFileName)
         _invalid(s"Scaladoc manifest contains an unsafe staged path: ${entry.path}")
-      if (!_is_sha256(entry.sha256))
-        _invalid(s"Scaladoc manifest contains an invalid SHA-256 digest: ${entry.path}")
     }
   }
 
-  private def _actual_entries(directory: Path): Vector[Entry] = {
-    val stream = Files.walk(directory)
-    try {
-      stream.iterator().asScala.toVector.collect {
-        case path if path != directory && Files.isSymbolicLink(path) =>
+  private def _require_selected_entries(directory: Path, entries: Vector[Entry]): Unit = {
+    entries.foreach { entry =>
+      val selected = entry.path.split('/').foldLeft(directory) { (parent, segment) =>
+        val path = parent.resolve(segment)
+        if (Files.isSymbolicLink(path))
           _invalid(s"Scaladoc staging must not contain a symbolic link: $path")
-        case path if Files.isRegularFile(path) =>
-          val relative = directory.relativize(path).toString.replace('\\', '/')
-          if (!_is_safe_relative_path(relative))
-            _invalid(s"Scaladoc staging contains an unsafe path: $relative")
-          if (relative == ManifestFileName) None else Some(Entry(relative, _sha256(Files.readAllBytes(path))))
-      }.flatten.sortBy(_.path)
-    } finally {
-      stream.close()
+        path
+      }
+      _require_regular_file(selected, "Scaladoc staged entry")
     }
   }
 
@@ -1423,16 +1387,10 @@ private[cozy] object CozyScaladocStaging {
 
   private def _render(manifest: Manifest): String = {
     val entries = manifest.entries.map { entry =>
-      s"""{"path":${_quote(entry.path)},"sha256":${_quote(entry.sha256)}}"""
+      s"""{"path":${_quote(entry.path)}}"""
     }.mkString("[", ",", "]")
-    s"""{"schema":${_quote(manifest.schema)},"contentDigest":${_quote(manifest.contentdigest)},"entries":$entries}"""
+    s"""{"schema":${_quote(manifest.schema)},"entries":$entries}"""
   }
-
-  private def _inventory_digest(entries: Vector[Entry]): String =
-    _sha256(entries.map(entry => s"${entry.path}\t${entry.sha256}\n").mkString.getBytes(StandardCharsets.UTF_8))
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _require_directory(path: Path, label: String): Unit = {
     if (Files.isSymbolicLink(path) || !Files.isDirectory(path))
@@ -1463,10 +1421,6 @@ private[cozy] object CozyScaladocStaging {
     Vector(".css", ".html", ".js", ".json").exists(path.endsWith)
 
   private val _source_link = "(?is)<a\\b[^>]*\\bhref\\s*=\\s*[\"'][^\"']+[\"'][^>]*>\\s*source\\s*</a>".r
-  private val _sha256_pattern = "^[0-9a-f]{64}$".r
-
-  private def _is_sha256(value: String): Boolean = _sha256_pattern.pattern.matcher(value).matches()
-
   private def _quote(value: String): String =
     Json.stringify(JsString(value))
 

@@ -5,7 +5,7 @@ import java.nio.file.{Files, LinkOption, Path, Paths}
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
@@ -309,7 +309,7 @@ private[cozy] object CozyVisualPage extends CozyVisualPageParsing {
       case ".yaml" | ".yml" => canonicalYaml(validated.document)
       case ".md" => canonicalMarkdown(validated.document)
     }
-    _atomic_write(output, text)
+    _write_output(output, text)
     _summary(validated) + s"\nformat: ${extension.drop(1)}"
   }
 

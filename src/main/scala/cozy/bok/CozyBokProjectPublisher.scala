@@ -11,7 +11,6 @@ import io.circe.{Decoder, HCursor}
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 import java.net.URI
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -19,7 +18,7 @@ import scala.util.Try
  * @since   Jun. 23, 2026
  *  version Jun. 24, 2026
  *  version Aug. 11, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyBokProjectPublisher {
@@ -32,7 +31,6 @@ private[cozy] object CozyBokProjectPublisher {
     savedir: Path,
     warehousedir: Path,
     version: Option[String],
-    force: Boolean,
     bokprojectdir: Path,
     bokconfig: CozyProjectYamlConfig.Config,
     repositorydir: Option[Path] = None
@@ -472,10 +470,7 @@ private[cozy] object CozyBokProjectPublisher {
       "sourceOnly" -> project.reference.isSourceOnly
     )
     if (exists)
-      base ++ Json.obj(
-        "size" -> Files.size(artifact),
-        "sha256" -> _sha256(artifact)
-      )
+      base ++ Json.obj("size" -> Files.size(artifact))
     else
       base
   }
@@ -503,11 +498,10 @@ private[cozy] object CozyBokProjectPublisher {
       "publishedAt" -> Json.toJson(version.publishedAt.getOrElse("")),
       "status" -> (if (exists) "published" else "missing")
     )
-    val withchecksum = version.checksumSha256.map(value => base ++ Json.obj("sha256" -> value)).getOrElse(base)
     if (exists)
-      withchecksum ++ Json.obj("size" -> Files.size(artifact))
+      base ++ Json.obj("size" -> Files.size(artifact))
     else
-      withchecksum
+      base
   }
 
   private def _catalog_summary_json(config: PublishProjectConfig, project: ResolvedBokProject): JsValue =
@@ -1204,20 +1198,4 @@ private[cozy] object CozyBokProjectPublisher {
       config.warehousedir.resolve(s"repository/catalog/${kind}").toAbsolutePath.normalize()
     )
 
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    try {
-      val buffer = new Array[Byte](8192)
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => "%02x".format(b & 0xff)).mkString
-  }
 }

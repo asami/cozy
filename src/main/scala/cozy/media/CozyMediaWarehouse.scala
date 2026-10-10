@@ -1,6 +1,6 @@
 package cozy.media
 
-import java.nio.file.{Files, LinkOption, Path, Paths}
+import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import java.util.Locale
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
@@ -9,7 +9,7 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Oct.  6, 2026
- * @version Oct.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaWarehouse {
@@ -18,7 +18,6 @@ private[cozy] object CozyMediaWarehouse {
     case object Planned extends Status("Planned")
     case object Unavailable extends Status("Unavailable")
     case object Created extends Status("Created")
-    case object Reused extends Status("Reused")
   }
 
   final case class DeploymentItem(
@@ -152,7 +151,7 @@ private[cozy] object CozyMediaWarehouse {
         item.status match {
           case Status.Planned =>
             Files.createDirectories(item.destination.getParent)
-            Files.copy(item.source, item.destination)
+            Files.copy(item.source, item.destination, StandardCopyOption.REPLACE_EXISTING)
             item.copy(status = Status.Created)
           case _ => item
         }
@@ -276,51 +275,8 @@ private[cozy] object CozyMediaWarehouse {
     if (existing) {
       _require_file(item.destination, "Media deploy destination")
     }
-    if (available && existing && !_same_bytes(item.source, item.destination)) {
-      _invalid(s"Media deploy destination has different existing bytes: ${item.destination}")
-    }
-    val status = if (!available) Status.Unavailable else if (existing) Status.Reused else Status.Planned
+    val status = if (!available) Status.Unavailable else Status.Planned
     item.copy(status = status)
-  }
-
-  private def _same_bytes(source: Path, destination: Path): Boolean = {
-    if (Files.size(source) != Files.size(destination)) {
-      false
-    } else {
-      val left = Files.newInputStream(source)
-      try {
-        val right = Files.newInputStream(destination)
-        try {
-          val leftbuffer = new Array[Byte](8192)
-          val rightbuffer = new Array[Byte](8192)
-          var equal = true
-          var remaining = Files.size(source)
-          while (equal && remaining > 0) {
-            val length = math.min(remaining, leftbuffer.length.toLong).toInt
-            val leftcount = _read_chunk(left, leftbuffer, length)
-            val rightcount = _read_chunk(right, rightbuffer, length)
-            equal = leftcount == length && rightcount == length &&
-              java.util.Arrays.equals(leftbuffer, rightbuffer)
-            remaining -= length
-          }
-          equal
-        } finally {
-          right.close()
-        }
-      } finally {
-        left.close()
-      }
-    }
-  }
-
-  private def _read_chunk(stream: java.io.InputStream, buffer: Array[Byte], length: Int): Int = {
-    var count = 0
-    var ended = false
-    while (count < length && !ended) {
-      val read = stream.read(buffer, count, length - count)
-      if (read < 0) ended = true else count += read
-    }
-    count
   }
 
   private def _require_direct_path(path: Path): Unit = {

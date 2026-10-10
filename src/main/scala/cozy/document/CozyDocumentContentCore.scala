@@ -2,10 +2,7 @@ package cozy.document
 
 import io.circe.Json
 import java.nio.charset.StandardCharsets
-import java.nio.channels.{FileChannel, FileLock, OverlappingFileLockException}
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
-import java.nio.file.attribute.FileTime
-import java.time.Instant
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.util.Locale
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
@@ -15,7 +12,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep.  2, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentContentCore {
@@ -40,7 +37,7 @@ private[cozy] object CozyDocumentContentCore {
     supersedes: Option[String]
   )
   private final case class FeedbackRecord(id: String, candidate: String, decision: String, path: Path)
-  private final case class CoreReference(path: String, modifiedtime: Option[FileTime])
+  private final case class CoreReference(path: String)
   private final case class AcceptanceRecord(
     id: String,
     candidate: String,
@@ -74,33 +71,29 @@ private[cozy] object CozyDocumentContentCore {
   ): String = {
     val dialoguepath = _admit_input(dialogueValue, "dialogue")
     val dialogue = _dialogue(dialoguepath)
-    _with_project_lock(project) {
-      val descriptor = CozyDocumentProject._load_project(project)
-      if (dialogue.outcome == "succeeded") {
-        val entries = dialogue.candidate.getOrElse(_descriptor_failure("succeeded dialogue must contain a candidate Core replacement"))
-        val superseded = dialogue.supersedes.map { candidateid =>
-          val state = _candidate_state(project, descriptor, candidateid)
-          if (state.superseded || state.rejected || state.accepted || !state.changesrequested) {
-            _operation_failure(s"superseded candidate is not eligible for revision: $candidateid")
-          }
-          val feedback = _feedback_records(project).filter(record => record.candidate == candidateid && record.decision == "changes-requested").sortBy(_.id).lastOption.getOrElse {
-            _operation_failure(s"superseded candidate has no changes-requested feedback: $candidateid")
-          }
-          (state.candidate, feedback)
+    val descriptor = CozyDocumentProject._load_project(project)
+    if (dialogue.outcome == "succeeded") {
+      val entries = dialogue.candidate.getOrElse(_descriptor_failure("succeeded dialogue must contain a candidate Core replacement"))
+      val superseded = dialogue.supersedes.map { candidateid =>
+        val state = _candidate_state(project, descriptor, candidateid)
+        if (state.superseded || state.rejected || state.accepted || !state.changesrequested) {
+          _operation_failure(s"superseded candidate is not eligible for revision: $candidateid")
         }
-        _ensure_unused(project, "candidates", dialogue.id, "candidate")
-        val evidence = _append(
-          project,
-          "candidates",
-          dialogue.id,
-          _candidate_yaml(project, dialogue, entries, superseded)
-        )
-        s"Cozy Document Project Content Core Candidate\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: content-core.compose\noutcome: succeeded\ncandidate: ${dialogue.id}\nevidence: ${CozyDocumentProject._project_relative(project, evidence)}"
-      } else {
-        _ensure_unused(project, "attempts", dialogue.id, "failed dialogue attempt")
-        val evidence = _append(project, "attempts", dialogue.id, _attempt_yaml(dialogue))
-        s"Cozy Document Project Content Core Candidate\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: content-core.compose\noutcome: failed\nattempt: ${CozyDocumentProject._project_relative(project, evidence)}"
+        val feedback = _feedback_records(project).filter(record => record.candidate == candidateid && record.decision == "changes-requested").sortBy(_.id).lastOption.getOrElse {
+          _operation_failure(s"superseded candidate has no changes-requested feedback: $candidateid")
+        }
+        (state.candidate, feedback)
       }
+      val evidence = _append(
+        project,
+        "candidates",
+        dialogue.id,
+        _candidate_yaml(project, dialogue, entries, superseded)
+      )
+      s"Cozy Document Project Content Core Candidate\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: content-core.compose\noutcome: succeeded\ncandidate: ${dialogue.id}\nevidence: ${CozyDocumentProject._project_relative(project, evidence)}"
+    } else {
+      val evidence = _append(project, "attempts", dialogue.id, _attempt_yaml(dialogue))
+      s"Cozy Document Project Content Core Candidate\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\noperation: content-core.compose\noutcome: failed\nattempt: ${CozyDocumentProject._project_relative(project, evidence)}"
     }
   }
 
@@ -115,16 +108,13 @@ private[cozy] object CozyDocumentContentCore {
     if (feedback.candidate != candidateId) {
       _descriptor_failure("feedback candidate must equal the command candidate id")
     }
-    _with_project_lock(project) {
-      val descriptor = CozyDocumentProject._load_project(project)
-      val state = _candidate_state(project, descriptor, candidateId)
-      if (state.superseded || state.rejected || state.accepted) {
-        _operation_failure(s"candidate is not eligible for feedback: $candidateId")
-      }
-      _ensure_unused(project, "feedback", feedback.id, "feedback evidence")
-      val evidence = _append(project, "feedback", feedback.id, _feedback_yaml(project, feedback, state.candidate))
-      s"Cozy Document Project Content Core Feedback\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\ncandidate: $candidateId\ndecision: ${feedback.decision}\nevidence: ${CozyDocumentProject._project_relative(project, evidence)}"
+    val descriptor = CozyDocumentProject._load_project(project)
+    val state = _candidate_state(project, descriptor, candidateId)
+    if (state.superseded || state.rejected || state.accepted) {
+      _operation_failure(s"candidate is not eligible for feedback: $candidateId")
     }
+    val evidence = _append(project, "feedback", feedback.id, _feedback_yaml(project, feedback, state.candidate))
+    s"Cozy Document Project Content Core Feedback\nproject: ${descriptor.id}\nschema: cozy.document-project.v2\ncandidate: $candidateId\ndecision: ${feedback.decision}\nevidence: ${CozyDocumentProject._project_relative(project, evidence)}"
   }
 
   private[cozy] def accept(
@@ -138,32 +128,28 @@ private[cozy] object CozyDocumentContentCore {
     if (acceptance.candidate != candidateId) {
       _descriptor_failure("acceptance candidate must equal the command candidate id")
     }
-    _with_project_lock(project) {
-      val descriptor = CozyDocumentProject._load_project(project)
-      val core = CozyDocumentProject._direct_file(project, descriptor.contentCore, "Content Core")
-      val current = CozyDocumentProject._load_json(core, "Content Core")
-      CozyDocumentProject._validate_core(current, descriptor)
-      val prior = Files.getLastModifiedTime(core, LinkOption.NOFOLLOW_LINKS)
-      val records = _acceptance_records(project, descriptor)
-      records.find(_.id == acceptance.id) match {
-        case Some(record) =>
-          if (records.exists(value => value.candidate == candidateId && value.id != record.id)) {
-            _operation_failure(s"candidate is not eligible for acceptance: $candidateId")
-          }
-          _resume_acceptance(project, descriptor, acceptance, candidateId, current, prior, record)
-        case None =>
-          val state = _candidate_state(project, descriptor, candidateId)
-          if (state.superseded || state.rejected || state.accepted) {
-            _operation_failure(s"candidate is not eligible for acceptance: $candidateId")
-          }
-          _ensure_unused(project, "acceptances", acceptance.id, "acceptance evidence")
-          _validate_replacement(current, descriptor, state.candidate.entries)
-          val replacement = _core_yaml(current, state.candidate.entries)
-          val evidenceyaml = _acceptance_yaml(project, acceptance, state.candidate, descriptor.contentCore, prior)
-          val evidence = _append(project, "acceptances", acceptance.id, evidenceyaml)
-          _replace_core(project, descriptor.contentCore, prior, replacement)
-          _acceptance_output(project, descriptor, candidateId, evidence)
-      }
+    val descriptor = CozyDocumentProject._load_project(project)
+    val core = CozyDocumentProject._direct_file(project, descriptor.contentCore, "Content Core")
+    val current = CozyDocumentProject._load_json(core, "Content Core")
+    CozyDocumentProject._validate_core(current, descriptor)
+    val records = _acceptance_records(project, descriptor)
+    records.find(_.id == acceptance.id) match {
+      case Some(record) =>
+        if (records.exists(value => value.candidate == candidateId && value.id != record.id)) {
+          _operation_failure(s"candidate is not eligible for acceptance: $candidateId")
+        }
+        _resume_acceptance(project, descriptor, acceptance, candidateId, core, current, record)
+      case None =>
+        val state = _candidate_state(project, descriptor, candidateId)
+        if (state.superseded || state.rejected || state.accepted) {
+          _operation_failure(s"candidate is not eligible for acceptance: $candidateId")
+        }
+        _validate_replacement(current, descriptor, state.candidate.entries)
+        val replacement = _core_yaml(current, state.candidate.entries)
+        val evidenceyaml = _acceptance_yaml(project, acceptance, state.candidate, descriptor.contentCore)
+        val evidence = _append(project, "acceptances", acceptance.id, evidenceyaml)
+        _replace_core(core, replacement)
+        _acceptance_output(project, descriptor, candidateId, evidence)
     }
   }
 
@@ -172,8 +158,8 @@ private[cozy] object CozyDocumentContentCore {
     descriptor: CozyDocumentProject.Descriptor,
     acceptance: Acceptance,
     candidateid: String,
+    core: Path,
     current: Json,
-    currentmodified: FileTime,
     record: AcceptanceRecord
   ): String = {
     if (record.candidate != candidateid || record.reviewer != acceptance.reviewer) {
@@ -189,17 +175,8 @@ private[cozy] object CozyDocumentContentCore {
     if (record.priorcore.path != descriptor.contentCore || record.resultingcore.path != descriptor.contentCore) {
       _operation_failure(s"acceptance evidence does not match the requested Core replacement: ${acceptance.id}")
     }
-    if (_core_entries(current) == candidate.entries) {
-      _acceptance_output(project, descriptor, candidateid, record.path)
-    } else {
-      record.priorcore.modifiedtime match {
-        case Some(prior) if currentmodified == prior =>
-          _replace_core(project, descriptor.contentCore, prior, replacement)
-          _acceptance_output(project, descriptor, candidateid, record.path)
-        case _ =>
-          _operation_failure(s"acceptance evidence is historical and cannot be resumed: ${acceptance.id}")
-      }
-    }
+    _replace_core(core, replacement)
+    _acceptance_output(project, descriptor, candidateid, record.path)
   }
 
   private def _acceptance_output(
@@ -351,9 +328,9 @@ private[cozy] object CozyDocumentContentCore {
       val label = "feedback evidence"
       val id = _id(_string(fields, "id", "feedback evidence"), "feedback evidence id")
       _record_filename(path, id, label)
-      val candidateReference = _nested_candidate_reference(_field(fields, "candidate", label), s"$label candidate").getOrElse(_descriptor_failure("feedback evidence candidate is missing"))
-      _verify_candidate_reference(project, candidateReference, s"$label candidate")
-      val candidate = candidateReference.id
+      val candidatereference = _nested_candidate_reference(_field(fields, "candidate", label), s"$label candidate").getOrElse(_descriptor_failure("feedback evidence candidate is missing"))
+      _verify_candidate_reference(project, candidatereference, s"$label candidate")
+      val candidate = candidatereference.id
       _named_reference(_field(fields, "reviewer", label), s"$label reviewer")
       val decision = _outcome_value(_field(fields, "decision", label), s"$label decision")
       val required = decision match {
@@ -377,15 +354,15 @@ private[cozy] object CozyDocumentContentCore {
       if (!required.subsetOf(fields.keySet)) {
         _descriptor_failure("acceptance evidence has missing or extra fields")
       }
-      val candidateReference = _nested_candidate_reference(_field(fields, "candidate", label), s"$label candidate").getOrElse(_descriptor_failure("acceptance evidence candidate is missing"))
-      _verify_candidate_reference(project, candidateReference, s"$label candidate")
-      val candidate = candidateReference.id
+      val candidatereference = _nested_candidate_reference(_field(fields, "candidate", label), s"$label candidate").getOrElse(_descriptor_failure("acceptance evidence candidate is missing"))
+      _verify_candidate_reference(project, candidatereference, s"$label candidate")
+      val candidate = candidatereference.id
       val reviewer = _named_reference(_field(fields, "reviewer", label), s"$label reviewer")
       if (_outcome_value(_field(fields, "decision", label), s"$label decision") != "accepted") {
         _descriptor_failure("acceptance evidence decision is invalid")
       }
-      val prior = _core_reference(_field(fields, "priorCore", label), s"$label prior Core", descriptor.contentCore, loadmodifiedtime = true)
-      val resulting = _core_reference(_field(fields, "resultingCore", label), s"$label resulting Core", descriptor.contentCore, loadmodifiedtime = false)
+      val prior = _core_reference(_field(fields, "priorCore", label), s"$label prior Core", descriptor.contentCore)
+      val resulting = _core_reference(_field(fields, "resultingCore", label), s"$label resulting Core", descriptor.contentCore)
       AcceptanceRecord(id, candidate, reviewer, prior, resulting, path)
     }
 
@@ -450,8 +427,7 @@ private[cozy] object CozyDocumentContentCore {
     project: Path,
     acceptance: Acceptance,
     candidate: Candidate,
-    corepath: String,
-    prior: FileTime
+    corepath: String
   ): String =
     (Vector(
       s"schema: ${_acceptance_record_schema}",
@@ -464,7 +440,6 @@ private[cozy] object CozyDocumentContentCore {
       "  value: accepted",
       "priorCore:",
       s"  path: ${_yaml_string(corepath)}",
-      s"  modifiedTime: ${_yaml_string(prior.toInstant.toString)}",
       "resultingCore:",
       s"  path: ${_yaml_string(corepath)}"
     )).mkString("\n") + "\n"
@@ -618,7 +593,7 @@ private[cozy] object CozyDocumentContentCore {
     outcome
   }
 
-  private def _core_reference(value: Json, label: String, contentcore: String, loadmodifiedtime: Boolean): CoreReference = {
+  private def _core_reference(value: Json, label: String, contentcore: String): CoreReference = {
     val fields = _object(value, label)
     if (!fields.contains("path")) {
       _descriptor_failure(s"$label must contain path")
@@ -627,13 +602,7 @@ private[cozy] object CozyDocumentContentCore {
     if (path != contentcore) {
       _descriptor_failure(s"$label path is invalid")
     }
-    val modifiedtime = if (loadmodifiedtime) fields.get("modifiedTime").map { value =>
-      val timestamp = value.asString.getOrElse(_descriptor_failure(s"$label modifiedTime must be a string"))
-      try FileTime.from(Instant.parse(timestamp)) catch {
-        case NonFatal(_) => _descriptor_failure(s"$label modifiedTime is invalid")
-      }
-    } else None
-    CoreReference(path, modifiedtime)
+    CoreReference(path)
   }
 
   private def _diagnostics_payload(value: Json, label: String): Unit =
@@ -641,24 +610,11 @@ private[cozy] object CozyDocumentContentCore {
       _text_payload(item, label)
     }
 
-  private def _replace_core(project: Path, relative: String, prior: FileTime, content: String): Unit = {
-    val destination = CozyDocumentProject._direct_file(project, relative, "Content Core")
-    var temporary: Option[Path] = None
+  private def _replace_core(destination: Path, content: String): Unit = {
     try {
-      val temporaryfile = Files.createTempFile(destination.getParent, s".${destination.getFileName}-", ".tmp")
-      temporary = Some(temporaryfile)
-      Files.writeString(temporaryfile, content, StandardCharsets.UTF_8)
-      if (Files.getLastModifiedTime(destination, LinkOption.NOFOLLOW_LINKS) != prior) {
-        _operation_failure("Content Core changed before acceptance could be published")
-      }
-      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      temporary = None
+      Files.writeString(destination, content, StandardCharsets.UTF_8)
     } catch {
-      case _: AtomicMoveNotSupportedException => _path_failure("Content Core acceptance requires an atomic move")
-      case e: RuntimeException => throw e
-      case NonFatal(_) => _path_failure("Content Core acceptance cannot be published atomically")
-    } finally {
-      temporary.foreach(Files.deleteIfExists)
+      case NonFatal(_) => _path_failure("Content Core acceptance cannot be written")
     }
   }
 
@@ -689,11 +645,6 @@ private[cozy] object CozyDocumentContentCore {
     CozyDocumentProject._validate_core(replacement, descriptor)
   }
 
-  private def _core_entries(current: Json): Vector[CoreEntry] = {
-    val fields = CozyDocumentProject._object(current, "Content Core")
-    _candidate_entries(Json.obj("accepted" -> CozyDocumentProject._field(fields, "accepted", "Content Core")), "Content Core")
-  }
-
   private def _admit_input(value: String, label: String): Path = {
     val path = try Paths.get(value).toAbsolutePath.normalize() catch {
       case NonFatal(_) => _path_failure(s"$label input path is invalid")
@@ -715,43 +666,6 @@ private[cozy] object CozyDocumentContentCore {
     path
   }
 
-  private def _with_project_lock[A](project: Path)(body: => A): A = {
-    val lockpath = project.resolve(".content-core.lock").normalize()
-    if (!lockpath.startsWith(project)) {
-      _path_failure("Content Core lock path must be contained in the project")
-    }
-    if (Files.exists(lockpath, LinkOption.NOFOLLOW_LINKS) && (Files.isSymbolicLink(lockpath) || !Files.isRegularFile(lockpath, LinkOption.NOFOLLOW_LINKS))) {
-      _path_failure("Content Core lock file must be a direct regular non-symlink file")
-    }
-    val channel = try {
-      FileChannel.open(lockpath, StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)
-    } catch {
-      case NonFatal(_) => _path_failure("Content Core lock file is unusable")
-    }
-    var lock: FileLock = null
-    try {
-      if (Files.isSymbolicLink(lockpath) || !Files.isRegularFile(lockpath, LinkOption.NOFOLLOW_LINKS)) {
-        _path_failure("Content Core lock file must be a direct regular non-symlink file")
-      }
-      lock = try {
-        channel.tryLock()
-      } catch {
-        case _: OverlappingFileLockException => null
-        case NonFatal(_) => _path_failure("Content Core lock file is unusable")
-      }
-      if (lock == null) {
-        _operation_failure("Content Core operation is already in progress; retry after the current operation completes")
-      }
-      body
-    } finally {
-      try {
-        if (lock != null) lock.release()
-      } finally {
-        channel.close()
-      }
-    }
-  }
-
   private def _load_input(path: Path, label: String): Json =
     try {
       Files.readString(path, StandardCharsets.UTF_8)
@@ -768,35 +682,18 @@ private[cozy] object CozyDocumentContentCore {
       case NonFatal(_) => _descriptor_failure(s"$label is unreadable or malformed")
     }
 
-  private def _ensure_unused(project: Path, category: String, id: String, label: String): Unit = {
-    _admit_id(id, label)
-    _existing_directory_optional(project, category, s"$category evidence directory").foreach { directory =>
-      val destination = directory.resolve(s"$id.yaml").normalize()
-      if (!destination.startsWith(directory) || Files.exists(destination, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(destination)) {
-        _operation_failure(s"$label already exists: $id")
-      }
-    }
-  }
-
   private def _append(project: Path, category: String, id: String, content: String): Path = {
+    _admit_id(id, s"$category evidence id")
     val directory = _content_core_directory(project, category)
     val destination = directory.resolve(s"$id.yaml").normalize()
     if (!destination.startsWith(directory) || Files.exists(destination, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(destination)) {
       _operation_failure(s"$category evidence already exists: $id")
     }
-    var temporary: Option[Path] = None
     try {
-      val temporaryfile = Files.createTempFile(directory, s".$id-", ".tmp")
-      temporary = Some(temporaryfile)
-      Files.writeString(temporaryfile, content, StandardCharsets.UTF_8)
-      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE)
-      temporary = None
+      Files.writeString(destination, content, StandardCharsets.UTF_8)
       destination
     } catch {
-      case _: AtomicMoveNotSupportedException => _path_failure("Content Core evidence requires an atomic move")
-      case NonFatal(_) => _path_failure("Content Core evidence cannot be published without overwriting existing evidence")
-    } finally {
-      temporary.foreach(Files.deleteIfExists)
+      case NonFatal(_) => _path_failure("Content Core evidence cannot be written")
     }
   }
 

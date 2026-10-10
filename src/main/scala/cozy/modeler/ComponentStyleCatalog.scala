@@ -1,7 +1,6 @@
 package cozy.modeler
 
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.util.Base64
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -11,11 +10,12 @@ import cozy.compatibility.CncfRuntimeDescriptorContract
 
 /*
  * CNCF-owned ComponentStyle metadata crosses the Scala 3 runtime / Scala 2
- * generator boundary through the SHA-256-pinned runtime descriptor.  This is
+ * generator boundary through the selected runtime descriptor. This is
  * a consumer view; it never owns a second catalog source.
  *
  * @since   Jul. 31, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class ComponentStyleDefinition(
@@ -95,19 +95,16 @@ private[cozy] object ComponentStyleCatalog {
     val carrierjson = root(prefix)
     if (carrierjson.isEmpty)
       return EMPTY
-    if (!validatedDescriptor.digestpinned)
-      _invalid("CNCF component style catalog requires a digest-pinned runtime descriptor")
     val carrier = carrierjson.flatMap(_.asObject).getOrElse(
       _invalid("CNCF component style catalog carrier must be an object")
     )
-    val expectedfields = Set("schemaVersion", "resource", "encoding", "sha256", "bytes")
+    val expectedfields = Set("schemaVersion", "resource", "encoding", "bytes")
     val unknownfields = carrier.keys.toSet -- expectedfields
     if (unknownfields.nonEmpty)
       _invalid(s"Unknown CNCF component style catalog carrier fields: ${unknownfields.toVector.sorted.mkString(", ")}")
     val schema = _required(config.value(s"$prefix.schemaVersion"), s"$prefix.schemaVersion")
     val resource = _required(config.value(s"$prefix.resource"), s"$prefix.resource")
     val encoding = _required(config.value(s"$prefix.encoding"), s"$prefix.encoding")
-    val digest = _required(config.value(s"$prefix.sha256"), s"$prefix.sha256")
     val payload = _required(config.value(s"$prefix.bytes"), s"$prefix.bytes")
     if (schema != CARRIER_SCHEMA_VERSION)
       _invalid(s"Unsupported CNCF component style catalog carrier schema: $schema")
@@ -115,14 +112,9 @@ private[cozy] object ComponentStyleCatalog {
       _invalid(s"Unsupported CNCF component style catalog resource: $resource")
     if (encoding != "base64")
       _invalid(s"Unsupported CNCF component style catalog encoding: $encoding")
-    if (!digest.matches("[0-9a-f]{64}"))
-      _invalid(s"Invalid CNCF component style catalog SHA-256: $digest")
     val bytes = try Base64.getDecoder.decode(payload) catch {
       case NonFatal(_) => _invalid("Invalid CNCF component style catalog base64 payload")
     }
-    val actualdigest = _sha256(bytes)
-    if (actualdigest != digest)
-      _invalid(s"CNCF component style catalog SHA-256 mismatch: expected $digest, actual $actualdigest")
     _parse_catalog(new String(bytes, StandardCharsets.UTF_8))
   }
 
@@ -291,9 +283,6 @@ private[cozy] object ComponentStyleCatalog {
     if (unknown.nonEmpty)
       _invalid(s"Unknown CNCF component style $context fields: ${unknown.mkString(", ")}")
   }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _invalid(message: String): Nothing =
     RAISE.invalidArgumentFault(message)

@@ -13,7 +13,7 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 
 /*
  * @since   Oct.  6, 2026
- * @version Oct.  6, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private object WarehouseRootFixture {
@@ -40,12 +40,12 @@ final class CozyMediaWarehouseRootSpec extends AnyWordSpec with Matchers with Gi
 
           When("native main places the complete batch twice at the explicit alternate root")
           val created = _main(args)
-          val reused = _main(args)
+          val repeated = _main(args)
           val observed = CozyMediaWarehouse.planAtRoot(_command(fixture), fixture.warehouse, Map.empty)
 
-          Then("eight exact JA/EN coordinates are Created then Reused and all original business data remains")
+          Then("both placements report eight Created at exact JA/EN coordinates and all original business data remains")
           created.split("\n").count(_.contains(": Created ")) shouldBe 8
-          reused.split("\n").count(_.contains(": Reused ")) shouldBe 8
+          repeated.split("\n").count(_.contains(": Created ")) shouldBe 8
           observed.resources.size shouldBe 8
           observed.resources.foreach { item =>
             item.destination shouldBe _destination(fixture, item.locale, item.role)
@@ -212,37 +212,54 @@ final class CozyMediaWarehouseRootSpec extends AnyWordSpec with Matchers with Gi
         }
       }
 
-      "keep partial/no-overwrite/dry-run preflight unchanged under the explicit root" in {
-        Given("one missing source, an identical destination and other available absent destinations")
+      "keep partial availability, direct placement and dry-run under the explicit root" in {
+        Given("one missing source, an existing selected destination and other available absent destinations")
         _with_fixture { fixture =>
           Files.delete(_source(fixture, "en", "video"))
-          val reusedpath = _destination(fixture, "ja", "article_pdf")
-          _write(reusedpath, _read(_source(fixture, "ja", "article_pdf")))
+          val destination = _destination(fixture, "ja", "article_pdf")
+          _write(destination, _read(_source(fixture, "ja", "article_pdf")))
           When("dry-run and real explicit-root deployment evaluate the partial batch")
           val dry = CozyMediaWarehouse.deployAtRoot(_command(fixture).copy(dryRun = true), fixture.warehouse, Map.empty)
           val dryabsent = Files.notExists(_destination(fixture, "ja", "infographic"))
           val real = CozyMediaWarehouse.deployAtRoot(_command(fixture), fixture.warehouse, Map.empty)
-          Then("missing remains Unavailable, dry-run is Planned and real placement preserves identical bytes")
+          Then("missing remains Unavailable, dry-run is Planned and real placement creates all seven available resources")
           dry.resources.count(_.status == CozyMediaWarehouse.Status.Unavailable) shouldBe 1
           dry.resources.count(_.status == CozyMediaWarehouse.Status.Planned) shouldBe 7
           dryabsent shouldBe true
-          real.resources.count(_.status == CozyMediaWarehouse.Status.Created) shouldBe 6
-          real.resources.count(_.status == CozyMediaWarehouse.Status.Reused) shouldBe 1
+          real.resources.count(_.status == CozyMediaWarehouse.Status.Created) shouldBe 7
           real.resources.count(_.status == CozyMediaWarehouse.Status.Unavailable) shouldBe 1
-          _read(reusedpath) shouldBe "article_pdf-ja original"
+          _read(destination) shouldBe "article_pdf-ja original"
         }
-        Given("a later selected destination conflicts while an earlier source is available")
+        Given("a selected canonical destination contains an earlier edition and all sources are available")
         _with_fixture { fixture =>
-          val conflict = _destination(fixture, "en", "video")
-          _write(conflict, "different retained master")
-          Vector(false, true).foreach { dryrun =>
-            When("the complete batch is preflighted for real or dry-run placement")
-            val error = intercept[Exception] { CozyMediaWarehouse.deployAtRoot(_command(fixture).copy(dryRun = dryrun), fixture.warehouse) }
-            Then("the conflict rejects the whole preflight before any earlier copy")
-            error.getMessage should include("different existing bytes")
-            Files.exists(_destination(fixture, "ja", "infographic")) shouldBe false
-            _read(conflict) shouldBe "different retained master"
-            _read(_source(fixture, "en", "video")) shouldBe "video-en original"
+          val destination = _destination(fixture, "en", "video")
+          _write(destination, "earlier video edition")
+
+          When("the complete batch is selected for dry-run placement")
+          val dry = CozyMediaWarehouse.deployAtRoot(_command(fixture).copy(dryRun = true), fixture.warehouse)
+
+          Then("all eight resources are Planned at their canonical paths without writes")
+          dry.resources.map(_.status).distinct shouldBe Vector(CozyMediaWarehouse.Status.Planned)
+          Files.exists(_destination(fixture, "ja", "infographic")) shouldBe false
+          _read(destination) shouldBe "earlier video edition"
+          dry.resources.foreach { item =>
+            item.source shouldBe _source(fixture, item.locale, item.role)
+            item.destination shouldBe _destination(fixture, item.locale, item.role)
+            item.publicPath shouldBe _public_path(item.locale, item.role)
+          }
+
+          When("the complete selected batch is directly placed")
+          val real = CozyMediaWarehouse.deployAtRoot(_command(fixture), fixture.warehouse)
+
+          Then("all eight resources are Created and the current source replaces the selected earlier edition")
+          real.resources.map(_.resourceId) shouldBe dry.resources.map(_.resourceId)
+          real.resources.count(_.status == CozyMediaWarehouse.Status.Created) shouldBe 8
+          _read(destination) shouldBe "video-en original"
+          _read(_source(fixture, "en", "video")) shouldBe "video-en original"
+          real.resources.foreach { item =>
+            item.source shouldBe _source(fixture, item.locale, item.role)
+            item.destination shouldBe _destination(fixture, item.locale, item.role)
+            _read(item.destination) shouldBe _read(item.source)
           }
         }
       }

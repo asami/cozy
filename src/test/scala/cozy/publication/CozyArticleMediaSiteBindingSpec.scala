@@ -2,10 +2,8 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
-import org.scalacheck.{Gen, Prop, Test}
 import cozy.media.CozyMedia
 import cozy.media.CozyMediaPdfReviewState
 import cozy.media.CozyMediaReceipt
@@ -18,7 +16,7 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReferen
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
  *  version Sep. 22, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -30,8 +28,6 @@ private object SiteBindingPart5Fixture {
 }
 
 final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers with GivenWhenThen {
-  private val _evidence_time = FileTime.fromMillis(1700000000000L)
-
   "CozyArticleMediaSiteBinding" should {
     "prepare immutable deterministic Part 5 site-media evidence" which {
       "retain typed strict variants, original accepted URLs, and file evidence" in {
@@ -92,31 +88,16 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           javideo.variant.video.flatMap(_.contentUrl) shouldBe empty
           envideo.variant.video.flatMap(_.contentUrl) shouldBe empty
 
-          And("descriptor, infographic, and production evidence retains normalized identities, sizes, modification times, and fileKeys")
+          And("descriptor, infographic, and production evidence retains normalized lexical and real path identities")
           plan.descriptorEvidence.path shouldBe fixture.descriptor.toAbsolutePath.normalize()
           plan.descriptorEvidence.identity shouldBe plan.descriptorEvidence.path
-          plan.descriptorEvidence.modifiedTime shouldBe Files.getLastModifiedTime(fixture.descriptor)
-          plan.descriptorEvidence.size shouldBe Files.size(fixture.descriptor)
-          plan.descriptorEvidence.fileKey shouldBe Files.readAttributes(fixture.descriptor, classOf[BasicFileAttributes]).fileKey()
-          plan.descriptorBytes shouldBe Files.readAllBytes(fixture.descriptor).toVector
           val imageevidence = jaimage.evidence.asInstanceOf[CozyArticleMediaSiteBinding.InfographicEvidence].destination
           imageevidence.path shouldBe fixture.profileroot.resolve("images/summary-ja.png").toAbsolutePath.normalize()
           imageevidence.identity shouldBe imageevidence.path
-          imageevidence.modifiedTime shouldBe Files.getLastModifiedTime(imageevidence.path)
-          imageevidence.size shouldBe Files.size(imageevidence.path)
-          imageevidence.fileKey shouldBe Files.readAttributes(imageevidence.path, classOf[BasicFileAttributes]).fileKey()
           val videoevidence = javideo.evidence.asInstanceOf[CozyArticleMediaSiteBinding.VideoEvidence].production
           videoevidence.path shouldBe fixture.root.resolve("video/ja/production.json").toAbsolutePath.normalize()
           videoevidence.identity shouldBe videoevidence.path
-          videoevidence.modifiedTime shouldBe Files.getLastModifiedTime(videoevidence.path)
-          videoevidence.size shouldBe Files.size(videoevidence.path)
-          videoevidence.fileKey shouldBe Files.readAttributes(videoevidence.path, classOf[BasicFileAttributes]).fileKey()
 
-          When("the unchanged plan is revalidated from its original admitted paths")
-          val revalidated = CozyArticleMediaSiteBinding.revalidate(plan)
-
-          Then("the complete immutable evidence plan remains unchanged")
-          revalidated shouldBe plan
         }
       }
     }
@@ -381,176 +362,6 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
       }
     }
 
-    "revalidate the complete Part 5 snapshot" which {
-      "reuse unchanged selected infographic evidence" in {
-        _with_part5_fixture("unchanged-selected") { fixture =>
-          Given("a selected direct infographic with a fixed observed modification time")
-          val destination = fixture.profileroot.resolve("images/summary-ja.png")
-          Files.setLastModifiedTime(destination, _evidence_time)
-          val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
-            fixture.descriptor,
-            target = Some("part-5-summary-ja")
-          ))
-
-          When("the unchanged selected evidence is revalidated")
-          val revalidated = CozyArticleMediaSiteBinding.revalidate(plan)
-
-          Then("the admitted Plan and its observed direct-file metadata are reusable")
-          revalidated shouldBe plan
-          revalidated.candidates.map(_.resourceId) shouldBe Vector("part-5-summary-ja")
-          val evidence = revalidated.candidates.head.evidence.file
-          evidence.path shouldBe destination.toAbsolutePath.normalize()
-          evidence.identity shouldBe destination.toRealPath()
-          evidence.size shouldBe Files.size(destination)
-          evidence.modifiedTime shouldBe _evidence_time
-          evidence.fileKey shouldBe Files.readAttributes(destination, classOf[BasicFileAttributes]).fileKey()
-        }
-      }
-
-      "reject a same-size selected infographic edit with a newer modification time" in {
-        _with_part5_fixture("same-size-newer-time") { fixture =>
-          Given("a selected infographic Plan followed by a same-size edit at an explicitly newer FileTime")
-          val destination = fixture.profileroot.resolve("images/summary-ja.png")
-          Files.setLastModifiedTime(destination, _evidence_time)
-          val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
-            fixture.descriptor,
-            target = Some("part-5-summary-ja")
-          ))
-          _write(destination, "Part 5 revised ja")
-          Files.setLastModifiedTime(destination, FileTime.fromMillis(_evidence_time.toMillis + 1000L))
-
-          When("the selected infographic Plan is revalidated after the edit")
-          val failure = _failure(CozyArticleMediaSiteBinding.revalidate(plan))
-
-          Then("the observed modification-time drift rejects even though size and fileKey match")
-          Files.size(destination) shouldBe plan.candidates.head.evidence.file.size
-          Files.readAttributes(destination, classOf[BasicFileAttributes]).fileKey() shouldBe plan.candidates.head.evidence.file.fileKey
-          failure.getMessage should include("evidence has changed")
-        }
-      }
-
-      "reject a metadata-only modification-time change" in {
-        _with_part5_fixture("metadata-only-newer-time") { fixture =>
-          Given("a selected infographic Plan whose bytes stay unchanged while its FileTime advances")
-          val destination = fixture.profileroot.resolve("images/summary-ja.png")
-          Files.setLastModifiedTime(destination, _evidence_time)
-          val bytes = Files.readAllBytes(destination).toVector
-          val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
-            fixture.descriptor,
-            target = Some("part-5-summary-ja")
-          ))
-          Files.setLastModifiedTime(destination, FileTime.fromMillis(_evidence_time.toMillis + 2000L))
-
-          When("the selected infographic Plan is revalidated after only its metadata changes")
-          val failure = _failure(CozyArticleMediaSiteBinding.revalidate(plan))
-
-          Then("unchanged bytes and size cannot hide modification-time drift")
-          Files.readAllBytes(destination).toVector shouldBe bytes
-          Files.size(destination) shouldBe plan.candidates.head.evidence.file.size
-          failure.getMessage should include("evidence has changed")
-        }
-      }
-
-      "reject generated positive modification-time advances while reusing unchanged metadata" in {
-        Given("positive millisecond offsets from a fixed valid direct-file modification time")
-        val offsets = Gen.choose(1L, 86400000L)
-        val property = Prop.forAll(offsets) { offset =>
-          _with_part5_fixture("generated-newer-time") { fixture =>
-            Given("a selected infographic Plan at the fixed FileTime")
-            val destination = fixture.profileroot.resolve("images/summary-ja.png")
-            Files.setLastModifiedTime(destination, _evidence_time)
-            val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
-              fixture.descriptor,
-              target = Some("part-5-summary-ja")
-            ))
-
-            When("the metadata is revalidated without an advance")
-            val unchanged = CozyArticleMediaSiteBinding.revalidate(plan)
-
-            Then("the unchanged metadata reuses the admitted Plan")
-            unchanged shouldBe plan
-
-            When("the generated positive advance is applied and the same Plan is revalidated")
-            Files.setLastModifiedTime(destination, FileTime.fromMillis(_evidence_time.toMillis + offset))
-            val failure = _failure(CozyArticleMediaSiteBinding.revalidate(plan))
-
-            Then("every generated modification-time advance rejects the admitted Plan")
-            failure.getMessage should include("evidence has changed")
-            true
-          }
-        }
-
-        When("ScalaCheck evaluates the generated modification-time advances")
-        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
-
-        Then("unchanged metadata is reusable and positive modification-time drift always rejects")
-        result.passed shouldBe true
-      }
-
-      "reject descriptor, profile, resource, infographic, and production drift" in {
-        Given("named descriptor, profile, resource, infographic, production, and atomic-replacement drift callbacks")
-        val descriptordrift: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _write(fixture.descriptor, _part5_yaml() + "# descriptor drift\n")
-        }
-        val profiledrift: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          Files.createDirectories(fixture.root.resolve("publication-alt"))
-          _write(fixture.descriptor, _part5_yaml().replace("root: publication", "root: publication-alt"))
-        }
-        val configurationdrift: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml("publication-alt"))
-        }
-        val resourcedrift: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _write(fixture.descriptor, _part5_yaml().replace(
-            "/ja/development-process/images/part-5/summary.png",
-            "/ja/development-process/images/part-5/changed.png"
-          ))
-        }
-        val infographicsize: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _write(fixture.profileroot.resolve("images/summary-ja.png"), "changed Part 5 image")
-        }
-        val infographicidentity: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          val destination = fixture.profileroot.resolve("images/summary-ja.png")
-          val outside = fixture.root.resolve("replacement-summary-ja.png")
-          _write(outside, Files.readString(destination))
-          Files.delete(destination)
-          Files.createSymbolicLink(destination, outside)
-        }
-        val productiondrift: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _write(fixture.root.resolve("video/ja/production.json"), _part5_production_json(url = "https://youtu.be/ja_Changed-3"))
-        }
-        val descriptorreplacement: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _atomic_replace(fixture.descriptor, _part5_yaml())
-        }
-        val infographicreplacement: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _atomic_replace(fixture.profileroot.resolve("images/summary-ja.png"), "Part 5 summary ja")
-        }
-        val productionreplacement: SiteBindingPart5Fixture.Data => Unit = { fixture =>
-          _atomic_replace(fixture.root.resolve("video/ja/production.json"), _part5_production_json())
-        }
-
-        When("each named drift callback is applied and its Plan is revalidated from the admitted paths")
-        val failures = Vector(
-          "descriptor-drift" -> descriptordrift,
-          "profile-drift" -> profiledrift,
-          "configuration-drift" -> configurationdrift,
-          "resource-drift" -> resourcedrift,
-          "infographic-size-drift" -> infographicsize,
-          "infographic-identity-drift" -> infographicidentity,
-          "production-drift" -> productiondrift,
-          "descriptor-atomic-replacement" -> descriptorreplacement,
-          "infographic-atomic-replacement" -> infographicreplacement,
-          "production-atomic-replacement" -> productionreplacement
-        ).map { case (name, change) =>
-          _part5_revalidation_failure(name)(change)
-        }
-
-        Then("descriptor bytes, declarations, file metadata, identity, and production semantics each reject drift")
-        failures.foreach {
-          _.getMessage should not be empty
-        }
-      }
-    }
-
     "admit accepted Phase 40 PDF site resources" which {
       "capture direct output evidence and map each role to its exact strict variant" in {
         _with_part5_pdf_fixture("pdf-roles") { fixture =>
@@ -593,15 +404,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           val evidence = articleja.evidence.asInstanceOf[CozyArticleMediaSiteBinding.PdfEvidence].output
           evidence.path shouldBe fixture.root.resolve("target/article-ja.pdf").toAbsolutePath.normalize()
           evidence.identity shouldBe evidence.path
-          evidence.modifiedTime shouldBe Files.getLastModifiedTime(evidence.path)
-          evidence.size shouldBe Files.size(evidence.path)
-          evidence.fileKey shouldBe Files.readAttributes(evidence.path, classOf[BasicFileAttributes]).fileKey()
 
-          When("the direct PDF output and existing receipt and review-state gates are revalidated")
-          val revalidated = CozyArticleMediaSiteBinding.revalidate(plan)
-
-          Then("the same accepted PDF Plan revalidates unchanged")
-          revalidated shouldBe plan
         }
       }
 
@@ -624,7 +427,6 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           CozyMediaPdfReviewState.current(mediaplan) shouldBe true
           retained.candidates.filter(_.role == CozyArticleMediaSiteBinding.Role.ArticlePdf).map(_.resourceId) shouldBe
             initial.candidates.filter(_.role == CozyArticleMediaSiteBinding.Role.ArticlePdf).map(_.resourceId)
-          CozyArticleMediaSiteBinding.revalidate(retained) shouldBe retained
         }
       }
 
@@ -689,20 +491,6 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
     _with_part5_fixture(name) { fixture =>
       _write(fixture.root.resolve("video/ja/production.json"), json)
       _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
-    }
-
-  private def _part5_revalidation_failure(name: String)(change: SiteBindingPart5Fixture.Data => Unit): RuntimeException =
-    _with_part5_fixture(name) { fixture =>
-      Given(s"a prepared Plan with original descriptor and direct-file evidence for $name")
-      val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
-      change(fixture)
-
-      When("the Plan is recomputed from exactly its admitted descriptor and evidence paths after drift")
-      val failure = _failure(CozyArticleMediaSiteBinding.revalidate(plan))
-
-      Then("changed file metadata or parsed semantics rejects revalidation")
-      failure.getMessage should not be empty
-      failure
     }
 
   private def _with_part5_pdf_fixture[A](name: String)(f: SiteBindingPart5Fixture.Data => A): A =
@@ -910,12 +698,6 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.writeString(path, value, StandardCharsets.UTF_8)
-  }
-
-  private def _atomic_replace(path: Path, value: String): Unit = {
-    val replacement = path.resolveSibling(path.getFileName.toString + ".replacement")
-    _write(replacement, value)
-    Files.move(replacement, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
   }
 
   private def _delete(path: Path): Unit = {

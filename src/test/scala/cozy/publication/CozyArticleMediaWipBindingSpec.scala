@@ -2,21 +2,19 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import cozy.media.CozyMedia
-import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.smartdox.metadata.PublishMetadata.{PdfDocumentReference, VideoPresentation, VideoStatus}
-import play.api.libs.json.{JsArray, JsObject, JsString, Json}
+import play.api.libs.json.{JsArray, JsObject, Json}
 
 /*
  * @since   Aug. 12, 2026
  *  version Aug. 30, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private object CozyArticleMediaWipBindingFixture {
@@ -54,8 +52,6 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
           japanese.variant.video.get.contentUrl.map(_.toString) shouldBe Some("/ja/development-process/videos/example.mp4")
           _candidate(plan, "video-en").variant.video.get.contentUrl.map(_.toString) shouldBe Some("/en/development-process/videos/example.mp4")
           japanese.integrity.get.record.repositoryPath shouldBe "ja/development-process/videos/example.mp4"
-          japanese.integrity.get.record.sha256 shouldBe _sha256(fixture.sourceja)
-          japanese.integrity.get.record.artifact.version shouldBe _sha256(fixture.sourceja)
           japanese.integrity.get.record.provenance shouldBe CozyArticleMediaIntegrity.WipSiteVideo("media.yaml", "video-ja", "video/ja/production.json")
           plan.registry.articles.head.integrities.map(_.record.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Video, CozyArticleMediaIntegrity.Role.Video)
           _direct_names(fixture.publication) shouldBe Vector.empty
@@ -224,46 +220,7 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
       }
     }
 
-    "isolate current WIP tuple state" which {
-      "admit a fresh tuple and then only the exact installed WIP repeat" in {
-        Given("a fresh plan, its exact planned pair, and matching installed bytes")
-        _with_fixture("repeat") { fixture =>
-          val fresh = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          val candidate = fresh.candidates.head
-          val strict = fresh.registry.articles.head.strict
-          val integrity = candidate.integrity.get
-          _write_bundle(fixture.publication, "publication", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
-          Files.copy(fixture.sourceja, fixture.website.resolve("ja/development-process/videos/example.mp4"), StandardCopyOption.REPLACE_EXISTING)
-
-          When("the exact plan is repeated with current output bytes")
-          val repeat = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          _write(fixture.website.resolve("ja/development-process/videos/example.mp4"), "stale")
-          val stale = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
-
-          Then("only the exact digest-matching WIP tuple is reusable")
-          fresh.registry.videoStates(("development-process/example", "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.Fresh
-          repeat.registry.videoStates(("development-process/example", "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.ExactRepeat
-          stale.getMessage should include("repeat destination digest")
-        }
-      }
-
-      "reject a pre-existing destination for a fresh tuple without mutation" in {
-        Given("an empty WIP registry tuple with a direct destination that was not installed by WIP")
-        _with_fixture("fresh-destination") { fixture =>
-          val destination = fixture.website.resolve("ja/development-process/videos/example.mp4")
-          Files.copy(fixture.sourceja, destination)
-          val destinationbytes = Files.readAllBytes(destination).toVector
-
-          When("the fresh WIP plan is built")
-          val error = _failure(CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja"))))
-
-          Then("planning rejects the ambiguous direct MP4 and leaves registry and destination bytes unchanged")
-          error.getMessage should include("Article-media WIP fresh destination must be absent")
-          _direct_names(fixture.publication) shouldBe Vector.empty
-          Files.readAllBytes(destination).toVector shouldBe destinationbytes
-        }
-      }
-
+    "validate selected WIP ownership" which {
       "reject an external or malformed existing video tuple without overwriting it" in {
         Given("a configured registry containing an external production video")
         _with_fixture("external") { fixture =>
@@ -288,81 +245,6 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
         }
       }
 
-      "revalidate full descriptor, source, production, root, and registry evidence" in {
-        Given("a complete fresh plan")
-        _with_fixture("drift") { fixture =>
-          val plan = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          _write(fixture.sourceja, "changed source")
-
-          When("captured source evidence changes before revalidation")
-          val source = _failure(CozyArticleMediaWipBinding.revalidate(plan))
-          _write(fixture.sourceja, "ja source")
-          _write(fixture.productionja, _production("ja"))
-          val restored = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-          _write_bundle(fixture.publication, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("changed" -> true))))
-          val registry = _failure(CozyArticleMediaWipBinding.revalidate(restored))
-
-          Then("both file and complete registry snapshots are rechecked")
-          source.getMessage should include("evidence has changed")
-          registry.getMessage should include("evidence has changed")
-        }
-      }
-
-      "reject equivalent production JSON rewrites in independently reset observations before mutation" in {
-        Given("generated valid JSON whitespace for independently reset production observations")
-        val whitespace = for {
-          spaces <- Gen.choose(1, 12)
-          separator <- Gen.oneOf(" ", "\t", "\n", "\r\n")
-        } yield " " * spaces + separator
-        val property = Prop.forAll(whitespace) { padding =>
-          _with_fixture("production-bytes") { fixture =>
-            Given("a valid exact-repeat plan with actual production, registry, source, and destination observations")
-            val fresh = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-            val strict = fresh.registry.articles.head.strict
-            val integrity = fresh.candidates.head.integrity.get
-            _write_bundle(fixture.publication, "publication", Vector(
-              _entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)
-            ))
-            val destination = fixture.website.resolve("ja/development-process/videos/example.mp4")
-            Files.copy(fixture.sourceja, destination)
-            val plan = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-            val productionbytes = Files.readAllBytes(fixture.productionja).toVector
-            val productiontime = Files.getLastModifiedTime(fixture.productionja)
-            val registrybytes = Files.readAllBytes(fixture.publication.resolve("publication.json")).toVector
-            val sourcebytes = Files.readAllBytes(fixture.sourceja).toVector
-            val destinationbytes = Files.readAllBytes(destination).toVector
-            val production = Json.parse(productionbytes.toArray)
-            val compact = Json.stringify(production)
-            val original = new String(productionbytes.toArray, StandardCharsets.UTF_8)
-            val reformatted = padding + compact + (" " * (original.length - compact.length - padding.length))
-
-            When("valid generated whitespace rewrites only production JSON while preserving its size and modification time")
-            _write(fixture.productionja, reformatted)
-            Files.setLastModifiedTime(fixture.productionja, productiontime)
-            val changed = CozyArticleMediaWipBinding.plan(_config(fixture, target = Some("video-ja")))
-            val error = _failure(CozyArticleMediaWipBinding.revalidate(plan))
-
-            Then("unchanged parsed semantics and file attributes cannot hide changed actual production bytes")
-            Json.parse(Files.readAllBytes(fixture.productionja)) shouldBe production
-            changed.candidates.head.evidence.asInstanceOf[CozyArticleMediaWipBinding.VideoEvidence].production shouldBe
-              plan.candidates.head.evidence.asInstanceOf[CozyArticleMediaWipBinding.VideoEvidence].production
-            changed.candidates.head.evidence.asInstanceOf[CozyArticleMediaWipBinding.VideoEvidence].productionBytes should not be (
-              plan.candidates.head.evidence.asInstanceOf[CozyArticleMediaWipBinding.VideoEvidence].productionBytes
-            )
-            error.getMessage should include("evidence has changed")
-            Files.readAllBytes(fixture.publication.resolve("publication.json")).toVector shouldBe registrybytes
-            Files.readAllBytes(fixture.sourceja).toVector shouldBe sourcebytes
-            Files.readAllBytes(destination).toVector shouldBe destinationbytes
-            true
-          }
-        }
-
-        When("ScalaCheck evaluates at least fifty independently reset production formatting trials")
-        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
-
-        Then("all generated rewrites are rejected without changing registry, source, or destination bytes")
-        result.passed shouldBe true
-      }
     }
   }
 
@@ -569,11 +451,6 @@ final class CozyArticleMediaWipBindingSpec extends AnyWordSpec with Matchers wit
     Files.write(path, value.getBytes(StandardCharsets.UTF_8))
   }
 
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(Files.readAllBytes(path))
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
-  }
 
   private def _delete(path: Path): Unit = {
     if (Files.exists(path)) {

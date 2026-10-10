@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 13, 2026
  *  version Sep. 30, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -115,7 +115,7 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         val firstbytes = Files.readAllBytes(first.outputPath).toVector
         val second = CozySummarySlideProjection.write(projection, output)
 
-        Then("the writer atomically installs deterministic canonical bytes at that exact path and preserves every admitted input")
+        Then("the writer directly writes deterministic canonical bytes at that exact path and preserves every admitted input")
         first.outputPath shouldBe output
         firstbytes shouldBe (first.projection.visualPageSet.canonicalJson + "\n").getBytes(StandardCharsets.UTF_8).toVector
         Files.readAllBytes(second.outputPath).toVector shouldBe firstbytes
@@ -151,7 +151,7 @@ final class CozySummarySlideProjectionSpec extends AnyWordSpec with Matchers wit
         val projection = CozySummarySlideProjection.project(root, root.relativize(fixture.profile))
         val output = Files.createDirectory(root.resolve("writer-directory"))
 
-        When("the writer performs its ordinary atomic replacement")
+        When("the writer performs its ordinary direct write")
         val failure = intercept[CozySummarySlideProjection.ProjectionFault](CozySummarySlideProjection.write(projection, output))
 
         Then("the filesystem error is reported as an output failure")

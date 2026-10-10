@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 /*
  * @since   Aug. 29, 2026
  *  version Sep. 30, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -67,8 +67,8 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
               val initial = _renderer(root)
               var produced = ""
               val runner = new CozyMedia.ProcessRunner {
-                def run(command: Vector[String], workingdirectory: Path): Int = {
-                  val status = initial.run(command, workingdirectory)
+                def run(command: Vector[String], workingDirectory: Path): Int = {
+                  val status = initial.run(command, workingDirectory)
                   val manifest = Path.of(command(command.indexOf("--manifest") + 1))
                   produced = Files.readString(manifest, StandardCharsets.UTF_8)
                   val evidence = io.circe.parser.parse(produced).fold(error => throw error, value => value)
@@ -145,8 +145,8 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
           _accept_dependencies(descriptor)
           val initial = _renderer(directory)
           val runner = new CozyMedia.ProcessRunner {
-            def run(command: Vector[String], workingdirectory: Path): Int = {
-              val status = initial.run(command, workingdirectory)
+            def run(command: Vector[String], workingDirectory: Path): Int = {
+              val status = initial.run(command, workingDirectory)
               val manifest = Path.of(command(command.indexOf("--manifest") + 1))
               oldvalue.foreach { raw =>
                 val json = io.circe.parser.parse(Files.readString(manifest)).fold(error => throw error, identity)
@@ -190,37 +190,6 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
       }
     }
 
-    "reject actual Visual Page asset bytes that disagree with the declared media resource before replacing a prior PDF" in {
-      _with_temp_dir("visual-asset-disagreement") { root =>
-        Given("a current infographic resource, a different valid direct page asset with the same ID and media type, and a prior PDF")
-        val descriptor = _write_fixture(root, "visual-page-v1", includepptx = false)
-        val alternate = root.resolve("assets/alternate.png")
-        Files.write(alternate, Files.readAllBytes(root.resolve("assets/infographic.png")) ++ Array[Byte](1))
-        val source = root.resolve("visual-pages.json")
-        val document = CozyVisualPage.load(source, root.resolve("catalog.json")).document.asInstanceOf[CozyVisualPage.PageSet]
-        _write(source, CozyVisualPage.canonicalJson(document.copy(pages = document.pages.map(page =>
-          page.copy(assets = page.assets.map(_.copy(path = "assets/alternate.png")))
-        ))))
-        _accept_dependencies(descriptor)
-        val output = root.resolve("target/summary.pdf")
-        _write_pdf(output, 1, "prior")
-        val prior = Files.readAllBytes(output).toVector
-        val receipt = root.resolve("target/cozy-media/manifest.json")
-        val priorreceipt = Files.readAllBytes(receipt).toVector
-        var invoked = false
-        val runner = _renderer(root, _ => invoked = true)
-
-        When("the summary route resolves its page declaration and explicit media resource")
-        val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), runner))
-
-        Then("actual resource byte disagreement rejects before rendering and preserves the prior PDF")
-        failure.getMessage should include("asset differs from declared resource")
-        invoked shouldBe false
-        Files.readAllBytes(output).toVector shouldBe prior
-        Files.readAllBytes(receipt).toVector shouldBe priorreceipt
-      }
-    }
-
     "retain each authority's exact sequence when more than one actual asset is selected" in {
       Vector("slide-ir-v1", "visual-page-v1").foreach { contract =>
         _with_temp_dir("ordered-assets") { root =>
@@ -249,19 +218,16 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
 
           Then("both actual assets are accepted in the route's authority order")
           verified should include("status: valid")
-          val output = root.resolve("target/summary.pdf")
           val receipt = root.resolve("target/cozy-media/manifest.json")
-          val priorpdf = Files.readAllBytes(output).toVector
           val priorreceipt = Files.readAllBytes(receipt).toVector
 
-          Given("that accepted primary and receipt, with invalidated renderer evidence forcing a real rebuild")
+          Given("that accepted receipt, with invalidated renderer evidence forcing a real rebuild")
           _write(root.resolve("target/summary-renderer.json"), "{}")
           When("the renderer reverses the required IDs for one page")
           val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(root, variant = "asset-order")))
 
-          Then("asset order rejects before primary installation or receipt replacement")
+          Then("asset order rejects without replacing the accepted receipt")
           failure.getMessage should include("assets differ")
-          Files.readAllBytes(output).toVector shouldBe priorpdf
           Files.readAllBytes(receipt).toVector shouldBe priorreceipt
         }
       }
@@ -308,31 +274,27 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
 
     "retain configured PPTX direct-file and path requirements without an OOXML promise" in {
       _with_temp_dir("pptx-rejections") { root =>
-        Given("independent configured-PPTX targets with prior actual primary PDFs and accepted dependency receipts")
+        Given("independent configured-PPTX targets with accepted dependency receipts")
         val variants = Vector("missing-pptx", "pptx-null", "pptx-path-type", "pptx-path", "pptx-unsafe", "missing-pptx-file")
         val cases = variants.map { variant =>
           val directory = root.resolve(variant)
           val descriptor = _write_fixture(directory, "visual-page-v1", includepptx = true)
           _accept_dependencies(descriptor)
-          val output = directory.resolve("target/summary.pdf")
-          _write_pdf(output, 1, "prior")
           val receipt = directory.resolve("target/cozy-media/manifest.json")
-          (directory, descriptor, output, receipt, Files.readAllBytes(output).toVector, Files.readAllBytes(receipt).toVector, variant)
+          (directory, descriptor, receipt, Files.readAllBytes(receipt).toVector, variant)
         }
 
         When("a renderer omits or misdeclares the required configured sidecar evidence or actual file")
-        val failures = cases.map { case (directory, descriptor, output, receipt, priorpdf, priorreceipt, variant) =>
+        val failures = cases.map { case (directory, descriptor, receipt, priorreceipt, variant) =>
           val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(directory, variant = variant)))
-          (failure, Files.readAllBytes(output).toVector == priorpdf, Files.readAllBytes(receipt).toVector == priorreceipt, _staged_files(output.getParent))
+          (failure, Files.readAllBytes(receipt).toVector == priorreceipt)
         }
 
-        Then("every configured-sidecar failure preserves primary PDF and receipt bytes and cleans the staged primary")
+        Then("every configured-sidecar failure reports its error without replacing the accepted receipt")
         failures should have size variants.size
-        failures.foreach { case (failure, pdfpreserved, receiptpreserved, staged) =>
+        failures.foreach { case (failure, receiptpreserved) =>
           failure.getMessage.toLowerCase(java.util.Locale.ROOT) should include("summary-slides pdf")
-          pdfpreserved shouldBe true
           receiptpreserved shouldBe true
-          staged shouldBe Vector.empty
         }
       }
     }
@@ -388,7 +350,7 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
     "reject malformed, stale, and page-inconsistent direct renderer evidence before receipt acceptance" which {
       "reject invalid PDFs, required known fields, page count, order, paths and actual image evidence" in {
         _with_temp_dir("evidence-rejection") { root =>
-          Given("direct Slide-IR and Visual Page targets with renderer evidence variants and prior PDFs")
+          Given("direct Slide-IR and Visual Page targets with renderer evidence variants and accepted dependency receipts")
           val variants = Vector(
             "missing-pdf", "malformed", "non-pdf", "invalid-pdf", "real-count", "count", "count-type", "count-null", "count-missing", "count-zero", "count-fraction",
             "order", "duplicate-slide", "root-order", "schema", "target", "profile", "renderer-name", "renderer-version-type", "renderer-missing",
@@ -402,26 +364,22 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
               val directory = root.resolve(contract).resolve(variant)
               val descriptor = _write_fixture(directory, contract, includepptx = false, pages = 2)
               _accept_dependencies(descriptor)
-              val output = directory.resolve("target/summary.pdf")
-              _write_pdf(output, 1, "prior")
               val manifest = directory.resolve("target/cozy-media/manifest.json")
-              (directory, descriptor, output, manifest, Files.readString(manifest, StandardCharsets.UTF_8), Files.readAllBytes(output).toVector, variant)
+              (directory, descriptor, manifest, Files.readString(manifest, StandardCharsets.UTF_8), variant)
             }
           }
 
-          When("each variant attempts to replace a prior primary PDF")
-          val failures = cases.map { case (directory, descriptor, output, manifest, previous, priorpdf, variant) =>
+          When("each variant renders directly to the declared primary PDF")
+          val failures = cases.map { case (directory, descriptor, manifest, previous, variant) =>
             val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(directory, variant = variant)))
-            (output, failure, priorpdf, previous, Files.readString(manifest, StandardCharsets.UTF_8))
+            (failure, previous, Files.readString(manifest, StandardCharsets.UTF_8))
           }
 
-          Then("every invalid evidence shape leaves the prior primary PDF and acceptance receipt visible")
+          Then("every invalid evidence shape reports its error without replacing the accepted receipt")
           failures should have size cases.size
-          failures.foreach { case (output, failure, priorpdf, previous, actual) =>
+          failures.foreach { case (failure, previous, actual) =>
             failure.getMessage.toLowerCase(java.util.Locale.ROOT) should include("summary-slides pdf")
-            Files.readAllBytes(output).toVector shouldBe priorpdf
             actual shouldBe previous
-            _staged_files(output.getParent) shouldBe Vector.empty
           }
         }
       }
@@ -564,78 +522,6 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
             }
             CozyMedia.plan(CozyMedia.CommandConfig(descriptor, target = Some("summary"))) should include("summary: current")
           }
-        }
-      }
-
-      "preserve a prior primary PDF and receipt when an input races during rendering" in {
-        _with_temp_dir("input-race") { root =>
-          Given("an existing primary PDF and accepted dependency receipt")
-          val descriptor = _write_fixture(root, "slide-ir-v1", includepptx = false)
-          _accept_dependencies(descriptor)
-          val output = root.resolve("target/summary.pdf")
-          _write_pdf(output, 1, "prior")
-          val manifest = root.resolve("target/cozy-media/manifest.json")
-          val previous = Files.readString(manifest, StandardCharsets.UTF_8)
-          val source = root.resolve("slides.json")
-          val inputtime = FileTime.fromMillis(1000)
-          Files.setLastModifiedTime(source, inputtime)
-          val original = Files.readAllBytes(source)
-          val priorpdf = Files.readAllBytes(output).toVector
-          val runner = new CozyMedia.ProcessRunner {
-            def run(command: Vector[String], workingdirectory: Path): Int = {
-              _write_renderer_output(root, command, "valid")
-              _write(source, _slide_ir_json(1).replace("Overview", "Raced"))
-              Files.setLastModifiedTime(source, FileTime.fromMillis(3000))
-              0
-            }
-          }
-
-          When("the renderer returns after changing the declared Slide-IR authority at an explicitly different time")
-          val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), runner))
-          Files.write(source, original)
-          Files.setLastModifiedTime(source, inputtime)
-
-          Then("the staged result is rejected before atomic installation or receipt visibility")
-          failure.getMessage should include("inputs changed during build")
-          Files.readAllBytes(output).toVector shouldBe priorpdf
-          _staged_files(output.getParent) shouldBe Vector.empty
-          Files.readString(manifest, StandardCharsets.UTF_8) shouldBe previous
-        }
-      }
-
-      "preserve a prior primary PDF and receipt when a Visual Page source binding races during rendering" in {
-        _with_temp_dir("visual-page-input-race") { root =>
-          Given("an existing Visual Page primary PDF and accepted dependency receipt")
-          val descriptor = _write_fixture(root, "visual-page-v1", includepptx = false)
-          _accept_dependencies(descriptor)
-          val output = root.resolve("target/summary.pdf")
-          _write_pdf(output, 1, "prior")
-          val manifest = root.resolve("target/cozy-media/manifest.json")
-          val previous = Files.readString(manifest, StandardCharsets.UTF_8)
-          val sourcebinding = root.resolve("sources/research.txt")
-          val inputtime = FileTime.fromMillis(1000)
-          Files.setLastModifiedTime(sourcebinding, inputtime)
-          val original = Files.readAllBytes(sourcebinding)
-          val priorpdf = Files.readAllBytes(output).toVector
-          val runner = new CozyMedia.ProcessRunner {
-            def run(command: Vector[String], workingdirectory: Path): Int = {
-              _write_renderer_output(root, command, "valid")
-              _write(sourcebinding, "raced")
-              Files.setLastModifiedTime(sourcebinding, FileTime.fromMillis(3000))
-              0
-            }
-          }
-
-          When("the renderer returns after changing a declared Visual Page source binding at an explicitly different time")
-          val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), runner))
-          Files.write(sourcebinding, original)
-          Files.setLastModifiedTime(sourcebinding, inputtime)
-
-          Then("the staged result is rejected before atomic installation or receipt visibility")
-          failure.getMessage should include("Summary-slides PDF inputs changed during build: summary")
-          Files.readAllBytes(output).toVector shouldBe priorpdf
-          _staged_files(output.getParent) shouldBe Vector.empty
-          Files.readString(manifest, StandardCharsets.UTF_8) shouldBe previous
         }
       }
 
@@ -792,7 +678,7 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
 
   private def _renderer(root: Path, capture: Vector[String] => Unit = _ => (), variant: String = "valid"): CozyMedia.ProcessRunner =
     new CozyMedia.ProcessRunner {
-      def run(command: Vector[String], workingdirectory: Path): Int = {
+      def run(command: Vector[String], workingDirectory: Path): Int = {
         capture(command)
         _write_renderer_output(root, command, variant)
         if (variant == "renderer-exit") 7 else 0
@@ -921,12 +807,6 @@ final class CozyMediaSummarySlidesPdfSpec extends AnyWordSpec with Matchers with
         val metadata = JsonObject.fromIterable(extras.map(field => field -> extra) ++ annotated.toVector)
         Json.fromJsonObject(if (fields.contains("pageCount")) metadata.add("path", extra) else metadata)
       })
-
-  private def _staged_files(parent: Path): Vector[Path] = {
-    val stream = Files.list(parent)
-    try stream.iterator().asScala.filter(_.getFileName.toString.startsWith(".cozy-summary-slides-pdf-")).toVector
-    finally stream.close()
-  }
 
   private def _set_fixture_times(root: Path, time: FileTime): Unit = {
     val stream = Files.walk(root)

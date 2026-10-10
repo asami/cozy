@@ -58,8 +58,11 @@ required; for `document`, `--summary` is rejected. Unknown, duplicate,
 missing, cross-kind, or positional command forms reject without publication.
 The command MUST use strict v2 source admission and current source bindings,
 then locale-compatible vocabulary and the matching v2 renderer. It MUST
-publish only an atomically moved direct regular non-symlink HTML destination
-under a direct existing directory.
+directly write UTF-8 HTML only to an absent or direct regular non-symlink
+`.html` destination under a direct existing non-symlink directory. Input and
+initial output admission fail before writing. Ordinary write failure reports
+`CONFIRMATION_PATH`; partial output may remain without rollback or preservation
+guarantees.
 
 ## Executable acceptance evidence
 

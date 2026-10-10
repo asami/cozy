@@ -14,7 +14,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Aug. 30, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyExplanationPreviewSpec {
@@ -264,7 +264,7 @@ final class CozyExplanationPreviewSpec
       }
     }
 
-    "mapping currentness and source/asset agreement" which {
+    "semantic mappings and source/asset declarations" which {
 
       "fail before replacing the selected output when a mapped Page is unknown or no longer agrees with its Plan Step" in {
         _with_work("preservation") { root =>
@@ -275,7 +275,7 @@ final class CozyExplanationPreviewSpec
             stepMappings = fixture.projectionmap.presentation.stepMappings.updated(0,
               fixture.projectionmap.presentation.stepMappings.head.copy(pageIds = Vector("unknown-page")))
           )
-          val unknownmap = _with_mapping_identities(fixture.projectionmap.copy(presentation = unknownpresentation))
+          val unknownmap = fixture.projectionmap.copy(presentation = unknownpresentation)
           val unknownfile = _write(root.resolve("unknown-map.json"), CozyExplanationProjection.canonicalProjectionMapJson(unknownmap))
           val changedpage = fixture.pageset.pages.head.copy(logical = fixture.pageset.pages.head.logical.copy(
             nodes = fixture.pageset.pages.head.logical.nodes.updated(0,
@@ -289,7 +289,7 @@ final class CozyExplanationPreviewSpec
           val unknownfailure = _failure(CozyExplanation.execute(_preview_command(fixture, output, projectionmap = Some(unknownfile))))
           val stalefailure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(stalefile))))
 
-          Then("both failures are structured currentness failures and the pre-existing output remains byte-for-byte unchanged")
+          Then("both failures are structured semantic linkage failures and the pre-existing output remains byte-for-byte unchanged")
           Vector(unknownfailure, stalefailure).foreach { failure =>
             failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
             failure.getMessage should include_text("path=")
@@ -301,26 +301,7 @@ final class CozyExplanationPreviewSpec
         }
       }
 
-      "reject a mapped Page whose source descriptor bytes disagree with its explicit binding" in {
-        _with_work("source-agreement") { root =>
-          Given("a current explanation closure, a source descriptor with different bytes, and sentinel output bytes")
-          val fixture = _fixture(root)
-          val output = _write(root.resolve("source-agreement.html"), "preserve-me")
-          val descriptor = _write(root.resolve("descriptor-source.txt"), "different source bytes")
-          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-            page.copy(sources = page.sources.map(source => source.copy(path = root.relativize(descriptor).toString)))
-          })
-          val pagesfile = _write(root.resolve("source-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
 
-          When("the explanation Preview consumes the mismatched source descriptor")
-          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
-
-          Then("Preview reports stale source agreement and preserves the sentinel output")
-          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-          failure.getMessage should include_text("P36 source bytes")
-          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-        }
-      }
 
       "reject a mapped Page whose asset media type disagrees with its Composition declaration" in {
         _with_work("asset-media-type-agreement") { root =>
@@ -342,46 +323,9 @@ final class CozyExplanationPreviewSpec
         }
       }
 
-      "reject a valid mapped Page asset whose actual bytes disagree with its explicit Composition binding" in {
-        _with_work("valid-asset-bytes-agreement") { root =>
-          Given("a current explanation closure, a valid asset descriptor for different bytes with the declared media type, and sentinel output bytes")
-          val fixture = _fixture(root)
-          val output = _write(root.resolve("valid-asset-bytes-agreement.html"), "preserve-me")
-          val descriptor = _write(root.resolve("descriptor-valid-asset.txt"), "different valid asset bytes")
-          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-            page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString)))
-          })
-          val pagesfile = _write(root.resolve("valid-asset-bytes-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
 
-          When("the explanation Preview consumes the valid descriptor and the different explicit asset binding")
-          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
 
-          Then("Preview reports stale actual asset byte agreement and preserves the sentinel output")
-          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-          failure.getMessage should include_text("P36 asset bytes")
-          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-        }
-      }
 
-      "reject a mapped Page whose asset descriptor bytes disagree with its explicit binding" in {
-        _with_work("asset-bytes-agreement") { root =>
-          Given("a current explanation closure, an asset descriptor with different bytes, and sentinel output bytes")
-          val fixture = _fixture(root)
-          val output = _write(root.resolve("asset-bytes-agreement.html"), "preserve-me")
-          val descriptor = _write(root.resolve("descriptor-asset.txt"), "different asset bytes")
-          val pageset = fixture.pageset.copy(pages = fixture.pageset.pages.map { page =>
-            page.copy(assets = page.assets.map(asset => asset.copy(path = root.relativize(descriptor).toString)))
-          })
-          val pagesfile = _write(root.resolve("asset-bytes-agreement-pages.json"), CozyVisualPage.canonicalJson(pageset))
-
-          When("the explanation Preview consumes the mismatched asset descriptor")
-          val failure = _failure(CozyExplanation.execute(_preview_command(fixture, output, visualpageset = Some(pagesfile))))
-
-          Then("Preview reports stale asset byte agreement and preserves the sentinel output")
-          failure.getMessage should include_text("EXPLANATION_PREVIEW_STALE")
-          Files.readString(output, StandardCharsets.UTF_8) shouldBe "preserve-me"
-        }
-      }
     }
 
     "output/input alias behavior" which {
@@ -647,17 +591,11 @@ final class CozyExplanationPreviewSpec
     val scenemappings = plan.steps.zipWithIndex.map { case (step, index) =>
       CozyExplanationProjection.VideoStepMapping(step.id, Vector(s"scene-${index + 1}"))
     }
-    val presentation = CozyExplanationProjection.PresentationMapping(
-      pagemappings,
-      CozyExplanationProjection.presentationMappingIdentity(pagemappings)
+    val presentation = CozyExplanationProjection.PresentationMapping(pagemappings)
+    val video = CozyExplanationProjection.VideoMapping(scenemappings)
+    CozyExplanationProjection.ProjectionMap(
+      plan.explanationCatalog, plan.presentationCatalog, presentation, video
     )
-    val video = CozyExplanationProjection.VideoMapping(
-      scenemappings,
-      CozyExplanationProjection.videoMappingIdentity(scenemappings)
-    )
-    _with_map_identity(CozyExplanationProjection.ProjectionMap(
-      plan.compositionIdentity, plan.identity, plan.explanationCatalog, plan.presentationCatalog, presentation, video, ""
-    ))
   }
 
   private def _catalog(): CozyExplanation.Catalog = CozyExplanation.Catalog(
@@ -832,17 +770,11 @@ final class CozyExplanationPreviewSpec
       CozyExplanationProjection.VideoStepMapping("problem-step", Vector("problem-scene")),
       CozyExplanationProjection.VideoStepMapping("solution-step", Vector("solution-scene"))
     )
-    val presentation = CozyExplanationProjection.PresentationMapping(
-      presentationsteps,
-      CozyExplanationProjection.presentationMappingIdentity(presentationsteps)
+    val presentation = CozyExplanationProjection.PresentationMapping(presentationsteps)
+    val video = CozyExplanationProjection.VideoMapping(videosteps)
+    CozyExplanationProjection.ProjectionMap(
+      plan.explanationCatalog, plan.presentationCatalog, presentation, video
     )
-    val video = CozyExplanationProjection.VideoMapping(
-      videosteps,
-      CozyExplanationProjection.videoMappingIdentity(videosteps)
-    )
-    _with_map_identity(CozyExplanationProjection.ProjectionMap(
-      plan.compositionIdentity, plan.identity, plan.explanationCatalog, plan.presentationCatalog, presentation, video, ""
-    ))
   }
 
   private def _preview_command(
@@ -875,15 +807,6 @@ final class CozyExplanationPreviewSpec
       "--source", "source=" + fixture.bindings.sources("source"),
       "--asset", "asset=" + fixture.bindings.assets("asset")
     )
-  }
-
-  private def _with_map_identity(value: CozyExplanationProjection.ProjectionMap): CozyExplanationProjection.ProjectionMap =
-    value.copy(identity = CozyExplanationProjection.projectionMapIdentity(value))
-
-  private def _with_mapping_identities(value: CozyExplanationProjection.ProjectionMap): CozyExplanationProjection.ProjectionMap = {
-    val presentation = value.presentation.copy(identity = CozyExplanationProjection.presentationMappingIdentity(value.presentation.stepMappings))
-    val video = value.video.copy(identity = CozyExplanationProjection.videoMappingIdentity(value.video.stepMappings))
-    _with_map_identity(value.copy(presentation = presentation, video = video))
   }
 
   private def _labeled(

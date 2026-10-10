@@ -10,7 +10,8 @@ import play.api.libs.json.JsObject
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -24,7 +25,7 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
         val provenance = (metadata \ "provenance").as[JsObject]
 
         Then("the fields and values use the fixed video contract order")
-        metadata.fields.map(_._1) shouldBe Vector("schema", "articleIdentity", "locale", "role", "artifact", "publicPath", "repositoryPath", "mediaType", "sha256", "provenance", "publicationState")
+        metadata.fields.map(_._1) shouldBe Vector("schema", "articleIdentity", "locale", "role", "artifact", "publicPath", "repositoryPath", "mediaType", "provenance", "publicationState")
         metadata.value("schema").as[String] shouldBe "cozy.article-media-integrity.v1"
         metadata.value("articleIdentity").as[String] shouldBe "development-process/example"
         metadata.value("locale").as[String] shouldBe "ja"
@@ -36,7 +37,6 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
         metadata.value("publicPath").as[String] shouldBe "/repository/video/example-video/1.0.0/example-video-1.0.0.mp4"
         metadata.value("repositoryPath").as[String] shouldBe "video/example-video/1.0.0/example-video-1.0.0.mp4"
         metadata.value("mediaType").as[String] shouldBe "video/mp4"
-        metadata.value("sha256").as[String] shouldBe "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
         provenance.fields.map(_._1) shouldBe Vector("kind", "videoManifest", "repositoryRegistry")
         provenance.value("kind").as[String] shouldBe "video-publication"
         provenance.value("videoManifest").as[String] shouldBe "metadata/video/example-video/1.0.0/manifest.json"
@@ -55,7 +55,7 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
         val provenance = (metadata \ "provenance").as[JsObject]
 
         Then("the fields and values use the fixed media package contract order")
-        metadata.fields.map(_._1) shouldBe Vector("schema", "articleIdentity", "locale", "role", "artifact", "publicPath", "repositoryPath", "mediaType", "sha256", "provenance", "publicationState")
+        metadata.fields.map(_._1) shouldBe Vector("schema", "articleIdentity", "locale", "role", "artifact", "publicPath", "repositoryPath", "mediaType", "provenance", "publicationState")
         metadata.value("schema").as[String] shouldBe "cozy.article-media-integrity.v1"
         metadata.value("articleIdentity").as[String] shouldBe "development-process/example"
         metadata.value("locale").as[String] shouldBe "ja"
@@ -67,7 +67,6 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
         metadata.value("publicPath").as[String] shouldBe "/ja/development-process/images/example.png"
         metadata.value("repositoryPath").as[String] shouldBe "images/development-process/example.png"
         metadata.value("mediaType").as[String] shouldBe "image/png"
-        metadata.value("sha256").as[String] shouldBe "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
         provenance.fields.map(_._1) shouldBe Vector("kind", "descriptor", "resourceId", "buildManifest")
         provenance.value("kind").as[String] shouldBe "media-package"
         provenance.value("descriptor").as[String] shouldBe "src/main/media/example.yaml"
@@ -186,7 +185,7 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
 
       "reject a blank artifact identity" in {
         Given("an artifact with a blank identity")
-        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = CozyArticleMediaIntegrity.Artifact("  ", "1.0.0")))
+        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = Some(CozyArticleMediaIntegrity.Artifact("  ", "1.0.0"))))
 
         When("the record is normalized")
         val error = intercept[IllegalArgumentException](invalid())
@@ -195,31 +194,9 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
         error.getMessage should include("artifact identity")
       }
 
-      "reject a non-lowercase or non-SHA-256 digest" in {
-        Given("a malformed integrity digest")
-        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(sha256 = "A" * 64))
-
-        When("the record is normalized")
-        val error = intercept[IllegalArgumentException](invalid())
-
-        Then("the digest failure is deterministic")
-        error.getMessage should include("sha256")
-      }
-
-      "reject a digest with the wrong length" in {
-        Given("a digest that is not 64 hexadecimal characters")
-        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(sha256 = "0" * 63))
-
-        When("the record is normalized")
-        val error = intercept[IllegalArgumentException](invalid())
-
-        Then("the digest length failure is deterministic")
-        error.getMessage should include("sha256")
-      }
-
       "reject an empty artifact version" in {
         Given("an artifact with no version")
-        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = CozyArticleMediaIntegrity.Artifact("example-video", "")))
+        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = Some(CozyArticleMediaIntegrity.Artifact("example-video", ""))))
 
         When("the record is normalized")
         val error = intercept[IllegalArgumentException](invalid())
@@ -230,7 +207,7 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
 
       "reject a blank artifact version" in {
         Given("an artifact with a blank version")
-        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = CozyArticleMediaIntegrity.Artifact("example-video", "  ")))
+        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = Some(CozyArticleMediaIntegrity.Artifact("example-video", "  "))))
 
         When("the record is normalized")
         val error = intercept[IllegalArgumentException](invalid())
@@ -301,11 +278,10 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
             articleIdentity = "development-process/example",
             locale = "ja",
             role = CozyArticleMediaIntegrity.Role.Video,
-            artifact = CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0"),
+            artifact = Some(CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0")),
             publicPath = new URI("/repository/video/../example.mp4"),
             repositoryPath = "video/example.mp4",
             mediaType = "video/mp4",
-            sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example-video/1.0.0/manifest.json", "metadata/artifacts/repository/example-video.json"),
             publicationState = CozyArticleMediaIntegrity.PublicationState.Published
           )
@@ -375,7 +351,7 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
 
       "reject an empty artifact identity" in {
         Given("an artifact with no identity")
-        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = CozyArticleMediaIntegrity.Artifact("", "1.0.0")))
+        val invalid = () => CozyArticleMediaIntegrity.produce(_video_input(artifact = Some(CozyArticleMediaIntegrity.Artifact("", "1.0.0"))))
 
         When("the record is normalized")
         val error = intercept[IllegalArgumentException](invalid())
@@ -525,11 +501,10 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
     articleidentity: String = "development-process/example",
     locale: String = "ja",
     role: CozyArticleMediaIntegrity.Role = CozyArticleMediaIntegrity.Role.Video,
-    artifact: CozyArticleMediaIntegrity.Artifact = CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0"),
+    artifact: Option[CozyArticleMediaIntegrity.Artifact] = Some(CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0")),
     publicpath: URI = new URI("/repository/video/example-video/1.0.0/example-video-1.0.0.mp4"),
     repositorypath: String = "video/example-video/1.0.0/example-video-1.0.0.mp4",
     mediatype: String = "video/mp4",
-    sha256: String = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     provenance: CozyArticleMediaIntegrity.Provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example-video/1.0.0/manifest.json", "metadata/artifacts/repository/example-video.json"),
     publicationstate: CozyArticleMediaIntegrity.PublicationState = CozyArticleMediaIntegrity.PublicationState.Published
   ): CozyArticleMediaIntegrity.Input =
@@ -541,7 +516,6 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
       publicPath = publicpath,
       repositoryPath = repositorypath,
       mediaType = mediatype,
-      sha256 = sha256,
       provenance = provenance,
       publicationState = publicationstate
     )
@@ -556,11 +530,10 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
       articleIdentity = "development-process/example",
       locale = "ja",
       role = CozyArticleMediaIntegrity.Role.Infographic,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0")),
       publicPath = new URI("/ja/development-process/images/example.png"),
       repositoryPath = "images/development-process/example.png",
       mediaType = mediatype,
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.MediaPackage(descriptor, resourceid, buildmanifest),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Registered
     )
@@ -569,7 +542,7 @@ final class CozyArticleMediaIntegritySpec extends AnyWordSpec with Matchers with
     provenance: CozyArticleMediaIntegrity.Provenance = CozyArticleMediaIntegrity.WipSiteVideo("media/article.yaml", "part-5-video-ja", "video/ja/production.json")
   ): CozyArticleMediaIntegrity.Input =
     _video_input(
-      artifact = CozyArticleMediaIntegrity.Artifact("part-5-video-ja", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+      artifact = None,
       publicpath = new URI("/ja/development-process/videos/example.mp4"),
       repositorypath = "ja/development-process/videos/example.mp4",
       provenance = provenance

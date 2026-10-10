@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.nio.file.attribute.PosixFilePermission
 import scala.collection.JavaConverters._
-import java.security.MessageDigest
 import java.util.Comparator
 import cozy.CozyCliPreflight
 import cozy.compatibility.CncfRuntimeDescriptorContract
@@ -19,7 +18,7 @@ import play.api.libs.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsVa
  * @since   Jul. 27, 2026
  *  version Jul. 28, 2026
  *  version Aug.  7, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class Phase51Cv05GenerationProvenanceSpec
@@ -33,11 +32,10 @@ final class Phase51Cv05GenerationProvenanceSpec
           Given("one CML source and one validated CNCF target descriptor")
           val source = _source
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val descriptordigest = _sha256(descriptor)
           val output = directory.resolve("generated")
 
           When("Cozy generates Scala with the complete owning-build contract")
-          _generate(source, descriptor, descriptordigest, output)
+          _generate(source, descriptor, output)
 
           val provenance = _provenance(output).as[JsObject]
           val text = Files.readString(_provenance_path(output), StandardCharsets.UTF_8)
@@ -75,13 +73,12 @@ final class Phase51Cv05GenerationProvenanceSpec
           )
           val source = _source
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val descriptordigest = _sha256(descriptor)
           val cold = directory.resolve("cold")
           val repeated = directory.resolve("repeated")
 
           When("Cozy generates into two independent output roots")
-          _generate(source, descriptor, descriptordigest, cold)
-          _generate(source, descriptor, descriptordigest, repeated)
+          _generate(source, descriptor, cold)
+          _generate(source, descriptor, repeated)
 
           val coldtext = Files.readString(_provenance_path(cold), StandardCharsets.UTF_8)
           val repeatedtext = Files.readString(_provenance_path(repeated), StandardCharsets.UTF_8)
@@ -100,10 +97,9 @@ final class Phase51Cv05GenerationProvenanceSpec
           Given("generated provenance and the exact owning-build inputs")
           val source = _copy_source(directory.resolve("address-literate.cml"))
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val descriptordigest = _sha256(descriptor)
           val output = directory.resolve("generated")
           When("Cozy produces the current result for the owning-build validator")
-          _generate(source, descriptor, descriptordigest, output)
+          _generate(source, descriptor, output)
           val arguments = Array(
             "generation-provenance-validate",
             source.toString,
@@ -156,15 +152,13 @@ final class Phase51Cv05GenerationProvenanceSpec
         }
       }
 
-      "bind catalog generation to the independently pinned distributed descriptor" in {
+      "use one parsed descriptor value for the selected catalog" in {
         _with_temp_dir("cozy-phase51-cv05-descriptor-snapshot") { directory =>
-          Given("a descriptor validated from one exact byte snapshot")
+          Given("a descriptor parsed once before its selected path changes")
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val digest = _sha256(descriptor)
           val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(
             descriptor,
             "0.5.2-SNAPSHOT",
-            Some(digest),
             "spec"
           )
 
@@ -179,25 +173,27 @@ final class Phase51Cv05GenerationProvenanceSpec
             |predefinedResults:
             |  schemaVersion: cncf.predefined-result.v1
             |  resultNames: [ChangedAfterValidation]
+            |  results:
+            |    ChangedAfterValidation:
+            |      runtimeClassName: org.example.ChangedAfterValidation
+            |      fields: []
             |""".stripMargin
           )
           val catalog =
             PredefinedResultCatalog.fromValidatedDescriptor(validated)
 
-          val changeddigest = _sha256(descriptor)
-          val pinerror = intercept[Exception] {
-            CncfRuntimeDescriptorContract.requireValidDescriptor(
-              descriptor, "0.5.2-SNAPSHOT", Some(digest), "spec"
-            )
-          }
+          val changedvalidated = CncfRuntimeDescriptorContract.requireValidDescriptor(
+            descriptor, "0.5.2-SNAPSHOT", "spec"
+          )
+          val changedcatalog = PredefinedResultCatalog.fromValidatedDescriptor(changedvalidated)
 
-          Then("the catalog retains its validated bytes and the changed distributed descriptor fails its actual pin")
+          Then("the original parsed catalog stays empty and a new read resolves the changed catalog with the same target and path")
           catalog.names shouldBe empty
-          validated.sha256 shouldBe digest
-          changeddigest should not be digest
-          pinerror.getMessage should include("DESCRIPTOR")
-          pinerror.getMessage should include("expected")
-          pinerror.getMessage should include("actual")
+          changedcatalog.names should contain("ChangedAfterValidation")
+          validated.targetVersion shouldBe "0.5.2-SNAPSHOT"
+          changedvalidated.targetVersion shouldBe validated.targetVersion
+          validated.path shouldBe descriptor.toAbsolutePath.normalize()
+          changedvalidated.path shouldBe validated.path
         }
       }
     }
@@ -210,7 +206,7 @@ final class Phase51Cv05GenerationProvenanceSpec
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
           val output = directory.resolve("generated")
           When("Cozy produces the initial metadata and generated paths")
-          _generate(source, descriptor, _sha256(descriptor), output)
+          _generate(source, descriptor, output)
           val expected = _inputs()
 
           When("source and output contents change, followed by added and removed Scala paths and a target contradiction")
@@ -371,9 +367,7 @@ final class Phase51Cv05GenerationProvenanceSpec
             "--cncf-version",
             "0.5.2-SNAPSHOT",
             "--cncf-runtime-descriptor",
-            descriptor.toString,
-            "--cncf-runtime-descriptor-sha256",
-            _sha256(descriptor)
+            descriptor.toString
           )
 
           When(
@@ -427,7 +421,7 @@ final class Phase51Cv05GenerationProvenanceSpec
             ||------+------|--------------|
             || currentName | string | 1 |
             |""".stripMargin)
-          _generate(selected.path, descriptor, _sha256(descriptor), output)
+          _generate(selected.path, descriptor, output)
           val manifest = GenerationProvenance.write(output, selected, _inputs())
           val paths = _generated_scala_files(output).map(_.getFileName.toString)
           val metadata = Files.readString(output.resolve("target/cozy/model-metadata.json"), StandardCharsets.UTF_8)
@@ -478,10 +472,9 @@ final class Phase51Cv05GenerationProvenanceSpec
           )
           val source = _copy_source(directory.resolve("address-literate.cml"))
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val descriptordigest = _sha256(descriptor)
           val output = directory.resolve("generated")
           When("Cozy produces metadata for the selected source")
-          _generate(source, descriptor, descriptordigest, output)
+          _generate(source, descriptor, output)
           val expected = _inputs()
           Files.delete(source)
 
@@ -511,7 +504,7 @@ final class Phase51Cv05GenerationProvenanceSpec
         }
       }
 
-      "preserve previous metadata on missing source, empty output, and invalid input writes" in {
+      "reject missing source, empty output and invalid inputs before writing final metadata" in {
         _with_temp_dir("cozy-phase51-cv05-write-preservation") { directory =>
           Given("three previous successful metadata documents and selected source references")
           val source = _copy_source(directory.resolve("address-literate.cml"))
@@ -525,49 +518,43 @@ final class Phase51Cv05GenerationProvenanceSpec
           }
           val previous = roots.map(root => Files.readString(_provenance_path(root), StandardCharsets.UTF_8))
 
-          When("each producer stage fails before its final metadata replacement")
+          Given("the first selected source is now missing")
           Files.delete(source)
+          When("the first producer validates its selected source before writing metadata")
           val missingerror = intercept[Exception] { GenerationProvenance.write(roots(0), selected, _inputs()) }
+          Given("the source is readable again but the second output inventory is empty")
           _copy_source(source)
           Files.delete(roots(1).resolve("target/generated/Address.scala"))
+          When("the second producer validates its generated-output inventory before writing metadata")
           val emptyerror = intercept[Exception] { GenerationProvenance.write(roots(1), selected, _inputs()) }
+          When("the third producer receives an empty generator version")
           val invaliderror = intercept[Exception] {
             GenerationProvenance.write(roots(2), selected, _inputs().copy(cozyGeneratorVersion = ""))
           }
           val current = roots.map(root => Files.readString(_provenance_path(root), StandardCharsets.UTF_8))
-          val leftovers = roots.flatMap { root =>
-            val stream = Files.list(_provenance_path(root).getParent)
-            try {
-              import scala.collection.JavaConverters._
-              stream.iterator().asScala.filter(_.getFileName.toString.startsWith(".generation-provenance-")).toVector
-            } finally stream.close()
-          }
-
-          Then("the typed stage failures preserve every previous document and leave no temporary metadata")
+          Then("each typed input rejection precedes the final write and the previous documents remain unchanged")
           missingerror.getMessage should include("GENERATION_PROVENANCE_SOURCE_TAMPERED")
           emptyerror.getMessage should include("GENERATION_PROVENANCE_OUTPUT_TAMPERED")
           invaliderror.getMessage should include("GENERATION_PROVENANCE_INPUT_MISMATCH")
           current shouldBe previous
-          leftovers shouldBe empty
         }
       }
 
       "preserve successful metadata and generated output when distributed descriptor preflight fails" in {
         _with_temp_dir("cozy-phase51-cv05-preflight-preservation") { directory =>
-          Given("a previously generated result and its independently pinned distributed descriptor")
+          Given("a previously generated result and its selected runtime descriptor")
           val source = _copy_source(directory.resolve("address-literate.cml"))
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val digest = _sha256(descriptor)
           val output = directory.resolve("generated")
           When("Cozy produces the initial successful metadata and generated output")
-          _generate(source, descriptor, digest, output)
+          _generate(source, descriptor, output)
           val beforemetadata = Files.readString(_provenance_path(output), StandardCharsets.UTF_8)
           val generated = _generated_scala_files(output)
           val beforeoutput = generated.map(path => Files.readString(path, StandardCharsets.UTF_8))
-          val mismatch = if (digest == "0" * 64) "1" * 64 else "0" * 64
 
-          When("actual generation receives a descriptor pin that disagrees with the selected distributed bytes")
-          val error = intercept[Exception] { _generate(source, descriptor, mismatch, output) }
+          When("the selected descriptor becomes malformed and actual generation runs preflight")
+          _write(descriptor, "schemaVersion: [\n")
+          val error = intercept[Exception] { _generate(source, descriptor, output) }
           val aftermetadata = Files.readString(_provenance_path(output), StandardCharsets.UTF_8)
           val afterpaths = _generated_scala_files(output)
           val afteroutput = afterpaths.map(path => Files.readString(path, StandardCharsets.UTF_8))
@@ -621,9 +608,7 @@ final class Phase51Cv05GenerationProvenanceSpec
           val args = List(
             source.toString,
             "--cncf-runtime-descriptor",
-            directory.resolve("runtime.yaml").toString,
-            "--cncf-runtime-descriptor-sha256",
-            "a" * 64
+            directory.resolve("runtime.yaml").toString
           )
 
           When("the bridge creates provenance arguments")
@@ -654,10 +639,9 @@ final class Phase51Cv05GenerationProvenanceSpec
             projectroot.resolve("src/main/cozy/address-literate.cml")
           )
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val descriptordigest = _sha256(descriptor)
           val delegated =
             projectroot.resolve("target/sbt-cozy/delegate-work/run-0")
-          _generate(source, descriptor, descriptordigest, delegated)
+          _generate(source, descriptor, delegated)
           _generated_scala_files(delegated).foreach { generated =>
             val relative = delegated.relativize(generated)
             _write(
@@ -697,10 +681,9 @@ final class Phase51Cv05GenerationProvenanceSpec
             projectroot.resolve("src/main/cozy/address-literate.cml")
           )
           val descriptor = _write_descriptor(directory.resolve("runtime.yaml"))
-          val descriptordigest = _sha256(descriptor)
           val delegated =
             projectroot.resolve("target/sbt-cozy/delegate-work/run-0")
-          _generate(source, descriptor, descriptordigest, delegated)
+          _generate(source, descriptor, delegated)
           _generated_scala_files(delegated).foreach { generated =>
             val relative = delegated.relativize(generated)
             _write(
@@ -747,7 +730,6 @@ final class Phase51Cv05GenerationProvenanceSpec
   private def _generate(
       source: Path,
       descriptor: Path,
-      descriptordigest: String,
       output: Path
   ): Unit =
     cozy.Cozy.main(
@@ -760,8 +742,6 @@ final class Phase51Cv05GenerationProvenanceSpec
         org.simplemodeling.cozy.BuildInfo.version,
         "--cncf-runtime-descriptor",
         descriptor.toString,
-        "--cncf-runtime-descriptor-sha256",
-        descriptordigest,
         "--simplemodeling-model-version",
         org.simplemodeling.cozy.BuildInfo.simpleModelingModelVersion,
         "--generation-source-identity",
@@ -838,13 +818,6 @@ final class Phase51Cv05GenerationProvenanceSpec
     Files.writeString(path, content, StandardCharsets.UTF_8)
     path.toAbsolutePath.normalize()
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest
-      .getInstance("SHA-256")
-      .digest(Files.readAllBytes(path))
-      .map(byte => f"${byte & 0xff}%02x")
-      .mkString
 
   private def _with_temp_dir[A](prefix: String)(body: Path => A): A = {
     val workroot = Paths.get("target/cozy-test/work/phase51-cv05-generation-provenance-spec").toAbsolutePath.normalize()

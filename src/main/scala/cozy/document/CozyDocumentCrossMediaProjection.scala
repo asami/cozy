@@ -2,13 +2,11 @@ package cozy.document
 
 import cozy.media.{CozyExplanation, CozyVisualPage}
 import io.circe.Json
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 /*
  * @since   Sep.  4, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentCrossMediaProjection {
@@ -40,21 +38,13 @@ private[cozy] object CozyDocumentCrossMediaProjection {
   final case class VideoStepMapping(storyStepId: String, sceneIds: Vector[String])
   final case class Projection(
     contentCoreId: String,
-    contentCoreIdentity: String,
-    compositionIdentity: String,
-    planIdentity: String,
-    explanationCatalogIdentity: String,
-    policyIdentity: String,
     sources: Vector[CozyExplanation.SourceDeclaration],
     assets: Vector[CozyExplanation.AssetDeclaration],
-    semanticIdentity: String,
-    currentnessIdentity: String,
     storyFlow: CozyDocumentPresentationSemantics.StoryFlow,
     slidePages: Vector[SlidePage],
     storyboardScenes: Vector[StoryboardScene],
     slideMappings: Vector[SlideStepMapping],
-    videoMappings: Vector[VideoStepMapping],
-    identity: String
+    videoMappings: Vector[VideoStepMapping]
   )
   final case class ProjectionFault(code: String, path: String, reason: String)
     extends IllegalArgumentException(s"$code path=$path reason=$reason")
@@ -88,30 +78,19 @@ private[cozy] object CozyDocumentCrossMediaProjection {
     val slidemappings = steps.map(step => SlideStepMapping(step.id, pages.filter(_.storyStepId == step.id).map(_.id)))
     val videomappings = steps.map(step => VideoStepMapping(step.id, scenes.filter(_.storyStepId == step.id).map(_.id)))
     _validate(value, pages, scenes, slidemappings, videomappings)
-    val provisional = Projection(
+    Projection(
       value.contentCore.id,
-      value.contentCore.identity,
-      value.composition.identity,
-      value.plan.identity,
-      value.explanationCatalogIdentity,
-      value.policy.identity,
       value.sources.sortBy(_.id),
       value.assets.sortBy(_.id),
-      value.semanticIdentity,
-      value.currentnessIdentity,
       value.storyFlow,
       pages,
       scenes,
       slidemappings,
-      videomappings,
-      ""
+      videomappings
     )
-    provisional.copy(identity = projectionIdentity(provisional))
   }
 
-  def canonicalJson(value: Projection): String = _projection_value(value, includeidentity = true).noSpaces
-
-  def projectionIdentity(value: Projection): String = _identity(_projection_value(value, includeidentity = false).noSpaces)
+  def canonicalJson(value: Projection): String = _projection_value(value).noSpaces
 
   private def _selection(structure: CozyDocumentPresentationSemantics.Structure, medium: String): CozyVisualPage.Visual =
     structure.visualSelections.filter(_.medium == medium) match {
@@ -160,25 +139,18 @@ private[cozy] object CozyDocumentCrossMediaProjection {
     if (values.distinct.size != values.size)
       _fail("DP-PROJ-001", path, s"$label must be unique")
 
-  private def _projection_value(value: Projection, includeidentity: Boolean): Json = {
+  private def _projection_value(value: Projection): Json = {
     val fields = Vector(
       "contentCoreId" -> Json.fromString(value.contentCoreId),
-      "contentCoreIdentity" -> Json.fromString(value.contentCoreIdentity),
-      "compositionIdentity" -> Json.fromString(value.compositionIdentity),
-      "planIdentity" -> Json.fromString(value.planIdentity),
-      "explanationCatalogIdentity" -> Json.fromString(value.explanationCatalogIdentity),
-      "policyIdentity" -> Json.fromString(value.policyIdentity),
       "sources" -> Json.fromValues(value.sources.sortBy(_.id).map(_source_value)),
       "assets" -> Json.fromValues(value.assets.sortBy(_.id).map(_asset_value)),
-      "semanticIdentity" -> Json.fromString(value.semanticIdentity),
-      "currentnessIdentity" -> Json.fromString(value.currentnessIdentity),
       "storyFlow" -> _story_flow_value(value.storyFlow),
       "slidePages" -> Json.fromValues(value.slidePages.map(_slide_page_value)),
       "storyboardScenes" -> Json.fromValues(value.storyboardScenes.map(_storyboard_scene_value)),
       "slideMappings" -> Json.fromValues(value.slideMappings.map(mapping => Json.obj("storyStepId" -> Json.fromString(mapping.storyStepId), "pageIds" -> Json.fromValues(mapping.pageIds.map(Json.fromString))))),
       "videoMappings" -> Json.fromValues(value.videoMappings.map(mapping => Json.obj("storyStepId" -> Json.fromString(mapping.storyStepId), "sceneIds" -> Json.fromValues(mapping.sceneIds.map(Json.fromString)))))
     )
-    Json.fromFields(if (includeidentity) fields :+ ("identity" -> Json.fromString(value.identity)) else fields)
+    Json.fromFields(fields)
   }
 
   private def _story_flow_value(value: CozyDocumentPresentationSemantics.StoryFlow): Json = Json.obj(
@@ -234,9 +206,6 @@ private[cozy] object CozyDocumentCrossMediaProjection {
     "id" -> Json.fromString(value.id),
     "mediaType" -> Json.fromString(value.mediaType)
   )
-
-  private def _identity(value: String): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)).map(item => f"${item & 0xff}%02x").mkString
 
   private def _fail(code: String, path: String, reason: String): Nothing = throw ProjectionFault(code, path, reason)
 }

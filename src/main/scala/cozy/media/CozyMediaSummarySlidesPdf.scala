@@ -5,14 +5,13 @@ import org.goldenport.RAISE
 import io.circe.{Decoder, HCursor, Json, JsonObject}
 import io.circe.parser.parse
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption}
-import java.nio.file.attribute.FileTime
+import java.nio.file.{Files, LinkOption, Path}
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 29, 2026
  *  version Sep. 30, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaSummarySlidesPdf {
@@ -218,25 +217,12 @@ private[cozy] object CozyMediaSummarySlidesPdf {
     _prepare_output_parent(manifest)
     pptx.foreach(_prepare_output_parent)
     _prepare_output_parent(output)
-    val parent = Option(output.getParent).getOrElse(_invalid(s"Summary-slides PDF output requires a parent: $output"))
-    val staged = Files.createTempFile(parent, ".cozy-summary-slides-pdf-", ".pdf")
-    Files.deleteIfExists(staged)
-    val before = _snapshot(_input_paths(plan, resolved, authority, template))
-    val receiptbefore = CozyMediaReceipt.observeInputs(plan)
-    try {
-      val command = _renderer_command(plan, resolved, configuration, authority, template, staged, images, montage, manifest, pptx)
-      val exit = runner.run(command, plan.descriptorRoot)
-      if (exit != 0) _invalid(s"Summary-slides PDF renderer failed for ${resolved.resource.id}: exit=$exit")
-      _verify(plan, resolved, authority, staged)
-      if (before != _snapshot(_input_paths(plan, resolved, authority, template)))
-        _invalid(s"Summary-slides PDF inputs changed during build: ${resolved.resource.id}")
-      if (receiptbefore != CozyMediaReceipt.observeInputs(plan))
-        _invalid("Media receipt inputs changed during summary-slides PDF build; no fresh acceptance evidence was written")
-      _replace(staged, output)
-      s"${resolved.resource.id}: rendered $output"
-    } finally {
-      try Files.deleteIfExists(staged) catch { case NonFatal(_) => () }
-    }
+    _input_paths(plan, resolved, authority, template).foreach(path => _require_direct(path, "Summary-slides PDF input"))
+    val command = _renderer_command(plan, resolved, configuration, authority, template, output, images, montage, manifest, pptx)
+    val exit = runner.run(command, plan.descriptorRoot)
+    if (exit != 0) _invalid(s"Summary-slides PDF renderer failed for ${resolved.resource.id}: exit=$exit")
+    _verify(plan, resolved, authority, output)
+    s"${resolved.resource.id}: rendered $output"
   }
 
   def verifyStructural(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit = {
@@ -273,9 +259,8 @@ private[cozy] object CozyMediaSummarySlidesPdf {
         val binding = _direct_input(plan.descriptorRoot, configuration.binding.getOrElse(_invalid(s"Summary-slides PDF binding is missing: ${resource.id}")), s"Summary-slides PDF binding ${resource.id}")
         val visual = _validate_visual_page(plan.descriptor, resource, configuration, source, catalog, binding)
         val assets = visual.document.pages.map(page => page.assets.map { asset =>
-          val declared = CozyVisualPage._safe_direct_file(source.getParent, asset.path, s"asset.${asset.id}.path")
-          val actual = _asset_path(plan, asset.id, resource)
-          if (!java.util.Arrays.equals(Files.readAllBytes(declared), Files.readAllBytes(actual))) _invalid(s"Summary-slides PDF Visual Page asset differs from declared resource: ${asset.id}")
+          CozyVisualPage._safe_direct_file(source.getParent, asset.path, s"asset.${asset.id}.path")
+          _asset_path(plan, asset.id, resource)
           asset.id
         })
         val bindingdocument = CozyVisualPageBinding.load(binding, visual)
@@ -340,7 +325,7 @@ private[cozy] object CozyMediaSummarySlidesPdf {
     configuration: Config,
     authority: Authority,
     template: Path,
-    staged: Path,
+    output: Path,
     images: Path,
     montage: Path,
     manifest: Path,
@@ -352,7 +337,7 @@ private[cozy] object CozyMediaSummarySlidesPdf {
       case visual: VisualPageAuthority => Vector("--visual-page-set", visual.source.toString, "--catalog", visual.catalog.toString, "--binding", visual.binding.toString)
     }
     profile.renderer.command ++ Vector("render", "--media", plan.descriptorFile.toString, "--target", resolved.resource.id, "--profile", configuration.profile) ++
-      source ++ Vector("--template", template.toString, "--pdf", staged.toString, "--slide-images", images.toString, "--montage", montage.toString, "--manifest", manifest.toString) ++
+      source ++ Vector("--template", template.toString, "--pdf", output.toString, "--slide-images", images.toString, "--montage", montage.toString, "--manifest", manifest.toString) ++
       pptx.toVector.flatMap(value => Vector("--pptx", value.toString))
   }
 
@@ -466,9 +451,6 @@ private[cozy] object CozyMediaSummarySlidesPdf {
     (Vector(plan.descriptorFile, template) ++ authorityinputs ++ dependencies ++ assetdependencies).distinct
   }
 
-  private def _snapshot(paths: Vector[Path]): Vector[(Path, FileTime)] =
-    paths.sortBy(_.toString).map(path => path -> Files.getLastModifiedTime(_require_direct(path, "Summary-slides PDF input")))
-
   private def _configuration(resolved: CozyMedia.ResolvedResource): Config =
     resolved.resource.summarySlidesPdf.getOrElse(_invalid(s"Summary-slides PDF resource requires configuration: ${resolved.resource.id}"))
 
@@ -542,10 +524,6 @@ private[cozy] object CozyMediaSummarySlidesPdf {
 
   private def _png(path: Path): Boolean =
     _direct_regular_file(path) && _has_header(path, _png_header)
-
-  private def _replace(source: Path, target: Path): Unit =
-    try Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-    catch { case _: AtomicMoveNotSupportedException => _invalid(s"Summary-slides PDF requires same-parent ATOMIC_MOVE: $target") }
 
   private def _path(root: Path, value: String, label: String): Path = {
     val exact = _identity(value, label)

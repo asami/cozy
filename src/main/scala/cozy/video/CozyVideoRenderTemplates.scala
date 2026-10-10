@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -39,7 +39,6 @@ private[cozy] trait CozyVideoRenderTemplates {
     script: VideoScript,
     audio: VideoAudioInput,
     assets: Vector[(CozyVideoAssets.Resolved, Option[String])],
-    workdir: Path,
     characterdialogue: Boolean,
     template: Option[String],
     templateresources: Option[Vector[String]],
@@ -192,7 +191,7 @@ private[cozy] trait CozyVideoRenderTemplates {
     Json.obj(
       "partId" -> Json.fromString(part.id),
       "title" -> Json.fromString(plan.project.title.orElse(script.title).getOrElse(part.id)),
-      "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, _remotion_staged_output(workdir))),
+      "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, part.outputPath)),
       "encodingPolicy" -> Json.fromString(encoding.policy.name),
       "fps" -> Json.fromInt(fps),
       "width" -> Json.fromInt(width),
@@ -231,15 +230,10 @@ private[cozy] trait CozyVideoRenderTemplates {
   }
 
   private[video] val _character_dialogue_template_id = "cozy-character-dialogue-v1"
-  private[video] val _character_dialogue_template_sha256 = "e24212630ce6b50203513bc0777b0fd7b179a00f3b963504cede75cdb7242707"
-  private[video] val _character_dialogue_diagram_layout_sha256 = "9f36dd5c7765af8613cbe3924de5aae14b4b7e8c92d54418e58b95f798e81b56"
   private[video] val _character_web_demo_template_id = "cozy-character-web-demo-v1"
 
   private[video] def _effective_render_duration(entry: VideoAudioManifestEntry): Double =
     math.max(entry.targetDuration, entry.leadSilence + entry.audioDuration + entry.tailSilence)
-
-  private[video] def _remotion_staged_output(workdir: Path): Path =
-    workdir.resolve("rendered.mp4")
 
   private[video] def _effect_parameter_double(
     effects: Vector[CozyVideoEffects.Expansion],
@@ -335,9 +329,10 @@ private[cozy] trait CozyVideoRenderTemplates {
       |""".stripMargin
 
   private[video] val _remotion_render_mjs: String =
-    """import {execFileSync} from 'node:child_process';
+    """import dns from 'node:dns';
       |import fs from 'node:fs';
       |import path from 'node:path';
+      |import {createRequire} from 'node:module';
       |import {fileURLToPath} from 'node:url';
       |
       |const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -348,32 +343,12 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const entry = path.join(scriptDir, 'Root.tsx');
       |const publicDir = path.join(workDir, 'public');
       |const output = path.resolve(projectRoot, props.outputPath);
-      |const cliOutput = path.join(workDir, 'pcm-mux.mov');
-      |fs.mkdirSync(path.dirname(output), {recursive: true});
-      |const renderArgs = ['render', entry, 'CozyVideo', cliOutput, '--codec=h264', '--overwrite', `--config=${path.join(workDir, 'remotion.config.js')}`, `--public-dir=${publicDir}`, `--crf=${props.crf}`];
-      |if (props.x264Preset) renderArgs.push(`--x264-preset=${props.x264Preset}`);
-      |fs.rmSync(cliOutput, {force: true});
-      |execFileSync('remotion', renderArgs, {
-      |  cwd: workDir,
-      |  stdio: 'inherit',
-      |  env: {
-      |    ...process.env,
-      |    NODE_PATH: process.env.NODE_PATH || '/usr/local/lib/node_modules',
-      |    NODE_OPTIONS: [process.env.NODE_OPTIONS, '--dns-result-order=ipv4first'].filter(Boolean).join(' ')
-      |  }
-      |});
-      |if (!fs.existsSync(cliOutput) || !fs.statSync(cliOutput).isFile()) {
-      |  throw new Error(`Cozy Remotion render did not produce a regular private MP4 file: ${cliOutput}`);
-      |}
-      |fs.renameSync(cliOutput, output);
-      |""".stripMargin
-
-  private[video] val _remotion_config_js: String =
-    """import fs from 'node:fs';
-      |import path from 'node:path';
-      |import {Config} from '@remotion/cli/config';
-      |
-      |const props = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'props.json'), 'utf8'));
+      |const localRequire = createRequire(import.meta.url);
+      |const moduleRoots = [workDir, ...(process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean), '/usr/local/lib/node_modules', '/usr/lib/node_modules'];
+      |const cliRequire = createRequire(localRequire.resolve('@remotion/cli/package.json', {paths: moduleRoots}));
+      |const {bundle} = cliRequire('@remotion/bundler');
+      |const {selectComposition, renderMedia} = cliRequire('@remotion/renderer');
+      |dns.setDefaultResultOrder('ipv4first');
       |const frames = props.timing?.totalFrames;
       |const fps = props.fps;
       |if (!Number.isSafeInteger(frames) || frames <= 0 || !Number.isSafeInteger(fps) || fps <= 0) {
@@ -381,8 +356,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |}
       |const samples = BigInt(frames) * 48000n / BigInt(fps);
       |if (samples <= 0n) throw new Error('Cozy PCM mux composition has no 48k presentation samples');
-      |Config.setAudioCodec('pcm-16');
-      |Config.overrideFfmpegCommand(({type, args}) => {
+      |const ffmpegOverride = ({type, args}) => {
       |  if (type !== 'pre-stitcher' && type !== 'stitcher') return args;
       |  const result = [...args];
       |  if (type === 'pre-stitcher') {
@@ -399,7 +373,29 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  }
       |  result.splice(result.length - 1, 0, '-movie_timescale', '48000', '-f', 'mp4');
       |  return result;
+      |};
+      |const serveUrl = await bundle({
+      |  entryPoint: entry,
+      |  publicDir,
+      |  webpackOverride: (config) => ({...config, resolve: {...config.resolve,
+      |    modules: [...(config.resolve?.modules || []), ...(cliRequire.resolve.paths('remotion') || [])]}})
       |});
+      |const composition = await selectComposition({serveUrl, id: 'CozyVideo', inputProps: props});
+      |const result = await renderMedia({
+      |  composition,
+      |  serveUrl,
+      |  codec: 'h264',
+      |  audioCodec: 'pcm-16',
+      |  inputProps: props,
+      |  crf: props.crf,
+      |  ...(props.x264Preset ? {x264Preset: props.x264Preset} : {}),
+      |  outputLocation: null,
+      |  ffmpegOverride,
+      |  onProgress: ({renderedFrames, encodedFrames}) => console.log(`Rendered ${renderedFrames}/${frames}, encoded ${encodedFrames}/${frames}`)
+      |});
+      |if (!Buffer.isBuffer(result.buffer)) throw new Error('Cozy Remotion render did not return an encoded media buffer');
+      |fs.mkdirSync(path.dirname(output), {recursive: true});
+      |fs.writeFileSync(output, result.buffer);
       |""".stripMargin
 
   private[video] val _remotion_root_tsx: String =

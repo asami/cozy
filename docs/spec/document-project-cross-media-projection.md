@@ -1,6 +1,6 @@
 # Document Project Cross-Media Projection
 
-Status: Phase 46.1 normative specification with the Phase 71.1 material-declaration contract
+Status: Phase 46.1 normative specification with Phase 71.1 declarations and Phase 71.5 S05 typed semantics
 
 ## Input boundary
 
@@ -15,9 +15,8 @@ The typed Projection MUST retain source and asset declarations in stable ID
 order. Its canonical JSON MUST serialize each source as exactly `{id}` and
 each asset as exactly `{id, mediaType}`, retaining the declared ID and media
 type. The projector MUST NOT calculate, parse, compare, or emit material
-hashes. Replacing valid source or asset bytes at the same bound path with
-unchanged declarations preserves this declaration content; declaration
-equality MUST NOT be interpreted as file freshness.
+hashes. Actual safe direct material inputs are admitted upstream; these fields describe
+their semantic declarations.
 
 ## Slide and scene derivation
 
@@ -63,24 +62,34 @@ identity fields. Actual named catalog validation is performed upstream on
 current inputs; a valid same-ID/revision definition update is not independently
 vetoed by a historical catalog copy.
 
-## Identity
+## Deterministic typed result
 
-The current projection identity is a SHA-256 identity over fixed-order projection
-content and the consumed Phase 46 semantic/currentness identities. Equivalent
-validated input produces identical projection content and identity. A change to
-semantic content, currentness input, structure, visible text, selected Visual,
-claim, source declaration, asset declaration, or mapping changes the identity.
-
-Phase 71.1 still requires the remaining Core, Explanation catalog, semantic/currentness,
-projection, renderer, output, and receipt hash-layer migration and the
-operation/FileTime timestamp and adoption behavior. Those layers are unfinished
-work in this same Phase, not integrity exemptions or an accepted end state.
-The material-declaration contract MUST preserve semantic coverage, validation,
-and safety gates while that work continues; it does not prove production
-same-path reuse.
+Projection contains exactly Content Core id, sorted sources and assets,
+StoryFlow, ordered slide pages and storyboard scenes, and their separate Step
+mappings. Its canonical JSON is ordinary deterministic serialization of those
+real values. Repeated equivalent input produces the same typed result and
+serialization; no aggregate digest or output-binding field is carried.
 
 ## Later Phase 46.1 stages
 
-This contract supplies typed inputs for confirmation HTML and receipts. The
-HTML and receipt stages MUST consume this value; they may not independently
+This contract supplies typed inputs for confirmation HTML and in-operation coverage. The
+HTML and coverage stages MUST consume this value; they may not independently
 recreate mappings from an untyped source.
+
+## Phase 71.5 implementation and validation status
+
+S05 implements the current semantic association, typed projection, coverage,
+confirmation HTML, and direct scaffold contracts under
+`P715-02-S05-PRESENTATION-SEMANTIC-COVERAGE`; its focused validation is pending.
+S04's three existing suites completed with 120 successes, zero failures, zero
+canceled cases, no warnings, exit 0, and terminal shared-lock release, as recorded
+in `p715-02-s04-focused-validation-result.json`. The first 119-success/one-failure
+run and the bounded existing MediaReceipt fixture correction remain retained
+history. This is implementation progress, not Step or Phase acceptance.
+
+External E715-01 through E715-04 reconciliation and the same full 34-scene JA
+ModelHarness VOICEVOX generation, final assembly, audible correct end card, and
+player EOF remain open. Repository-full validation is deferred-not-run to
+Phase 71.7. Independent Alignment, upstream Explanation hashes, delegated
+MediaReceipt, and Core/Description/Confirmation writer removal remain on the
+finite frontier; no exception or replacement certificate is introduced.

@@ -24,7 +24,7 @@ cozy media explanation preview <plan> \
 Every input is an explicitly named direct file. The command neither discovers
 inputs nor accepts a Storyboard, PDF, PPTX, presentation route, remote URL, or
 Web service. `--save` is one direct `.html` file in an existing direct output
-directory and is replaced atomically. Every value option accepts either the
+directory and is written directly. Every value option accepts either the
 separate `--option <value>` form or the equivalent `--option=<value>` form;
 each single-valued option occurs at most once. Repeated `--source` and
 `--asset` use the same two forms but retain the existing distinct-identifier
@@ -40,18 +40,17 @@ The command reuses the accepted Explanation, Explanation Plan, Projection Map,
 and Visual Page parsers and validators. It validates these joins without
 constructing a video Projection:
 
-1. the named Plan is current for the named Composition and catalogs;
-2. the named Projection Map is current for that Plan and contains every Plan
+1. the named Plan preserves the selected Composition expansion and catalogs;
+2. the named Projection Map agrees with the catalog selectors and contains every Plan
    Step once, in Plan order;
-3. the named Visual Page Set's typed full Presentation Catalog equals the Plan's
-   Presentation Catalog, and its catalog ID/revision agrees with the Plan selector;
+3. the named Visual Page Set parses against the explicit Presentation Catalog
+   and its catalog ID/revision agrees with the Plan selector;
 4. every mapped Page ID resolves exactly once in that set; and
 5. every mapped page preserves the mapped Plan Step's logical value and
    required source and asset provenance; and
 6. every required source/asset ID is declared in the Composition and resolves
-   to an explicit binding; source descriptor bytes agree with their binding's
-   actual bytes, while asset descriptor media types agree with the
-   AssetDeclaration and descriptor bytes agree with the explicit asset binding.
+   to an explicit safe direct binding and a safe descriptor-relative resource;
+   asset descriptor media types agree with the AssetDeclaration.
 
 The review model retains ordinary document and catalog IDs/revisions, ordered steps, claims, sources,
 assets, Logical Pattern nodes and typed Relations, Visual Pattern, and typed
@@ -76,7 +75,7 @@ The whole overview remains readable and printable without JavaScript. CSS,
 HTML structure, schematic SVG, and optional interaction are renderer details;
 they cannot write back to source documents. Header string values use the same
 HTML escaping as authored content. Catalog IDs and revisions identify the
-declared immutable catalog revisions; no Plan or Projection Map ID is invented.
+declared catalog revisions; no Plan or Projection Map ID is invented.
 
 ## Success Report and Regeneration
 
@@ -112,28 +111,57 @@ leaving this report unchanged.
 Any missing, unsafe, malformed, duplicate, unknown, incompatible,
 semantically mismatched, or stale input fails closed with structured diagnostics.
 Identical accepted inputs and preview renderer/profile produce byte-identical
-HTML. Output aliases of consumed inputs fail before atomic replacement, so the
+HTML. Output aliases of consumed inputs fail before writing, so the
 preview remains read-only and cannot write back to any input. The producer
-always renders validated inputs and computes HTML and report before atomic
-replacement. It introduces no timestamp/cache/adoption logic and does not
-touch inputs. Rejected grammar and input preserve the prior selected output.
+always renders validated inputs and computes HTML and report before the selected direct
+write. It introduces no timestamp/cache/adoption logic and does not
+touch inputs. Validation or rendering errors before writing preserve the prior selected output.
+Ordinary write failures may leave partial output; regeneration is recovery.
 The existing `cozy media visual-page preview` command, schema, and semantic
 HTML remain available with its current semantic report: `schema`, `version`,
 `generator`, `documentId`, `catalogId`, `catalogRevision`, `pageCount`, `html`,
 and `status` in order for HTML-only output.
 
-## Phase 71.1 Migration Boundary
+## Phase 71.5 bounded migration
 
-Phase 71.1 supersedes this consumer's former artifact hash checks and output.
-Typed catalog equality, selector ID/revision, declared resource IDs, mediaType,
-and actual descriptor/binding byte agreement establish the explicit joins.
-Byte comparison validates agreement between the two supplied resources; it
-does not decide generated-output reuse or establish content identities.
-The reused Explanation and Visual Page models/codecs still carry upstream
-hash requirements pending their unfinished same-Phase migration. They are not
-published-integrity exceptions or the accepted final state of Preview; this
-bounded consumer neither bypasses their validity checks nor adds hash calls.
-Timestamp currentness and explicit adoption remain separate same-Phase work.
+S07 removes Preview's byte-copy agreement and redundant whole-catalog equality
+certificate, and reconciles the Explanation/Projection models and direct writer.
+Named catalog ID/revision, typed graphs, required declaration IDs, asset media
+types, direct descriptor/binding resolution, actual input/output alias ownership,
+HTML escaping, and the independent success report facts remain required.
+On 2026-10-08 S07's four existing focused suites completed with 41 successes,
+zero failures, canceled, ignored, or pending cases, no warnings, SBT/wrapper
+exit 0, and terminal shared serial-lock release. Independent review and Step/Phase
+acceptance remain pending. S08 implements the bounded VisualPage conversion and direct semantic Preview
+writers. On 2026-10-08 its two existing focused suites completed with 14 successes,
+zero failures, canceled, ignored, or pending cases, zero warnings/errors,
+SBT/wrapper exit 0, and terminal shared serial-lock release. S09 implements bounded
+direct Article/Summary PDF generation and immediate build-input capture removal.
+On 2026-10-08 its six existing focused suites completed with 114 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+S10 removes Presentation copied-image byte/multiset checks and shared acceptance
+staging/backup/rollback, retaining initial asset/target ownership and actual
+structural semantics with ordered direct review-state then receipt writes.
+On 2026-10-08 its six existing focused suites completed with 113 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero SBT
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+Five hostile-XML/DOCTYPE diagnostics are intentional existing negative-fixture
+output, not SBT compilation or test failures.
+S11 implements direct PresentationMigration and CrossReview output writes and
+direct creation of the absent article source package. Its five-suite focused
+validation completed on 2026-10-08 with 58 successes, zero
+failed/canceled/ignored/pending cases, zero aborted suites, zero SBT
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+S11 emitted five intentional hostile-XML/DOCTYPE negative-fixture diagnostics,
+separate from SBT compilation or test failures. S12's current JA native route is
+planned/not-run; generation, assembly, native inspection, browser EOF and current
+listening remain OPEN ([journal](../journal/2026/10/2026-10-08-phase-71.5-ja-main-route.md)).
+Remaining Receipt publication/prepared-input
+observations and finite publication/runtime/CAR groups, independent
+review/Step/Phase acceptance, the same full 34-scene native route, and external
+E715-01..04 consumer reconciliation remain pending without an exception or
+whole-Phase closure claim.
 
 ## Non-goals
 

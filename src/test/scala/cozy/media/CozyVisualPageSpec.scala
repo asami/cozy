@@ -14,7 +14,7 @@ import cozy.CozySpecVocabulary
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVisualPageSpec
@@ -337,7 +337,7 @@ final class CozyVisualPageSpec
       }
     }
 
-    "provide deterministic validate, inspect, and fail-safe conversion commands without changing the legacy slide route" in {
+    "provide deterministic validate, inspect, and direct conversion commands without changing the legacy slide route" in {
       _with_work("visual-page-command") { root =>
         Given("one valid direct page and closed catalog")
         val catalog = _write_catalog(root)

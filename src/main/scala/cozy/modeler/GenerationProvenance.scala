@@ -1,7 +1,7 @@
 package cozy.modeler
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardCopyOption}
+import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
@@ -10,7 +10,7 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 /*
  * @since   Jul. 27, 2026
  *  version Jul. 28, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object GenerationProvenance {
@@ -155,8 +155,7 @@ private[cozy] object GenerationProvenance {
     val commands = Set("modeler-scala", "modeler-scala-value")
     val command = args.find(commands.contains)
     val selected =
-      _option(args, "cncf-runtime-descriptor").nonEmpty ||
-        _option(args, "cncf-runtime-descriptor-sha256").nonEmpty
+      _option(args, "cncf-runtime-descriptor").nonEmpty
     if (command.nonEmpty && selected)
       Some(requireSourceIdentity(_option(args, "generation-source-identity"), source))
     else
@@ -205,7 +204,6 @@ private[cozy] object GenerationProvenance {
   ): Manifest = {
     val root = outputroot.toAbsolutePath.normalize()
     val selected = captureSourceInput(sourceinput.path, sourceinput.identity).fold(_raise, identity)
-    val source = selected.path
     val normalizedinputs = _normalize_inputs(inputs).fold(_raise, identity)
     if (normalizedinputs.sourceIdentity != selected.identity)
       _raise(Vector(_diagnostic(
@@ -230,30 +228,8 @@ private[cozy] object GenerationProvenance {
     val path = root.resolve(METADATA_PATH)
     val directory = path.getParent
     Files.createDirectories(directory)
-    val temporary = Files.createTempFile(directory, ".generation-provenance-", ".json")
-    try {
-      Files.writeString(temporary, manifest.toJsonString, StandardCharsets.UTF_8)
-      _validate(
-        temporary,
-        root,
-        source,
-        normalizedinputs,
-        excludedoutputroots
-      ) match {
-        case Right(_) =>
-          Files.move(
-            temporary,
-            path,
-            StandardCopyOption.ATOMIC_MOVE,
-            StandardCopyOption.REPLACE_EXISTING
-          )
-          manifest
-        case Left(diagnostics) =>
-          _raise(diagnostics)
-      }
-    } finally {
-      Files.deleteIfExists(temporary)
-    }
+    Files.writeString(path, manifest.toJsonString, StandardCharsets.UTF_8)
+    manifest
   }
 
   def validate(
@@ -302,7 +278,7 @@ private[cozy] object GenerationProvenance {
       )
   }
 
-  private def _validate_v1_manifest(
+  private[modeler] def _validate_v1_manifest(
     manifest: Manifest,
     outputroot: Path,
     sourcepath: Path,

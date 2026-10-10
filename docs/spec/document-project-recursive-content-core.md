@@ -56,8 +56,9 @@ for each Step.
 `--kind`, and `--save`, with `overview` or `slides` as the only kinds. Input
 files and the destination must be direct non-symlink paths; the destination
 must be an absent or regular `.html` file beneath an existing direct
-non-symlink directory. Publication uses a same-directory temporary file and
-an atomic move. The command creates no Document Project, receipt, evidence,
+non-symlink directory. The command directly writes UTF-8 HTML to the selected admitted destination
+and reports ordinary `LOGIC_TREE_PATH` write failures. A partial output may
+remain; recovery is regeneration. The command creates no Document Project, receipt, evidence,
 provider run, publication, deployment, or external mutation.
 
 ## Executable specification

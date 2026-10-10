@@ -2,20 +2,19 @@ package cozy.media
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import java.util.zip.{CRC32, Deflater, DeflaterOutputStream}
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVisualPagePreview {
   private final case class PreviewConfig(input: Path, catalog: Path, html: Path, png: Option[Path])
   private final case class Output(target: Path, bytes: Array[Byte])
-  private final case class StagedOutput(target: Path, temporary: Path)
   private final case class Image(width: Int, height: Int, pixels: Array[Int])
 
   private val _schema = "cozy.visual-page.preview.v1"
@@ -36,7 +35,7 @@ private[cozy] object CozyVisualPagePreview {
     val htmlbytes = _html(validated).getBytes(StandardCharsets.UTF_8)
     val pngbytes = config.png.map(_ => _png(validated))
     val outputs = Vector(Output(config.html, htmlbytes)) ++ config.png.zip(pngbytes).map { case (path, bytes) => Output(path, bytes) }
-    _replace_all(outputs)
+    _write_outputs(outputs)
     _report(validated, config.png.nonEmpty)
   }
 
@@ -330,26 +329,15 @@ private[cozy] object CozyVisualPagePreview {
       "status: generated"
     )).mkString("\n")
 
-  private def _replace_all(outputs: Vector[Output]): Unit = {
-    var staged = Vector.empty[StagedOutput]
+  private def _write_outputs(outputs: Vector[Output]): Unit = {
     try {
       outputs.foreach { output =>
-        val parent = Option(output.target.getParent).getOrElse(_fail("VISUAL_PAGE_PREVIEW_SAVE", "$save", "output parent is required"))
-        val prefix = Option(output.target.getFileName).map(_.toString).filter(_.length >= 3).getOrElse("vpg")
-        val temporary = Files.createTempFile(parent, prefix, ".tmp")
-        staged :+= StagedOutput(output.target, temporary)
-        Files.write(temporary, output.bytes)
-      }
-      staged.foreach { output =>
-        try Files.move(output.temporary, output.target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-        catch {
-          case _: AtomicMoveNotSupportedException => _fail("VISUAL_PAGE_PREVIEW_SAVE_ATOMIC", "$save", "filesystem does not support same-directory atomic output replacement")
-        }
+        Files.write(output.target, output.bytes)
       }
     } catch {
       case fault: CozyVisualPage.VisualPageFault => throw fault
-      case NonFatal(e) => _fail("VISUAL_PAGE_PREVIEW_SAVE", "$save", Option(e.getMessage).getOrElse("cannot replace preview output"))
-    } finally staged.foreach(output => Files.deleteIfExists(output.temporary))
+      case NonFatal(e) => _fail("VISUAL_PAGE_PREVIEW_SAVE", "$save", Option(e.getMessage).getOrElse("cannot write preview output"))
+    }
   }
 
   private def _validate_output(path: Path, label: String, suffix: String): Unit = {

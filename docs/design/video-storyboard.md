@@ -18,6 +18,83 @@ invariants for `cozy.video.storyboard.v1`. The functional contract is
 documentation-only foundation does not claim implementation, executable
 specifications, validation, review, commit, or completion.
 
+## 2026-10-08 Phase 71.5 production/assembly amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md), P715-02-S01-VIDEO-PRODUCTION,
+P715-02-S02-TEMPLATE-CREDITS, P715-02-S03-RENDER-ASSEMBLY-OUTPUT, and the
+[artifact-protection removal](artifact-protection-removal.md) policy. This current amendment
+supersedes the earlier Video-generated output backup, restoration, rollback,
+atomic-install and producer input-interference promises below. Those prior
+decisions and accepted results remain dated history; they do not define the
+current selected Video production/assembly failure contract.
+
+Selected Remotion and simple-java2d renderers write their declared part outputs
+directly. Ordinary final assembly writes and probes the configured final output
+directly, then writes its manifest. Native
+confirmation/final assembly muxes and probes the selected mode output directly,
+then writes its handoffs, part records, applicable credit companions and mode
+manifest to their declared destinations. Normal Media-to-Video production uses
+one selected input graph and direct render/build/credit writes, without
+before/after input comparison or output preservation. A unique assembly work
+directory holds concat lists, extracted compressed video, per-part PCM WAVs and
+combined WAV processing; it does not hold complete products for later installation.
+Selected original part paths and their order are used directly. Docker maps
+project-contained paths through `/workspace`, mounts each selected external input
+file at its actual absolute path read-only, and mounts the selected external output
+parent at its actual absolute path read-write. Exact mounts are deduplicated; an
+input already covered by the selected writable output parent needs no extra mount.
+The selected output parent is created normally before the command.
+
+Remotion uses the official bundle, composition-selection and media-render APIs
+with H264 and PCM16 processing, then writes the returned encoded buffer directly
+to the props-selected part output. Its FFmpeg override retains parallel video
+encoding and the existing video timebase, CRF and optional x264 preset, and performs
+one AAC encode with the existing 320k/18000Hz/stereo-48k parameters. The finite
+audio envelope remains `floor(totalFrames * 48000 / fps)` with a 48000 movie
+timescale and actual MP4 output. Multi-part assembly retains exact cumulative
+48k allocations, lossless WAV concatenation and one final AAC encode.
+
+Malformed or missing required inputs, selected safe paths, explicit mode/output
+locations, generation/reuse FileTime decisions, typed Storyboard/handoff schemas,
+positive media validity, narration and common final-card/end-of-media semantics,
+and required credits remain in force. Authored sources, confirmation products
+when final is selected, and unselected outputs remain outside the selected write
+scope. Ordinary renderer, mux, probe and I/O failures report the actual failed
+operation and selected path. Failed production promises neither success nor
+preservation of prior generated outputs; recovery is regeneration.
+
+Bundled named character-dialogue renderer resources (`DialogueVideo.jsx` and
+`DiagramLayout.js`) are read once as actual workspace payload, without fixed
+SHA pins. Resource names, layout and the actionable missing-resource failure
+remain. Selected direct regular non-symlink credit files are read once and
+parsed normally, without a file-key prerequisite or repeated-read interference
+proof. Direct directory and lexical/real-path admission, context precedence,
+schema, vocabulary, duplicate IDs, credit obligations and projections remain;
+ordinary read and parse failures identify the selected input. These changes
+preserve renderer, narration, domain and timing semantics. The affected existing
+Executable Specifications are
+[CozyVideoSpec](../../src/test/scala/cozy/video/CozyVideoSpec.scala),
+[CozyVideoCreditsSpec](../../src/test/scala/cozy/video/CozyVideoCreditsSpec.scala),
+[CozyVideoAssemblyAudioSpec](../../src/test/scala/cozy/video/CozyVideoAssemblyAudioSpec.scala),
+[CozyVideoProfileRenderSpec](../../src/test/scala/cozy/video/CozyVideoProfileRenderSpec.scala),
+[CozyVideoMediaEndingSpec](../../src/test/scala/cozy/video/CozyVideoMediaEndingSpec.scala), and
+[CozyVideoStoryboardBuildModeSpec](../../src/test/scala/cozy/video/CozyVideoStoryboardBuildModeSpec.scala).
+
+S01 is implemented and focused-validated: four existing suites reported 72
+successes, zero failures and one optional native case canceled because its
+native property is disabled by default; the serial lock was released. That
+canceled case is not native acceptance. S02 template/credit focused validation
+reported 154 successes, zero failures and zero canceled cases; the serial lock
+was released. S03 direct render/assembly output and selected Docker mounts are
+implemented, with focused and enabled native validation pending; S03 is not
+accepted.
+The representative native generation/final-assembly/audible-playback result,
+including correct end card and EOF, and Step/Phase acceptance remain pending.
+Document/media evidence and concrete external readers remain explicit
+obligations on Phase 71.5's finite list. This amendment closes no Step or Phase,
+claims no accepted native route and grants no protection exception. Repository-full
+validation remains deferred-not-run to Phase 71.7.
+
 ## 2026-09-29 Phase 71 generation-boundary amendment
 
 Authority is [Phase 71 P710-02](../phase/phase-71.md) and the approved
@@ -477,3 +554,35 @@ This fixture makes no external Article 9 project claim or external provider,
 publication, upload, or deployment call; Storyboard v1/v2 typed fields,
 canonical serialization and schemas remain unchanged by that historical fixture.
 S04 subsequently removes the general identity API.
+
+## 2026-10-09 Phase 71.5 descriptor admission amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md),
+`P715-02-S13-CONTEXT-DESCRIPTOR-READ`. Descriptor input admission keeps its
+existing non-null selected path, absolute normalization, existence and direct
+regular non-symlink checks, ordinary canonical resolution and direct canonical
+target admission. It returns the same canonical path to the existing loader,
+parser and effect validation. All four descriptor attribute observations,
+the stable-key prerequisite and same-file comparisons are removed without
+a replacement check. No new source-format or path restriction is introduced.
+This amendment supersedes only those input protection promises; older dated
+outcomes and unrelated review, approval and media contracts remain recorded.
+
+Existing [CozyVideoProfileRenderSpec](../../src/test/scala/cozy/video/CozyVideoProfileRenderSpec.scala)
+and [CozyProjectContextSpec](../../src/test/scala/cozy/config/CozyProjectContextSpec.scala)
+retain the meaningful descriptor/path and shared-context scenarios. The
+[S13 journal](../journal/2026/10/2026-10-09-phase-71.5-context-descriptor-read.md)
+preserves its initial implemented-unvalidated progress and pending
+focused validation.
+
+2026-10-09 actual-result continuation: S13 is
+implemented-focused-validated-unreviewed. The selected five existing suites
+completed with zero aborted suites: 104 tests succeeded, with zero failed,
+canceled, ignored or pending tests. SBT reported zero warnings and zero errors;
+SBT and wrapper exits were 0 and the terminal shared serial lock was released.
+No hostile-XML diagnostic lines occurred in this selected command. This result
+does not supply native, Step or Phase acceptance; all recorded open obligations
+remain OPEN.
+S12's same prepared 34-scene native generation, final assembly, inspection,
+visible unmuted playback, actual hearing, correct end card and player EOF
+remain OPEN. Focused results cannot close native, Step or Phase acceptance.

@@ -14,7 +14,7 @@ import cozy.CozySpecVocabulary
  *  version Jul. 20, 2026
  *  version Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoProfileRenderSpec
@@ -82,7 +82,7 @@ final class CozyVideoProfileRenderSpec
           runner
         )
 
-        Then("every part props, generated render arguments, and the build manifest agree with the effective encoding")
+        Then("every part props, selected output, and the build manifest agree with the effective encoding")
         partids.foreach { partid =>
           val workdir = pkg.resolve(s"target/cozy-video/remotion/$partid")
           val props = _json(workdir.resolve("props.json"))
@@ -92,9 +92,8 @@ final class CozyVideoProfileRenderSpec
           props.hcursor.get[Int]("height").toOption shouldBe Some(720)
           props.hcursor.get[Int]("crf").toOption shouldBe Some(21)
           props.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
-          val render = _read(workdir.resolve("src/render.mjs"))
-          render should include_text("`--crf=${props.crf}`")
-          render should include_text("`--x264-preset=${props.x264Preset}`")
+          props.hcursor.get[String]("outputPath").toOption shouldBe Some(s"build/parts/$partid.mp4")
+          pkg.resolve(s"build/parts/$partid.mp4") should be_regular_file
         }
         val encoding = _json(pkg.resolve("target/cozy-video/final/manifest.json")).hcursor.
           downField("encoding")
@@ -178,11 +177,6 @@ final class CozyVideoProfileRenderSpec
           val root = _read(pkg.resolve(s"target/cozy-video/remotion/${partids.head}/src/Root.tsx"))
           Vector("title-card", "subtle-motion", "flow-line", "underline-sweep", "summary-layout", "fade-rise", "spring-pop", "end-card", "hold").
             foreach(x => root should include_text(x))
-          val renderscript = _read(
-            pkg.resolve(s"target/cozy-video/remotion/${partids.head}/src/render.mjs")
-          )
-          renderscript should include_text("--public-dir=${publicDir}")
-          renderscript should include_text("--dns-result-order=ipv4first")
           Files.isDirectory(pkg.resolve("build/credits")) shouldBe false
         }
       }
@@ -249,12 +243,13 @@ final class CozyVideoProfileRenderSpec
           """[{"sceneId":"explanation","speaker":null,"file":"01-explanation.wav",
             |"leadSilence":0.5,"audioDuration":10.5,"targetDuration":8.0,"tailSilence":0.0}]""".stripMargin
         )
+        val runner = ProfileRenderRunner()
 
         When("the Remotion adapter derives its scene and composition timing")
         CozyVideo.render(
           CozyVideo.RenderConfig(pkg.resolve("video.yaml"), "remotion", checkTools = false),
           CozyVideo.VideoToolRegistry(Vector.empty),
-          ProfileRenderRunner()
+          runner
         )
 
         Then("the render uses the complete narration duration without changing the authored target")
@@ -263,7 +258,10 @@ final class CozyVideoProfileRenderSpec
         _scene_duration(props, 0) shouldBe 11.0
         _json(audiodir.resolve("manifest.json")).asArray.get.head.hcursor.
           get[Double]("targetDuration").toOption.get shouldBe 8.0
-        pkg.resolve("../render-output/narration-overrun.mp4").normalize() should be_regular_file
+        val selectedoutput = pkg.resolve("../render-output/narration-overrun.mp4").normalize()
+        props.hcursor.get[String]("outputPath").toOption shouldBe Some(selectedoutput.toString)
+        runner.commands.last.args should contain(s"${selectedoutput.getParent}:${selectedoutput.getParent}:rw")
+        selectedoutput should be_regular_file
       }
     }
 
@@ -442,7 +440,7 @@ final class CozyVideoProfileRenderSpec
 
     "assemble Docker parts and final output outside the video project root" in {
       _with_temp_dir("external-assembly-output") { dir =>
-        Given("a rendered part and final output configured outside the video project root")
+        Given("a rendered part and final output in separate selected directories outside the video project root")
         val pkg = dir.resolve("external-assembly.video")
         CozyVideoScaffold.scaffold(CozyVideoScaffold.Config.create(List(
           "external-assembly",
@@ -455,15 +453,15 @@ final class CozyVideoProfileRenderSpec
             replace("output: build/external-assembly.mp4", "output: ../render-output/final.mp4").
             replace(
               "    storyboardSection: explanation",
-              "    storyboardSection: explanation\n    output: ../render-output/part.mp4"
+              "    storyboardSection: explanation\n    output: ../render-input/part.mp4"
             )
         )
-        val partoutput = pkg.resolve("../render-output/part.mp4").normalize()
+        val partoutput = pkg.resolve("../render-input/part.mp4").normalize()
         Option(partoutput.getParent).foreach(Files.createDirectories(_))
         Files.write(partoutput, Array[Byte](0, 1, 2, 3))
         val runner = ProfileRenderRunner()
 
-        When("Cozy assembles the project through Docker-local staging")
+        When("Cozy assembles the selected part through Docker confirmation and final modes")
         CozyVideo.build(
           CozyVideo.BuildConfig(pkg.resolve("video.yaml"), dryRun = false, checkTools = false, mode = Some("confirmation")),
           CozyVideo.VideoToolRegistry(Vector.empty),
@@ -475,15 +473,21 @@ final class CozyVideoProfileRenderSpec
           runner
         )
 
-        Then("the staged inputs remain container-visible and the verified result reaches its configured path")
+        Then("the actual selected input is mounted read-only and the final output parent is mounted writable")
         val ffmpeg = runner.commands.filter(_.args.contains("ffmpeg")).last
         val concatarg = ffmpeg.args.dropWhile(_ != "-i").drop(1).head
         val concatpath = pkg.resolve(concatarg.stripPrefix("/workspace/")).normalize()
         val concat = runner.concatInputs.find(_._1 == concatpath).map(_._2).get
-        concat shouldBe s"file '${concatarg.stripSuffix("concat.txt")}parts/part-01.mp4'\n"
-        concatarg should startWith("/workspace/target/cozy-video/staging/final/attempt-")
+        concat shouldBe s"file '$partoutput'\n"
+        concatarg should startWith("/workspace/target/cozy-video/assembly-work/final/attempt-")
         concatarg should endWith("/concat.txt")
-        ffmpeg.args.last shouldBe s"${concatarg.stripSuffix("concat.txt")}final.mp4"
+        val finaloutput = pkg.resolve("../render-output/final.mp4").normalize()
+        ffmpeg.args.last shouldBe finaloutput.toString
+        ffmpeg.args should contain(s"$partoutput:$partoutput:ro")
+        ffmpeg.args should contain(s"${finaloutput.getParent}:${finaloutput.getParent}:rw")
+        val finalprobe = runner.commands.filter(_.args.contains("ffprobe")).last.args
+        finalprobe.last shouldBe finaloutput.toString
+        finalprobe should contain(s"$finaloutput:$finaloutput:ro")
         Files.readAllBytes(partoutput).toVector shouldBe Vector[Byte](0, 1, 2, 3)
         pkg.resolve("../render-output/final.mp4").normalize() should be_regular_file
       }
@@ -991,14 +995,13 @@ final class CozyVideoProfileRenderSpec
             pkg,
             dir.resolve("src/main/publication"),
             dir.resolve("warehouse"),
-            Some("0.1.0-SNAPSHOT"),
-            force = false
+            Some("0.1.0-SNAPSHOT")
           ),
           CozyVideoSpec.RecordingVoicevoxClient(),
           ProfileRenderRunner()
         )
 
-        Then("the written publication retains source paths and distributed artifact integrity without authored source hashes")
+        Then("the written publication retains selected source paths, repository paths and actual media size")
         val publicationbundle = _json(result.publicationBundle)
         val videoentries = publicationbundle.hcursor.get[Vector[Json]]("entries").toOption.get.filter { entry =>
           entry.hcursor.get[String]("path").toOption.contains(s"metadata/videos/${result.video.name}/metadata.json")
@@ -1009,13 +1012,10 @@ final class CozyVideoProfileRenderSpec
         publishedvideo.get[String]("scriptPath").toOption shouldBe Some(result.video.scriptPath)
         publishedvideo.get[String]("sourcePackage").toOption shouldBe Some("technology/tutorial.video")
         publishedvideo.get[String]("articlePath").toOption shouldBe Some(result.video.articlePath)
-        publishedvideo.downField("descriptorSha256").focus shouldBe None
-        publishedvideo.downField("scriptSha256").focus shouldBe None
         val publishedartifact = publishedvideo.downField("artifact")
         publishedartifact.get[String]("warehousePath").toOption shouldBe Some(result.video.warehousePath)
         publishedartifact.get[String]("publicPath").toOption shouldBe Some(result.video.repositoryPublicPath)
         publishedartifact.get[Long]("size").toOption shouldBe Some(Files.size(result.warehouseArtifact))
-        publishedartifact.get[String]("sha256").toOption.get should fullyMatch regex "[0-9a-f]{64}"
         Files.readAllBytes(result.warehouseArtifact).toVector shouldBe
           Files.readAllBytes(result.workspaceRoot.resolve("build/final.mp4")).toVector
 

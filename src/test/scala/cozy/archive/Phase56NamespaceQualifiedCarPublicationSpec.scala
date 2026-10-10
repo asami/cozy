@@ -2,7 +2,6 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.time.Instant
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 
@@ -12,10 +11,10 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug.  7, 2026
- * @version Aug.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
-/** Focused CID-04C repository-coordinate and integrity publication contract. */
+/** Focused CID-04C repository-coordinate publication contract. */
 final class Phase56NamespaceQualifiedCarPublicationSpec
     extends AnyWordSpec
     with Matchers
@@ -24,23 +23,21 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
     "in spec:phase-56-cid04c-cozy-repository-publication, example:E1, rules:R1,R4, phase:56"
   ) {
     "materialize every shared coordinate projection at the public publisher boundary" in {
+      Given("a minimal canonical v3/v2 CAR and a project without a compatibility contract")
       _with_temp_dir { root =>
         val warehouse = root.resolve("warehouse")
         val project = _project(root, "org.alpha.textus", "Shared", "0.6.0")
         val coordinate = _coordinate("org.alpha.textus", "Shared")
         val archive = _canonical_archive(root.resolve("alpha.car"), coordinate, "alpha")
 
-        Given("a minimal canonical v3/v2 CAR and a project without a compatibility contract")
         When("Cozy publishes the prebuilt CAR with deterministic publication time")
         _publish_car(project, warehouse, archive, coordinate)
 
-        Then("archive, checksum, Maven metadata, catalogs, CML sidecars, and v2 index use exact shared projections")
+        Then("archive, Maven metadata, catalogs, CML sidecars, and v2 index use exact shared projections")
         val car = warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath)
-        val checksum = car.resolveSibling(car.getFileName.toString + ".sha256")
         val sourcecatalog = project.resolve("src/main/catalog").resolve(coordinate.carCatalogRelativePath)
         val publiccatalog = warehouse.resolve("repository/catalog").resolve(coordinate.carCatalogRelativePath)
         Files.readAllBytes(car).toVector shouldBe Files.readAllBytes(archive).toVector
-        Files.readString(checksum, StandardCharsets.UTF_8) shouldBe RepositoryArtifactPublisher.sha256(car) + "\n"
         Files.readString(sourcecatalog, StandardCharsets.UTF_8) shouldBe Files.readString(publiccatalog, StandardCharsets.UTF_8)
         Files.readString(warehouse.resolve("repository/car").resolve(coordinate.groupPath).resolve(coordinate.mavenArtifactId).resolve("maven-metadata.xml"), StandardCharsets.UTF_8) should include(
           "<groupId>org.alpha.textus</groupId>"
@@ -110,7 +107,7 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
     "in spec:phase-59.6-catalog-carrier, example:E1A, rules:R1,R9, phase:59.6"
   ) {
     "copy only the declared raw consumer contract beside its exact release catalog" in {
-      Given("a CAR whose archive declaration and project source share one digest-bound consumer contract")
+      Given("a CAR whose archive declaration and project source select one canonical consumer contract")
       _with_temp_dir { root =>
         val warehouse = root.resolve("warehouse")
         val coordinate = _coordinate("org.alpha.textus", "Shared")
@@ -118,9 +115,8 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
         val contract =
           s"""{"schema":"cncf.component-knowledge-consumer.v1","componentId":"${coordinate.qualifiedId}","logicalRelease":"${coordinate.version}","resources":[]}"""
         val source = _write(project.resolve("src/main/car/component-knowledge.json"), contract)
-        val digest = RepositoryArtifactPublisher.sha256(source)
         val descriptor =
-          s"""{"schemaVersion":3,"component":{"namespace":"${coordinate.namespace}","id":"${coordinate.id}","version":"${coordinate.version}"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json","sha256":"$digest"}}"""
+          s"""{"schemaVersion":3,"component":{"namespace":"${coordinate.namespace}","id":"${coordinate.id}","version":"${coordinate.version}"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json"}}"""
         val archive = _archive(root.resolve("carrier.car"), Vector(
           "component-descriptor.json" -> descriptor,
           "abi-manifest.json" -> _abi(coordinate),
@@ -135,7 +131,6 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
         val sidecar = warehouse.resolve("repository/catalog/car").resolve(coordinate.groupPath).
           resolve(coordinate.mavenArtifactId).resolve(coordinate.version).resolve("component-knowledge.json")
         Files.readAllBytes(sidecar).toVector shouldBe Files.readAllBytes(source).toVector
-        RepositoryArtifactPublisher.sha256(sidecar) shouldBe digest
       }
     }
   }
@@ -309,185 +304,6 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
       }
     }
 
-    "reject archive tampering without changing catalog and index evidence" in {
-      _with_temp_dir { root =>
-        val warehouse = root.resolve("warehouse")
-        val coordinate = _coordinate("org.alpha.textus", "Shared")
-        val project = _project(root, coordinate.namespace, coordinate.id, coordinate.version)
-        val archive = _canonical_archive(root.resolve("valid.car"), coordinate, "valid")
-
-        Given("a published canonical CAR and its integrity evidence")
-        _publish_car(project, warehouse, archive, coordinate)
-        val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
-        val before = _publication_bytes(warehouse, coordinate)
-        val car = warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath)
-        Files.writeString(car, "tampered", StandardCharsets.UTF_8)
-
-        When("the public index validates the tampered archive")
-        intercept[Throwable] {
-          ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath)
-        }.getMessage should include("component.repository.integrity.mismatch")
-        _publication_bytes(warehouse, coordinate).filterNot(_._1.endsWith(".car")) shouldBe before.filterNot(_._1.endsWith(".car"))
-      }
-    }
-
-    "reject checksum sidecar tampering without changing archive and catalog evidence" in {
-      _with_temp_dir { root =>
-        val warehouse = root.resolve("warehouse")
-        val coordinate = _coordinate("org.alpha.textus", "Shared")
-        val project = _project(root, coordinate.namespace, coordinate.id, coordinate.version)
-        val archive = _canonical_archive(root.resolve("valid.car"), coordinate, "valid")
-
-        Given("a published canonical CAR and its checksum sidecar")
-        _publish_car(project, warehouse, archive, coordinate)
-        val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
-        val before = _publication_bytes(warehouse, coordinate)
-        val car = warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath)
-        Files.writeString(car.resolveSibling(car.getFileName.toString + ".sha256"), "tampered\n", StandardCharsets.UTF_8)
-
-        When("the public index validates the tampered checksum sidecar")
-        intercept[Throwable] {
-          ComponentRepositoryIndex.validateCatalogs(ComponentRepositoryIndex.load(indexpath), indexpath)
-        }.getMessage should include("component.repository.integrity.mismatch")
-
-        Then("archive, catalog, and index bytes remain unchanged")
-        _publication_bytes(warehouse, coordinate).filterNot(_._1.endsWith(".sha256")) shouldBe before.filterNot(_._1.endsWith(".sha256"))
-      }
-    }
-  }
-
-  "E5 Prepared publication transaction" must afterWord(
-    "in spec:phase-56-cid04c-cozy-repository-publication, example:E5, rules:R2,R5, phase:56"
-  ) {
-    "restore every original destination, remove a new-only destination, and never re-enter the forward seam when index commit fails" in {
-      _with_temp_dir { root =>
-        val warehouse = root.resolve("warehouse")
-        val coordinate = _coordinate("org.alpha.textus", "Shared")
-        val project = _project(root.resolve("project"), coordinate.namespace, coordinate.id, coordinate.version)
-        val original = _canonical_archive(root.resolve("original.car"), coordinate, "original")
-        val replacement = _canonical_archive(root.resolve("replacement.car"), coordinate, "replacement")
-        _publish_car(project, warehouse, original, coordinate)
-        val newonly = warehouse.resolve("repository/catalog/car").resolve(coordinate.groupPath).resolve(coordinate.mavenArtifactId + ".model-metadata.yaml")
-        Files.delete(newonly)
-        val before = _existing_publication_bytes(warehouse, coordinate)
-        val indexpath = warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH).toAbsolutePath.normalize()
-        val warehouseroot = warehouse.toAbsolutePath.normalize()
-        var seamcalls = Vector.empty[Path]
-
-        Given("a new-only CML sidecar and an index replacement fault after Maven metadata has committed")
-        RepositoryArtifactPublisher._publication_move_fault = Some { destination =>
-          if (destination.toAbsolutePath.normalize().startsWith(warehouseroot)) {
-            seamcalls :+= destination
-            if (destination == indexpath) throw new IllegalStateException("injected index replacement failure")
-          }
-        }
-        try {
-          When("the actual publisher commits its prepared transaction")
-          intercept[IllegalStateException] { _publish_car(project, warehouse, replacement, coordinate) }
-          Then("every original byte is restored, the new-only sidecar is absent, and restore does not invoke the forward seam")
-          _existing_publication_bytes(warehouse, coordinate) shouldBe before
-          Files.exists(newonly) shouldBe false
-          seamcalls.map(_.getFileName.toString) should contain("maven-metadata.xml")
-          seamcalls should have size 8
-          _transaction_debris(root) shouldBe empty
-        } finally RepositoryArtifactPublisher._publication_move_fault = None
-      }
-    }
-
-    "remove preparation and snapshot artifacts without mutating publication output when candidate construction fails" in {
-      _with_temp_dir { root =>
-        val warehouse = root.resolve("warehouse")
-        val coordinate = _coordinate("org.alpha.textus", "Shared")
-        val project = _project(root.resolve("project"), coordinate.namespace, coordinate.id, coordinate.version)
-        val archive = _canonical_archive(root.resolve("candidate.car"), coordinate, "candidate")
-        val warehouseroot = warehouse.toAbsolutePath.normalize()
-
-        Given("a candidate copy fault before the transaction begins")
-        RepositoryArtifactPublisher._publication_prepare_fault = Some { destination =>
-          if (destination.toAbsolutePath.normalize().startsWith(warehouseroot))
-            throw new IllegalStateException("injected candidate preparation failure")
-        }
-        try {
-          When("the publisher prepares its first archive candidate")
-          intercept[IllegalStateException] { _publish_car(project, warehouse, archive, coordinate) }
-          Then("no publication path or prepare/rollback artifact remains")
-          Files.exists(warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath)) shouldBe false
-          Files.exists(warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)) shouldBe false
-          _transaction_debris(root) shouldBe empty
-        } finally RepositoryArtifactPublisher._publication_prepare_fault = None
-      }
-    }
-
-    "clean every earlier rollback snapshot when a later snapshot backup fails before forward mutation" in {
-      _with_temp_dir { root =>
-        val warehouse = root.resolve("warehouse")
-        val coordinate = _coordinate("org.alpha.textus", "Shared")
-        val project = _project(root.resolve("project"), coordinate.namespace, coordinate.id, coordinate.version)
-        val original = _canonical_archive(root.resolve("original.car"), coordinate, "original")
-        val replacement = _canonical_archive(root.resolve("replacement.car"), coordinate, "replacement")
-        _publish_car(project, warehouse, original, coordinate)
-        val before = _publication_bytes(warehouse, coordinate)
-        val warehouseroot = warehouse.toAbsolutePath.normalize()
-
-        Given("a snapshot failure after earlier archive, checksum, and catalog backups")
-        RepositoryArtifactPublisher._publication_snapshot_fault = Some { destination =>
-          if (
-            destination.toAbsolutePath.normalize().startsWith(warehouseroot) &&
-            destination.getFileName.toString == "maven-metadata.xml"
-          )
-            throw new IllegalStateException("injected snapshot backup failure")
-        }
-        try {
-          When("the publisher snapshots prepared destinations before their forward installation")
-          intercept[IllegalStateException] { _publish_car(project, warehouse, replacement, coordinate) }
-          Then("publication bytes remain unchanged and all candidate and rollback debris is removed")
-          _publication_bytes(warehouse, coordinate) shouldBe before
-          _transaction_debris(root) shouldBe empty
-        } finally RepositoryArtifactPublisher._publication_snapshot_fault = None
-      }
-    }
-
-    "leave final bytes and transaction directories unchanged when candidate validation fails" in {
-      _with_temp_dir { root =>
-        val warehouse = root.resolve("warehouse")
-        val coordinate = _coordinate("org.alpha.textus", "Shared")
-        val project = _project(root.resolve("project"), coordinate.namespace, coordinate.id, coordinate.version)
-        val original = _canonical_archive(root.resolve("original.car"), coordinate, "original")
-        _publish_car(project, warehouse, original, coordinate)
-        val before = _publication_bytes(warehouse, coordinate)
-        val catalogpath = project.resolve("src/main/catalog").resolve(coordinate.carCatalogRelativePath)
-        val catalog = RepositoryArtifactCatalog.load(catalogpath)
-        val stale = CozyComponentReleaseCoordinateCodec.admit(coordinate.namespace, coordinate.id, "0.5.0", "phase-56-cid04c-stale")
-        val staleversion = RepositoryArtifactCatalogVersion(
-          version = stale.version,
-          channel = Some("stable"),
-          status = Some("active"),
-          component = Some(stale.qualifiedId),
-          publishedAt = Some(_published_at),
-          file = Some(s"repository/car/${stale.carRepositoryRelativePath}"),
-          runtime = None,
-          checksumSha256 = Some("0" * 64),
-          integrityKey = Some(stale.integrityKey("0" * 64))
-        )
-        Files.writeString(catalogpath, catalog.copy(versions = staleversion +: catalog.versions).toYaml, StandardCharsets.UTF_8)
-
-        Given("a valid publication whose source catalog contains a missing archived release")
-        When("a replacement candidate is validated before commit")
-        intercept[Throwable] {
-          _publish_car(project, warehouse, original, coordinate)
-        }.getMessage should include("component.repository.integrity.mismatch")
-
-        Then("final publication bytes and prepare/rollback siblings remain absent")
-        _publication_bytes(warehouse, coordinate) shouldBe before
-        val stream = Files.walk(warehouse)
-        try {
-          val debris = stream.iterator().asScala.map(_.getFileName.toString).filter(
-            name => name.contains("-prepare-") || name.contains("-rollback-")
-          ).toVector
-          debris shouldBe empty
-        } finally stream.close()
-      }
-    }
   }
 
   private val _published_at = "2026-08-07T00:00:00Z"
@@ -583,21 +399,12 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
   ): Map[String, Vector[Byte]] =
     _publication_paths(warehouse, coordinate).map(path => path.toString -> Files.readAllBytes(path).toVector).toMap
 
-  private def _existing_publication_bytes(
-    warehouse: Path,
-    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
-  ): Map[String, Vector[Byte]] =
-    _publication_paths(warehouse, coordinate).collect {
-      case path if Files.exists(path) => path.toString -> Files.readAllBytes(path).toVector
-    }.toMap
-
   private def _publication_paths(
     warehouse: Path,
     coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
   ): Vector[Path] =
     Vector(
       warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath),
-      warehouse.resolve("repository/car").resolve(coordinate.carRepositoryRelativePath + ".sha256"),
       warehouse.resolve("repository/car").resolve(coordinate.groupPath).resolve(coordinate.mavenArtifactId).resolve("maven-metadata.xml"),
       warehouse.resolve("repository/catalog").resolve(coordinate.carCatalogRelativePath),
       warehouse.resolve("repository/catalog/car").resolve(coordinate.groupPath).resolve(coordinate.mavenArtifactId + ".cml"),
@@ -605,14 +412,6 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
       warehouse.resolve("repository/catalog/car").resolve(coordinate.groupPath).resolve(coordinate.mavenArtifactId + ".model-metadata.yaml"),
       warehouse.resolve(ComponentRepositoryIndex.PUBLIC_PATH)
     )
-
-  private def _transaction_debris(root: Path): Vector[String] = {
-    val paths = Files.walk(root)
-    try paths.iterator().asScala.map(_.getFileName.toString).filter { name =>
-      name.contains("-prepare-") || name.contains("-rollback-") || name.contains("-transaction-")
-    }.toVector
-    finally paths.close()
-  }
 
   private def _write(path: Path, text: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))

@@ -2,16 +2,15 @@ package cozy.publication
 
 import java.io.IOException
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, FileAlreadyExistsException, Files, LinkOption, Path, StandardCopyOption}
-import scala.collection.JavaConverters._
+import java.nio.file.{FileAlreadyExistsException, Files, LinkOption, Path}
 import org.goldenport.RAISE
 import org.smartdox.metadata.PublishMetadata
-import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
+import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 
 /*
  * @since   Aug.  5, 2026
  *  version Aug. 30, 2026
- * @version Oct.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaBuildContext {
@@ -35,45 +34,18 @@ private[cozy] object CozyArticleMediaBuildContext {
   private final case class BundleFile(filename: String)
 
   private var _active_leases = Map.empty[Path, Int]
-  private val _no_source_revalidation_hook: () => Unit = () => ()
-
   def withContext[A](
     projectRoot: Path,
     publicationRoot: Path,
     repositoryRoot: Path,
     strategy: String
   )(consumer: Context => A): A = {
-    _with_context(projectRoot, publicationRoot, repositoryRoot, strategy, _no_source_revalidation_hook)(consumer)
-  }
-
-  /* This package-private seam makes the source-byte boundary observable
-   * without widening the build contract.  It runs while the registry lock is
-   * still held, after effective bytes exist and immediately before reloading
-   * the source snapshot. */
-  private[publication] def withContextBeforeSourceRevalidation[A](
-    projectRoot: Path,
-    publicationRoot: Path,
-    repositoryRoot: Path,
-    strategy: String
-  )(beforeSourceRevalidation: () => Unit)(consumer: Context => A): A = {
-    _with_context(projectRoot, publicationRoot, repositoryRoot, strategy, beforeSourceRevalidation)(consumer)
-  }
-
-  private def _with_context[A](
-    projectrootarg: Path,
-    publicationrootarg: Path,
-    repositoryrootarg: Path,
-    strategy: String,
-    beforesourcerevalidation: () => Unit
-  )(consumer: Context => A): A = {
     val selected = normalizeStrategy(strategy)
     if (consumer == null)
       _invalid("Article-media build-context consumer must be defined")
-    if (beforesourcerevalidation == null)
-      _invalid("Article-media build-context source-revalidation hook must be defined")
-    val projectroot = _require_direct_directory(projectrootarg, "Article-media build-context project root")
-    val publicationroot = _create_direct_directory_chain(publicationrootarg, "Article-media build-context publication root")
-    val repositoryroot = _normalize_root(repositoryrootarg, "Article-media build-context repository root")
+    val projectroot = _require_direct_directory(projectRoot, "Article-media build-context project root")
+    val publicationroot = _create_direct_directory_chain(publicationRoot, "Article-media build-context publication root")
+    val repositoryroot = _normalize_root(repositoryRoot, "Article-media build-context repository root")
     val current = CozyArticleMediaRegistry.readCurrentSite(publicationroot.toRealPath())
     val projection = CozyArticleMediaRegistry.canonicalProjection(CozyArticleMediaRegistry.Snapshot(current.entries))
     val context = if (CozyArticleMediaWarehouseBuildContext.hasCanonicalReferences(projection)) {
@@ -83,7 +55,7 @@ private[cozy] object CozyArticleMediaBuildContext {
       }
       result.context
     } else CozyArticleMediaRegistry.transaction(publicationroot) { transaction =>
-      _materialize(projectroot, publicationroot, repositoryroot, selected, beforesourcerevalidation, transaction)
+      _materialize(projectroot, publicationroot, repositoryroot, selected, transaction.snapshot)
     }
     _lease(context)(consumer)
   }
@@ -106,41 +78,17 @@ private[cozy] object CozyArticleMediaBuildContext {
     publicationroot: Path,
     repositoryroot: Path,
     strategy: Strategy,
-    beforesourcerevalidation: () => Unit,
-    transaction: CozyArticleMediaRegistry.Transaction
+    snapshot: CozyArticleMediaRegistry.Snapshot
   ): Context = {
-    val snapshot = transaction.snapshot
     val projection = CozyArticleMediaRegistry.canonicalProjection(snapshot)
     val snapshots = _snapshots_directory(projectroot, strategy)
-    val work = Files.createTempDirectory(snapshots, ".work-")
-    val target = snapshots.resolve("snapshot-" + work.getFileName.toString.stripPrefix(".work-")).normalize()
-    var installed = false
-    var completed = false
-    try {
-      val publication = Files.createDirectory(work.resolve("publication"))
-      val bundles = _copy_snapshot_bundles(publicationroot, publication, snapshot)
-      val metadata = _load_metadata(publication, bundles)
-      val policy = CozyArticleMediaPolicy.evaluate(strategy.policy, metadata, projection.integrityResults, repositoryroot)
-      _apply_omissions(publication, bundles, projection, policy)
-      val effective = _direct_files(publication).toMap
-      if (!target.startsWith(snapshots))
-        _invalid("Article-media build-context snapshot target escapes its parent")
-      if (effective.keySet != bundles.map(_.filename).toSet)
-        _invalid("Article-media build-context snapshot file set does not match the validated source")
-      beforesourcerevalidation()
-      transaction.validate(Vector.empty)
-      _verify_contents(publication, effective)
-      _install(work, target)
-      installed = true
-      _verify_installed(target.resolve("publication"), effective)
-      val context = Context(strategy, target.resolve("publication"), repositoryroot, policy.omittedKeys, policy.diagnostics)
-      completed = true
-      context
-    } finally {
-      _delete_work(work)
-      if (installed && !completed)
-        _delete_work(target)
-    }
+    val target = Files.createTempDirectory(snapshots, "snapshot-")
+    val publication = Files.createDirectory(target.resolve("publication"))
+    val bundles = _copy_snapshot_bundles(publicationroot, publication, snapshot)
+    val metadata = _load_metadata(publication, bundles)
+    val policy = CozyArticleMediaPolicy.evaluate(strategy.policy, metadata, projection.integrityResults, repositoryroot)
+    _apply_omissions(publication, bundles, projection, policy)
+    Context(strategy, publication, repositoryroot, policy.omittedKeys, policy.diagnostics)
   }
 
   private def _copy_snapshot_bundles(
@@ -148,19 +96,16 @@ private[cozy] object CozyArticleMediaBuildContext {
     destination: Path,
     snapshot: CozyArticleMediaRegistry.Snapshot
   ): Vector[BundleFile] = {
-    if (snapshot == null || snapshot.bundleContents == null)
+    if (snapshot == null || snapshot.bundleNames == null)
       _invalid("Article-media build-context snapshot must be defined")
-    snapshot.bundleContents.toVector.sortBy(_._1).map { case (name, expected) =>
-      if (name == null || expected == null)
+    snapshot.bundleNames.sorted.map { name =>
+      if (name == null)
         _invalid("Article-media build-context snapshot bundle must be defined")
       val filename = s"$name.json"
       val source = root.resolve(filename).normalize()
       if (!source.startsWith(root) || Files.isSymbolicLink(source) || !Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS))
         _invalid(s"Article-media build-context bundle must be a direct regular file: $filename")
-      val bytes = Files.readAllBytes(source)
-      if (bytes.toVector != expected)
-        _invalid(s"Article-media build-context stale configured bundle: $filename")
-      Files.write(destination.resolve(filename), bytes)
+      Files.copy(source, destination.resolve(filename))
       BundleFile(filename)
     }
   }
@@ -231,54 +176,12 @@ private[cozy] object CozyArticleMediaBuildContext {
     else Some(Json.stringify(bundle + ("entries" -> JsArray(rewritten))).getBytes(StandardCharsets.UTF_8))
   }
 
-  private def _install(work: Path, target: Path): Unit = {
-    if (Files.exists(target, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Article-media build-context snapshot target already exists: $target")
-    try {
-      Files.move(work, target, StandardCopyOption.ATOMIC_MOVE)
-    } catch {
-      case _: FileAlreadyExistsException => _invalid(s"Article-media build-context snapshot target already exists: $target")
-      case _: AtomicMoveNotSupportedException => _invalid(s"Atomic article-media build-context installation is not supported: $target")
-      case e: IOException => _invalid(s"Atomic article-media build-context installation failed: ${e.getMessage}")
-    }
-  }
-
-  private def _verify_installed(publication: Path, expected: Map[String, Vector[Byte]]): Unit = {
-    val snapshot = Option(publication).flatMap(x => Option(x.getParent)).getOrElse(
-      _invalid("Article-media build-context installed snapshot must be defined")
-    )
-    if (Files.isSymbolicLink(snapshot) || !Files.isDirectory(snapshot, LinkOption.NOFOLLOW_LINKS) ||
-      Files.isSymbolicLink(publication) || !Files.isDirectory(publication, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Article-media build-context installed publication must be a direct directory: $publication")
-    _verify_contents(publication, expected)
-  }
-
-  private def _verify_contents(publication: Path, expected: Map[String, Vector[Byte]]): Unit = {
-    val files = _direct_files(publication).toMap
-    if (files.keySet != expected.keySet)
-      _invalid("Article-media build-context snapshot file set does not match the validated source")
-    if (files != expected)
-      _invalid("Article-media build-context snapshot bytes do not match the observed content")
-  }
-
   private def _snapshots_directory(projectroot: Path, strategy: Strategy): Path =
     _create_direct_directory_chain(
       projectroot.resolve("target/cozy-bok/article-media").resolve(strategy.name).resolve("snapshots"),
       "Article-media build-context snapshot parent",
       projectroot
     )
-
-  private def _direct_files(root: Path): Vector[(String, Vector[Byte])] = {
-    if (root == null || Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Article-media build-context publication must be a direct directory: $root")
-    val stream = Files.list(root)
-    try stream.iterator.asScala.toVector.map { path =>
-      if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-        _invalid(s"Article-media build-context publication file must be direct and regular: ${path.getFileName}")
-      path.getFileName.toString -> Files.readAllBytes(path).toVector
-    }
-    finally stream.close()
-  }
 
   private def _lease[A](context: Context)(consumer: Context => A): A = {
     val identity = context.publicationPath.toAbsolutePath.normalize()
@@ -354,15 +257,6 @@ private[cozy] object CozyArticleMediaBuildContext {
 
   private def _normalize_root(value: Path, label: String): Path =
     if (value == null) _invalid(s"$label must be defined") else value.toAbsolutePath.normalize()
-
-  private def _delete_work(path: Path): Unit = {
-    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-      val stream = Files.walk(path)
-      try stream.iterator.asScala.toVector.sortBy(x => (-x.getNameCount, x.toString)).foreach(Files.deleteIfExists)
-      catch { case _: IOException => () }
-      finally stream.close()
-    }
-  }
 
   private def _invalid(message: String): Nothing =
     RAISE.invalidArgumentFault(message)

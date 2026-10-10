@@ -3,12 +3,7 @@ package cozy.publication
 import java.nio.charset.StandardCharsets
 import java.net.URI
 import java.nio.file.{Files, Path, Paths}
-import java.nio.file.attribute.FileTime
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.collection.JavaConverters._
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration._
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -20,7 +15,7 @@ import play.api.libs.json.{JsArray, JsObject, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -52,15 +47,15 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
         val publication = Files.createDirectories(root.resolve("src/main/publication"))
         val repository = Files.createDirectories(root.resolve("repository"))
         val plan = CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
-          packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), false, Some(repository)
+          packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), Some(repository)
         ))
 
         When("the command constructs its render-independent preflight")
         val preflight = CozyArticleMediaVideoCommand.preflight(publication, repository, Vector(plan))
 
-        Then("the exact article role, target, version, current state, and canonical owner are ordered deterministically")
-        preflight.candidates.map(x => (x.articleIdentity, x.locale, x.role, x.video, x.version, x.destination, x.destinationState, x.forceRequested, x.owner)) shouldBe Vector(
-          ("development-process/planned", "ja", "video", "planned", "1.0.0", repository.resolve("video/planned/1.0.0/planned-1.0.0.mp4"), "missing", false, "article-media")
+        Then("the exact article role, target, version, and canonical owner are ordered deterministically")
+        preflight.candidates.map(x => (x.articleIdentity, x.locale, x.role, x.video, x.version, x.destination, x.owner)) shouldBe Vector(
+          ("development-process/planned", "ja", "video", "planned", "1.0.0", repository.resolve("video/planned/1.0.0/planned-1.0.0.mp4"), "article-media")
         )
         _direct_children(publication) shouldBe Vector.empty
         _direct_children(repository) shouldBe Vector.empty
@@ -82,7 +77,7 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
         _write_existing_bundle(publication, "strict-owner", Vector(_bundle_entry(strict.entryPath, strict.metadata)))
         _write_existing_bundle(publication, "integrity-owner", Vector(_bundle_entry(integrity.entryPath, integrity.metadata)))
         val plan = CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
-          packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), false, Some(repository)
+          packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), Some(repository)
         ))
         val beforepublication = _tree(publication)
         val beforerepository = _tree(repository)
@@ -221,7 +216,7 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
 
         When("the direct publisher publishes it")
         val result = CozyVideoPublisher.publish(
-          CozyVideoPublisher.PublishVideoConfig(packagedir, publication, root.resolve("warehouse"), None, false, Some(repository)),
+          CozyVideoPublisher.PublishVideoConfig(packagedir, publication, root.resolve("warehouse"), None, Some(repository)),
           CozyVideoSpec.RecordingVoicevoxClient(), CozyVideoSpec.PublishingRunner()
         )
 
@@ -231,261 +226,112 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
       }
     }
 
-    "serialize concurrent force-enabled publishes before either renderer enters the same plan workspace" in {
-      _with_root { root =>
-        Given("one force-enabled bound plan, two command callers, and a lightweight first renderer held by bounded latches")
-        val packagedir = _video_package(root, "concurrent", Some("development-process/example"))
-        val publication = Files.createDirectories(root.resolve("src/main/publication"))
-        val repository = Files.createDirectories(root.resolve("repository"))
-        val plan = CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
-          packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), true, Some(repository)
-        ))
-        val firstentered = new CountDownLatch(1)
-        val releasefirst = new CountDownLatch(1)
-        val secondstarted = new CountDownLatch(1)
-        val secondentered = new CountDownLatch(1)
-        val runner = new BlockingPublishingRunner(firstentered, releasefirst, secondentered)
-        implicit val executioncontext: ExecutionContext = ExecutionContext.global
-
-        When("the first publish is held in rendering and the second publish begins against the same frozen plan")
-        val first = Future(CozyArticleMediaVideoCommand.publish(
-          publication, repository, Vector(plan), CozyVideoSpec.RecordingVoicevoxClient(), runner
-        ))
-        firstentered.await(5, TimeUnit.SECONDS) shouldBe true
-        val second = Future {
-          secondstarted.countDown()
-          CozyArticleMediaVideoCommand.publish(
-            publication, repository, Vector(plan), CozyVideoSpec.RecordingVoicevoxClient(), runner
-          )
-        }
-        secondstarted.await(5, TimeUnit.SECONDS) shouldBe true
-        secondentered.await(250, TimeUnit.MILLISECONDS) shouldBe false
-        releasefirst.countDown()
-        val firstresult = Await.result(first, 10.seconds)
-        val secondresult = Await.result(second, 10.seconds)
-
-        Then("the second renderer entered only after the shared transaction released and both callers observe one consistent artifact and metadata result")
-        firstresult.map(_.video.name) shouldBe Vector("concurrent")
-        secondresult.map(_.video.name) shouldBe Vector("concurrent")
-        secondentered.await(5, TimeUnit.SECONDS) shouldBe true
-        Files.isRegularFile(repository.resolve("video/concurrent/1.0.0/concurrent-1.0.0.mp4")) shouldBe true
-        _entry_paths(publication.resolve("concurrent.json")) should contain("metadata/videos/concurrent/metadata.json")
-      }
-    }
-
-    "reject identical producer bytes with a changed file time after preflight before renderer entry or artifact admission" in {
-      _with_root { root =>
-        Given("a bound plan with an explicit script time and prior publication and repository bytes")
-        val packagedir = _video_package(root, "before-render-drift", Some("development-process/example"))
-        val publication = Files.createDirectories(root.resolve("src/main/publication"))
-        val repository = Files.createDirectories(root.resolve("repository"))
-        _seed_previous_publication(publication, repository, "before-render-drift")
-        val source = packagedir.resolve("script.json")
-        val sourcebytes = Files.readAllBytes(source).toVector
-        Files.setLastModifiedTime(source, FileTime.fromMillis(1700000000000L))
-        val plan = CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
-          packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), true, Some(repository)
-        ))
-        val preflight = CozyArticleMediaVideoCommand.preflight(publication, repository, Vector(plan))
-        val beforepublication = _tree(publication)
-        val beforerepository = _tree(repository)
-        val runner = CozyVideoSpec.PublishingRunner()
-
-        When("only the observed script time changes before the command reruns its frozen preflight")
-        Files.setLastModifiedTime(source, FileTime.fromMillis(1700000060000L))
-        val error = intercept[IllegalArgumentException](CozyArticleMediaVideoCommand.publish(
-          preflight, CozyVideoSpec.RecordingVoicevoxClient(), runner
-        ))
-
-        Then("mtime alone rejects identical source bytes before rendering and preserves both managed trees")
-        error.getMessage should include("producer sources changed after planning")
-        error.getMessage should include(packagedir.toString)
-        Files.readAllBytes(source).toVector shouldBe sourcebytes
-        runner.commands shouldBe empty
-        _tree(publication) shouldBe beforepublication
-        _tree(repository) shouldBe beforerepository
-      }
-    }
-
-    "reject identical producer bytes with a changed file time during rendering before repository admission or publication replacement" in {
-      _with_root { root =>
-        Given("a bound plan with an explicit script time and a renderer that changes only that time")
-        val packagedir = _video_package(root, "during-render-drift", Some("development-process/example"))
-        val publication = Files.createDirectories(root.resolve("src/main/publication"))
-        val repository = Files.createDirectories(root.resolve("repository"))
-        _seed_previous_publication(publication, repository, "during-render-drift")
-        val source = packagedir.resolve("script.json")
-        val sourcebytes = Files.readAllBytes(source).toVector
-        Files.setLastModifiedTime(source, FileTime.fromMillis(1700000000000L))
-        val plan = CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
-          packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), true, Some(repository)
-        ))
-        val beforepublication = _tree(publication)
-        val beforerepository = _tree(repository)
-        val runner = new SourceTimeChangingPublishingRunner(source, FileTime.fromMillis(1700000060000L))
-
-        When("the renderer enters and changes the original script time after workspace preparation")
-        val error = intercept[IllegalArgumentException](CozyArticleMediaVideoCommand.publish(
-          publication, repository, Vector(plan), CozyVideoSpec.RecordingVoicevoxClient(), runner
-        ))
-
-        Then("post-render validation rejects mtime drift with identical bytes before admission or replacement")
-        error.getMessage should include("producer sources changed after planning")
-        error.getMessage should include(packagedir.toString)
-        runner.commands.exists(_.args.contains("python3")) shouldBe true
-        Files.readAllBytes(source).toVector shouldBe sourcebytes
-        _tree(publication) shouldBe beforepublication
-        _tree(repository) shouldBe beforerepository
-      }
-    }
-
-    "publish valid changed article bytes with the same observed time across at least fifty isolated command trials" in {
+    "publish generated valid article content across at least fifty isolated command trials" in {
       Given("small generated valid article text and independent package roots for every trial")
       val articletexts = Gen.choose(1, 24).flatMap(length => Gen.listOfN(length, Gen.alphaLowerChar)).map { characters =>
         s"# Revised article\n\n${characters.mkString}\n"
       }
 
-      When("each actual plan is preflighted, edited with its timestamp restored, preflighted again and publicly published")
+      When("each generated article is planned, initially preflighted and published")
       val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), Prop.forAll(articletexts) { articletext =>
         _with_root { root =>
-          Given("a fresh bound package and command preflight with an explicit article modification time")
-          val packagedir = _video_package(root, "same-time", Some("development-process/example"))
+          Given("a fresh bound package containing the generated valid article before planning")
+          val packagedir = _video_package(root, "generated-article", Some("development-process/example"))
           val publication = Files.createDirectories(root.resolve("src/main/publication"))
           val repository = Files.createDirectories(root.resolve("repository"))
           val source = packagedir.resolve("index.dox")
-          val originalbytes = Files.readAllBytes(source).toVector
-          Files.setLastModifiedTime(source, FileTime.fromMillis(1700000000000L))
-          val sourcetime = Files.getLastModifiedTime(source)
+          val articlebytes = articletext.getBytes(StandardCharsets.UTF_8).toVector
+          Files.write(source, articlebytes.toArray)
+          val runner = CozyVideoSpec.PublishingRunner()
+
+          When("the selected article package is planned, initially preflighted and published")
           val plan = CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
-            packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), false, Some(repository)
+            packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), Some(repository)
           ))
           val preflight = CozyArticleMediaVideoCommand.preflight(publication, repository, Vector(plan))
-          val runner = CozyVideoSpec.PublishingRunner()
-          val changedbytes = articletext.getBytes(StandardCharsets.UTF_8).toVector
-
-          When("valid article bytes change while the captured time is restored before both command boundaries")
-          Files.write(source, changedbytes.toArray)
-          Files.setLastModifiedTime(source, sourcetime)
-          val current = CozyArticleMediaVideoCommand.preflight(publication, repository, Vector(plan))
           val results = CozyArticleMediaVideoCommand.publish(preflight, CozyVideoSpec.RecordingVoicevoxClient(), runner)
 
-          Then("the renderer uses the changed workspace bytes and installs correlated legacy, strict and integrity publication")
-          changedbytes should not be originalbytes
-          Files.getLastModifiedTime(source) shouldBe sourcetime
-          current.candidates shouldBe preflight.candidates
-          results.map(_.video.name) shouldBe Vector("same-time")
+          Then("the renderer uses the selected article content and publishes its artifact, sidecars and correlated records")
+          results.map(_.video.name) shouldBe Vector("generated-article")
           runner.commands.exists(_.args.contains("python3")) shouldBe true
           val result = results.head
-          Files.readAllBytes(result.workspaceRoot.resolve("source/index.dox")).toVector shouldBe changedbytes
-          val artifact = repository.resolve("video/same-time/1.0.0/same-time-1.0.0.mp4")
+          Files.readAllBytes(result.workspaceRoot.resolve("source/index.dox")).toVector shouldBe articlebytes
+          val artifact = repository.resolve("video/generated-article/1.0.0/generated-article-1.0.0.mp4")
           result.warehouseArtifact shouldBe artifact
           Files.readAllBytes(artifact).toVector shouldBe Vector[Byte](0, 0, 0, 0)
           Files.readAllBytes(result.workspaceRoot.resolve("build/final.mp4")).toVector shouldBe Files.readAllBytes(artifact).toVector
-          _entry_paths(publication.resolve("same-time.json")) should contain("metadata/videos/same-time/metadata.json")
+          _entry_paths(publication.resolve("generated-article.json")) should contain("metadata/videos/generated-article/metadata.json")
           _entry_paths(publication.resolve("article-media.json")) shouldBe Vector(
             "metadata/article-media-integrity/development-process/example/ja/video.json",
             "metadata/article-media/development-process/example.json"
           )
-          val legacy = _entry(root, "metadata/videos/same-time/metadata.json")
-          val manifest = _entry(root, "metadata/video/same-time/1.0.0/manifest.json")
+          val legacy = _entry(root, "metadata/videos/generated-article/metadata.json")
           val strict = _entry(root, "metadata/article-media/development-process/example.json")
           val integrity = _entry(root, "metadata/article-media-integrity/development-process/example/ja/video.json")
-          val artifacthash = "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
           (legacy \ "video" \ "articlePath").as[String] shouldBe "index.dox"
-          (legacy \ "video" \ "artifact" \ "warehousePath").as[String] shouldBe "repository/video/same-time/1.0.0/same-time-1.0.0.mp4"
-          (legacy \ "video" \ "artifact" \ "sha256").as[String] shouldBe artifacthash
-          (manifest \ "artifact" \ "sha256").as[String] shouldBe artifacthash
-          (strict \ "variants" \ "ja" \ "video" \ "content_url").as[String] shouldBe "/repository/video/same-time/1.0.0/same-time-1.0.0.mp4"
+          (legacy \ "video" \ "artifact" \ "warehousePath").as[String] shouldBe "repository/video/generated-article/1.0.0/generated-article-1.0.0.mp4"
+          (strict \ "variants" \ "ja" \ "video" \ "content_url").as[String] shouldBe "/repository/video/generated-article/1.0.0/generated-article-1.0.0.mp4"
           (strict \ "variants" \ "ja" \ "video" \ "status").as[String] shouldBe "published"
-          (integrity \ "publicPath").as[String] shouldBe "/repository/video/same-time/1.0.0/same-time-1.0.0.mp4"
-          (integrity \ "repositoryPath").as[String] shouldBe "video/same-time/1.0.0/same-time-1.0.0.mp4"
-          (integrity \ "sha256").as[String] shouldBe artifacthash
+          (integrity \ "publicPath").as[String] shouldBe "/repository/video/generated-article/1.0.0/generated-article-1.0.0.mp4"
+          (integrity \ "repositoryPath").as[String] shouldBe "video/generated-article/1.0.0/generated-article-1.0.0.mp4"
           (integrity \ "publicationState").as[String] shouldBe "published"
-          (integrity \ "provenance" \ "videoManifest").as[String] shouldBe "metadata/video/same-time/1.0.0/manifest.json"
+          (integrity \ "provenance" \ "videoManifest").as[String] shouldBe "metadata/video/generated-article/1.0.0/manifest.json"
           val sidecars = Vector(
             "build/manifest.json" -> "manifest.json", "rdf/video.ttl" -> "ttl",
             "rdf/video.jsonld" -> "jsonld", "rdf/manifest.json" -> "rdf-manifest.json",
             "build/captions.srt" -> "srt", "build/transcript.json" -> "transcript.json"
           )
           sidecars.foreach { case (workspacepath, extension) =>
-            Files.readAllBytes(artifact.resolveSibling(s"same-time-1.0.0.$extension")).toVector shouldBe
+            Files.readAllBytes(artifact.resolveSibling(s"generated-article-1.0.0.$extension")).toVector shouldBe
               Files.readAllBytes(result.workspaceRoot.resolve(workspacepath)).toVector
           }
           true
         }
       })
 
-      Then("at least fifty independent real commands accept valid same-time changes and publish their actual results")
+      Then("at least fifty independent real commands publish generated valid articles and their actual results")
       check.passed shouldBe true
       check.succeeded should be >= 50
     }
 
-    "reject missing, changed-set, unsafe and newly present optional inputs at both public command boundaries" in {
-      val cases = Vector("missing-required", "source-set", "symlink-file", "symlink-parent", "optional-present")
+    "reject initially missing required inputs and unsafe direct source paths" in {
+      Given("required-script and direct-source admission variants")
+      val cases = Vector("missing-required", "symlink-file", "symlink-parent")
       cases.foreach { variant =>
         _with_root { root =>
-          Given(s"a valid $variant package plan and actual prior publication and repository bytes")
+          Given(s"a $variant package configured before publication planning and prior managed outputs")
           val packagedir = _video_package(root, variant, Some("development-process/example"))
           val publication = Files.createDirectories(root.resolve("src/main/publication"))
           val repository = Files.createDirectories(root.resolve("repository"))
           _seed_previous_publication(publication, repository, variant)
-          val descriptor = packagedir.resolve("video.yaml")
-          if (variant == "source-set") {
-            Files.createDirectories(packagedir.resolve("assets"))
-            Files.write(packagedir.resolve("assets/existing.txt"), "existing".getBytes(StandardCharsets.UTF_8))
-          }
-          if (variant == "symlink-parent") {
-            Files.createDirectories(packagedir.resolve("inputs"))
-            Files.move(packagedir.resolve("script.json"), packagedir.resolve("inputs/script.json"))
-            Files.writeString(descriptor, Files.readString(descriptor).replace("script: script.json", "script: inputs/script.json"))
-          }
-          if (variant == "optional-present")
-            Files.writeString(descriptor, Files.readString(descriptor) + "assets:\n  optional:\n    path: optional.png\n    required: false\n")
-          val plan = CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
-            packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), true, Some(repository)
-          ))
-          val preflight = CozyArticleMediaVideoCommand.preflight(publication, repository, Vector(plan))
-          val beforepublication = _tree(publication)
-          val beforerepository = _tree(repository)
-          val runner = CozyVideoSpec.PublishingRunner()
-
-          When(s"the $variant input changes before read-only command preflight")
           val diagnostic = variant match {
             case "missing-required" =>
               Files.delete(packagedir.resolve("script.json"))
-              "source must be a direct regular file"
-            case "source-set" =>
-              Files.write(packagedir.resolve("assets/new.txt"), "new source".getBytes(StandardCharsets.UTF_8))
-              "producer sources changed after planning"
+              "Missing video script source"
             case "symlink-file" =>
               val external = Files.move(packagedir.resolve("script.json"), root.resolve("external-script.json"))
               Files.createSymbolicLink(packagedir.resolve("script.json"), external)
               "source must not be a symbolic link"
             case "symlink-parent" =>
-              val external = Files.move(packagedir.resolve("inputs"), root.resolve("external-inputs"))
-              Files.createSymbolicLink(packagedir.resolve("inputs"), external)
+              val inputs = Files.createDirectories(packagedir.resolve("inputs"))
+              Files.move(packagedir.resolve("script.json"), inputs.resolve("script.json"))
+              val descriptor = packagedir.resolve("video.yaml")
+              Files.writeString(descriptor, Files.readString(descriptor).replace("script: script.json", "script: inputs/script.json"))
+              val external = Files.move(inputs, root.resolve("external-inputs"))
+              Files.createSymbolicLink(inputs, external)
               "source parent must be a direct non-symlink directory"
-            case "optional-present" =>
-              Files.write(packagedir.resolve("optional.png"), "present optional asset".getBytes(StandardCharsets.UTF_8))
-              "producer sources changed after planning"
-            case value => fail(s"Unknown source observation fixture: $value")
+            case value => fail(s"Unknown direct-source fixture: $value")
           }
-          val preflighterror = intercept[IllegalArgumentException](CozyArticleMediaVideoCommand.preflight(publication, repository, Vector(plan)))
+          val beforepublication = _tree(publication)
+          val beforerepository = _tree(repository)
 
-          Then(s"the $variant preflight rejects and preserves every prior managed byte")
-          preflighterror.getMessage should include(diagnostic)
-          runner.commands shouldBe empty
-          _tree(publication) shouldBe beforepublication
-          _tree(repository) shouldBe beforerepository
+          When(s"initial planning admits the selected $variant package")
+          val error = intercept[RuntimeException](CozyVideoPublisher.planPublication(CozyVideoPublisher.PublishVideoConfig(
+            packagedir, publication, root.resolve("warehouse"), Some("1.0.0"), Some(repository)
+          )))
 
-          When(s"the public command attempts publication from its previously captured $variant preflight")
-          val commanderror = intercept[IllegalArgumentException](CozyArticleMediaVideoCommand.publish(
-            preflight, CozyVideoSpec.RecordingVoicevoxClient(), runner
-          ))
-
-          Then(s"the $variant command rejects before renderer entry and preserves every prior managed byte")
-          commanderror.getMessage should include(diagnostic)
-          runner.commands shouldBe empty
+          Then(s"the $variant source diagnostic is reported before rendering or managed output writes")
+          error.getMessage should include(diagnostic)
           _tree(publication) shouldBe beforepublication
           _tree(repository) shouldBe beforerepository
         }
@@ -558,14 +404,20 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
       val orders = Gen.oneOf(names.permutations.toVector)
       val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), Prop.forAll(orders) { shuffled =>
         _with_root { root =>
+          Given("a generated plan order and independent publication and repository roots")
           val publication = Files.createDirectories(root.resolve("publication"))
           val repository = Files.createDirectories(root.resolve("repository"))
-          CozyArticleMediaVideoCommand.publish(publication, repository, shuffled.map(_prepared(root, _)).toVector)
+          val plans = shuffled.map(_prepared(root, _)).toVector
+
+          When("the selected shuffled plans are published")
+          CozyArticleMediaVideoCommand.publish(publication, repository, plans)
+
+          Then("the registry entries follow deterministic video identity order")
           _publication_entries_at(publication) == names.map(x => s"metadata/videos/$x/metadata.json")
         }
       })
 
-      Then("every transaction produces the same sorted legacy registry surface without nested locking")
+      Then("every transaction produces the same sorted legacy registry surface")
       check.passed shouldBe true
       check.succeeded should be >= 30
     }
@@ -577,41 +429,6 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
       try stream.iterator().asScala.toVector.reverse.foreach(Files.deleteIfExists)
       finally stream.close()
     }
-
-  private final class BlockingPublishingRunner(
-    firstentered: CountDownLatch,
-    releasefirst: CountDownLatch,
-    secondentered: CountDownLatch
-  ) extends cozy.video.CozyVideo.VideoProcessRunner {
-    private val _delegate = CozyVideoSpec.PublishingRunner()
-    private val _first_render = new AtomicBoolean(true)
-
-    def run(args: Vector[String], cwd: Path): cozy.video.CozyVideo.VideoCommandResult = {
-      if (args.contains("python3")) {
-        if (_first_render.compareAndSet(true, false)) {
-          firstentered.countDown()
-          if (!releasefirst.await(5, TimeUnit.SECONDS))
-            throw new IllegalStateException("Timed out waiting to release the first publisher renderer")
-        } else
-          secondentered.countDown()
-      }
-      _delegate.run(args, cwd)
-    }
-  }
-
-  private final class SourceTimeChangingPublishingRunner(source: Path, modifiedtime: FileTime) extends cozy.video.CozyVideo.VideoProcessRunner {
-    private val _delegate = CozyVideoSpec.PublishingRunner()
-    private val _changed = new AtomicBoolean(false)
-
-    def commands = _delegate.commands
-
-    def run(args: Vector[String], cwd: Path): cozy.video.CozyVideo.VideoCommandResult = {
-      val result = _delegate.run(args, cwd)
-      if (args.contains("python3") && _changed.compareAndSet(false, true))
-        Files.setLastModifiedTime(source, modifiedtime)
-      result
-    }
-  }
 
   private def _direct_children(path: Path): Vector[Path] = {
     val stream = Files.list(path)
@@ -761,11 +578,10 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
       articleIdentity = "development-process/example",
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Video,
-      artifact = CozyArticleMediaIntegrity.Artifact("legacy-video", "0.9.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("legacy-video", "0.9.0")),
       publicPath = new URI(publicpath),
       repositoryPath = "video/legacy/0.9.0/legacy-0.9.0.mp4",
       mediaType = "video/mp4",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/legacy/0.9.0/manifest.json", "metadata/artifacts/repository/legacy.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))
@@ -775,11 +591,10 @@ final class CozyArticleMediaVideoCommandSpec extends AnyWordSpec with Matchers w
       articleIdentity = "development-process/example",
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Infographic,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0")),
       publicPath = new URI(publicpath),
       repositoryPath = s"images/$locale/example.png",
       mediaType = "image/png",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.MediaPackage(s"src/main/media/$locale-example.yaml", s"example-infographic-$locale", "target/cozy-media/manifest.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Registered
     ))

@@ -75,8 +75,10 @@ cozy document-project logic-tree render --core <core.yaml> --format <format.yaml
 ```
 
 It does not construct a Document Project or persist workflow state. It reads
-only the two supplied direct files and atomically writes the explicitly named
-safe HTML destination. It renders each supplied input pair directly and does
+only the two supplied direct files and directly writes the explicitly named
+admitted HTML destination as UTF-8. Ordinary write failure is reported through
+`LOGIC_TREE_PATH`; no staged install, rollback, or prior-output preservation is
+promised. It renders each supplied input pair directly and does
 not store a freshness decision, receipt, timestamp, or output identity. Equal
 semantic inputs render deterministic HTML bytes. The separate Description
 Core-identity chain remains outside this Logic Tree decision.

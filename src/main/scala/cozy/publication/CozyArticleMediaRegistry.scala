@@ -12,26 +12,11 @@ import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
 /*
  * @since   Aug.  4, 2026
  *  version Aug. 30, 2026
- * @version Oct.  6, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaRegistry {
-  private final case class Bundle(
-    filename: String,
-    name: String,
-    entries: Vector[Entry],
-    rawbytes: Vector[Byte]
-  )
-
-  private final case class ReadOnlyRoot(
-    lexical: Path,
-    real: Path
-  )
-
-  private final case class ReadOnlySnapshot(
-    root: Option[ReadOnlyRoot],
-    snapshot: Snapshot
-  )
+  private final case class Bundle(name: String, entries: Vector[Entry])
 
   final case class Entry(
     bundleName: String,
@@ -42,7 +27,7 @@ private[cozy] object CozyArticleMediaRegistry {
 
   final case class Snapshot(
     entries: Vector[Entry],
-    bundleContents: Map[String, Vector[Byte]] = Map.empty
+    bundleNames: Vector[String] = Vector.empty
   )
 
   final case class CurrentSiteState(entries: Vector[Entry], bundleNames: Vector[String])
@@ -54,7 +39,7 @@ private[cozy] object CozyArticleMediaRegistry {
   )
 
   /* Read-only, canonical view for a consumer that has already obtained a
-   * locked snapshot.  Keeping this projection here prevents a second parser
+   * semantic snapshot.  Keeping this projection here prevents a second parser
    * (and, more importantly, a second interpretation of strict metadata) at
    * the build-context boundary. */
   final case class CanonicalProjection(
@@ -113,12 +98,6 @@ private[cozy] object CozyArticleMediaRegistry {
     integrity: Option[CozyArticleMediaIntegrity.Result]
   )
 
-  sealed trait WipVideoState
-  object WipVideoState {
-    case object Fresh extends WipVideoState
-    case object ExactRepeat extends WipVideoState
-  }
-
   final case class WipArticlePlan(
     articleIdentity: String,
     owner: String,
@@ -128,8 +107,7 @@ private[cozy] object CozyArticleMediaRegistry {
 
   final case class WipReadOnlyPlan(
     snapshot: Snapshot,
-    articles: Vector[WipArticlePlan],
-    videoStates: Map[(String, String, String), WipVideoState]
+    articles: Vector[WipArticlePlan]
   )
 
   /* A producer can reserve the ownership shape of a role before it has
@@ -160,10 +138,7 @@ private[cozy] object CozyArticleMediaRegistry {
       metadataPublications: Vector[CozyPublicationCompiler.MetadataPublication]
     ): Snapshot
     def merge(roleUpdates: Vector[RoleUpdate]): TransactionMergeResult
-    def mergeSite(
-      roleUpdates: Vector[SiteRoleUpdate],
-      beforeReplace: () => Unit
-    ): TransactionMergeResult
+    def mergeSite(roleUpdates: Vector[SiteRoleUpdate]): TransactionMergeResult
     def mergeWip(
       roleUpdates: Vector[WipRoleUpdate],
       beforeReplace: () => Unit,
@@ -179,15 +154,14 @@ private[cozy] object CozyArticleMediaRegistry {
   }
 
   private final class TransactionImpl private (
-    private val _capability: CozyPublicationCompiler.RegistryLockCapability,
+    private val _root: Path,
     private val _initial_snapshot: Snapshot
   ) extends Transaction {
-    private val _owner_thread = Thread.currentThread
     private var _active = true
     private var _committed = false
 
     def snapshot: Snapshot = {
-      _require_callback_owner()
+      _require_active()
       _initial_snapshot
     }
 
@@ -197,46 +171,41 @@ private[cozy] object CozyArticleMediaRegistry {
      * non-mutating; merge repeats the check immediately before replacement.
      */
     def validate(roleUpdates: Vector[RoleUpdate]): Unit = {
-      _require_callback_owner()
+      _require_active()
       if (_committed)
         _invalid("Article-media registry transaction permits one merge commit")
       val updates = _normalize_role_updates(roleUpdates)
       val plans = _plan_role_updates(_initial_snapshot, updates)
       _validate_plans(_initial_snapshot, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
     }
 
-    /* Validate the metadata-owner projection while the transaction owns the
-     * registry lock.  Producers use this before admitting external artifacts;
-     * publish repeats snapshot validation immediately before replacement. */
+    /* Validate the metadata-owner projection before admitting external artifacts. */
     def validateProjectedMetadata(
       metadataPublications: Vector[CozyPublicationCompiler.MetadataPublication]
     ): Snapshot = {
-      _require_callback_owner()
+      _require_active()
       if (_committed)
         _invalid("Article-media registry transaction permits one merge commit")
       val publications = _normalize_metadata_publications(metadataPublications)
       val projected = _project_metadata_publications(_initial_snapshot, publications)
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       projected
     }
 
     def merge(roleUpdates: Vector[RoleUpdate]): TransactionMergeResult = {
-      _require_callback_owner()
+      _require_active()
       if (_committed)
         _invalid("Article-media registry transaction permits one merge commit")
-      val realroot = _capability.realRoot
+      val realroot = _root
       val updates = _normalize_role_updates(roleUpdates)
       val plans = _plan_role_updates(_initial_snapshot, updates)
       _validate_plans(_initial_snapshot, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
       plans.foreach { plan =>
-        _capability.replaceMetadata(
+        CozyPublicationCompiler.replaceMetadata(
+          _root,
           plan.owner,
           plan.entries.map(x => x.path -> x.metadata),
           plan.removeprefixes,
-          Map.empty,
           createArticleMedia = plan.createarticlemedia
         )
       }
@@ -251,35 +220,24 @@ private[cozy] object CozyArticleMediaRegistry {
     /* Site registration is a strict-only replacement.  Integrity entries are
      * observed for ownership and consistency, but never placed in the
      * replacement/removal set. */
-    def mergeSite(
-      roleUpdates: Vector[SiteRoleUpdate],
-      beforeReplace: () => Unit
-    ): TransactionMergeResult = {
-      _require_callback_owner()
+    def mergeSite(roleUpdates: Vector[SiteRoleUpdate]): TransactionMergeResult = {
+      _require_active()
       if (_committed)
         _invalid("Article-media registry transaction permits one merge commit")
-      if (beforeReplace == null)
-        _invalid("Article-media registry before-replace callback must be defined")
-      _capability.validateRootEvidence()
-      val realroot = _capability.realRoot
+      val realroot = _root
       val updates = _normalize_site_role_updates(roleUpdates)
       val plans = _plan_site_role_updates(_initial_snapshot, updates)
       _validate_plans(_initial_snapshot, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
-      beforeReplace()
-      _capability.validateRootEvidence()
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
       plans.foreach { plan =>
-        _capability.replaceMetadata(
+        CozyPublicationCompiler.replaceMetadata(
+          _root,
           plan.owner,
           plan.entries.map(x => x.path -> x.metadata),
           Vector.empty,
-          Map.empty,
           createArticleMedia = plan.createarticlemedia
         )
       }
-      _capability.validateRootEvidence()
       val result = load(realroot)
       TransactionMergeResult(
         bundlePaths = plans.map(x => realroot.resolve(s"${x.owner}.json")),
@@ -293,13 +251,12 @@ private[cozy] object CozyArticleMediaRegistry {
       beforeReplace: () => Unit,
       afterReplace: TransactionMergeResult => Unit
     ): TransactionMergeResult = {
-      _require_callback_owner()
+      _require_active()
       if (_committed)
         _invalid("Article-media registry transaction permits one merge commit")
       if (beforeReplace == null || afterReplace == null)
         _invalid("Article-media registry WIP callbacks must be defined")
-      _capability.validateRootEvidence()
-      val realroot = _capability.realRoot
+      val realroot = _root
       val updates = _normalize_wip_role_updates(roleUpdates)
       val plan = _plan_wip_role_updates(_initial_snapshot, updates)
       val owners = plan.articles.map(_.owner).distinct
@@ -314,54 +271,31 @@ private[cozy] object CozyArticleMediaRegistry {
         }
       }.sortBy(_.path)
       val removals = plan.articles.filter(article => integrityarticles.contains(article.articleIdentity)).flatMap(article => _integrity_entries_for_identity(_initial_snapshot, article.articleIdentity).map(_.path)).distinct.sorted
-      val createarticlemedia = owner == "article-media" && !_initial_snapshot.bundleContents.contains(owner)
+      val createarticlemedia = owner == "article-media" && !_initial_snapshot.bundleNames.contains(owner)
       _validate_plans(_initial_snapshot, Vector(OwnerPlan(owner, entries, removals, createarticlemedia)))
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
-      val originalbytes = _capability.bundleBytes(owner)
       beforeReplace()
-      _capability.validateRootEvidence()
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
-      var replaced = false
-      try {
-        replaced = true
-        _capability.replaceMetadata(
-          owner,
-          entries.map(x => x.path -> x.metadata),
-          removals,
-          Map.empty,
-          createArticleMedia = createarticlemedia
-        )
-        _capability.validateRootEvidence()
-        val result = load(realroot)
-        val merged = TransactionMergeResult(
-          bundlePaths = Vector(realroot.resolve(s"$owner.json")),
-          entryPaths = entries.map(_.path).distinct.sorted,
-          snapshot = result
-        )
-        afterReplace(merged)
-        merged
-      } catch {
-        case application: Throwable if replaced =>
-          try _capability.restoreBundle(owner, originalbytes, _initial_snapshot.bundleContents)
-          catch {
-            case rollback: Throwable =>
-              val failure = new IllegalArgumentException(
-                s"Article-media WIP registry rollback failed: ${rollback.getMessage}",
-                rollback
-              )
-              failure.addSuppressed(application)
-              throw failure
-          }
-          throw application
-      }
+      CozyPublicationCompiler.replaceMetadata(
+        realroot,
+        owner,
+        entries.map(x => x.path -> x.metadata),
+        removals,
+        createArticleMedia = createarticlemedia
+      )
+      val result = load(realroot)
+      val merged = TransactionMergeResult(
+        bundlePaths = Vector(realroot.resolve(s"$owner.json")),
+        entryPaths = entries.map(_.path).distinct.sorted,
+        snapshot = result
+      )
+      afterReplace(merged)
+      merged
     }
 
     /*
      * Role planning observes the exact metadata-replacement projection before
-     * artifact admission.  Both callbacks run under this owner-thread lock:
-     * a valid initial snapshot is required before admission and again before
-     * metadata replacement, so an admission failure cannot replace a bundle.
+     * artifact admission. A valid semantic plan is required before admission;
+     * an admission failure therefore occurs before metadata replacement.
      */
     def publish(
       metadataPublications: Vector[CozyPublicationCompiler.MetadataPublication]
@@ -370,7 +304,7 @@ private[cozy] object CozyArticleMediaRegistry {
     )(
       admitArtifacts: () => Unit
     ): TransactionMergeResult = {
-      _require_callback_owner()
+      _require_active()
       if (_committed)
         _invalid("Article-media registry transaction permits one merge commit")
       if (roleUpdates == null)
@@ -382,256 +316,131 @@ private[cozy] object CozyArticleMediaRegistry {
       val updates = _normalize_role_updates(roleUpdates(projected))
       val plans = _plan_role_updates(projected, updates)
       _validate_plans(projected, plans)
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       admitArtifacts()
-      _capability.validateSnapshot(_initial_snapshot.bundleContents)
       _committed = true
       publications.foreach { publication =>
-        if (_initial_snapshot.bundleContents.contains(publication.name))
-          _capability.replaceMetadata(
+        if (_initial_snapshot.bundleNames.contains(publication.name))
+          CozyPublicationCompiler.replaceMetadata(
+            _root,
             publication.name,
             publication.entries,
             Vector.empty,
-            Map.empty,
             createArticleMedia = false
           )
         else
-          _capability.publishMetadata(publication)
+          CozyPublicationCompiler.publishMetadata(publication, _root)
       }
       plans.foreach { plan =>
-        _capability.replaceMetadata(
+        CozyPublicationCompiler.replaceMetadata(
+          _root,
           plan.owner,
           plan.entries.map(x => x.path -> x.metadata),
           plan.removeprefixes,
-          Map.empty,
           createArticleMedia = plan.createarticlemedia
         )
       }
-      val result = load(_capability.realRoot)
+      val result = load(_root)
       TransactionMergeResult(
-        bundlePaths = (publications.map(x => _capability.realRoot.resolve(s"${x.name}.json")) ++
-          plans.map(x => _capability.realRoot.resolve(s"${x.owner}.json"))).distinct.sortBy(_.toString),
+        bundlePaths = (publications.map(x => _root.resolve(s"${x.name}.json")) ++
+          plans.map(x => _root.resolve(s"${x.owner}.json"))).distinct.sortBy(_.toString),
         entryPaths = (publications.flatMap(_.entries.map(_._1)) ++ plans.flatMap(_.entries.map(_.path))).distinct.sorted,
         snapshot = result
       )
     }
 
     private[CozyArticleMediaRegistry] def _close(): Unit = {
-      _require_callback_owner()
+      _require_active()
       _active = false
     }
 
-    private def _require_callback_owner(): Unit = {
-      if (Thread.currentThread ne _owner_thread)
-        _invalid("Article-media registry transaction must be used by its callback owner thread")
+    private def _require_active(): Unit = {
       if (!_active)
         _invalid("Article-media registry transaction is no longer active")
-      _capability.realRoot
     }
   }
 
   private object TransactionImpl {
     private[CozyArticleMediaRegistry] def _create(
-      capability: CozyPublicationCompiler.RegistryLockCapability,
+      root: Path,
       initialsnapshot: Snapshot
     ): TransactionImpl =
-      new TransactionImpl(capability, initialsnapshot)
+      new TransactionImpl(root, initialsnapshot)
   }
 
   def transaction[A](root: Path)(f: Transaction => A): A = {
-    _validate_root(root)
+    if (root == null)
+      _invalid("Configured publication root must be defined")
     if (f == null)
       _invalid("Article-media registry transaction callback must be defined")
-    CozyPublicationCompiler.withRegistryLockCapability(root) { capability =>
-      val state = TransactionImpl._create(capability, load(capability.realRoot))
-      try f(state) finally state._close()
-    }
+    Files.createDirectories(root)
+    val realroot = root.toAbsolutePath.normalize().toRealPath()
+    val state = TransactionImpl._create(realroot, load(realroot))
+    try f(state) finally state._close()
   }
 
-  private[publication] def transactionExisting[A](
-    evidence: CozyPublicationCompiler.SiteRootEvidence
-  )(f: Transaction => A): A = {
-    if (evidence == null)
-      _invalid("Article-media registry existing-root evidence must be defined")
+  private[publication] def transactionExisting[A](root: Path)(f: Transaction => A): A = {
     if (f == null)
       _invalid("Article-media registry transaction callback must be defined")
-    CozyPublicationCompiler.withExistingRegistryLockCapability(evidence) { capability =>
-      val state = TransactionImpl._create(capability, load(capability.realRoot))
-      try f(state) finally state._close()
-    }
+    val realroot = _current_site_root(root)
+    val state = TransactionImpl._create(realroot, load(realroot))
+    try f(state) finally state._close()
   }
 
-  /*
-   * Read-only producer planning seam.  A one-stop publish preflight must run
-   * the same owner planning and conflict checks as the locked transaction,
-   * while an as-yet-uncreated publication root is treated as an empty
-   * snapshot.  This method never creates or mutates the configured root.
-   */
+  /* Read-only producer planning uses the initial semantic snapshot. A missing
+   * publication root is empty; planning never creates it. */
   private[publication] def validateReadOnly(root: Path, roleUpdates: Vector[RoleUpdate]): Unit = {
-    validateReadOnly(root, roleUpdates, () => ())
-  }
-
-  private[publication] def validateReadOnly(
-    root: Path,
-    roleUpdates: Vector[RoleUpdate],
-    beforeRevalidation: () => Unit
-  ): Unit = {
-    if (beforeRevalidation == null)
-      _invalid("Article-media registry before-revalidation callback must be defined")
     val initial = _read_only_snapshot(root)
     val updates = _normalize_role_updates(roleUpdates)
-    val plans = _plan_role_updates(initial.snapshot, updates)
-    _validate_plans(initial.snapshot, plans)
-    beforeRevalidation()
-    val revalidated = Try(_read_only_snapshot(root)).getOrElse(
-      _invalid("Article-media registry stale read-only snapshot")
-    )
-    if (revalidated != initial)
-      _invalid("Article-media registry stale read-only snapshot")
+    val plans = _plan_role_updates(initial, updates)
+    _validate_plans(initial, plans)
   }
 
-  /* Site registration has no integrity input.  Its dry-run still performs the
-   * exact strict-owner merge planning and complete snapshot revalidation that
-   * a real site transaction performs, without acquiring a registry lock or
-   * creating a bundle. */
   private[publication] def validateSiteReadOnly(
     root: Path,
     roleUpdates: Vector[SiteRoleUpdate]
-  ): Unit =
-    validateSiteReadOnly(root, roleUpdates, () => ())
-
-  private[publication] def validateSiteReadOnly(
-    root: Path,
-    roleUpdates: Vector[SiteRoleUpdate],
-    beforeRevalidation: () => Unit
   ): Unit = {
-    if (beforeRevalidation == null)
-      _invalid("Article-media registry before-revalidation callback must be defined")
     val initial = _read_only_snapshot(root)
     val updates = _normalize_site_role_updates(roleUpdates)
-    val plans = _plan_site_role_updates(initial.snapshot, updates)
-    _validate_plans(initial.snapshot, plans)
-    beforeRevalidation()
-    val revalidated = Try(_read_only_snapshot(root)).getOrElse(
-      _invalid("Article-media registry stale read-only snapshot")
-    )
-    if (revalidated != initial)
-      _invalid("Article-media registry stale read-only snapshot")
+    val plans = _plan_site_role_updates(initial, updates)
+    _validate_plans(initial, plans)
   }
 
-  /* WIP preflight plans one mixed strict/integrity projection against one
-   * snapshot, then proves that the complete configured snapshot is unchanged.
-   * It takes no registry lock and creates no bundle or directory. */
   private[publication] def validateWipReadOnly(
     root: Path,
     roleUpdates: Vector[WipRoleUpdate]
-  ): WipReadOnlyPlan =
-    validateWipReadOnly(root, roleUpdates, () => ())
-
-  private[publication] def validateWipReadOnly(
-    root: Path,
-    roleUpdates: Vector[WipRoleUpdate],
-    beforeRevalidation: () => Unit
   ): WipReadOnlyPlan = {
-    if (beforeRevalidation == null)
-      _invalid("Article-media registry before-revalidation callback must be defined")
-    val initial = _read_only_existing_snapshot(root)
+    val initial = load(_current_site_root(root))
     val updates = _normalize_wip_role_updates(roleUpdates)
-    val plan = _plan_wip_role_updates(initial.snapshot, updates)
-    beforeRevalidation()
-    val revalidated = Try(_read_only_existing_snapshot(root)).getOrElse(
-      _invalid("Article-media registry stale read-only snapshot")
-    )
-    if (revalidated != initial)
-      _invalid("Article-media registry stale read-only snapshot")
-    plan
+    _plan_wip_role_updates(initial, updates)
   }
 
-  private[publication] def validateSiteReadOnly(
-    evidence: CozyPublicationCompiler.SiteRootEvidence,
-    roleUpdates: Vector[SiteRoleUpdate],
-    beforeRevalidation: () => Unit
-  ): Unit = {
-    if (evidence == null)
-      _invalid("Article-media registry existing-root evidence must be defined")
-    if (beforeRevalidation == null)
-      _invalid("Article-media registry before-revalidation callback must be defined")
-    CozyPublicationCompiler.captureSiteRootEvidence(evidence.lexical) match {
-      case actual if actual != evidence => _invalid("Publication registry root evidence has changed")
-      case _ => ()
-    }
-    val initial = _read_only_snapshot(evidence.real)
-    val updates = _normalize_site_role_updates(roleUpdates)
-    val plans = _plan_site_role_updates(initial.snapshot, updates)
-    _validate_plans(initial.snapshot, plans)
-    beforeRevalidation()
-    if (CozyPublicationCompiler.captureSiteRootEvidence(evidence.lexical) != evidence)
-      _invalid("Publication registry root evidence has changed")
-    val revalidated = Try(_read_only_snapshot(evidence.real)).getOrElse(
-      _invalid("Article-media registry stale read-only snapshot")
-    )
-    if (revalidated != initial)
-      _invalid("Article-media registry stale read-only snapshot")
-  }
-
+  /* Ownership intent planning neither synthesizes integrity records nor writes
+   * a registry bundle. */
   private[publication] def validateReadOnlyRoleIntents(
     root: Path,
     intents: Vector[RoleIntent]
-  ): ReadOnlyRoleIntentValidation =
-    validateReadOnlyRoleIntents(root, intents, () => ())
-
-  /* This seam deliberately validates only the ownership intent.  It neither
-   * synthesizes integrity records nor writes a registry bundle, and reloads
-   * the complete configured snapshot before returning its canonical owners. */
-  private[publication] def validateReadOnlyRoleIntents(
-    root: Path,
-    intents: Vector[RoleIntent],
-    beforeRevalidation: () => Unit
   ): ReadOnlyRoleIntentValidation = {
-    if (beforeRevalidation == null)
-      _invalid("Article-media registry before-revalidation callback must be defined")
     val initial = _read_only_snapshot(root)
     val normalized = _normalize_role_intents(intents)
     val owners = normalized.map { intent =>
-      val owner = _article_owner(initial.snapshot, intent.articleIdentity)
-      _validate_role_intent_path(initial.snapshot, intent, owner)
+      val owner = _article_owner(initial, intent.articleIdentity)
+      _validate_role_intent_path(initial, intent, owner)
       RoleIntentOwner(intent, owner)
     }
-    beforeRevalidation()
-    val revalidated = Try(_read_only_snapshot(root)).getOrElse(
-      _invalid("Article-media registry stale read-only snapshot")
-    )
-    if (revalidated != initial)
-      _invalid("Article-media registry stale read-only snapshot")
-    ReadOnlyRoleIntentValidation(initial.snapshot, owners)
+    ReadOnlyRoleIntentValidation(initial, owners)
   }
 
-  private def _read_only_snapshot(root: Path): ReadOnlySnapshot = {
+  private def _read_only_snapshot(root: Path): Snapshot = {
     if (root == null)
       _invalid("Configured publication root must be defined")
     val normalized = root.toAbsolutePath.normalize()
     if (!Files.exists(normalized, LinkOption.NOFOLLOW_LINKS))
-      ReadOnlySnapshot(None, Snapshot(Vector.empty))
+      Snapshot(Vector.empty)
     else {
       if (!Files.isDirectory(normalized))
         _invalid(s"Configured publication root must resolve to an existing directory: $root")
-      val real = normalized.toRealPath()
-      ReadOnlySnapshot(Some(ReadOnlyRoot(normalized, real)), load(real))
+      load(normalized.toRealPath())
     }
-  }
-
-  private def _read_only_existing_snapshot(root: Path): ReadOnlySnapshot = {
-    if (root == null)
-      _invalid("Configured publication root must be defined")
-    val normalized = root.toAbsolutePath.normalize()
-    if (Files.isSymbolicLink(normalized) || !Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Configured publication root must be an existing direct non-symlink directory: $root")
-    val real = Try(normalized.toRealPath()).getOrElse(
-      _invalid(s"Configured publication root cannot be resolved: $root")
-    )
-    if (real != normalized)
-      _invalid(s"Configured publication root must not use a lexical or symlink alias: $root")
-    ReadOnlySnapshot(Some(ReadOnlyRoot(normalized, real)), load(real))
   }
 
   def load(root: Path): Snapshot = {
@@ -646,7 +455,7 @@ private[cozy] object CozyArticleMediaRegistry {
       _validate_duplicates(entries)
       Snapshot(
         entries.sortBy(x => (x.path, x.bundleName)),
-        bundles.map(x => x.name -> x.rawbytes).toMap
+        bundles.map(_.name).sorted
       )
     } finally {
       stream.close()
@@ -740,7 +549,7 @@ private[cozy] object CozyArticleMediaRegistry {
   }
 
   private[publication] def canonicalProjection(snapshot: Snapshot): CanonicalProjection = {
-    if (snapshot == null || snapshot.entries == null || snapshot.bundleContents == null)
+    if (snapshot == null || snapshot.entries == null || snapshot.bundleNames == null)
       _invalid("Article-media registry snapshot must be defined")
     if (snapshot.entries.exists(_ == null))
       _invalid("Article-media registry snapshot entry must be defined")
@@ -760,35 +569,28 @@ private[cozy] object CozyArticleMediaRegistry {
     root: Path,
     bundleName: String,
     publicationResult: CozyArticleMediaPublication.Result,
-    integrityResults: Vector[CozyArticleMediaIntegrity.Result],
-    expectedBundleContents: Map[String, Vector[Byte]] = Map.empty
+    integrityResults: Vector[CozyArticleMediaIntegrity.Result]
   ): UpsertResult = {
     _validate_root(root)
-    if (expectedBundleContents == null)
-      _invalid("Publication bundle expected configured bytes must be defined")
     val name = _validate_bundle_name(bundleName)
     val bundlepath = root.resolve(s"$name.json")
     _validate_target_bundle(bundlepath, name)
     val snapshot = load(root)
-    if (expectedBundleContents.nonEmpty && expectedBundleContents != snapshot.bundleContents)
-      _invalid("Publication bundle stale configured snapshot")
     val publication = _publication_entry(publicationResult)
     val integrities = _integrity_entries(publicationResult, integrityResults)
     val requested = (publication +: integrities).sortBy(x => (x.path, x.key))
     _validate_requested_duplicates(requested)
     _validate_requested_owners(snapshot, name, requested)
     _validate_article_owners(snapshot, name, publication.path)
-    snapshot.bundleContents.getOrElse(name,
-      _invalid(s"Publication bundle bytes are missing from configured snapshot: $name")
-    )
+    if (!snapshot.bundleNames.contains(name))
+      _invalid(s"Publication bundle is missing from configured snapshot: $name")
     val articleidentity = publication.path.stripPrefix("metadata/article-media/").stripSuffix(".json")
     val staleintegritypaths = _integrity_entries_for_identity(snapshot, articleidentity).map(_.path)
     CozyPublicationCompiler.replaceMetadata(
       root,
       name,
       requested.map(x => x.path -> x.metadata),
-      staleintegritypaths,
-      snapshot.bundleContents
+      staleintegritypaths
     )
     UpsertResult(bundlepath, requested.map(_.path), load(root))
   }
@@ -866,7 +668,7 @@ private[cozy] object CozyArticleMediaRegistry {
     val names = publications.map(_.name).toSet
     val projected = snapshot.entries.filterNot(x => names.contains(x.bundleName)) ++ replacements
     _validate_duplicates(projected)
-    Snapshot(projected.sortBy(x => (x.path, x.bundleName)), snapshot.bundleContents)
+    Snapshot(projected.sortBy(x => (x.path, x.bundleName)), snapshot.bundleNames)
   }
 
   private def _normalize_role_updates(roleupdates: Vector[RoleUpdate]): Vector[NormalizedRoleUpdate] = {
@@ -1085,7 +887,6 @@ private[cozy] object CozyArticleMediaRegistry {
       publicPath = record.publicPath,
       repositoryPath = record.repositoryPath,
       mediaType = record.mediaType,
-      sha256 = record.sha256,
       provenance = record.provenance,
       publicationState = record.publicationState
     ))
@@ -1109,7 +910,7 @@ private[cozy] object CozyArticleMediaRegistry {
         owner = owner,
         entries = entries,
         removeprefixes = if (integrityupdates) _integrity_entries_for_identity(snapshot, identity).map(_.path) else Vector.empty,
-        createarticlemedia = owner == "article-media" && !snapshot.bundleContents.contains("article-media")
+        createarticlemedia = owner == "article-media" && !snapshot.bundleNames.contains("article-media")
       )
     }
     plans.groupBy(_._1).toVector.sortBy(_._1).map { case (owner, values) =>
@@ -1136,7 +937,7 @@ private[cozy] object CozyArticleMediaRegistry {
         owner = owner,
         entries = Vector(_publication_entry(strict)),
         removeprefixes = Vector.empty,
-        createarticlemedia = owner == "article-media" && !snapshot.bundleContents.contains("article-media")
+        createarticlemedia = owner == "article-media" && !snapshot.bundleNames.contains("article-media")
       )
     }
     plans.groupBy(_.owner).toVector.sortBy(_._1).map { case (owner, values) =>
@@ -1153,12 +954,13 @@ private[cozy] object CozyArticleMediaRegistry {
     snapshot: Snapshot,
     updates: Vector[NormalizedWipRoleUpdate]
   ): WipReadOnlyPlan = {
-    val videostates = updates.collect {
+    updates.foreach {
       case update if update.role == StrictRole.Video =>
         val existingstrict = snapshot.entries.find(_.path == s"metadata/article-media/${update.articleidentity}.json").map(x => _strict_result(x.metadata))
         val existingintegrities = _integrity_entries_for_identity(snapshot, update.articleidentity).map(x => _integrity_result(x.metadata))
-        update.key -> _wip_video_state(existingstrict, existingintegrities, update)
-    }.toMap
+        _validate_wip_video_ownership(existingstrict, existingintegrities, update)
+      case _ =>
+    }
     val articles = updates.groupBy(_.articleidentity).toVector.sortBy(_._1).map { case (identity, articleupdates) =>
       val owner = _article_owner(snapshot, identity)
       val existingstrict = snapshot.entries.find(_.path == s"metadata/article-media/$identity.json").map(x => _strict_result(x.metadata))
@@ -1172,24 +974,24 @@ private[cozy] object CozyArticleMediaRegistry {
         owner = owner,
         entries = entries,
         removeprefixes = if (integrityupdates) _integrity_entries_for_identity(snapshot, identity).map(_.path) else Vector.empty,
-        createarticlemedia = owner == "article-media" && !snapshot.bundleContents.contains("article-media")
+        createarticlemedia = owner == "article-media" && !snapshot.bundleNames.contains("article-media")
       )))
       WipArticlePlan(identity, owner, strict, integrities)
     }
-    WipReadOnlyPlan(snapshot, articles, videostates)
+    WipReadOnlyPlan(snapshot, articles)
   }
 
-  private def _wip_video_state(
+  private def _validate_wip_video_ownership(
     existingstrict: Option[CozyArticleMediaPublication.Result],
     existingintegrities: Vector[CozyArticleMediaIntegrity.Result],
     update: NormalizedWipRoleUpdate
-  ): WipVideoState = {
+  ): Unit = {
     val existingvideo = existingstrict.flatMap(_.publication.variants.find(_.locale == update.variant.locale)).flatMap(_.video)
     val existingintegrity = existingintegrities.filter { value =>
       value.record.locale == update.variant.locale && value.record.role == CozyArticleMediaIntegrity.Role.Video
     }
     (existingvideo, existingintegrity) match {
-      case (None, Vector()) => WipVideoState.Fresh
+      case (None, Vector()) =>
       case (Some(video), Vector(integrity)) =>
         val expectedvideo = update.variant.video.getOrElse(
           _invalid("Article-media registry WIP video update is missing")
@@ -1197,9 +999,19 @@ private[cozy] object CozyArticleMediaRegistry {
         val expectedintegrity = update.integrity.getOrElse(
           _invalid("Article-media registry WIP video integrity is missing")
         )
-        if (video != expectedvideo || integrity != expectedintegrity)
-          _invalid(s"Article-media registry existing video tuple is not the exact current WIP pair: ${update.articleidentity} [${update.variant.locale}]")
-        WipVideoState.ExactRepeat
+        val record = integrity.record
+        val expectedrecord = expectedintegrity.record
+        val samemapping = (record.provenance, expectedrecord.provenance) match {
+          case (previous: CozyArticleMediaIntegrity.WipSiteVideo, selected: CozyArticleMediaIntegrity.WipSiteVideo) =>
+            previous.descriptor == selected.descriptor && previous.resourceId == selected.resourceId && previous.production == selected.production
+          case _ => false
+        }
+        if (video.presentation != VideoPresentation.SiteHosted || video.status != VideoStatus.Published ||
+          video.provider.nonEmpty || video.watchUrl.nonEmpty || video.contentUrl != expectedvideo.contentUrl ||
+          record.articleIdentity != expectedrecord.articleIdentity || record.locale != expectedrecord.locale ||
+          record.role != CozyArticleMediaIntegrity.Role.Video || record.publicationState != CozyArticleMediaIntegrity.PublicationState.Published ||
+          record.publicPath != expectedrecord.publicPath || record.repositoryPath != expectedrecord.repositoryPath || !samemapping)
+          _invalid(s"Article-media registry existing video tuple has conflicting WIP ownership: ${update.articleidentity} [${update.variant.locale}]")
       case _ =>
         _invalid(s"Article-media registry existing video tuple is partial or not WIP-owned: ${update.articleidentity} [${update.variant.locale}]")
     }
@@ -1390,15 +1202,14 @@ private[cozy] object CozyArticleMediaRegistry {
       _invalid(s"Configured publication bundle must not be a symbolic link: $filename")
     if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
       _invalid(s"Configured publication bundle must be a direct regular file: $filename")
-    val bytes = Files.readAllBytes(path)
-    val json = Try(Json.parse(new String(bytes, StandardCharsets.UTF_8))).getOrElse(
+    val json = Try(Json.parse(Files.readString(path, StandardCharsets.UTF_8))).getOrElse(
       _invalid(s"Configured publication bundle is malformed JSON: $filename")
     )
     val bundle = json.asOpt[JsObject].getOrElse(
       _invalid(s"Configured publication bundle must be a JSON object: $filename")
     )
     val parsed = _parse_bundle(bundle, filename)
-    Bundle(filename, parsed._1, parsed._2, bytes.toVector)
+    Bundle(parsed._1, parsed._2)
   }
 
   private def _parse_bundle(bundle: JsObject, filename: String): (String, Vector[Entry]) = {
@@ -1524,7 +1335,7 @@ private[cozy] object CozyArticleMediaRegistry {
 
   private def _integrity_result(metadata: JsValue): CozyArticleMediaIntegrity.Result = {
     val value = _json_object(metadata)
-    _validate_fields(value, Set("schema", "articleIdentity", "locale", "role", "artifact", "publicPath", "repositoryPath", "mediaType", "sha256", "provenance", "publicationState"), Set.empty)
+    _validate_fields(value, Set("schema", "articleIdentity", "locale", "role", "publicPath", "repositoryPath", "mediaType", "provenance", "publicationState"), Set("artifact"))
     if (_required_string(value, "schema") != "cozy.article-media-integrity.v1")
       _invalid("Article-media integrity metadata schema is invalid")
     val role = _integrity_role(_required_string(value, "role"))
@@ -1532,11 +1343,10 @@ private[cozy] object CozyArticleMediaRegistry {
       articleIdentity = _required_string(value, "articleIdentity"),
       locale = _required_string(value, "locale"),
       role = role,
-      artifact = _integrity_artifact(_required(value, "artifact")),
+      artifact = value.value.get("artifact").map(_integrity_artifact),
       publicPath = _uri(_required_string(value, "publicPath")),
       repositoryPath = _required_string(value, "repositoryPath"),
       mediaType = _required_string(value, "mediaType"),
-      sha256 = _required_string(value, "sha256"),
       provenance = _integrity_provenance(_required(value, "provenance")),
       publicationState = _publication_state(_required_string(value, "publicationState"))
     ))
@@ -1690,7 +1500,6 @@ private[cozy] object CozyArticleMediaRegistry {
         publicPath = record.publicPath,
         repositoryPath = record.repositoryPath,
         mediaType = record.mediaType,
-        sha256 = record.sha256,
         provenance = record.provenance,
         publicationState = record.publicationState
       ))

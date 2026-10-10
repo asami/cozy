@@ -2,14 +2,13 @@ package cozy.publication
 
 import java.nio.file.{Files, LinkOption, NoSuchFileException, Path}
 import java.nio.file.attribute.BasicFileAttributes
-import java.security.MessageDigest
 import org.goldenport.RAISE
 import org.smartdox.metadata.PublishMetadata
 
 /*
  * @since   Aug.  4, 2026
  *  version Aug. 12, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaPolicy {
@@ -147,15 +146,14 @@ private[cozy] object CozyArticleMediaPolicy {
       _invalid("Article-media policy publication result must be defined")
     val artifactroot = _artifact_root(artifactRepositoryRoot)
     val snapshot = CozyArticleMediaRegistry.load(publicationRoot)
-    snapshot.bundleContents.getOrElse(bundleName,
-      _invalid(s"Article-media policy configured bundle bytes are missing: $bundleName")
-    )
+    if (!snapshot.bundleNames.contains(bundleName))
+      _invalid(s"Article-media policy configured bundle is missing: $bundleName")
     val videos = _video_evidence(videoRegistrations, snapshot, artifactroot)
     val infographics = _infographic_evidence(infographicInputs, artifactroot)
     val integrities = (videos.map(_.integrity) ++ infographics.map(_.integrity)).sortBy(x => _key(_integrity_key(x)))
     _reject_duplicate_integrities(integrities)
     _preflight_publication(publicationResult, integrities)
-    val upsert = CozyArticleMediaRegistry.upsert(publicationRoot, bundleName, publicationResult, integrities, snapshot.bundleContents)
+    val upsert = CozyArticleMediaRegistry.upsert(publicationRoot, bundleName, publicationResult, integrities)
     RegistrationResult(videos, infographics, upsert)
   }
 
@@ -237,7 +235,6 @@ private[cozy] object CozyArticleMediaPolicy {
       publicPath = record.publicPath,
       repositoryPath = record.repositoryPath,
       mediaType = record.mediaType,
-      sha256 = record.sha256,
       provenance = record.provenance,
       publicationState = record.publicationState
     ))
@@ -262,8 +259,7 @@ private[cozy] object CozyArticleMediaPolicy {
     val candidatereal = candidate.toRealPath()
     if (artifactpath != artifactreal || artifactreal != candidatereal || !artifactreal.startsWith(root.real))
       _invalid(s"Article-media policy $label evidence artifact path must equal the configured repository artifact")
-    if (_sha256(artifactreal) != record.sha256)
-      _invalid(s"Article-media policy $label evidence artifact SHA-256 does not match canonical integrity")
+    Files.newInputStream(artifactreal).close()
   }
 
   private def _preflight_publication(
@@ -350,8 +346,7 @@ private[cozy] object CozyArticleMediaPolicy {
       val artifact = candidate.toRealPath()
       if (!artifact.startsWith(root.real))
         _invalid(s"Article-media policy published artifact real path escapes the configured root: ${record.repositoryPath}")
-      if (_sha256(artifact) != record.sha256)
-        _invalid(s"Article-media policy published artifact SHA-256 does not match canonical integrity: ${record.repositoryPath}")
+      Files.newInputStream(artifact).close()
     } catch {
       case _: NoSuchFileException =>
         _invalid(s"Article-media policy published artifact must be an existing regular file: ${record.repositoryPath}")
@@ -369,27 +364,11 @@ private[cozy] object CozyArticleMediaPolicy {
       val artifact = candidate.toRealPath()
       if (!artifact.startsWith(root.real))
         _invalid(s"Article-media policy published artifact real path escapes the configured root: ${record.repositoryPath}")
-      _sha256(artifact) == record.sha256
+      Files.newInputStream(artifact).close()
+      true
     } catch {
       case _: NoSuchFileException => false
     }
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => f"${b & 0xff}%02x").mkString
   }
 
   private def _integrity_key(integrity: CozyArticleMediaIntegrity.Result): CozyArticleMediaAssociation.Key = {

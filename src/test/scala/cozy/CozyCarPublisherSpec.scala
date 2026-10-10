@@ -29,7 +29,7 @@ import cozy.modeler.GenerationProvenance
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
  *  version Aug. 28, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -185,9 +185,6 @@ class CozyCarPublisherSpec
           )
           Then("the artifact and Maven metadata are written")
           _zip_text(target, "component/main.jar") shouldBe "main"
-          Files.isRegularFile(
-            target.resolveSibling(target.getFileName.toString + ".sha256")
-          ) shouldBe true
           val metadata = Files.readString(
             warehouse.resolve(
               "repository/car/org/sample/sample-component/maven-metadata.xml"
@@ -222,7 +219,6 @@ class CozyCarPublisherSpec
           publiccatalog.versions.head.file shouldBe Some(
             "repository/car/org/sample/sample-component/0.1.0/sample-component-0.1.0.car"
           )
-          publiccatalog.versions.head.checksumSha256 should not be empty
 
           And("the public discovery index exposes the CAR")
           val index = ComponentRepositoryIndex.load(
@@ -568,17 +564,13 @@ class CozyCarPublisherSpec
             "repository/car/org/sample/sample-component/0.1.1-SNAPSHOT/sample-component-0.1.1-SNAPSHOT.car"
           )
           val entries = _zip_entries(target)
-          Then("the CAR archive and checksum are published")
+          Then("the CAR archive is published")
           Files.isRegularFile(target) shouldBe true
           entries should contain allOf (
             "component/main.jar",
             "component-descriptor.json",
             "web/web.yaml"
           )
-          val digest = cozy.archive.RepositoryArtifactPublisher.sha256(target)
-          Files.readString(
-            target.resolveSibling(target.getFileName.toString + ".sha256")
-          ).trim shouldBe digest
 
           And("source and public schema2 catalogs expose the current snapshot")
           val sourcecatalog = RepositoryArtifactCatalog.load(
@@ -593,10 +585,6 @@ class CozyCarPublisherSpec
           val snapshotentry = sourcecatalog.versions.head
           snapshotentry.channel shouldBe Some("snapshot")
           snapshotentry.component shouldBe Some("org.sample.Component")
-          snapshotentry.checksumSha256 shouldBe Some(digest)
-          snapshotentry.integrityKey shouldBe Some(
-            s"org.sample:sample-component:0.1.1-SNAPSHOT@sha256:$digest"
-          )
           sourcecatalog.latestSnapshot shouldBe Some("0.1.1-SNAPSHOT")
 
           And("Maven metadata and the v2 repository index expose the snapshot")
@@ -632,13 +620,13 @@ class CozyCarPublisherSpec
             "snapshot"
           )
           _write_project_yaml(projectdir, "sample-component", "0.1.2-SNAPSHOT")
-          val releasedigest = _write_retained_car(warehouse, "0.1.0", "retained-release")
-          val snapshotdigest = _write_retained_car(warehouse, "0.1.1-SNAPSHOT", "retained-snapshot")
+          _write_retained_car(warehouse, "0.1.0", "retained-release")
+          _write_retained_car(warehouse, "0.1.1-SNAPSHOT", "retained-snapshot")
           _write_car_catalog(
             projectdir,
             Vector(
-              ("0.1.0", "stable", "active", releasedigest),
-              ("0.1.1-SNAPSHOT", "snapshot", "active", snapshotdigest)
+              ("0.1.0", "stable", "active"),
+              ("0.1.1-SNAPSHOT", "snapshot", "active")
             ),
             recommended = Some("0.1.0"),
             lateststable = Some("0.1.0"),
@@ -680,7 +668,6 @@ class CozyCarPublisherSpec
             _.version == "0.1.2-SNAPSHOT"
           )
           snapshotentry.flatMap(_.channel) shouldBe Some("snapshot")
-          snapshotentry.flatMap(_.checksumSha256) should not be Some(snapshotdigest)
         }
       }
 
@@ -700,7 +687,7 @@ class CozyCarPublisherSpec
           _write_project_yaml(projectdir, "sample-component", "0.1.1-SNAPSHOT")
           _write_car_catalog(
             projectdir,
-            Vector(("0.1.0", "stable", "active", "0" * 64)),
+            Vector(("0.1.0", "stable", "active")),
             recommended = Some("0.1.0"),
             lateststable = Some("0.1.0")
           )
@@ -761,12 +748,12 @@ class CozyCarPublisherSpec
             "replacement"
           )
           _write_project_yaml(projectdir, "sample-component", "0.1.0")
-          val deprecateddigest = _write_retained_car(
+          _write_retained_car(
             warehouse,
             "0.0.9",
             "deprecated-release"
           )
-          val currentdigest = _write_retained_car(
+          _write_retained_car(
             warehouse,
             "0.1.0",
             "current-release"
@@ -774,8 +761,8 @@ class CozyCarPublisherSpec
           _write_car_catalog(
             projectdir,
             Vector(
-              ("0.0.9", "stable", "deprecated", deprecateddigest),
-              ("0.1.0", "stable", "active", currentdigest)
+              ("0.0.9", "stable", "deprecated"),
+              ("0.1.0", "stable", "active")
             ),
             recommended = Some("0.0.9"),
             lateststable = Some("0.1.0")
@@ -830,15 +817,14 @@ class CozyCarPublisherSpec
             "replacement"
           )
           _write_project_yaml(projectdir, "sample-component", "0.1.0")
-          val deprecateddigest = _write_retained_car(warehouse, "0.0.9", "deprecated-release")
-          val currentdigest = _write_retained_car(warehouse, "0.1.0", "current-release")
-          val snapshotdigest = "0" * 64
+          _write_retained_car(warehouse, "0.0.9", "deprecated-release")
+          _write_retained_car(warehouse, "0.1.0", "current-release")
           _write_car_catalog(
             projectdir,
             Vector(
-              ("0.0.9", "stable", "deprecated", deprecateddigest),
-              ("0.1.0", "stable", "active", currentdigest),
-              ("0.1.1-SNAPSHOT", "snapshot", "active", snapshotdigest)
+              ("0.0.9", "stable", "deprecated"),
+              ("0.1.0", "stable", "active"),
+              ("0.1.1-SNAPSHOT", "snapshot", "active")
             ),
             recommended = Some("0.0.9"),
             lateststable = Some("0.1.0"),
@@ -879,9 +865,6 @@ class CozyCarPublisherSpec
           catalog.versions
             .find(_.version == "0.0.9")
             .flatMap(_.status) shouldBe Some("deprecated")
-          catalog.versions
-            .find(_.version == "0.1.0")
-            .flatMap(_.checksumSha256) should not be Some("old")
           catalog.recommended shouldBe Some("0.1.0")
           catalog.latestStable shouldBe Some("0.1.0")
           catalog.latestSnapshot shouldBe None
@@ -922,12 +905,12 @@ class CozyCarPublisherSpec
           )
           _write_project_yaml(projectdir, "sample-new-component", "0.1.0", componentid = "NewComponent")
 
-          When("Cozy publishes a distinct new CAR through the locked repository boundary")
+          When("Cozy publishes a distinct new CAR through direct mapped repository conversion")
           CozyCarPublisher.publish(
             List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-new-component", "--version", "0.1.0", "--car", car.toString)
           )
 
-          Then("the v2 index is final, canonical CAR files are integrity-protected, and legacy bytes remain")
+          Then("the v2 index records canonical archive/catalog conversion and legacy bytes remain")
           val index = ComponentRepositoryIndex.load(warehouse.resolve("repository/catalog/index.json"))
           index.schemaVersion shouldBe ComponentRepositoryIndex.SCHEMA_VERSION
           index.artifacts.map(_.identity) should contain allOf (
@@ -937,12 +920,10 @@ class CozyCarPublisherSpec
           )
           val canonical = warehouse.resolve("repository/car/org/sample/sample-component/0.0.9/sample-component-0.0.9.car")
           java.util.Arrays.equals(Files.readAllBytes(canonical), legacybytes) shouldBe true
-          Files.isRegularFile(canonical.resolveSibling("sample-component-0.0.9.car.sha256")) shouldBe true
           Files.readString(warehouse.resolve("repository/catalog/car/org/sample/sample-component.cml")) shouldBe "# legacy component\n"
           val catalog = RepositoryArtifactCatalog.load(warehouse.resolve("repository/catalog/car/org/sample/sample-component.yaml"))
           catalog.schemaVersion shouldBe "2"
           catalog.versions.map(_.version) shouldBe Vector("0.0.9")
-          catalog.versions.find(_.version == "0.0.9").flatMap(_.integrityKey) should not be empty
           Files.isRegularFile(warehouse.resolve("repository/car/org/sample/sample-new-component/0.1.0/sample-new-component-0.1.0.car")) shouldBe true
           Files.readAllBytes(warehouse.resolve("repository/car/sample-component/0.0.9/sample-component-0.0.9.car")) shouldBe legacybytes
         }
@@ -982,44 +963,14 @@ class CozyCarPublisherSpec
         }
       }
 
-      "rejects checksum mismatch and canonical collisions without mutating the legacy warehouse" in {
-        _with_temp_dir("cozy-publish-car-legacy-integrity") { dir =>
-          Given("a mapped v1 warehouse whose stored digest does not match its archive")
-          val warehouse = dir.resolve("warehouse")
-          _write_legacy_warehouse(warehouse, checksum = Some("0" * 64))
-          val projectdir = dir.resolve("project")
-          val car = _write_canonical_car(dir.resolve("input/sample.car"), "0.1.0", "new-release")
-          _write_project_yaml(projectdir, "sample-component", "0.1.0")
-          val original = Files.readAllBytes(warehouse.resolve("repository/catalog/index.json"))
-
-          When("Cozy encounters the invalid checksum")
-          val checksumerror = intercept[Throwable] {
-            CozyCarPublisher.publish(List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-component", "--version", "0.1.0", "--car", car.toString))
-          }
-          _write_legacy_warehouse(warehouse, checksum = None)
-          _write(warehouse.resolve("repository/car/org/sample/sample-component/0.0.9/sample-component-0.0.9.car"), "different")
-          val collisionerror = intercept[Throwable] {
-            CozyCarPublisher.publish(List(projectdir.toString, "--warehouse", warehouse.toString, "--name", "sample-component", "--version", "0.1.0", "--car", car.toString))
-          }
-
-          Then("both guarded failures leave the v1 index and legacy archive untouched")
-          checksumerror.getMessage should startWith("component.repository.migration.integrity.mismatch")
-          collisionerror.getMessage should startWith("component.repository.migration.collision")
-          Files.readAllBytes(warehouse.resolve("repository/catalog/index.json")) shouldBe original
-          Files.readString(warehouse.resolve("repository/car/org/sample/sample-component/0.0.9/sample-component-0.0.9.car")) shouldBe "different"
-        }
-      }
     }
   }
 
   private def _write_legacy_warehouse(
     warehouse: Path,
-    mapping: Option[String] = Some("default"),
-    checksum: Option[String] = None
+    mapping: Option[String] = Some("default")
   ): Array[Byte] = {
     val archive = _write(warehouse.resolve("repository/car/sample-component/0.0.9/sample-component-0.0.9.car"), "legacy-car")
-    val digest = checksum.getOrElse(cozy.archive.RepositoryArtifactPublisher.sha256(archive))
-    _write(archive.resolveSibling("sample-component-0.0.9.car.sha256"), digest + "\n")
     _write(
       warehouse.resolve("repository/catalog/car/sample-component.yaml"),
       s"""schemaVersion: 1
@@ -1040,14 +991,10 @@ class CozyCarPublisherSpec
          |    status: active
          |    publishedAt: 2026-08-01T00:00:00Z
          |    file: repository/car/sample-component/0.0.9/sample-component-0.0.9.car
-         |    checksum:
-         |      sha256: $digest
          |""".stripMargin
     )
     _write(warehouse.resolve("repository/catalog/car/sample-component.cml"), "# legacy component\n")
-    val sararchive = _write(warehouse.resolve("repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar"), "legacy-sar")
-    val sardigest = cozy.archive.RepositoryArtifactPublisher.sha256(sararchive)
-    _write(sararchive.resolveSibling(sararchive.getFileName.toString + ".sha256"), sardigest + "\n")
+    _write(warehouse.resolve("repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar"), "legacy-sar")
     _write(
       warehouse.resolve("repository/catalog/sar/sample-server.yaml"),
       s"""schemaVersion: 1
@@ -1060,8 +1007,6 @@ class CozyCarPublisherSpec
         |    channel: stable
         |    status: active
         |    file: repository/sar/sample-server/0.0.9/sample-server-0.0.9.sar
-        |    checksum:
-        |      sha256: $sardigest
         |""".stripMargin
     )
     _write(
@@ -1336,19 +1281,16 @@ class CozyCarPublisherSpec
     warehouse: Path,
     version: String,
     payload: String
-  ): String = {
+  ): Path = {
     val archive = warehouse.resolve(
       s"repository/car/org/sample/sample-component/$version/sample-component-$version.car"
     )
     _write_canonical_car(archive, version, payload)
-    val digest = cozy.archive.RepositoryArtifactPublisher.sha256(archive)
-    _write(archive.resolveSibling(archive.getFileName.toString + ".sha256"), digest + "\n")
-    digest
   }
 
   private def _write_car_catalog(
     projectdir: Path,
-    entries: Vector[(String, String, String, String)],
+    entries: Vector[(String, String, String)],
     recommended: Option[String] = None,
     lateststable: Option[String] = None,
     latestsnapshot: Option[String] = None,
@@ -1359,15 +1301,12 @@ class CozyCarPublisherSpec
     def _optional_line_(label: String, value: Option[String]): String = value.map(v => s"$label: $v\n").getOrElse("")
     def _list_lines_(label: String, values: Vector[String]): String =
       if (values.isEmpty) s"$label: []\n" else s"$label:\n${values.map(v => s"  - $v\n").mkString}"
-    val versionlines = entries.map { case (version, channel, status, digest) =>
+    val versionlines = entries.map { case (version, channel, status) =>
       s"""  - version: $version
          |    channel: $channel
          |    status: $status
          |    component: org.sample.Component
          |    file: repository/car/org/sample/sample-component/$version/sample-component-$version.car
-         |    checksum:
-         |      sha256: $digest
-         |    integrityKey: org.sample:sample-component:$version@sha256:$digest
          |""".stripMargin
     }.mkString
     val text =

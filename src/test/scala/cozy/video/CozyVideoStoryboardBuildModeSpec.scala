@@ -16,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyVideoStoryboardBuildModeSpec {
@@ -40,7 +40,7 @@ final class CozyVideoStoryboardBuildModeSpec
 
   "Cozy Video Storyboard build modes" should {
     "produce normal Media final videos within the selected Video extent" which {
-      "render then assemble native final reuse unchanged MP4s and preserve confirmation and prior final artifacts on producer failure" in {
+      "render then assemble native final reuse unchanged MP4s and report assembly failure within the selected scope" in {
         _with_temp_dir("media-final-producer") { root =>
           Given("a native Storyboard selected by Media with actual declared audio and separate confirmation products")
           _write_credit_profile(root)
@@ -91,10 +91,7 @@ final class CozyVideoStoryboardBuildModeSpec
           reused.muxCount shouldBe 0
           Vector(root.resolve("build/parts/board.mp4"), root.resolve("build/final.mp4")).map(Files.getLastModifiedTime(_)) shouldBe times
 
-          Given("all prior generated Video destinations and a newer selected Storyboard")
-          val products = _native_products(root, "final") ++ _credit_products(root, "final") ++
-            Vector(root.resolve("build/parts/board.mp4"), root.resolve("build/parts/board.manifest.json"))
-          val before = _artifact_snapshot(products)
+          Given("a newer selected Storyboard and a renderer followed by failing final assembly")
           val source = root.resolve("storyboard.md")
           Files.setLastModifiedTime(source, FileTime.fromMillis(Files.getLastModifiedTime(root.resolve("build/final.mp4")).toMillis + 1))
           val failing = new FakeRunner
@@ -104,10 +101,10 @@ final class CozyVideoStoryboardBuildModeSpec
           When("final assembly fails after the selected part renderer has run")
           val error = intercept[Exception] { CozyMedia.buildWithVideoRunner(config, failing) }
 
-          Then("part final native records and credits return to prior bytes modes and times while confirmation stays intact")
-          error.getMessage should include("rolled back")
+          Then("the actual assembly failure is reported after rendering while confirmation stays intact")
+          error.getMessage should include("assembly failed")
+          error.getMessage should include("planned ffmpeg failure")
           failing.renderCount shouldBe 1
-          _same_artifact_snapshot(before) shouldBe true
           _same_artifact_snapshot(confirmation) shouldBe true
         }
       }
@@ -640,7 +637,7 @@ final class CozyVideoStoryboardBuildModeSpec
         Files.setLastModifiedTime(profile, FileTime.fromMillis(Files.getLastModifiedTime(output).toMillis + 4000L))
         val creditmiss = _build(project, "confirmation", runner)
 
-        Then("each actual selected input invalidates every required product and rewrites the selected credit files only through staging")
+        Then("each actual selected input invalidates every required product and writes current companions beside the selected output")
         assetmiss should include("cache: miss")
         creditmiss should include("cache: miss")
         _credit_products(root, "confirmation").foreach { path =>
@@ -1117,7 +1114,7 @@ final class CozyVideoStoryboardBuildModeSpec
       }
     }
 
-    "reject missing native build tools before staging or process work" in {
+    "reject missing native build tools before assembly or process work" in {
       _with_temp_dir("missing-tool") { root =>
         Given("a valid Storyboard project and a required host ffmpeg check marked missing")
         val project = _write_storyboard_project(root, "storyboard.md", _storyboard())
@@ -1135,23 +1132,22 @@ final class CozyVideoStoryboardBuildModeSpec
           )
         }
 
-        Then("the unavailable tool prevents mux, probe, staging, and generated-mode output")
+        Then("the unavailable tool prevents mux, probe, and generated-mode output")
         failure.getMessage should include("ffmpeg")
         runner.commandCount shouldBe 0
         Files.exists(root.resolve("target/cozy-video/confirmation")) shouldBe false
       }
     }
 
-    "preserve every completed final artifact when staged mux or probe work fails" in {
-      _with_temp_dir("staged-failure-preservation") { root =>
+    "report mux probe and metadata I/O failures without changing unselected artifacts" in {
+      _with_temp_dir("assembly-failures") { root =>
         Given("completed final and confirmation products plus an unrelated file")
         val project = _write_storyboard_project(root, "storyboard.md", _storyboard())
         val runner = new FakeRunner
         _build(project, "confirmation", runner)
         _build(project, "final", runner)
         val finaloutput = root.resolve("build/final.mp4")
-        val snapshot = _artifact_snapshot(_native_products(root, "final"))
-        val confirmation = _artifact_snapshot(_native_products(root, "confirmation"))
+        val confirmation = _artifact_snapshot(_native_products(root, "confirmation").filter(_.startsWith(root.resolve("target/cozy-video/confirmation"))))
         val unrelated = root.resolve("target/cozy-video/unrelated.txt")
         Files.writeString(unrelated, "unrelated", StandardCharsets.UTF_8)
         val unrelatedsnapshot = _artifact_snapshot(Vector(unrelated))
@@ -1159,7 +1155,7 @@ final class CozyVideoStoryboardBuildModeSpec
         runner.setFfmpegFailure(true)
         runner.setFfmpegPartialFailure(true)
 
-        When("a stale final encounters partial staged ffmpeg, nonzero probe, malformed probe, invalid probe, and staged metadata failures")
+        When("a stale final encounters partial ffmpeg, nonzero probe, malformed probe, invalid probe, and selected metadata I/O failures")
         val ffmpegfailure = intercept[Exception] {
           _build(project, "final", runner)
         }
@@ -1171,15 +1167,18 @@ final class CozyVideoStoryboardBuildModeSpec
         val malformedprobe = intercept[Exception] { _build(project, "final", runner) }
         runner.setProbeResults(Vector(CozyVideo.VideoCommandResult(0, """{"format":{"duration":"0"},"streams":[]}""", "")))
         val invalidprobe = intercept[Exception] { _build(project, "final", runner) }
-        runner.setStagingWriteFailure(true)
+        runner.setOutputWriteFailure(root.resolve("target/cozy-video/final/manifest.json"))
         val metadatafailure = intercept[Exception] { _build(project, "final", runner) }
-        runner.restoreStagingPermissions()
 
-        Then("every prior product's bytes, mode, and mtime, unrelated file, and confirmation remain unchanged")
+        Then("each actual assembly diagnostic identifies its failed operation while confirmation and unrelated files retain their scope")
         Vector(ffmpegfailure, nonzeroprobe, malformedprobe, invalidprobe, metadatafailure).foreach { failure =>
           failure.getMessage should include("assembly failed")
         }
-        _same_artifact_snapshot(snapshot) shouldBe true
+        ffmpegfailure.getMessage should include("planned ffmpeg failure")
+        nonzeroprobe.getMessage should include("planned probe failure")
+        malformedprobe.getMessage should include("ffprobe returned invalid JSON")
+        invalidprobe.getMessage should include("finite positive duration and video stream")
+        metadatafailure.getMessage should include("Cannot write Storyboard final manifest")
         _same_artifact_snapshot(confirmation) shouldBe true
         _same_artifact_snapshot(unrelatedsnapshot) shouldBe true
       }
@@ -1197,17 +1196,17 @@ final class CozyVideoStoryboardBuildModeSpec
           CozyVideo.VideoCommandResult(0, """{"format":{"duration":"1.000"},"streams":[{"codec_type":"video"}]}""", "")
         ))
 
-        When("the read-only cache probe is invalid and the staged regeneration probe is valid")
+        When("the read-only cache probe is invalid and the regeneration probe is valid")
         val result = _build(project, "confirmation", runner)
 
-        Then("the invalid existing media does not produce a hit and a real staged regeneration replaces it")
+        Then("the invalid existing media does not produce a hit and a real assembly regenerates it")
         result should include("cache: miss")
         runner.muxCount shouldBe beforemux + 1
       }
     }
 
-    "preserves the complete prior final set when staged credit generation cannot write" in {
-      _with_temp_dir("staged-credit-failure") { root =>
+    "report selected credit I/O failure after valid mux and probe" in {
+      _with_temp_dir("credit-output-failure") { root =>
         Given("a credited final product whose selected credit records already exist")
         _write_credit_profile(root)
         val project = _write_storyboard_project(
@@ -1218,21 +1217,18 @@ final class CozyVideoStoryboardBuildModeSpec
         )
         val runner = new FakeRunner
         _build(project, "final", runner)
-        val products = _native_products(root, "final") ++ _credit_products(root, "final")
-        val before = _artifact_snapshot(products)
         Files.setLastModifiedTime(
           root.resolve("storyboard.md"),
           FileTime.fromMillis(Files.getLastModifiedTime(root.resolve("build/final.mp4")).toMillis + 2000L)
         )
-        runner.setStagingWriteFailure(true)
+        runner.setOutputWriteFailure(root.resolve("build/credits/credits.json"))
 
-        When("staged credit output is denied after mux and staged probe but before installation")
+        When("the selected credits.json becomes a directory after mux and the output probe succeeds")
         val failure = intercept[Exception] { _build(project, "final", runner) }
-        runner.restoreStagingPermissions()
 
-        Then("all prior final, mode, handoff, part-record, and credit bytes, modes, and mtimes remain unchanged")
+        Then("the ordinary credit I/O diagnostic identifies the selected file that could not be written")
         failure.getMessage should include("assembly failed")
-        _same_artifact_snapshot(before) shouldBe true
+        failure.getMessage should include("credits.json")
       }
     }
 
@@ -1618,8 +1614,7 @@ final class CozyVideoStoryboardBuildModeSpec
     private var _ffmpeg_failure = false
     private var _ffmpeg_partial_failure = false
     private var _probe_results = Vector.empty[CozyVideo.VideoCommandResult]
-    private var _staging_write_failure = false
-    private var _staging_permissions = Option.empty[(Path, java.util.Set[PosixFilePermission])]
+    private var _output_write_failure = Option.empty[Path]
 
     def commandCount: Int = _commands.size
     def renderCount: Int = _commands.count(_.contains("node"))
@@ -1628,37 +1623,32 @@ final class CozyVideoStoryboardBuildModeSpec
     def setFfmpegFailure(value: Boolean): Unit = _ffmpeg_failure = value
     def setFfmpegPartialFailure(value: Boolean): Unit = _ffmpeg_partial_failure = value
     def setProbeResults(values: Vector[CozyVideo.VideoCommandResult]): Unit = _probe_results = values
-    def setStagingWriteFailure(value: Boolean): Unit = _staging_write_failure = value
-    def restoreStagingPermissions(): Unit = _staging_permissions.foreach { case (path, permissions) =>
-      Files.setPosixFilePermissions(path, permissions)
-      _staging_permissions = None
-    }
+    def setOutputWriteFailure(path: Path): Unit = _output_write_failure = Some(path)
 
     def run(args: Vector[String], cwd: Path): CozyVideo.VideoCommandResult = {
       _commands += args
       if (args.contains("node")) {
-        val script = Path.of(args.find(_.endsWith("render.mjs")).get)
+        val script = _command_path(cwd, args.find(_.endsWith("render.mjs")).get)
         val props = _json(script.getParent.getParent.resolve("props.json"))
-        val output = cwd.resolve(props.hcursor.get[String]("outputPath").toOption.get).normalize()
+        val output = _command_path(cwd, props.hcursor.get[String]("outputPath").toOption.get)
         Files.createDirectories(output.getParent)
         Files.writeString(output, "rendered-native-part", StandardCharsets.UTF_8)
         CozyVideo.VideoCommandResult(0, "rendered", "")
       } else if (args.contains("ffmpeg")) {
         if (_ffmpeg_failure) {
           if (_ffmpeg_partial_failure) {
-            val partial = Path.of(args.last)
+            val partial = _command_path(cwd, args.last)
             Files.createDirectories(partial.getParent)
             Files.writeString(partial, "partial-fake-mp4", StandardCharsets.UTF_8)
           }
           return CozyVideo.VideoCommandResult(1, "", "planned ffmpeg failure")
         }
-        val output = Path.of(args.last)
+        val output = _command_path(cwd, args.last)
         Files.createDirectories(output.getParent)
         Files.writeString(output, s"fake-mp4-${_commands.size}", StandardCharsets.UTF_8)
-        if (_staging_write_failure) {
-          val staging = output.getParent
-          _staging_permissions = Some(staging -> Files.getPosixFilePermissions(staging))
-          Files.setPosixFilePermissions(staging, Set(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE).asJava)
+        _output_write_failure.foreach { path =>
+          Files.deleteIfExists(path)
+          Files.createDirectory(path)
         }
         CozyVideo.VideoCommandResult(0, "ffmpeg ok", "")
       } else if (args.contains("ffprobe")) {
@@ -1671,6 +1661,12 @@ final class CozyVideoStoryboardBuildModeSpec
       } else {
         CozyVideo.VideoCommandResult(0, "ok", "")
       }
+    }
+
+    private def _command_path(cwd: Path, value: String): Path = {
+      val path = Path.of(value)
+      if (path.startsWith(Path.of("/workspace"))) cwd.resolve(Path.of("/workspace").relativize(path)).normalize()
+      else cwd.resolve(path).normalize()
     }
   }
 }

@@ -1,18 +1,17 @@
 package cozy.archive
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardCopyOption, StandardOpenOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
 
 import org.goldenport.RAISE
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
+import play.api.libs.json.{JsArray, JsObject, Json}
 
 import scala.collection.JavaConverters._
 import scala.util.Try
 
 /*
  * @since   Aug. 25, 2026
- * @version Oct. 5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 /**
@@ -32,10 +31,9 @@ private[cozy] object ComponentReleaseSourceProjection {
     dependencies: Vector[String],
     generators: Vector[String]
   )
-  final case class Entry(path: String, sha256: String)
+  final case class Entry(path: String)
   final case class Manifest(
     policy: Policy,
-    contentdigest: String,
     buildevidence: BuildEvidence,
     entries: Vector[Entry]
   )
@@ -74,8 +72,6 @@ private[cozy] object ComponentReleaseSourceProjection {
   ): Path = {
     val root = _normalized_root(projectRoot)
     val destination = _safe_output(root, output)
-    if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Release-source staging already exists and must be verified: $destination")
     val normalizedevidence = _normalize_evidence(buildEvidence)
     val selected = _selected_sources(
       root,
@@ -85,33 +81,25 @@ private[cozy] object ComponentReleaseSourceProjection {
       managedTestRoots
     )
     val admittedpolicy = policy(releasePolicy.mode, releasePolicy.license)
-    Files.createDirectories(destination)
-    try {
-      if (admittedpolicy.mode == "public") {
-        selected.foreach { source =>
-          val target = destination.resolve(source.path)
-          Option(target.getParent).foreach(Files.createDirectories(_))
-          Files.copy(source.source, target, StandardCopyOption.REPLACE_EXISTING)
-        }
-      }
-      val entries = if (admittedpolicy.mode == "public") selected.map { source =>
-        Entry(source.path, _sha256(Files.readAllBytes(destination.resolve(source.path))))
-      } else Vector.empty
-      val manifest = Manifest(admittedpolicy, _inventory_digest(entries), normalizedevidence, entries)
-      Files.write(
-        destination.resolve(MANIFEST_FILE_NAME),
-        render(manifest).getBytes(StandardCharsets.UTF_8),
-        StandardOpenOption.CREATE_NEW,
-        StandardOpenOption.WRITE
-      )
-      verify(destination, root, admittedpolicy)
-      destination
-    } catch {
-      case error: Throwable =>
-        // A failed stage must never be accidentally consumed as a partial stage.
-        _delete_tree(destination)
-        throw error
+    selected.foreach { source =>
+      if (source.source.toAbsolutePath.normalize().startsWith(destination))
+        _invalid(s"Release-source source overlaps staging output: ${source.source}")
     }
+    if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
+      _require_directory(destination, "Release-source staging directory")
+    _delete_tree(destination)
+    Files.createDirectories(destination)
+    if (admittedpolicy.mode == "public") {
+      selected.foreach { source =>
+        val target = destination.resolve(source.path)
+        Option(target.getParent).foreach(Files.createDirectories(_))
+        Files.copy(source.source, target, StandardCopyOption.REPLACE_EXISTING)
+      }
+    }
+    val entries = if (admittedpolicy.mode == "public") selected.map(source => Entry(source.path)) else Vector.empty
+    val manifest = Manifest(admittedpolicy, normalizedevidence, entries)
+    Files.write(destination.resolve(MANIFEST_FILE_NAME), render(manifest).getBytes(StandardCharsets.UTF_8))
+    destination
   }
 
   def verify(
@@ -132,7 +120,7 @@ private[cozy] object ComponentReleaseSourceProjection {
     val manifestpath = directory.resolve(MANIFEST_FILE_NAME)
     _require_regular_file(manifestpath, "Release-source manifest")
     val manifest = _parse_manifest(manifestpath)
-    _require_actual_entries(directory, manifest.entries)
+    _require_selected_entries(directory, manifest.entries)
     Verified(directory, manifestpath, render(manifest), manifest.policy, manifest.entries)
   }
 
@@ -143,12 +131,11 @@ private[cozy] object ComponentReleaseSourceProjection {
         ",\"dependencies\":" + _json_array(manifest.buildevidence.dependencies) +
         ",\"generators\":" + _json_array(manifest.buildevidence.generators) + "}"
     val entries = manifest.entries.map(entry =>
-      "{\"path\":" + _json(entry.path) + ",\"sha256\":" + _json(entry.sha256) + "}"
+      "{\"path\":" + _json(entry.path) + "}"
     ).mkString("[", ",", "]")
     "{\"schema\":" + _json(SCHEMA) +
       ",\"policy\":{\"mode\":" + _json(manifest.policy.mode) + ",\"license\":" + _json(manifest.policy.license) + "}," +
       "\"sourceIdentity\":" + _json(SOURCE_IDENTITY) +
-      ",\"contentDigest\":" + _json(manifest.contentdigest) +
       ",\"buildEvidence\":" + evidence + ",\"entries\":" + entries + "}"
   }
 
@@ -223,7 +210,6 @@ private[cozy] object ComponentReleaseSourceProjection {
     )
     if ((json \ "sourceIdentity").asOpt[String] != Some(SOURCE_IDENTITY))
       _invalid(s"Release-source manifest has unsupported source identity: $path")
-    val contentdigest = _digest_field(json, "contentDigest", path)
     val evidencejson = (json \ "buildEvidence").asOpt[JsObject].getOrElse(_invalid(s"Release-source manifest is missing build evidence: $path"))
     val evidence = BuildEvidence(
       _json_strings(evidencejson, "compileScalacOptions", path),
@@ -234,12 +220,11 @@ private[cozy] object ComponentReleaseSourceProjection {
     val entries = (json \ "entries").asOpt[JsArray].getOrElse(_invalid(s"Release-source manifest is missing entries: $path")).value.toVector.map { value =>
       val entry = value.asOpt[JsObject].getOrElse(_invalid(s"Release-source manifest contains a non-object entry: $path"))
       Entry(
-        (entry \ "path").asOpt[String].getOrElse(_invalid(s"Release-source manifest entry is missing path: $path")),
-        _digest_value(entry, "sha256", path)
+        (entry \ "path").asOpt[String].getOrElse(_invalid(s"Release-source manifest entry is missing path: $path"))
       )
     }
-    _normalize_evidence(evidence) // Validate required metadata while preserving the supplied nonhash values.
-    val manifest = Manifest(policy, contentdigest, evidence, entries)
+    _normalize_evidence(evidence) // Validate required metadata while preserving the supplied values.
+    val manifest = Manifest(policy, evidence, entries)
     _require_manifest_entries(manifest)
     manifest
   }
@@ -249,33 +234,23 @@ private[cozy] object ComponentReleaseSourceProjection {
     if (entries.map(_.path) != entries.map(_.path).sorted || entries.map(_.path).distinct.size != entries.size)
       _invalid("Release-source manifest entries are not uniquely sorted")
     entries.foreach { entry =>
-      if (!_safe_path(entry.path) || entry.path == MANIFEST_FILE_NAME || !_is_sha256(entry.sha256))
+      if (!_safe_path(entry.path) || entry.path == MANIFEST_FILE_NAME)
         _invalid(s"Release-source manifest contains an unsafe entry: ${entry.path}")
     }
     if (manifest.policy.mode == "restricted" && entries.nonEmpty)
       _invalid("Restricted release-source manifest must not declare source entries")
-    if (manifest.contentdigest != _inventory_digest(entries))
-      _invalid("Release-source content digest differs from the manifest")
   }
 
-  private def _require_actual_entries(directory: Path, declared: Vector[Entry]): Unit = {
-    val stream = Files.walk(directory)
-    try {
-      val actual = stream.iterator().asScala.toVector.collect {
-        case path if path != directory && Files.isSymbolicLink(path) =>
+  private def _require_selected_entries(directory: Path, declared: Vector[Entry]): Unit = {
+    declared.foreach { entry =>
+      val selected = entry.path.split('/').foldLeft(directory) { (parent, segment) =>
+        val path = parent.resolve(segment)
+        if (Files.isSymbolicLink(path))
           _invalid(s"Release-source staging must not contain a symbolic link: $path")
-        case path if Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && path != directory.resolve(MANIFEST_FILE_NAME) =>
-          val relative = directory.relativize(path).toString.replace('\\', '/')
-          if (!_safe_path(relative)) _invalid(s"Release-source staging contains an unsafe path: $relative")
-          Entry(relative, _sha256(Files.readAllBytes(path)))
-      }.sortBy(_.path)
-      if (actual.map(_.path) != declared.map(_.path))
-        _invalid(s"Release-source staging entries differ from the manifest: $directory")
-      actual.zip(declared).foreach { case (actualentry, declaredentry) =>
-        if (actualentry.sha256 != declaredentry.sha256)
-          _invalid(s"Release-source staged entry digest differs from the manifest: ${declaredentry.path}")
+        path
       }
-    } finally stream.close()
+      _require_regular_file(selected, "Release-source staged entry")
+    }
   }
 
   private def _json_strings(json: JsObject, key: String, path: Path): Vector[String] =
@@ -283,15 +258,6 @@ private[cozy] object ComponentReleaseSourceProjection {
       case value: play.api.libs.json.JsString => value.value
       case _ => _invalid(s"Release-source build evidence $key must contain strings: $path")
     }
-
-  private def _digest_field(json: JsValue, key: String, path: Path): String =
-    _digest_value(json.asOpt[JsObject].getOrElse(Json.obj()), key, path)
-
-  private def _digest_value(json: JsObject, key: String, path: Path): String = {
-    val value = (json \ key).asOpt[String].getOrElse(_invalid(s"Release-source manifest is missing $key: $path"))
-    if (!_is_sha256(value)) _invalid(s"Release-source manifest contains an invalid $key: $path")
-    value
-  }
 
   private def _normalize_evidence(evidence: BuildEvidence): BuildEvidence = {
     val normalized = BuildEvidence(
@@ -312,9 +278,6 @@ private[cozy] object ComponentReleaseSourceProjection {
       normalized
     }
   }
-
-  private def _inventory_digest(entries: Vector[Entry]): String =
-    _sha256(entries.map(entry => s"${entry.path}\t${entry.sha256}\n").mkString.getBytes(StandardCharsets.UTF_8))
 
   private def _safe_output(root: Path, output: Path): Path = {
     if (output == null) _invalid("Release-source staging output is required")
@@ -351,11 +314,11 @@ private[cozy] object ComponentReleaseSourceProjection {
 
   private def _existing_ancestor(path: Path): Option[Path] = {
     @annotation.tailrec
-    def go(candidate: Path): Option[Path] =
+    def _go_(candidate: Path): Option[Path] =
       if (candidate == null) None
       else if (Files.exists(candidate, LinkOption.NOFOLLOW_LINKS)) Some(candidate)
-      else go(candidate.getParent)
-    go(path)
+      else _go_(candidate.getParent)
+    _go_(path)
   }
 
   private def _safe_path(path: String): Boolean = {
@@ -385,8 +348,6 @@ private[cozy] object ComponentReleaseSourceProjection {
       normalized.matches(".*\\.(?:scala|class|jar|zip|json|yaml|yml|conf|properties)$")
   }
 
-  private def _is_sha256(value: String): Boolean = value.matches("[0-9a-f]{64}")
-
   private def _json_array(values: Vector[String]): String = values.map(_json).mkString("[", ",", "]")
 
   private def _json(value: String): String = {
@@ -404,9 +365,6 @@ private[cozy] object ComponentReleaseSourceProjection {
     }
     builder.append('"').result()
   }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _delete_tree(path: Path): Unit =
     if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {

@@ -18,7 +18,7 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
  *  version Sep. 22, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteCommandPart5Fixture {
@@ -138,7 +138,7 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
     }
 
     "plan without mutation" which {
-      "report the exact dry-run plan without creating a lock, bundle, or directory" in {
+      "report the exact dry-run plan without creating a bundle or directory" in {
         _with_part5_fixture("dry-run") { fixture =>
           Given("an existing direct registry root containing one generic bundle")
           _write_bundle(fixture.registryroot, "owner", Vector(_entry("metadata/generic.json", Json.obj("kept" -> true))))
@@ -150,9 +150,8 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
           Then("the result reports the same deterministic candidate plan")
           output shouldBe _expected_output(fixture, "dry-run")
 
-          And("the registry tree remains byte-for-byte unchanged without a lock or generated strict bundle")
+          And("the registry tree remains byte-for-byte unchanged without a generated strict bundle")
           _registry_tree(fixture.registryroot) shouldBe before
-          Files.exists(fixture.registryroot.resolve(".cozy-publication-registry.lock")) shouldBe false
           Files.exists(fixture.registryroot.resolve("article-media.json")) shouldBe false
         }
       }
@@ -171,62 +170,6 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
         }
       }
 
-      "reject publication-root replacement before real or dry-run registry output" in {
-        Vector(false, true).foreach { dryrun =>
-          _with_part5_fixture(if (dryrun) "root-replacement-dry-run" else "root-replacement-real") { fixture =>
-            Given("a registered site plan whose publication root is replaced during final evidence revalidation")
-            val error = _failure(CozyArticleMediaSiteCommand.execute(
-              _config(fixture, dryrun = dryrun),
-              () => {
-                _delete(fixture.registryroot)
-                Files.createDirectory(fixture.registryroot)
-              }
-            ))
-
-            Then("root replacement aborts before a strict bundle is created")
-            error.getMessage should include("root evidence")
-            Files.exists(fixture.registryroot.resolve("article-media.json")) shouldBe false
-          }
-        }
-      }
-
-      "reject publication-root deletion after admission for real and dry-run paths" in {
-        Vector(false, true).foreach { dryrun =>
-          _with_part5_fixture(if (dryrun) "root-deletion-dry-run" else "root-deletion-real") { fixture =>
-            Given("an admitted site plan whose publication root is deleted during final revalidation")
-            val error = _failure(CozyArticleMediaSiteCommand.execute(
-              _config(fixture, dryrun = dryrun),
-              () => _delete(fixture.registryroot)
-            ))
-
-            Then("deletion aborts without recreating the root or replacing a strict bundle")
-            error.getMessage should include("Configured publication root")
-            Files.exists(fixture.registryroot) shouldBe false
-          }
-        }
-      }
-
-      "reject publication-root symlink substitution after admission for real and dry-run paths" in {
-        Vector(false, true).foreach { dryrun =>
-          _with_part5_fixture(if (dryrun) "root-symlink-dry-run" else "root-symlink-real") { fixture =>
-            Given("an admitted site plan whose publication root is replaced by a symlink during final revalidation")
-            val outside = fixture.root.resolve("outside-registry")
-            Files.createDirectories(outside)
-            val error = _failure(CozyArticleMediaSiteCommand.execute(
-              _config(fixture, dryrun = dryrun),
-              () => {
-                _delete(fixture.registryroot)
-                Files.createSymbolicLink(fixture.registryroot, outside)
-              }
-            ))
-
-            Then("symlink substitution aborts without following or replacing through the alias")
-            error.getMessage should include("Configured publication root")
-            Files.isSymbolicLink(fixture.registryroot) shouldBe true
-            Files.exists(outside.resolve("article-media.json")) shouldBe false
-          }
-        }
-      }
     }
 
     "reject invalid registration plans before mutation" which {
@@ -305,60 +248,6 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
         outcomes.foreach { outcome =>
           outcome._1.getMessage should not be empty
           outcome._2 shouldBe outcome._3
-        }
-      }
-    }
-
-    "revalidate complete admitted evidence" which {
-      "reject each descriptor, selected mapping, infographic, and production drift before registry replacement" in {
-        Given("fresh Part 5 plans whose drift is applied only by the deterministic final-revalidation seam")
-        val scenarios = Vector[(String, SiteCommandPart5Fixture.Data => Unit)](
-          "descriptor declaration" -> { fixture => _write(fixture.descriptor, _part5_yaml() + "# descriptor drift\n") },
-          "selected publication mapping" -> { fixture =>
-            _write(fixture.profileroot.resolve("images/rebound-summary-ja.png"), "Part 5 rebound ja")
-            _write(fixture.descriptor, _part5_yaml().replace("site: images/summary-ja.png", "site: images/rebound-summary-ja.png"))
-          },
-          "project configuration" -> { fixture =>
-            _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml(sitekind = "other"))
-          },
-          "infographic destination bytes" -> { fixture =>
-            _write(fixture.profileroot.resolve("images/summary-ja.png"), "Part 5 changed summary")
-          },
-          "infographic destination identity" -> { fixture =>
-            val destination = fixture.profileroot.resolve("images/summary-ja.png")
-            val replacement = fixture.root.resolve("replacement-summary-ja.png")
-            _write(replacement, Files.readString(destination, StandardCharsets.UTF_8))
-            Files.delete(destination)
-            Files.createSymbolicLink(destination, replacement)
-          },
-          "video production content" -> { fixture =>
-            _write(fixture.root.resolve("video/ja/production.json"), _part5_production_json(extra = "changed"))
-          },
-          "video production status" -> { fixture =>
-            _write(fixture.root.resolve("video/ja/production.json"), _part5_production_json(youtubestatus = "pending"))
-          },
-          "video production URL" -> { fixture =>
-            _write(fixture.root.resolve("video/ja/production.json"), _part5_production_json(url = "https://youtu.be/ja_Changed-3"))
-          }
-        )
-
-        When("each frozen plan is revalidated immediately before its strict replacement")
-        val outcomes = scenarios.map { case (name, drift) =>
-          _with_part5_fixture("drift-" + name.replace(" ", "-")) { fixture =>
-            val before = _registry_bundles(fixture.registryroot)
-            val error = _failure(CozyArticleMediaSiteCommand.execute(_config(fixture), () => drift(fixture)))
-            (error, _registry_bundles(fixture.registryroot), before,
-              Files.exists(fixture.registryroot.resolve("article-media.json")),
-              Files.exists(fixture.registryroot.resolve(".cozy-publication-registry.lock")))
-          }
-        }
-
-        Then("every evidence drift aborts before command-generated strict metadata or bundle mutation while the normal registry transaction lock may remain")
-        outcomes.foreach { outcome =>
-          outcome._1.getMessage should not be empty
-          outcome._2 shouldBe outcome._3
-          outcome._4 shouldBe false
-          outcome._5 shouldBe true
         }
       }
     }
@@ -446,25 +335,6 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
           error.getMessage should include("producer prebuilt")
           error.getMessage should include(s"cozy media build ${fixture.descriptor} --target part-5-article-pdf-en")
           _registry_tree(fixture.registryroot) shouldBe before
-        }
-        _with_part5_pdf_fixture("pdf-revalidation-drift") { fixture =>
-          Given("accepted PDFs whose Japanese article output changes at final revalidation")
-          val before = _registry_bundles(fixture.registryroot)
-          val pdf = fixture.root.resolve("target/article-ja.pdf")
-
-          When("the site command evaluates the changed PDF output during revalidation")
-          val error = _failure(CozyArticleMediaSiteCommand.execute(
-            _config(fixture),
-            () => _write(pdf, "%PDF-1.7\nchanged")
-          ))
-
-          Then("ordinary receipt currentness identifies the Japanese output and preserves every registry bundle")
-          error.getMessage should include("Media receipt currentness")
-          error.getMessage should include("part-5-article-pdf-ja")
-          error.getMessage should include(pdf.toString)
-          error.getMessage should include("producer prebuilt")
-          error.getMessage should include(s"cozy media build ${fixture.descriptor} --target part-5-article-pdf-ja")
-          _registry_bundles(fixture.registryroot) shouldBe before
         }
         _with_part5_fixture(
           "pdf-command-role-incompatible",
@@ -858,11 +728,10 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
       articleIdentity = identity,
       locale = locale,
       role = role,
-      artifact = CozyArticleMediaIntegrity.Artifact("part-5", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("part-5", "1.0.0")),
       publicPath = new URI("/repository/video/part-5.mp4"),
       repositoryPath = "video/part-5.mp4",
       mediaType = "video/mp4",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/part-5/manifest.json", "metadata/artifacts/repository/part-5.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))
@@ -894,9 +763,6 @@ final class CozyArticleMediaSiteCommandSpec extends AnyWordSpec with Matchers wi
     }
     finally stream.close()
   }
-
-  private def _registry_bundles(root: Path): Vector[(String, Vector[Byte])] =
-    _registry_tree(root).filter(_._1.endsWith(".json"))
 
   private def _failure(value: => Any): RuntimeException =
     intercept[RuntimeException](value)

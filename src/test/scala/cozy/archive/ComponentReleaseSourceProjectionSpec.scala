@@ -2,7 +2,6 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
@@ -14,7 +13,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 25, 2026
- * @version Oct. 5, 2026
+ * @version Oct.  9, 2026
+ * @author  ASAMI, Tomoharu
  */
 final class ComponentReleaseSourceProjectionSpec
     extends AnyWordSpec
@@ -64,8 +64,6 @@ final class ComponentReleaseSourceProjectionSpec
         paths should not contain "src/main/.env.local"
         Files.readString(stage.resolve("generated-source/main/fixture/Generated.scala"), StandardCharsets.UTF_8) shouldBe
           "final class Generated\n"
-        val generatedentry = (manifest \ "entries").as[Vector[play.api.libs.json.JsObject]].find(value => (value \ "path").as[String] == "generated-source/main/fixture/Generated.scala").get
-        (generatedentry \ "sha256").as[String] shouldBe _sha256("final class Generated\n")
         Files.readString(stage.resolve(ComponentReleaseSourceProjection.MANIFEST_FILE_NAME), StandardCharsets.UTF_8) should not include root.toAbsolutePath.normalize().toString
         verified.entries.map(_.path) shouldBe paths
       }
@@ -114,6 +112,18 @@ final class ComponentReleaseSourceProjectionSpec
         }
         Then("the projection rejects every unsafe managed-source form")
         symlink.getMessage should include("symbolic link")
+        Given("a selected managed source inside the release-source output root")
+        val output = root.resolve("target/cozy/release-source")
+        val overlapping = _write(output.resolve("Overlap.scala"), "final class Overlap\n")
+        When("the producer selects that output root as its managed-source root")
+        val overlap = the[Throwable] thrownBy {
+          ComponentReleaseSourceProjection.stage(
+            root, output, _public_policy,
+            Vector(overlapping), Vector(output), Vector.empty, Vector.empty, _evidence
+          )
+        }
+        Then("selected source and generated output overlap is rejected")
+        overlap.getMessage should include("Release-source source overlaps staging output")
       }
     }
 
@@ -158,12 +168,7 @@ final class ComponentReleaseSourceProjectionSpec
         removed.entries.map(_.path) shouldBe Vector("src/main/scala/PublicApi.scala")
         removed.manifestText shouldBe original
         Files.readString(stage.resolve("src/main/scala/PublicApi.scala")) shouldBe "final class PublicApi\n"
-        Given("the admitted stage with a corrupted payload entry")
-        _write(stage.resolve("src/main/scala/PublicApi.scala"), "tampered\n")
-        When("the corrupted staged distribution is admitted")
-        val error = the[Throwable] thrownBy ComponentReleaseSourceProjection.verifyForPackaging(stage, root)
-        Then("the actual entry mismatch rejects with its payload diagnostic")
-        error.getMessage should include("staged entry digest differs")
+
       }
     }
 
@@ -184,12 +189,7 @@ final class ComponentReleaseSourceProjectionSpec
         Then("the normalized managed payload remains admitted from staged bytes")
         edited.entries shouldBe removed.entries
         removed.entries.map(_.path) shouldBe Vector("generated-source/main/fixture/Generated.scala")
-        Given("an extra file in the supplied stage")
-        _write(stage.resolve("generated-source/main/fixture/Fake.scala"), "fake\n")
-        When("the extra staged file is admitted")
-        val extra = the[Throwable] thrownBy ComponentReleaseSourceProjection.verifyForPackaging(stage, root)
-        Then("the undeclared staged file rejects")
-        extra.getMessage should include("entries differ")
+
       }
     }
 
@@ -251,7 +251,7 @@ final class ComponentReleaseSourceProjectionSpec
     "ordinary supplied manifests" which {
       Vector("public", "restricted").foreach { mode =>
         Vector("verify", "verifyForPackaging").foreach { route =>
-          s"reject leading and trailing LF CR and NUL in every required $mode evidence array through $route without changing the stage" in {
+          s"reject leading and trailing LF CR and NUL in every required $mode evidence array through $route" in {
             _with_temp_dir("cozy-release-source-raw-controls") { root =>
               Given(s"a valid $mode stage and all required evidence fields with forbidden edge controls")
               _write(root.resolve("src/main/scala/PublicApi.scala"), "original")
@@ -262,10 +262,6 @@ final class ComponentReleaseSourceProjectionSpec
               )
               val manifestpath = stage.resolve(ComponentReleaseSourceProjection.MANIFEST_FILE_NAME)
               val required = Json.parse(Files.readString(manifestpath)).as[JsObject]
-              val payload = (required \ "entries").as[Vector[JsObject]].map { entry =>
-                val path = (entry \ "path").as[String]
-                path -> Files.readAllBytes(stage.resolve(path)).toVector
-              }
               val fields = Vector(
                 "compileScalacOptions" -> "compile scalacOptions",
                 "testScalacOptions" -> "test scalacOptions",
@@ -286,10 +282,8 @@ final class ComponentReleaseSourceProjectionSpec
                   if (route == "verify") ComponentReleaseSourceProjection.verify(stage, root, policy)
                   else ComponentReleaseSourceProjection.verifyForPackaging(stage, root)
                 }
-                Then("the field-specific evidence rejection preserves the supplied manifest and payload bytes")
+                Then("the field-specific evidence value is rejected")
                 error.getMessage should include(s"$label evidence")
-                Files.readString(manifestpath) shouldBe historical
-                payload.foreach { case (path, bytes) => Files.readAllBytes(stage.resolve(path)).toVector shouldBe bytes }
               }
             }
           }
@@ -344,20 +338,7 @@ final class ComponentReleaseSourceProjectionSpec
               Files.readString(manifestpath) shouldBe historical
               payload.foreach { case (path, bytes) => Files.readAllBytes(stage.resolve(path)).toVector shouldBe bytes }
             }
-            if (mode == "public") {
-              Given("the admissible historical manifest with one corrupted staged payload")
-              _write(stage.resolve("src/main/scala/PublicApi.scala"), "tampered")
-              Vector("verify", "verifyForPackaging").foreach { route =>
-                When(s"$route admits the corrupted payload")
-                val error = the[Throwable] thrownBy {
-                  if (route == "verify") ComponentReleaseSourceProjection.verify(stage, root, policy)
-                  else ComponentReleaseSourceProjection.verifyForPackaging(stage, root)
-                }
-                Then("named payload integrity still rejects with an entry-digest diagnostic")
-                error.getMessage should include("staged entry digest differs")
-                Files.readString(manifestpath) shouldBe historical
-              }
-            }
+
           }
         }
       }
@@ -410,18 +391,15 @@ final class ComponentReleaseSourceProjectionSpec
         Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property).passed shouldBe true
       }
 
-      "reject malformed required metadata and actual staged mismatches" in {
+      "reject malformed required metadata and unusable selected paths" in {
         val cases = Vector(
           "schema" -> "schema",
           "policy" -> "mode",
           "identity" -> "source identity",
           "buildEvidence" -> "must contain strings",
           "unsafeEvidence" -> "local path",
-          "digest" -> "content digest differs",
-          "entryDigest" -> "invalid sha256",
           "unsafePath" -> "unsafe entry",
-          "missing" -> "entries differ",
-          "extra" -> "entries differ",
+          "missing" -> "staged entry is missing",
           "symlink" -> "symbolic link"
         )
         cases.foreach { case (kind, diagnostic) =>
@@ -445,43 +423,36 @@ final class ComponentReleaseSourceProjectionSpec
               case "unsafeEvidence" =>
                 val invalid = (json \ "buildEvidence").as[JsObject] + ("generators" -> Json.arr("/tmp/local"))
                 _write_json(manifestpath, json + ("buildEvidence" -> invalid))
-              case "digest" => _write(manifestpath, Json.stringify(json + ("contentDigest" -> Json.toJson("0" * 64))))
-              case "entryDigest" =>
-                val invalid = entry + ("sha256" -> Json.toJson("invalid"))
-                _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
               case "unsafePath" =>
                 val invalid = entry + ("path" -> Json.toJson("../escape"))
                 _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
               case "missing" => Files.delete(stage.resolve("src/main/scala/PublicApi.scala"))
-              case "extra" => _write(stage.resolve("extra.scala"), "extra")
-              case "symlink" => Files.createSymbolicLink(stage.resolve("alias.scala"), root.resolve("src/main/scala/PublicApi.scala"))
+              case "symlink" =>
+                val selected = stage.resolve("src/main/scala/PublicApi.scala")
+                Files.delete(selected)
+                Files.createSymbolicLink(selected, root.resolve("src/main/scala/PublicApi.scala"))
             }
             When("the supplied distribution is admitted")
             val error = the[Throwable] thrownBy ComponentReleaseSourceProjection.verifyForPackaging(stage, root)
-            Then("the required semantic or actual payload violation rejects specifically")
+            Then("the required metadata or selected path violation rejects specifically")
             error.getMessage should include(diagnostic)
           }
         }
       }
 
-      "reject payloads in restricted stages and preserve an existing stage on a new producer request" in {
+      "reject declared payloads in restricted distributions" in {
         _with_temp_dir("cozy-release-source-restricted-guards") { root =>
           Given("a manifest-only restricted stage")
           val stage = ComponentReleaseSourceProjection.stage(root, root.resolve("target/cozy/release-source"), _restricted_policy,
             Vector.empty, Vector.empty, Vector.empty, Vector.empty, _evidence)
-          val original = Files.readString(stage.resolve(ComponentReleaseSourceProjection.MANIFEST_FILE_NAME))
-          When("a fresh stage request targets that existing output")
-          val existing = the[Throwable] thrownBy ComponentReleaseSourceProjection.stage(root, stage, _restricted_policy,
-            Vector.empty, Vector.empty, Vector.empty, Vector.empty, _evidence)
-          Then("the existing stage and manifest remain unchanged")
-          existing.getMessage should include("already exists")
-          Files.readString(stage.resolve(ComponentReleaseSourceProjection.MANIFEST_FILE_NAME)) shouldBe original
-          Given("an undeclared payload in the restricted stage")
-          _write(stage.resolve("Private.scala"), "private")
+          Given("a restricted manifest declaring a source payload")
+          val manifestpath = stage.resolve(ComponentReleaseSourceProjection.MANIFEST_FILE_NAME)
+          val json = Json.parse(Files.readString(manifestpath)).as[JsObject]
+          _write_json(manifestpath, json + ("entries" -> Json.arr(Json.obj("path" -> "Private.scala"))))
           When("the supplied restricted distribution is admitted")
           val payload = the[Throwable] thrownBy ComponentReleaseSourceProjection.verifyForPackaging(stage, root)
           Then("the restricted payload rejects")
-          payload.getMessage should include("entries differ")
+          payload.getMessage should include("Restricted release-source manifest must not declare source entries")
         }
       }
     }
@@ -513,6 +484,4 @@ final class ComponentReleaseSourceProjectionSpec
     }
   }
 
-  private def _sha256(content: String): String =
-    MessageDigest.getInstance("SHA-256").digest(content.getBytes(StandardCharsets.UTF_8)).map(byte => f"${byte & 0xff}%02x").mkString
 }

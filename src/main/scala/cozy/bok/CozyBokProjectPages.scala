@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -300,7 +300,6 @@ private[cozy] trait CozyBokProjectPages {
         config.publication.publicationPath(config.project),
         config.publication.artifactBasePath(config.project),
         None,
-        force = false,
         config.project,
         bokconfig,
         Some(config.publication.repositoryPath(config.project))

@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -237,7 +237,7 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         When("the exact closed document render grammar is executed")
         val report = _execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--kind", "document", "--save", output.toString))
 
-        Then("the atomically requested HTML equals the in-memory deterministic projection")
+        Then("the directly written HTML equals the in-memory deterministic projection")
         Files.readString(output, StandardCharsets.UTF_8) shouldBe expected.html
         report should include("Cozy Document Description Render")
         report should include("core: application-modeling")
@@ -256,7 +256,7 @@ final class CozyDocumentDescriptionProjectionSpec extends AnyWordSpec with Match
         When("the exact closed summary render grammar is executed")
         val report = _execute(List("document-project", "description", "render", "--core", fixture._1.toString, "--document", fixture._2.toString, "--summary", fixture._3.toString, "--kind", "summary", "--save", output.toString))
 
-        Then("the atomically requested HTML equals the in-memory deterministic Summary projection")
+        Then("the directly written HTML equals the in-memory deterministic Summary projection")
         Files.readString(output, StandardCharsets.UTF_8) shouldBe expected.html
         report should include("Cozy Summary Description Render")
         report should include("core: application-modeling")

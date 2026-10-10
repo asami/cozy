@@ -6,7 +6,7 @@ import com.fasterxml.jackson.core.{JsonFactory, JsonParseException, JsonParser =
 import io.circe.{Json, JsonObject}
 import io.circe.parser.parse
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path}
 import org.goldenport.RAISE
 import org.goldenport.cli.spec
 import scala.collection.JavaConverters._
@@ -15,8 +15,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- *  version Oct.  1, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaCrossReview {
@@ -71,7 +70,7 @@ private[cozy] object CozyMediaCrossReview {
     val output = _safe_output(expected.descriptorroot, config.save, "--save", createparents = true)
     if (expected.protectedpaths.contains(output))
       _invalid("Cross-media Review output must not replace an input or evidence file")
-    _write_atomic(output, expected.value)
+    _write(output, expected.value)
     s"Cozy Media Cross Review Build\nstatus: valid\noutput: ${_relative(expected.descriptorroot, output)}"
   }
 
@@ -111,8 +110,7 @@ private[cozy] object CozyMediaCrossReview {
     val pages = evidence.pages.map(page => page.id -> page).toMap
     visualpages.foreach { visual =>
       val presentationpage = pages.getOrElse(visual.pageid, _invalid(s"Storyboard VisualPage is absent from presentation: ${visual.pageid}"))
-      if (visual.assets.map(asset => asset.id -> asset.mediaType) != presentationpage.assets.map(asset => asset.id -> asset.mediaType) ||
-          !visual.assets.zip(presentationpage.assets).forall { case (left, right) => java.util.Arrays.equals(Files.readAllBytes(left.path), Files.readAllBytes(right.path)) })
+      if (visual.assets.map(asset => asset.id -> asset.mediaType) != presentationpage.assets.map(asset => asset.id -> asset.mediaType))
         _invalid(s"Storyboard VisualPage assets differ from presentation: ${visual.pageid}")
     }
     val value = Json.obj(
@@ -273,7 +271,6 @@ private[cozy] object CozyMediaCrossReview {
     _assert_no_symlink_components(canonicalroot, path.getParent, label)
     if (createparents) {
       try Files.createDirectories(path.getParent) catch { case NonFatal(error) => _invalid(s"$label parent cannot be created: ${error.getMessage}") }
-      _assert_no_symlink_components(canonicalroot, path.getParent, label)
     }
     if (!createparents && (!Files.exists(path, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)))
       _invalid(s"$label must be an existing direct regular non-symlink file")
@@ -293,19 +290,12 @@ private[cozy] object CozyMediaCrossReview {
     }
   }
 
-  private def _write_atomic(path: Path, value: Json): Unit = {
-    val parent = path.getParent
-    val temporary = Files.createTempFile(parent, ".cozy-cross-review-", ".json")
+  private def _write(path: Path, value: Json): Unit = {
     try {
-      Files.writeString(temporary, value.noSpaces + "\n", StandardCharsets.UTF_8)
-      Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+      Files.writeString(path, value.noSpaces + "\n", StandardCharsets.UTF_8)
     } catch {
       case NonFatal(error) => _invalid(s"Cross-media Review cannot be written: ${error.getMessage}")
-    } finally {
-      Files.deleteIfExists(temporary)
     }
-    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-      _invalid("Cross-media Review output is not a direct regular file")
   }
 
   private def _read_json(path: Path, label: String): Json = {

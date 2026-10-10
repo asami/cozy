@@ -8,6 +8,7 @@ import io.circe.parser.parse
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
+import java.time.Instant
 import java.util.zip.ZipFile
 import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
@@ -19,7 +20,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 25, 2026
  *  version Sep. 30, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPresentation {
@@ -399,9 +400,7 @@ private[cozy] object CozyMediaPresentation {
 
   def reviewSnapshot(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): CozyMediaReviewState.Snapshot = {
     _verify_review_manifest(plan, resolved)
-    val configuration = _configuration(resolved)
-    val review = _path(plan, configuration.reviewManifest, "Presentation review manifest")
-    CozyMediaReviewState.Snapshot(Files.getLastModifiedTime(review).toInstant.toString)
+    CozyMediaReviewState.Snapshot(Instant.now().toString)
   }
 
   private def _artifacts(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource, requirecurrentassets: Boolean): Vector[CozyMediaReceipt.Artifact] = {
@@ -577,9 +576,8 @@ private[cozy] object CozyMediaPresentation {
           if (relation._1 != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image") _invalid("Presentation PPTX slide relation is not an image")
           _package_target("ppt/slides", relation._2, "ppt/media/")
         }
-        val expectedbytes = page.assets.map(asset => Files.readAllBytes(CozyVisualPage._safe_direct_file(sourceroot, asset.path, s"asset.${asset.id}.path")))
-        val actualbytes = images.map(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image") else zip.getInputStream(zip.getEntry(image)).readAllBytes())
-        _verify_media(expectedbytes, actualbytes, page.id)
+        page.assets.foreach(asset => CozyVisualPage._safe_direct_file(sourceroot, asset.path, s"asset.${asset.id}.path"))
+        images.foreach(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image"))
         images
       }
       val packagedmedia = entries.filter(_.getName.startsWith("ppt/media/")).map(_.getName).toSet
@@ -626,24 +624,13 @@ private[cozy] object CozyMediaPresentation {
           if (relation._1 != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image") _invalid("Presentation PPTX slide relation is not an image")
           _package_target("ppt/slides", relation._2, "ppt/media/")
         }
-        val expectedbytes = slide.elements.flatMap(_.asset).distinct.sorted.map(id => Files.readAllBytes(_asset_path(plan, id)))
-        val actualbytes = images.map(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image") else zip.getInputStream(zip.getEntry(image)).readAllBytes())
-        _verify_media(expectedbytes, actualbytes, slide.id)
+        slide.elements.flatMap(_.asset).distinct.sorted.foreach(id => _asset_path(plan, id))
+        images.foreach(image => if (!names.contains(image)) _invalid(s"Presentation PPTX image is missing: $image"))
         images
       }
       val packagedmedia = entries.filter(_.getName.startsWith("ppt/media/")).map(_.getName).toSet
       if (referencedmedia.toSet != packagedmedia) _invalid("Presentation PPTX has orphan media entries")
     } finally zip.close()
-  }
-
-  private def _verify_media(expected: Vector[Array[Byte]], actual: Vector[Array[Byte]], label: String): Unit = {
-    if (actual.size != expected.size) _invalid(s"Presentation PPTX slide media differs: $label")
-    var remaining = expected
-    actual.foreach { bytes =>
-      val index = remaining.indexWhere(value => java.util.Arrays.equals(value, bytes))
-      if (index < 0) _invalid(s"Presentation PPTX slide media differs: $label")
-      remaining = remaining.patch(index, Vector.empty, 1)
-    }
   }
 
   private def _verify_review_manifest(plan: CozyMedia.Plan, resolved: CozyMedia.ResolvedResource): Unit = {
@@ -828,10 +815,10 @@ private[cozy] object CozyMediaPresentation {
     rows.toMap
   }
 
-  private def _package_target(base: String, target: String, requiredPrefix: String): String = {
+  private def _package_target(base: String, target: String, requiredprefix: String): String = {
     if (target.isEmpty || target.startsWith("/") || target.contains('\\')) _invalid("Presentation relationship target is unsafe")
     val resolved = java.nio.file.Paths.get(base).resolve(target).normalize().toString.replace('\\', '/')
-    if (!resolved.startsWith(requiredPrefix) || resolved.split('/').contains("..")) _invalid("Presentation relationship target escapes its permitted package area")
+    if (!resolved.startsWith(requiredprefix) || resolved.split('/').contains("..")) _invalid("Presentation relationship target escapes its permitted package area")
     resolved
   }
 

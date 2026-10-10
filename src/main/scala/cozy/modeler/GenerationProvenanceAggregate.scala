@@ -1,7 +1,7 @@
 package cozy.modeler
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardCopyOption}
+import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
@@ -10,7 +10,7 @@ import GenerationProvenance.{Artifact, Diagnostic, DiagnosticCode, Inputs}
 
 /*
  * @since   Sep. 16, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object GenerationProvenanceAggregate {
@@ -184,7 +184,7 @@ private[cozy] object GenerationProvenanceAggregate {
       )))
     val parsed = GenerationProvenance._read_v1_for_aggregate(provenance).fold(_raise, identity)
     val source = projectroot.resolve(parsed.inputs.sourceIdentity).normalize()
-    GenerationProvenance.validate(provenance, outputroot, source, parsed.inputs).
+    GenerationProvenance._validate_v1_manifest(parsed, outputroot, source, parsed.inputs, provenance, Vector.empty).
       fold(_raise, identity)
   }
 
@@ -217,7 +217,7 @@ private[cozy] object GenerationProvenanceAggregate {
     manifest: AggregateManifest,
     excludedoutputroots: Vector[Path]
   ): AggregateManifest = {
-    _validate_aggregate(
+    val selected = _validate_aggregate(
       manifest,
       projectroot,
       Some(manifest.inputs.cncfTargetVersion),
@@ -228,28 +228,8 @@ private[cozy] object GenerationProvenanceAggregate {
     val path = projectroot.resolve(GenerationProvenance.METADATA_PATH)
     val directory = path.getParent
     Files.createDirectories(directory)
-    val temporary = Files.createTempFile(directory, ".generation-provenance-", ".json")
-    try {
-      Files.writeString(temporary, manifest.toJsonString, StandardCharsets.UTF_8)
-      val serialized = _read_aggregate(temporary).fold(_raise, identity)
-      _validate_aggregate(
-        serialized,
-        projectroot,
-        Some(manifest.inputs.cncfTargetVersion),
-        Some(manifest.inputs.cozyGeneratorVersion),
-        temporary,
-        excludedoutputroots
-      ).fold(_raise, identity)
-      Files.move(
-        temporary,
-        path,
-        StandardCopyOption.ATOMIC_MOVE,
-        StandardCopyOption.REPLACE_EXISTING
-      )
-      serialized
-    } finally {
-      Files.deleteIfExists(temporary)
-    }
+    Files.writeString(path, selected.toJsonString, StandardCharsets.UTF_8)
+    selected
   }
 
   private def _validate_aggregate(
@@ -502,36 +482,6 @@ private[cozy] object GenerationProvenanceAggregate {
     description: String
   ): Vector[Diagnostic] =
     GenerationProvenance._artifact_diagnostics(artifacts, s"$source:$description")
-
-  private def _read_aggregate(
-    path: Path
-  ): Either[Vector[Diagnostic], AggregateManifest] = {
-    val provenance = path.toAbsolutePath.normalize()
-    if (!Files.isRegularFile(provenance) || !Files.isReadable(provenance))
-      Left(Vector(_diagnostic(
-        DiagnosticCode.ProvenanceMissing,
-        provenance.toString,
-        "a readable V2 generation provenance document",
-        "missing",
-        "Aggregate generation provenance does not exist.",
-        "Regenerate the aggregate output with the selected Cozy generator."
-      )))
-    else
-      try {
-        val json = Json.parse(Files.readString(provenance, StandardCharsets.UTF_8))
-        _parse_aggregate_manifest(json, provenance)
-      } catch {
-        case NonFatal(exception) =>
-          Left(Vector(_diagnostic(
-            DiagnosticCode.ProvenanceMalformed,
-            provenance.toString,
-            GenerationProvenance.AGGREGATE_SCHEMA_VERSION,
-            Option(exception.getMessage).getOrElse(exception.getClass.getName),
-            "Generation provenance cannot be parsed.",
-            "Restore or regenerate the aggregate provenance document."
-          )))
-      }
-  }
 
   private def _parse_aggregate_manifest(
     json: JsValue,

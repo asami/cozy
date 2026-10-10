@@ -1,13 +1,13 @@
 package cozy.document
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentDescriptionCommand {
@@ -102,21 +102,10 @@ private[cozy] object CozyDocumentDescriptionCommand {
   }
 
   private def _publish(destination: Path, content: String): Unit = {
-    var temporary: Option[Path] = None
     try {
-      if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS))) _fail("DESCRIPTION_PATH", "$.save", "output destination became unsafe")
-      val temporaryfile = Files.createTempFile(destination.getParent, s".${destination.getFileName}-", ".tmp")
-      temporary = Some(temporaryfile)
-      Files.writeString(temporaryfile, content, StandardCharsets.UTF_8)
-      if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS))) _fail("DESCRIPTION_PATH", "$.save", "output destination became unsafe")
-      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      temporary = None
+      Files.writeString(destination, content, StandardCharsets.UTF_8)
     } catch {
-      case fault: CozyDocumentDescription.DescriptionFault => throw fault
-      case _: AtomicMoveNotSupportedException => _fail("DESCRIPTION_PATH", "$.save", "output requires an atomic move")
-      case NonFatal(_) => _fail("DESCRIPTION_PATH", "$.save", "output cannot be published atomically")
-    } finally {
-      temporary.foreach(path => try Files.deleteIfExists(path) catch { case NonFatal(_) => () })
+      case NonFatal(_) => _fail("DESCRIPTION_PATH", "$.save", "output cannot be written")
     }
   }
 

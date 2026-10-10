@@ -13,7 +13,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 11, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -332,7 +332,7 @@ final class CozyDocumentLogicTreeSpec extends AnyWordSpec with Matchers with Giv
     }
 
     "bounded command form" which {
-      "accept exactly the no-alias render grammar and atomically write only its explicit safe HTML output" in {
+      "accept exactly the no-alias render grammar and directly write only its explicit safe HTML output" in {
         _with_temp_dir("cozy-document-logic-tree-command") { root =>
           Given("direct Core and Format inputs, an existing direct output parent, and no Document Project state")
           val fixture = _fixture(root)

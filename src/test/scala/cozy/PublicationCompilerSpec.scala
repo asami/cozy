@@ -16,7 +16,7 @@ import play.api.libs.json.Json
  *  version Jun. 10, 2026
  *  version Jul. 15, 2026
  *  version Aug. 14, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class PublicationCompilerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -668,8 +668,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     val snapshot = repository.resolve("maven/org/example/textus-tutorial_3/0.2.0-SNAPSHOT/textus-tutorial_3-0.2.0-SNAPSHOT.jar")
     Files.createDirectories(artifact.getParent)
     Files.writeString(artifact, "binary-010", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".sha1"), "abc123  textus-tutorial_3-0.1.0.jar\n", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".md5"), "def456\n", StandardCharsets.UTF_8)
     Files.writeString(sources, "sources-010", StandardCharsets.UTF_8)
     Files.createDirectories(snapshot.getParent)
     Files.writeString(snapshot, "binary-snapshot", StandardCharsets.UTF_8)
@@ -702,9 +700,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     paths.exists(_.contains("0.2.0-SNAPSHOT")) shouldBe true
     val mainjar = files.find(x => (x \ "name").as[String] == "textus-tutorial_3-0.1.0.jar").get
     (mainjar \ "publicPath").as[String] shouldBe "repository/maven/org/example/textus-tutorial_3/0.1.0/textus-tutorial_3-0.1.0.jar"
-    (mainjar \ "sha1").as[String] shouldBe "abc123"
-    (mainjar \ "md5").as[String] shouldBe "def456"
-    (mainjar \ "sha256").as[String].nonEmpty shouldBe true
     val releasejson = _entry(out, "metadata/releases/maven-repository.json")
     (releasejson \ "release" \ "latest").as[String] shouldBe "0.1.0"
     val releaseversions = (releasejson \ "release" \ "versions").as[Vector[play.api.libs.json.JsObject]].map(x => (x \ "version").as[String])
@@ -815,7 +810,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     } finally {
       zip.close()
     }
-    val firstsha = _sha256(collectionzippath)
     Given("the generated sample archives before a repeated distribution")
       When("distribute-samples repeats the archive operation")
     Cozy.main(Array(
@@ -825,8 +819,9 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
       "--name", "textus-tutorial",
       "--version", "0.1.0"
     ))
-      Then("the repeated distribution preserves the archive bytes")
-    _sha256(collectionzippath) shouldBe firstsha
+      Then("the sample and collection archives are available after repeated distribution")
+    Files.isRegularFile(zippath) shouldBe true
+    Files.isRegularFile(collectionzippath) shouldBe true
   }
     "distribute-samples dry-run prints planned archives without writing files" in {
       Given("a sample collection fixture for a dry-run distribution")
@@ -919,8 +914,6 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
     val unrelatedzip = warehouse.resolve("download/samples/other-publication/01-hello/9.9.9/01-hello-9.9.9.zip")
     Files.createDirectories(artifact.getParent)
     Files.writeString(artifact, "binary-010", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".sha1"), "abc123  textus-tutorial_3-0.1.0.jar\n", StandardCharsets.UTF_8)
-    Files.writeString(Paths.get(artifact.toString + ".md5"), "def456\n", StandardCharsets.UTF_8)
     Files.writeString(sources, "sources-010", StandardCharsets.UTF_8)
     Files.createDirectories(snapshot.getParent)
     Files.writeString(snapshot, "binary-snapshot", StandardCharsets.UTF_8)
@@ -1156,17 +1149,4 @@ final class PublicationCompilerSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-  private def _sha256(path: Path): String = {
-    val md = java.security.MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      Iterator.continually(in.read(buffer)).takeWhile(_ != -1).foreach { n =>
-        md.update(buffer, 0, n)
-      }
-    } finally {
-      in.close()
-    }
-    md.digest().map("%02x".format(_)).mkString
-  }
 }

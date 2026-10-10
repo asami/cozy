@@ -248,8 +248,10 @@ Summary emphasis, Structure/Flow distinction, escaping, and responsive/print
 styling remain projection obligations.
 
 The CLI report retains title, kind, logical Core/Document/Summary IDs, and
-output path, but no identity line. Safe output admission, pre-move recheck,
-same-directory temporary cleanup, and atomic replacement remain fail-closed.
+output path, but no identity line. Initial safe output admission remains required. The command then directly
+writes UTF-8 HTML and reports ordinary `DESCRIPTION_PATH` write failures.
+Semantic and path rejection precede output writing; an I/O failure may leave
+partial output with no staging, rollback, or prior-output preservation promise.
 
 ## 8. Executable evidence and non-goals
 

@@ -11,11 +11,11 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  8, 2026
  */
 object CozyVideoAssemblyAudioSpec {
   private final class AssemblyAudioRunner(
-    inputs: Vector[Json], inputpaths: Vector[Path], finalsummary: Json,
+    inputs: Vector[Json], inputpaths: Vector[Path], finalsummary: Json, finalpath: Path,
     failmux: Boolean = false, failprobe: Boolean = false, omitstage: Boolean = false
   ) extends CozyVideo.VideoProcessRunner {
     val commands: ArrayBuffer[Vector[String]] = ArrayBuffer.empty
@@ -26,11 +26,7 @@ object CozyVideoAssemblyAudioSpec {
         val originalindex = inputpaths.indexWhere(_.toAbsolutePath.normalize() == output)
         if (originalindex >= 0)
           CozyVideo.VideoCommandResult(0, inputs(originalindex).noSpaces, "")
-        else if (args.head == "docker" && output.getParent.getFileName.toString == "parts" &&
-            output.getParent.getParent.getFileName.toString.startsWith("assembly-")) {
-          val index = output.getFileName.toString.stripPrefix("part-").stripSuffix(".mp4").toInt - 1
-          CozyVideo.VideoCommandResult(0, inputs(index).noSpaces, "")
-        } else if (output.getFileName.toString == "rendered.mp4") {
+        else if (output == finalpath.toAbsolutePath.normalize()) {
           if (failprobe) CozyVideo.VideoCommandResult(1, "", "planned final probe failure")
           else CozyVideo.VideoCommandResult(0, finalsummary.noSpaces, "")
         } else {
@@ -39,7 +35,7 @@ object CozyVideoAssemblyAudioSpec {
       } else {
         Files.createDirectories(output.getParent)
         if (!omitstage) Files.writeString(output, "new-stage", StandardCharsets.UTF_8)
-        if (failmux && output.getFileName.toString == "rendered.mp4")
+        if (failmux && output == finalpath.toAbsolutePath.normalize())
           CozyVideo.VideoCommandResult(1, "", "planned partial mux failure; Non-monotonous DTS retained")
         else CozyVideo.VideoCommandResult(0, "stage created", "")
       }
@@ -68,7 +64,7 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
           .add("streams", Json.arr(secondstreams.head.mapObject(_.add("duration", Json.fromString("999"))),
           secondstreams.last.mapObject(_.add("start_time", Json.fromString("0.1"))
             .remove("duration_ts").add("duration", Json.fromString("7.1")))))))
-        val runner = new AssemblyAudioRunner(inputs, _input_paths(dir, 2), _summary(261, 18, true))
+        val runner = new AssemblyAudioRunner(inputs, _input_paths(dir, 2), _summary(261, 18, true), dir.resolve("build/final.mp4"))
         When("the public build interprets the selected parts")
         val result = _build(dir, runner)
         Then("exact rational video durations win over unrelated decimal/format durations and each edit timeline is decoded before one AAC mux")
@@ -93,7 +89,7 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
         commands.last should contain("1:a:0")
         commands.last should contain("0:v:0")
         commands.last should contain("+faststart")
-        val workspace = _mux_output(runner, dir).getParent
+        val workspace = _processing_workspace(runner, dir)
         _read(workspace.resolve("presentation/video-concat.txt")) should
           include("duration 7.222222222222222222")
         val original = _read(workspace.resolve("concat.txt"))
@@ -114,7 +110,7 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
         val property = Prop.forAll(cases) { case (fps, frames, audio) =>
           val dir = _fixture(frames.size)
           val runner = new AssemblyAudioRunner(frames.zip(audio).map { case (n, present) => _summary(n, fps, present) }, _input_paths(dir, frames.size),
-            _summary(frames.sum, fps, true))
+            _summary(frames.sum, fps, true), dir.resolve("build/final.mp4"))
           _build(dir, runner)
           val allocations = runner.commands.filter(_.contains("pcm_s16le")).map(_samples).toVector
           val boundaries = allocations.scanLeft(BigInt(0))(_ + _).tail
@@ -143,13 +139,13 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
             else stream
           })))
         }
-        val runner = new AssemblyAudioRunner(inputs, _input_paths(dir, 2), _summary(7, 4, true))
+        val runner = new AssemblyAudioRunner(inputs, _input_paths(dir, 2), _summary(7, 4, true), dir.resolve("build/final.mp4"))
         When("public final build admits the decimal video presentations")
         _build(dir, runner)
         Then("finite PCM allocations cover 0.5 and 1.25 seconds exactly and silence belongs only to the audio-free interval")
         runner.commands.filter(_.contains("pcm_s16le")).map(_samples).toVector shouldBe Vector(24000L, 60000L)
         runner.commands.count(_.contains("anullsrc=r=48000:cl=stereo")) shouldBe 1
-        _read(_mux_output(runner, dir).getParent.resolve("presentation/video-concat.txt")) should include("duration 1.250000000000000000")
+        _read(_processing_workspace(runner, dir).resolve("presentation/video-concat.txt")) should include("duration 1.250000000000000000")
       }
     }
 
@@ -157,7 +153,7 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
       "copy ordered video-only inputs without synthesizing audio" in {
         Given("two admitted video-only parts with their original public concat order")
         val dir = _fixture(2)
-        val runner = new AssemblyAudioRunner(Vector.fill(2)(_summary(130, 18, false)), _input_paths(dir, 2), _summary(260, 18, false))
+        val runner = new AssemblyAudioRunner(Vector.fill(2)(_summary(130, 18, false)), _input_paths(dir, 2), _summary(260, 18, false), dir.resolve("build/final.mp4"))
         When("the public final build assembles them")
         _build(dir, runner)
         Then("one copyts mux retains video alone and introduces no audio source, decode or AAC encode")
@@ -167,35 +163,37 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
         muxes.head should contain("copy")
         muxes.head should not contain "aac"
         muxes.head should not contain "pcm_s16le"
-        val concatpath = _mux_output(runner, dir).getParent.resolve("concat.txt")
+        val concatpath = _processing_workspace(runner, dir).resolve("concat.txt")
         muxes.head should contain(concatpath.toString)
         val concat = _read(concatpath)
         concat.indexOf("part-1.mp4") should be < concat.indexOf("part-2.mp4")
       }
     }
 
-    "isolate admitted paths from every private assembly attempt" which {
-      "retain an old rendered-stage final destination and its manifest on each pre-install failure" in {
+    "process the selected inputs in their declared order" which {
+      "report mux, probe, presentation and missing-result failures at the selected final destination" in {
         Vector("partial mux", "probe tool", "invalid presentation", "missing stage").foreach { cause =>
           Given(s"a selected Host part, a previous final MP4 at the old fixed stage, its adjacent manifest and $cause")
           val finalpath = "target/cozy-video/ffmpeg/rendered.mp4"
           val dir = _fixture(1, finalpath = finalpath)
+          if (cause == "missing stage") Files.delete(dir.resolve(finalpath))
           val normal = _summary(130, 18, true)
           val streams = normal.hcursor.get[Vector[Json]]("streams").toOption.get
           val summary = if (cause == "invalid presentation") normal.mapObject(_.add("streams", Json.arr(
             streams.head, streams.last.mapObject(_.remove("duration_ts").add("duration", Json.fromString("8"))))))
             else normal
-          val runner = new AssemblyAudioRunner(Vector(normal), _input_paths(dir, 1), summary,
+          val runner = new AssemblyAudioRunner(Vector(normal), _input_paths(dir, 1), summary, dir.resolve(finalpath),
             failmux = cause == "partial mux", failprobe = cause == "probe tool", omitstage = cause == "missing stage")
-          When("the public Host build stages, muxes and admits the final presentation")
+          When("the public Host build writes, muxes and admits the selected final presentation")
           val failure = intercept[Throwable] { _build(dir, runner) }
-          Then("the actionable failure preserves both successful files and leaves its separate attempt evidence")
+          Then("the actionable failure leaves diagnostics and does not accept a new manifest")
           failure.getMessage should not be empty
-          _preserved(dir, finalpath)
+          _unaccepted_manifest(dir, finalpath)
           val output = _mux_output(runner, dir)
-          output should not be dir.resolve(finalpath)
-          output.getParent.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
-          output.getParent.getFileName.toString should startWith("assembly-")
+          output shouldBe dir.resolve(finalpath)
+          val workspace = _processing_workspace(runner, dir)
+          workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
+          workspace.getFileName.toString should startWith("assembly-")
           Files.isRegularFile(output.resolveSibling("rendered.mp4.stderr.txt")) shouldBe true
           if (cause == "partial mux")
             _read(output.resolveSibling("rendered.mp4.stderr.txt")) should include("Non-monotonous DTS retained")
@@ -215,16 +213,16 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
             val inputpaths = partpaths.map(dir.resolve(_))
             val inputs = partpaths.indices.map(index => _summary(130 + index, 18, true)).toVector
             val runner = new AssemblyAudioRunner(inputs, inputpaths,
-              _summary(partpaths.indices.map(130 + _).sum, 18, true), failmux = failmux)
+              _summary(partpaths.indices.map(130 + _).sum, 18, true), dir.resolve("build/final.mp4"), failmux = failmux)
             When("public Host assembly interprets the exact selected input paths")
             if (failmux) {
               val failure = intercept[Throwable] { _build(dir, runner) }
-              Then("the failed mux retains every original input and the prior final output and manifest")
+              Then("the failed mux identifies the failed operation and every selected input remains readable")
               failure.getMessage should include("planned partial mux failure")
-              _preserved(dir)
+              _unaccepted_manifest(dir)
             } else {
               _build(dir, runner)
-              Then("the validated final output is installed while every selected original survives")
+              Then("the declared final output is validated while every selected original survives")
               _read(dir.resolve("build/final.mp4")) shouldBe "new-stage"
               _read(dir.resolve("build/manifest.json")) should include("\"validated\"")
             }
@@ -232,11 +230,11 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
               _read(path) shouldBe s"original-part-${index + 1}"
             }
             val media = runner.commands.filter(_.contains("ffmpeg"))
-            media.map(args => _command_path(args, dir)).foreach { output =>
+            media.dropRight(1).map(args => _command_path(args, dir)).foreach { output =>
               inputpaths should not contain output
-              output.startsWith(_mux_output(runner, dir).getParent) shouldBe true
+              output.startsWith(_processing_workspace(runner, dir)) shouldBe true
             }
-            val concat = _read(_mux_output(runner, dir).getParent.resolve("concat.txt"))
+            val concat = _read(_processing_workspace(runner, dir).resolve("concat.txt"))
             inputpaths.foreach(path => concat should include(s"file '$path'"))
             if (inputpaths.size > 1) {
               concat.indexOf(inputpaths.head.toString) should be < concat.indexOf(inputpaths.last.toString)
@@ -248,46 +246,44 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
         }
       }
 
-      "retain old Docker stage aliases across failure and a subsequent fresh successful attempt" in {
+      "read selected Docker inputs at former processing paths across failed and successful muxes" in {
         Given("Docker inputs at the old parts and presentation stages and successful final media and manifest at old rendered.mp4")
         val partpaths = Vector("target/cozy-video/ffmpeg/parts/part-01.mp4", "target/cozy-video/ffmpeg/presentation/video-01.mp4")
         val finalpath = "target/cozy-video/ffmpeg/rendered.mp4"
         val dir = _fixture(2, partpaths, finalpath)
         val inputpaths = partpaths.map(dir.resolve(_))
         val inputs = Vector(_summary(130, 18, true), _summary(131, 18, true))
-        val failed = new AssemblyAudioRunner(inputs, inputpaths, _summary(261, 18, true), failmux = true)
+        val failed = new AssemblyAudioRunner(inputs, inputpaths, _summary(261, 18, true), dir.resolve(finalpath), failmux = true)
         When("the public Docker build partially writes its final mux and fails")
         val failure = intercept[Throwable] { _build(dir, failed, "docker") }
-        Then("both original inputs and the prior destination and adjacent manifest remain intact")
+        Then("both original inputs remain intact and the failed attempt is not accepted by a manifest")
         failure.getMessage should include("planned partial mux failure")
-        _preserved(dir, finalpath)
+        _unaccepted_manifest(dir, finalpath)
         inputpaths.zipWithIndex.foreach { case (path, index) => _read(path) shouldBe s"original-part-${index + 1}" }
-        val failedworkspace = _mux_output(failed, dir).getParent
-        _read(failedworkspace.resolve("rendered.mp4.stderr.txt")) should include("Non-monotonous DTS retained")
+        val failedworkspace = _processing_workspace(failed, dir)
+        _read(dir.resolve(finalpath).resolveSibling("rendered.mp4.stderr.txt")) should include("Non-monotonous DTS retained")
         Given("the same admitted originals after the failed attempt and a successful Docker runner")
-        val successful = new AssemblyAudioRunner(inputs, inputpaths, _summary(261, 18, true))
+        val successful = new AssemblyAudioRunner(inputs, inputpaths, _summary(261, 18, true), dir.resolve(finalpath))
         When("the public Docker build is attempted again")
         _build(dir, successful, "docker")
         Then("a different private workspace validates the output and preserves original input bytes and declared order")
-        val workspace = _mux_output(successful, dir).getParent
+        val workspace = _processing_workspace(successful, dir)
         workspace should not be failedworkspace
         workspace.getParent shouldBe dir.resolve("target/cozy-video/ffmpeg")
         workspace.getFileName.toString should startWith("assembly-")
         inputpaths.zipWithIndex.foreach { case (path, index) =>
           _read(path) shouldBe s"original-part-${index + 1}"
-          _read(workspace.resolve(f"parts/part-${index + 1}%02d.mp4")) shouldBe s"original-part-${index + 1}"
         }
-        val stagedpaths = Vector(workspace.resolve("parts/part-01.mp4"), workspace.resolve("parts/part-02.mp4"))
-        successful.commands.filter(_.contains("ffprobe")).take(2).map(args => _command_path(args, dir)).toVector shouldBe stagedpaths
+        successful.commands.filter(_.contains("ffprobe")).take(2).map(args => _command_path(args, dir)).toVector shouldBe inputpaths
         successful.commands.filter(_.contains("pcm_s16le")).map(_samples).toVector shouldBe Vector(346666L, 349334L)
         val concat = _read(workspace.resolve("concat.txt"))
-        concat.indexOf("part-01.mp4") should be < concat.indexOf("part-02.mp4")
+        concat.indexOf(inputpaths.head.toString.stripPrefix(dir.toString)) should be < concat.indexOf(inputpaths.last.toString.stripPrefix(dir.toString))
         _read(dir.resolve(finalpath)) shouldBe "new-stage"
         _read(dir.resolve(finalpath).getParent.resolve("manifest.json")) should include("\"validated\"")
       }
     }
 
-    "preserve previous successful output on genuine failures" which {
+    "report genuine media and I/O failures" which {
       "reject missing, malformed, negative, non-finite and overrunning input metadata before mux" in {
         val valid = _summary(130, 18, true)
         val video = valid.hcursor.get[Vector[Json]]("streams").toOption.get.head
@@ -308,21 +304,22 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
         invalid.foreach { summary =>
           Given("a bad first input presentation, including the former 42ms audio overhang, and prior final MP4/manifest")
           val dir = _fixture(2)
-          val runner = new AssemblyAudioRunner(Vector(summary, valid), _input_paths(dir, 2), valid)
+          val runner = new AssemblyAudioRunner(Vector(summary, valid), _input_paths(dir, 2), valid, dir.resolve("build/final.mp4"))
           When("public build probes the actual selected input")
           val failure = intercept[Throwable] { _build(dir, runner) }
-          Then("the fault identifies that input and requests rerender without mux or final installation")
+          Then("the fault identifies that input and requests rerender before mux")
           failure.getMessage should include("part-1.mp4")
           failure.getMessage should include("Rerender")
           runner.commands.exists(_.contains("ffmpeg")) shouldBe false
-          _preserved(dir)
+          _unaccepted_manifest(dir)
         }
       }
 
-      "retain prior outputs when a stage is missing, partially written, or fails final probe validation" in {
+      "reject missing results, partial mux failures and failed final probe validation" in {
         Vector("partial mux", "probe tool", "contradictory audio", "missing stage", "no video", "zero format").foreach { cause =>
           Given(s"one rendered part, previous final outputs, and $cause failure")
           val dir = _fixture(1)
+          if (cause == "missing stage") Files.delete(dir.resolve("build/final.mp4"))
           val normal = _summary(130, 18, true)
           val contradictory = normal.mapObject(_.add("streams", Json.arr(
             normal.hcursor.get[Vector[Json]]("streams").toOption.get.head,
@@ -333,17 +330,17 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
             case "zero format" => normal.mapObject(_.add("format", Json.obj("duration" -> Json.fromString("0"))))
             case _ => normal
           }
-          val runner = new AssemblyAudioRunner(Vector(normal), _input_paths(dir, 1), summary,
+          val runner = new AssemblyAudioRunner(Vector(normal), _input_paths(dir, 1), summary, dir.resolve("build/final.mp4"),
             failmux = cause == "partial mux", failprobe = cause == "probe tool", omitstage = cause == "missing stage")
           When("the public final build reaches its mux and final presentation admission")
           val failure = intercept[Throwable] { _build(dir, runner) }
-          Then("the genuine failure is reported and existence of a stage never replaces the prior MP4/manifest")
+          Then("the genuine failure is reported and no successful manifest is written")
           failure.getMessage should not be empty
           if (cause == "partial mux") {
             failure.getMessage should include("Non-monotonous DTS retained")
-            _read(_mux_output(runner, dir).resolveSibling("rendered.mp4.stderr.txt")) should include("Non-monotonous DTS retained")
+            _read(_mux_output(runner, dir).resolveSibling("final.mp4.stderr.txt")) should include("Non-monotonous DTS retained")
           }
-          _preserved(dir)
+          _unaccepted_manifest(dir)
         }
       }
     }
@@ -366,6 +363,12 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
   private def _mux_output(runner: AssemblyAudioRunner, dir: Path): Path =
     _command_path(runner.commands.filter(_.contains("ffmpeg")).last, dir)
 
+  private def _processing_workspace(runner: AssemblyAudioRunner, dir: Path): Path = {
+    val args = runner.commands.filter(_.contains("ffmpeg")).last
+    val list = _command_path(Vector(args.head, args(args.indexOf("-i") + 1)), dir)
+    if (list.getFileName.toString == "video-concat.txt") list.getParent.getParent else list.getParent
+  }
+
   private def _fixture(count: Int, partpaths: Vector[String] = Vector.empty, finalpath: String = "build/final.mp4"): Path = {
     val root = Paths.get(sys.props("user.dir")).resolve("target/test-generated/video-assembly-audio")
     Files.createDirectories(root)
@@ -387,9 +390,8 @@ final class CozyVideoAssemblyAudioSpec extends AnyWordSpec with GivenWhenThen wi
     CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("video.json"), dryRun = false, checkTools = false, toolMode = Some(mode)),
       CozyVideo.VideoToolRegistry(Vector.empty), runner)
 
-  private def _preserved(dir: Path, finalpath: String = "build/final.mp4"): Unit = {
-    _read(dir.resolve(finalpath)) shouldBe "previous-video"
-    _read(dir.resolve(finalpath).getParent.resolve("manifest.json")) shouldBe "previous-manifest"
+  private def _unaccepted_manifest(dir: Path, finalpath: String = "build/final.mp4"): Unit = {
+    _read(dir.resolve(finalpath).getParent.resolve("manifest.json")) should not include "\"validated\""
   }
 
   private def _read(path: Path): String = Files.readString(path, StandardCharsets.UTF_8)

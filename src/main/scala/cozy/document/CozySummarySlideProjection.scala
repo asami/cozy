@@ -5,7 +5,7 @@ import io.circe.{Json, JsonObject}
 import java.io.StringReader
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path}
 import org.goldenport.config.StructuredDocumentLoader
 import org.goldenport.io.InputSource
 import org.yaml.snakeyaml.{LoaderOptions, Yaml}
@@ -16,7 +16,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 13, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySummarySlideProjection {
@@ -98,7 +98,7 @@ private[cozy] object CozySummarySlideProjection {
       _fail("SUMMARY_SLIDE_PROJECTION_REQUIRED", "projection", "validated projection is required")
     if (pageSetOutput == null)
       _fail("SUMMARY_SLIDE_PROJECTION_OUTPUT_REQUIRED", "pageSetOutput", "explicit PageSet output is required")
-    _atomic_write(pageSetOutput, projection.visualPageSet.canonicalJson + "\n")
+    _write_output(pageSetOutput, projection.visualPageSet.canonicalJson + "\n")
     WrittenProjection(projection, pageSetOutput)
   }
 
@@ -691,22 +691,13 @@ private[cozy] object CozySummarySlideProjection {
     relative
   }
 
-  private def _atomic_write(path: Path, value: String): Unit = {
+  private def _write_output(path: Path, value: String): Unit = {
     val parent = Option(path.getParent).getOrElse(_fail("SUMMARY_SLIDE_PROJECTION_OUTPUT", "output", "output must have a parent directory"))
-    val temporary = try {
-      Files.createDirectories(parent)
-      Files.createTempFile(parent, ".cozy-summary-slide-projection-", ".tmp")
-    }
-    catch { case NonFatal(_) => _fail("SUMMARY_SLIDE_PROJECTION_OUTPUT", "output", "cannot create an atomic output staging file") }
     try {
-      Files.write(temporary, value.getBytes(StandardCharsets.UTF_8))
-      try Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      catch { case _: AtomicMoveNotSupportedException => _fail("SUMMARY_SLIDE_PROJECTION_OUTPUT", "output", "atomic replacement is unavailable") }
+      Files.createDirectories(parent)
+      Files.writeString(path, value, StandardCharsets.UTF_8)
     } catch {
-      case fault: ProjectionFault => throw fault
-      case NonFatal(_) => _fail("SUMMARY_SLIDE_PROJECTION_OUTPUT", "output", "cannot atomically replace the PageSet output")
-    } finally {
-      try Files.deleteIfExists(temporary) catch { case NonFatal(_) => () }
+      case NonFatal(_) => _fail("SUMMARY_SLIDE_PROJECTION_OUTPUT", "output", "cannot write the PageSet output")
     }
   }
 

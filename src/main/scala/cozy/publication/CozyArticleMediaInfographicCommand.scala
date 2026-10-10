@@ -11,7 +11,7 @@ import scala.util.Try
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaInfographicCommand {
@@ -38,23 +38,17 @@ private[cozy] object CozyArticleMediaInfographicCommand {
     commit(config, plan(config))
 
   def plan(config: CozyBok.PublicationConfig): Plan = {
-    plan(config, () => ())
-  }
-
-  private[publication] def plan(
-    config: CozyBok.PublicationConfig,
-    beforeRegistryRevalidation: () => Unit
-  ): Plan = {
     _validate_config(config, rejectdryrun = false)
-    if (beforeRegistryRevalidation == null)
-      _invalid("Article-media infographic command before-registry-revalidation callback must be defined")
     _require_direct_directory(config.sourcepath, "BoK source")
     val candidates = _descriptor_candidates(config.sourcepath)
     val prepared = _prepare_evidence(config, candidates)
-    CozyArticleMediaRegistry.validateReadOnly(config.publicationPath, prepared.map(_planned_role_update), beforeRegistryRevalidation)
+    CozyArticleMediaRegistry.validateReadOnly(config.publicationPath, prepared.map(_planned_role_update))
     Plan(
       config,
       prepared.map { item =>
+        val artifact = item.integrity.record.artifact.getOrElse(
+          _invalid("Article-media infographic declared artifact must be defined")
+        )
         PlannedCandidate(
           item.publication.descriptorFile,
           item.publication.resource.id,
@@ -62,8 +56,8 @@ private[cozy] object CozyArticleMediaInfographicCommand {
           item.integrity.record.locale,
           item.publication.profile,
           item.artifactPath,
-          item.integrity.record.artifact.identity,
-          item.integrity.record.artifact.version
+          artifact.identity,
+          artifact.version
         )
       },
       prepared
@@ -83,8 +77,8 @@ private[cozy] object CozyArticleMediaInfographicCommand {
   ): Vector[CozyArticleMediaInfographicEvidence.Completion] =
     commit(config, plan(config), beforefirstartifactinstall, afterartifactbeforemerge)
 
-  /* This package-private boundary commits only the immutable evidence already
-   * accepted by plan.  It must never rediscover descriptors or reparse their
+  /* This package-private boundary commits the publications already
+   * selected by plan.  It must never rediscover descriptors or reparse their
    * content because the one-stop command has completed its preflight. */
   private[cozy] def commit(
     config: CozyBok.PublicationConfig,
@@ -119,8 +113,7 @@ private[cozy] object CozyArticleMediaInfographicCommand {
         if (bypublication.size != prepared.size)
           _invalid("Article-media infographic commit result does not cover every prepared publication")
         afterartifactbeforemerge()
-        val revalidated = prepared.map(_revalidate_evidence(config, _))
-        val completions = revalidated.map { item =>
+        val completions = prepared.map { item =>
           CozyArticleMediaInfographicEvidence.complete(item, bypublication.getOrElse(item.publication,
             _invalid("Article-media infographic commit result is missing prepared publication")
           ))
@@ -154,29 +147,16 @@ private[cozy] object CozyArticleMediaInfographicCommand {
           repositoryRoot = config.repositoryPath,
           publication = publication
         ))
-      }.sortBy(x => (x.integrity.record.articleIdentity, x.integrity.record.locale, x.integrity.record.artifact.identity))
+      }.sortBy { item =>
+        val artifact = item.integrity.record.artifact.getOrElse(
+          _invalid("Article-media infographic declared artifact must be defined")
+        )
+        (item.integrity.record.articleIdentity, item.integrity.record.locale, artifact.identity)
+      }
       _validate_unique_roles(evidence)
       _validate_unique_destinations(evidence)
       evidence
     }
-  }
-
-  private def _revalidate_evidence(
-    config: CozyBok.PublicationConfig,
-    approved: CozyArticleMediaInfographicEvidence.Prepared
-  ): CozyArticleMediaInfographicEvidence.Prepared = {
-    if (approved == null || approved.publication == null || approved.integrity == null)
-      _invalid("Article-media infographic approved evidence must be defined")
-    val revalidated = CozyArticleMediaInfographicEvidence.prepare(CozyArticleMediaInfographicEvidence.PreparedInput(
-      projectRoot = config.project,
-      buildManifest = approved.publication.descriptorRoot.resolve("target/cozy-media/manifest.json"),
-      version = approved.integrity.record.artifact.version,
-      repositoryRoot = config.repositoryPath,
-      publication = approved.publication
-    ))
-    if (revalidated.publication != approved.publication || revalidated.integrity != approved.integrity || revalidated.artifactPath != approved.artifactPath)
-      _invalid("Article-media infographic evidence changed after artifact publication")
-    revalidated
   }
 
   private def _prepare_descriptor(config: CozyBok.PublicationConfig, descriptorfile: Path): Vector[CozyMedia.PreparedPublication] = {
@@ -203,7 +183,7 @@ private[cozy] object CozyArticleMediaInfographicCommand {
         _invalid(s"Article-media infographic resource has no matching publication profile: ${resource.id}")
       if (profiles.size > 1)
         _invalid(s"Article-media infographic resource has multiple matching publication profiles: ${resource.id}")
-      CozyMedia.preparePublication(CozyMedia.CommandConfig(descriptorfile, target = Some(resource.id), profile = Some(profiles.head)), config.mediaForce)
+      CozyMedia.preparePublication(CozyMedia.CommandConfig(descriptorfile, target = Some(resource.id), profile = Some(profiles.head)))
     }
   }
 

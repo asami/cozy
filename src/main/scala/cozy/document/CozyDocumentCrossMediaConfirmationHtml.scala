@@ -1,38 +1,21 @@
 package cozy.document
 
 import cozy.media.CozyVisualPage
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 /*
  * @since   Sep.  5, 2026
- * @version Sep.  6, 2026
+ *  version Sep.  6, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentCrossMediaConfirmationHtml {
   private[cozy] val _renderer_identity = "cozy.document.cross-media-confirmation-html.renderer.v1"
   private[cozy] val _profile_identity = "cozy.document.cross-media-confirmation-html.profile.v1"
 
-  final case class Rendered(
-    html: String,
-    identity: String,
-    projectionIdentity: String,
-    rendererIdentity: String,
-    profileIdentity: String
-  ) {
-    def outputSha256: String = identity
-  }
+  final case class Rendered(html: String, rendererIdentity: String, profileIdentity: String)
 
-  def render(value: CozyDocumentCrossMediaProjection.Projection): Rendered = {
-    val html = _document(value)
-    Rendered(
-      html,
-      _identity(html.getBytes(StandardCharsets.UTF_8)),
-      value.identity,
-      _renderer_identity,
-      _profile_identity
-    )
-  }
+  def render(value: CozyDocumentCrossMediaProjection.Projection): Rendered =
+    Rendered(_document(value), _renderer_identity, _profile_identity)
 
   private def _document(value: CozyDocumentCrossMediaProjection.Projection): String =
     Vector(
@@ -139,11 +122,8 @@ private[cozy] object CozyDocumentCrossMediaConfirmationHtml {
     Vector(
       "<section id=\"reviewer-diagnostics\" aria-labelledby=\"reviewer-diagnostics-heading\">",
       "<h2 id=\"reviewer-diagnostics-heading\">Reviewer diagnostics</h2>",
-      _table("Projection identities", Vector("Identity", "Value"), Vector(
+      _table("Semantic facts", Vector("Fact", "Value"), Vector(
         Vector("Content Core ID", value.contentCoreId),
-        Vector("Semantic identity", value.semanticIdentity),
-        Vector("Currentness identity", value.currentnessIdentity),
-        Vector("Projection identity", value.identity),
         Vector("Mapping/coverage state", "complete; unprojected content: none")
       )),
       _table("Mapping and coverage diagnostics", Vector("Story Step", "Slide Page IDs", "Video Scene IDs", "Coverage"), mappingrows),
@@ -201,9 +181,6 @@ private[cozy] object CozyDocumentCrossMediaConfirmationHtml {
     .replace(">", "&gt;")
     .replace("\"", "&quot;")
     .replace("'", "&#39;")
-
-  private def _identity(bytes: Array[Byte]): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(bytes).map(item => f"${item & 0xff}%02x").mkString
 
   private val _style =
     """<style>

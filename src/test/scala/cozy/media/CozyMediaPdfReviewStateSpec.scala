@@ -7,13 +7,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.nio.file.attribute.FileTime
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 30, 2026
  *  version Sep.  2, 2026
- * @version Oct.  3, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -53,7 +52,6 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         state should include("\"schema\" : \"cozy.media.pdf-review-state.v1\"")
         state should include("\"role\" : \"summary_slides_pdf\"")
         state should include("\"output\" : \"summary.pdf\"")
-        state should not include "rendererManifestSha256"
         result should include("status: valid")
       }
     }
@@ -66,7 +64,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         val before = Files.readString(root.resolve("target/cozy-media/pdf-review-state.json"), StandardCharsets.UTF_8)
 
         When("the structurally verified summary target is accepted")
-        CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(root))
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer)
         val state = Files.readString(root.resolve("target/cozy-media/pdf-review-state.json"), StandardCharsets.UTF_8)
         val verified = CozyMedia.verify(CozyMedia.CommandConfig(descriptor, target = Some("summary")))
 
@@ -75,8 +73,6 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         before should not include "summary_slides_pdf"
         state should include("\"role\" : \"article_pdf\"")
         state should include("\"role\" : \"summary_slides_pdf\"")
-        state should not include "sha256"
-        state should not include "rendererManifestSha256"
         verified should include("status: valid")
       }
     }
@@ -87,7 +83,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         val descriptor = _write_summary_fixture(root)
 
         When("all three valid resources are accepted in the same candidate receipt")
-        CozyMedia.build(CozyMedia.CommandConfig(descriptor), _renderer(root))
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor), _renderer)
         val state = Files.readString(root.resolve("target/cozy-media/pdf-review-state.json"), StandardCharsets.UTF_8)
 
         Then("the candidate dependencies are accepted and the current state contains both public PDF roles")
@@ -110,7 +106,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
           Given("a package with current state for both public PDF roles")
           val descriptor = _write_summary_fixture(root)
           _accept_dependencies(descriptor)
-          CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(root))
+          CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer)
 
           When("one state-bound identity or its source receipt evidence changes")
           change(root)
@@ -147,7 +143,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         Files.setLastModifiedTime(root.resolve("article-ja.pdf"), FileTime.fromMillis(4102444800000L))
         val config = CozyMedia.CommandConfig(descriptor, target = Some("article-pdf"))
         val verified = CozyMedia.verify(config)
-        val prepared = CozyMedia.preparePublication(config.copy(profile = Some("site")), force = true)
+        val prepared = CozyMedia.preparePublication(config.copy(profile = Some("site")))
         val plan = CozyMedia.resolvePlan(config)
         val allcurrent = CozyMediaPdfReviewState.current(plan)
         val stale = intercept[RuntimeException](CozyMedia.verify(config.copy(target = Some("article-ja"))))
@@ -170,7 +166,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         Given("a current article and summary PDF state")
         val descriptor = _write_summary_fixture(root)
         _accept_dependencies(descriptor)
-        CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer(root))
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("summary")), _renderer)
         Files.write(root.resolve("target/summary-renderer.json"), "stale-renderer".getBytes(StandardCharsets.UTF_8))
 
         When("only the article-PDF target is accepted again")
@@ -206,7 +202,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         Files.createDirectories(root.resolve("publication"))
 
         When("publication preparation is attempted before the selected article-PDF target is built")
-        val missingreceipt = intercept[RuntimeException](CozyMedia.preparePublication(config, force = true))
+        val missingreceipt = intercept[RuntimeException](CozyMedia.preparePublication(config))
 
         Then("the selected public PDF is rejected for absent receipt evidence")
         missingreceipt.getMessage should include("Media receipt currentness failed for resource article-pdf")
@@ -215,7 +211,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         When("the selected article-PDF target is built and its PDF review state is removed")
         CozyMedia.build(config.copy(target = Some("article-pdf")))
         Files.delete(root.resolve("target/cozy-media/pdf-review-state.json"))
-        val missingreviewstate = intercept[RuntimeException](CozyMedia.preparePublication(config, force = true))
+        val missingreviewstate = intercept[RuntimeException](CozyMedia.preparePublication(config))
 
         Then("the selected public PDF is rejected for absent review-state evidence")
         missingreviewstate.getMessage should include("PDF review currentness failed for resource article-pdf")
@@ -223,7 +219,7 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         Given("the selected PDF still has valid ordinary receipt evidence but no review state")
         When("the selected article-PDF target is rebuilt")
         CozyMedia.build(config.copy(target = Some("article-pdf")))
-        val prepared = CozyMedia.preparePublication(config, force = true)
+        val prepared = CozyMedia.preparePublication(config)
 
         Then("the selected PDF preflight succeeds with current receipt and review-state evidence while image-only preparation remains outside this PDF-only contract")
         prepared.map(_.resource.id) shouldBe Vector("article-pdf")
@@ -339,9 +335,9 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
     CozyMedia.build(CozyMedia.CommandConfig(descriptor, target = Some("infographic")))
   }
 
-  private def _renderer(root: Path): CozyMedia.ProcessRunner =
+  private def _renderer: CozyMedia.ProcessRunner =
     new CozyMedia.ProcessRunner {
-      def run(command: Vector[String], workingdirectory: Path): Int = {
+      def run(command: Vector[String], workingDirectory: Path): Int = {
         val pdf = Path.of(command(command.indexOf("--pdf") + 1))
         val images = Path.of(command(command.indexOf("--slide-images") + 1))
         val montage = Path.of(command(command.indexOf("--montage") + 1))
@@ -349,9 +345,8 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
         _write_pdf(pdf, 1, "summary")
         _write_png(images.resolve("overview.png"))
         _write_png(montage)
-        val pdfhash = _sha256(pdf)
         _write(manifest,
-          s"""{"schema":"cozy.summary-slides.render.v1","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"},"pdf":{"sha256":"$pdfhash","pageCount":1},"slides":[{"id":"overview","title":"Overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pdfSha256":"$pdfhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("assets/infographic.png"))}"}]}],"montage":{"path":"target/montage.png","sha256":"${_sha256(montage)}","pdfSha256":"$pdfhash"}}"""
+          """{"schema":"cozy.summary-slides.render.v1","target":"summary","profile":"business","renderer":{"name":"fake","version":"1"},"pdf":{"pageCount":1},"slides":[{"id":"overview","title":"Overview","path":"target/slides/overview.png","assets":[{"id":"infographic"}]}],"montage":{"path":"target/montage.png"}}"""
         )
         0
       }
@@ -379,9 +374,6 @@ final class CozyMediaPdfReviewStateSpec extends AnyWordSpec with Matchers with G
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00))
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
     val work = Paths.get(sys.props("user.dir")).resolve("target")

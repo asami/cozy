@@ -2,14 +2,14 @@ package cozy.media
 
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 27, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPresentationMigration {
@@ -109,7 +109,7 @@ private[cozy] object CozyMediaPresentationMigration {
       case _: CozyVisualPage.Page => _fail("MIGRATION_TARGET_PAGE_SET", "$.visualPageSet", "must be a complete Visual Page Set")
     }
     _validate_bindings(legacydocument, migrationmap.bindings, pages)
-    _atomic_write(output, validated.canonicalJson + "\n")
+    _write(output, validated.canonicalJson + "\n")
     _report(legacydocument.slides.map(_.elements.size).sum, migrationmap.bindings.size)
   }
 
@@ -264,28 +264,19 @@ private[cozy] object CozyMediaPresentationMigration {
     case NonFatal(e) => _fail("MIGRATION_READ", label, Option(e.getMessage).getOrElse("cannot read UTF-8 file"))
   }
 
-  private def _atomic_write(path: Path, text: String): Unit = {
+  private def _write(path: Path, text: String): Unit = {
     val output = path.toAbsolutePath.normalize()
     val parent = Option(output.getParent).getOrElse(_fail("MIGRATION_SAVE", "$save", "output parent is required"))
     if (Files.isSymbolicLink(parent) || !Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS))
       _fail("MIGRATION_SAVE", "$save", "output parent must be an existing direct directory")
     if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(output))
       _fail("MIGRATION_SAVE", "$save", "output must not be a symbolic link")
-    var temporary = Option.empty[Path]
     try {
-      val prefix = Option(output.getFileName).map(_.toString).filter(_.length >= 3).getOrElse("vps")
-      val staged = Files.createTempFile(parent, prefix, ".tmp")
-      temporary = Some(staged)
-      Files.write(staged, text.getBytes(StandardCharsets.UTF_8))
-      try Files.move(staged, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      catch {
-        case _: AtomicMoveNotSupportedException => _fail("MIGRATION_SAVE_ATOMIC", "$save", "filesystem does not support same-directory atomic output replacement")
-      }
-      temporary = None
+      Files.write(output, text.getBytes(StandardCharsets.UTF_8))
     } catch {
       case fault: MigrationFault => throw fault
       case NonFatal(e) => _fail("MIGRATION_SAVE", "$save", Option(e.getMessage).getOrElse("cannot write output"))
-    } finally temporary.foreach(path => Files.deleteIfExists(path))
+    }
   }
 
   private def _parse_json(text: String, source: String): MapValue = {

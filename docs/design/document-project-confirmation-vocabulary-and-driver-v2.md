@@ -55,8 +55,10 @@ Catalog, source meaning, fallback rules, or the closed v1 authoring behavior.
 only for `--kind summary`. It first admits strict v2 source bindings, then
 the locale-compatible generic vocabulary, and calls the matching accepted v2
 renderer. The command publishes only an absent or direct regular non-symlink
-`.html` file under an existing direct non-symlink directory, using one atomic
-move. No command or renderer infers semantics.
+`.html` file under an existing direct non-symlink directory, using an ordinary
+direct UTF-8 write. Initial admission rejects before output writing; ordinary
+write failure reports `CONFIRMATION_PATH` and may leave partial output. There
+is no staged installation, rollback, or preservation guarantee. No command or renderer infers semantics.
 
 ## Article 9 driver boundary
 

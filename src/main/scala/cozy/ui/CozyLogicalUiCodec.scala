@@ -6,7 +6,7 @@ import CozyLogicalUi._
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 1, 2026
+ * @version Oct. 9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiCodec {
@@ -23,11 +23,9 @@ private[cozy] object CozyLogicalUiCodec {
     "schema",
     "version",
     "kind",
-    "inputIdentity",
     "componentSurfaces",
     "componentBindings",
-    "useCases",
-    "identity"
+    "useCases"
   )
 
   def encodeCandidate(candidate: LogicalUiCandidate): String = candidate.canonicalJson
@@ -39,8 +37,6 @@ private[cozy] object CozyLogicalUiCodec {
       _schema_version(fields, "$")
       if (_string(_field(fields, "kind", "$") , "$.kind") != "candidate")
         _fault("LUI43_CODEC_SCHEMA_INVALID", "$.kind", "kind must be candidate")
-      val inputidentity = _string(_field(fields, "inputIdentity", "$") , "$.inputIdentity")
-      val identity = _string(_field(fields, "identity", "$") , "$.identity")
       val input = CandidateInput(
         _array(_field(fields, "componentSurfaces", "$") , "$.componentSurfaces").zipWithIndex.map { case (value, index) =>
           _component_surface(value, s"$$.componentSurfaces[$index]")
@@ -54,10 +50,6 @@ private[cozy] object CozyLogicalUiCodec {
         case Right(value) => value
         case Left(error) => _fault(error.code, error.path, error.reason)
       }
-      if (candidate.inputIdentity != inputidentity)
-        _fault("LUI43_CODEC_IDENTITY_MISMATCH", "$.inputIdentity", "input identity does not match canonical logical content")
-      if (candidate.identity != identity)
-        _fault("LUI43_CODEC_IDENTITY_MISMATCH", "$.identity", "candidate identity does not match canonical logical content")
       Right(candidate)
     } catch {
       case fault: CodecFault => Left(fault.error)

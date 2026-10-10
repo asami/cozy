@@ -14,7 +14,6 @@ import java.io.ByteArrayOutputStream
 import java.net.{URI, URLEncoder}
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
@@ -28,7 +27,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 27, 2026
  *  version Sep. 29, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCommand {
@@ -449,11 +448,6 @@ private[cozy] trait CozyVideoCommand {
       RAISE.invalidArgumentFault(
         s"Video project descriptor must be an existing direct regular non-symlink file (source: $source, normalized: $projectfile)"
       )
-    val attributes = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor attributes cannot be read (source: $source): ${e.getMessage}")
-    }
-    if (attributes.fileKey() == null)
-      RAISE.invalidArgumentFault(s"Video project descriptor has no stable direct file identity (source: $source, normalized: $projectfile)")
     val identity = try projectfile.toRealPath() catch {
       case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor canonical identity cannot be read (source: $source): ${e.getMessage}")
     }
@@ -461,28 +455,8 @@ private[cozy] trait CozyVideoCommand {
       RAISE.invalidArgumentFault(
         s"Video project descriptor canonical identity must be a direct regular non-symlink file (source: $source, normalized: $projectfile, identity: $identity)"
       )
-    val identityattributes = try Files.readAttributes(identity, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor canonical attributes cannot be read (source: $source, identity: $identity): ${e.getMessage}")
-    }
-    if (identityattributes.fileKey() == null || !_same_file_attributes(attributes, identityattributes))
-      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, normalized: $projectfile, identity: $identity)")
-    val after = try Files.readAttributes(identity, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source): ${e.getMessage}")
-    }
-    if (!_same_file_attributes(identityattributes, after))
-      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, identity: $identity)")
-    val sourceafter = try Files.readAttributes(projectfile, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source): ${e.getMessage}")
-    }
-    if (!_same_file_attributes(attributes, sourceafter))
-      RAISE.invalidArgumentFault(s"Video project descriptor changed while being checked (source: $source, normalized: $projectfile)")
     identity
   }
-
-  private[video] def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
-    before.fileKey() == after.fileKey() &&
-      before.size() == after.size() &&
-      before.lastModifiedTime() == after.lastModifiedTime()
 
   private[video] def _load_script(path: Path): Option[VideoScript] =
     if (Files.isRegularFile(path))

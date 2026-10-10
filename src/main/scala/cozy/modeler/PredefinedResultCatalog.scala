@@ -7,7 +7,8 @@ import cozy.config.CozyProjectYamlConfig
 
 /*
  * @since   Jul. 15, 2026
- * @version Jul. 28, 2026
+ *  version Jul. 28, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class PredefinedResultField(
@@ -43,7 +44,6 @@ private[cozy] object PredefinedResultCatalog {
       CncfRuntimeDescriptorContract.requireValidDescriptor(
         path,
         expectedCncfVersion,
-        None,
         "predefined-result-catalog"
       )
     )

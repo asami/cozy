@@ -12,6 +12,135 @@ and [Content Core direction](../journal/2026/08/2026-08-30-document-project-cont
 are read-only, non-normative planning inputs.  They do not add behavior beyond
 this specification.
 
+## 2026-10-08 Phase 71.5 document evidence/export amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md),
+`P715-02-S04-DOCUMENT-EVIDENCE-EXPORT`, and the
+[artifact-protection removal](../design/artifact-protection-removal.md) policy.
+This current amendment supersedes earlier digest-currentness, generated-byte
+certification and atomic-install/preservation clauses on the selected Document
+Project evidence, native provider, state, projection and portable-export paths.
+Earlier Phase 42.1, 45, 56/56.1/56.2 and 57.1 decisions remain dated history;
+their removed protection promises are not the current production contract.
+
+A file reference records only its project-relative `path`, an ordinary location.
+Sidecar `publicSource` retains `kind`, semantic `identity`, `path` and
+`mediaDescriptor`; source/artifact alternatives retain `kind` and `path`.
+State sources, sidecar and attempt references, historical v1 inputs, native v2
+inputs, and generated-review input/output references are path-only. Native
+outputs retain `identity`, `path`, and `mediaType`. The canonical in-memory
+native receipt value is
+`operation=<operation>;output=<path>;mediaType=<mediaType>` under the existing
+receipt identity. Schemas and their closed field/order, selected Work Product,
+profile, provider, semantic role and media associations remain required.
+
+Native accepted-output state means a valid accepted operation with usable direct
+required inputs and a nonempty direct regular selected output. Generated-review
+receipts retain kind, project, profile, fixed output and ordered input paths;
+their state checks availability. Logical charts require their direct default
+output and required inputs. Presentation confirmation still requires valid typed
+semantics and complete coverage, plus the direct default HTML.
+These paths perform no digest recapture, unchanged-input comparison or rendered
+expected-byte comparison. Independent semantic dependency failures remain visible.
+
+State, projection, native attempt and portable-export writes use ordinary direct
+operations after their established destination/path admission. A native attempt
+uses a fresh UUID for operation history. Portable export writes only
+`manifest.yaml` and `work-products/article-review-html/article-review.html` to a
+new admitted directory; it reads the actual selected accepted HTML once. The
+manifest retains the opaque target and one mapping with exactly `identity`,
+`role`, `mediaType`, and `path`. Consumer verification checks the closed grammar,
+exact file/directory shape, direct files, duplicate keys and missing, extra,
+nonregular or symbolic entries. It requires no project authority or export receipt.
+Ordinary read/write failures report the selected operation/path; recovery is
+regeneration, with no atomic install, rollback or prior-output/partial-bundle
+preservation promise.
+
+Upstream Explanation hashes and delegated MediaReceipt mechanisms remain
+concrete pending finite removals. Their current requirements are not exceptions
+to Phase 71.5 policy. Concrete external reader obligations E715-01 through
+E715-04 remain open under separate authority. S04 is focused-validated;
+S05 is focused-validated. S06 implementation awaits focused validation.
+This amendment records no Step or Phase acceptance.
+The same full 34-scene native generation/final assembly/audible playback through
+correct end card and player EOF remains mandatory and uncompleted. Repository-full
+validation remains deferred-not-run to Phase 71.7.
+
+
+## 2026-10-08 Phase 71.5 presentation semantics and direct scaffold amendment
+
+`P715-02-S05-PRESENTATION-SEMANTIC-COVERAGE` implements the authored v2 Core
+association as exactly `{id, language}`, matching the actual admitted closed v1
+Core. Strict UTF-8, root/key/schema grammar, catalogs, Composition/Plan,
+StoryFlow/Structure, Logical/Visual selection, policy id/revision/bindings,
+resource declarations, and semantic diagnostics remain required.
+
+The typed aggregate carries the actual normalized values. Projection carries
+Content Core id, declarations, StoryFlow, pages/scenes and mappings. Rendered
+carries ordinary deterministic HTML and the fixed semantic renderer/profile.
+In-operation coverage checks every Step and Structure, exact mappings, HTML
+presence, and actual associations. The existing Cross-Media receipt object and
+document path now own only this typed coverage result. Aggregate/output digest
+binding and protection-only receipt capture/currentness/persistence are removed.
+Historical receipt files are left in place; no replacement is emitted.
+
+Presentation review admits actual typed semantics and complete coverage, then
+writes the default or explicitly selected HTML. Confirmation availability checks
+that admitted coverage and the actual direct default HTML. Invalid id/language
+association or incomplete projection blocks confirmation; no new generic
+failure propagation to independent Article, Visual, or chart evidence is added.
+
+Authoring-incomplete is the strict closed scaffold shape with expected ids and
+language, empty composition/transitions/structures/bindings and supported policy
+revision 1. It is not full-text equality. Scaffold admits the existing direct
+parent and absent contained destination, creates that destination, and writes
+the declared authored sources directly. Ordinary write failure is reported as
+`DP-SCAFFOLD-001`; partial generated scaffold content may remain and recovery is
+regeneration. Atomic install, staging, rollback, and previous-output preservation
+are not promised. Upstream Explanation hashes and delegated MediaReceipt removal remain finite
+pending work without an exception.
+
+S04 focused validation completed its three existing suites with 120 successes,
+zero failures, zero canceled cases, no warnings, exit 0, and terminal shared-lock
+release (`p715-02-s04-focused-validation-result.json`). The first 119-success/
+one-failure run and bounded existing MediaReceipt fixture correction remain
+retained history. S05 focused validation completed its two existing suites with 116 successes, zero failures, zero canceled
+cases, no warnings, exit 0, and terminal shared-lock release
+(`p715-02-s05-focused-validation-result.json`). S06 focused validation and
+Step and Phase acceptance remain pending. External E715-01 through E715-04 reconciliation and the same full
+34-scene JA ModelHarness VOICEVOX generation/final assembly/audible correct end
+card/player EOF remain open. Repository-full validation is deferred-not-run to
+Phase 71.7.
+
+
+## 2026-10-08 Phase 71.5 human acceptance, alignment, and direct writers amendment
+
+`P715-02-S06-DOCUMENT-ACCEPTANCE-ALIGNMENT-WRITERS` retains completed
+candidate dialogue, human feedback and explicit acceptance, logical record IDs,
+reviewers, decisions, and direct candidate/Core paths. It removes the product
+writer lock, Core timestamp replay/currentness gate, staged publication and
+unchanged-byte certification. The same human acceptance directly applies its
+selected candidate and reuses the same record. Evidence IDs remain unique
+human records; ordinary writes have no transactional or rollback guarantee.
+
+Private Content Alignment uses ordered `{path, identity}` references with
+logical associations, the five declared consumers, provider/renderer/profile,
+reviewer decision, direct visual-use evidence, and declared locale parity.
+Availability and actual semantic association determine its displayed state;
+recorded digests do not certify bytes. Description, Confirmation, Logic Tree,
+Summary PageSet, and local-build writers directly write their selected outputs
+following their existing input and destination admission. Pre-write semantic
+rejection remains fail-closed; ordinary write failure may leave partial output
+and recovery is regeneration.
+
+S06 implementation is unvalidated. The parent-selected eight existing suites
+remain the focused validation boundary. Upstream Explanation/MediaReceipt and
+external E715-01 through E715-04 reconciliation remain open. The same full
+34-scene JA ModelHarness VOICEVOX generation, final assembly, audible correct
+end card and player EOF remain mandatory and uncompleted. Full-suite validation
+is deferred-not-run to Phase 71.7; no Slice, Step, or Phase is closed here.
+
+
 ## Contract identities
 
 A conforming future implementation MUST preserve the following distinct
@@ -175,8 +304,8 @@ IR. P45-03 admits its selected `review --kind article` projection at
 self-contained, HTML-escaped, and read-only: it projects article
 structure/narrative, accepted Content Core correspondence, one ordered semantic
 row per authored Visual Page, declared terminology and media placement (or a
-clear no-declaration result), the infographic relationship, and direct current
-input identities. Its Visual Page surface MUST be a reader-facing page model,
+clear no-declaration result), the infographic relationship, and available direct
+input paths. Its Visual Page surface MUST be a reader-facing page model,
 not a source-field table: each page exposes its declared stable `id` or a
 deterministic ordinal fallback, title, reader-facing text, visual/relationship
 summary, bounded article structure summary, page count/current-page state, and
@@ -188,14 +317,14 @@ selection remain excluded.
 
 The default `review --kind article` and `review --kind video` outputs MUST each
 write a deterministic local generated-review receipt under
-`target/document-project/`. The receipt binds the fixed kind, descriptor id and
-profile, default HTML byte identity, and fixed-order direct input identities
+`target/document-project/`. The receipt records the fixed kind, descriptor id and
+profile, default HTML path, and fixed-order direct input paths
 consumed by that review. It is disposable local output evidence only: never an
 authored authority, review decision, renderer/provider/production receipt,
 external artifact, or evidence-sidecar change. An explicit `--save` MUST write
 only its requested HTML and MUST NOT replace the default generated-review
 receipt. The derived state for `article-review-html` and `video-review` is
-`missing`, `current`, or `stale`: changed or missing fixed input/default output
+`missing`, `current`, or `stale`: unavailable fixed input/default output
 is stale, while human review remains `pending` and unavailable renderer,
 production-receipt, and rendered-frame evidence remains unavailable.
 
@@ -218,7 +347,7 @@ completion. The production stage is the first participating Work Product with
 blocked or failed readiness, or a current/ready summary when none exists. The
 latest observed change is the first stale participating Work Product and its
 exact reason, otherwise the first missing participating Work Product and its
-exact reason, or an explicit statement that current identities show no stale or
+exact reason, or an explicit statement that available inputs and semantic evidence show no stale or
 missing participating Work Product. The Dashboard MUST NOT invent a timestamp
 or an unobserved history.
 
@@ -335,13 +464,13 @@ The presentation-semantics state vocabulary is exactly:
 | `missing` | The direct authoring surface is absent. |
 | `authoring-incomplete` | A direct scaffolded source is present but cannot pass the existing strict Phase-46 validator. |
 | `invalid` | An authored candidate reached strict loading and failed `DP-SEM-*` validation. |
-| `current` | Strict validation produced the accepted typed semantic identity bound to the current direct Core bytes. |
-| `stale` | A previously accepted semantic or confirmation identity no longer agrees with its bound Core or semantic inputs. |
+| `current` | Strict validation admitted the actual typed semantics and exact Core id/language association. |
 
-`missing`, `authoring-incomplete`, and `invalid` have no accepted semantic
-identity, coverage success, or confirmation receipt. In particular,
-`authoring-incomplete` is not a permissive Phase-46 success path, and no
-current receipt can substitute for strict semantic validation or coverage.
+`missing`, `authoring-incomplete`, and `invalid` have no admitted semantic
+result or coverage success. Authoring-incomplete is exactly the supported
+closed empty scaffold shape with expected ids/language and policy revision 1.
+It is not a permissive validator success. Confirmation requires strict semantic
+validation and actual complete coverage.
 
 `article-review-html` remains the article-expression review produced by
 `article.render-review`; it is not renamed, repurposed, or made an alias for
@@ -349,11 +478,12 @@ current receipt can substitute for strict semantic validation or coverage.
 Explanation Structure, and article/slide/video mapping confirmation.
 
 This Phase freezes only the static graph, identities, state vocabulary, and
-public destination roles. Phase 49.1 exclusively owns strict loading and
+public destination roles as its dated historical scope. Phase 49.1 owns strict loading and
 `verify`, `inspect`, `plan`, and Dashboard state projection. Phase 49.2
 exclusively owns review parser routing, Phase-46.1 adapter reuse, confirmation
-HTML publication, and confirmation-receipt emission. Phase 49.3 exclusively
-owns stale propagation and Article-9-shaped operational acceptance. No
+HTML publication. Phase 49.3 records the historical identity-stale propagation
+and Article-9-shaped operational acceptance; S05 supersedes that protection
+behavior with actual semantic admission and coverage. No
 descriptor field, semantic schema, renderer implementation, receipt writer,
 CLI parser, help output, dashboard behavior, or confirmation output is added
 by this static contract.
@@ -391,7 +521,9 @@ their public purpose-oriented commands and deterministic output contract below.
 
 ## Historical Phase 42.1 evidence and attempt contract
 
-This section is the normative Phase 42.1 evidence boundary.  DP42-03B
+This section records the original Phase 42.1 evidence boundary as dated history.
+Its digest and atomic-preservation clauses are superseded by the current
+Phase 71.5 amendment above; current readers use path-only references.  DP42-03B
 implements the disposable snapshot cache described here, DP42-03C implements
 recorded single-operation dispatch and append-only attempt persistence, and
 DP42-03D adds the bounded evidence sidecar and dependency-derived stale state
@@ -514,10 +646,9 @@ extension of the closed `cozy.document-project.v2` descriptor. Its top-level
 keys are ordered exactly `schema`, `project`, `publicSource`, and `products`.
 `project` equals the admitted descriptor id.
 
-`publicSource` has exactly `kind`, `identity`, `path`, `sha256`, and
-`mediaDescriptor`.  `kind` is exactly `smartdox`; `identity` is a non-empty
-exact identity; `path` is exactly `index.dox`; and `sha256` is the lowercase
-SHA-256 of current `index.dox` bytes.  `mediaDescriptor` is a direct,
+`publicSource` has exactly `kind`, `identity`, `path`, and
+`mediaDescriptor`. `kind` is exactly `smartdox`; `identity` is a non-empty
+semantic identity; `path` is exactly `index.dox`. `mediaDescriptor` is a direct,
 project-relative, non-symlink media descriptor whose explicit
 `articleMedia.articleIdentity` equals `publicSource.identity`.  This is an
 explicit safe source mapping only.  It MUST NOT discover a host or identity,
@@ -531,7 +662,7 @@ of these closed alternatives:
 
 - `kind: none`, with no other field;
 - `kind: source` or `kind: artifact`, each with exactly a direct,
-  project-relative non-symlink `path` and lowercase `sha256`;
+  project-relative non-symlink `path`;
 - `kind: receipt`, with exactly direct project-local `mediaDescriptor` and
   non-empty `resourceId`; or
 - `kind: receipt-set`, with no other field, only for
@@ -542,8 +673,8 @@ Source evidence names only declared Document Project authored authorities.
 Artifact evidence names only direct project-contained output evidence.  No
 identity may be absolute, traverse a path segment, use a symbolic link, name a
 directory, depend on a glob, use mtime/timestamp inference, or be discovered
-by scanning an output tree.  A source/artifact hash mismatch is derived as
-`stale` when the referenced output remains present, and absence is `missing`.
+by scanning an output tree. A usable referenced source/artifact is available;
+absence or an unusable direct file is `missing`.
 Receipt currentness is determined solely through existing Cozy Media and
 `cozy.media.receipt.v2` currentness logic; this contract neither changes nor
 wraps that media schema.
@@ -570,7 +701,7 @@ attempts otherwise remain historical and never imply success.
 
 The canonical state YAML is `cozy.document-project-state.v2`. In addition
 to fixed-order authored `sources`, it has a distinct deterministic `evidence`
-section for the optional sidecar and retained attempt path/SHA-256 identities,
+section for the optional sidecar and retained attempt paths,
 then immutable `criteria` in Workflow Definition criterion order, followed by
 fixed-order `workProducts` and fixed-order `nativeOperations`.  It contains no absolute path,
 timestamp, random value, generated receipt content, or authority override.
@@ -631,9 +762,8 @@ parity
 ```
 
 `project`, `semanticScope`, and `locale` equal the admitted descriptor `id`,
-`semanticScope.id`, and `language`.  Every FileIdentity record is an unquoted
-direct block mapping and uses exactly the direct sibling order `{path, identity,
-sha256}`: flow mappings and quoted mapping keys are invalid. This includes
+`semanticScope.id`, and `language`.  Every FileReference record is an unquoted
+direct block mapping and uses exactly the direct sibling order `{path, identity}`: flow mappings and quoted mapping keys are invalid. This includes
 `contentCore`, `sharedInfographic`, each artifact `authority`, `output`, and
 `receipt`, and every `sharedInfographicUse.evidence` record.  A record with the
 same fields in another order is invalid.  The Core path is the descriptor
@@ -642,8 +772,8 @@ and the shared infographic path is exactly `infographic/infographic.svg`.
 Each path is project-relative, has no dot segment, and resolves only to a
 direct non-symlink regular file; a recorded generated output that is
 subsequently absent is displayed as missing rather than becoming accepted.
-Every `sha256` is a lowercase hexadecimal SHA-256 content identity.  A hash
-identifies bytes; it never substitutes for the required human decision.
+References associate logical identity with an admitted ordinary location; they
+do not certify byte identity or replace the required human decision.
 
 `artifacts` is a deterministic closed list in this order: `article-html`,
 `article-pdf`, `summary-slides-pdf`, `infographic-png`, and
@@ -661,7 +791,7 @@ review
 sharedInfographicUse
 ```
 
-`authority`, `output`, and `receipt` are each a closed FileIdentity record in
+`authority`, `output`, and `receipt` are each a closed FileReference record in
 that required direct sibling order.  `authority` is respectively `index.dox`, `index.dox`,
 `presentation/visual-pages.yaml`, `infographic/infographic.svg`, or
 `video/storyboard.md`; it records the separately authored expression authority
@@ -687,18 +817,19 @@ never overwritten as accepted.
 `sharedInfographicUse` has exactly `{identity, consumer, evidence}`.  Its
 identity equals the ledger shared infographic identity, its consumer identifies
 the declared consumer, and `evidence` is a direct private
-`evidence/visual-review/` FileIdentity record in that required direct sibling
+`evidence/visual-review/` FileReference record in that required direct sibling
 order.  It is an explicit
 visual-use attestation, not proof inferred from a filename or a receipt.
 
-An accepted artifact is current only when its human decision is `accepted`,
-the Core has a non-empty accepted entry, and all recorded current identities
-are unchanged.  A changed Core, locale authority, shared SVG, output, receipt,
-provider, renderer, profile, or private visual-use evidence produces a precise
-stale result.  A changed shared SVG stales every declared consumer.  A malformed
-or extra field, escaped path, symlink, or invalid identity is rejected before
-it can become accepted.  No timestamp, output-tree scan, provider execution,
-receipt generation, or write-back participates in this derivation.
+An accepted artifact is current when its human decision is `accepted`, the Core
+has non-empty admitted accepted entries, actual logical/provider/renderer/profile
+associations match, and all required direct references are available. A changed
+logical association is stale with its precise reason; missing recorded files
+are displayed as missing. Malformed or extra fields, escaped paths, symlinks,
+and invalid logical associations reject before becoming accepted. Private
+visual-use evidence remains an explicit attestation of the shared infographic
+association. No digest comparison, timestamp, output-tree scan, provider
+execution, receipt generation, or write-back participates in this derivation.
 
 `parity` has exactly `{decision, peers}`.  Its decision is `accepted`,
 `pending`, or `not-applicable`; each peer is exactly `{locale, contentCore}`.
@@ -748,15 +879,13 @@ there is no alias, alternative `run` spelling, or other confirmation kind.
 It is available only when the optional `presentation-confirmation-html` Work
 Product participates in the resolved workflow through its declared
 `presentation.render-confirmation` producer; an unselected or profile-disabled
-product rejects with `DP-OP-001` before semantics, projection, output, or
-receipt behavior. It then requires current typed Presentation Semantics,
+product rejects with `DP-OP-001` before semantics, projection, or output.
+It then requires admitted typed Presentation Semantics,
 projects and renders only through the fixed cross-media adapter, and verifies
-complete coverage before publication. Without `--save`, it atomically publishes exactly
-`target/document-project/presentation-confirmation.html` and the canonical
-typed receipt at `target/document-project/presentation-confirmation.receipt.yaml`.
-With `--save`, it atomically publishes only the requested confirmation HTML
-and does not create or replace the default receipt. Strict-currentness or
-coverage failure writes neither confirmation file. This confirmation is
+complete coverage before publication. Without `--save`, it directly writes
+`target/document-project/presentation-confirmation.html`. With `--save`, it
+writes the requested confirmation HTML. Invalid semantics or incomplete
+coverage writes no confirmation output. This confirmation is
 distinct from Article review and does not use Article or Video generated-review
 receipt behavior.
 
@@ -806,25 +935,22 @@ non-symlink regular files or absent destinations.  For an absent destination,
 the nearest existing parent directory MUST be direct and non-symlinked; only
 missing parent components beneath it MAY be created, and they MUST be direct
 directories.  Higher pre-existing ancestry is not inspected for this
-admission.  Existing regular destinations MAY be replaced only by a
-same-directory temporary file moved with `ATOMIC_MOVE`; symlinks, non-direct
-destinations, and non-directory nearest existing parents MUST reject with
-`DP-PATH-001`.  An implementation MUST NOT fall back to direct writing or a
-non-atomic move. A default Article or Video review additionally writes its
+admission. Existing regular destinations are written directly after admission;
+symlinks, non-direct destinations, and non-directory nearest existing parents
+MUST reject with `DP-PATH-001`. Ordinary write failures return the path diagnostic.
+A default Article or Video review additionally writes its
 disposable generated-review receipt beside the fixed HTML output. A default
-Presentation confirmation additionally writes its canonical typed receipt beside
-the fixed HTML output; explicit `--save` review writes only its selected HTML
-projection.
+Presentation confirmation writes its selected HTML projection; explicit
+`--save` review writes its requested HTML.
 
 After normalization, a destination that is inside the admitted Project package
 MUST be under `<project>/target/document-project/` and its filename MUST end
 exactly in `.html`.  Any other Project-internal `--save` destination MUST
-reject with `DP-PATH-001` before parent creation, temporary output, or
-publication.  This boundary protects the descriptor, Content Core, article,
+reject with `DP-PATH-001` before parent creation or output writing.  This boundary protects the descriptor, Content Core, article,
 Visual Page, infographic, review, video, target state, evidence, and every
 other Project-owned path from projection replacement.  An explicit destination
 outside the Project retains exact-path behavior, subject to the direct
-non-symlink parent and atomic-publication rules above.
+non-symlink parent and direct-write rules above.
 
 ## P45-02 Content Core candidate and explicit human acceptance
 
@@ -853,7 +979,7 @@ For `failed`, there are no additional keys and diagnostics are non-empty.  A
 candidate entry is exactly `{id,text}` under the unchanged closed Content Core
 entry grammar.  A `supersedes` reference names exactly one direct earlier
 candidate with changes-requested feedback; it derives that earlier candidate as
-superseded without altering its immutable evidence. Its candidate evidence
+superseded without rewriting its earlier human record. Its candidate evidence
 binds both that earlier candidate and its changes-requested feedback record by
 id and project-relative path.
 
@@ -868,14 +994,14 @@ closed `cozy.content-core-acceptance.v1` document with exactly `schema`, `id`,
 candidate id and `decision` is exactly `accepted`.
 
 Successful candidates, failed dialogue attempts, feedback records, and
-acceptance records are distinct direct non-symlink append-only evidence below
+acceptance records are distinct direct non-symlink human records with unique IDs below
 `evidence/content-core/`.  A successful candidate retains raw source, idea,
 request, and response text; it also retains provider/model, outcome,
 diagnostics, Core replacement, and any direct supersession relation.  A failed
 bundle retains the same provenance and diagnostics but no candidate.  Feedback
-retains its candidate and reviewer references and the immutable decision
+retains its candidate and reviewer references and the human decision
 payload.  Acceptance retains the exact candidate, reviewer, direct prior Core
-path and resulting Core path.  Existing evidence bytes are never replaced.
+path and resulting Core path. Existing logical record IDs are not reassigned.
 Canonical evidence emits text as `{text}`, names as `{id}`, decisions as
 `{value}`, diagnostics as `[{text}]`, candidate references as `{id,path}`, and
 supersession feedback as `{id,path}`.  It emits no hash field.  Historical
@@ -883,39 +1009,21 @@ extra properties are ignored by ordinary object loading while required schema,
 id, path, text, and value fields and referenced direct regular files remain
 independently validated.
 
-The forms share exactly one project-local, direct regular lock file at
-`<project>/.content-core.lock`. The lock is a retained empty coordination
-artifact, not evidence, authored semantic authority, a schema field, or a
-state record. After CLI and external input-document admission, each form uses
-one non-waiting exclusive file-lock attempt before observing Content Core state,
-creating an evidence directory, appending evidence, reading or validating the
-Core, or replacing the Core. A busy or overlapping same-JVM lock returns
-only retryable `DP-OP-001`, and performs no evidence or Core mutation. A
-symlinked, non-regular, or unusable lock target returns `DP-PATH-001`.
-
 Creation never changes `contentCore`. Feedback never changes a candidate or
-Content Core. Only `accept` may replace the existing direct Core. After all
-candidate, decision, input, replacement, and identity validation, it first
-publishes the immutable acceptance evidence and only then writes the Core using
-a same-directory temporary file and `ATOMIC_MOVE`. Thus a Core replacement is
-never published without durable evidence. The evidence binds both paths to the
-descriptor's lexically exact direct `contentCore` path. Before that first
-evidence append, it captures the direct Core `FileTime` without following links
-and records `priorCore: {path, modifiedTime}`; `resultingCore` records only its
-path. Immediately before atomic replacement the direct Core's current
-`FileTime` must equal that captured value, otherwise `DP-OP-001` preserves both
-Core and evidence. For an exact existing human acceptance, parsed accepted
-entries equal to the candidate entries succeed idempotently without writing,
-including formatting-only Core changes. A different parsed Core can resume only
-when retained `priorCore.modifiedTime` equals the current direct Core `FileTime`.
-Historical records without that timestamp, with a changed timestamp, or with an
-incompatible decision are non-resumable `DP-OP-001`; metadata is never guessed
-from evidence time or historical hash values. This timestamp tracks only the
-descriptor Content Core at this evidence-first interrupted-acceptance boundary;
-it is not a general freshness framework. Pending, applied, and historical
-records all prevent feedback, revision, or another acceptance for that
-candidate. This protocol adds no schema/version, remote/provider, or
-compatibility behavior.
+Content Core. Only `accept` writes the existing direct Core. After candidate,
+human decision, input, replacement, and logical/path validation, it records the
+human acceptance and then directly writes the selected candidate entries.
+`priorCore` and `resultingCore` each record only `{path}`, matching the
+descriptor's lexically exact direct `contentCore` path. The same candidate,
+reviewer, decision, and acceptance ID reuse that record and directly apply the
+selected candidate; no unchanged-Core, timestamp, or byte-equality test gates
+that retry. Another acceptance or later feedback/revision for an already
+accepted, rejected, or superseded candidate still rejects as a human decision
+conflict. Ordinary evidence and Core writes report `DP-PATH-001` on failure;
+a partial record or Core may remain and recovery is regeneration. The forms
+provide no product lock, staged installation, atomic replacement, CAS,
+rollback, or preservation guarantee. No schema/version, remote/provider, or
+compatibility behavior is added.
 
 - `inspect` MUST inspect and report a derived project view without mutating
   authored authority, durable evidence, registration, or delivery.  The
@@ -934,8 +1042,7 @@ compatibility behavior.
   `target/document-project/project-dashboard.html`; with `--save`, it MUST use
   exactly the requested path when external, or the requested `.html` path under
   `target/document-project/` when Project-internal.  Any other Project-internal
-  destination MUST reject with `DP-PATH-001` before creating a parent or
-  temporary output. Its Workflow view MUST show the four selection states,
+  destination MUST reject with `DP-PATH-001` before creating a parent or output. Its Workflow view MUST show the four selection states,
   Work Products, provider bindings, and gates. Its Work Product matrix MUST
   show coverage, currentness, review, readiness, and nonparticipating/blocking reasons.
   Its Work Product details MUST show dependencies, producer and consumer
@@ -949,7 +1056,7 @@ compatibility behavior.
   for no-video profiles. Current snapshot data
   MUST be distinguished from retained attempts. Historical v1 attempts have no
   receipt or currentness authority, while a valid accepted native v2 attempt
-  derives Article review currentness only through its exact retained identities.
+  derives Article review availability through its required direct inputs and output.
   It MUST execute no provider and
   persist no authority, candidate, feedback, acceptance, production receipt,
   deliverable,
@@ -963,17 +1070,16 @@ compatibility behavior.
   prerequisite is absent, or exactly `default review HTML is not generated`
   when all declared source prerequisites are present; it MUST also show a
   user-facing generate action. For Article and Video review, a missing local
-  generated-review receipt is `missing`, while a changed or missing receipt
+  generated-review receipt is `missing`, while an unavailable receipt
   input/default output is `stale`; native Article review v2 evidence instead
-  derives its currentness from its accepted direct input/output identities.
+  derives its state from its accepted direct input/output availability.
   An explicit disabled binding reason MUST
   take precedence over these blocked reasons.
 - `review` MUST generate a deterministic, self-contained, read-only HTML
   projection at the kind-specific default or exact optional external save path;
   an optional Project-internal save path MUST be under
   `target/document-project/` and end exactly in `.html`, with all other
-  Project-internal destinations rejected by `DP-PATH-001` before any parent or
-  temporary output is created.  Core
+  Project-internal destinations rejected by `DP-PATH-001` before any parent or output is created.  Core
   review MUST present accepted Core entries and explicitly mark candidate,
   feedback, and acceptance as non-authoritative and not yet persisted. Slide
   review MUST present Visual Page IR. Article review is admitted only when the
@@ -981,7 +1087,7 @@ compatibility behavior.
   its default is `target/document-project/article-review.html`. It MUST present
   HTML-escaped article structure and narrative sections, accepted Content Core
   correspondence, reader-facing Visual Page review, the infographic
-  relationship, and current direct input identities. Its Visual Page review MUST
+  relationship, and available direct input paths. Its Visual Page review MUST
   preserve authored order and provide each page's declared stable `id` or a
   deterministic ordinal fallback, title, reader-facing text, visual/relationship
   summary, bounded article-structure summary, page count/current-page state,
@@ -1004,12 +1110,12 @@ compatibility behavior.
   and direction. It MUST NOT present raw Storyboard or Visual Page source
   tables. Invalid typed storyboard input MUST fail at the Document Project
   structured diagnostic boundary before a projection is published. Video review
-  MUST distinguish current verified source/infographic identities from
+  MUST distinguish available direct source/infographic paths from
   unavailable renderer, receipt, and rendered-frame inputs, and MUST never
   claim a rendered video, frame, audio, receipt, or acceptance without evidence.
   It MUST state infographic use only when a typed Storyboard scene contains the
   exact current `infographic/infographic.svg` path in its declared
-  `diagram-refs` or `asset-refs`; a SHA-256 identity alone does not declare
+  `diagram-refs` or `asset-refs`; file availability alone does not declare
   use. Otherwise it MUST clearly state that no exact infographic source use is
   declared.
   Slide Logical Chart MUST
@@ -1024,7 +1130,7 @@ compatibility behavior.
 - `verify` has the closed `structural | visual` policy. With no `--mode`, it
   MUST use `structural`; `--mode structural` accepts no Work Product selection.
   Structural verification MUST inspect semantic authority, selected direct
-  prerequisites, hashes, retained receipts/currentness, and lightweight
+  prerequisites, retained receipts/state, and lightweight
   text/media evidence without rasterizing PDF, slide, video, or image material.
   It MUST report the same closed executability values as `inspect` and
   Dashboard, and as `plan` when strict sidecar admission succeeds. After
@@ -1062,14 +1168,16 @@ silently cross from one responsibility into another.
 
 ## Scaffold boundary
 
-`scaffold` MUST atomically create a profile-sensitive `<parent>/<slug>.dox/`
-authored package.  An unsafe, outside-parent, symlink, or non-direct scaffold
-parent or destination is a `DP-PATH-001` rejection.  Once those path checks
-pass, an existing destination, an absent or non-real parent, or inability to
-complete the required atomic move is a `DP-SCAFFOLD-001` rejection.  It MUST
-NOT merge or overwrite, and MUST NOT substitute fallback copy for the required
-atomic move.  It MUST resolve the common workflow by identity rather than copy
-the workflow DAG.
+`scaffold` MUST create a profile-sensitive `<parent>/<slug>.dox/` authored
+package using ordinary direct writes. Unsafe, outside-parent, symlink, or
+non-direct scaffold parent/destination paths reject with `DP-PATH-001`.
+After initial path admission, an existing destination or absent/non-real parent
+rejects with `DP-SCAFFOLD-001`. The command creates the admitted absent
+destination and normal declared subdirectories, then writes each source.
+Ordinary write failure returns `DP-SCAFFOLD-001`; no atomic install, staging,
+rollback, or partial-output preservation is promised. It MUST NOT merge or
+overwrite an initially existing package. It resolves the common workflow by
+semantic identity rather than copying its DAG.
 
 The `standard` profile MUST create exactly these authored paths:
 
@@ -1091,8 +1199,8 @@ The `standard` profile MUST create exactly these authored paths:
 The public `standard`, `standard-video`, `bok`, and `bok-video` profiles MUST
 all participate in this presentation-semantics scaffold and MUST each write
 the exact sibling path `content/presentation-semantics-<language>.yaml`.
-That sibling binds its `contentCore` identity to the direct generated Core
-bytes through the Phase 46 `contentCore` identity rule. It is an
+That sibling has exactly `contentCore: {id, language}`, associating the
+generated Core by those semantic fields. It is an
 authoring-incomplete scaffold surface, not accepted or validated semantics,
 and makes no renderer, receipt, workflow, state, currentness, confirmation,
 publication, or delivery claim. The `standard-video` and `bok-video` profiles
@@ -1122,10 +1230,10 @@ another token.  This Slice does not prescribe an exception class or exit code.
 | 2 | `DP-CLI-002` | A known syntactically valid command form lacks a required positional argument or required option/value. |
 | 3 | `DP-PHASE-001` | Historical Phase-42-only behavior: a syntactically complete dashboard request was rejected before path resolution.  Phase 42.1 no longer emits this token for dashboard. |
 | 4 | `DP-PATH-001` | A command whose preceding gates passed has an unsafe, outside-package, symlink, or non-direct path, including a project, descriptor/Core source, verified authored source, or scaffold parent/destination path that fails path admission. |
-| 5 | `DP-SCAFFOLD-001` | `scaffold` has safe paths, but its destination already exists, its parent is absent or non-real, or the required atomic move cannot be completed. |
+| 5 | `DP-SCAFFOLD-001` | `scaffold` has safe paths, but its destination already exists, its parent is absent or non-real, or ordinary scaffold writes fail. |
 | 6 | `DP-DESC-001` | A Content Core dialogue, candidate, feedback, acceptance, or direct Core has a malformed or semantically invalid closed value after CLI/path admission. |
 | 7 | `DP-DESC-002` | A successfully parsed descriptor or Core has an unknown field or unsupported or invalid closed value or relationship after descriptor admission. |
-| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation disabled by the selected profile; it also rejects generic `content-core.compose`, a busy Content Core single-writer lock (retryable), and any unknown, terminal, superseded, rejected, accepted, or duplicate Content Core candidate decision. |
+| 8 | `DP-OP-001` | A path- and descriptor-valid `run` request names an unknown or undeclared logical operation, or a declared logical operation disabled by the selected profile; it also rejects generic `content-core.compose`, and any unknown, terminal, superseded, rejected, accepted, or duplicate Content Core candidate decision. |
 
 Successful `inspect`, `plan`, `verify`, and `scaffold` output MUST begin with,
 respectively, `Cozy Document Project Inspect`, `Cozy Document Project Plan`,
@@ -1214,44 +1322,36 @@ operation, provider binding, provider, and missing capability before an output
 or evidence side effect.
 
 A native provider result MUST be exactly `executed`, `blocked`, or `failed`.
-An `executed` result MUST carry one or more typed outputs, each with identity,
-path, media type, and lowercase SHA-256, nonempty diagnostics, and a receipt
-identity/value returned in memory only. The native receipt identity is exactly
-`cozy.document-project.native-receipt.v1`; its value exactly binds the logical
-operation, declared output path, declared media type, and that output SHA-256.
-The typed receipt MUST NOT be represented as a standalone persisted receipt
-file. Empty outputs, an absent receipt, or empty receipt data is a failed
-result and MUST NOT be rendered as execution success.
+An `executed` result carries typed output identity, path and media type,
+nonempty diagnostics, and an in-memory receipt identity/value. The receipt
+identity remains `cozy.document-project.native-receipt.v1`; its canonical value
+records operation, declared output path and media type as specified by the
+current Phase 71.5 amendment. No standalone receipt file is persisted.
 
-Phase 56.1 closes the accepted-evidence boundary. Immediately before native
-provider invocation, `run` captures the ordered direct identities of Content
-Core, `index.dox`, Visual Pages, and the directly consumed infographic. Before
-acceptance it revalidates those identities and the declared output count/order,
-identity/path/media type, direct non-symlink destination, actual output
-SHA-256, provider SHA-256, nonempty diagnostics, and exact native receipt. A
-changed input during execution, a malformed executed result, or a provider
-failure cannot become accepted evidence.
+Before invocation, `run` admits the fixed ordered direct inputs: Content Core,
+`index.dox`, Visual Pages and infographic. Acceptance validates their declared
+path sequence and availability, the output count/order and semantic identity,
+path and media type, actual nonempty direct regular output, meaningful
+diagnostics and the canonical receipt facts. Malformed executed results and
+provider failures cannot become accepted evidence.
 
-Each attempted native execution after admission appends exactly one strict
-`cozy.document-operation-attempt.v2` UTF-8 document below
-`evidence/attempts/`. Its ordered top-level fields are `schema`, `id`,
-`operation`, `provider`, `profile`, `inputs`, `outcome`, `diagnostics`,
-`outputs`, and `receipt`. An accepted record has ordered direct inputs and
-declared outputs (`identity`, `path`, `mediaType`, `sha256`) plus the exact
-receipt object. A failed record has nonempty diagnostics, `outputs: []`, and
-`receipt: none`. New files are created in safe direct evidence directories
-through a same-directory temporary file and `ATOMIC_MOVE` without replacement.
-This append-only attempt is the sole durable acceptance boundary; no standalone
-receipt file or mutable state authority is created.
+Each admitted attempted execution writes one strict
+`cozy.document-operation-attempt.v2` UTF-8 document at a fresh UUID path below
+`evidence/attempts/`. Top-level order remains `schema`, `id`, `operation`,
+`provider`, `profile`, `inputs`, `outcome`, `diagnostics`, `outputs`, `receipt`.
+Inputs contain only `path`; accepted outputs contain exactly `identity`, `path`
+and `mediaType`, with the receipt object. Failed records have nonempty
+diagnostics, `outputs: []` and `receipt: none`. The direct admitted destination
+is written normally; write failure reports `DP-PATH-001`, without preservation
+or rollback guarantees. Attempts retain operation history, not immutable byte
+certification.
 
-The snapshot, inspect output, and dashboard derive `article-review-html`
-currentness from valid accepted v2 evidence only while all captured direct input
-and output identities remain exact. A changed or missing input/output is
-`stale`; a later accepted native run appends another record and recovers
-`current`. Failed v2 history is never success and reports `failed` only when
-no current accepted product evidence remains. Existing
-`cozy.document-operation-attempt.v1` parsing and its historical state behavior
-remain unchanged.
+The snapshot, inspect and Dashboard derive `article-review-html` as `current`
+when valid accepted v2 evidence has usable direct required inputs and a nonempty
+selected direct output. Unavailable accepted inputs/output report `stale`; a
+successful later operation renders selected content and retains another attempt.
+Failed history is never success. Historical v1 attempts retain their historical
+role, with fixed-order path-only inputs and no output or receipt authority.
 
 `--dry-run` MUST report the admitted typed resolution without invoking a
 provider or creating a target, evidence, attempt, receipt file, or currentness
@@ -1275,9 +1375,9 @@ reinterpret that state.
 
 The existing `article.render-review` declaration is the sole available native
 provider/output boundary. Its accepted-output currentness is `current` only
-when a valid accepted v2 attempt retains exact current direct input and output
-identities; it is `stale` when accepted v2 evidence remains but those identities
-do not. Other declared operations remain visible with provider availability
+when a valid accepted v2 attempt has usable required direct inputs and its
+nonempty declared direct output; it is `stale` when accepted v2 evidence remains
+but those files are unavailable. Other declared operations remain visible with provider availability
 `unavailable` until a later phase adds a native provider. Visibility does not
 execute, admit, or emulate any such provider.
 
@@ -1302,7 +1402,7 @@ cozy document-project verify <project> --mode visual --work-product <native-outp
 ```
 
 Structural is the default. It validates existing semantic authority, selected
-direct prerequisites, hashes, receipts/currentness, and lightweight text/media
+direct prerequisites, receipts/state, and lightweight text/media
 evidence without rasterizing PDF, slide, video, or image material. Visual
 verification requires the explicit `visual` mode and one selected participating
 native output Work Product. It may create only
@@ -1322,75 +1422,43 @@ The public export grammar is exactly:
 cozy document-project export <project> --target <publication-target> --save <bundle-directory>
 ```
 
-`<publication-target>` is exactly one opaque slug. It is neither a path, URL,
-site configuration, nor target binding; it cannot alter the selected source or
-admit another Work Product. `--save` is mandatory and identifies a new bundle
-directory. An absent, existing, unsafe, or symbolic-link destination is
-rejected before publication. Every ancestor directory component of the
-destination must be direct and non-symlinked. The completed bundle is installed
-with one atomic directory move, so a failed request leaves no partial destination
-bundle.
+`<publication-target>` is one opaque slug; it resolves no path, URL, site
+configuration or target binding and cannot change selection. `--save` is
+mandatory and selects a new direct non-symlink directory. Existing or symbolic
+destinations and unsafe ancestor directories reject before output writes.
 
-Export has a local single-operator execution precondition: throughout the
-operation, the developer MUST NOT change the destination or its parent
-directories through another action, and no other process may modify them.
-Under that precondition, an existing destination is rejected and the completed
-bundle is installed atomically. Protection against external concurrent
-filesystem changes is outside the failure model; export does not promise an
-atomic no-replace reservation against another writer.
+Export selects only `article-review-html` with a strict accepted native v2
+`article.render-review` attempt and usable declared required inputs and nonempty
+direct output. The embedded receipt retains its operation/path/media-type
+association. Generated-review or standalone receipts, temporary verification
+views, sidecars, caches, private authority and failed attempts are not alternate
+accepted native operations.
 
-Export admits only selected `article-review-html` when a retained,
-strictly-parsed accepted `cozy.document-operation-attempt.v2` for
-`article.render-review` has the current declared direct input and output
-identities. The retained-attempt parser's exact embedded native receipt
-validation is the sole production-receipt proof. Generated review receipts,
-standalone receipts, presentation-confirmation receipts, visual-verification
-temporary output, raw media, sidecars, state caches, candidate history, review
-evidence, private authority, dialogue, and failed or stale attempts do not
-qualify.
+The actual selected HTML is read once and copied to
+`work-products/article-review-html/article-review.html`. Ordinary direct
+operations create the destination, write `manifest.yaml`, create the Work
+Product directory and write HTML. I/O failures report `DP-PATH-001`; failed
+writes promise no rollback or partial-bundle preservation.
 
-The atomically installed directory contains exactly `manifest.yaml`,
-`receipt.yaml`, and
-`work-products/article-review-html/article-review.html`. The selected current
-Article review HTML bytes are retained unchanged at that normalized public
-path. The manifest identity is
-`cozy.document-project-export-manifest.v1`; it carries the opaque target and
-exactly one Work Product mapping: `article-review-html`, role
-`article-review`, media type `text/html`, normalized path, and SHA-256. The
-receipt identity is `cozy.document-project-export-receipt.v1`; it binds the
-exact manifest identity/SHA-256 and the exported byte path/SHA-256 identity.
+The manifest identity remains `cozy.document-project-export-manifest.v1`.
+Top-level keys are ordered `identity`, `target`, `workProducts`; the sole mapping
+contains exactly `identity: article-review-html`, `role: article-review`,
+`mediaType: text/html` and `path: work-products/article-review-html/article-review.html`.
+It exposes no private source, Core, attempt, provider, receipt or state content.
+There is no export receipt or project-fingerprint/currentness API.
 
-The manifest top-level keys occur in the exact order `identity`, `target`, and
-`workProducts`; its sole mapping has exactly `identity`, `role`, `mediaType`,
-`path`, and `sha256`. The receipt top-level keys occur in the exact order
-`identity`, `manifest`, `exportedBytes`, and `authority`. Its `manifest` mapping
-has exactly `identity` and `sha256`, its sole `exportedBytes` mapping has
-exactly `path` and `sha256`, and its `authority` mapping has exactly
-`sourceAuthoritySha256`, `selectionSha256`, and
-`retainedProductionReceiptSha256`. Every hash is lowercase hexadecimal SHA-256
-with 64 characters. The opaque target remains the one slug admitted by the
-export grammar.
-
-The receipt records three opaque SHA-256 authority fingerprints for source
-authority, selection, and the retained accepted native production receipt. Its
-manifest and exported-byte hashes bind public bundle bytes. It exposes no
-Document Project path, attempt body, receipt body, input, provider, state, or
-source content. A package-visible consumer verifier reads only the bundle and
-strictly rejects missing, malformed, symlinked, unsupported, extra, or tampered
-bundle content while verifying manifest-to-receipt-to-output identities. Every
-encountered bundle node must be a direct regular file or directory; the exact
-directory set is root, `work-products`, and
-`work-products/article-review-html`. A
-consumer may relocate a genuine bundle and verify it after its private Document
-Project has been removed. Project-aware currentness separately compares source
-authority, selection, and retained production evidence from those three opaque
-fingerprints, and compares manifest authority and exported bytes as public
-bundle identities; their private meanings remain unavailable to the consumer.
-This defines the handoff from [Phase 57.1](../phase/phase-57.1.md) to
-[Phase 57.2](../phase/phase-57.2.md) and starts no Phase 57.2 behavior.
+The package-visible consumer verifier receives only the bundle. It validates
+closed manifest identity/target/mapping grammar, duplicate mapping keys, exact
+file shape and direct regular files/directories. The only files are the manifest
+and HTML; directories are root, `work-products` and
+`work-products/article-review-html`. Missing, malformed, extra, nonregular and
+symbolic entries fail. A consumer may relocate the readable bundle and verify
+it after its private Document Project is removed. Consumer verification is
+format/path admission, not byte certification. Earlier Phase 57.1 receipt and
+atomic-install results remain dated history superseded by the current amendment.
 
 Target/site binding, compatibility forms without `--save`, publication,
-deployment, upload, private-state exposure, and Phase 57.2/57.3 work are out
+deployment, upload, private-state exposure and Phase 57.2/57.3 work remain out
 of scope.
 
 ## Related authorities

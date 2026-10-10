@@ -3,13 +3,12 @@ package cozy.media
 import org.goldenport.RAISE
 import io.circe.{Decoder, HCursor}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption}
-import scala.util.control.NonFatal
+import java.nio.file.{Files, LinkOption, Path}
 
 /*
  * @since   Aug. 29, 2026
  *  version Sep.  7, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPdf {
@@ -96,43 +95,23 @@ private[cozy] object CozyMediaPdf {
       _invalid(s"Article PDF output must be absent or a direct regular non-symlink file: $output")
     if (source == output)
       _invalid(s"Article PDF output must not replace its knowledge source: ${resource.id}")
-    val infographic = _infographic_resource(plan, resolved, configuration)
+    _infographic_resource(plan, resolved, configuration)
     val parent = Option(output.getParent).getOrElse(_invalid(s"Article PDF output requires a parent: $output"))
     Files.createDirectories(parent)
-    val before = CozyMediaReceipt.observeInputs(plan)
-    val staged = Files.createTempFile(parent, ".cozy-media-pdf-", ".pdf")
-    Files.delete(staged)
-    try {
-      val command = configuration.renderer.command ++ Vector(
-        source.toString,
-        "--output", staged.toString,
-        "--locale", resource.language.get,
-        "--latex-format", configuration.latexFormat
-      ) ++ sitecontext.toVector.flatMap { context =>
-        Vector("--site-root", context.root.toString, "--site-config", context.config.toString)
-      }
-      val exit = runner.run(command, plan.descriptorRoot)
-      if (exit != 0)
-        _invalid(s"Article PDF renderer failed for ${resource.id}: exit=$exit")
-      if (!_direct_regular_file(staged) || !_pdf(staged))
-        _invalid(s"Article PDF renderer did not create a direct regular PDF output: ${resource.id}")
-      if (!_direct_regular_file(source))
-        _invalid(s"Article PDF source changed during build: ${resource.id}")
-      if (!_direct_regular_file(infographic.source.get))
-        _invalid(s"Article PDF infographic authority source changed during build: ${resource.id}")
-      CozyMedia.requireSiteContext(plan)
-      val after = CozyMediaReceipt.observeInputs(plan)
-      if (before != after)
-        _invalid(s"Article PDF inputs changed during build; no fresh acceptance evidence was written: ${resource.id}")
-      try Files.move(staged, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      catch {
-        case _: AtomicMoveNotSupportedException =>
-          _invalid(s"Article PDF output replacement requires atomic move: ${resource.id}")
-      }
-      s"${resource.id}: built $output"
-    } finally {
-      try Files.deleteIfExists(staged) catch { case NonFatal(_) => () }
+    val command = configuration.renderer.command ++ Vector(
+      source.toString,
+      "--output", output.toString,
+      "--locale", resource.language.get,
+      "--latex-format", configuration.latexFormat
+    ) ++ sitecontext.toVector.flatMap { context =>
+      Vector("--site-root", context.root.toString, "--site-config", context.config.toString)
     }
+    val exit = runner.run(command, plan.descriptorRoot)
+    if (exit != 0)
+      _invalid(s"Article PDF renderer failed for ${resource.id}: exit=$exit")
+    if (!_direct_regular_file(output) || !_pdf(output))
+      _invalid(s"Article PDF renderer did not create a direct regular PDF output: ${resource.id}")
+    s"${resource.id}: built $output"
   }
 
   private def _pdf(path: Path): Boolean = {

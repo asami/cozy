@@ -8,7 +8,7 @@ import cozy.media.CozyMediaWarehouse
 /*
  * @since   Aug. 11, 2026
  *  version Sep.  8, 2026
- * @version Oct.  6, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaSiteCommand {
@@ -116,15 +116,7 @@ private[cozy] object CozyArticleMediaSiteCommand {
   def execute(args: List[String]): String =
     execute(Config.create(args))
 
-  def execute(config: Config): String =
-    execute(config, () => ())
-
-  /* The seam lets the executable specification deterministically change
-   * admitted evidence in the narrow interval before final revalidation. */
-  private[publication] def execute(
-    config: Config,
-    beforeEvidenceRevalidation: () => Unit
-  ): String = {
+  def execute(config: Config): String = {
     if (config == null || config.descriptorFile == null || config.publicationRoot == null || config.target == null ||
       config.siteRoot == null || config.siteConfig == null || config.warehouseProfile == null || config.warehouseRoot == null)
       _invalid("Article-media site command configuration must be defined")
@@ -133,12 +125,9 @@ private[cozy] object CozyArticleMediaSiteCommand {
       _invalid("--warehouse-root requires --warehouse-profile for media register-site")
     if (config.warehouseProfile.nonEmpty && (config.siteRoot.nonEmpty || config.siteConfig.nonEmpty))
       _invalid("--warehouse-profile does not support site context (--site-root / --site-config)")
-    if (beforeEvidenceRevalidation == null)
-      _invalid("Article-media site command before-evidence-revalidation callback must be defined")
     if (config.warehouseProfile.nonEmpty)
       return _execute_warehouse(config)
-    val rootevidence = CozyPublicationCompiler.captureSiteRootEvidence(config.publicationRoot)
-    val publicationroot = rootevidence.real
+    val publicationroot = _direct_publication_root(config.publicationRoot)
     val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(
       descriptorFile = config.descriptorFile,
       target = config.target,
@@ -148,15 +137,10 @@ private[cozy] object CozyArticleMediaSiteCommand {
     val updates = plan.candidates.map(candidate =>
       CozyArticleMediaRegistry.SiteRoleUpdate(plan.articleIdentity, candidate.variant)
     )
-    val revalidate = () => {
-      beforeEvidenceRevalidation()
-      CozyArticleMediaSiteBinding.revalidate(plan)
-      ()
-    }
     if (config.dryRun)
-      CozyArticleMediaRegistry.validateSiteReadOnly(rootevidence, updates, revalidate)
+      CozyArticleMediaRegistry.validateSiteReadOnly(publicationroot, updates)
     else
-      CozyArticleMediaRegistry.transactionExisting(rootevidence)(_.mergeSite(updates, revalidate))
+      CozyArticleMediaRegistry.transactionExisting(publicationroot)(_.mergeSite(updates))
     _render(plan, publicationroot, config.dryRun)
   }
 

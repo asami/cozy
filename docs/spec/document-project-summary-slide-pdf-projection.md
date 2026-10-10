@@ -147,7 +147,10 @@ A MUST NOT enumerate input/downstream output paths to protect its destination
 or perform special collision, ancestor-overlap, same-file, case-alias, hard-link,
 or symlink destination checks. X MUST NOT reintroduce those withdrawn checks.
 The writer retains ordinary required-argument and filesystem write-error
-handling and atomic replacement of derived bytes. A materially incorrect output
+handling, creates the explicit output parent as needed, and directly writes
+the validated canonical PageSet JSON followed by a newline. Ordinary failures
+report `SUMMARY_SLIDE_PROJECTION_OUTPUT`; partial derived output may remain,
+without staging, rollback, or prior-output preservation. A materially incorrect output
 configuration is not guaranteed safe by this operation. These output-policy
 changes do not weaken input admission, DSL semantic validation, or the existing
 Phase 40 renderer's own validation/receipt/currentness contracts.
@@ -253,9 +256,10 @@ unresolved localized labels;
 duplicate/missing/out-of-unit edges or required
 endpoints; unrelated items; a profile-supplied `emphasisNode`; invalid Core
 endpoint/role/relation/direction/pattern/parameter/focus mapping; and loss,
-reversal, aliasing, or synthesis of Core meaning. A failure MUST preserve
-previous derived output and expose no fresh PageSet, PDF, receipt, or currentness
-evidence. X rejects an invalid connection-source grammar; the explicit writer
+reversal, aliasing, or synthesis of Core meaning. These input and semantic
+failures occur before writing and expose no fresh PageSet, PDF, receipt, or
+currentness evidence. Ordinary writer failure may leave partial output and
+MUST NOT claim a successful new product; recovery is regeneration. X rejects an invalid connection-source grammar; the explicit writer
 reports missing output arguments and ordinary filesystem write failures. It
 does not promise protection against a misconfigured output overwriting an input.
 

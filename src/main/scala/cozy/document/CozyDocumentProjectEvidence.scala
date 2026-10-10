@@ -4,7 +4,6 @@ import cozy.media.{CozyMedia, CozyMediaReceipt}
 import io.circe.Json
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -13,19 +12,20 @@ import org.goldenport.io.InputSource
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 10, 2026
+ *  version Sep. 10, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectEvidence {
-  final case class FileIdentity(path: String, sha256: String)
-  final case class PublicSource(identity: String, path: FileIdentity, mediaDescriptor: String)
+  final case class FileReference(path: String)
+  final case class PublicSource(identity: String, path: FileReference, mediaDescriptor: String)
   sealed trait Evidence {
     def kind: String
   }
   case object NoEvidence extends Evidence {
     val kind = "none"
   }
-  final case class FileEvidence(kind: String, file: FileIdentity) extends Evidence
+  final case class FileEvidence(kind: String, file: FileReference) extends Evidence
   final case class ReceiptEvidence(mediaDescriptor: String, resourceId: String) extends Evidence {
     val kind = "receipt"
   }
@@ -39,15 +39,15 @@ private[cozy] object CozyDocumentProjectEvidence {
     val kind = "none"
   }
   final case class ProductEvidence(id: String, evidence: Evidence, review: Review)
-  final case class Sidecar(path: FileIdentity, publicSource: PublicSource, products: Vector[ProductEvidence])
-  final case class AttemptOutput(identity: String, path: String, mediaType: String, sha256: String)
+  final case class Sidecar(path: FileReference, publicSource: PublicSource, products: Vector[ProductEvidence])
+  final case class AttemptOutput(identity: String, path: String, mediaType: String)
   final case class Attempt(
-    path: FileIdentity,
+    path: FileReference,
     schema: String,
     operation: String,
     outcome: String,
     products: Vector[String],
-    inputs: Vector[FileIdentity],
+    inputs: Vector[FileReference],
     outputs: Vector[AttemptOutput]
   )
   sealed trait NativeClosure {
@@ -66,7 +66,7 @@ private[cozy] object CozyDocumentProjectEvidence {
   )
   private[cozy] final case class CriterionState(id: String, coverage: String, reason: String)
   final case class Snapshot(
-    sources: Vector[FileIdentity],
+    sources: Vector[FileReference],
     sidecar: Option[Sidecar],
     attempts: Vector[Attempt],
     products: Vector[WorkProductState],
@@ -80,12 +80,11 @@ private[cozy] object CozyDocumentProjectEvidence {
     coverage: Option[String] = None,
     readiness: Option[String] = None
   )
-  private final case class GeneratedReviewReceipt(kind: String, output: FileIdentity, inputs: Vector[FileIdentity])
+  private final case class GeneratedReviewReceipt(kind: String, output: FileReference, inputs: Vector[FileReference])
 
   private val _sidecar_schema = "cozy.document-project-evidence.v2"
   private val _attempt_v1_schema = "cozy.document-operation-attempt.v1"
   private val _attempt_v2_schema = "cozy.document-operation-attempt.v2"
-  private val _hash_pattern = "[0-9a-f]{64}".r
 
   private[cozy] def writeGeneratedReviewReceipt(
     project: Path,
@@ -97,7 +96,7 @@ private[cozy] object CozyDocumentProjectEvidence {
     if (output != expectedoutput)
       CozyDocumentProject._failure("DP-PATH-001", "generated review receipt requires the fixed default review output")
     val receipt = _generated_review_receipt_path(project, kind)
-    val outputidentity = FileIdentity(CozyDocumentProject._project_relative(project, output), _sha256(output))
+    val outputidentity = FileReference(CozyDocumentProject._project_relative(project, output))
     val inputs = _generated_review_inputs(project, descriptor, kind)
     val lines = Vector(
       s"kind: $kind",
@@ -105,12 +104,10 @@ private[cozy] object CozyDocumentProjectEvidence {
       s"profile: ${descriptor.profile}",
       "output:",
       s"  path: ${outputidentity.path}",
-      s"  sha256: ${outputidentity.sha256}",
       "inputs:"
     ) ++ inputs.flatMap { input =>
       Vector(
-        s"  - path: ${input.path}",
-        s"    sha256: ${input.sha256}"
+        s"  - path: ${input.path}"
       )
     }
     CozyDocumentProjectProjection.publish(receipt, lines.mkString("\n") + "\n")
@@ -120,14 +117,14 @@ private[cozy] object CozyDocumentProjectEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation
-  ): Vector[FileIdentity] =
+  ): Vector[FileReference] =
     CozyDocumentProjectNativeEvidence.captureNativeInputs(project, descriptor, operation)
 
   private[cozy] def closeNativeExecution(
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     operation: CozyDocumentWorkflow.LogicalOperation,
-    inputs: Vector[FileIdentity],
+    inputs: Vector[FileReference],
     result: CozyDocumentProjectProvider.ProviderResult
   ): NativeClosure =
     CozyDocumentProjectNativeEvidence.closeNativeExecution(project, descriptor, operation, inputs, result)
@@ -138,7 +135,7 @@ private[cozy] object CozyDocumentProjectEvidence {
       case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
     }
     val sources = CozyDocumentProject._state_sources(project, descriptor).map {
-      case (relative, path) => FileIdentity(relative, _sha256(path))
+      case (relative, _) => FileReference(relative)
     }
     val sidecar = _sidecar(project, descriptor, resolved, sources)
     val attempts = _attempts(project, descriptor)
@@ -179,7 +176,7 @@ private[cozy] object CozyDocumentProjectEvidence {
         attempt.operation == "article.render-review" &&
         attempt.outcome == "accepted" &&
         attempt.products == Vector(workproduct) &&
-        CozyDocumentProjectNativeEvidence.nativeAttemptCurrent(project, attempt)
+        CozyDocumentProjectNativeEvidence.nativeOutputsAvailable(project, attempt)
     }.getOrElse(
       CozyDocumentProject._failure("DP-OP-001", "export requires current accepted article.render-review native evidence")
     )
@@ -200,7 +197,7 @@ private[cozy] object CozyDocumentProjectEvidence {
       case Left(cause) => CozyDocumentProject._descriptor_failure(cause)
     }
     val sources = CozyDocumentProject._state_sources(project, descriptor).map {
-      case (relative, path) => FileIdentity(relative, _sha256(path))
+      case (relative, _) => FileReference(relative)
     }
     val sidecar = try {
       _sidecar(project, descriptor, resolved, sources)
@@ -227,7 +224,7 @@ private[cozy] object CozyDocumentProjectEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     resolved: CozyDocumentWorkflow.ResolvedWorkflow,
-    sources: Vector[FileIdentity]
+    sources: Vector[FileReference]
   ): Option[Sidecar] = {
     val evidence = project.resolve("evidence").normalize()
     val sidecarpath = evidence.resolve("document-project.yaml").normalize()
@@ -263,14 +260,14 @@ private[cozy] object CozyDocumentProjectEvidence {
       val products = productvalues.zip(selected).map {
         case (value, expected) => _product(project, descriptor, expected, sources.map(_.path).toSet, value)
       }.toVector
-      Some(Sidecar(FileIdentity("evidence/document-project.yaml", _sha256(admittedsidecar)), publicsource, products))
+      Some(Sidecar(FileReference("evidence/document-project.yaml"), publicsource, products))
     }
   }
 
   private def _public_source(project: Path, value: Json): PublicSource = {
     val fields = _object(value, "Document Project evidence publicSource")
-    if (fields.keySet != Set("kind", "identity", "path", "sha256", "mediaDescriptor")) {
-      _invalid("Document Project evidence publicSource must have exactly kind, identity, path, sha256, mediaDescriptor")
+    if (fields.keySet != Set("kind", "identity", "path", "mediaDescriptor")) {
+      _invalid("Document Project evidence publicSource must have exactly kind, identity, path, mediaDescriptor")
     }
     if (_string(fields, "kind", "Document Project evidence publicSource") != "smartdox") {
       _invalid("Document Project evidence publicSource kind must be smartdox")
@@ -280,10 +277,8 @@ private[cozy] object CozyDocumentProjectEvidence {
     if (path != "index.dox") {
       _invalid("Document Project evidence publicSource path must be index.dox")
     }
-    val source = _file_identity(project, path, _string(fields, "sha256", "Document Project evidence publicSource"), "Document Project public source")
-    if (source.sha256 != _sha256(_direct_project_file(project, path, "Document Project public source"))) {
-      _invalid("Document Project evidence publicSource sha256 must match current index.dox bytes")
-    }
+    val source = _file_reference(project, path, "Document Project public source")
+    _direct_project_file(project, path, "Document Project public source")
     val media = _string(fields, "mediaDescriptor", "Document Project evidence publicSource")
     val mediapath = _direct_project_file(project, media, "Document Project public source media descriptor")
     val mediafields = _object(_load_json(mediapath, "Document Project public source media descriptor"), "Document Project public source media descriptor")
@@ -327,14 +322,14 @@ private[cozy] object CozyDocumentProjectEvidence {
         }
         NoEvidence
       case "source" | "artifact" =>
-        if (fields.keySet != Set("kind", "path", "sha256")) {
-          _invalid(s"Document Project evidence $productid $kind must have exactly kind, path, sha256")
+        if (fields.keySet != Set("kind", "path")) {
+          _invalid(s"Document Project evidence $productid $kind must have exactly kind, path")
         }
         val path = _string(fields, "path", s"Document Project evidence $productid")
         if (kind == "artifact") {
           _require_artifact_path(project, path, s"Document Project artifact evidence $productid")
         }
-        val file = _file_identity(project, path, _string(fields, "sha256", s"Document Project evidence $productid"), s"Document Project evidence $productid")
+        val file = _file_reference(project, path, s"Document Project evidence $productid")
         if (kind == "source" && !declaredsources.contains(path)) {
           _invalid(s"Document Project source evidence must name a declared authored authority: $productid")
         }
@@ -367,7 +362,7 @@ private[cozy] object CozyDocumentProjectEvidence {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     resolved: CozyDocumentWorkflow.ResolvedWorkflow,
-    sources: Vector[FileIdentity],
+    sources: Vector[FileReference],
     sidecar: Option[Sidecar],
     attempts: Vector[Attempt],
     presentationstate: CozyDocumentProjectPresentationSemanticsState.State
@@ -471,24 +466,13 @@ private[cozy] object CozyDocumentProjectEvidence {
     } else {
       state.validated match {
         case None => EvidenceStatus("missing", Some("presentation semantics validation is unavailable"))
-        case Some(validated) =>
-          val projection = CozyDocumentCrossMediaProjection.project(validated)
-          val rendered = CozyDocumentCrossMediaConfirmationHtml.render(projection)
-          val receipt = CozyDocumentCrossMediaReceipt.capture(projection, rendered)
-          val expectedhtml = rendered.html.getBytes(StandardCharsets.UTF_8)
-          val expectedreceipt = (CozyDocumentCrossMediaReceipt.canonicalJson(receipt) + "\n").getBytes(StandardCharsets.UTF_8)
+        case Some(_) =>
           val htmlpath = project.resolve("target/document-project/presentation-confirmation.html").normalize()
-          val receiptpath = project.resolve("target/document-project/presentation-confirmation.receipt.yaml").normalize()
-          if (!Files.exists(htmlpath, LinkOption.NOFOLLOW_LINKS) || !Files.exists(receiptpath, LinkOption.NOFOLLOW_LINKS)) {
-            EvidenceStatus("missing", Some("default presentation confirmation HTML or receipt is not generated"))
+          if (!Files.exists(htmlpath, LinkOption.NOFOLLOW_LINKS)) {
+            EvidenceStatus("missing", Some("default presentation confirmation HTML is not generated"))
           } else {
-            val htmlfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, htmlpath), "presentation confirmation HTML")
-            val receiptfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, receiptpath), "presentation confirmation receipt")
-            if (Files.readAllBytes(htmlfile).sameElements(expectedhtml) && Files.readAllBytes(receiptfile).sameElements(expectedreceipt)) {
-              EvidenceStatus("current", None)
-            } else {
-              EvidenceStatus("stale", Some("default presentation confirmation HTML or receipt does not match current semantics"))
-            }
+            CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, htmlpath), "presentation confirmation HTML")
+            EvidenceStatus("current", None)
           }
       }
     }
@@ -497,14 +481,10 @@ private[cozy] object CozyDocumentProjectEvidence {
   private def _evidence_status(project: Path, evidence: Evidence, declared: Map[String, ProductEvidence]): EvidenceStatus = evidence match {
     case NoEvidence => EvidenceStatus("missing", Some("declared evidence is missing"))
     case FileEvidence(_, file) =>
-      val path = project.resolve(file.path).normalize()
-      if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-        EvidenceStatus("missing", Some("declared evidence is missing"))
-      } else if (_sha256(path) == file.sha256) {
+      if (CozyDocumentProjectNativeEvidence.fileAvailable(project, file))
         EvidenceStatus("current", None)
-      } else {
-        EvidenceStatus("stale", Some("declared evidence sha256 does not match current bytes"))
-      }
+      else
+        EvidenceStatus("missing", Some("declared evidence is missing or unavailable"))
     case ReceiptEvidence(media, resource) => _receipt_status(project, media, resource)
     case ReceiptSetEvidence =>
       val receipts = declared.values.collect { case ProductEvidence(_, receipt: ReceiptEvidence, _) => receipt }.toVector
@@ -541,12 +521,12 @@ private[cozy] object CozyDocumentProjectEvidence {
     } else {
       val receiptfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, receiptpath), "generated review receipt")
       val receipt = _generated_review_receipt(project, descriptor, kind, receiptfile)
-      val outputcurrent = CozyDocumentProjectNativeEvidence.identityCurrent(project, receipt.output)
-      val inputscurrent = receipt.inputs.forall(identity => CozyDocumentProjectNativeEvidence.identityCurrent(project, identity))
+      val outputcurrent = CozyDocumentProjectNativeEvidence.fileAvailable(project, receipt.output)
+      val inputscurrent = receipt.inputs.forall(identity => CozyDocumentProjectNativeEvidence.fileAvailable(project, identity))
       if (outputcurrent && inputscurrent)
         EvidenceStatus("current", None)
       else
-        EvidenceStatus("stale", Some("generated review receipt input or default output is stale"))
+        EvidenceStatus("stale", Some("generated review input or default output is unavailable"))
     }
   }
 
@@ -561,10 +541,10 @@ private[cozy] object CozyDocumentProjectEvidence {
       _generated_review_status(project, descriptor, sourcepaths, "article")
     } else {
       val accepted = native.filter(_.outcome == "accepted")
-      if (accepted.exists(CozyDocumentProjectNativeEvidence.nativeAttemptCurrent(project, _))) {
+      if (accepted.exists(CozyDocumentProjectNativeEvidence.nativeOutputsAvailable(project, _))) {
         EvidenceStatus("current", None)
       } else if (accepted.nonEmpty) {
-        EvidenceStatus("stale", Some("accepted native evidence input or declared output is stale"))
+        EvidenceStatus("stale", Some("accepted native input or declared output is unavailable"))
       } else {
         EvidenceStatus("missing", Some("no accepted native evidence is retained"))
       }
@@ -586,7 +566,7 @@ private[cozy] object CozyDocumentProjectEvidence {
       _invalid("generated review receipt kind must equal the fixed review kind")
     if (_string(fields, "project", label) != descriptor.id || _string(fields, "profile", label) != descriptor.profile)
       _invalid("generated review receipt project or profile must equal the descriptor")
-    val output = _nested_file_identity(project, _field(fields, "output", label), "generated review receipt output")
+    val output = _nested_file_reference(project, _field(fields, "output", label), "generated review receipt output")
     if (output.path != CozyDocumentProject._project_relative(project, _generated_review_output(project, kind)))
       _invalid("generated review receipt output must be the fixed default review output")
     val expectedinputs = _generated_review_input_paths(descriptor, kind)
@@ -595,7 +575,7 @@ private[cozy] object CozyDocumentProjectEvidence {
       _invalid("generated review receipt inputs must match the fixed review input order")
     val identities = inputs.zip(expectedinputs).map {
       case (value, expectedpath) =>
-        val identity = _nested_file_identity(project, value, "generated review receipt input")
+        val identity = _nested_file_reference(project, value, "generated review receipt input")
         if (identity.path != expectedpath)
           _invalid("generated review receipt inputs must match the fixed review input order")
         identity
@@ -609,10 +589,10 @@ private[cozy] object CozyDocumentProjectEvidence {
   private def _generated_review_receipt_path(project: Path, kind: String): Path =
     project.resolve("target").resolve("document-project").resolve(s"$kind-review.receipt.yaml").normalize()
 
-  private def _generated_review_inputs(project: Path, descriptor: CozyDocumentProject.Descriptor, kind: String): Vector[FileIdentity] =
+  private def _generated_review_inputs(project: Path, descriptor: CozyDocumentProject.Descriptor, kind: String): Vector[FileReference] =
     _generated_review_input_paths(descriptor, kind).map { relative =>
-      val path = CozyDocumentProject._direct_file(project, relative, "generated review input")
-      FileIdentity(relative, _sha256(path))
+      CozyDocumentProject._direct_file(project, relative, "generated review input")
+      FileReference(relative)
     }
 
   private def _generated_review_input_paths(descriptor: CozyDocumentProject.Descriptor, kind: String): Vector[String] =
@@ -631,18 +611,16 @@ private[cozy] object CozyDocumentProjectEvidence {
     sourcepaths: Set[String],
     productid: String
   ): EvidenceStatus = {
-    val (output, sourcesavailable, projection) = productid match {
+    val (output, sourcesavailable) = productid match {
       case "explanation-structure-review-html" =>
         (
           project.resolve("target/document-project/slide-logical-chart-review.html"),
-          sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml"),
-          () => CozyDocumentProjectProjection.slideLogicalChartHtml(project, descriptor)
+          sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml")
         )
       case "video-logical-chart-html" =>
         (
           project.resolve("target/document-project/video-logical-chart-review.html"),
-          sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md"),
-          () => CozyDocumentProjectProjection.videoLogicalChartHtml(project, descriptor)
+          sourcepaths.contains(descriptor.contentCore) && sourcepaths.contains("presentation/visual-pages.yaml") && sourcepaths.contains("video/storyboard.md")
         )
       case _ => CozyDocumentProject._descriptor_failure(s"logical chart Work Product is unsupported: $productid")
     }
@@ -654,11 +632,8 @@ private[cozy] object CozyDocumentProjectEvidence {
     } else if (!sourcesavailable) {
       EvidenceStatus("missing", None)
     } else {
-      val outputfile = CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, output), "generated logical chart output")
-      if (Files.readAllBytes(outputfile).sameElements(projection().getBytes(StandardCharsets.UTF_8)))
-        EvidenceStatus("current", None)
-      else
-        EvidenceStatus("stale", Some("generated logical chart output does not match current project IR"))
+      CozyDocumentProject._direct_file(project, CozyDocumentProject._project_relative(project, output), "generated logical chart output")
+      EvidenceStatus("current", None)
     }
   }
 
@@ -817,10 +792,10 @@ private[cozy] object CozyDocumentProjectEvidence {
     inputvalues.zip(expectedinputs).foreach {
       case (value, expectedpath) =>
         val inputfields = _object(value, "Document Project retained attempt input")
-        if (inputfields.keySet != Set("path", "sha256")) {
-          _invalid("Document Project retained attempt input must have exactly path and sha256")
+        if (inputfields.keySet != Set("path")) {
+          _invalid("Document Project retained attempt input must have exactly path")
         }
-        val input = _file_identity(project, _string(inputfields, "path", "Document Project retained attempt input"), _string(inputfields, "sha256", "Document Project retained attempt input"), "Document Project retained attempt input")
+        val input = _file_reference(project, _string(inputfields, "path", "Document Project retained attempt input"), "Document Project retained attempt input")
         if (input.path != expectedpath) {
           _invalid("Document Project retained attempt inputs must match fixed authored source order")
         }
@@ -850,23 +825,20 @@ private[cozy] object CozyDocumentProjectEvidence {
     } else {
       Vector.empty
     }
-    Attempt(FileIdentity(CozyDocumentProject._project_relative(project, path), _sha256(path)), _attempt_v1_schema, operation.id, outcome, products, Vector.empty, Vector.empty)
+    Attempt(FileReference(CozyDocumentProject._project_relative(project, path)), _attempt_v1_schema, operation.id, outcome, products, Vector.empty, Vector.empty)
   }
 
-  private def _nested_file_identity(project: Path, value: Json, label: String): FileIdentity = {
+  private def _nested_file_reference(project: Path, value: Json, label: String): FileReference = {
     val fields = _object(value, label)
-    if (fields.keySet != Set("path", "sha256")) {
-      _invalid(s"$label must have exactly path and sha256")
+    if (fields.keySet != Set("path")) {
+      _invalid(s"$label must have exactly path")
     }
-    _file_identity(project, _string(fields, "path", label), _string(fields, "sha256", label), label)
+    _file_reference(project, _string(fields, "path", label), label)
   }
 
-  private def _file_identity(project: Path, relative: String, hash: String, label: String): FileIdentity = {
+  private def _file_reference(project: Path, relative: String, label: String): FileReference = {
     _admit_evidence_file(project, relative, label)
-    if (!_hash_pattern.pattern.matcher(hash).matches()) {
-      _invalid(s"$label sha256 must be lowercase SHA-256")
-    }
-    FileIdentity(relative, hash)
+    FileReference(relative)
   }
 
   private def _require_artifact_path(project: Path, relative: String, label: String): Unit = {
@@ -956,9 +928,6 @@ private[cozy] object CozyDocumentProjectEvidence {
     }
     value
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _invalid(message: String): Nothing = CozyDocumentProject._descriptor_failure(message)
 }

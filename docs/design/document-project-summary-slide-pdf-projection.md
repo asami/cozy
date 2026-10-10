@@ -165,7 +165,10 @@ The transformation returns one validated canonical `cozy.visual-page-set.v1`
 and provenance without filesystem mutation. Its media descriptor path is returned
 as in-process coordination context, not a new PageSet/provenance schema field.
 A distinct writer takes the validated projection and required explicit
-`pageSetOutput` path and performs ordinary atomic file output.
+`pageSetOutput` path, creates its parent as needed, and directly writes the
+validated canonical PageSet JSON followed by a newline. Ordinary I/O failures
+report `SUMMARY_SLIDE_PROJECTION_OUTPUT` and may leave partial output; there
+is no staging, rollback, or prior-output preservation promise.
 
 `CozySummarySlidePdf` is the coordinator (X). It reads the selected media
 resource's `source`, resolves one connection path against the descriptor root,
@@ -253,8 +256,10 @@ target that is not the required existing Phase 40 target; unresolved labels;
 duplicate/missing edge or required-endpoint coverage; unrelated items; a
 profile-supplied `emphasisNode`; invalid roles, relation types, endpoints,
 directions, pattern compatibility, or parameters; and loss, reversal, aliasing,
-or synthesis of Core meaning. Failure preserves prior output and exposes no
-fresh receipt. X rejects invalid connection-source grammar; A reports ordinary
+or synthesis of Core meaning. These validation failures precede writer
+invocation and expose no fresh receipt. Ordinary write failure may leave
+partial output and never reports a successful new result; recovery is
+regeneration. X rejects invalid connection-source grammar; A reports ordinary
 write failures without a separate output/input-protection guarantee.
 
 This design neither changes source schemas, Visual Page schemas, the accepted

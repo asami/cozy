@@ -6,12 +6,11 @@ import cozy.video.CozyVideoPublisher
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
-/* The command boundary owns no discovery.  It receives resolved immutable
- * plans, renders them after shared preflight, and commits admission through
- * one registry transaction. */
+/* The command consumes selected plans, renders after initial ownership
+ * admission, and publishes artifacts before the registry write. */
 private[cozy] object CozyArticleMediaVideoCommand {
   final case class PlannedCandidate(
     articleIdentity: String,
@@ -20,14 +19,10 @@ private[cozy] object CozyArticleMediaVideoCommand {
     video: String,
     version: String,
     destination: Path,
-    destinationState: String,
-    forceRequested: Boolean,
     owner: String
   )
 
-  /* The identical immutable value used by dry-run reporting and the real
-   * command.  It contains only render-independent destination and ownership
-   * facts; output SHA/evidence remains a post-render responsibility. */
+  /* Render-independent destination and ownership selection for the command. */
   final case class Preflight(
     publicationRoot: Path,
     repositoryRoot: Path,
@@ -46,7 +41,7 @@ private[cozy] object CozyArticleMediaVideoCommand {
       _invalid("Article-media video command plans must be defined")
     val publicationroot = publicationRoot.toAbsolutePath.normalize()
     val repositoryroot = repositoryRoot.toAbsolutePath.normalize()
-    val ordered = _ordered_plans(plans).map(CozyVideoPublisher.validatePublicationPlan)
+    val ordered = _ordered_plans(plans)
     _validate_plan_identities(ordered)
     val bound = ordered.flatMap { plan =>
       plan.video.articleMedia.map(binding => plan -> binding)
@@ -74,8 +69,6 @@ private[cozy] object CozyArticleMediaVideoCommand {
         plan.video.name,
         plan.video.version,
         plan.target,
-        plan.destination.state,
-        plan.destination.forceRequested,
         owner
       )
     }.sortBy(x => (x.articleIdentity, x.locale, x.role, x.video, x.version, x.destination.toString))
@@ -105,14 +98,9 @@ private[cozy] object CozyArticleMediaVideoCommand {
     if (planned.plans.isEmpty)
       Vector.empty
     else {
-      /* The shared registry lock begins before the frozen roots are
-       * revalidated.  This keeps source revalidation, deterministic workspace
-       * use, rendering, post-render plan validation, admission, and metadata
-       * replacement in one producer transaction. */
       Files.createDirectories(planned.publicationRoot)
       CozyArticleMediaRegistry.transaction(planned.publicationRoot) { transaction =>
-        val current = preflight(planned.publicationRoot, planned.repositoryRoot, planned.plans)
-        val prepared = current.plans.map { plan =>
+        val prepared = planned.plans.map { plan =>
           CozyVideoPublisher.preparePublication(CozyVideoPublisher.renderPublication(plan, voicevox, runner))
         }
         val publications = prepared.map(_.result.metadataPublication.getOrElse(
@@ -121,7 +109,7 @@ private[cozy] object CozyArticleMediaVideoCommand {
         var admitted = Vector.empty[CozyVideoPublisher.PublishVideoResult]
         transaction.publish(publications) { projected =>
           prepared.flatMap { publication =>
-            CozyArticleMediaVideoRegistration.prepare(publication, projected, current.repositoryRoot).map(_.roleUpdate)
+            CozyArticleMediaVideoRegistration.prepare(publication, projected, planned.repositoryRoot).map(_.roleUpdate)
           }
         } {
           () => admitted = prepared.map(CozyVideoPublisher.admitPublication)
@@ -173,7 +161,7 @@ private[cozy] object CozyArticleMediaVideoCommand {
     plans: Vector[CozyVideoPublisher.PublicationPlan]
   ): Vector[CozyVideoPublisher.PublicationPlan] =
     plans.zipWithIndex.map { case (plan, index) =>
-      if (plan == null || plan.video == null)
+      if (plan == null || plan.config == null || plan.video == null || plan.target == null)
         _invalid(s"Article-media video command publication plan must be defined: $index")
       plan
     }.sortBy(_.video.name)

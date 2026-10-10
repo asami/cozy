@@ -7,7 +7,8 @@ import org.smartdox.metadata.PublishMetadata.{ArticleMediaPublication, ArticleMe
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaAssociation {
@@ -157,7 +158,6 @@ private[cozy] object CozyArticleMediaAssociation {
       publicPath = record.publicPath,
       repositoryPath = record.repositoryPath,
       mediaType = record.mediaType,
-      sha256 = record.sha256,
       provenance = record.provenance,
       publicationState = record.publicationState
     ))

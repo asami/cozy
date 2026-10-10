@@ -32,7 +32,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -67,7 +67,7 @@ private[cozy] trait CozyBokPublication {
       val videopreflight = CozyArticleMediaVideoCommand.preflight(config.publicationPath, config.repositoryPath, videoplans)
       val infographicplan = CozyArticleMediaInfographicCommand.plan(config)
       _publish_video_packages(config, videopreflight, voicevox, videorunner).map(_.video.name) ++
-      CozyArticleMediaInfographicCommand.commit(config, infographicplan).map(_.roleUpdate.integrity.record.artifact.identity) ++
+      CozyArticleMediaInfographicCommand.commit(config, infographicplan).map(_.roleUpdate.integrity.record.artifact.get.identity) ++
       publishProjects(config).map(_.project.name)
     }
 
@@ -222,7 +222,7 @@ private[cozy] trait CozyBokPublication {
       println(s"  - infographic: ${candidate.articleIdentity} [${candidate.locale}, ${candidate.artifact}, ${candidate.version}] -> ${candidate.destination}")
     }
     preflight.videopreflight.candidates.foreach { candidate =>
-      println(s"  - video: ${candidate.articleIdentity} [${candidate.locale}, ${candidate.role}, ${candidate.video}, ${candidate.version}] -> ${candidate.destination} (${candidate.destinationState}, force=${candidate.forceRequested})")
+      println(s"  - video: ${candidate.articleIdentity} [${candidate.locale}, ${candidate.role}, ${candidate.video}, ${candidate.version}] -> ${candidate.destination}")
     }
     println(s"- build: strategy=${preflight.build.strategy}")
     println(s"- stage: ${preflight.stage.map(_.command.mkString(" ")).getOrElse("skipped")}")
@@ -245,9 +245,7 @@ private[cozy] trait CozyBokPublication {
       "repository" -> Json.fromString(config.repositoryPath.toString),
       "strategy" -> Json.fromString(config.strategy),
       "dryRun" -> Json.fromBoolean(config.dryRun),
-      "force" -> Json.fromBoolean(config.force),
       "videoEnabled" -> Json.fromBoolean(config.videoEnabled),
-      "mediaForce" -> Json.fromBoolean(config.mediaForce),
       "videoPackages" -> Json.fromValues(preflight.videopackages.map(x => Json.fromString(x.toString))),
       "videoCandidates" -> Json.fromValues(preflight.videopreflight.candidates.map(x => Json.obj(
         "articleIdentity" -> Json.fromString(x.articleIdentity),
@@ -256,8 +254,6 @@ private[cozy] trait CozyBokPublication {
         "video" -> Json.fromString(x.video),
         "version" -> Json.fromString(x.version),
         "destination" -> Json.fromString(x.destination.toString),
-        "destinationState" -> Json.fromString(x.destinationState),
-        "forceRequested" -> Json.fromBoolean(x.forceRequested),
         "owner" -> Json.fromString(x.owner)
       ))),
       "infographicPackages" -> Json.fromValues(preflight.infographicpackages.map(x => Json.obj(
@@ -314,7 +310,7 @@ private[cozy] trait CozyBokPublication {
     videorunner: CozyVideo.VideoProcessRunner
   ): Vector[String] =
     _publish_video_packages(config, preflight.videopreflight, voicevox, videorunner).map(_.video.name) ++
-      CozyArticleMediaInfographicCommand.commit(config, preflight.infographicplan).map(_.roleUpdate.integrity.record.artifact.identity) ++
+      CozyArticleMediaInfographicCommand.commit(config, preflight.infographicplan).map(_.roleUpdate.integrity.record.artifact.get.identity) ++
       _publish_project_packages(config).map(_.project.name)
 
   private def _video_publication_plans(config: PublicationConfig): Vector[CozyVideoPublisher.PublicationPlan] = {
@@ -324,7 +320,6 @@ private[cozy] trait CozyBokPublication {
         config.publicationPath,
         config.artifactBasePath,
         config.version,
-        config.force,
         Some(config.repositoryPath)
       ))
     }
@@ -340,7 +335,6 @@ private[cozy] trait CozyBokPublication {
           config.publicationPath,
           config.artifactBasePath,
           config.version,
-          config.force,
           config.project,
           bokconfig,
           Some(config.repositoryPath)

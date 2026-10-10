@@ -14,7 +14,7 @@ or UseCase model.
 ```text
 identity-pinned public Component surface + Business/System/UI UseCase references
   -> normalized Logical UI candidate
-  -> explicit acceptance decision bound to the exact candidate identity
+  -> explicit acceptance decision with a nonempty trimmed decision ID
   -> accepted Logical UI authority
 
 raw prompts / codec bytes / review HTML / route tables / target code / caches
@@ -22,10 +22,9 @@ raw prompts / codec bytes / review HTML / route tables / target code / caches
 ```
 
 The candidate is reviewable semantic input, not accepted authority. An
-`AcceptanceDecision` is the sole feedback-decision form in v1 and must name one
-exact candidate identity. The accepted value is constructed only when that
-binding validates. A candidate identity, canonical consumed-input identity,
-feedback-decision identity, and accepted identity have separate semantic roles.
+`AcceptanceDecision` is the sole feedback-decision form in v1. Acceptance
+consumes the actual normalized candidate and explicit decision and retains both.
+The decision ID records the acceptance fact without certifying artifact bytes.
 
 ## 2. Component public-surface binding
 
@@ -56,22 +55,16 @@ identity, or any extra v1 relation is rejected. LUI43-02 later owns mappings
 from UI UseCase steps to screens; this kernel owns no screen, route, widget,
 or target interaction.
 
-## 4. Normalization and identity
+## 4. Normalization and canonical content
 
 Candidate construction first validates the closed public-surface and UseCase
 inputs, then sorts Component surfaces by full coordinate, export IDs
 lexicographically, bindings by coordinate plus export ID, and realization
-relations by source/target layer and identity. The canonical logical content is
-UTF-8 JSON in a declared field order. The candidate semantic identity is its
-`sha256:<64-lowercase-hex>` digest. Equivalent vector ordering therefore cannot
-change the candidate or consumed-input identity.
-
-The candidate document includes an `inputIdentity` derived from the normalized
-logical content under the `consumed-input` role. The decision identity derives
-from the decision ID and candidate identity under the `acceptance-decision`
-role. The accepted identity derives from the candidate, consumed-input, and
-decision identities under the `accepted` role. No timestamp, cache, file path,
-codec whitespace, HTML, or renderer state participates in any of these hashes.
+relations by source/target layer and identity. Canonical logical content and
+candidate JSON use declared field orders. Equivalent vector orderings produce
+the same normalized typed input and canonical serialization. The candidate
+JSON retains its original schema and version and contains only schema, version,
+kind, component surfaces, component bindings, and UseCases.
 
 ## 5. Intentional non-goals
 
@@ -84,8 +77,7 @@ or automatic acceptance. LUI43-02 through LUI43-05 own those later concerns.
 
 LUI43-02 introduces `cozy.usecase-screen-projection.v1` as a typed projection
 over the committed candidate kernel. `CozyLogicalUi.project` takes a
-`LogicalUiCandidate` and a projection input whose candidate identity must equal
-that candidate's exact `identity`. The projection retains the candidate as an
+`LogicalUiCandidate` and typed projection input. The projection retains the candidate as an
 explicit authority dependency while remaining deliberately separate from
 `cozy.logical-ui.v1` candidate JSON and `CozyLogicalUiCodec`.
 
@@ -126,16 +118,16 @@ when the invocation also carries the exact Operation-role usage. Direct child
 mutation is therefore rejected even when a public Operation exists. The
 projection does not infer Operation semantics or StateMachine meaning.
 
-The normalized projection identity includes the exact candidate identity and
-canonical projection content. This identity is deterministic under catalog,
-step, screen, interaction, mapping, usage, feedback, region, and boundary
-permutations. No renderer, HTML, receipt, route, widget, codec, acceptance,
-pattern, constraint, reachability, or target-framework concern is introduced.
+The projection retains the actual candidate and normalized input. Canonical
+projection content contains the typed input alone and is deterministic under
+catalog, step, screen, interaction, mapping, usage, feedback, region, and
+boundary permutations. This layer introduces no renderer, HTML, route, widget,
+codec, acceptance, pattern, constraint, reachability, or target-framework concern.
 
 ## 7. Pattern, constraint, and state semantics
 
 LUI43-03 adds `CozyLogicalUiSemantics` as a distinct package-local semantic
-projection. It consumes the exact identity of one committed screen projection
+projection. It consumes the actual normalized screen projection
 and an explicit typed input. This layer classifies Logical UI meaning without
 expanding the candidate kernel, transport codec, acceptance authority, or
 source-reader boundary.
@@ -166,20 +158,22 @@ admission record that binds a non-system UI step and an existing mapping to the
 same public Operation and StateMachine usages. It carries from/to domain states
 but performs no transition and infers no Workflow state.
 
-Canonical semantic content includes the exact screen-projection identity and
-uses structural tuple ordering for all opaque identities. No delimiter-derived
-identity key is used. Thus vector permutations cannot alter the semantic
-identity, while duplicate, missing, incompatible, or unadmitted values fail
-closed with stable `LUI43_SEMANTICS_*` diagnostics.
+Canonical semantic content uses the normalized typed input and structural
+tuple ordering for opaque domain identities. Vector permutations produce the
+same normalized input and canonical representation; duplicate, missing,
+incompatible, or unadmitted values fail closed with stable
+`LUI43_SEMANTICS_*` diagnostics.
 
-## 8. Review projection and receipt boundary
+## 8. Read-only review and direct HTML output
 
-`CozyLogicalUiReview` is deliberately below the accepted Logical UI and
-semantic authorities. It receives the exact accepted candidate, normalized
-screen projection, and semantic projection as an identity-pinned tuple. It is
-read-only with respect to those values: the renderer does not create
-acceptance, evaluate DbC or validation, run Operations or StateMachine
-transitions, infer Workflow state, or select target widgets/routes.
+`CozyLogicalUiReview` receives supplied accepted, screen-projection, and semantic
+values. Its ordinary required-value checks identify null accepted, projection,
+semantics, candidates, and decision with `LUI43_REVIEW_INPUT_INVALID` and the
+actual missing-input path. Domain admission belongs to the respective
+constructors. Review introduces no tuple equality, currentness, or revalidation
+protocol. The renderer does not create acceptance, evaluate DbC or validation,
+run Operations or StateMachine transitions, infer Workflow state, or select
+target widgets/routes.
 
 The review HTML is a deterministic inspection surface, not an application.
 It uses escaped text, stable normalized ordering, an inline stylesheet, and
@@ -191,27 +185,53 @@ transition admission evidence. Each screen explicitly shows logical primary
 purpose, logical secondary purposes, and semantic Purpose. Transition evidence
 separately shows domain state, optional Workflow ID/state ID evidence (or a
 deterministic missing representation), and UI state. Review diagnostics make
-omissions visible but do not become acceptance decisions. Receipt identity is
-kept out of HTML so a review page cannot be mistaken for its currentness
-authority.
+omissions visible but do not become acceptance decisions. The overview includes
+the schema, renderer profile, and escaped explicit acceptance decision ID as
+ordinary review facts. The review value retains HTML and typed diagnostics;
+its byte accessor performs genuine UTF-8 encoding.
 
-The receipt binds all reused authority identities plus the closed renderer
-profile and emitted-byte hash under `cozy.logical-ui-review.v1`. Its identity
-is a separate deterministic value. UseCase and catalog receipt identities use
-local canonical JSON object/array framing with fully JSON-escaped dynamic
-strings, preserving injective identity for valid delimiter-, quote-, and
-control-character-bearing IDs. Recomputing the same normalized tuple must
-produce equal HTML and receipt bytes; changing accepted/projection/semantic
-inputs, receipt fields, renderer evidence, or HTML bytes makes currentness fail
-closed.
+The only filesystem operation is an explicit direct `write` of rendered HTML.
+It requires a nonnull review, existing non-symlink parent, and regular-or-absent
+non-symlink `*.html` target whose parent path is exactly the supplied parent as
+written. The direct-child admission rejects `.`/`..` and intermediate symbolic
+links, including symlink-plus-`..` traversal, before writing. After this single
+admission it writes the selected target directly with create/write/truncate
+options. Ordinary I/O, security, and runtime failures report HTML-write errors;
+a late failure may leave partial generated output and recovery is regeneration.
+It never reads an HTML page as authority or publishes/registers an artifact.
+Renderer changes remain a read-only review concern.
 
-The only filesystem operation is an explicit `write` of the already validated
-HTML. It requires an existing non-symlink parent and a regular-or-absent
-non-symlink `*.html` target whose parent path is exactly the supplied parent
-path as written. The direct-child equality gate rejects `.`/`..` and every
-intermediate component, including symlink-plus-`..` traversal, before it
-creates a temporary file or replaces output. It stages only an admitted target
-in that parent and uses an atomic move. It never stores a receipt beside the
-page, reads an HTML page as authority, or publishes/registers an artifact.
-Renderer changes therefore remain a non-authoritative review concern and
-cannot stale Logical UI semantic authority by mutation.
+## S23 implementation and validation facts — 2026-10-09
+
+P715-02-S23-LOGICAL-UI-DIRECT-REVIEW is
+**implemented-focused-validated-unreviewed**, retaining original Phase 71.4
+base `fc640ec25e443d00c22b2c26b437a205d39910eb`. Its initial editing handoff
+on 2026-10-09 was **implemented-unvalidated-unreviewed**. The facts below
+record selected execution evidence; the normative behavior above retains its
+meaning, and independent review and acceptance remain OPEN.
+
+### Actual S23 focused validation — 2026-10-09
+
+The [actual S23 focused result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s23-focused-validation-result.json), following the
+[parent edit admission](../../.codex-workflow/phases/PHASE-71.5/p715-02-s23-parent-edit-admission.json), records **50 successes in 6 completed
+suites**. Two sequential groups passed: 3 tests in the Phase43 SalesOrder
+acceptance suite, then 47 tests in the existing LogicalUi, Semantics, Review,
+Runtime, and `cozyruntime` List/Detail acceptance suites. Failed, canceled,
+ignored, pending, and aborted counts are zero. The initial registered runner
+route completed with SBT/wrapper exits 0/0 and shared serial lock release.
+Compiler warnings, errors, fixture diagnostics, and runtime Logback warning
+lines are zero for this invocation. Existing `HYG-P715-S19-LOGBACK-001` remains
+pending its original Step classification; no suppression or whole-Phase
+warning-free claim is made.
+
+Parent assessment confines the changed source to LogicalUI typed values,
+review, and direct HTML output, with existing runtime List/Detail consumers
+covered. It identifies no JA34 narration/synthesis/frame/render/assembly/audio/
+credit/end-card producer edge. No new native generation or hearing is claimed;
+S14 native and S22 142/6 remain dated evidence only. CAR-provider request/evidence
+digests in original R715-06, all remaining finite duties and E715-01..04,
+final current JA34 generation/assembly/hearing/end-card/EOF, independent M2
+cycles 6/7/8/10, whole-Step/full-Phase assurance and acceptance, exact local
+commits, and distinct release remain OPEN. Repository-full SBT and broader
+integration remain **deferred-not-run to PHASE-71.7**. Stage Status triples,
+checkboxes, aggregate metadata, and prior dated history retain their status.

@@ -254,9 +254,13 @@ is exactly one `.json`, `.yaml`, or `.yml` document. `validate` emits only
 schema, version, page count, and resolved identities. `inspect` adds the
 declared ordered logical nodes, Relations, selected patterns, and typed
 parameters. `convert` accepts only `.json`, `.yaml`, `.yml`, or `.md` output,
-completes parsing and validation before creating its output, and replaces the
-output through a same-directory atomic move. An invalid source, catalog, or
-output suffix creates no output. These commands neither render nor select a
+completes parsing and validation before writing its canonical UTF-8 serialization
+directly to the normalized selected destination. The output parent must be an
+existing direct directory and the destination must not be a symbolic link.
+An invalid source, catalog, or output suffix leaves selected output untouched
+because no write has begun. Ordinary I/O failures are reported as
+`VISUAL_PAGE_SAVE`; writing may leave partial output and regeneration is recovery.
+These commands neither render nor select a
 Presentation, binding, Storyboard, receipt, or review state.
 
 ### 4.2 Direct semantic Preview
@@ -293,10 +297,16 @@ NOT become a PPT input, reusable renderer binding, or semantic authority.
 zero or once and target exactly a `.png` file. Missing, duplicate,
 unsupported, valueless, extra positional, or otherwise ambiguous arguments
 MUST reject. Normalized-identical HTML and PNG targets MUST reject. Preview
-MUST validate all arguments and targets, load the input and catalog, and render
-every selected output byte before atomically replacing either output through a
-same-directory move. An invalid input, catalog, or argument MUST leave each
-pre-existing selected output byte sequence unchanged. Preview invokes no
+MUST initially admit all arguments and targets, load the input and catalog, and
+render every selected output byte before writing directly to the selected HTML
+target followed by the optional PNG target. Output parents must be existing
+direct directories and destinations must be absent or direct regular non-symlink
+files. An invalid input, catalog, or argument MUST leave each pre-existing
+selected output byte sequence unchanged because no write has begun.
+Ordinary I/O failures are reported as `VISUAL_PAGE_PREVIEW_SAVE`; a failed write
+may leave partial output or an earlier completed output, and regeneration is
+recovery. The success report is emitted only after all selected writes succeed.
+Preview invokes no
 external process or renderer.
 
 The Preview report is deterministic and has these exact ordered fields; the
@@ -455,8 +465,11 @@ relative order `id,path,assets` with ordered unique `{id}` assets. Ordinary
 generated-evidence readers positively select those known fields and ignore
 arbitrary extra metadata at every object level. No template/output/slide/montage
 hash, copied semantic value or replacement content proof is required or emitted.
-Actual paths, PPTX relationship/media structure, PDF/PNG formats, required
-outputs, and current declared asset-byte agreement remain validated.
+Actual paths, PPTX relationship/media structure, PDF/PNG formats and required
+outputs remain validated. Both Presentation routes retain safe direct selected
+asset path admission and existence of every actually linked ZIP image entry;
+they perform no copied-image byte, multiset or cardinality comparison. The direct
+Summary PDF route also admits selected assets without copied-byte agreement.
 
 Presentation review's `visualPageSet`, `catalog`, `binding`, `template` and
 `pptx` wrappers are `{path}`; slides are `{id,path}`, assets are
@@ -474,10 +487,16 @@ closed. Ordinary dependency/modification-time and generation-companion checks
 remain. Unchanged reuse preserves explicit alignment; a newer review generation
 requires realignment even with identical bytes. Structurally valid edits at
 preserved timestamps have no historical-content-detection guarantee. Actual
-PNG/PPTX/OOXML and one-for-one selected-asset byte checks still reject invalid
-same-time edits. Renderer files remain direct outputs; no atomic primary-output
-transaction is added. Accepted receipt/review-state and CrossReview failure
-preservation remain as owned by their existing installations. The SummarySlidesPdf
+PNG/PPTX/OOXML structure, relationships, titles and required page mappings still
+reject invalid same-time edits. Renderer files remain direct outputs. Shared
+acceptance admits normalized selected targets, symlink/regular-file restrictions
+and distinct non-aliased ownership before writing prepared review states directly
+in order, followed by the final receipt. Input/format/preparation failures before
+writes leave acceptance records untouched; first-state-parent failure precedes
+receipt writing. I/O failure during writes may leave earlier or partial documents,
+including a started receipt write, and reports no success. There is no atomic
+installation, rollback or prior-record preservation promise. CrossReview's
+separate failure preservation remains pending removal. The SummarySlidesPdf
 renderer subsystem is migrated under S07; publication/site follow-ups remain
 pending without a Phase closure claim.
 
@@ -492,23 +511,64 @@ and montage `path`; configured PPTX requires `path`, while an unconfigured
 `pptx` field rejects. Missing/null/wrong known fields and unsafe paths reject.
 The authored configuration grammar is unchanged.
 
-The actual direct PDF must have its PDF header and parse in PDFBox. Slide and
-montage files retain their PNG-signature and safe direct-file floor. Visual
-Page declared asset media types and raw bytes must agree with current selected
-resources. The optional PPTX retains only its configured direct-file sidecar
-floor, with no new OOXML or render-equivalence promise. Sorted operation-local
-input Path/FileTime observations and current receipt-input FileTime observations
-are compared across rendering and never persisted as identity. A changed
-observed time or missing/unsafe input rejects before primary installation;
-valid timestamp-preserved changes have no historical-content-detection promise,
-while actual invalid PDF/page-count/required structure still rejects.
+The renderer receives the declared primary output in `--pdf` and writes it
+directly. One pre-render admission requires selected actual inputs and dependency
+files to be direct regular files. Visual Page declared asset paths and selected
+resource paths remain safely admitted without copied-byte agreement. The actual
+direct PDF must have its PDF header and parse in PDFBox. Slide and montage files
+retain their PNG-signature and safe direct-file floor. The optional PPTX retains
+only its configured direct-file sidecar floor, with no new OOXML or
+render-equivalence promise. Ordinary dependency/modification-time reuse remains;
+no operation-local or receipt input observations are compared across rendering.
+Actual invalid PDF/page-count/required structure still rejects.
 
-Same-parent staged ATOMIC_MOVE preserves prior primary PDF bytes and receipt
-on modeled pre-install failure and cleans the staged primary. Renderer
-sidecars remain direct outputs with no atomicity or rollback promise after an
-invoked renderer fails. This subsystem migration does not claim Phase inventory,
+The primary PDF and renderer sidecars are direct outputs. Renderer, structure
+or I/O failure creates no fresh acceptance or successful report and may leave
+partial or changed generated outputs, with recovery by regeneration. There is
+no atomic install, staged cleanup, rollback or prior-primary preservation
+promise. S10 replaces shared receipt installation with ordered direct writes and
+removes Presentation embedded-byte comparison. S11 migrates the selected
+PresentationMigration, CrossReview and article scaffold direct writers.
+Publication/prepared-input observations and other finite removals remain explicitly unfinished
+Phase 71.5 work. This subsystem migration does not claim Phase inventory,
 Step/Phase closure, EnglishPDF or isolated-site proof. ProducerSource/BoK
 metadata, generated rsync and the final named-integrity audit remain unfinished.
+
+On 2026-10-08 S09's six existing focused suites completed with 114 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+S10's bounded Presentation/shared-acceptance removal is implemented. On
+2026-10-08 its six existing focused suites completed with 113 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero SBT
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+Five hostile-XML/DOCTYPE diagnostics are intentional existing negative-fixture
+output, not SBT compilation or test failures. S11 implements direct
+PresentationMigration and CrossReview output writes and direct creation of an
+absent article source package. On 2026-10-08 S11's five existing focused suites
+completed with 58 successes, zero failed/canceled/ignored/pending cases, zero
+aborted suites, zero SBT warnings/errors, SBT/wrapper exit 0, and terminal shared
+serial-lock release. S11 emitted five intentional hostile-XML/DOCTYPE
+negative-fixture diagnostics, separate from SBT compilation or test failures.
+S12's current JA native route is planned/not-run; generation, assembly, native
+inspection, browser EOF and current listening remain OPEN
+([journal](../journal/2026/10/2026-10-08-phase-71.5-ja-main-route.md)).
+Independent Step/Phase acceptance, the same full 34-scene native route, external
+E715-01..04 reconciliation, Receipt publication/prepared-input observations and
+remaining finite publication/runtime/CAR groups remain pending without a
+whole-Phase closure claim.
+
+CrossReview retains resolved current page/scene references and equal ordered asset
+IDs/media types, with safe actual files resolved independently for each side and
+no cross-root asset-byte equality. It writes canonical aggregate JSON plus newline
+directly after existing semantic/path/input-and-evidence ownership checks.
+Pre-write failures preserve prior aggregate bytes; ordinary I/O failures may leave
+partial output and report no success, without atomic installation or cleanup.
+Verification remains read-only and format/reference-based, with approvals unrecorded.
+Article scaffolding retains exact slug/business/language grammar and an existing
+parent, directly creates an absent destination and writes unchanged payloads,
+review state and subdirectories in order. It never merges or overwrites an existing
+package; a later ordinary creation/write error may leave a partial new package and
+reports no success, without staging or failure cleanup.
 
 The existing slide-IR source and `--slide-ir` route remain separate. DM12 also
 requires only ordered unique asset IDs from `cozy.presentation.render.v1`,
@@ -611,8 +671,11 @@ diagnostic. Such failure creates no output and preserves any pre-existing
 output bytes.
 
 Only after all source, map, catalog, embedded Visual Page Set, and binding
-checks succeed may Cozy replace `save` by a same-directory atomic move. The
-file contains canonical VisualPageSet JSON followed by one newline. The
+checks and existing selected-path admission succeed may Cozy directly write
+`save`. The file contains canonical VisualPageSet JSON followed by one newline.
+Ordinary write failures retain `MIGRATION_SAVE` diagnostics and emit no successful
+report; they may leave partial output. No atomic replacement, preservation or
+cleanup guarantee applies to writing failures; recovery is regeneration. The
 deterministic text report is exactly the ordered fields:
 
 ```text
@@ -636,3 +699,184 @@ consumers own their own runtime and acceptance.
 
 Phase 37 is deferred: argument/subject patterns, explanation development, AI
 selection, and multi-page/multi-scene expansion are outside this contract.
+
+## 2026-10-09 S33 presentation production and explicit review facts
+
+**P715-02-S33-PRESENTATION-EXPLICIT-REVIEW-FACTS** is
+**implemented-unvalidated-unreviewed** at this initial 2026-10-09 editing
+handoff, within original **R715-03/04/14/15**. The four parent-selected existing
+suites `cozy.media.CozyMediaPresentationSpec`,
+`cozy.media.CozyMediaPdfReviewStateSpec`, `cozy.media.CozyMediaCrossReviewSpec`,
+and `cozy.media.CozyMediaSpec` are **pending**. Validation, parent admission and
+independent review are not claimed.
+
+The [actual S32 focused result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s32-focused-validation-result.json)
+records **48 successes across four completed suites**, separately dated
+**2026-10-09** and attributed to S32. It does not validate or accept S33.
+Other original finite obligations, including R715-03/04/14/15 remainders and
+concrete external **E715-01..05**, remain **OPEN**. Final current **JA34 native
+generation, assembly, audible hearing, end-card and EOF**, independent
+**M2 cycles 6/7/8/10**, whole-Step/full-Phase reviews and acceptance, exact local
+Step commits and the distinct release remain **OPEN**. Repository-full SBT and
+broader integration remain **deferred-not-run to PHASE-71.7**. Existing base,
+authority, epoch, repair counters, stage/aggregate metadata and prior history
+retain their state; this authoring handoff makes no workflow transition.
+
+This normative amendment supersedes the earlier presentation review-state
+promises that use the review manifest's modification time, generation/decision
+date ordering, or a review-manifest date no newer than `current` to establish
+approval or currentness. It applies to both the legacy slide-IR and
+`visual-page-v1` presentation routes.
+
+An ordinary media build that selects the existing `Action.Current` presentation
+reuses its generated output and retains the recorded semantic review state
+when `current` exists, including the existing explicit decision. An actual
+successful render, including the explicit slide-build route, records the new
+acceptance observation time as UTC ISO-8601 `acceptedAt`, preserves
+`last_aligned` and `selected_authority`, and sets `sync` to `stale`. A first
+acceptance without a current record also requires explicit alignment. Failed
+or rejected rendering never records acceptance. The execution branch supplies
+this production fact; no file equality or timestamp comparison establishes it.
+
+Explicit alignment first requires the ordinary current presentation validity
+checks and an existing `current` record. It records the actual decision time,
+selects `article` or `slide-ir`, and sets `sync` to `aligned`. An aligned state
+requires `current`, `last_aligned`, and `selected_authority` plus `sync: aligned`.
+Date fields record acceptance and decision facts; they do not prove current
+approval, unchanged content, or race-free execution. No temporal ordering is
+required to load those facts. The exact root grammar and required UTC string
+type/syntax remain, with arbitrary snapshot extras ignored generically.
+
+The ordinary presentation verifier still checks actual renderer/review
+schemas, semantic IDs and mappings, selected paths, PPTX/OOXML structure,
+relationships, legacy titles, and PNG format. Ordinary dependency existence
+and modification times continue to select rebuild/reuse; they are not approval
+or race evidence. Direct writes, acceptance order and ordinary input, output,
+reuse and I/O failures retain their existing boundaries. The obsolete
+review-state refresh seam and timestamp approval comparisons are removed.
+
+The existing presentation scenarios specify actual reuse, explicit rendering,
+and explicit re-alignment on both routes, plus retained XML/relationship/title/
+PNG/page-mapping failures and arbitrary annotations. The existing PDF review
+fixture emits the canonical summary-renderer schema, target/profile/renderer,
+PDF page count, slide IDs/titles/paths and asset IDs, and montage path; retired
+digest transport and protection-field absence expectations are removed.
+
+See [the frozen S33 Implementation Manifest](../../.codex-workflow/phases/PHASE-71.5/p715-02-s33-implementation-manifest.json) and [the dated implementation handoff](../journal/2026/10/2026-10-09-phase-71.5-presentation-explicit-review-facts.md). At the initial handoff, selected validation and independent review remained pending.
+
+### Actual S33 focused validation failure — 2026-10-09
+
+**P715-02-S33-PRESENTATION-EXPLICIT-REVIEW-FACTS** is currently
+**implemented-focused-validation-failed-unreviewed**. The initial
+**implemented-unvalidated-unreviewed** handoff and its pending-suite record
+remain dated history. The [actual failure result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s33-focused-validation-failure01.json)
+and [raw execution log](/private/tmp/skill.cncf.d/a-ede4e1d9-7928-4d8e-9170-635b2dbaa193/73204-20261009T043126Z.log)
+record the first group, `cozy.media.CozyMediaPresentationSpec` plus
+`cozy.media.CozyMediaPdfReviewStateSpec`: **31 tests, 30 succeeded, 1 failed,
+2 suites completed**, with **0 aborted, canceled, ignored or pending**.
+The second group, `cozy.media.CozyMediaCrossReviewSpec` plus
+`cozy.media.CozyMediaSpec`, was **NOT RUN** after the first group's failure.
+There is no four-suite success or acceptance result.
+
+Implicit compilation completed for **3 Main and 2 Test Scala sources**, with
+**zero compiler warnings**. The **three existing duplicate `logback.xml`
+runtime WARN lines** remain under **HYG-P715-S19-LOGBACK-001**, unsuppressed and
+pending independent classification. Separately, the hostile-XML negative
+fixture emitted **DOCTYPE disallowed Fatal Error on stderr**; that diagnostic
+is retained unsuppressed, with independent classification still open. Zero
+compiler warnings does not establish clean runtime diagnostics.
+
+The failed existing scenario is **preserve explicit alignment on ordinary
+reuse and require realignment after explicit rendering**. Reuse and the stale
+review-state facts were reached successfully. After `_slide_build`, ordinary
+media verification reports missing accepted receipt evidence for
+`article-pdf` and `infographic`; the expected `stale` substring assertion fails
+at **CozyMediaPresentationSpec.scala:576**. Repair design and validation remain
+pending. This factual record changes no product behavior or executable
+expectation. The [parent edit admission](../../.codex-workflow/phases/PHASE-71.5/p715-02-s33-parent-edit-admission.json)
+is parent inspection, not independent review or acceptance.
+
+The [quote-stop correction completion](../../target/phase715-s33-quote-skill-repair-completion.json)
+records the minimal shared correction to **two canonical instruction files**
+and **one deployed TOML**, **55 focused tests passed** and **independent PASS**,
+with deployed contract **revision 20**. The existing stopped child retained
+loaded **revision 19** and used **one same-child, one-use correction** for the
+first original submission; no new request, attempt or permission and no retry
+were created. Actual **SBT exit 1, wrapper exit 1 and serial lock released**
+establish a terminal validation failure. Fresh registered revision-20
+operational acceptance remains pending; shared correction evidence does not
+accept the Cozy product.
+
+Prior **S32 48 successes / 4 completed suites** remain separately attributed.
+Original **R715-03/04/14/15** finite remainders, concrete external
+**E715-01..05**, final current **JA34 native generation, assembly, audible
+hearing, end-card and EOF**, independent **M2 cycles 6/7/8/10**, whole-Step and
+full-Phase review, exact local Step commits and the distinct release remain
+**OPEN**. Repository-full SBT and broader integration remain
+**deferred-not-run to PHASE-71.7**. Original authority/base/goal binding/epoch,
+repair history, stage and aggregate metadata and closure checkboxes retain
+their state. This addition records facts without a workflow transition.
+
+### Actual S33 repair11 focused validation result — 2026-10-09
+
+**P715-02-S33-PRESENTATION-EXPLICIT-REVIEW-FACTS** is currently
+**implemented-focused-validated-unreviewed**. The [current typed repair11 result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s33-repair11-focused-validation-result.json)
+records the fresh repaired-subject run at **2026-10-09T04:51:35.719977+00:00**.
+The initial unvalidated handoff, [original failed result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s33-focused-validation-failure01.json)
+(**31 tests, 30 succeeded, 1 failed, 2 completed suites**) and earlier second
+suite group **NOT RUN** remain dated history, rather than current failures.
+The prior partial-receipt handoff's pending-rerun statement is also historical.
+
+The first group, `cozy.media.CozyMediaPresentationSpec` and
+`cozy.media.CozyMediaPdfReviewStateSpec`, reports **31 successes / 2 completed
+suites**. The second group, `cozy.media.CozyMediaReceiptSpec`,
+`cozy.media.CozyMediaCrossReviewSpec` and `cozy.media.CozyMediaSpec`, reports
+**52 successes / 3 completed suites**. The total is **83 successes / 5 completed
+suites**, with **0 failed, aborted, canceled, ignored or pending**. All five
+selected suites and the unchanged explicit alignment/reuse/render lifecycle,
+target-build stale-unselected retention and full-build obsolete-entry
+replacement scenarios passed. No test, fixture or expectation was edited for
+repair11. Implicit compilation completed for **1 Main Scala source**, with
+**zero compiler warnings**.
+
+The **three known duplicate `logback.xml` runtime warnings** remain retained
+unsuppressed under **HYG-P715-S19-LOGBACK-001**. One exact hostile-XML rejection
+was also retained on stderr:
+`[Fatal Error] :1:10: DOCTYPE is disallowed when the feature "http://apache.org/xml/features/disallow-doctype-decl" set to true.`
+The parent classified it from the actual source and log as deliberate hostile
+XML fixture rejection: the existing unsafe-OOXML and legacy/VisualPage cases
+use `hostiledtd`, and the real parser's `disallow-doctype-decl` maps rejection
+to failure. The typed result records the source attribution at
+`CozyMediaPresentationSpec.scala:426,638,1192` and
+`CozyMediaPresentation.scala:769`. Independent Step classification of these
+diagnostics remains **OPEN**. Zero compiler warnings is not a claim of zero
+runtime diagnostics or independent acceptance.
+
+The [repair11 parent edit admission](../../.codex-workflow/phases/PHASE-71.5/p715-02-s33-repair11-parent-edit-admission.json)
+records the actual partial-selection receipt repair. Partial slide builds
+retain unselected accepted receipts without reaccepting dependencies; target
+merge and untargeted full replacement retain their meanings. Repair cycle
+**11** was consumed on the actual source edit, and the current focused
+validation converges: **cumulative 11 / nonconverging streak 0**. The six prior
+repair-history entries and independent **M2 cycles 6/7/8/10** remain preserved;
+independent **M2 cycle 11** also remains **OPEN**. Editing and passing tests do
+not complete independent review.
+
+Actual **SBT exit 0 / wrapper exit 0 / serial lock released** establish terminal
+execution. Fresh registered **revision-20** runner operation is now observed
+as `/root/phase715_s33_repair11_sbt_ba34cd9e`; the earlier quote-repair completion
+note about pending fresh operation remains historical. This new repaired-subject
+attempt needed no recovery, correction or repeated approval. The actual log is
+`/private/tmp/skill.cncf.d/a-396741e5-182f-4ae5-a34a-7bf8efb9d6dd/82193-20261009T044958Z.log`.
+
+The original Goal, base `fc640ec25e443d00c22b2c26b437a205d39910eb`, authority,
+Goal binding, PLAN epoch, finite work list, aggregate metadata, Stage Status
+triples and closure checkboxes retain their state, together with prior refusals
+and reviews. Prior **S32 48 successes / 4 completed suites** and earlier native
+evidence remain separately dated. Concrete external **E715-01..05**, other
+original finite work, final current **JA34 native generation, assembly, audible
+hearing, end-card and EOF**, whole-Step and full-Phase reviews, exact local Step
+commits and the distinct release remain **OPEN**. Repository-full SBT and
+broader integration remain **deferred-not-run to PHASE-71.7**. This factual
+addition performs no workflow transition and claims no Step acceptance, Phase
+closure or commit.

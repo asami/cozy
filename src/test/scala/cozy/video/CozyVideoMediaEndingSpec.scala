@@ -14,7 +14,7 @@ import cozy.CozySpecVocabulary
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 10, 2026
  */
 object CozyVideoMediaEndingSpec {
   private final class NativeRunner extends CozyVideo.VideoProcessRunner {
@@ -297,11 +297,13 @@ final class CozyVideoMediaEndingSpec
 
         Given("a task-owned copy of the same real rendered part selected second without another renderer invocation")
         Files.copy(dir.resolve("build/parts/dialogue.mp4"), dir.resolve("build/parts/second.mp4"), StandardCopyOption.REPLACE_EXISTING)
-        _two_part_project(dir, "second.mp4", "two-part.mp4")
-        When("the native public final build assembles both narrated MP4 presentation timelines")
+        val externalparent = Files.createTempDirectory(dir.getParent, "selected-final-")
+        val externaloutput = externalparent.resolve("two-part.mp4")
+        _two_part_project(dir, "second.mp4", externaloutput.toString)
+        When("the native public final build assembles both narrated MP4 presentation timelines into its selected external output")
         CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("two-video.json"), dryRun = false, checkTools = true,
           toolMode = Some("docker"), dockerImage = Some(image)), CozyVideo.VideoToolRegistry.default, runner)
-        val two = _measure(dir, image, "two-part", "build/two-part.mp4", speechstart)
+        val two = _measure(dir, image, "two-part", externaloutput.toString, speechstart)
         val second = _audio_measurement(_pcm_samples(Files.readAllBytes(dir.resolve("two-part-all-audio.pcm"))),
           _pcm_samples(_wav_bytes(8640).drop(44)), 130.0 / 18 + speechstart)
         _write(dir.resolve("two-part-second-audio.json"), second.spaces2)
@@ -311,11 +313,15 @@ final class CozyVideoMediaEndingSpec
           math.abs(record.hcursor.get[Double]("observedOffsetSeconds").toOption.get) should be <= 0.001
         }
         _presentation_evidence(two._1, 260)
+        Files.isRegularFile(externaloutput) shouldBe true
+        val selectedmux = runner.observations.find { case (args, _) => args.contains("ffmpeg") && args.last == externaloutput.toString }.get._1
+        selectedmux should contain(s"$externalparent:$externalparent:rw")
+        _json(externalparent.resolve("manifest.json")).hcursor.get[String]("outputPath").toOption shouldBe Some(externaloutput.toString)
 
         Given("a task-owned video-only copy of that rendered part selected before the narrated original")
         _docker(dir, image, Vector("ffmpeg", "-y", "-copyts", "-i", "/workspace/build/parts/dialogue.mp4",
           "-map", "0:v:0", "-an", "-c:v", "copy", "-movie_timescale", "48000", "/workspace/build/parts/silent.mp4"))
-        _two_part_project(dir, "silent.mp4", "mixed.mp4", silentfirst = true)
+        _two_part_project(dir, "silent.mp4", "build/mixed.mp4", silentfirst = true)
         When("native public final build allocates silence for the video-only interval and preserves the narrated second interval")
         CozyVideo.build(CozyVideo.BuildConfig(dir.resolve("two-video.json"), dryRun = false, checkTools = true,
           toolMode = Some("docker"), dockerImage = Some(image)), CozyVideo.VideoToolRegistry.default, runner)
@@ -470,33 +476,36 @@ final class CozyVideoMediaEndingSpec
   }
 
   private def _measure(dir: Path, image: String, name: String, path: String, speechstart: Double): (Json, BufferedImage) = {
-    val probe = _docker(dir, image, Vector("ffprobe", "-v", "error", "-count_frames", "-show_streams", "-show_format", "-of", "json", s"/workspace/$path"))
+    val selected = dir.resolve(path).toAbsolutePath.normalize()
+    val root = dir.toAbsolutePath.normalize()
+    val input = if (selected.startsWith(root)) "/workspace/" + root.relativize(selected).toString else selected.toString
+    val probe = _docker(dir, image, Vector("ffprobe", "-v", "error", "-count_frames", "-show_streams", "-show_format", "-of", "json", input), Vector(selected))
     _write(dir.resolve(s"$name-ffprobe.json"), probe.stdout)
     val json = parser.parse(probe.stdout).toOption.get
     val video = json.hcursor.get[Vector[Json]]("streams").toOption.get.find(_.hcursor.get[String]("codec_type").toOption.contains("video")).get
     val audio = json.hcursor.get[Vector[Json]]("streams").toOption.get.find(_.hcursor.get[String]("codec_type").toOption.contains("audio")).get
     val count = video.hcursor.get[String]("nb_read_frames").toOption.get.toInt
     val pts = _docker(dir, image, Vector("ffprobe", "-v", "error", "-show_frames", "-show_entries",
-      "frame=media_type,pts_time,best_effort_timestamp_time,pkt_duration_time", "-of", "json", s"/workspace/$path"))
+      "frame=media_type,pts_time,best_effort_timestamp_time,pkt_duration_time", "-of", "json", input), Vector(selected))
     _write(dir.resolve(s"$name-presentation-timestamps.json"), pts.stdout)
-    val packets = _docker(dir, image, Vector("ffprobe", "-v", "error", "-show_packets", "-of", "json", s"/workspace/$path"))
+    val packets = _docker(dir, image, Vector("ffprobe", "-v", "error", "-show_packets", "-of", "json", input), Vector(selected))
     _write(dir.resolve(s"$name-mux-packets.json"), packets.stdout)
     val packetjson = parser.parse(packets.stdout).toOption.get.hcursor.get[Vector[Json]]("packets").toOption.get
     val framejson = parser.parse(pts.stdout).toOption.get.hcursor.get[Vector[Json]]("frames").toOption.get
     val framepts = framejson.filter(_.hcursor.get[String]("media_type").toOption.contains("video"))
       .map(_.hcursor.get[String]("best_effort_timestamp_time").toOption.get.toDouble)
-    val decodedresult = _docker(dir, image, Vector("ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-i", s"/workspace/$path",
-      "-vn", "-ac", "1", "-ar", "24000", "-f", "s16le", "-y", s"/workspace/$name-all-audio.pcm"))
+    val decodedresult = _docker(dir, image, Vector("ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-i", input,
+      "-vn", "-ac", "1", "-ar", "24000", "-f", "s16le", "-y", s"/workspace/$name-all-audio.pcm"), Vector(selected))
     val decoded = _pcm_samples(Files.readAllBytes(dir.resolve(s"$name-all-audio.pcm")))
     val source = _pcm_samples(Files.readAllBytes(dir.resolve("build/audio/dialogue/scene-0.wav")).drop(44))
     val measurement = _audio_measurement(decoded, source, speechstart)
-    _docker(dir, image, Vector("ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-i", s"/workspace/$path",
-      "-vf", s"select=eq(n\\,${count - 1})", "-frames:v", "1", "-y", s"/workspace/$name-last-frame.png"))
+    _docker(dir, image, Vector("ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-i", input,
+      "-vf", s"select=eq(n\\,${count - 1})", "-frames:v", "1", "-y", s"/workspace/$name-last-frame.png"), Vector(selected))
     val frame = Option(ImageIO.read(dir.resolve(s"$name-last-frame.png").toFile)).getOrElse(
       throw new IllegalStateException(s"Unreadable last presented frame in $name"))
     val (green, nonblack, opaque) = _green_card(frame)
-    _docker(dir, image, Vector("ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-i", s"/workspace/$path",
-      "-vf", s"select=gte(n\\,${count - 36})", "-fps_mode", "passthrough", "-y", s"/workspace/$name-card-%03d.png"))
+    _docker(dir, image, Vector("ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-i", input,
+      "-vf", s"select=gte(n\\,${count - 36})", "-fps_mode", "passthrough", "-y", s"/workspace/$name-card-%03d.png"), Vector(selected))
     val cards = (1 to 36).map(index => Option(ImageIO.read(dir.resolve(f"$name-card-$index%03d.png").toFile)).getOrElse(
       throw new IllegalStateException(s"Missing native end-card frame $index for $name")))
     val cardsvalid = cards.forall { card =>
@@ -532,7 +541,7 @@ final class CozyVideoMediaEndingSpec
     val part = original.hcursor.get[Vector[Json]]("parts").toOption.get.head
     val copied = part.mapObject(_.add("id", Json.fromString("second")).add("output", Json.fromString(s"build/parts/$second")))
     val parts = if (silentfirst) Vector(copied, part) else Vector(part, copied)
-    _write(dir.resolve("two-video.json"), original.mapObject(_.add("output", Json.fromString(s"build/$output"))
+    _write(dir.resolve("two-video.json"), original.mapObject(_.add("output", Json.fromString(output))
       .add("parts", Json.fromValues(parts))).spaces2)
   }
 
@@ -657,9 +666,12 @@ final class CozyVideoMediaEndingSpec
     record.hcursor.get[Double]("lateSignalCoverageSeconds").toOption.get should be >= 0.359
   }
 
-  private def _docker(dir: Path, image: String, args: Vector[String]): CozyVideo.VideoCommandResult = {
+  private def _docker(dir: Path, image: String, args: Vector[String], inputs: Vector[Path] = Vector.empty): CozyVideo.VideoCommandResult = {
+    val root = dir.toAbsolutePath.normalize()
+    val mounts = inputs.map(_.toAbsolutePath.normalize()).distinct.filterNot(_.startsWith(root))
+      .flatMap(input => Vector("-v", s"$input:$input:ro"))
     val result = CozyVideo.VideoProcessRunner.default.run(Vector("docker", "run", "--rm", "--network=none",
-      "-v", s"$dir:/workspace", "-w", "/workspace", image) ++ args, dir)
+      "-v", s"$dir:/workspace", "-w", "/workspace") ++ mounts ++ Vector(image) ++ args, dir)
     if (!result.isSuccess) throw new IllegalStateException(s"Native media observation failed: $result")
     result
   }

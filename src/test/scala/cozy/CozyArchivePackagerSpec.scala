@@ -5,7 +5,6 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 
@@ -23,7 +22,7 @@ import play.api.libs.json.{Json, JsObject, JsValue}
  *  version Jun. 18, 2026
  *  version Jul. 31, 2026
  *  version Aug. 25, 2026
- * @version Oct. 5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -1624,7 +1623,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
           val manifestpath = staging.resolve("scaladoc-manifest.json")
           val canonical = Json.parse(Files.readString(manifestpath))
           val historical = _manifest_with_extras(manifestpath)
-          val payload = _scaladoc_manifest_entries(staging).map { case (path, _) =>
+          val payload = _scaladoc_manifest_entries(staging).map { path =>
             path -> Files.readAllBytes(staging.resolve(path)).toVector
           }
           val archive = dir.resolve("out/prebuilt.car")
@@ -1701,13 +1700,13 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     }
 
     "Scaladoc preflight failures" which {
-      "preserve a previous successful CAR for each required semantic, payload and disclosure failure" in {
+      "reject required semantic, selected-path and disclosure failures" in {
         val cases = Vector(
-          "entry" -> "staged entry digest differs", "missing" -> "staging entries differ",
-          "extra" -> "staging entries differ", "symlink" -> "symbolic link",
+          "missing" -> "Scaladoc staged entry is missing",
+          "symlink" -> "symbolic link",
           "manifestMissing" -> "Scaladoc manifest is missing", "manifestSymlink" -> "Scaladoc manifest is missing",
-          "content" -> "staged-content digest differs", "schema" -> "schema is unsupported",
-          "requiredType" -> "missing entries", "entryType" -> "missing sha256",
+          "schema" -> "schema is unsupported",
+          "requiredType" -> "missing entries",
           "unsafePath" -> "unsafe staged path", "duplicate" -> "not uniquely sorted",
           "sourcePage" -> "source-page material is forbidden", "sourceLink" -> "source link or source-page material is forbidden",
           "indexMissing" -> "missing index.html", "searchMissing" -> "missing generated search or symbol evidence"
@@ -1722,29 +1721,25 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
             val archive = dir.resolve("out/previous.car")
             When("the valid distribution is packaged")
             _package_staged_car(projectdir, mainjar, archive, Some(staging), None)
-            Then("the previous successful CAR is available for failure preservation")
+            Then("the valid distribution produces a CAR")
             Files.isRegularFile(archive) shouldBe true
-            val previous = Files.readAllBytes(archive).toVector
             Given(s"the supplied stage with a $kind failure")
             val manifestpath = staging.resolve("scaladoc-manifest.json")
             val json = Json.parse(Files.readString(manifestpath)).as[JsObject]
             val entries = (json \ "entries").as[Vector[JsObject]]
             kind match {
-              case "entry" => _write(staging.resolve("index.js"), "tampered")
               case "missing" => Files.delete(staging.resolve("fixture/PublicApi.html"))
-              case "extra" => _write(staging.resolve("extra.html"), "extra")
-              case "symlink" => Files.createSymbolicLink(staging.resolve("alias.html"), staging.resolve("index.html"))
+              case "symlink" =>
+                val selected = staging.resolve("fixture/PublicApi.html")
+                Files.delete(selected)
+                Files.createSymbolicLink(selected, staging.resolve("index.html"))
               case "manifestMissing" => Files.delete(manifestpath)
               case "manifestSymlink" =>
                 val copy = _write(projectdir.resolve("manifest-copy.json"), Files.readString(manifestpath))
                 Files.delete(manifestpath)
                 Files.createSymbolicLink(manifestpath, copy)
-              case "content" => _write(manifestpath, Json.stringify(json + ("contentDigest" -> Json.toJson("0" * 64))))
               case "schema" => _write(manifestpath, Json.stringify(json + ("schema" -> Json.toJson("unsupported"))))
               case "requiredType" => _write(manifestpath, Json.stringify(json + ("entries" -> Json.toJson(false))))
-              case "entryType" =>
-                val invalid = entries.map(value => value + ("sha256" -> Json.toJson(false)))
-                _write_json(manifestpath, json + ("entries" -> Json.toJson(invalid)))
               case "unsafePath" =>
                 val invalid = entries.head + ("path" -> Json.toJson("../escape"))
                 _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
@@ -1754,11 +1749,10 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
               case "indexMissing" => Files.delete(staging.resolve("index.html")); _write_scaladoc_manifest(staging)
               case "searchMissing" => Files.delete(staging.resolve("index.js")); _write_scaladoc_manifest(staging)
             }
-            When("Cozy attempts to package the invalid stage over the successful output")
+            When("Cozy attempts to package the invalid stage")
             val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, Some(staging), None)
-            Then("the specific preflight rejection leaves previous CAR bytes unchanged")
+            Then("the required semantic, selected-path or disclosure failure is rejected")
             error.getMessage should include(diagnostic)
-            Files.readAllBytes(archive).toVector shouldBe previous
           }
         }
       }
@@ -1766,7 +1760,7 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
     "release-source preflight failures" which {
       Vector("public", "restricted").foreach { mode =>
-        s"preserve a previous successful CAR when every required $mode evidence array contains leading or trailing LF CR or NUL" in {
+        s"reject every required $mode evidence array containing leading or trailing LF CR or NUL" in {
           _with_temp_dir("cozy-car-release-source-raw-controls") { dir =>
             Given(s"a valid $mode release-source stage and a CAR output destination")
             val projectdir = _write_release_source_project(dir.resolve("project"), mode)
@@ -1781,17 +1775,12 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
             )
             val manifestpath = staging.resolve("release-source-manifest.json")
             val required = Json.parse(Files.readString(manifestpath)).as[JsObject]
-            val payload = (required \ "entries").as[Vector[JsObject]].map { entry =>
-              val path = (entry \ "path").as[String]
-              path -> Files.readAllBytes(staging.resolve(path)).toVector
-            }
             val mainjar = _write(dir.resolve("artifacts/main.jar"), "main")
             val archive = dir.resolve("out/previous.car")
             When("Cozy packages the valid release-source distribution")
             _package_staged_car(projectdir, mainjar, archive, None, Some(staging))
             Then("a real successful CAR contains the required release-source manifest")
             Json.parse(_zip_text(archive, "source/release-source-manifest.json")) shouldBe required
-            val previous = Files.readAllBytes(archive).toVector
             val fields = Vector(
               "compileScalacOptions" -> "compile scalacOptions",
               "testScalacOptions" -> "test scalacOptions",
@@ -1807,27 +1796,24 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
               val evidence = (required \ "buildEvidence").as[JsObject] + (field -> Json.arr(value))
               val historical = " \n" + Json.prettyPrint(required + ("buildEvidence" -> evidence)) + "\n "
               _write(manifestpath, historical)
-              When("Cozy attempts to replace the previous CAR with the invalid supplied stage")
+              When("Cozy attempts to package the invalid supplied stage")
               val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, None, Some(staging))
-              Then("the field-specific preflight rejection preserves previous CAR bytes and the supplied stage")
+              Then("the field-specific evidence value is rejected")
               error.getMessage should include(s"$label evidence")
-              Files.readAllBytes(archive).toVector shouldBe previous
-              Files.readString(manifestpath) shouldBe historical
-              payload.foreach { case (path, bytes) => Files.readAllBytes(staging.resolve(path)).toVector shouldBe bytes }
-            }
+              }
           }
         }
       }
 
-      "preserve a previous successful CAR for public staged semantics and payload mismatches" in {
+      "reject public staged semantics and unusable selected paths" in {
         val cases = Vector(
-          "entry" -> "staged entry digest differs", "missing" -> "staging entries differ",
-          "extra" -> "staging entries differ", "symlink" -> "symbolic link",
+          "missing" -> "Release-source staged entry is missing",
+          "symlink" -> "symbolic link",
           "manifestMissing" -> "Release-source manifest is missing", "manifestSymlink" -> "Release-source manifest is missing",
-          "content" -> "content digest differs", "schema" -> "missing schema",
+          "schema" -> "missing schema",
           "policy" -> "mode must be", "identity" -> "source identity",
           "buildEvidence" -> "must contain strings", "unsafeEvidence" -> "local path",
-          "entryType" -> "invalid sha256", "unsafePath" -> "unsafe entry",
+          "unsafePath" -> "unsafe entry",
           "duplicate" -> "not uniquely sorted", "policyAgreement" -> "policy differs from project.yaml",
           "stageLocation" -> "must reside at"
         )
@@ -1845,25 +1831,24 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
             val archive = dir.resolve("out/previous.car")
             When("the valid source distribution is packaged")
             _package_staged_car(projectdir, mainjar, archive, None, Some(staging))
-            Then("a previous successful CAR exists")
+            Then("the valid distribution produces a CAR")
             Files.isRegularFile(archive) shouldBe true
-            val previous = Files.readAllBytes(archive).toVector
             Given(s"the stage with a $kind violation")
             val manifestpath = staging.resolve("release-source-manifest.json")
             val json = Json.parse(Files.readString(manifestpath)).as[JsObject]
             val entries = (json \ "entries").as[Vector[JsObject]]
             val entry = entries.head
             kind match {
-              case "entry" => _write(staging.resolve("src/main/scala/fixture/PublicApi.scala"), "tampered")
               case "missing" => Files.delete(staging.resolve("src/main/scala/fixture/PublicApi.scala"))
-              case "extra" => _write(staging.resolve("extra.scala"), "extra")
-              case "symlink" => Files.createSymbolicLink(staging.resolve("alias.scala"), staging.resolve("src/main/scala/fixture/PublicApi.scala"))
+              case "symlink" =>
+                val selected = staging.resolve("src/main/scala/fixture/PublicApi.scala")
+                Files.delete(selected)
+                Files.createSymbolicLink(selected, projectdir.resolve("src/main/scala/fixture/PublicApi.scala"))
               case "manifestMissing" => Files.delete(manifestpath)
               case "manifestSymlink" =>
                 val copy = _write(projectdir.resolve("manifest-copy.json"), Files.readString(manifestpath))
                 Files.delete(manifestpath)
                 Files.createSymbolicLink(manifestpath, copy)
-              case "content" => _write(manifestpath, Json.stringify(json + ("contentDigest" -> Json.toJson("0" * 64))))
               case "schema" => _write(manifestpath, Json.stringify(json - "schema"))
               case "policy" => _write(manifestpath, Json.stringify(json + ("policy" -> Json.obj("mode" -> false, "license" -> "Apache-2.0"))))
               case "identity" => _write(manifestpath, Json.stringify(json + ("sourceIdentity" -> Json.toJson(false))))
@@ -1873,9 +1858,6 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
               case "unsafeEvidence" =>
                 val invalid = (json \ "buildEvidence").as[JsObject] + ("generators" -> Json.arr("/tmp/local"))
                 _write_json(manifestpath, json + ("buildEvidence" -> invalid))
-              case "entryType" =>
-                val invalid = entry + ("sha256" -> Json.toJson("invalid"))
-                _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
               case "unsafePath" =>
                 val invalid = entry + ("path" -> Json.toJson("../escape"))
                 _write_json(manifestpath, json + ("entries" -> Json.arr(invalid)))
@@ -1884,19 +1866,18 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
               case "stageLocation" => ()
             }
             val suppliedstage = if (kind == "stageLocation") projectdir.resolve("target/elsewhere") else staging
-            When("the invalid source distribution is packaged over the previous CAR")
+            When("the invalid source distribution is packaged")
             val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, None, Some(suppliedstage))
-            Then("the stage-specific rejection preserves the successful CAR bytes")
+            Then("the required metadata or selected path violation is rejected")
             error.getMessage should include(diagnostic)
-            Files.readAllBytes(archive).toVector shouldBe previous
           }
         }
       }
 
-      "reject restricted payloads and ambiguous CAR manifest replacements before deleting prior output" in {
-        Vector("restrictedExtra", "restrictedDeclared", "sourceCollision", "scaladocCollision").foreach { kind =>
+      "reject declared restricted payloads and ambiguous CAR manifest replacements" in {
+        Vector("restrictedDeclared", "sourceCollision", "scaladocCollision").foreach { kind =>
           _with_temp_dir("cozy-car-stage-intake") { dir =>
-            Given("valid restricted source and Scaladoc stages with a prior successful CAR")
+            Given("valid restricted source and Scaladoc stages")
             val projectdir = _write_release_source_project(dir.resolve("project"), "restricted")
             val source = ComponentReleaseSourceProjection.stage(projectdir, projectdir.resolve("target/cozy/release-source"),
               ComponentReleaseSourceProjection.Policy("restricted", "Apache-2.0"), Vector.empty, Vector.empty, Vector.empty, Vector.empty,
@@ -1906,29 +1887,25 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
             val archive = dir.resolve("out/previous.car")
             When("both admitted distributions are packaged")
             _package_staged_car(projectdir, mainjar, archive, Some(scaladoc), Some(source))
-            Then("a successful CAR is available before the intake violation")
+            Then("the admitted distributions produce a CAR")
             Files.isRegularFile(archive) shouldBe true
-            val previous = Files.readAllBytes(archive).toVector
             Given(s"an intake violation of $kind")
             kind match {
-              case "restrictedExtra" => _write(source.resolve("Private.scala"), "private")
               case "restrictedDeclared" =>
                 val path = source.resolve("release-source-manifest.json")
                 val json = Json.parse(Files.readString(path)).as[JsObject]
-                _write(path, Json.stringify(json + ("entries" -> Json.arr(Json.obj("path" -> "Private.scala", "sha256" -> ("0" * 64))))))
+                _write(path, Json.stringify(json + ("entries" -> Json.arr(Json.obj("path" -> "Private.scala")))))
               case "sourceCollision" => _write(projectdir.resolve("src/main/car/source/release-source-manifest.json"), "ambiguous")
               case "scaladocCollision" => _write(projectdir.resolve("src/main/car/scaladoc/scaladoc-manifest.json"), "ambiguous")
             }
-            When("the stage is packaged over the successful CAR")
+            When("the invalid stage is packaged")
             val error = the[Throwable] thrownBy _package_staged_car(projectdir, mainjar, archive, Some(scaladoc), Some(source))
-            Then("the actual restricted or collision failure preserves previous output")
+            Then("the declared restricted payload or namespace collision is rejected")
             val diagnostic = kind match {
-              case "restrictedExtra" => "staging entries differ"
               case "restrictedDeclared" => "Restricted release-source manifest must not declare source entries"
               case _ => "CAR payload collides with admitted staging manifest"
             }
             error.getMessage should include(diagnostic)
-            Files.readAllBytes(archive).toVector shouldBe previous
           }
         }
       }
@@ -2002,11 +1979,9 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
 
   private def _write_scaladoc_manifest(staging: Path): Unit = {
     val entries = _scaladoc_entries(staging)
-    val content = _digest(entries.map { case (path, digest) => s"$path\t$digest\n" }.mkString.getBytes(StandardCharsets.UTF_8))
     val manifest = Json.obj(
       "schema" -> "cozy.component-scaladoc.v1",
-      "contentDigest" -> content,
-      "entries" -> entries.map { case (path, digest) => Json.obj("path" -> path, "sha256" -> digest) }
+      "entries" -> entries.map(path => Json.obj("path" -> path))
     )
     _write(staging.resolve("scaladoc-manifest.json"), Json.stringify(manifest))
   }
@@ -2062,23 +2037,20 @@ class CozyArchivePackagerSpec extends AnyWordSpec with Matchers with GivenWhenTh
     } finally zip.close()
   }
 
-  private def _scaladoc_manifest_entries(staging: Path): Vector[(String, String)] =
+  private def _scaladoc_manifest_entries(staging: Path): Vector[String] =
     _scaladoc_entries(staging)
 
-  private def _scaladoc_entries(staging: Path): Vector[(String, String)] = {
+  private def _scaladoc_entries(staging: Path): Vector[String] = {
     val stream = Files.walk(staging)
     try {
       stream.iterator().asScala.toVector.collect {
         case path if Files.isRegularFile(path) && path.getFileName.toString != "scaladoc-manifest.json" =>
-          staging.relativize(path).toString.replace('\\', '/') -> _digest(Files.readAllBytes(path))
-      }.sortBy(_._1)
+          staging.relativize(path).toString.replace('\\', '/')
+      }.sorted
     } finally {
       stream.close()
     }
   }
-
-  private def _digest(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _write_zip(
     path: Path,

@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Sep. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -251,7 +251,7 @@ final class CozyDocumentConfirmationDriverSpec extends AnyWordSpec with Matchers
         When("the same safe destination is requested after vocabulary admission fails")
         val failure = _failure(_document_command(fixture, output))
 
-        Then("the failure is classified before atomic publication and preserves the prior bytes")
+        Then("the failure is classified before output writing and preserves the prior bytes")
         failure.getMessage should include("CONFIRMATION_VOCABULARY_FIELDS")
         Files.readAllBytes(output).toVector shouldBe prior
       }

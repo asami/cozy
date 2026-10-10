@@ -17,7 +17,7 @@ import cozy.media.CozyMedia
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 25, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -268,38 +268,41 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
         val forged = integrity.copy(metadata = Json.obj("forged" -> true))
         val strategies = Vector(CozyArticleMediaPolicy.Strategy.Preview, CozyArticleMediaPolicy.Strategy.Production)
 
-        When("each strategy evaluates forged and escaping inputs while Preview evaluates missing and stale artifacts")
+        When("each strategy evaluates forged and escaping inputs while Preview evaluates missing artifacts")
         val observations = _with_metadata(Vector(publication)) { metadata =>
+          Given("a forged result for the selected native publication")
+          When("both strategies inspect its canonical association metadata")
           val forgederrors = strategies.map(strategy => intercept[IllegalArgumentException](_evaluate(strategy, metadata, Vector(forged))))
           _with_root { root =>
+            Given("a selected Published artifact that is missing under the configured root")
+            When("Preview and Production evaluate its ordinary availability")
             val missingpreview = CozyArticleMediaPolicy.evaluate(CozyArticleMediaPolicy.Strategy.Preview, metadata, Vector(integrity), root)
             val missingproduction = intercept[IllegalArgumentException](CozyArticleMediaPolicy.evaluate(CozyArticleMediaPolicy.Strategy.Production, metadata, Vector(integrity), root))
-            _write_artifact(root.resolve("video/example.mp4"), "mismatched".getBytes(StandardCharsets.UTF_8))
-            val stalepreview = CozyArticleMediaPolicy.evaluate(CozyArticleMediaPolicy.Strategy.Preview, metadata, Vector(integrity), root)
-            val staleproduction = intercept[IllegalArgumentException](CozyArticleMediaPolicy.evaluate(CozyArticleMediaPolicy.Strategy.Production, metadata, Vector(integrity), root))
             val external = Files.createTempFile(root.getParent, "external-", ".mp4")
             try {
-              Files.delete(root.resolve("video/example.mp4"))
+              Files.createDirectories(root.resolve("video"))
               Files.createSymbolicLink(root.resolve("video/example.mp4"), external)
+              Given("a selected repository path that points through a symbolic link to an external file")
+              When("both strategies resolve the selected path")
               val escaped = strategies.map(strategy => intercept[IllegalArgumentException](CozyArticleMediaPolicy.evaluate(strategy, metadata, Vector(integrity), root)))
-              (forgederrors, missingpreview, missingproduction, stalepreview, staleproduction, escaped)
+              (forgederrors, missingpreview, missingproduction, escaped)
             } finally {
               Files.deleteIfExists(external)
             }
           }
         }
 
-        Then("canonicality and real-path escape remain hard while Preview omits missing and stale Published media")
+        Then("both strategies reject the forged canonical metadata")
         observations._1 should have size 2
+        Then("Preview omits missing Published media and Production reports its missing artifact")
         observations._2.stagedCorrelations shouldBe empty
         observations._2.diagnostics.map(x => (x.kind, x.publicationState)) shouldBe Vector(
           (CozyArticleMediaPolicy.DiagnosticKind.UnavailableMedia, Some(CozyArticleMediaIntegrity.PublicationState.Published))
         )
         observations._3.getMessage should include("published artifact")
-        observations._4.diagnostics.map(_.publicationState) shouldBe Vector(Some(CozyArticleMediaIntegrity.PublicationState.Published))
-        observations._5.getMessage should include("SHA-256")
-        observations._6 should have size 2
-        (observations._1 ++ observations._6).map(_.getMessage).mkString(" ") should include("canonical")
+        Then("both strategies retain real-path escape as a hard failure")
+        observations._4 should have size 2
+        (observations._1 ++ observations._4).map(_.getMessage).mkString(" ") should include("canonical")
       }
 
       "reject a path mismatch under both strategies instead of downgrading it to diagnostics" in {
@@ -435,7 +438,7 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
         }
       }
 
-      "project video provenance from bundle B while atomically registering the article only in bundle A" in {
+      "project video provenance from bundle B while registering the article only in bundle A" in {
         Given("target bundle A, separate video-manifest bundle B, and explicit infographic evidence")
         _with_root { root =>
           _write_bundle(root, "alpha", Vector.empty)
@@ -501,7 +504,6 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
         Given("independent configured video registry and explicit infographic descriptor fixtures")
         val changes = Vector[(Path, CozyArticleMediaInfographicEvidence.Input) => Unit](
           (_, _) => (),
-          (root, _) => _write_artifact(root.resolve("video/example-video/1.0.0/example-video-1.0.0.mp4"), "changed video bytes".getBytes(StandardCharsets.UTF_8)),
           (_, input) => Files.delete(input.descriptorFile),
           (_, input) => _write_artifact(input.buildManifest, "{}".getBytes(StandardCharsets.UTF_8))
         )
@@ -518,15 +520,18 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
               Some(_site_video(VideoStatus.Published, "/repository/video/example-video/1.0.0/example-video-1.0.0.mp4"))
             )
             val before = Files.readAllBytes(root.resolve("publication.json"))
+            Given(s"configured provenance failure row $index with its original bundle")
             change(root, infographic)
             val request = if (index == 0) CozyArticleMediaPolicy.VideoRegistration("development-process/example", "ja", "missing", "1.0.0") else _video_registration
+            When("registration projects the selected video and infographic provenance")
             val error = intercept[IllegalArgumentException](CozyArticleMediaPolicy.register(root, root, "publication", publication, Vector(request), Vector(infographic)))
+            Then("the projector failure leaves the configured bundle unchanged")
             error.getMessage -> (Files.readAllBytes(root.resolve("publication.json")) shouldBe before)
           }
         }
 
         Then("all projector failures happen before the one permitted bundle mutation")
-        observations should have size 4
+        observations should have size 3
         observations.map(_._1).foreach(_ should not be empty)
       }
 
@@ -603,11 +608,10 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
       articleIdentity = articleidentity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Video,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0")),
       publicPath = new URI(publicpath),
       repositoryPath = "video/example.mp4",
       mediaType = "video/mp4",
-      sha256 = _artifact_sha256,
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example/1.0.0/manifest.json", "metadata/artifacts/repository/example.json"),
       publicationState = publicationstate
     ))
@@ -621,11 +625,10 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
       articleIdentity = articleidentity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Video,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-video", _artifact_sha256),
+      artifact = None,
       publicPath = new URI(publicpath),
       repositoryPath = publicpath.stripPrefix("/"),
       mediaType = "video/mp4",
-      sha256 = _artifact_sha256,
       provenance = CozyArticleMediaIntegrity.WipSiteVideo("media.yaml", "example-video", "video/ja/production.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))
@@ -640,11 +643,10 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
       articleIdentity = articleidentity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Infographic,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0")),
       publicPath = new URI(publicpath),
       repositoryPath = "images/example.png",
       mediaType = "image/png",
-      sha256 = _artifact_sha256,
       provenance = CozyArticleMediaIntegrity.MediaPackage("src/main/media/example.yaml", "example-infographic", "target/cozy-media/manifest.json"),
       publicationState = publicationstate
     ))
@@ -678,9 +680,6 @@ final class CozyArticleMediaPolicySpec extends AnyWordSpec with Matchers with Gi
   }
 
   private lazy val _artifact_bytes: Array[Byte] = "cozy-article-media-policy-artifact".getBytes(StandardCharsets.UTF_8)
-
-  private lazy val _artifact_sha256: String =
-    MessageDigest.getInstance("SHA-256").digest(_artifact_bytes).map(x => f"${x & 0xff}%02x").mkString
 
   private def _evaluate(
     strategy: CozyArticleMediaPolicy.Strategy,

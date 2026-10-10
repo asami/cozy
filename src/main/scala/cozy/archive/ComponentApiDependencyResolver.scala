@@ -5,7 +5,6 @@ import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
 import java.util.zip.ZipFile
 
 import scala.collection.JavaConverters._
-import scala.util.control.NonFatal
 
 import cozy.config.CozyProjectYamlConfig
 import org.goldenport.RAISE
@@ -14,7 +13,7 @@ import play.api.libs.json._
 /*
  * @since   Jul. 12, 2026
  *  version Aug. 13, 2026
- * @version Oct. 5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object ComponentApiDependencyResolver {
@@ -146,58 +145,9 @@ private[cozy] object ComponentApiDependencyResolver {
   private def _install_api_jars(selected: Vector[Provider], outputdir: Path): Vector[Path] = {
     val destination = outputdir.toAbsolutePath.normalize()
     _validate_output_directory(destination)
-    Files.createDirectories(destination.getParent)
-    val staging = Files.createTempDirectory(destination.getParent, ".component-api-stage-")
-    try {
-      val relativepaths = selected.map(_extract_api_jar(_, staging)).map(staging.relativize(_))
-      _validate_output_directory(destination)
-      val backup = if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
-        val root = Files.createTempDirectory(destination.getParent, ".component-api-backup-")
-        try Files.move(destination, root.resolve("previous"))
-        catch {
-          case NonFatal(error) =>
-            try _delete_owned_directory(root)
-            catch { case NonFatal(cleanup) => error.addSuppressed(cleanup) }
-            throw error
-        }
-        Some(root)
-      } else None
-      try Files.move(staging, destination)
-      catch {
-        case NonFatal(error) =>
-          backup.foreach { root =>
-            val restored = try {
-              Files.move(root.resolve("previous"), destination)
-              true
-            } catch {
-              case NonFatal(restore) =>
-                error.addSuppressed(new java.io.IOException(s"Component API output restoration failed; recovery backup retained at $root", restore))
-                false
-            }
-            if (restored) {
-              try _delete_owned_directory(root)
-              catch {
-                case NonFatal(cleanup) =>
-                  error.addSuppressed(new java.io.IOException(s"Component API output restored; empty backup cleanup failed at $root", cleanup))
-              }
-            }
-          }
-          throw error
-      }
-      backup.foreach { root =>
-        try _delete_owned_directory(root)
-        catch {
-          case NonFatal(cleanup) =>
-            Console.err.println(s"Warning: Component API output installed; previous output backup cleanup failed; remove the remaining backup at $root when permissions allow; cause: $cleanup")
-        }
-      }
-      relativepaths.map(destination.resolve(_))
-    } catch {
-      case NonFatal(error) =>
-        try _delete_owned_directory(staging)
-        catch { case NonFatal(cleanup) => error.addSuppressed(cleanup) }
-        throw error
-    }
+    _delete_owned_directory(destination)
+    Files.createDirectories(destination)
+    selected.map(_extract_api_jar(_, destination))
   }
 
   private def _validate_output_directory(path: Path): Unit =

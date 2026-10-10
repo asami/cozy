@@ -1,6 +1,7 @@
 package cozy.bok
 
 import java.nio.file.{Files, LinkOption, Path, Paths}
+import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.FileTime
 import scala.collection.JavaConverters._
 import org.scalacheck.{Gen, Prop, Test}
@@ -10,13 +11,13 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyBokBuildTargetSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "BoK build target cleanup" should {
     "respect producer ownership" which {
-      "preserve generated unrelated inputs and the article-media cache while deleting owned stale output" in {
+      "preserve generated producer inputs and selected cache and SIE inputs while deleting owned stale output" in {
         Given("bounded arbitrary unrelated target names and byte contents")
         val names = Gen.choose(1, 24).flatMap(length => Gen.listOfN(length, Gen.alphaNumChar)).map(_.mkString)
         val contents = Gen.choose(0, 256).flatMap(length => Gen.listOfN(length, Gen.choose(-128, 127))).map(_.map(_.toByte).toVector)
@@ -29,8 +30,11 @@ final class CozyBokBuildTargetSpec extends AnyWordSpec with Matchers with GivenW
         } yield entries
         val property = Prop.forAll(inputs) { entries =>
           _with_fixture { root =>
-            Given("real JA/EN media input paths, generated producer inputs, a symlink and retained snapshot cache")
+            Given("real JA/EN media inputs, selected bibliography and SIE inputs, stale siblings and a retained article-media cache")
             val project = Files.createDirectory(root.resolve("project"))
+            val defaults = project.resolve("conf/cozy/config.yaml")
+            Files.createDirectories(defaults.getParent)
+            Files.writeString(defaults, "bok:\n  projects:\n    selected:\n      sie:\n        path: target/cozy-bok/sie/selected\n    producer:\n      sie:\n        path: target/sie-producer\n", StandardCharsets.UTF_8)
             val config = CozyBok.BuildConfig.create(List(project.toString, "--no-bib-service"))
             val target = Files.createDirectory(project.resolve("target"))
             val media = Vector(
@@ -47,22 +51,34 @@ final class CozyBokBuildTargetSpec extends AnyWordSpec with Matchers with GivenW
             }
             val topfile = _write_input(target.resolve("unrelated.bin"), Vector(9, 8, 7))
             val cache = _write_input(target.resolve("cozy-bok/article-media/production/snapshots/example/publication.json"), Vector(1, 2, 3))
+            val bibliography = _write_input(target.resolve("cozy-bok/bibliography/cache/reference.bib"), "@book{reference,title={Selected reference}}".getBytes(StandardCharsets.UTF_8).toVector)
+            val sie = _write_input(target.resolve("cozy-bok/sie/selected/metadata.json"), "{\"project\":\"selected\"}".getBytes(StandardCharsets.UTF_8).toVector)
+            val nested = _write_input(target.resolve("cozy-bok/sie/selected/nested/content.txt"), "selected handoff content".getBytes(StandardCharsets.UTF_8).toVector)
+            val producer = _write_input(target.resolve("sie-producer/metadata.json"), "{\"project\":\"producer\"}".getBytes(StandardCharsets.UTF_8).toVector)
+            val stalesiblings = Vector(
+              _write_input(target.resolve("cozy-bok/bibliography/obsolete.json"), Vector(4, 5, 6)),
+              _write_input(target.resolve("cozy-bok/sie/obsolete/content.txt"), Vector(4, 5, 6)))
             val stale = _write_input(target.resolve("cozy-bok/obsolete/output.bin"), Vector(4, 5, 6))
             val external = _write_input(root.resolve("external/input.bin"), Vector(6, 7, 8))
             val link = Files.createSymbolicLink(target.resolve("unrelated-link"), external.getParent)
             val linkdestination = Files.readSymbolicLink(link)
             val linktime = Files.getLastModifiedTime(link, LinkOption.NOFOLLOW_LINKS)
-            val observations = (media ++ generated ++ Vector(topfile, cache, external)).map(path => path -> _observe(path))
+            val observations = (media ++ generated ++ Vector(topfile, cache, bibliography, sie, nested, producer, external)).map(path => path -> _observe(path))
 
             When("BoK clears its actual configured build target")
             CozyBokImplementation._clear_build_target(config)
 
-            Then("all unrelated bytes, FileTimes and link identity remain while owned stale output disappears")
+            Then("selected cache and SIE content remains usable in place with producer inputs while only owned stale output disappears")
             observations.foreach { case (path, observation) => _observe(path) shouldBe observation }
+            Files.readString(bibliography, StandardCharsets.UTF_8) shouldBe "@book{reference,title={Selected reference}}"
+            Files.readString(sie, StandardCharsets.UTF_8) shouldBe "{\"project\":\"selected\"}"
+            Files.readString(nested, StandardCharsets.UTF_8) shouldBe "selected handoff content"
+            Files.readString(producer, StandardCharsets.UTF_8) shouldBe "{\"project\":\"producer\"}"
             Files.isSymbolicLink(link) shouldBe true
             Files.readSymbolicLink(link) shouldBe linkdestination
             Files.getLastModifiedTime(link, LinkOption.NOFOLLOW_LINKS) shouldBe linktime
             Files.exists(stale, LinkOption.NOFOLLOW_LINKS) shouldBe false
+            stalesiblings.foreach(path => Files.exists(path, LinkOption.NOFOLLOW_LINKS) shouldBe false)
           }
           true
         }

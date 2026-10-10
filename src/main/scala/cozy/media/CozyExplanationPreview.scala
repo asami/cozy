@@ -7,7 +7,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 30, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanationPreview {
@@ -43,11 +43,11 @@ private[cozy] object CozyExplanationPreview {
 
   def execute(args: List[String]): String = {
     val config = _config(args)
-    _validate_output(config.save)
-    val validated = _validate(config)
+    val output = _validate_output(config.save)
+    val validated = _validate(config.copy(save = output))
     val html = _html(validated)
     val receipt = _receipt(validated)
-    CozyExplanationProjection._atomic_write(config.save, html)
+    CozyExplanationProjection._write_output(output, html)
     receipt
   }
 
@@ -139,8 +139,6 @@ private[cozy] object CozyExplanationPreview {
       case value: CozyVisualPage.PageSet => value
       case _ => _stale("$command.visualPageSet", "named VisualPageSet must be cozy.visual-page-set.v1")
     }
-    if (visualpages.catalog != projectionmap.plan.presentationCatalog.catalog)
-      _stale("$command.visualPageSet", "named VisualPageSet presentation catalog semantics do not agree with the Plan catalog")
     if (visualpages.catalog.id != projectionmap.plan.plan.presentationCatalog.id ||
         visualpages.catalog.revision != projectionmap.plan.plan.presentationCatalog.revision)
       _stale("$command.visualPageSet", "named VisualPageSet presentation catalog ID or revision does not agree with the Plan selector")
@@ -201,15 +199,11 @@ private[cozy] object CozyExplanationPreview {
         pagesource.path,
         s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id.path"
       )
-      val p37source = CozyExplanationProjection._projection_input(
+      CozyExplanationProjection._projection_input(
         bindings.sources.getOrElse(id,
           _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "Composition source binding is missing")),
         s"source.$id"
       )
-      val p36bytes = Files.readAllBytes(p36source)
-      val p37bytes = Files.readAllBytes(p37source)
-      if (!java.util.Arrays.equals(p36bytes, p37bytes))
-        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.sources.$id", "P36 source bytes do not agree with the explicit P37 source binding")
       p36source
     }
     val assetpaths = requiredassets.map { id =>
@@ -221,15 +215,13 @@ private[cozy] object CozyExplanationPreview {
         pageasset.path,
         s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.path"
       )
-      val p37asset = CozyExplanationProjection._projection_input(
+      CozyExplanationProjection._projection_input(
         bindings.assets.getOrElse(id,
           _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id", "Composition asset binding is missing")),
         s"asset.$id"
       )
       if (pageasset.mediaType != declaration.mediaType)
         _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id.mediaType", "P36 asset mediaType does not agree with the current P37 AssetDeclaration")
-      if (!java.util.Arrays.equals(Files.readAllBytes(p36asset), Files.readAllBytes(p37asset)))
-        _stale(s"$$.presentation.stepMappings[$index].pageIds.${page.id}.assets.$id", "P36 asset bytes do not agree with the explicit P37 asset binding")
       p36asset
     }
     val descriptorpaths = page.sources.map { value =>
@@ -557,7 +549,7 @@ private[cozy] object CozyExplanationPreview {
     ).mkString("\n")
   }
 
-  private def _validate_output(path: Path): Unit = {
+  private def _validate_output(path: Path): Path = {
     val output = try path.toAbsolutePath.normalize() catch {
       case NonFatal(_) => _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", "output path is invalid")
     }
@@ -569,6 +561,7 @@ private[cozy] object CozyExplanationPreview {
       _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", "output parent must be an existing direct directory")
     if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) && (!Files.isRegularFile(output, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(output)))
       _fail("EXPLANATION_PREVIEW_COMMAND", "$command.save", "output must be absent or a direct regular non-symlink file")
+    output
   }
 
   private def _codes(values: Vector[String]): String =

@@ -1,18 +1,14 @@
 package cozy.media
 
 import org.goldenport.RAISE
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, StandardCopyOption, StandardOpenOption}
+import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
-import scala.util.control.NonFatal
 import CozyMedia._
 
 /*
  * @since   Aug. 25, 2026
  *  version Sep.  8, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPublicationTransaction {
@@ -25,30 +21,21 @@ private[cozy] object CozyMediaPublicationTransaction {
     )
     _validate_prepared_publications(publications)
     val ordered = _ordered_publications(publications)
-    val temporaries = ArrayBuffer.empty[Path]
-    try {
-      beforeFirstInstall()
-      ordered.foreach(CozyMediaReceipt.requirePreparedInputSet)
-      ordered.map { publication =>
-        val outcome = publication.disposition match {
-          case PublicationDisposition.Reuse =>
-            PublicationOutcome.Reused
-          case PublicationDisposition.Create =>
-            _install_publication(publication, replace = false, temporaries)
-            PublicationOutcome.Created
-          case PublicationDisposition.Replace =>
-            _install_publication(publication, replace = true, temporaries)
-            PublicationOutcome.Replaced
-        }
-        PublicationResult(publication, outcome)
+    beforeFirstInstall()
+    ordered.map { publication =>
+      _ensure_destination_parent(publication)
+      if (!_is_direct_regular_file(publication.publishablePath))
+        RAISE.invalidArgumentFault(s"Media publishable source must be a direct regular non-symlink file: ${publication.publishablePath}")
+      _validate_destination_file(publication.destination)
+      val outcome =
+        if (Files.exists(publication.destination, LinkOption.NOFOLLOW_LINKS)) PublicationOutcome.Replaced
+        else PublicationOutcome.Created
+      try Files.copy(publication.publishablePath, publication.destination, StandardCopyOption.REPLACE_EXISTING)
+      catch {
+        case e: java.io.IOException =>
+          RAISE.invalidArgumentFault(s"Media publication failed: ${e.getMessage}")
       }
-    } finally {
-      temporaries.foreach { path =>
-        try Files.deleteIfExists(path)
-        catch {
-          case NonFatal(_) => ()
-        }
-      }
+      PublicationResult(publication, outcome)
     }
   }
 
@@ -56,12 +43,10 @@ private[cozy] object CozyMediaPublicationTransaction {
     plan: Plan,
     candidates: Vector[ResolvedResource],
     profile: String,
-    target: Option[String],
-    force: Boolean
+    target: Option[String]
   ): Vector[PreparedPublication] = {
     if (!_is_direct_regular_file(plan.descriptorFile))
       RAISE.invalidArgumentFault(s"Media descriptor must be a direct regular non-symlink file: ${plan.descriptorFile}")
-    val observations = CozyMediaReceipt.observeInputs(plan)
     val effectiveprofile = effectiveProfile(plan, profile)
     val profileroot = _bind_profile_root(effectiveprofile.resolvedRoot)
     val publications = candidates.map { resolved =>
@@ -73,15 +58,12 @@ private[cozy] object CozyMediaPublicationTransaction {
       val destination = resolved.publications.getOrElse(profile,
         RAISE.invalidArgumentFault(s"Media resource has no publication for profile $profile: ${resolved.resource.id}")
       )
-      val destinationidentity = _destination_identity(destination, profileroot)
-      val sourcehash = _sha256(publishable)
-      val destinationstate = _destination_state(destination)
-      val disposition = _publication_disposition(sourcehash, destinationstate, force, destination)
+      _validate_destination(destination, profileroot)
+      _validate_destination_file(destination)
       PreparedPublication(
         plan.descriptorFile,
         plan.descriptorRoot,
         plan.descriptor,
-        observations,
         resolved.resource,
         target,
         plan.context,
@@ -89,14 +71,8 @@ private[cozy] object CozyMediaPublicationTransaction {
         effectiveprofile,
         profile,
         profileroot,
-        profileroot,
         publishable,
-        destination,
-        destinationidentity,
-        sourcehash,
-        destinationstate,
-        force,
-        disposition
+        destination
       )
     }
     _validate_unique_destinations(publications)
@@ -107,15 +83,14 @@ private[cozy] object CozyMediaPublicationTransaction {
     plan: Plan,
     candidates: Vector[ResolvedResource],
     profile: String,
-    target: Option[String],
-    force: Boolean
+    target: Option[String]
   ): Vector[PreparedPublication] = {
     val effectiveprofile = effectiveProfile(plan, profile)
     val profileroot = effectiveprofile.resolvedRoot
     if (effectiveprofile.externalRoot && !Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
       RAISE.invalidArgumentFault(s"Media external publication profile root must already exist: $profileroot")
     if (Files.exists(profileroot, LinkOption.NOFOLLOW_LINKS))
-      prepare(plan, candidates, profile, target, force)
+      prepare(plan, candidates, profile, target)
     else {
       val destinations = candidates.map { resolved =>
         val publishable = resolved.output.orElse(resolved.source).getOrElse(
@@ -149,18 +124,6 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault("Prepared media publications must not be empty")
     publications.foreach(_validate_prepared_publication)
     _validate_unique_destinations(publications)
-    publications.groupBy(publication => (publication.descriptorFile, publication.profile, publication.target, publication.force, publication.siteContext)).foreach {
-      case ((descriptorfile, profile, target, force, sitecontext), values) =>
-        val plan = CozyMedia.resolvePlan(values.head.commandConfig)
-        if (plan.siteContext != sitecontext)
-          RAISE.invalidArgumentFault("Prepared media publication site context has changed")
-        val candidates = _selected(plan, target).filter(_.publications.contains(profile))
-        if (candidates.isEmpty)
-          RAISE.invalidArgumentFault(s"Prepared media publication candidate set has changed: $descriptorfile")
-        val reconstructed = prepare(plan, candidates, profile, target, force)
-        if (_ordered_publications(values) != reconstructed)
-          RAISE.invalidArgumentFault(s"Prepared media publication candidate vector has changed: $descriptorfile")
-    }
   }
 
   private def _validate_prepared_publication(publication: PreparedPublication): Unit = {
@@ -168,10 +131,8 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault("Prepared media publication must not be null")
     if (publication.descriptorFile == null || publication.descriptorRoot == null || publication.descriptor == null || publication.resource == null)
       RAISE.invalidArgumentFault("Prepared media publication descriptor evidence must not be null")
-    if (publication.profile == null || publication.profile.trim.isEmpty || publication.context == null || publication.siteContext == null || publication.effectiveProfile == null || publication.profileRoot == null || publication.profileRootIdentity == null || publication.publishablePath == null || publication.destination == null || publication.destinationIdentity == null)
+    if (publication.profile == null || publication.profile.trim.isEmpty || publication.context == null || publication.siteContext == null || publication.effectiveProfile == null || publication.profileRoot == null || publication.publishablePath == null || publication.destination == null)
       RAISE.invalidArgumentFault("Prepared media publication path evidence must not be null or empty")
-    if (publication.destinationState == null || publication.disposition == null)
-      RAISE.invalidArgumentFault("Prepared media publication state must not be null")
     if (publication.resource.id == null || publication.resource.id.trim.isEmpty)
       RAISE.invalidArgumentFault("Prepared media publication resource id must not be empty")
     if (publication.descriptor.schema == null || publication.descriptor.knowledge == null || publication.descriptor.resources == null || publication.descriptor.profiles == null)
@@ -182,52 +143,16 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault("Prepared media publication descriptor evidence is invalid")
     if (publication.descriptorFile != publication.descriptorFile.toAbsolutePath.normalize() || publication.descriptorRoot != publication.descriptorRoot.toAbsolutePath.normalize() || Option(publication.descriptorFile.getParent).forall(_ != publication.descriptorRoot))
       RAISE.invalidArgumentFault("Prepared media publication descriptor paths are invalid")
-    if (!_is_direct_regular_file(publication.descriptorFile))
-      RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
-    if (!publication.observedInputs.find(_._1 == publication.descriptorFile).exists(_._2 == Files.getLastModifiedTime(publication.descriptorFile)))
-      RAISE.invalidArgumentFault(s"Prepared media descriptor has changed: ${publication.descriptorFile}")
-    val currentplan = CozyMedia.resolvePlan(publication.commandConfig)
-    if (currentplan.siteContext != publication.siteContext)
-      RAISE.invalidArgumentFault("Prepared media publication site context has changed")
-    val expectedprofile = CozyMedia.effectiveProfile(currentplan, publication.profile)
-    if (publication.effectiveProfile != expectedprofile)
-      RAISE.invalidArgumentFault("Prepared media publication effective profile evidence has changed")
-    val expectedroot = _bind_profile_root(expectedprofile.resolvedRoot)
-    if (expectedroot != publication.profileRoot || expectedroot != publication.profileRootIdentity)
-      RAISE.invalidArgumentFault("Prepared media publication profile root has changed")
-    val currentresource = currentplan.resources.find(_.resource.id == publication.resource.id).getOrElse(
-      RAISE.invalidArgumentFault(s"Prepared media publication resource has changed: ${publication.resource.id}")
-    )
-    val expectedpublishable = currentresource.output.orElse(currentresource.source).getOrElse(
-      RAISE.invalidArgumentFault(s"Prepared media publication has no publishable path: ${publication.resource.id}")
-    )
-    if (expectedpublishable != publication.publishablePath)
-      RAISE.invalidArgumentFault("Prepared media publication source path is invalid")
-    val expecteddestination = currentresource.publications.getOrElse(publication.profile,
-      RAISE.invalidArgumentFault(s"Prepared media publication has no profile destination: ${publication.resource.id}")
-    )
-    if (expecteddestination != publication.destination)
-      RAISE.invalidArgumentFault("Prepared media publication destination path is invalid")
-    if (_destination_identity(publication.destination, publication.profileRoot) != publication.destinationIdentity)
-      RAISE.invalidArgumentFault("Prepared media publication destination identity has changed")
-    if (!_is_direct_regular_file(publication.publishablePath))
-      RAISE.invalidArgumentFault(s"Prepared media source is no longer a direct regular non-symlink file: ${publication.publishablePath}")
-    if (!_is_sha256(publication.sourceSha256) || _sha256(publication.publishablePath) != publication.sourceSha256)
-      RAISE.invalidArgumentFault(s"Prepared media source has changed: ${publication.publishablePath}")
-    CozyMediaReceipt.requirePreparedInputSet(publication)
-    val actualstate = _destination_state(publication.destination)
-    if (actualstate != publication.destinationState)
-      RAISE.invalidArgumentFault(s"Prepared media destination has changed: ${publication.destination}")
-    val expected = _publication_disposition(publication.sourceSha256, publication.destinationState, publication.force, publication.destination)
-    if (expected != publication.disposition)
-      RAISE.invalidArgumentFault(s"Prepared media disposition is invalid: ${publication.destination}")
+    if (publication.effectiveProfile.id != publication.profile || publication.effectiveProfile.resolvedRoot != publication.profileRoot)
+      RAISE.invalidArgumentFault("Prepared media publication effective profile selection is invalid")
+    _validate_destination(publication.destination, publication.profileRoot)
   }
 
   private def _validate_unique_destinations(publications: Vector[PreparedPublication]): Unit = {
     val duplicates = publications.groupBy { publication =>
-      if (publication == null || publication.destination == null || publication.destinationIdentity == null)
+      if (publication == null || publication.destination == null)
         RAISE.invalidArgumentFault("Prepared media publication destination must not be null")
-      publication.destinationIdentity
+      publication.destination.toAbsolutePath.normalize()
     }.collect {
       case (destination, values) if values.size > 1 => destination
     }.toVector.sortBy(_.toString)
@@ -236,7 +161,7 @@ private[cozy] object CozyMediaPublicationTransaction {
     )
   }
 
-  private def _destination_identity(destination: Path, profileroot: Path): Path = {
+  private def _validate_destination(destination: Path, profileroot: Path): Unit = {
     val normalizedroot = _bind_profile_root(profileroot)
     val normalizeddestination = destination.toAbsolutePath.normalize()
     if (normalizeddestination != destination || !normalizeddestination.startsWith(normalizedroot) || normalizeddestination == normalizedroot)
@@ -248,7 +173,7 @@ private[cozy] object CozyMediaPublicationTransaction {
         _validate_direct_directory(next, "Media publication destination parent")
       next
     }
-    normalizedroot.resolve(normalizedroot.relativize(normalizeddestination)).normalize()
+    ()
   }
 
   private def _validate_lexical_destination(destination: Path, profileroot: Path): Unit = {
@@ -262,6 +187,8 @@ private[cozy] object CozyMediaPublicationTransaction {
     val normalizedroot = Option(profileroot).map(_.toAbsolutePath.normalize()).getOrElse(
       RAISE.invalidArgumentFault("Media publication profile root must not be null")
     )
+    if (normalizedroot != profileroot)
+      RAISE.invalidArgumentFault(s"Media publication profile root must be normalized: $profileroot")
     _validate_direct_directory(normalizedroot, "Media publication profile root")
     normalizedroot
   }
@@ -278,34 +205,13 @@ private[cozy] object CozyMediaPublicationTransaction {
       RAISE.invalidArgumentFault(s"$label must not be a lexical or real-path alias: $path")
   }
 
-  private def _destination_state(destination: Path): DestinationState = {
-    if (!Files.exists(destination, LinkOption.NOFOLLOW_LINKS))
-      DestinationState.Absent
-    else if (_is_direct_regular_file(destination))
-      DestinationState.Existing(_sha256(destination))
-    else
+  private def _validate_destination_file(destination: Path): Unit = {
+    if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !_is_direct_regular_file(destination))
       RAISE.invalidArgumentFault(s"Media publication destination must be absent or a direct regular non-symlink file: $destination")
   }
 
-  private def _publication_disposition(
-    sourcehash: String,
-    destinationstate: DestinationState,
-    force: Boolean,
-    destination: Path
-  ): PublicationDisposition =
-    destinationstate match {
-      case DestinationState.Absent => PublicationDisposition.Create
-      case DestinationState.Existing(destinationhash) if sourcehash == destinationhash => PublicationDisposition.Reuse
-      case DestinationState.Existing(_) if force => PublicationDisposition.Replace
-      case DestinationState.Existing(_) =>
-        RAISE.invalidArgumentFault(s"Media publication destination differs; use force to replace: $destination")
-    }
-
   private def _is_direct_regular_file(path: Path): Boolean =
     path != null && !Files.isSymbolicLink(path) && Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-
-  private def _is_sha256(value: String): Boolean =
-    value != null && value.matches("[0-9a-f]{64}")
 
   def createAndBindLegacyProfileRoot(plan: Plan, profile: String): Path = {
     val effectiveprofile = effectiveProfile(plan, profile)
@@ -333,15 +239,13 @@ private[cozy] object CozyMediaPublicationTransaction {
     }
   }
 
-  private def _ensure_destination_parent(publication: PreparedPublication): Path = {
+  private def _ensure_destination_parent(publication: PreparedPublication): Unit = {
     val root = _bind_profile_root(publication.profileRoot)
-    if (root != publication.profileRootIdentity)
-      RAISE.invalidArgumentFault("Prepared media publication profile root identity has changed")
     val relative = root.relativize(publication.destination)
     val components = relative.iterator.asScala.toVector
     if (components.isEmpty)
       RAISE.invalidArgumentFault(s"Media publication destination has no leaf: ${publication.destination}")
-    val parent = components.dropRight(1).foldLeft(root) { (current, component) =>
+    components.dropRight(1).foldLeft(root) { (current, component) =>
       val next = current.resolve(component)
       if (!Files.exists(next, LinkOption.NOFOLLOW_LINKS)) {
         try Files.createDirectory(next)
@@ -352,90 +256,7 @@ private[cozy] object CozyMediaPublicationTransaction {
       _validate_direct_directory(next, "Media publication destination parent")
       next
     }
-    if (_destination_identity(publication.destination, root) != publication.destinationIdentity)
-      RAISE.invalidArgumentFault("Prepared media publication destination identity has changed")
-    parent
+    ()
   }
 
-  private def _install_publication(
-    publication: PreparedPublication,
-    replace: Boolean,
-    temporaries: ArrayBuffer[Path]
-  ): Unit = {
-    val parent = _ensure_destination_parent(publication)
-    _destination_state(publication.destination)
-    val name = publication.destination.getFileName.toString
-    val temporary = Files.createTempFile(parent, s".$name.", ".cozy-media.tmp")
-    temporaries += temporary
-    try {
-      _copy_and_force(publication.publishablePath, temporary)
-      if (_sha256(temporary) != publication.sourceSha256)
-        RAISE.invalidArgumentFault(s"Media temporary publication hash differs: $temporary")
-      if (replace)
-        _atomic_move_replace(temporary, publication.destination)
-      else
-        _atomic_create(temporary, publication.destination)
-      temporaries -= temporary
-    } catch {
-      case e: AtomicMoveNotSupportedException =>
-        RAISE.invalidArgumentFault(s"Media publication requires atomic move: ${e.getMessage}")
-      case e: java.io.IOException =>
-        RAISE.invalidArgumentFault(s"Media publication failed: ${e.getMessage}")
-      case e: UnsupportedOperationException =>
-        RAISE.invalidArgumentFault(s"Media publication hard-link installation is unsupported: ${e.getMessage}")
-    }
-  }
-
-  private def _copy_and_force(source: Path, temporary: Path): Unit = {
-    val input = Files.newInputStream(source)
-    val channel = FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
-    try {
-      val bytes = new Array[Byte](8192)
-      var size = input.read(bytes)
-      while (size >= 0) {
-        if (size > 0) {
-          val buffer = ByteBuffer.wrap(bytes, 0, size)
-          while (buffer.hasRemaining)
-            channel.write(buffer)
-        }
-        size = input.read(bytes)
-      }
-      channel.force(true)
-    } finally {
-      try input.close()
-      finally channel.close()
-    }
-  }
-
-  private def _atomic_move_replace(temporary: Path, destination: Path): Unit =
-    Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-
-  private def _atomic_create(temporary: Path, destination: Path): Unit = {
-    Files.createLink(destination, temporary)
-    Files.delete(temporary)
-  }
-
-  private def _selected(plan: Plan, target: Option[String]): Vector[ResolvedResource] =
-    target match {
-      case Some(id) =>
-        plan.resources.filter(_.resource.id == id) match {
-          case values if values.nonEmpty => values
-          case _ => RAISE.invalidArgumentFault(s"Unknown media target: $id")
-        }
-      case None => plan.resources
-    }
-
-  private def _sha256(path: Path): String = {
-    val digest = java.security.MessageDigest.getInstance("SHA-256")
-    val stream = Files.newInputStream(path)
-    try {
-      val buffer = new Array[Byte](8192)
-      var size = stream.read(buffer)
-      while (size >= 0) {
-        if (size > 0) digest.update(buffer, 0, size)
-        size = stream.read(buffer)
-      }
-    } finally stream.close()
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
-  }
 }

@@ -14,13 +14,14 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 2, 2026
+ *  version Sep. 2, 2026
+ * @version Oct. 9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Logical UI review projection" should {
-    "review projection identity, currentness, and output behavior" which {
-    "render complete self-contained HTML and equal receipts for equivalent normalized input order" in {
+    "read-only review content and selected output behavior" which {
+    "render complete self-contained HTML for equivalent normalized input order" in {
       Given("one accepted Logical UI, its screen projection, and its typed semantic projection")
       val first = _fixture()
       val second = _fixture(reversed = true)
@@ -34,9 +35,8 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
       }
       val propertyresult = Test.check(Test.Parameters.default.withMinSuccessfulTests(20), property).passed
 
-      Then("HTML bytes and typed receipts are deterministic and expose the complete read-only review structure")
+      Then("HTML bytes are deterministic and expose the complete read-only review structure")
       firstreview.html shouldBe secondreview.html
-      firstreview.receipt shouldBe secondreview.receipt
       firstreview.html should include("Business -&gt; System -&gt; UI")
       firstreview.html should include("Step-to-screen interaction coverage")
       firstreview.html should include("Navigation and reachability")
@@ -53,42 +53,12 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
       firstreview.html should include("workflowId=sales-order-workflow; stateId=awaiting")
       firstreview.html should not include "<script"
       firstreview.html should not include "<form"
-      firstreview.html should not include "receiptIdentity"
       firstreview.html should not include "http://"
       firstreview.html should not include "https://"
       propertyresult shouldBe true
     }
 
-    "bind exact receipt identities while excluding receipt identity from HTML" in {
-      Given("a valid accepted candidate and normalized review tuple")
-      val fixture = _fixture()
-
-      When("the typed receipt and emitted HTML are inspected")
-      val reviewvalue = _right(CozyLogicalUiReview.render(fixture._1, fixture._2, fixture._3))
-      val receipt = reviewvalue.receipt
-      val identities = Vector(
-        receipt.acceptedIdentity,
-        receipt.candidateIdentity,
-        receipt.consumedInputIdentity,
-        receipt.useCaseIdentity,
-        receipt.catalogIdentity,
-        receipt.projectionIdentity,
-        receipt.semanticProjectionIdentity,
-        receipt.htmlIdentity,
-        receipt.identity
-      )
-
-      Then("every bound identity is present, distinct where roles differ, and receipt identity is not copied into the page")
-      receipt.schema shouldBe "cozy.logical-ui-review.v1"
-      receipt.version shouldBe 1
-      receipt.rendererProfile shouldBe "cozy.logical-ui-review.renderer.v1"
-      identities.forall(value => value.startsWith("sha256:")) shouldBe true
-      identities.distinct should have size identities.size
-      reviewvalue.html should not include receipt.identity
-      reviewvalue.html should not include "receiptIdentity"
-    }
-
-    "keep delimiter-bearing UseCase and catalog identities injective and order-stable" in {
+    "render delimiter-bearing UseCase and catalog values with escaped text and stable order" in {
       Given("valid UseCase IDs containing delimiters, quotes, and control characters")
       val usecases = _use_cases_with_ids(
         "business:|>[],\"\n\t\u0001x",
@@ -109,12 +79,10 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
       val permutedreview = _right(CozyLogicalUiReview.render(permuted._1, permuted._2, permuted._3))
       val changedreview = _right(CozyLogicalUiReview.render(changed._1, changed._2, changed._3))
 
-      Then("canonical JSON framing keeps equivalent permutations equal and distinct tuples distinct")
+      Then("equivalent permutations render the same page and changed UseCase text remains visible and escaped")
       firstreview.html shouldBe permutedreview.html
-      firstreview.receipt.useCaseIdentity shouldBe permutedreview.receipt.useCaseIdentity
-      firstreview.receipt.catalogIdentity shouldBe permutedreview.receipt.catalogIdentity
-      firstreview.receipt.useCaseIdentity should not equal changedreview.receipt.useCaseIdentity
-      firstreview.receipt.catalogIdentity should not equal changedreview.receipt.catalogIdentity
+      firstreview.html should include("business:|&gt;[],&quot;&#x0a;&#x09;&#x01;x")
+      changedreview.html should include("business:|&gt;[],&quot;&#x0a;&#x09;&#x01;y")
     }
 
     "show absent Workflow state without collapsing domain and UI state evidence" in {
@@ -149,9 +117,9 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
       reviewvalue.html should not include "<form"
     }
 
-    "fail closed for identity, currentness, and output-parent traversal changes" in {
+    "reject invalid output targets, parent traversal, and intermediate symbolic links" in {
       _with_temp_dir("output-invalid") { root =>
-      Given("a current review, a direct output parent, and explicit-parent traversal and intermediate-link escape fixtures")
+      Given("a review, a direct output parent, and explicit-parent traversal and intermediate-link escape fixtures")
       val fixture = _fixture()
       val parent = Files.createDirectory(root.resolve("parent"))
       val target = parent.resolve("review.html")
@@ -170,48 +138,39 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
       val intermediateparent = link.resolve("nested")
       val intermediatetarget = intermediateparent.resolve("intermediate.html")
 
-      When("the tuple, receipt, HTML, direct target, or explicit output parent contract no longer matches")
+      When("the selected target or explicit output parent violates path admission")
       val reviewvalue = _right(CozyLogicalUiReview.render(fixture._1, fixture._2, fixture._3))
-      val changedsemantic = _right(CozyLogicalUiSemantics.project(fixture._2, fixture._3.input.copy(
-        screens = fixture._3.input.screens.map(value => value.copy(purpose = BrowsePurpose))
-      )))
-      val staleinput = CozyLogicalUiReview.verifyCurrent(fixture._1, fixture._2, changedsemantic, reviewvalue)
-      val stalereceipt = CozyLogicalUiReview.verifyCurrent(fixture._1, fixture._2, fixture._3, reviewvalue.copy(receipt = reviewvalue.receipt.copy(identity = "sha256:" + "0" * 64)))
-      val stalehtml = CozyLogicalUiReview.verifyCurrent(fixture._1, fixture._2, fixture._3, reviewvalue.copy(html = "changed"))
       val invalidtarget = CozyLogicalUiReview.write(reviewvalue, parent, parent.resolve("review.txt"))
       val invalidtraversingparent = CozyLogicalUiReview.write(reviewvalue, traversingparent, traversingtarget)
       val invalidintermediateparent = CozyLogicalUiReview.write(reviewvalue, intermediateparent, intermediatetarget)
-      val differentprojection = CozyLogicalUiReview.render(fixture._1, _different_projection(), fixture._3)
 
-      Then("all stale or invalid operations return stable diagnostics and preserve direct and externally located prior bytes")
-      _left(staleinput).code shouldBe "LUI43_REVIEW_CURRENTNESS_INVALID"
-      _left(stalereceipt).code shouldBe "LUI43_REVIEW_CURRENTNESS_INVALID"
-      _left(stalehtml).code shouldBe "LUI43_REVIEW_CURRENTNESS_INVALID"
+      Then("prewrite path rejections return stable diagnostics and leave direct and externally located sentinel bytes unchanged")
       _left(invalidtarget).code shouldBe "LUI43_REVIEW_OUTPUT_INVALID"
       _left(invalidtraversingparent).code shouldBe "LUI43_REVIEW_OUTPUT_INVALID"
       _left(invalidintermediateparent).code shouldBe "LUI43_REVIEW_OUTPUT_INVALID"
       Files.readString(target, StandardCharsets.UTF_8) shouldBe "preserve-me"
       Files.readString(escapesentinel, StandardCharsets.UTF_8) shouldBe "preserve-escape"
       Files.readString(intermediatesentinel, StandardCharsets.UTF_8) shouldBe "preserve-intermediate"
-      _left(differentprojection).code shouldBe "LUI43_REVIEW_IDENTITY_MISMATCH"
       }
     }
 
-    "write current HTML atomically and preserve diagnostics without semantic side effects" in {
+    "write direct UTF-8 HTML and preserve diagnostics without semantic side effects" in {
       _with_temp_dir("output-write") { root =>
-      Given("a current review and an existing direct regular output parent")
+      Given("a review and an existing direct regular output parent")
       val fixture = _fixture()
       val parent = Files.createDirectory(root.resolve("parent"))
       val target = parent.resolve("review.html")
 
-      When("the validated review is written to a direct HTML target")
+      When("the rendered review is written to a direct HTML target")
       val reviewvalue = _right(CozyLogicalUiReview.render(fixture._1, fixture._2, fixture._3))
       val result = CozyLogicalUiReview.write(reviewvalue, parent, target)
 
-      Then("only the exact UTF-8 HTML is installed and no receipt file is created")
+      Then("the selected output contains the UTF-8 HTML and retains its read-only semantic facts")
       result shouldBe Right(())
       Files.readString(target, StandardCharsets.UTF_8) shouldBe reviewvalue.html
-      Files.exists(parent.resolve("review.receipt")) shouldBe false
+      reviewvalue.htmlBytes shouldBe Files.readAllBytes(target).toVector
+      reviewvalue.diagnostics.map(_.code) should contain ("LUI43_REVIEW_NAVIGATION_UNREACHABLE")
+      fixture._3.input.transitionActions.head.from shouldBe DomainStateReference(_state_machine_binding, "draft")
       }
     }
     }
@@ -253,7 +212,7 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
     val semantics = _right(CozyLogicalUiSemantics.project(projection, semanticsinput.copy(componentBindings =
       semanticsinput.componentBindings :+ ComponentSemanticBinding(WorkflowRole, _workflow_binding)
     )))
-    val accepted = _right(CozyLogicalUi.accept(candidate, AcceptanceDecision("accepted-workflow-sales-order", candidate.identity)))
+    val accepted = _right(CozyLogicalUi.accept(candidate, AcceptanceDecision("accepted-workflow-sales-order")))
     (accepted, projection, semantics)
   }
 
@@ -265,7 +224,7 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
     val candidate = _right(CozyLogicalUi.candidate(_candidate_input.copy(useCases = usecases)))
     val projection = _right(CozyLogicalUi.project(candidate, _projection(candidate, reversed)))
     val semantics = _right(CozyLogicalUiSemantics.project(projection, _semantics(projection, reversed, workflowstate)))
-    val accepted = _right(CozyLogicalUi.accept(candidate, AcceptanceDecision("accepted-sales-order", candidate.identity)))
+    val accepted = _right(CozyLogicalUi.accept(candidate, AcceptanceDecision("accepted-sales-order")))
     (accepted, projection, semantics)
   }
 
@@ -273,7 +232,6 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
     val usecases = candidate.input.useCases
     val uiusecase = usecases.ui
     val values = UseCaseScreenProjection(
-      candidate.identity,
       Vector(usecases),
       Vector(
         UiUseCaseStep(uiusecase, "confirm", NormalPath),
@@ -303,7 +261,6 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
     workflowstate: Option[WorkflowStateReference]
   ): LogicalUiSemanticsInput = {
     val values = LogicalUiSemanticsInput(
-      projection.identity,
       Vector(
         ScreenSemantics("order-list", BrowsePurpose, Vector(RegionDisplayBinding("list-root", CollectionDisplay)), Vector(
           InteractionPatternBinding("entry", ObservePattern), InteractionPatternBinding("to-detail", NavigatePattern)
@@ -368,13 +325,6 @@ final class CozyLogicalUiReviewSpec extends AnyWordSpec with Matchers with Given
     val system = UseCaseReference(System, systemid)
     val ui = UseCaseReference(Ui, uiid)
     UseCaseLayers(business, system, ui, Vector(UseCaseRealization(business, system), UseCaseRealization(system, ui)))
-  }
-
-  private def _different_projection(): LogicalUiProjection = {
-    val otherui = UseCaseReference(Ui, "ui-other")
-    val otherusecases = _use_cases.copy(ui = otherui, realizations = Vector(UseCaseRealization(_business_use_case, _system_use_case), UseCaseRealization(_system_use_case, otherui)))
-    val candidate = _right(CozyLogicalUi.candidate(_candidate_input.copy(useCases = otherusecases)))
-    _right(CozyLogicalUi.project(candidate, _projection(candidate, reversed = false)))
   }
 
   private def _right[A](value: Either[LogicalUiError, A]): A = value match {

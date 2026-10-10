@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct.  5, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoBuildReplay {
@@ -54,22 +54,16 @@ private[cozy] trait CozyVideoBuildReplay {
       if (!Files.isRegularFile(path))
         RAISE.invalidArgumentFault(s"Missing rendered part output: $path. Run: cozy video render <project-file> --renderer=remotion|simple-java2d")
     }
-    val workspace = _assembly_workspace(plan.projectRoot, partoutputs, plan.outputPath)
-    val executionparts = _build_execution_parts(workspace, plan.execution, partoutputs)
-    val executionoutput = _build_execution_output(workspace)
+    val workspace = _assembly_workspace(plan.projectRoot)
     val concatlist = _ffmpeg_concat_list_path(workspace)
-    _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, executionparts)
-    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, executionparts, executionoutput, runner)
-    if (!Files.isRegularFile(executionoutput))
-      RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: $executionoutput")
-    val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, executionoutput, runner)
+    _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, partoutputs)
+    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, partoutputs, plan.outputPath, runner)
+    if (!Files.isRegularFile(plan.outputPath))
+      RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: ${plan.outputPath}")
+    val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, plan.outputPath, runner)
     val summary = _ffprobe_summary(ffprobe)
-    _require_final_media_presentation(summary, executionoutput)
+    _require_final_media_presentation(summary, plan.outputPath)
     val creditfiles = _write_credit_outputs(plan)
-    if (executionoutput != plan.outputPath) {
-      Option(plan.outputPath.getParent).foreach(Files.createDirectories(_))
-      Files.copy(executionoutput, plan.outputPath, StandardCopyOption.REPLACE_EXISTING)
-    }
     _write_project_manifest(plan, concatlist, partoutputs, summary, creditfiles)
     VideoBuildResult(
       plan.projectFile,
@@ -86,53 +80,14 @@ private[cozy] trait CozyVideoBuildReplay {
     )
   }
 
-  private def _assembly_physical_path(path: Path): Path = {
-    val normalized = path.toAbsolutePath.normalize()
-    if (Files.exists(normalized)) normalized.toRealPath()
-    else _assembly_physical_path(normalized.getParent).resolve(normalized.getFileName)
-  }
-
-  private def _assembly_workspace(projectroot: Path, inputs: Vector[Path], output: Path): Path = {
+  private def _assembly_workspace(projectroot: Path): Path = {
     val stageparent = projectroot.resolve("target/cozy-video/ffmpeg").toAbsolutePath.normalize()
-    val physicalroot = _assembly_physical_path(projectroot)
-    val physicalparent = _assembly_physical_path(stageparent)
-    if (!physicalparent.startsWith(physicalroot))
-      RAISE.invalidArgumentFault(s"Assembly staging parent $stageparent resolves outside project root $projectroot: $physicalparent")
     Files.createDirectories(stageparent)
-    val workspace = Files.createTempDirectory(stageparent, "assembly-").toAbsolutePath.normalize()
-    val physicalworkspace = _assembly_physical_path(workspace)
-    (inputs :+ output).foreach { path =>
-      val normalized = path.toAbsolutePath.normalize()
-      val physical = _assembly_physical_path(path)
-      if (workspace.startsWith(normalized) || normalized.startsWith(workspace) ||
-          physicalworkspace.startsWith(physical) || physical.startsWith(physicalworkspace))
-        RAISE.invalidArgumentFault(s"Assembly workspace $workspace ($physicalworkspace) overlaps selected input or final output $path ($physical)")
-    }
-    workspace
+    Files.createTempDirectory(stageparent, "assembly-").toAbsolutePath.normalize()
   }
 
   private[video] def _ffmpeg_concat_list_path(workspace: Path): Path =
     workspace.resolve("concat.txt")
-
-  private[video] def _build_execution_parts(
-    workspace: Path,
-    execution: VideoExecutionConfig,
-    partoutputs: Vector[Path]
-  ): Vector[Path] =
-    execution.toolMode match {
-      case VideoToolMode.Docker =>
-        val directory = workspace.resolve("parts")
-        Files.createDirectories(directory)
-        partoutputs.zipWithIndex.map { case (source, index) =>
-          val staged = directory.resolve(f"part-${index + 1}%02d.mp4")
-          Files.copy(source, staged, StandardCopyOption.REPLACE_EXISTING)
-          staged
-        }
-      case _ => partoutputs
-    }
-
-  private[video] def _build_execution_output(workspace: Path): Path =
-    workspace.resolve("rendered.mp4")
 
   private[video] def _write_credit_outputs(plan: VideoPlan): Option[CozyVideoCredits.OutputFiles] =
     plan.credits.profile.map { _ =>
@@ -177,7 +132,7 @@ private[cozy] trait CozyVideoBuildReplay {
     if (!timelines.exists(_.hasaudio)) {
       _run_assembly_stage(projectroot, execution, runner, output, "final copy mux", Vector(
         "-y", "-copyts", "-f", "concat", "-safe", "0", "-i", _execution_path(projectroot, execution, concatlist),
-        "-c", "copy", "-movie_timescale", "48000", _execution_path(projectroot, execution, output)))
+        "-c", "copy", "-movie_timescale", "48000", _execution_path(projectroot, execution, output)), executionparts)
     } else {
       val directory = concatlist.getParent.resolve("presentation")
       Files.createDirectories(directory)
@@ -186,7 +141,7 @@ private[cozy] trait CozyVideoBuildReplay {
         val staged = directory.resolve(f"video-${index + 1}%02d.mp4")
         _run_assembly_stage(projectroot, execution, runner, staged, s"video extraction from $input", Vector(
           "-y", "-copyts", "-i", _execution_path(projectroot, execution, input), "-map", "0:v:0", "-an", "-c:v", "copy",
-          "-movie_timescale", "48000", _execution_path(projectroot, execution, staged)))
+          "-movie_timescale", "48000", _execution_path(projectroot, execution, staged)), Vector(input))
         staged
       }
       val waves = executionparts.zip(timelines).zip(allocations).zipWithIndex.map { case (((input, timeline), samples), index) =>
@@ -195,7 +150,7 @@ private[cozy] trait CozyVideoBuildReplay {
           else Vector("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo")
         _run_assembly_stage(projectroot, execution, runner, staged, s"PCM allocation for $input", Vector("-y") ++ source ++ Vector(
           "-vn", "-af", s"aresample=48000:first_pts=0,apad,atrim=end_sample=$samples,asetpts=PTS-STARTPTS",
-          "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2", _execution_path(projectroot, execution, staged)))
+          "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2", _execution_path(projectroot, execution, staged)), Vector(input))
         staged
       }
       val videolist = directory.resolve("video-concat.txt")
@@ -219,10 +174,10 @@ private[cozy] trait CozyVideoBuildReplay {
 
   private def _run_assembly_stage(
     projectroot: Path, execution: VideoExecutionConfig, runner: VideoProcessRunner,
-    output: Path, context: String, args: Vector[String]
+    output: Path, context: String, args: Vector[String], inputs: Vector[Path] = Vector.empty
   ): Unit = {
-    Files.deleteIfExists(output)
-    val result = runner.run(_execution_command(projectroot, execution, "ffmpeg", args), projectroot)
+    val mounts = _selected_path_mounts(projectroot, inputs, Vector(output))
+    val result = runner.run(_execution_command(projectroot, execution, "ffmpeg", args, mounts = mounts), projectroot)
     Files.writeString(output.resolveSibling(s"${output.getFileName}.stderr.txt"), result.stderr, StandardCharsets.UTF_8)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"ffmpeg concat/mux failed: $context: ${result.stderr.trim}")
@@ -328,7 +283,7 @@ private[cozy] trait CozyVideoBuildReplay {
       "-show_format",
       "-show_streams",
       outputarg
-    ))
+    ), mounts = _selected_path_mounts(projectroot, Vector(output)))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"ffprobe validation failed: ${result.stderr.trim}")

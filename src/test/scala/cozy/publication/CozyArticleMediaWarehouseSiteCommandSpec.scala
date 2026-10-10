@@ -16,7 +16,7 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 
 /*
  * @since   Oct.  6, 2026
- * @version Oct.  6, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private object WarehouseSiteFixture {
@@ -563,11 +563,10 @@ final class CozyArticleMediaWarehouseSiteCommandSpec extends AnyWordSpec with Ma
   private def _integrity(role: CozyArticleMediaIntegrity.Role): CozyArticleMediaIntegrity.Result =
     CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
       articleIdentity = _identity, locale = "ja", role = role,
-      artifact = CozyArticleMediaIntegrity.Artifact("example", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example", "1.0.0")),
       publicPath = new URI(if (role == CozyArticleMediaIntegrity.Role.Video) "/repository/old.mp4" else "/repository/old.png"),
       repositoryPath = if (role == CozyArticleMediaIntegrity.Role.Video) "old.mp4" else "old.png",
       mediaType = if (role == CozyArticleMediaIntegrity.Role.Video) "video/mp4" else "image/png",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = if (role == CozyArticleMediaIntegrity.Role.Video)
         CozyArticleMediaIntegrity.VideoPublication("metadata/video/example/manifest.json", "metadata/artifacts/repository/example.json")
         else CozyArticleMediaIntegrity.MediaPackage("media.yaml", "example", "target/cozy-media/manifest.json"),

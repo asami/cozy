@@ -23,11 +23,11 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 
 /*
  * @since   Oct.  7, 2026
- * @version Oct.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaWarehouseBuildContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
-  private final case class Fixture(root: Path, publication: Path, warehouse: Path, source: Path)
+  import CozyArticleMediaWarehouseBuildContextSpec.Fixture
   private val _identity = "development-process/example"
   private val _locales = Vector("ja", "en")
   private val _roles = Vector("infographic", "article_pdf", "summary_slides_pdf")
@@ -317,34 +317,19 @@ final class CozyArticleMediaWarehouseBuildContextSpec extends AnyWordSpec with M
       }
     }
 
-    "P751-02B-09 retain original transaction materialization and source revalidation for pure legacy and media-free inputs" in {
+    "P751-02B-09 materialize ordinary contexts for pure legacy and media-free inputs" in {
       for (mediafree <- Vector(false, true)) {
         Given(s"a legacy-only registry with mediafree=$mediafree and an absent unused repository")
         _with_fixture { fixture =>
           val entries = if (mediafree) Vector(_generic_entry) else Vector(_entry(_publication(imagepath = "/ja/legacy.svg", englishimage = "/en/legacy.svg", canonicalpdfs = false)))
           _write_bundle(fixture, entries)
-          var invoked = false
-          When("the existing source revalidation seam consumes this legacy context")
-          val context = CozyArticleMediaBuildContext.withContextBeforeSourceRevalidation(fixture.root, fixture.publication, fixture.root.resolve("absent-repository"), "preview")(() => invoked = true)(value => value)
-          Then("the hook runs, the original snapshots route is selected, and unavailable legacy images retain policy behavior")
-          invoked shouldBe true
+          When("a normal consumer receives the legacy context")
+          val context = CozyArticleMediaBuildContext.withContext(fixture.root, fixture.publication, fixture.root.resolve("absent-repository"), "preview")(value => value)
+          Then("the original snapshots layout is selected and unavailable legacy images retain policy behavior")
           context.publicationPath.getParent.getParent.getFileName.toString shouldBe "snapshots"
           Files.exists(_contexts(fixture)) shouldBe false
           if (mediafree) context.omittedKeys shouldBe empty else context.omittedKeys should have size 2
         }
-      }
-      Given("a pure legacy registry changed by its source revalidation hook")
-      _with_fixture { fixture =>
-        _write_bundle(fixture, Vector(_generic_entry))
-        var consumed = false
-        When("the original transaction revalidates changed source bytes")
-        val error = intercept[Exception] {
-          CozyArticleMediaBuildContext.withContextBeforeSourceRevalidation(fixture.root, fixture.publication, fixture.warehouse, "production")(
-            () => _write_bundle(fixture, Vector(_generic_entry ++ Json.obj("wrapper" -> "changed"))))(_ => consumed = true)
-        }
-        Then("the legacy source change still rejects consumption")
-        error.getMessage should not be empty
-        consumed shouldBe false
       }
     }
 
@@ -355,10 +340,9 @@ final class CozyArticleMediaWarehouseBuildContextSpec extends AnyWordSpec with M
         val image = _read(fixture.warehouse.resolve(_path("ja", "infographic").drop(1)))
         val first = _context(fixture, "production")
         val prior = _read(first.publicationPath.resolve("owner.json"))
-        var hook = false
         var leased = 0
         When("another normal consumer observes its lease and a later consumer fails")
-        val second = CozyArticleMediaBuildContext.withContextBeforeSourceRevalidation(fixture.root, fixture.publication, fixture.warehouse, "production")(() => hook = true) { context =>
+        val second = CozyArticleMediaBuildContext.withContext(fixture.root, fixture.publication, fixture.warehouse, "production") { context =>
           leased = CozyArticleMediaBuildContext.activeLeaseCount(context.publicationPath)
           Then("the leased context exposes the declared Japanese article media")
           PublishMetadata.load(context.publicationPath.toFile).get.resolveArticleMedia(_identity, "ja").isDefined shouldBe true
@@ -372,7 +356,6 @@ final class CozyArticleMediaWarehouseBuildContextSpec extends AnyWordSpec with M
         first.publicationPath should not be second.publicationPath
         second.publicationPath.getParent.getParent shouldBe _contexts(fixture)
         leased shouldBe 1
-        hook shouldBe false
         CozyArticleMediaBuildContext.activeLeaseCount(second.publicationPath) shouldBe 0
         error.getMessage shouldBe "consumer failed"
         _read(first.publicationPath.resolve("owner.json")) shouldBe prior
@@ -391,54 +374,57 @@ final class CozyArticleMediaWarehouseBuildContextSpec extends AnyWordSpec with M
       }
     }
 
-    "P751-02B-10 remove only newly allocated work after a real partial bundle write fails" in {
-      Given("a valid canonical owner and separate generic bundle, a readable warehouse, a completed production context and unrelated target data")
-      _with_fixture { fixture =>
-        val extra = _json(fixture.publication.resolve("owner.json")) ++ Json.obj(
-          "publication" -> Json.obj("name" -> "extra"), "entries" -> Json.arr(_generic_entry))
-        _write_json(fixture.publication.resolve("extra.json"), extra)
-        val originals = Vector("owner.json", "extra.json").map(name => name -> _read(fixture.publication.resolve(name))).toMap
-        val warehouse = (for (locale <- _locales; role <- _roles) yield {
-          val path = fixture.warehouse.resolve(_path(locale, role).drop(1))
-          path -> _read(path)
-        }).toMap
-        val prior = _context(fixture, "production")
-        val priorbundles = originals.keys.map(name => name -> _read(prior.publicationPath.resolve(name))).toMap
-        val sentinel = fixture.root.resolve("target/unrelated/sentinel.txt")
-        _write(sentinel, "unrelated target data")
-        val current = CozyArticleMediaRegistry.readCurrentSite(fixture.publication)
-        val projection = CozyArticleMediaRegistry.canonicalProjection(CozyArticleMediaRegistry.Snapshot(current.entries))
-        val failure = new IOException("deterministic second bundle write failure")
-        var attempted = Vector.empty[Path]
-        var work = Option.empty[Path]
-        var firstwritten = false
-        When("the same materializer physically writes its first bundle and the per-call writer throws on its second bundle")
-        val error = intercept[IOException] {
-          CozyArticleMediaWarehouseBuildContext.materializeWithWriter(fixture.root, fixture.publication, fixture.warehouse,
-            CozyArticleMediaBuildContext.normalizeStrategy("production"), current, projection) { (path, bundle) =>
-            attempted = attempted :+ path
-            if (attempted.size == 1) {
-              work = Some(path.getParent.getParent)
-              Files.write(path, Json.stringify(bundle).getBytes(StandardCharsets.UTF_8))
-              firstwritten = Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && _read(path) == Json.stringify(bundle)
-            } else throw failure
+    "direct materialization failure" which {
+      "P751-02B-10 propagate the actual second-write failure with partial semantic output" in {
+        Given("a valid canonical owner and separate generic bundle, a readable warehouse, a completed production context and unrelated target data")
+        _with_fixture { fixture =>
+          val extra = _json(fixture.publication.resolve("owner.json")) ++ Json.obj(
+            "publication" -> Json.obj("name" -> "extra"), "entries" -> Json.arr(_generic_entry))
+          _write_json(fixture.publication.resolve("extra.json"), extra)
+          val originals = Vector("owner.json", "extra.json").map(name => name -> _read(fixture.publication.resolve(name))).toMap
+          val warehouse = (for (locale <- _locales; role <- _roles) yield {
+            val path = fixture.warehouse.resolve(_path(locale, role).drop(1))
+            path -> _read(path)
+          }).toMap
+          val prior = _context(fixture, "production")
+          val priorbundles = originals.keys.map(name => name -> _read(prior.publicationPath.resolve(name))).toMap
+          val sentinel = fixture.root.resolve("target/unrelated/sentinel.txt")
+          _write(sentinel, "unrelated target data")
+          val current = CozyArticleMediaRegistry.readCurrentSite(fixture.publication)
+          val projection = CozyArticleMediaRegistry.canonicalProjection(CozyArticleMediaRegistry.Snapshot(current.entries))
+          val failure = new IOException("deterministic second bundle write failure")
+          var attempted = Vector.empty[Path]
+          var work = Option.empty[Path]
+          val expectedbundles = priorbundles.map { case (name, contents) => name -> Json.parse(contents).as[JsObject] }
+          When("the same materializer physically writes its first bundle and the per-call writer throws on its second bundle")
+          val error = intercept[IOException] {
+            CozyArticleMediaWarehouseBuildContext.materializeWithWriter(fixture.root, fixture.publication, fixture.warehouse,
+              CozyArticleMediaBuildContext.normalizeStrategy("production"), current, projection) { (path, bundle) =>
+              attempted = attempted :+ path
+              if (attempted.size == 1) {
+                work = Some(path.getParent.getParent)
+                Files.write(path, Json.stringify(bundle).getBytes(StandardCharsets.UTF_8))
+              } else throw failure
+            }
           }
+          Then("the exact failure reaches the caller with the first semantic bundle still present, while prior, source, warehouse and unrelated contents survive")
+          attempted.size shouldBe 2
+          attempted.map(_.getFileName.toString).toSet shouldBe originals.keySet
+          error should be theSameInstanceAs failure
+          work.isDefined shouldBe true
+          val failedwork = work.get
+          failedwork.getParent shouldBe _contexts(fixture)
+          failedwork should not be prior.publicationPath.getParent
+          attempted.map(_.getParent.getParent).toSet shouldBe Set(failedwork)
+          Files.isDirectory(failedwork, LinkOption.NOFOLLOW_LINKS) shouldBe true
+          val firstwritten = attempted.head
+          Files.isRegularFile(firstwritten, LinkOption.NOFOLLOW_LINKS) shouldBe true
+          _json(firstwritten) shouldBe expectedbundles(firstwritten.getFileName.toString)
+          priorbundles.foreach { case (name, contents) => _read(prior.publicationPath.resolve(name)) shouldBe contents }
+          originals.foreach { case (name, contents) => _read(fixture.publication.resolve(name)) shouldBe contents }
+          warehouse.foreach { case (path, contents) => _read(path) shouldBe contents }
+          _read(sentinel) shouldBe "unrelated target data"
         }
-        Then("the exact failure reaches the caller, the partially written work is removed, and prior, source, warehouse and unrelated contents survive")
-        firstwritten shouldBe true
-        attempted.size shouldBe 2
-        attempted.map(_.getFileName.toString).toSet shouldBe originals.keySet
-        error should be theSameInstanceAs failure
-        work.isDefined shouldBe true
-        val failedwork = work.get
-        failedwork.getParent shouldBe _contexts(fixture)
-        failedwork should not be prior.publicationPath.getParent
-        attempted.map(_.getParent.getParent).toSet shouldBe Set(failedwork)
-        Files.exists(failedwork, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        priorbundles.foreach { case (name, contents) => _read(prior.publicationPath.resolve(name)) shouldBe contents }
-        originals.foreach { case (name, contents) => _read(fixture.publication.resolve(name)) shouldBe contents }
-        warehouse.foreach { case (path, contents) => _read(path) shouldBe contents }
-        _read(sentinel) shouldBe "unrelated target data"
       }
     }
 
@@ -504,8 +490,8 @@ final class CozyArticleMediaWarehouseBuildContextSpec extends AnyWordSpec with M
   private def _integrity(locale: String, wip: Boolean = false): CozyArticleMediaIntegrity.Result =
     CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(_identity, locale,
       if (wip) CozyArticleMediaIntegrity.Role.Video else CozyArticleMediaIntegrity.Role.Infographic,
-      CozyArticleMediaIntegrity.Artifact("historical", "1.0.0"), new URI(if (wip) "/repository/video/old.mp4" else "/old/image.png"),
-      if (wip) "video/old.mp4" else "old/image.png", if (wip) "video/mp4" else "image/png", "0" * 64,
+      if (wip) None else Some(CozyArticleMediaIntegrity.Artifact("historical", "1.0.0")), new URI(if (wip) "/repository/video/old.mp4" else "/old/image.png"),
+      if (wip) "video/old.mp4" else "old/image.png", if (wip) "video/mp4" else "image/png",
       if (wip) CozyArticleMediaIntegrity.WipSiteVideo("media.json", "video", "production.json") else CozyArticleMediaIntegrity.MediaPackage("media.json", "image", "target/manifest.json"),
       CozyArticleMediaIntegrity.PublicationState.Published))
 
@@ -572,4 +558,8 @@ final class CozyArticleMediaWarehouseBuildContextSpec extends AnyWordSpec with M
     try stream.iterator.asScala.toVector.sortBy(x => (-x.getNameCount, x.toString)).foreach(Files.deleteIfExists)
     finally stream.close()
   }
+}
+
+private object CozyArticleMediaWarehouseBuildContextSpec {
+  final case class Fixture(root: Path, publication: Path, warehouse: Path, source: Path)
 }

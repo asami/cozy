@@ -5,7 +5,6 @@ import cozy.video.CozyVideoSpec
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.time.YearMonth
 import java.util.zip.ZipInputStream
 import scala.collection.JavaConverters._
 import io.circe.parser
@@ -18,8 +17,7 @@ import org.scalacheck.{Gen, Prop, Test}
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
  *  version Aug. 28, 2026
- *  version Oct.  5, 2026
- * @version Oct.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -130,18 +128,6 @@ class CozyBokSpec
           )
           _read(dir.resolve("conf/cozy/config.yaml")) should include(
             "website-staging"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "backup:"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "enabled: false"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "dir: website.backup"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "compressed: true"
           )
           _read(dir.resolve("conf/cozy/config.yaml")) should include(
             "workflow:"
@@ -3562,8 +3548,6 @@ class CozyBokSpec
         stage should include("bok.workflow.stage.command")
         upload should include("Usage: cozy bok upload [<project-dir>]")
         upload should include("bok.workflow.upload.command")
-        upload should include("bok.backup.enabled")
-        upload should include("website.backup")
         publish should not include ("Missing bok workflow command")
       }
 
@@ -3752,145 +3736,7 @@ class CozyBokSpec
         }
       }
 
-      "keep upload backup disabled by default" in {
-        _with_temp_dir("cozy-bok-upload-backup-default") { dir =>
-          Given("an upload workflow without an explicit backup setting")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>site</html>\n")
-          val runner = new RecordingRunner
 
-          When("Cozy runs the upload workflow")
-          CozyBok.runWorkflow(
-            CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-            runner
-          )
-
-          Then("the configured upload command runs")
-          runner.commands should contain(Vector("sh", "-c", "etc/website-upload.sh"))
-
-          And("no website backup directory is created by default")
-          dir.resolve("website.backup") shouldNot exist_path
-        }
-      }
-
-      "create compressed website backup before upload when enabled" in {
-        _with_temp_dir("cozy-bok-upload-backup-compressed") { dir =>
-          Given("an upload workflow with compressed website backup enabled")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  backup:
-              |    enabled: true
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>published</html>\n")
-          val runner = new RecordingRunner
-
-          When("Cozy runs the upload workflow")
-          CozyBok.runWorkflow(
-            CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-            runner
-          )
-
-          Then("the generated website is backed up as a compressed snapshot")
-          val zips = _files_under(dir.resolve("website.backup")).filter(_.getFileName.toString == "website.d.zip")
-          zips should have size 1
-          _zip_text(zips.head, "website.d/index.html") should include("published")
-
-          And("the upload workflow still runs after the backup")
-          runner.commands should contain(Vector("sh", "-c", "etc/website-upload.sh"))
-        }
-      }
-
-      "reject backup directories inside the website source before upload" in {
-        _with_temp_dir("cozy-bok-upload-backup-nested-root") { dir =>
-          Given("an upload workflow whose backup directory is nested under the website source")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  backup:
-              |    enabled: true
-              |    dir: website.d/backup
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>published</html>\n")
-          val runner = new RecordingRunner
-
-          When("Cozy runs the upload workflow")
-          val error = intercept[RuntimeException] {
-            CozyBok.runWorkflow(
-              CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-              runner
-            )
-          }
-
-          Then("the unsafe backup configuration is rejected before backup or upload side effects")
-          error.getMessage should include("Website backup directory must be outside the website source directory")
-          dir.resolve("website.d/backup") shouldNot exist_path
-          runner.commands shouldBe empty
-        }
-      }
-
-      "rotate website backups by keeping the first upload, last completed-month backup, and every current-month backup" in {
-        _with_temp_dir("cozy-bok-upload-backup-rotation") { dir =>
-          Given("an upload workflow with existing first, completed-month, and current-month backups")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  backup:
-              |    enabled: true
-              |    compressed: false
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>new</html>\n")
-          val root = dir.resolve("website.backup")
-          val current = YearMonth.now()
-          val firstmonth = current.minusMonths(3)
-          val previous = current.minusMonths(1)
-          val first = _backup_snapshot(root, firstmonth, "01", "010000")
-          val firstmonthlast = _backup_snapshot(root, firstmonth, "02", "020000")
-          val previousold = _backup_snapshot(root, previous, "01", "010000")
-          val previouslast = _backup_snapshot(root, previous, "02", "020000")
-          val currentold = _backup_snapshot(root, current, "01", "010000")
-          Vector(first, firstmonthlast, previousold, previouslast, currentold).foreach { path =>
-            _write(path.resolve("website.d/index.html"), path.getFileName.toString)
-          }
-
-          When("Cozy runs the upload workflow and applies backup rotation")
-          CozyBok.runWorkflow(
-            CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-            new RecordingRunner
-          )
-
-          Then("the first backup is preserved for operation history")
-          first should exist_path
-
-          And("only the last backup from completed months is preserved")
-          firstmonthlast should exist_path
-          previousold shouldNot exist_path
-          previouslast should exist_path
-
-          And("every current-month backup is preserved")
-          currentold should exist_path
-          _files_under(root).filter(_.endsWith("website.d/index.html")).map(_read) should contain("<html>new</html>\n")
-        }
-      }
     }
   }
 
@@ -4188,13 +4034,6 @@ class CozyBokSpec
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-
-  private def _backup_snapshot(root: Path, yearmonth: YearMonth, day: String, time: String): Path =
-    root.
-      resolve(f"${yearmonth.getYear}%04d").
-      resolve(f"${yearmonth.getMonthValue}%02d").
-      resolve(day).
-      resolve(time)
 
   private def _files_under(path: Path): Vector[Path] =
     if (!Files.exists(path))

@@ -3,6 +3,69 @@
 Scope: internal site producer and asset handoff for [BOK-UC-07: Build the local generated
 site](../design/bok-use-cases.md#bok-uc-07-build-the-local-generated-site).
 
+
+## 2026-10-09 S22 BoK upload and UI ZIP direct output amendment
+
+P715-02-S22-BOK-UPLOAD-BACKUP-UI-ZIP-DIRECT is
+**implemented-focused-validated-unreviewed** under the [frozen S22 manifest](../../.codex-workflow/phases/PHASE-71.5/p715-02-s22-implementation-manifest.json).
+The initial editing handoff on 2026-10-09 was
+**implemented-unvalidated-unreviewed**, with focused validation and independent
+review pending. Focused validation is now recorded below; independent review and
+acceptance remain OPEN. This amendment supersedes generated website backup configuration,
+models, helpers, aliases, scaffold/help promises and protection-only scenarios,
+and temporary final UI ZIP replacement promises. Original dated text and results
+remain history.
+
+The [workflow implementation](../../src/main/scala/cozy/bok/CozyBokBuild.scala) delegates configured stage/upload commands once
+with their ordinary environment and project working directory; missing commands
+and actual runner/I/O failures remain failures. The [workflow configuration](../../src/main/scala/cozy/bok/CozyBokBuildConfig.scala)
+contains project, name, command and environment without a backup model or legacy
+backup decoder. Generic YAML loading remains generic. The [UI ZIP writer](../../src/main/scala/cozy/bok/CozyBokSiteBuild.scala)
+reads the configured/default source and writes the selected final ZIP directly,
+closing input even if output opening fails and closing output before input.
+Source entry order, directory skipping, the same twelve Cozy asset replacements,
+supplemental header, standard ZIP format/CRC, toolchain and both locale layouts
+retain their meanings. I/O/resource errors propagate and may leave a partial
+final ZIP; recovery is regeneration.
+
+Bibliography cache, target-contained SIE handoffs and default UI existence reuse
+remain generation-input reuse. Authored-source backups and Site Administrator
+monitoring/backups/incident response remain operator responsibilities.
+The [existing CozyBokSpec](../../src/test/scala/cozy/CozyBokSpec.scala) retains ordinary workflow, UI content/default/missing
+input, locale, path, format and failure contracts; four protection-only backup
+cases were deleted, and existing scaffold/help expectations were narrowed.
+See the [toolchain specification](bok-site-toolchain.md) and [toolchain design](../design/bok-site-toolchain.md) for retained site ownership.
+
+Other finite removals and external E715-01..04, final current JA34 generation,
+audible hearing/end-card/EOF, independent M2 cycles 6/7/8/10, separate Step and
+full-Phase review/acceptance, exact commits and release remain OPEN.
+Repository-full SBT and broader integration remain deferred-not-run to
+PHASE-71.7. No Stage Status triple, closure checkbox, aggregate metadata or old
+result is changed by this amendment.
+
+### Actual S22 focused validation — 2026-10-09
+
+The [actual S22 focused result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s22-focused-validation-result.json), following the [parent edit admission](../../.codex-workflow/phases/PHASE-71.5/p715-02-s22-parent-edit-admission.json), records
+142 successes in 6 completed suites. Two sequential groups passed: 61 tests in
+`cozy.bok.CozyBokSpec`, then 81 tests in the five existing Bibliography,
+SiteRouting, BuildTarget, MetadataFinalization and InfographicCommand suites.
+Failed, canceled, ignored, pending and aborted counts are zero. SBT and wrapper
+exited 0/0, and the shared serial lock was released through the registered route.
+Compiler warnings, errors, fixture diagnostics and runtime Logback warning lines
+are zero for this invocation. Earlier `HYG-P715-S19-LOGBACK-001` remains pending
+independent Step classification; no suppression or whole-Phase warning-free
+claim is made. Prior S21 131-test/six-suite results and refusal/successor history
+remain attributed to S21.
+
+These existing fixture/consumer results cover affected site/upload/UI behavior.
+They establish no live upload, publication/deployment or current native/audible
+acceptance. Prior S14 JA34 evidence remains dated; final current generation,
+assembly, hearing, end-card/EOF and whole-Phase main-route relevance remain OPEN,
+as do the finite/external, M2 and separate Step/full-Phase assurance, commit and
+release obligations above. Repository-full SBT and broader integration remain
+deferred-not-run to PHASE-71.7.
+
+
 Every Docker Antora command emitted by the normal `CozyBok.build` route supplies
 both `-e SMARTDOX_KROKI_PORT=8000` and `-e KROKI_LISTEN=127.0.0.1:8000`.
 The generated SmartDox Antora playbook sets

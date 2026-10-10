@@ -8,7 +8,7 @@ import CozyExplanationJson._
 /*
  * @since   Aug. 28, 2026
  *  version Sep. 30, 2026
- * @version Oct.  1, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyExplanation {
@@ -65,7 +65,7 @@ private[cozy] object CozyExplanation {
     assets: Vector[AssetDeclaration]
   )
   final case class PatternProvenance(subjectPattern: PatternReference, explanationPattern: PatternReference)
-  final case class ParameterProvenance(values: Vector[Parameter], identity: String)
+  final case class ParameterProvenance(values: Vector[Parameter])
   final case class PlanStep(
     id: String,
     order: Int,
@@ -75,25 +75,21 @@ private[cozy] object CozyExplanation {
     sourceRefs: Vector[String],
     assetRefs: Vector[String],
     patternProvenance: PatternProvenance,
-    parameterProvenance: ParameterProvenance,
-    identity: String
+    parameterProvenance: ParameterProvenance
   )
   final case class Plan(
-    compositionIdentity: String,
     explanationCatalog: CatalogSelector,
     presentationCatalog: CatalogSelector,
     subjectPattern: PatternReference,
     explanationPattern: PatternReference,
-    steps: Vector[PlanStep],
-    identity: String
+    steps: Vector[PlanStep]
   )
   final case class ResourceBindings(sources: Map[String, Path] = Map.empty, assets: Map[String, Path] = Map.empty)
   final case class PresentationCatalog(catalog: CozyVisualPage.Catalog)
-  final case class ValidatedCatalog(catalog: Catalog, canonicalJson: String, identity: String)
+  final case class ValidatedCatalog(catalog: Catalog, canonicalJson: String)
   final case class ValidatedComposition(
     composition: Composition,
     canonicalJson: String,
-    identity: String,
     catalog: ValidatedCatalog,
     presentationCatalog: PresentationCatalog
   )
@@ -112,7 +108,6 @@ private[cozy] object CozyExplanation {
   private[media] val _plan_schema = "cozy.explanation-plan.v1"
   private[media] val _presentation_catalog_schema = "cozy.presentation-semantics.catalog.v1"
   private[media] val _token_pattern = "[A-Za-z0-9][A-Za-z0-9._-]*".r
-  private[media] val _identity_pattern = "sha256:[0-9a-f]{64}".r
   private[media] val _value_types = Set("text", "goal-list", "use-case-list", "scenario", "mechanism-list", "mechanism-link-list")
   private[media] val _reserved_ids = Vector(
     "problem-solution", "problem-cause-solution", "current-target", "before-after", "challenge-approach-result",
@@ -166,7 +161,7 @@ private[cozy] object CozyExplanation {
       ),
       _reserved_ids
     )
-    ValidatedCatalog(catalog, canonicalCatalogJson(catalog), catalogIdentity(catalog))
+    ValidatedCatalog(catalog, canonicalCatalogJson(catalog))
   }
 
   private[cozy] def fixedPresentationCatalog: PresentationCatalog = {
@@ -184,7 +179,7 @@ private[cozy] object CozyExplanation {
     val path = _direct_input(input, "input")
     val catalog = _parse_catalog(_parse_json(_read_utf8(path, "input"), "input"), "$")
     val canonical = canonicalCatalogJson(catalog)
-    ValidatedCatalog(catalog, canonical, catalogIdentity(catalog))
+    ValidatedCatalog(catalog, canonical)
   }
 
   def loadComposition(
@@ -199,7 +194,7 @@ private[cozy] object CozyExplanation {
     val composition = _parse_composition(_parse_json(_read_utf8(path, "input"), "input"), "$")
     val normalized = _validate_composition(composition, catalog, presentation, bindings)
     val canonical = canonicalCompositionJson(normalized)
-    ValidatedComposition(normalized, canonical, compositionIdentity(normalized), catalog, presentation)
+    ValidatedComposition(normalized, canonical, catalog, presentation)
   }
 
   private[cozy] def validateComposition(
@@ -210,7 +205,7 @@ private[cozy] object CozyExplanation {
   ): ValidatedComposition = {
     val normalized = _validate_composition(composition, catalog, presentation, bindings)
     val canonical = canonicalCompositionJson(normalized)
-    ValidatedComposition(normalized, canonical, compositionIdentity(normalized), catalog, presentation)
+    ValidatedComposition(normalized, canonical, catalog, presentation)
   }
 
   def loadPlan(
@@ -224,15 +219,13 @@ private[cozy] object CozyExplanation {
     val validatedcomposition = loadComposition(composition, explanationCatalog, presentationCatalog, bindings)
     val parsed = _parse_plan(_parse_json(_read_utf8(path, "input"), "input"), "$")
     val expected = expand(validatedcomposition)
-    if (parsed.identity != planIdentity(parsed))
-      _fail("EXPLANATION_EXPANSION_INCOMPLETE", "$.identity", "Plan identity does not match its canonical content")
-    if (parsed.compositionIdentity != validatedcomposition.identity)
-      _fail("EXPLANATION_CATALOG_MISMATCH", "$.compositionIdentity", "Plan Composition selector is not current")
     if (parsed.explanationCatalog != _catalog_selector(validatedcomposition.catalog))
       _fail("EXPLANATION_CATALOG_MISMATCH", "$.explanationCatalog", "Plan explanation catalog selector does not match the named catalog")
     if (parsed.presentationCatalog != _presentation_selector(validatedcomposition.presentationCatalog))
       _fail("EXPLANATION_CATALOG_MISMATCH", "$.presentationCatalog", "Plan presentation catalog selector does not match the named catalog")
-    if (canonicalPlanJson(parsed) != canonicalPlanJson(expected))
+    if (parsed.subjectPattern != expected.subjectPattern || parsed.explanationPattern != expected.explanationPattern)
+      _fail("EXPLANATION_CATALOG_MISMATCH", "$", "Plan pattern references do not match the selected Composition")
+    if (parsed.steps != expected.steps)
       _fail("EXPLANATION_EXPANSION_INCOMPLETE", "$", "Plan does not exactly preserve the current validated Composition expansion")
     ValidatedPlan(parsed, canonicalPlanJson(parsed), validatedcomposition.catalog, validatedcomposition.presentationCatalog)
   }
@@ -280,15 +273,9 @@ private[cozy] object CozyExplanation {
 
   def canonicalCatalogJson(catalog: Catalog): String = _canonical(_catalog_value(catalog))
 
-  def catalogIdentity(catalog: Catalog): String = _identity(_catalog_value(catalog))
-
   def canonicalCompositionJson(composition: Composition): String = _canonical(_composition_value(composition))
 
-  def compositionIdentity(composition: Composition): String = _identity(_composition_value(composition))
-
-  def canonicalPlanJson(plan: Plan): String = _canonical(_plan_value(plan, includeidentity = true))
-
-  def planIdentity(plan: Plan): String = _identity(_plan_value(plan, includeidentity = false))
+  def canonicalPlanJson(plan: Plan): String = _canonical(_plan_value(plan))
 
   def expand(validated: ValidatedComposition): Plan = {
     val composition = validated.composition
@@ -296,8 +283,8 @@ private[cozy] object CozyExplanation {
     val provenance = PatternProvenance(composition.subject.pattern, composition.explanation.pattern)
     val steps = composition.explanation.steps.map { step =>
       val values = step.parameterSelection.map(selection => parameters(selection.name))
-      val parameterprovenance = ParameterProvenance(values, _parameter_provenance_identity(values))
-      val provisional = PlanStep(
+      val parameterprovenance = ParameterProvenance(values)
+      PlanStep(
         step.id,
         step.order,
         step.semanticRole,
@@ -306,21 +293,16 @@ private[cozy] object CozyExplanation {
         step.sourceRefs,
         step.assetRefs,
         provenance,
-        parameterprovenance,
-        ""
+        parameterprovenance
       )
-      provisional.copy(identity = _plan_step_identity(provisional))
     }
-    val provisional = Plan(
-      validated.identity,
+    Plan(
       _catalog_selector(validated.catalog),
       _presentation_selector(validated.presentationCatalog),
       composition.subject.pattern,
       composition.explanation.pattern,
-      steps,
-      ""
+      steps
     )
-    provisional.copy(identity = planIdentity(provisional))
   }
 
   def execute(args: List[String]): String = args match {
@@ -354,7 +336,7 @@ private[cozy] object CozyExplanation {
           case "validate" => _catalog_summary(catalog)
           case "inspect" => _catalog_inspection(catalog)
           case "convert" =>
-            _atomic_write(config.save.getOrElse(_missing_save()), catalog.canonicalJson + "\n")
+            _write_output(config.save.getOrElse(_missing_save()), catalog.canonicalJson + "\n")
             _catalog_summary(catalog)
         }
       case "composition" =>
@@ -363,7 +345,7 @@ private[cozy] object CozyExplanation {
           case "validate" => _composition_summary(validated)
           case "inspect" => _composition_inspection(validated)
           case "convert" =>
-            _atomic_write(config.save.getOrElse(_missing_save()), validated.canonicalJson + "\n")
+            _write_output(config.save.getOrElse(_missing_save()), validated.canonicalJson + "\n")
             _composition_summary(validated)
         }
       case "plan" =>
@@ -372,7 +354,7 @@ private[cozy] object CozyExplanation {
           case "validate" => _plan_summary(validated)
           case "inspect" => _plan_inspection(validated)
           case "convert" =>
-            _atomic_write(config.save.getOrElse(_missing_save()), validated.canonicalJson + "\n")
+            _write_output(config.save.getOrElse(_missing_save()), validated.canonicalJson + "\n")
             _plan_summary(validated)
         }
     }
@@ -383,7 +365,7 @@ private[cozy] object CozyExplanation {
       _fail("EXPLANATION_COMMAND_INVALID", "$command.composition", "expand accepts the Composition only as its positional input")
     val validated = _load_command_composition(config)
     val plan = expand(validated)
-    _atomic_write(config.save.getOrElse(_missing_save()), canonicalPlanJson(plan) + "\n")
+    _write_output(config.save.getOrElse(_missing_save()), canonicalPlanJson(plan) + "\n")
     _plan_summary(ValidatedPlan(plan, canonicalPlanJson(plan), validated.catalog, validated.presentationCatalog))
   }
 
@@ -412,8 +394,7 @@ private[cozy] object CozyExplanation {
     s"schema: ${_catalog_schema}",
     "version: 1",
     s"id: ${catalog.catalog.id}",
-    s"revision: ${catalog.catalog.revision}",
-    s"identity: ${catalog.identity}"
+    s"revision: ${catalog.catalog.revision}"
   ).mkString("\n")
 
   private def _catalog_inspection(catalog: ValidatedCatalog): String =
@@ -427,7 +408,6 @@ private[cozy] object CozyExplanation {
     s"schema: ${_composition_schema}",
     "version: 1",
     s"id: ${validated.composition.id}",
-    s"identity: ${validated.identity}",
     s"steps: ${validated.composition.explanation.steps.size}"
   ).mkString("\n")
 
@@ -439,8 +419,6 @@ private[cozy] object CozyExplanation {
   private def _plan_summary(validated: ValidatedPlan): String = Vector(
     s"schema: ${_plan_schema}",
     "version: 1",
-    s"identity: ${validated.plan.identity}",
-    s"compositionIdentity: ${validated.plan.compositionIdentity}",
     s"presentationCatalogId: ${validated.plan.presentationCatalog.id}",
     s"presentationCatalogRevision: ${validated.plan.presentationCatalog.revision}",
     s"steps: ${validated.plan.steps.size}"
@@ -448,7 +426,7 @@ private[cozy] object CozyExplanation {
 
   private def _plan_inspection(validated: ValidatedPlan): String =
     (_plan_summary(validated).split("\n").toVector ++ validated.plan.steps.map(step =>
-      s"step: ${step.order}:${step.id} role=${step.semanticRole} identity=${step.identity} claims=${step.claims.size}"))
+      s"step: ${step.order}:${step.id} role=${step.semanticRole} claims=${step.claims.size}"))
       .mkString("\n")
 
   private def _command_config(args: List[String], requiresave: Boolean): CommandConfig = {

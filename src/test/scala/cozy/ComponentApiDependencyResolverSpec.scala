@@ -1,9 +1,7 @@
 package cozy
 
-import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path}
-import java.nio.file.attribute.PosixFilePermissions
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
 import scala.collection.JavaConverters._
@@ -18,7 +16,7 @@ import play.api.libs.json._
 /*
  * @since   Jul. 12, 2026
  *  version Aug.  7, 2026
- * @version Oct. 5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -296,15 +294,14 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
     }
   }
 
-  "Component API output replacement" should {
-    "preserve the previous successful extraction" which {
-      "retain every prior file when admission, selection or a later extraction fails" in {
+  "Component API output generation" should {
+    "report actual resolution outcomes" which {
+      "report admission, selection and extraction failures" in {
         Vector("consumer-malformed", "provider-malformed", "schema", "required-field", "coordinate", "version", "artifact-path",
           "consumer-missing", "archive-missing", "descriptor-missing", "assembly", "required-missing", "ambiguous", "later-entry-missing"
         ).foreach { failure =>
-          _with_temp_dir("cozy-api-preserve") { dir =>
-            Given(s"a successful prior output and a replacement with $failure")
-            val prior = _seed_output(dir)
+          _with_temp_dir("cozy-api-failure") { dir =>
+            Given(s"a requested generated output with $failure input")
             val outputdir = dir.resolve("resolved")
             val basejson = _provider_json("org.example", "Provider", "0.1.0", Vector("example.Api"))
             val provided = (basejson \ "provided").as[Vector[JsObject]].head
@@ -346,15 +343,12 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
             }
             val assembly = if (failure == "assembly") Some(_write(dir.resolve("assembly.yaml"), "components: []\n")) else None
             val consumerpath = if (failure == "consumer-missing") dir.resolve("absent.json") else consumer
-            When("the replacement is resolved and its actual CAR entries are extracted")
+            When("the request is resolved and its actual CAR entries are extracted")
             val error = intercept[Throwable] {
               ComponentApiDependencyResolver._resolve_dependencies(consumerpath, dependencies, outputdir, assembly)
             }
-            Then("the genuine failure leaves the complete earlier output without a partial replacement")
+            Then("the actual admission, selection or extraction error is reported")
             Option(error.getMessage).getOrElse("") should not be empty
-            Files.readString(prior) shouldBe "api"
-            Files.readString(outputdir.resolve("obsolete.txt")) shouldBe "previous extra"
-            _relative_files(outputdir) shouldBe Vector("obsolete.txt", "org/example/example-prior/0.1.0/example-prior-api.jar")
             val diagnostic = failure match {
               case "schema" => Some("component.api.schema.unsupported")
               case "required-field" => Some("Invalid component API descriptor")
@@ -373,7 +367,7 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
         }
       }
 
-      "install a complete replacement and subsequently an empty optional result" in {
+      "generate selected output and subsequently an empty optional result" in {
         _with_temp_dir("cozy-api-replace") { dir =>
           Given("a previous successful extraction containing obsolete files")
           _seed_output(dir)
@@ -395,59 +389,6 @@ final class ComponentApiDependencyResolverSpec extends AnyWordSpec with Matchers
           empty shouldBe Vector.empty
           Files.isDirectory(outputdir) shouldBe true
           _relative_files(outputdir) shouldBe Vector.empty
-        }
-      }
-
-      "return the installed replacement and warn when prior backup cleanup lacks directory write permission" in {
-        _with_temp_dir("cozy-api-backup-cleanup") { dir =>
-          Given("a POSIX filesystem and a prior successful output with a read-only nested directory")
-          if (!Files.getFileStore(dir).supportsFileAttributeView("posix"))
-            cancel("This backup cleanup scenario requires POSIX directory permissions")
-          _seed_output(dir)
-          val outputdir = dir.resolve("resolved")
-          val blocked = outputdir.resolve("blocked")
-          _write(blocked.resolve("retained.txt"), "previous protected file")
-          val permissions = Files.getPosixFilePermissions(blocked)
-          val consumer = _write(dir.resolve("replacement.json"), _consumer_descriptor("example.Api"))
-          val provider = _provider_car(dir.resolve("replacement.car"), "org.example", "Provider", "0.1.0", "example.Api")
-          val errorbytes = new ByteArrayOutputStream()
-          val errorout = new PrintStream(errorbytes, true, StandardCharsets.UTF_8.name())
-          try {
-            Files.setPosixFilePermissions(blocked, PosixFilePermissions.fromString("r-xr-xr-x"))
-            When("a valid replacement is installed and cleanup encounters the protected prior directory")
-            val jars = Console.withErr(errorout) {
-              ComponentApiDependencyResolver._resolve_dependencies(consumer,
-                Vector(ComponentApiDependencyResolver.Dependency("org.example", "Provider", "0.1.0", provider)), outputdir, None)
-            }
-            Then("the returned final JAR is valid and the cleanup warning identifies the cause and retained backup")
-            jars shouldBe Vector(outputdir.resolve("org/example/example-provider/0.1.0/example-provider-api.jar"))
-            Files.readString(jars.head) shouldBe "api"
-            Files.exists(outputdir.resolve("obsolete.txt")) shouldBe false
-            _relative_files(outputdir) shouldBe Vector("org/example/example-provider/0.1.0/example-provider-api.jar")
-            val siblings = Files.list(dir)
-            val backups = try siblings.iterator().asScala.filter(_.getFileName.toString.startsWith(".component-api-backup-")).toVector
-            finally siblings.close()
-            backups.size shouldBe 1
-            val backup = backups.head
-            Files.isDirectory(backup) shouldBe true
-            Files.readString(backup.resolve("previous/blocked/retained.txt")) shouldBe "previous protected file"
-            val warning = errorbytes.toString(StandardCharsets.UTF_8.name())
-            warning should include("Component API output installed")
-            warning should include("backup cleanup failed")
-            warning should include(s"remove the remaining backup at $backup")
-            warning should include("cause: java.nio.file.")
-            warning should include("retained.txt")
-          } finally {
-            try {
-              val siblings = Files.list(dir)
-              val backupblockedpaths = try siblings.iterator().asScala
-                .filter(_.getFileName.toString.startsWith(".component-api-backup-"))
-                .map(_.resolve("previous/blocked")).toVector
-              finally siblings.close()
-              (Vector(blocked) ++ backupblockedpaths).filter(Files.exists(_, LinkOption.NOFOLLOW_LINKS))
-                .foreach(path => Files.setPosixFilePermissions(path, permissions))
-            } finally errorout.close()
-          }
         }
       }
 
