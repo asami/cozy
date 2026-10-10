@@ -1,6 +1,6 @@
 # Phase 71.7: Integrated Media Acceptance and Aggregate Validation
 
-status=planned
+status=in-progress
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -10,7 +10,8 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.6.md
 execution_priority=after_phase_71.6_closure
 
-Status: planned; no execution or acceptance claimed
+Status: in-progress; P717-01 actual media acceptance closed, P717-02..04 open
+Updated at: 2026-10-11
 Planned at: 2026-10-05
 Primary owner: Cozy
 Predecessor: [Phase 71.6](phase-71.6.md).
@@ -196,3 +197,36 @@ route observations moved earlier are shared evidence, not duplicate work.
 - [Phase 71.5](phase-71.5.md) — removal and existing-specification acceptance
 - [Phase 71.6](phase-71.6.md) — execution/encoder implementation
 - [Scope decision](../journal/2026/10/2026-10-05-phase-71-completion-boundaries.md)
+
+## Current execution — 2026-10-11
+
+P717-01-EN fresh preparation, corrected normal inspect, render and build completed
+with exit 0 through Docker Remotion and host FFmpeg/libx264 plus ffprobe.
+Both direct and final H.264/AAC outputs cover 34 actual WAV scenes and decode
+7177 frames at 18 fps, 1280 × 720, with 48 kHz stereo audio. Full AV decodes
+exited 0; both presented AV end differences are exactly 1/72000 second, below
+one 48 kHz sample. All 36 opaque end-card frames are nonblack, and both actual
+last-frame images show the complete readable end card. The owned player reached
+natural EOF at 398.722222 seconds from zero, unmuted at volume 1 and rate 1,
+without seek/errors; readiness, clients and cleanup are true and terminal exit is 0.
+The current EN human reply was “自然に聞こえている”, recorded separately from JA.
+
+Historical initial helper preparation and pending observations remain in the
+journal. The original inspect exited 1 for the missing `simplemodeling-org`
+credit profile; a bounded copy of the existing unchanged profile into the
+task-private video configuration enabled corrected inspect exit 0. No shared
+skill or production Scala change was made.
+
+Prior accepted JA evidence is reused at its recorded scope: 34 scenes, 8091
+frames, 449.5 seconds, 36 opaque card frames, zero presented AV end difference,
+normal audible EOF/owned cleanup and the earlier reply “自然に聞こえた”. The
+retained Phase 71.6 nine-suite 233/233 result is separately reused after ordinary
+product/build-input impact inspection; no new SBT invocation is claimed.
+Independent ordinary P717-01 Step review by `/root/phase717_s01_review01` sealed
+PASS, with no blockers, Hygiene or Development Candidates. The original typed
+review ledger revision 2 was saved and read back, and original-base Step commit
+entry was accepted. P717-01 is closed by these actual media outcomes, the
+independent review and the exact local acceptance commit containing this record.
+The Phase remains IN-PROGRESS; all P717-02..04 obligations, including the
+repository-full Cozy suite at release, remain open and unchanged.
+See the [execution journal](../journal/2026/10/2026-10-11-phase-71.7-media-acceptance.md).

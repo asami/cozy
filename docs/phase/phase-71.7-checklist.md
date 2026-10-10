@@ -1,7 +1,7 @@
 # Phase 71.7 Checklist
 
-Phase status: PLANNED
-Updated: 2026-10-08
+Phase status: IN-PROGRESS
+Updated: 2026-10-11
 Ledger for: [Phase 71.7](phase-71.7.md)
 Primary owner: Cozy
 Repository-full validation: aggregate final owner for PHASE-71 through PHASE-71.7
@@ -21,12 +21,35 @@ or additional acceptance ID is required. Existing states remain unchanged.
 ## P717-01: Actual video and audio acceptance
 
 Stage Status:
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close against the following actual media outcomes
 
-- [ ] JA/EN representative generation, direct render and final assembly preserve narration and the complete opaque end card through the common media end; reuse relevant existing results.
-- [ ] Applicable prior actual listening/player EOF and remaining locale/player observations confirm the expected ending. Recheck affected behavior; tool/file-open preparation alone is not acceptance.
+Execution note (2026-10-11): fresh EN preparation, corrected inspect, render and
+build exited 0. Both direct/final full AV decodes exited 0: 34 WAV scenes, 7177
+frames at 18 fps, 1280 × 720, H.264/AAC with 48 kHz stereo audio; each presented
+AV end difference is 1/72000 second, below one 48 kHz sample. All 36 opaque card
+frames are nonblack and the complete end card was viewed. Actual zero-start,
+unmuted volume-1/rate-1 natural EOF at 398.722222 seconds and owned cleanup are
+recorded with readiness/clients/cleanup true and terminal exit 0. The current
+EN human reply “自然に聞こえている” is separately attributed.
+
+Prior accepted JA 34-scene/8091-frame/449.5-second/36-card-frame evidence with
+zero AV end difference, audible natural EOF/cleanup and “自然に聞こえた” is reused
+at its existing scope. Phase 71.6 validation (nine suites, 233/233) is separately
+reused after ordinary product/build-input inspection; no new SBT run is claimed.
+The initial preparation/pending state and missing-profile inspect exit 1 remain
+history; bounded unchanged credit-profile copying enabled corrected inspect 0.
+No shared skill or production Scala change was made. Independent ordinary Step
+review by `/root/phase717_s01_review01` sealed PASS, with no blockers, Hygiene
+or Development Candidates. The parent recorded and read back the review in
+the original typed ledger at revision 2; original-base Step commit entry was
+accepted. This closure projection is included in the exact local P717-01
+acceptance commit. The Phase remains IN-PROGRESS. P717-02..04 and the full Cozy
+suite at release remain open. See the [execution journal](../journal/2026/10/2026-10-11-phase-71.7-media-acceptance.md).
+
+- [x] JA/EN representative generation, direct render and final assembly preserve narration and the complete opaque end card through the common media end; reuse relevant existing results.
+- [x] Applicable prior actual listening/player EOF and remaining locale/player observations confirm the expected ending. Recheck affected behavior; tool/file-open preparation alone is not acceptance.
 
 ## P717-02: Combined media, site and packaging acceptance
 
