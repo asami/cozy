@@ -120,9 +120,11 @@ Phase status index (individual Phase/checklist files are authoritative):
     actually generated and audibly played through EOF first; CLOSED on 2026-10-08 by its distinct release. Already implemented
     hash removals remain, but further removal is not a completion condition.
   - [Phase 71.5](phase-71.5.md): remaining management-hash and artifact-protection
-    removal; PLANNED. Complete selected removals and pass existing Specs for
-    retained behavior. Run the same post-removal main route before expanding to
-    remaining callers; do not add removal-proof tests or new coverage gates.
+    removal; CLOSED on 2026-10-10 by the distinct release carrying
+    `P715-RELEASE-20261010@1`. All six Steps, the sole full Phase review PASS and
+    the post-removal JA34 generation/assembly/hearing/end-card/EOF are accepted.
+    Four-root repository-full SBT and broader integration remain deferred-not-run
+    to 71.7; retained warnings and unverified historical records are not rewritten.
   - [Phase 71.6](phase-71.6.md): per-tool host/Docker selection, local encoders
     and mixed rendering/encoding; PLANNED. Actually run mixed software first,
     then selected hardware before completing remaining configuration branches;
@@ -136,8 +138,8 @@ Phase status index (individual Phase/checklist files are authoritative):
   closed with `218ea19`; 75.1 closed with `e1e1db5`. The user explicitly resumed
   the same 71.4 Goal; representative JA generation, final build and audible EOF
   are accepted, with F04 committed as `d0b646a`. Its distinct Phase release
-  closes 71.4; remaining planning is 71.5 -> 71.6 ->
-  71.7; successors have not started. Do not repeat accepted preservation work
+  closes 71.4. Phase 71.5 subsequently closes under `P715-RELEASE-20261010@1`;
+  remaining planning is 71.6 -> 71.7, and those successors have not started. Do not repeat accepted preservation work
   or use the old S08 manifest to expand 71.4 again.
   71.4 first delivers the working real video route; 71.5 keeps it working while
   removing protection; 71.6 runs software and hardware mixed routes before

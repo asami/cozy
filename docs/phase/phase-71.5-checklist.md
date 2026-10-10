@@ -1,5 +1,115 @@
 # Phase 71.5 Checklist
 
+Status: closed
+Closed: 2026-10-10
+
+## Current S79 Phase closure — 2026-10-10
+
+All six P715-01..06 Steps and the finite R715-01..15 / E715-01..05
+producer, reader and caller obligations are CLOSED at their selected contracts.
+The inventory retains `5b2f704`; the shared product/evidence acceptance retains
+CNCF `b7f22d9`, sbt-cozy `6d00904`, Textus `a77ac4d` and Cozy `a773c91`.
+The sole original-epoch full Phase review is **PASS**, zero current blockers:
+`ed835f73-c70b-4ad1-b17b-18acdbd4da68@1`, ledger
+`802c185b-05c0-4229-8b34-2626eb6c6681@10`. It covers all 462 selected
+paths / 335 Scala programs across the four admitted original-base ranges and
+the S73 closure projections. No second full review or product test replay is used.
+
+The 75 admitted actual validation receipts retain their individual scope:
+72 serial SBT focused/prerequisite results, two native Cozy command results
+and source CAR lint. Ordinary format/domain/path/generation/reuse/I/O behavior
+and existing specifications remain; no replacement artifact protection or
+new removal-proof suite is introduced. S45's genuine caller-authored knowledge
+content remains for its independent product purpose, without a generated-output
+SHA exception. E715-01..05 have their separately authorized connected-contract
+acceptance; cross-binary integration is not claimed.
+
+The same post-removal JA34 route retains actual generation and final assembly,
+audible human hearing, the correct end card and browser EOF: 34 scenes,
+449.5 seconds, 8091 decoded frames at 18 fps, 36 end-card frames and
+presented-end difference 0. Actual human evidence is 「ちゃんと声が聞こえて、
+スムーズに動いている。」 Later-change relevance remains independently
+accepted through S61/S64/S66 and the full Phase review.
+
+All ten Hygiene and two Development Candidate records are already persisted
+in the two original canonical journals; no accepted finding is unpersisted.
+Warnings remain visible, including source CAR lint's four warnings and its
+unverified released ABI / fresh installed-binary limits. Historical S36/S37
+ORCH records remain **OPEN_UNVERIFIED**. S37's transfer/cleanup supplies no new
+hearing or EOF. S40 source-bound failure and Bloop mismatch remain
+**FAILED/NOT RUN**. Raw S19 selection gaps, S20 cancellations and the SQL
+pending case keep their original meaning. These histories are not rewritten.
+
+Repository-full SBT for Cozy, CNCF, sbt-cozy and Textus, broader source-checkout /
+cross-binary and remaining packaging/locale/player breadth remain
+**deferred-not-run to PHASE-71.7**. The release carries the declared serial
+aggregate owner and explicit accepted participant selections, original bases,
+accepted HEADs and each participant's own focused receipts. Unlisted or
+independently due full validation is not waived. Phase 71.6 and 71.7 remain
+planned; this closure starts neither successor and performs no push/publication.
+
+Release binding: `Phase-Closure-Binding: P715-RELEASE-20261010@1`.
+The distinct native release commit containing this record establishes closure;
+preparing these documents alone is not a completed release. The local native
+closure receipt supplies the actual commit, exact message/parent/paths and
+postcommit status/finding reread.
+
+This current projection supersedes earlier in-progress/OPEN/pending hypotheses
+for this Phase. Dated S73/S66 and earlier sections remain historical evidence.
+Same Goal, original bases, authority, binding, PLAN epoch, repair counters
+**24/0/0** and the single full-review count are preserved.
+
+## Current S73 Step closure projection — 2026-10-10
+
+All P715-01..06 Step outcomes are accepted and committed. P715-01 retains
+its independent inventory acceptance and `5b2f704`; the 15 product/evidence
+outcomes of P715-02..06 and their five combined acceptance/commit outcomes use
+the originally admitted shared review/validation chain and four exact native
+commits. No separate P715-03..06 review identities or empty commits are added.
+The canonical ledger now has six CLOSED Steps and 24 checked Step boxes:
+four inventory, 15 product/evidence and five combined acceptance/commit boxes.
+
+Original review `aff65798-a912-4f6d-8921-6ec384132f79@1` and accepted focused
+review `c41b83cb-1266-48f2-b908-d0146d0bc786@1` supply the shared acceptance
+in ledger `802c185b-05c0-4229-8b34-2626eb6c6681@9`. Same Goal, original bases,
+authority `aa60c9e4-4b23-4e74-8efb-c936f19a1d2d@1`, binding
+`26b00c86-6ac3-4cae-9692-b19447ecd801@1` and original PLAN epoch
+`1a94b256-a803-4ac9-a868-bbb9e59fbc41@1` remain. Repair counters are **24/0/0**.
+
+| Native repository | Verified exact Step commit | Committed paths |
+| --- | --- | --- |
+| `/Users/asami/src/dev2025/cloud-native-component-framework` | `b7f22d9725a46004eca3ec7155b0c8dd326f5ead` | 48 |
+| `/Users/asami/src/dev2026/sbt-cozy` | `6d009047b6c2842376d814bb1a28d27ab07e9b81` | 17 |
+| `/Users/asami/src/dev2026/textus-cbd-support` | `a77ac4d96fadf423aa791496e98a4acf916b25f3` | 121 |
+| `/Users/asami/src/dev2025/cozy` | `a773c91d8113e6aa089484e93a862fbac9e54abb` | 274 |
+
+Each native commit attributes P715-02, P715-03, P715-04, P715-05 and P715-06.
+This projection supersedes older current/unreviewed/OPEN Step hypotheses,
+including the S66 pending-commit/attribution projection; every dated section
+remains history. Finite removal and retained behavior boundaries are unchanged.
+S45 genuine caller-authored knowledge content remains retained by purpose and
+caller, with no generated-artifact SHA exception.
+
+JA34 retains actual generation/final assembly, audible hearing, correct end card
+and browser EOF: 34 scenes / 449.5 seconds / 8091 decoded frames at 18 fps /
+36 end-card frames / presented-end difference 0, with later-change relevance
+retained by S61/S64/S66. S37's 22,332,603-byte transfer/cleanup adds no hearing
+or EOF observation. Both historical S36/S37 ORCH records remain
+**OPEN_UNVERIFIED**; no incomplete execution record is relabeled compliant and
+no S37 recovery is repeated. S40 source-bound failure and Bloop scope mismatch
+remain **FAILED/NOT RUN**. CAR lint 0/four warnings supplies no released ABI
+comparison or fresh installed-binary assurance. Ten Hygiene and two Development
+Candidate findings and raw warnings remain retained without suppression.
+Repository-full SBT and broader source-checkout/cross-binary integration remain
+**deferred-not-run to PHASE-71.7**.
+
+The Phase remains **in-progress** and Closure remains **OPEN**, with all five
+Closure boxes unchecked. One mandatory original-epoch independent full Phase
+review and a distinct verified Phase release/canonical closure remain pending.
+No full Phase review, release, successor execution or new evidence is claimed.
+
+See the [Phase projection](phase-71.5.md#current-s73-step-closure-projection--2026-10-10), [finite work list](../design/phase-71.5-removal-work-list.md#current-s73-step-closure-projection--2026-10-10) and [actual S73 chronology](../journal/2026/10/2026-10-09-phase-71.5-external-contract-reconciliation.md#s73-actual-step-commits-and-attribution--2026-10-10).
+
 ## Current S66 acceptance projection — 2026-10-10
 
 S66 focused **PASS**, review `c41b83cb-1266-48f2-b908-d0146d0bc786@1`,
@@ -234,7 +344,7 @@ product removal.
 
 Stage Status:
 
-- Current status: IN-PROGRESS
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only against the following accepted product outcomes
 
@@ -448,32 +558,32 @@ assembly/audible correct end card/player EOF, and external E715-01..04 remain op
 Repository-full SBT/integration remain deferred-not-run to Phase 71.7; no successor
 executes and no product checkbox is closed.
 
-Current outcome reference: [S66 acceptance projection](#current-s66-acceptance-projection--2026-10-10). These two product outcomes are reviewed; the exact P715-02 Step commits remain unrecorded.
+Current outcome reference: [S73 Step closure projection](#current-s73-step-closure-projection--2026-10-10). These two product outcomes and the combined P715-02 acceptance/commit outcome are CLOSED under the originally admitted shared review chain (`aff65798-a912-4f6d-8921-6ec384132f79@1`, accepted focused `c41b83cb-1266-48f2-b908-d0146d0bc786@1`, ledger9) and exact four-root commit attribution: CNCF `b7f22d9`, sbt-cozy `6d00904`, Textus `a77ac4d`, Cozy `a773c91`. No separate review identity or empty commit is introduced.
 
 - [x] Generated/intermediate tamper/integrity/race protection and protection-only models, fields, codecs, diagnostics, configuration and scaffolds are removed with their Cozy-owned callers.
 - [x] Generation/adoption/reuse and actual semantic/production facts work without replacement artifact identities or immutability gates; recovery is regeneration.
-- [ ] Affected existing Executable Specifications and compile/consumer coverage succeed; independent Step acceptance and the exact Step commit are recorded.
+- [x] Affected existing Executable Specifications and compile/consumer coverage succeed; independent Step acceptance and the exact Step commit are recorded.
 
 ## P715-03: Publication/distribution protection removal
 
 Stage Status:
 
-- Current status: IN-PROGRESS
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only against the following accepted product outcomes
 
-Current outcome reference: [S66 acceptance projection](#current-s66-acceptance-projection--2026-10-10). These three product/contract outcomes are reviewed in the P715-02 chain; separate P715-03 acceptance and exact commit attribution remain OPEN.
+Current outcome reference: [S73 Step closure projection](#current-s73-step-closure-projection--2026-10-10). These three product/contract outcomes and the combined P715-03 acceptance/commit outcome are CLOSED under the originally admitted shared review chain (`aff65798-a912-4f6d-8921-6ec384132f79@1`, accepted focused `c41b83cb-1266-48f2-b908-d0146d0bc786@1`, ledger9) and exact four-root commit attribution: CNCF `b7f22d9`, sbt-cozy `6d00904`, Textus `a77ac4d`, Cozy `a773c91`. No separate review identity or empty commit is introduced.
 
 - [x] Cozy-owned publication/WIP/repository/export/CAR/SAR/subcomponent integrity mechanisms and supporting protection evidence are deleted, including former Phase 71 exceptions.
 - [x] Remaining publication/packaging semantics work with reconciled callers and schemas; no signatures, alternate checksums, snapshots, metadata identities or other protection substitutions are introduced.
 - [x] No concrete external consumer incompatibility is hidden, faked or relabeled as compatible; affected obligations stay open until separately owned reconciliation is actually established.
-- [ ] Affected existing Executable Specifications and compile/consumer coverage succeed; independent Step acceptance and the exact Step commit are recorded.
+- [x] Affected existing Executable Specifications and compile/consumer coverage succeed; independent Step acceptance and the exact Step commit are recorded.
 
 ## P715-04: Protection-oriented filesystem machinery removal
 
 Stage Status:
 
-- Current status: IN-PROGRESS
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only against the following accepted product outcomes
 
@@ -546,18 +656,18 @@ EOF, and deferred-not-run Phase 71.7 repository-full validation remain open.
 
 
 
-Current outcome reference: [S66 acceptance projection](#current-s66-acceptance-projection--2026-10-10). These three product outcomes are reviewed in the P715-02 chain; separate P715-04 acceptance and exact commit attribution remain OPEN.
+Current outcome reference: [S73 Step closure projection](#current-s73-step-closure-projection--2026-10-10). These three product outcomes and the combined P715-04 acceptance/commit outcome are CLOSED under the originally admitted shared review chain (`aff65798-a912-4f6d-8921-6ec384132f79@1`, accepted focused `c41b83cb-1266-48f2-b908-d0146d0bc786@1`, ledger9) and exact four-root commit attribution: CNCF `b7f22d9`, sbt-cozy `6d00904`, Textus `a77ac4d`, Cozy `a773c91`. No separate review identity or empty commit is introduced.
 
 - [x] Artifact-protection backup/restore/rollback, atomic replacement/fsync/staging/lock/CAS, repeated reads and copy/install/post-operation byte verification are removed without a replacement protocol.
 - [x] Ordinary selected read/write/copy and I/O failure reporting work; malformed paths are rejected and unselected/authored destinations remain outside the selected mutation scope, without artifact-integrity machinery.
 - [x] Product contracts no longer promise rollback, atomic replacement or prior-generated-output preservation on failure; Git and shared execution locks are unchanged.
-- [ ] Affected existing Executable Specifications succeed; independent Step acceptance and the exact Step commit are recorded.
+- [x] Affected existing Executable Specifications succeed; independent Step acceptance and the exact Step commit are recorded.
 
 ## P715-05: Contract and test simplification
 
 Stage Status:
 
-- Current status: IN-PROGRESS
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only against the following reconciled contracts and behavior evidence
 
@@ -630,43 +740,45 @@ EOF, and deferred-not-run Phase 71.7 repository-full validation remain open.
 
 
 
-Current outcome reference: [S66 acceptance projection](#current-s66-acceptance-projection--2026-10-10). These four contract/specification outcomes are reviewed in the P715-02 chain; separate P715-05 acceptance and exact commit attribution remain OPEN.
+Current outcome reference: [S73 Step closure projection](#current-s73-step-closure-projection--2026-10-10). These four contract/specification outcomes and the combined P715-05 acceptance/commit outcome are CLOSED under the originally admitted shared review chain (`aff65798-a912-4f6d-8921-6ec384132f79@1`, accepted focused `c41b83cb-1266-48f2-b908-d0146d0bc786@1`, ledger9) and exact four-root commit attribution: CNCF `b7f22d9`, sbt-cozy `6d00904`, Textus `a77ac4d`, Cozy `a773c91`. No separate review identity or empty commit is introduced.
 
 - [x] Design/spec/help/configuration/scaffolds no longer promise removed protection; tests or expectations asserting those guarantees are deleted or amended, not translated into equivalent non-hash protection.
 - [x] Existing generation/adoption/rebuild/packaging/selection and ordinary failure specifications for retained behavior pass. Failures of retained behavior are repaired, not hidden by removing assertions.
 - [x] Standard PNG/ZIP behavior remains interoperable without an additional Cozy protection wrapper.
 - [x] Ordinary diff review checks the selected removal list. No new specs proving hash absence, absence of tamper detection or unchanged inputs, and no new test infrastructure or expanded coverage gates are added.
-- [ ] Independent Step acceptance and the exact Step commit record the simplified contracts.
+- [x] Independent Step acceptance and the exact Step commit record the simplified contracts.
 
 ## P715-06: Selected removal completion and integration handoff
 
 Stage Status:
 
-- Current status: IN-PROGRESS
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close against the selected removal list and working main route; remaining integration is owned by Phase 71.7
 
-Current outcome reference: [S66 acceptance projection](#current-s66-acceptance-projection--2026-10-10). These three completion/native-evidence outcomes are reviewed in the P715-02 chain; separate P715-06 acceptance and exact commit attribution remain OPEN.
+Current outcome reference: [S73 Step closure projection](#current-s73-step-closure-projection--2026-10-10). These three completion/native-evidence outcomes and the combined P715-06 acceptance/commit outcome are CLOSED under the originally admitted shared review chain (`aff65798-a912-4f6d-8921-6ec384132f79@1`, accepted focused `c41b83cb-1266-48f2-b908-d0146d0bc786@1`, ledger9) and exact four-root commit attribution: CNCF `b7f22d9`, sbt-cozy `6d00904`, Textus `a77ac4d`, Cozy `a773c91`. No separate review identity or empty commit is introduced.
 
 - [x] P715-01 selected removals and supporting contract updates are complete. Do not restart a whole-codebase discovery/absence-proof cycle after passing batches.
 - [x] No publication/distribution protection exception or alternate implementation of the removed semantics remains.
 - [x] The representative 71.4 route actually generates and assembles video after removal, with audible narration and correct final-card/player EOF. Fix regressions here; recheck only when later changes affect this result.
 - [>] Remaining generation/adoption, task-private publication and CAR/SAR packaging coverage is consolidated into P717-02.
-- [ ] Independent Step acceptance and the exact Step commit record selected removal completion and its integration handoff.
+- [x] Independent Step acceptance and the exact Step commit record selected removal completion and its integration handoff.
 
 ## Closure
 
 Stage Status:
 
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close only when all owned Steps and the following release ledger are satisfied
 
-- [ ] RELEASE-71.5-HANDOFF: Accepted Phase 71.4 ancestry and all owned Step outcomes are recorded; no concrete external contract obligation or unpersisted accepted finding remains unresolved.
-- [ ] RELEASE-71.5-REVIEW: Independent Phase review checks semantic substitution and reports zero current Phase blockers.
-- [ ] RELEASE-71.5-VALIDATION: Affected existing Executable Specifications for retained behavior pass. Repository-full SBT remains deferred-not-run to P717-04; the representative post-removal native route must pass; no extra removal-proof tests are prerequisites.
-- [ ] RELEASE-71.5-AUDIT: The finite removal list is completed and reviewed without replacement protection. Standard codec/domain behavior is retained; no additional exhaustive audit loop is required.
-- [ ] RELEASE-71.5-COMMIT: A distinct Phase release commit records the final simplified contract and closure ledger; no successor starts automatically.
+- [x] RELEASE-71.5-HANDOFF: Accepted Phase 71.4 ancestry and all owned Step outcomes are recorded; no concrete external contract obligation or unpersisted accepted finding remains unresolved.
+- [x] RELEASE-71.5-REVIEW: Independent Phase review checks semantic substitution and reports zero current Phase blockers.
+- [x] RELEASE-71.5-VALIDATION: Affected existing Executable Specifications for retained behavior pass. Repository-full SBT remains deferred-not-run to P717-04; the representative post-removal native route must pass; no extra removal-proof tests are prerequisites.
+- [x] RELEASE-71.5-AUDIT: The finite removal list is completed and reviewed without replacement protection. Standard codec/domain behavior is retained; no additional exhaustive audit loop is required.
+- [x] RELEASE-71.5-COMMIT: A distinct Phase release commit records the final simplified contract and closure ledger; no successor starts automatically.
+
+Current evidence: [S79 Phase closure](#current-s79-phase-closure--2026-10-10); all five release outcomes are recorded in the distinct native release carrying `P715-RELEASE-20261010@1`. Earlier open hypotheses remain dated history.
 
 ## 2026-10-09 P715-02 S13 shared-context and descriptor inputs
 

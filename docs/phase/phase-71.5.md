@@ -1,6 +1,6 @@
 # Phase 71.5: Management Hash and Artifact Protection Removal
 
-status=in-progress
+status=closed
 depends_on=phase-71.4.md
 execution_priority=after_phase_71.4_closure
 split_full_test_policy=final-only
@@ -10,13 +10,11 @@ validation_ownership=aggregate-deferred
 aggregate_validation_owner=PHASE-71.7
 aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4","PHASE-71.5","PHASE-71.6","PHASE-71.7"]
 
-Status: in-progress; P715-01 inventory accepted and committed at 5b2f704;
-S66 PASS accepts the current P715-02 Step review chain at its implementation,
-contract and existing-specification boundaries. Exact local Step commits,
-P715-03/04/05/06 outcome acceptance and commit attribution, one full Phase
-review and a distinct verified release remain OPEN. Real source-checkout/
-cross-binary integration and repository-full SBT remain deferred-not-run to
-PHASE-71.7. See the current S66 projection below.
+Status: closed
+Closed: 2026-10-10
+All six Steps, the sole full Phase review and the distinct release are recorded
+in the current S79 closure projection. Full SBT and broader integration remain
+deferred-not-run to PHASE-71.7. Earlier dated projections remain history.
 Updated: 2026-10-10
 Planned at: 2026-10-03
 Primary owner: Cozy
@@ -26,6 +24,113 @@ encoder selection, only after this Phase closes.
 Completion ledger: [Phase 71.5 Checklist](phase-71.5-checklist.md).
 Policy: [Artifact protection removal](../design/artifact-protection-removal.md).
 Selected work list: [Phase 71.5 remaining removal work list](../design/phase-71.5-removal-work-list.md).
+
+## Current S79 Phase closure — 2026-10-10
+
+All six P715-01..06 Steps and the finite R715-01..15 / E715-01..05
+producer, reader and caller obligations are CLOSED at their selected contracts.
+The inventory retains `5b2f704`; the shared product/evidence acceptance retains
+CNCF `b7f22d9`, sbt-cozy `6d00904`, Textus `a77ac4d` and Cozy `a773c91`.
+The sole original-epoch full Phase review is **PASS**, zero current blockers:
+`ed835f73-c70b-4ad1-b17b-18acdbd4da68@1`, ledger
+`802c185b-05c0-4229-8b34-2626eb6c6681@10`. It covers all 462 selected
+paths / 335 Scala programs across the four admitted original-base ranges and
+the S73 closure projections. No second full review or product test replay is used.
+
+The 75 admitted actual validation receipts retain their individual scope:
+72 serial SBT focused/prerequisite results, two native Cozy command results
+and source CAR lint. Ordinary format/domain/path/generation/reuse/I/O behavior
+and existing specifications remain; no replacement artifact protection or
+new removal-proof suite is introduced. S45's genuine caller-authored knowledge
+content remains for its independent product purpose, without a generated-output
+SHA exception. E715-01..05 have their separately authorized connected-contract
+acceptance; cross-binary integration is not claimed.
+
+The same post-removal JA34 route retains actual generation and final assembly,
+audible human hearing, the correct end card and browser EOF: 34 scenes,
+449.5 seconds, 8091 decoded frames at 18 fps, 36 end-card frames and
+presented-end difference 0. Actual human evidence is 「ちゃんと声が聞こえて、
+スムーズに動いている。」 Later-change relevance remains independently
+accepted through S61/S64/S66 and the full Phase review.
+
+All ten Hygiene and two Development Candidate records are already persisted
+in the two original canonical journals; no accepted finding is unpersisted.
+Warnings remain visible, including source CAR lint's four warnings and its
+unverified released ABI / fresh installed-binary limits. Historical S36/S37
+ORCH records remain **OPEN_UNVERIFIED**. S37's transfer/cleanup supplies no new
+hearing or EOF. S40 source-bound failure and Bloop mismatch remain
+**FAILED/NOT RUN**. Raw S19 selection gaps, S20 cancellations and the SQL
+pending case keep their original meaning. These histories are not rewritten.
+
+Repository-full SBT for Cozy, CNCF, sbt-cozy and Textus, broader source-checkout /
+cross-binary and remaining packaging/locale/player breadth remain
+**deferred-not-run to PHASE-71.7**. The release carries the declared serial
+aggregate owner and explicit accepted participant selections, original bases,
+accepted HEADs and each participant's own focused receipts. Unlisted or
+independently due full validation is not waived. Phase 71.6 and 71.7 remain
+planned; this closure starts neither successor and performs no push/publication.
+
+Release binding: `Phase-Closure-Binding: P715-RELEASE-20261010@1`.
+The distinct native release commit containing this record establishes closure;
+preparing these documents alone is not a completed release. The local native
+closure receipt supplies the actual commit, exact message/parent/paths and
+postcommit status/finding reread.
+
+This current projection supersedes earlier in-progress/OPEN/pending hypotheses
+for this Phase. Dated S73/S66 and earlier sections remain historical evidence.
+Same Goal, original bases, authority, binding, PLAN epoch, repair counters
+**24/0/0** and the single full-review count are preserved.
+
+## Current S73 Step closure projection — 2026-10-10
+
+All P715-01..06 Step outcomes are accepted and committed. P715-01 retains
+its independent inventory acceptance and `5b2f704`; the 15 product/evidence
+outcomes of P715-02..06 and their five combined acceptance/commit outcomes use
+the originally admitted shared review/validation chain and four exact native
+commits. No separate P715-03..06 review identities or empty commits are added.
+The canonical ledger now has six CLOSED Steps and 24 checked Step boxes:
+four inventory, 15 product/evidence and five combined acceptance/commit boxes.
+
+Original review `aff65798-a912-4f6d-8921-6ec384132f79@1` and accepted focused
+review `c41b83cb-1266-48f2-b908-d0146d0bc786@1` supply the shared acceptance
+in ledger `802c185b-05c0-4229-8b34-2626eb6c6681@9`. Same Goal, original bases,
+authority `aa60c9e4-4b23-4e74-8efb-c936f19a1d2d@1`, binding
+`26b00c86-6ac3-4cae-9692-b19447ecd801@1` and original PLAN epoch
+`1a94b256-a803-4ac9-a868-bbb9e59fbc41@1` remain. Repair counters are **24/0/0**.
+
+| Native repository | Verified exact Step commit | Committed paths |
+| --- | --- | --- |
+| `/Users/asami/src/dev2025/cloud-native-component-framework` | `b7f22d9725a46004eca3ec7155b0c8dd326f5ead` | 48 |
+| `/Users/asami/src/dev2026/sbt-cozy` | `6d009047b6c2842376d814bb1a28d27ab07e9b81` | 17 |
+| `/Users/asami/src/dev2026/textus-cbd-support` | `a77ac4d96fadf423aa791496e98a4acf916b25f3` | 121 |
+| `/Users/asami/src/dev2025/cozy` | `a773c91d8113e6aa089484e93a862fbac9e54abb` | 274 |
+
+Each native commit attributes P715-02, P715-03, P715-04, P715-05 and P715-06.
+This projection supersedes older current/unreviewed/OPEN Step hypotheses,
+including the S66 pending-commit/attribution projection; every dated section
+remains history. Finite removal and retained behavior boundaries are unchanged.
+S45 genuine caller-authored knowledge content remains retained by purpose and
+caller, with no generated-artifact SHA exception.
+
+JA34 retains actual generation/final assembly, audible hearing, correct end card
+and browser EOF: 34 scenes / 449.5 seconds / 8091 decoded frames at 18 fps /
+36 end-card frames / presented-end difference 0, with later-change relevance
+retained by S61/S64/S66. S37's 22,332,603-byte transfer/cleanup adds no hearing
+or EOF observation. Both historical S36/S37 ORCH records remain
+**OPEN_UNVERIFIED**; no incomplete execution record is relabeled compliant and
+no S37 recovery is repeated. S40 source-bound failure and Bloop scope mismatch
+remain **FAILED/NOT RUN**. CAR lint 0/four warnings supplies no released ABI
+comparison or fresh installed-binary assurance. Ten Hygiene and two Development
+Candidate findings and raw warnings remain retained without suppression.
+Repository-full SBT and broader source-checkout/cross-binary integration remain
+**deferred-not-run to PHASE-71.7**.
+
+The Phase remains **in-progress** and Closure remains **OPEN**, with all five
+Closure boxes unchecked. One mandatory original-epoch independent full Phase
+review and a distinct verified Phase release/canonical closure remain pending.
+No full Phase review, release, successor execution or new evidence is claimed.
+
+See the [canonical checklist](phase-71.5-checklist.md#current-s73-step-closure-projection--2026-10-10), [finite work list](../design/phase-71.5-removal-work-list.md#current-s73-step-closure-projection--2026-10-10) and [actual S73 chronology](../journal/2026/10/2026-10-09-phase-71.5-external-contract-reconciliation.md#s73-actual-step-commits-and-attribution--2026-10-10).
 
 ## Current S66 acceptance projection — 2026-10-10
 
