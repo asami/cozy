@@ -26,7 +26,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoRuntime {
@@ -84,8 +84,8 @@ private[cozy] trait CozyVideoRuntime {
     }
   }
 
-  private[video] def _execution_path(projectroot: Path, execution: VideoExecutionConfig, path: Path): String =
-    execution.toolMode match {
+  private[video] def _execution_path(projectroot: Path, execution: VideoExecutionConfig, path: Path, tool: String = "ffmpeg"): String =
+    execution.selected(tool).mode match {
       case VideoToolMode.Docker => _docker_path(projectroot, path)
       case _ => path.toString
     }
@@ -97,8 +97,9 @@ private[cozy] trait CozyVideoRuntime {
     args: Vector[String],
     networkdisabled: Boolean = false,
     mounts: Vector[DockerMount] = Vector.empty
-  ): Vector[String] =
-    execution.toolMode match {
+  ): Vector[String] = {
+    val selection = execution.selected(tool)
+    selection.mode match {
       case VideoToolMode.Docker =>
         Vector(
           "docker",
@@ -113,22 +114,24 @@ private[cozy] trait CozyVideoRuntime {
           val access = if (mount.readonly) "ro" else "rw"
           Vector("-v", s"${mount.hostpath}:${mount.containerpath}:$access")
         } ++ Vector(
-          execution.dockerImage,
-          tool
+          selection.dockerImage,
+          selection.executable
         ) ++ args
       case VideoToolMode.Host =>
-        Vector(tool) ++ args
+        Vector(selection.executable) ++ args
       case VideoToolMode.ExternalService =>
         RAISE.invalidArgumentFault(s"$tool cannot use external-service tool mode")
     }
+  }
 
   private[video] def _review_execution_command(
     execution: VideoExecutionConfig,
     tool: String,
     args: Vector[String],
     mounts: Vector[DockerMount]
-  ): Vector[String] =
-    execution.toolMode match {
+  ): Vector[String] = {
+    val selection = execution.selected(tool)
+    selection.mode match {
       case VideoToolMode.Docker =>
         Vector(
           "docker",
@@ -139,14 +142,15 @@ private[cozy] trait CozyVideoRuntime {
           val access = if (mount.readonly) "ro" else "rw"
           Vector("-v", s"${mount.hostpath}:${mount.containerpath}:$access")
         } ++ Vector(
-          execution.dockerImage,
-          tool
+          selection.dockerImage,
+          selection.executable
         ) ++ args
       case VideoToolMode.Host =>
-        Vector(tool) ++ args
+        Vector(selection.executable) ++ args
       case VideoToolMode.ExternalService =>
         RAISE.invalidArgumentFault(s"$tool cannot use external-service tool mode")
     }
+  }
 
   private[video] def _docker_path(projectroot: Path, path: Path): String = {
     val root = projectroot.toAbsolutePath.normalize()

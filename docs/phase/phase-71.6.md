@@ -1,6 +1,6 @@
 # Phase 71.6: Per-Tool Execution and Video Encoder Selection
 
-status=planned
+status=in-progress
 depends_on=phase-71.5.md
 execution_priority=after_phase_71.5_closure
 split_full_test_policy=final-only
@@ -11,7 +11,7 @@ aggregate_validation_owner=PHASE-71.7
 aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3","PHASE-71.4","PHASE-71.5","PHASE-71.6","PHASE-71.7"]
 primary_owner=Cozy
 
-Status: planned; implementation and benchmark not started
+Status: in-progress; S01 software validation/review accepted, Step commit pending
 Planned at: 2026-10-05 (Asia/Tokyo)
 Development item: DEV-036
 Predecessor: [Phase 71.5](phase-71.5.md).

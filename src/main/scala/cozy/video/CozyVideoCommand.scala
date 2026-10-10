@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 27, 2026
  *  version Sep. 29, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoCommand {
@@ -129,7 +129,7 @@ private[cozy] trait CozyVideoCommand {
     else {
       val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
       val checks =
-        if (config.checkTools || (!config.dryRun && plan.execution.toolMode == VideoToolMode.Docker))
+        if (config.checkTools || (!config.dryRun && plan.execution.requiresDocker))
           tools.checks(context)
         else
           Vector.empty
@@ -162,13 +162,15 @@ private[cozy] trait CozyVideoCommand {
       case "voicevox" =>
         new VoicevoxNarrationProvider(input.execution.voicevoxUrl, voicevox)
       case "macos-say" =>
-        if (input.execution.toolMode != VideoToolMode.Host)
+        if (input.execution.selected("macos-say").mode != VideoToolMode.Host ||
+            config.toolMode.exists(value => VideoToolMode.parse(value) != VideoToolMode.Host))
           RAISE.invalidArgumentFault(
             "Narration provider macos-say requires host tool mode. Use --tool-mode=host."
           )
-        new MacosSayNarrationProvider(input.projectroot, runner)
+        new MacosSayNarrationProvider(input.projectroot, runner, input.execution)
       case "piper" =>
-        if (input.execution.toolMode != VideoToolMode.Docker)
+        if (input.execution.selected("piper").mode != VideoToolMode.Docker ||
+            config.toolMode.exists(value => VideoToolMode.parse(value) != VideoToolMode.Docker))
           RAISE.invalidArgumentFault(
             "Narration provider piper requires Docker tool mode. Use --tool-mode=docker."
           )
@@ -285,7 +287,7 @@ private[cozy] trait CozyVideoCommand {
     CozyVideoEffects.validate(config.renderer, CozyVideoEffects.expand(plan.project.visualEffects))
     val context = VideoToolContext(plan.projectFile, plan.projectRoot, plan.project, plan.execution)
     val checks =
-      if (config.checkTools || plan.execution.toolMode == VideoToolMode.Docker)
+      if (config.checkTools || plan.execution.requiresDocker)
         tools.checks(context)
       else
         Vector.empty
@@ -600,14 +602,6 @@ private[cozy] trait CozyVideoCommand {
   }
 
   private[video] def _replay_execution(config: ReplayConfig): VideoExecutionConfig = {
-    val defaults = CozyProjectYamlConfig.loadOperationDefaults(config.projectRoot)
-    val mode = config.toolMode.
-      orElse(defaults.value("video.tool-mode")).
-      getOrElse("docker")
-    val dockerimage = config.dockerImage.
-      orElse(defaults.value("video.docker-image")).
-      orElse(defaults.value("cozy.docker-image")).
-      getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
-    VideoExecutionConfig(VideoToolMode.parse(mode), dockerimage, VideoToolSettings.DEFAULT_VOICEVOX_URL)
+    VideoExecutionConfig.create(config.projectRoot, None, config.toolMode, config.dockerImage, None)
   }
 }

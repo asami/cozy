@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 16, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoRenderWorkspace {
@@ -70,7 +70,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       val audio = _load_audio_input(part.id, audiodir, script)
       val workdir = _remotion_work_dir(plan.projectRoot, part.id)
       val props = _write_remotion_workspace(plan, part, script, audio, workdir)
-      _run_remotion(plan.projectRoot, plan.execution, part, workdir, runner)
+      val invocation = _run_remotion(plan.projectRoot, plan.execution, part, workdir, runner)
       _write_part_manifest(
         plan,
         part,
@@ -79,6 +79,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
         workdir,
         "remotionWorkDir",
         Vector(
+          "invocation" -> invocation,
           "profile" -> plan.project.profile.map(Json.fromString).getOrElse(Json.Null),
           "visualEffects" -> props.hcursor.downField("visualEffects").focus.getOrElse(Json.arr()),
           "assets" -> props.hcursor.downField("assets").focus.getOrElse(Json.arr()),
@@ -112,7 +113,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       _run_simple_java2d_frame(plan.projectRoot, plan.execution, part, workdir, runner)
       if (!Files.isRegularFile(frame))
         RAISE.invalidArgumentFault(s"simple-java2d frame render did not create frame: $frame")
-      _run_simple_java2d_ffmpeg(plan.projectRoot, plan.execution, part, frame, audio.combinedFile, part.outputPath, runner)
+      _run_simple_java2d_ffmpeg(plan.projectRoot, plan.execution, part, frame, audio.combinedFile, part.outputPath, runner, plan.encoding)
       if (!Files.isRegularFile(part.outputPath))
         RAISE.invalidArgumentFault(s"simple-java2d render did not create output: ${part.outputPath}")
       _write_part_manifest(
@@ -488,7 +489,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
   ): Unit = {
     val script = workdir.resolve("render_frame.py")
     val args = _execution_command(projectroot, execution, "python3",
-      Vector(_execution_path(projectroot, execution, script)),
+      Vector(_execution_path(projectroot, execution, script, "python-pillow")),
       mounts = _selected_path_mounts(projectroot, Vector(script), Vector(workdir.resolve("frame.png"))))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
@@ -502,7 +503,8 @@ private[cozy] trait CozyVideoRenderWorkspace {
     frame: Path,
     audiofile: Path,
     outputpath: Path,
-    runner: VideoProcessRunner
+    runner: VideoProcessRunner,
+    encoding: ResolvedEncodingSettings = ResolvedEncodingSettings.lightweight
   ): Unit = {
     Files.createDirectories(outputpath.getParent)
     val baseargs = Vector(
@@ -514,7 +516,9 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "-i",
       _execution_path(projectroot, execution, audiofile),
       "-c:v",
-      "libx264",
+      execution.encoderName,
+      "-crf",
+      encoding.crf.toString,
       "-tune",
       "stillimage",
       "-c:a",
@@ -524,7 +528,9 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "yuv420p",
       _execution_path(projectroot, execution, outputpath)
     )
-    val args = _execution_command(projectroot, execution, "ffmpeg", baseargs,
+    val qualityargs = encoding.x264Preset.toVector.flatMap(value => Vector("-preset", value))
+    val effectiveargs = baseargs.dropRight(1) ++ qualityargs ++ baseargs.takeRight(1)
+    val args = _execution_command(projectroot, execution, "ffmpeg", effectiveargs,
       mounts = _selected_path_mounts(projectroot, Vector(frame, audiofile), Vector(outputpath)))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
@@ -537,17 +543,37 @@ private[cozy] trait CozyVideoRenderWorkspace {
     part: VideoPartPlan,
     workdir: Path,
     runner: VideoProcessRunner
-  ): Unit = {
+  ): Json = {
     Option(part.outputPath.getParent).foreach(Files.createDirectories(_))
     val script = workdir.resolve("src/render.mjs")
     val args = _execution_command(projectroot, execution, "node",
-      Vector(_execution_path(projectroot, execution, script)),
+      Vector(_execution_path(projectroot, execution, script, "remotion")) ++
+        (if (execution.externalFrameEncoding) Vector("--frame-audio") else Vector.empty),
       mounts = _selected_path_mounts(projectroot, Vector(script), Vector(part.outputPath)))
+    if (execution.externalFrameEncoding)
+      Files.deleteIfExists(workdir.resolve("frame-audio.json"))
     val result = runner.run(args, projectroot)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"Remotion render failed for part ${part.id}: ${result.stderr.trim}")
+    val encoding = if (execution.externalFrameEncoding) {
+      val props = parser.parse(Files.readString(workdir.resolve("props.json"))).fold(
+        error => RAISE.invalidArgumentFault(s"Invalid composition props: ${error.getMessage}"), identity)
+      val handoff = CozyVideoFrameEncoding.load(workdir, props)
+      val encoderargs = CozyVideoFrameEncoding.arguments(handoff, workdir, projectroot, execution, props, part.outputPath)
+      val encoded = runner.run(encoderargs, projectroot)
+      val evidence = Json.obj("argv" -> Json.fromValues(encoderargs.map(Json.fromString)),
+        "exitCode" -> Json.fromInt(encoded.exitCode), "stderr" -> Json.fromString(encoded.stderr),
+        "frameCount" -> Json.fromInt(handoff.frameCount), "audioPath" -> Json.fromString(handoff.audioPath.toString),
+        "outputPath" -> Json.fromString(part.outputPath.toString), "selection" -> execution.selected("ffmpeg").toJson,
+        "encoder" -> Json.fromString(execution.encoderName))
+      Files.writeString(workdir.resolve("encoding-result.json"), evidence.spaces2, StandardCharsets.UTF_8)
+      if (!encoded.isSuccess) RAISE.invalidArgumentFault(s"Selected FFmpeg frame encoding failed for ${part.id}: ${encoded.text}")
+      evidence
+    } else Json.Null
     if (!Files.isRegularFile(part.outputPath))
       RAISE.invalidArgumentFault(s"Remotion render did not create output for part ${part.id}: ${part.outputPath}")
+    Json.obj("rendererArgv" -> Json.fromValues(args.map(Json.fromString)), "rendererExitCode" -> Json.fromInt(result.exitCode),
+      "rendererSelection" -> execution.selected("remotion").toJson, "encoding" -> encoding)
   }
 
   private[video] def _write_part_manifest(
@@ -570,6 +596,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "estimatedDuration" -> Json.fromDoubleOrNull(part.estimatedDuration.getOrElse(0.0)),
       "toolMode" -> Json.fromString(plan.execution.toolMode.label),
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
+      "effectiveTools" -> plan.execution.effectiveToolsJson,
       workdirfield -> Json.fromString(workdir.toString)
     ) ++ extra
     val json = Json.obj(fields: _*)

@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -347,7 +347,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const moduleRoots = [workDir, ...(process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean), '/usr/local/lib/node_modules', '/usr/lib/node_modules'];
       |const cliRequire = createRequire(localRequire.resolve('@remotion/cli/package.json', {paths: moduleRoots}));
       |const {bundle} = cliRequire('@remotion/bundler');
-      |const {selectComposition, renderMedia} = cliRequire('@remotion/renderer');
+      |const {selectComposition, renderFrames, renderMedia} = cliRequire('@remotion/renderer');
       |dns.setDefaultResultOrder('ipv4first');
       |const frames = props.timing?.totalFrames;
       |const fps = props.fps;
@@ -381,6 +381,27 @@ private[cozy] trait CozyVideoRenderTemplates {
       |    modules: [...(config.resolve?.modules || []), ...(cliRequire.resolve.paths('remotion') || [])]}})
       |});
       |const composition = await selectComposition({serveUrl, id: 'CozyVideo', inputProps: props});
+      |if (composition.durationInFrames !== frames || composition.fps !== fps || composition.width !== props.width || composition.height !== props.height) {
+      |  throw new Error('Selected Cozy composition differs from the planned full timing/dimensions');
+      |}
+      |if (process.argv.includes('--frame-audio')) {
+      |  const frameDir = fs.mkdtempSync(path.join(workDir, 'frames-'));
+      |  const rendered = await renderFrames({composition, serveUrl, inputProps: props, outputDir: frameDir,
+      |    imageFormat: 'png', imageSequencePattern: 'frame-[frame].png', frameRange: [0, frames - 1],
+      |    onFrameUpdate: (renderedFrames) => console.log(`Rendered ${renderedFrames}/${frames}`)});
+      |  if (rendered.frameCount !== frames) throw new Error('Cozy renderFrames returned an unexpected frame count');
+      |  const audioPath = path.join(workDir, 'composition.wav');
+      |  await renderMedia({composition, serveUrl, inputProps: props, codec: 'wav', audioCodec: 'pcm-16',
+      |    imageFormat: 'none', enforceAudioTrack: true, outputLocation: audioPath});
+      |  const ordered = fs.readdirSync(frameDir).filter((name) => /^frame-\d+\.png$/.test(name))
+      |    .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
+      |  if (ordered.length !== frames || ordered.some((name, index) => Number(name.match(/\d+/)[0]) !== index)) {
+      |    throw new Error('Cozy renderFrames did not produce the complete ordered composition');
+      |  }
+      |  fs.writeFileSync(path.join(workDir, 'frame-audio.json'), JSON.stringify({schema: 'cozy.video.frame-audio.v1',
+      |    width: composition.width, height: composition.height, fps, frameCount: frames,
+      |    frames: ordered.map((name) => `${path.basename(frameDir)}/${name}`), audioPath: 'composition.wav'}, null, 2));
+      |} else {
       |const result = await renderMedia({
       |  composition,
       |  serveUrl,
@@ -396,6 +417,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |if (!Buffer.isBuffer(result.buffer)) throw new Error('Cozy Remotion render did not return an encoded media buffer');
       |fs.mkdirSync(path.dirname(output), {recursive: true});
       |fs.writeFileSync(output, result.buffer);
+      |}
       |""".stripMargin
 
   private[video] val _remotion_root_tsx: String =

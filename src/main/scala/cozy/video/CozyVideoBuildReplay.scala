@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoBuildReplay {
@@ -102,11 +102,7 @@ private[cozy] trait CozyVideoBuildReplay {
   ): Unit = {
     Files.createDirectories(path.getParent)
     val lines = partoutputs.map { part =>
-      val value =
-        execution.toolMode match {
-          case VideoToolMode.Docker => _docker_path(projectroot, part)
-          case _ => part.toString
-        }
+      val value = _execution_path(projectroot, execution, part, "ffmpeg")
       s"file '${_ffmpeg_concat_escape(value)}'"
     }
     Files.writeString(path, lines.mkString("", "\n", "\n"), StandardCharsets.UTF_8)
@@ -177,7 +173,11 @@ private[cozy] trait CozyVideoBuildReplay {
     output: Path, context: String, args: Vector[String], inputs: Vector[Path] = Vector.empty
   ): Unit = {
     val mounts = _selected_path_mounts(projectroot, inputs, Vector(output))
-    val result = runner.run(_execution_command(projectroot, execution, "ffmpeg", args, mounts = mounts), projectroot)
+    val command = _execution_command(projectroot, execution, "ffmpeg", args, mounts = mounts)
+    val result = runner.run(command, projectroot)
+    val diagnostic = Json.obj("argv" -> Json.fromValues(command.map(Json.fromString)), "exitCode" -> Json.fromInt(result.exitCode),
+      "selection" -> execution.selected("ffmpeg").toJson, "outputPath" -> Json.fromString(output.toString))
+    Files.writeString(output.resolveSibling(s"${output.getFileName}.command.json"), diagnostic.spaces2, StandardCharsets.UTF_8)
     Files.writeString(output.resolveSibling(s"${output.getFileName}.stderr.txt"), result.stderr, StandardCharsets.UTF_8)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"ffmpeg concat/mux failed: $context: ${result.stderr.trim}")
@@ -274,7 +274,7 @@ private[cozy] trait CozyVideoBuildReplay {
     output: Path,
     runner: VideoProcessRunner
   ): VideoCommandResult = {
-    val outputarg = _execution_path(projectroot, execution, output)
+    val outputarg = _execution_path(projectroot, execution, output, "ffprobe")
     val args = _execution_command(projectroot, execution, "ffprobe", Vector(
       "-v",
       "error",
@@ -285,6 +285,9 @@ private[cozy] trait CozyVideoBuildReplay {
       outputarg
     ), mounts = _selected_path_mounts(projectroot, Vector(output)))
     val result = runner.run(args, projectroot)
+    val diagnostic = Json.obj("argv" -> Json.fromValues(args.map(Json.fromString)), "exitCode" -> Json.fromInt(result.exitCode),
+      "selection" -> execution.selected("ffprobe").toJson, "inputPath" -> Json.fromString(output.toString), "stderr" -> Json.fromString(result.stderr))
+    Files.writeString(output.resolveSibling(s"${output.getFileName}.ffprobe.json"), diagnostic.spaces2, StandardCharsets.UTF_8)
     if (!result.isSuccess)
       RAISE.invalidArgumentFault(s"ffprobe validation failed: ${result.stderr.trim}")
     result
@@ -311,6 +314,8 @@ private[cozy] trait CozyVideoBuildReplay {
       "partOutputs" -> Json.fromValues(partoutputs.map(x => Json.fromString(x.toString))),
       "toolMode" -> Json.fromString(plan.execution.toolMode.label),
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
+      "effectiveTools" -> plan.execution.effectiveToolsJson,
+      "encoder" -> Json.fromString(plan.execution.encoderName),
       "concatListPath" -> Json.fromString(concatlist.toString),
       "encoding" -> _encoding_json(plan.encoding),
       "creditProfile" -> plan.credits.profileId.map(Json.fromString).getOrElse(Json.Null),
@@ -373,7 +378,7 @@ private[cozy] trait CozyVideoBuildReplay {
     scriptfile: Path,
     output: Option[Path]
   ): Unit =
-    if (execution.toolMode == VideoToolMode.Docker) {
+    if (execution.selected("playwright").mode == VideoToolMode.Docker) {
       if (!scriptfile.startsWith(projectroot))
         RAISE.invalidArgumentFault(s"Docker replay requires script file under project root $projectroot: $scriptfile")
       output.foreach { path =>
@@ -414,7 +419,7 @@ private[cozy] trait CozyVideoBuildReplay {
     VideoCommandPlan(
       "replay.playwright",
       "playwright",
-      execution.toolMode,
+      execution.selected("playwright").mode,
       _replay_command_preview(projectroot, execution, workdir),
       Vector(scriptfile),
       output.toVector
@@ -425,14 +430,7 @@ private[cozy] trait CozyVideoBuildReplay {
 
   private[video] def _replay_command_args(projectroot: Path, execution: VideoExecutionConfig, workdir: Path): Vector[String] = {
     val script = workdir.resolve("replay.mjs").normalize()
-    execution.toolMode match {
-      case VideoToolMode.Docker =>
-        Vector("docker", "run", "--rm", "-v", s"${projectroot}:/workspace", "-w", "/workspace", execution.dockerImage, "node", _docker_path(projectroot, script))
-      case VideoToolMode.Host =>
-        Vector("node", script.toString)
-      case VideoToolMode.ExternalService =>
-        RAISE.invalidArgumentFault("Playwright replay cannot use external-service tool mode")
-    }
+    _execution_command(projectroot, execution, "playwright", Vector(_execution_path(projectroot, execution, script, "playwright")))
   }
 
   private[video] val _playwright_replay_mjs: String =

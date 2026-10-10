@@ -19,7 +19,7 @@ import cozy.CozySpecVocabulary
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
  *  version Sep. 16, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -548,6 +548,7 @@ final class CozyVideoSpec
     "build planning and execution" which {
       "video build dry-run reports artifact and command plans without external tools" in {
         _with_temp_dir("cozy-video-build-dry-run") { dir =>
+          Given("a video project with dialogue, storyboard and web-demo parts using Docker tools")
           _write(dir.resolve("dialogue.json"), _script_json)
           _write(dir.resolve("storyboard.json"), _script_json)
           _write(dir.resolve("web.json"), _script_json)
@@ -568,6 +569,7 @@ final class CozyVideoSpec
            |""".stripMargin
           )
 
+          When("Cozy plans the video build without checking or running external tools")
           val out = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -577,6 +579,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.default
           )
 
+          Then("the artifact plan and actual selected Docker command previews describe each supported part")
           ((out.contains("Cozy Video Build Dry-Run")) shouldBe true)
           ((out.contains("artifacts:")) shouldBe true)
           ((out.contains(
@@ -592,22 +595,22 @@ final class CozyVideoSpec
             "part.lecture.synthesize: voicevox (external-service) - synthesize scene audio"
           )) shouldBe true)
           ((out.contains(
-            "part.lecture.prepare-visuals: python-pillow (docker) - docker run --rm"
+            "part.lecture.prepare-visuals: python-pillow (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
-            "part.lecture.render: remotion (docker) - docker run --rm"
+            "part.lecture.render: remotion (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
-            "part.board.render: remotion (docker) - docker run --rm"
+            "part.board.render: remotion (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
-            "part.demo.capture: playwright (docker) - docker run --rm"
+            "part.demo.capture: playwright (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
             "part.demo.synthesize: voicevox (external-service) - synthesize scene audio"
           )) shouldBe true)
           ((out.contains(
-            "project.concat: ffmpeg (docker) - docker run --rm"
+            "project.concat: ffmpeg (docker) - 'docker' 'run' '--rm'"
           )) shouldBe true)
           ((out.contains(
             "project.manifest: cozy (host) - write project manifest"
@@ -652,6 +655,7 @@ final class CozyVideoSpec
 
       "video build dry-run can use explicit host tool mode" in {
         _with_temp_dir("cozy-video-build-host-mode") { dir =>
+          Given("a dialogue video project and an explicit host tool mode")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -665,6 +669,7 @@ final class CozyVideoSpec
            |""".stripMargin
           )
 
+          When("Cozy plans the build with host tools")
           val out = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -675,21 +680,26 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.default
           )
 
+          Then("the previews retain each selected host executable and its operation intent")
           ((out.contains("toolMode: host")) shouldBe true)
           ((out.contains(
-            "part.intro.prepare-visuals: python-pillow (host) - prepare dialogue visual helper assets"
+            "part.intro.prepare-visuals: python-pillow (host) - 'python3'"
           )) shouldBe true)
+          out should include("# prepare dialogue visual helper assets")
           ((out.contains(
-            "part.intro.render: remotion (host) - render dialogue part"
+            "part.intro.render: remotion (host) - 'node'"
           )) shouldBe true)
+          out should include("# render dialogue part")
           ((out.contains(
-            "project.concat: ffmpeg (host) - concat planned part outputs into final video"
+            "project.concat: ffmpeg (host) - 'ffmpeg'"
           )) shouldBe true)
+          out should include("# concat planned part outputs into final video")
         }
       }
 
       "video build dry-run resolves docker mode and image precedence" in {
         _with_temp_dir("cozy-video-build-docker-precedence") { dir =>
+          Given("layered Docker image defaults, a project Docker selection and explicit CLI overrides")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("conf/cozy/config.yaml"),
@@ -715,6 +725,7 @@ final class CozyVideoSpec
            |""".stripMargin
           )
 
+          When("Cozy plans the project selection and the CLI override")
           val project = CozyVideo.build(
             CozyVideo.BuildConfig(
               dir.resolve("video_project.json"),
@@ -734,10 +745,11 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.default
           )
 
+          Then("the project selects its Docker image and node executable while the CLI overrides mode and image")
           ((project.contains("toolMode: docker")) shouldBe true)
           ((project.contains("dockerImage: project-image")) shouldBe true)
           ((project.contains(
-            "docker run --rm -v '" + dir + ":/workspace' -w /workspace 'project-image' 'remotion'"
+            "'docker' 'run' '--rm' '-v' '" + dir + ":/workspace' '-w' '/workspace' 'project-image' 'node'"
           )) shouldBe true)
           ((cli.contains("toolMode: host")) shouldBe true)
           ((cli.contains("dockerImage: cli-image")) shouldBe true)
@@ -3428,6 +3440,7 @@ final class CozyVideoSpec
 
       "video inspect production registry reports deterministic available tools through probe" in {
         _with_temp_dir("cozy-video-tool-probe-available") { dir =>
+          Given("host tool responses and existing Chromium and whisper model files")
           val chromium = dir.resolve("chromium")
           val whisper = dir.resolve("models/ggml-base.bin")
           _write(dir.resolve("script.json"), _script_json)
@@ -3484,6 +3497,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with host tool checks")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3493,6 +3507,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("the production registry reports the probed host tools and preserves host path checks")
           ((out.contains("docker-toolchain: unchecked (docker)")) shouldBe true)
           ((out.contains("docker-image: unchecked (docker)")) shouldBe true)
           ((out.contains(
@@ -3517,6 +3532,7 @@ final class CozyVideoSpec
 
       "video inspect production registry reports missing and unchecked tools through probe" in {
         _with_temp_dir("cozy-video-tool-probe-missing") { dir =>
+          Given("an available host ffmpeg, a missing ffprobe and unavailable dependencies")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -3573,6 +3589,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with independent host tool checks")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3582,13 +3599,15 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("ffmpeg stays available, ffprobe is missing and the other missing diagnostics are retained")
           ((out.contains("docker-toolchain: unchecked (docker)")) shouldBe true)
           ((out.contains("docker-image: unchecked (docker)")) shouldBe true)
           ((out.contains("voicevox: missing (external-service)")) shouldBe true)
           ((out.contains(
             "setup: Start VOICEVOX Engine or set tools.voicevoxUrl / video.voicevox.url."
           )) shouldBe true)
-          ((out.contains("ffmpeg: missing (host)")) shouldBe true)
+          ((out.contains("ffmpeg: available (host)")) shouldBe true)
+          out should include("ffprobe: missing (host)")
           ((out.contains("remotion-node: missing (host)")) shouldBe true)
           ((out.contains("playwright: missing (host)")) shouldBe true)
           ((out.contains("whisper-cpp: missing (host)")) shouldBe true)
@@ -3603,6 +3622,7 @@ final class CozyVideoSpec
 
       "video inspect production registry reports missing docker image with pull guidance" in {
         _with_temp_dir("cozy-video-tool-probe-image-missing") { dir =>
+          Given("an available Docker daemon whose selected toolchain image is missing")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -3641,6 +3661,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with Docker tool checks")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3649,6 +3670,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("the missing image has pull guidance and no Docker tool process is started")
           ((out.contains("docker-toolchain: available (docker)")) shouldBe true)
           ((out.contains("docker-image: missing (docker)")) shouldBe true)
           ((out.contains(
@@ -3663,8 +3685,9 @@ final class CozyVideoSpec
         }
       }
 
-      "video inspect docker mode check-tools focuses on docker image and voicevox" in {
+      "video inspect docker mode check-tools reports selected Docker tools and voicevox" in {
         _with_temp_dir("cozy-video-tool-probe-docker-mode") { dir =>
+          Given("an admitted Docker image with selected tool responses and an unavailable VOICEVOX service")
           _write(dir.resolve("script.json"), _script_json)
           _write(
             dir.resolve("video_project.json"),
@@ -3704,7 +3727,23 @@ final class CozyVideoSpec
                 "check",
                 "video"
               ) -> CozyVideo
-                .VideoCommandResult(0, "textus-toolchain check video: ok\n", "")
+                .VideoCommandResult(0, "textus-toolchain check video: ok\n", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "ffmpeg", Vector("-version")) -> CozyVideo
+                .VideoCommandResult(0, "ffmpeg", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "ffprobe", Vector("-version")) -> CozyVideo
+                .VideoCommandResult(0, "ffprobe", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("--version")) -> CozyVideo
+                .VideoCommandResult(0, "v22.0.0", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("-e", "require.resolve('@remotion/renderer')")) -> CozyVideo
+                .VideoCommandResult(0, "/node_modules/@remotion/renderer", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("-e", "require.resolve('playwright')")) -> CozyVideo
+                .VideoCommandResult(0, "/node_modules/playwright", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "node", Vector("-e", "const fs = require('fs'); const { chromium } = require('playwright'); const p = chromium.executablePath(); if (!fs.existsSync(p)) process.exit(1); console.log(p)")) -> CozyVideo
+                .VideoCommandResult(0, "/container/chromium\n", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "python3", Vector("--version")) -> CozyVideo
+                .VideoCommandResult(0, "Python 3.12", ""),
+              _docker_tool_command(dir, "example/toolchain:dev", "python3", Vector("-c", "import PIL; print(PIL.__version__)")) -> CozyVideo
+                .VideoCommandResult(0, "11.0.0", "")
             ),
             httpResults = Map(
               "http://voicevox.example/version" -> CozyVideo.VideoHttpResult(
@@ -3715,6 +3754,7 @@ final class CozyVideoSpec
             )
           )
 
+          When("Cozy inspects the project with the selected Docker tools")
           val out = CozyVideo.inspect(
             CozyVideo.InspectConfig(
               dir.resolve("video_project.json"),
@@ -3723,6 +3763,7 @@ final class CozyVideoSpec
             CozyVideo.VideoToolRegistry.production(probe)
           )
 
+          Then("the selected tools are available in Docker while VOICEVOX remains missing and host executables are unused")
           ((out.contains("toolMode: docker")) shouldBe true)
           ((out.contains("docker-image: available (docker)")) shouldBe true)
           ((out.contains(
@@ -3736,14 +3777,16 @@ final class CozyVideoSpec
             "voicevox: missing"
           )) shouldBe true)
           ((out.contains("host.docker.internal")) shouldBe true)
-          ((out.contains("ffmpeg: unchecked (docker)")) shouldBe true)
-          ((out.contains("remotion-node: unchecked (docker)")) shouldBe true)
-          ((out.contains("playwright: unchecked (docker)")) shouldBe true)
+          ((out.contains("ffmpeg: available (docker)")) shouldBe true)
+          out should include("ffprobe: available (docker)")
+          ((out.contains("remotion-node: available (docker)")) shouldBe true)
+          ((out.contains("playwright: available (docker)")) shouldBe true)
           ((out.contains("whisper-cpp: unchecked (docker)")) shouldBe true)
-          ((out.contains("python-pillow: unchecked (docker)")) shouldBe true)
+          ((out.contains("python-pillow: available (docker)")) shouldBe true)
           ((!probe.commands.exists(
             _.headOption.contains("ffmpeg")
           )) shouldBe true)
+          probe.commands.exists(_.headOption.contains("ffprobe")) shouldBe false
           ((!probe.commands.exists(
             _.headOption.contains("node")
           )) shouldBe true)
@@ -6033,6 +6076,9 @@ final class CozyVideoSpec
 }
 
 object CozyVideoSpec {
+  private def _docker_tool_command(projectroot: Path, image: String, tool: String, args: Vector[String]): Vector[String] =
+    Vector("docker", "run", "--rm", "-v", s"$projectroot:/workspace", "-w", "/workspace", image, tool) ++ args
+
   private def _json_keys(json: Json): Set[String] =
     json.asObject.map { fields =>
       fields.keys.toSet ++ fields.values.flatMap(_json_keys).toSet

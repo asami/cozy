@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct.  2, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPresentation {
@@ -47,6 +47,7 @@ private[cozy] trait CozyVideoPresentation {
     project.title.foreach(x => b += s"title: $x")
     b += s"toolMode: ${plan.execution.toolMode.label}"
     b += s"dockerImage: ${plan.execution.dockerImage}"
+    b ++= _render_effective_tools(plan.execution)
     b += s"output: ${plan.outputPath}"
     b += s"renderer: ${project.renderer.map(_.summary).getOrElse("engine=legacy")}"
     b ++= _render_effective_encoding(plan.encoding)
@@ -98,6 +99,7 @@ private[cozy] trait CozyVideoPresentation {
     b ++= _render_project_context(plan.projectContext)
     b += s"toolMode: ${plan.execution.toolMode.label}"
     b += s"dockerImage: ${plan.execution.dockerImage}"
+    b ++= _render_effective_tools(plan.execution)
     b += s"output: ${plan.outputPath}"
     b ++= _render_effective_encoding(plan.encoding)
     b += s"parts: ${plan.parts.size}"
@@ -155,6 +157,11 @@ private[cozy] trait CozyVideoPresentation {
     }
     b.result()
   }
+
+  private def _render_effective_tools(execution: VideoExecutionConfig): Vector[String] =
+    execution.selections.toVector.sortBy(_._1).map { case (id, selected) =>
+      s"tool.$id: mode=${selected.mode.label} executable=${selected.executable} image=${selected.dockerImage} origins=${selected.origins.toVector.sortBy(_._1).mkString(",")}"
+    } ++ Vector(s"encoder: ${execution.encoderName} origin=${execution.encoderOrigin}", s"externalFrameEncoding: ${execution.externalFrameEncoding}")
 
   private[video] def _render_effective_encoding(encoding: ResolvedEncodingSettings): Vector[String] =
     Vector(

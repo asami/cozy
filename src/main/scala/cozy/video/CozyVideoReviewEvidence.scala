@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
@@ -68,7 +68,7 @@ private[cozy] trait CozyVideoReviewEvidence {
       RAISE.invalidArgumentFault(s"Review evidence manifest target must not be a symbolic link: $manifest")
     val videomanifest = _review_validated_video_manifest(plan, finalvideo)
     val dockermounts =
-      if (plan.execution.toolMode == VideoToolMode.Docker)
+      if (plan.execution.selected("ffmpeg").mode == VideoToolMode.Docker)
         Some(ReviewEvidenceDockerMounts(
           DockerMount(canonicalfinalvideo, "/review-input/final.mp4", readonly = true),
           DockerMount(canonicalsavedir, "/review-output", readonly = false)

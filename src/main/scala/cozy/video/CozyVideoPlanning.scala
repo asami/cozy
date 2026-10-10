@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 27, 2026
- * @version Oct.  2, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPlanning {
@@ -389,16 +389,16 @@ private[cozy] trait CozyVideoPlanning {
     projectroot: Path,
     execution: VideoExecutionConfig,
     command: VideoCommandPlan
-  ): VideoCommandPlan =
-    execution.toolMode match {
-      case VideoToolMode.Docker if _docker_managed_tools.contains(command.toolName) =>
-        command.copy(
-          mode = VideoToolMode.Docker,
-          preview = _docker_preview(projectroot, execution.dockerImage, command)
-        )
-      case _ =>
-        command
-    }
+  ): VideoCommandPlan = {
+    val identity = CozyVideoOperatingConfig.identity(command.toolName)
+    if (CozyVideoOperatingConfig.commands.contains(identity)) {
+      val selected = execution.selected(identity)
+      val arguments = command.inputs.flatMap(path => Vector("--input", _execution_path(projectroot, execution, path, identity))) ++
+        command.outputs.flatMap(path => Vector("--output", _execution_path(projectroot, execution, path, identity)))
+      command.copy(mode = selected.mode, preview =
+        _execution_command(projectroot, execution, identity, arguments).map(_shell_quote).mkString(" ") + s" # ${command.preview}")
+    } else command
+  }
 
   private[video] def _docker_preview(projectroot: Path, image: String, command: VideoCommandPlan): String = {
     val inputargs = command.inputs.map(path => s"--input ${_shell_quote(_docker_path(projectroot, path))}")

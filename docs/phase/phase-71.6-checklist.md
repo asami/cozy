@@ -1,6 +1,6 @@
 # Phase 71.6 Checklist: Per-Tool Execution and Video Encoder Selection
 
-Phase status: planned / not started
+Phase status: in-progress / S01 validation and review accepted, Step commit pending
 Ledger for: [Phase 71.6](phase-71.6.md)
 Repository-full validation: deferred-not-run to PHASE-71.7
 
@@ -9,8 +9,23 @@ actual representative mixed/software then selected hardware execution, review
 and commits. `[>]` marks remaining integration/benchmark work transferred to
 71.7, not a pass or a Phase 71.6 exit condition.
 
-This checklist records planned work only. No implementation, test, benchmark,
-review, commit or Phase start is claimed by its creation.
+S01 software validation and independent focused review are accepted. Step
+commit, hardware acceptance and Phase closure remain pending. Checklist items
+that also require hardware or the complete operation boundary remain open.
+
+Parent observation (2026-10-10): the two new and five planned compatibility
+suites passed 196/196 tests in one serialized invocation, with SBT/wrapper
+exits 0/0 and lock release. Installed toolchain/host prerequisites are observed.
+The first render completed on the baseline route because the parent misplaced
+the native fixture settings. Corrected-settings inspect, actual mixed render
+and ordinary build passed; direct/final full decoding, 34 scene audio windows,
+zero ending difference and the 36-frame final card also passed. Current unmuted
+normal-speed browser playback reached EOF at 449.5 seconds without seeking or
+media errors, and the owned server exited zero with cleanup confirmed. The user
+confirmed natural audible narration on 2026-10-11. Hardware execution and
+independent acceptance remain open. The same app Goal is active again and
+S01 has advanced to REVIEW; no additional resume operation is required. See the
+[S01 journal](../journal/2026/10/2026-10-10-phase-71.6-software-mixed-route.md).
 
 ## Entry
 
