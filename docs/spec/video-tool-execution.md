@@ -35,6 +35,19 @@ Executable is one argv element, without expansion or command splitting.
 
 ## Rendering and encoding
 
+PHASE-71.8 P718-01 adds the separate
+[joint quality contract](video-quality-profiles.md), with current listening and
+independent Step acceptance complete; its exact local commit remains pending.
+Canonical `qualityProfile` supplies hardware defaults 1M/lightweight,
+2M/standard, 6M/quality and 12M/high-quality. Original `encodingPolicy` props
+retain historical 2M/lightweight, 6M/standard and 12M/quality meanings.
+Present canonical props are authoritative and validate even when operating
+bitrate is explicit. Video bitrate override/origin stays independent of audio.
+Resolved audio defaults have current JA/EN listening acceptance;
+route propagation, serialization and inspect observations belong to P718-02.
+The AAC320 route description below records existing producer behavior until
+that propagation; it does not describe the later route implementation.
+
 Encoder name is exactly `libx264` (default) or `h264_videotoolbox`.
 `video.encoder.bitrate` resolves independently of name, with its own origin.
 Strings are trimmed and match `[1-9][0-9]*(?:[kM])?`, where k scales by 1000
@@ -65,11 +78,13 @@ assetsInfo and container absolute paths are never serialized. These are schema
 and ordinary I/O checks, with no hashes or directory-set certificates.
 
 FFmpeg consumes exactly N PNGs and PCM audio. Software uses profile CRF/preset;
-simple-java2d also retains stillimage tune. Hardware uses bitrate defaults of
-2M/lightweight, 6M/standard or 12M/quality, overridden by explicit bitrate,
+simple-java2d also retains stillimage tune. Hardware uses canonical defaults
+above when present, otherwise legacy 2M/lightweight, 6M/standard or 12M/quality,
+overridden by explicit bitrate,
 and emits `-c:v h264_videotoolbox -b:v <bitrate> -allow_sw 0 -require_sw 0`.
 Hardware has no CRF, preset or tune and never falls back. Hardware frame props
-require a valid encodingPolicy; legacy software props may omit it.
+require a valid qualityProfile or legacy encodingPolicy; legacy software props
+may omit both.
 Both policies use yuv420p. The frame route resamples stereo48k, pads/trims to floor(N*48000/fps),
 encodes AAC320k with cutoff18000, movie_timescale48000 and video timescale
 fps*1000. No shortest truncation. Final card, last-frame duration and all scene

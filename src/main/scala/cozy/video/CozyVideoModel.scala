@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 15, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[video] final case class VideoTiming(
@@ -237,10 +237,10 @@ private[cozy] object CozyVideoModel {
       dockerImage.getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
     def voicevoxUrlOrDefault: String =
       voicevoxUrl.getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
-    def whisperModelPath(projectroot: Path): Option[Path] =
+    def whisperModelPath(projectRoot: Path): Option[Path] =
       whisperModel.map { x =>
         val path = Path.of(x)
-        if (path.isAbsolute) path.normalize() else projectroot.resolve(path).normalize()
+        if (path.isAbsolute) path.normalize() else projectRoot.resolve(path).normalize()
       }
   }
 
@@ -337,7 +337,9 @@ private[cozy] object CozyVideoModel {
     height: Option[Int],
     crf: Option[Int],
     x264Preset: Option[String],
-    effectProfile: Option[String]
+    effectProfile: Option[String],
+    qualityProfile: Option[CozyVideoQuality.Profile] = None,
+    audioBitrate: Option[String] = None
   ) {
     def engineOrDefault: String = engine.getOrElse("legacy")
     def strategyOrPolicy: Option[String] = strategy
@@ -364,60 +366,13 @@ private[cozy] object CozyVideoModel {
     val DEFAULT_HEIGHT = VideoEncodingPolicy.Lightweight.height
     val DEFAULT_CRF = VideoEncodingPolicy.Lightweight.crf
 
-    def resolveEncoding(renderer: VideoRenderer): ResolvedEncodingSettings = {
-      val selected = renderer.policy.getOrElse(VideoEncodingPolicy.Lightweight)
-      ResolvedEncodingSettings(
-        selected,
-        renderer.fps.getOrElse(selected.fps),
-        renderer.width.getOrElse(selected.width),
-        renderer.height.getOrElse(selected.height),
-        renderer.crf.getOrElse(selected.crf),
-        renderer.x264Preset.orElse(selected.x264Preset)
-      )
-    }
+    def resolveEncoding(renderer: VideoRenderer): ResolvedEncodingSettings =
+      CozyVideoQuality.resolve(renderer)
 
     def resolveEncoding(renderer: Option[VideoRenderer]): ResolvedEncodingSettings =
-      renderer.map(x => resolveEncoding(x)).getOrElse(ResolvedEncodingSettings.lightweight)
+      CozyVideoQuality.resolve(renderer)
 
-    implicit val decoder: Decoder[VideoRenderer] = (c: HCursor) =>
-      for {
-        engine <- c.downField("engine").as[Option[String]]
-        strategy <- c.downField("strategy").as[Option[String]]
-        policy <- c.downField("policy").as[Option[String]].flatMap(_decode_policy(_, c))
-        fps <- c.downField("fps").as[Option[Int]].flatMap(_validate_positive("fps", _, c))
-        width <- c.downField("width").as[Option[Int]].flatMap(_validate_positive("width", _, c))
-        height <- c.downField("height").as[Option[Int]].flatMap(_validate_positive("height", _, c))
-        crf <- c.downField("crf").as[Option[Int]].flatMap(_validate_crf(_, c))
-        x264preset <- c.downField("x264Preset").as[Option[String]].flatMap(_validate_x264_preset(_, c))
-        effectprofile <- c.downField("effectProfile").as[Option[String]]
-      } yield VideoRenderer(engine, strategy, policy, fps, width, height, crf, x264preset, effectprofile)
-
-    private def _decode_policy(value: Option[String], cursor: HCursor): Decoder.Result[Option[VideoEncodingPolicy]] =
-      value match {
-        case Some(name) => VideoEncodingPolicy.decode(name).map(Some(_)).toRight(
-          io.circe.DecodingFailure(s"Invalid renderer.policy value: '$name'", cursor.history)
-        )
-        case None => Right(None)
-      }
-
-    private def _validate_positive(field: String, value: Option[Int], cursor: HCursor): Decoder.Result[Option[Int]] =
-      value match {
-        case Some(v) if v <= 0 => Left(io.circe.DecodingFailure(s"Invalid renderer.$field value: '$v'", cursor.history))
-        case _ => Right(value)
-      }
-
-    private def _validate_crf(value: Option[Int], cursor: HCursor): Decoder.Result[Option[Int]] =
-      value match {
-        case Some(v) if v < 0 => Left(io.circe.DecodingFailure(s"Invalid renderer.crf value: '$v'", cursor.history))
-        case _ => Right(value)
-      }
-
-    private def _validate_x264_preset(value: Option[String], cursor: HCursor): Decoder.Result[Option[String]] =
-      value match {
-        case Some(v) if v.trim.isEmpty || !VideoEncodingPolicy.validX264Presets.contains(v) =>
-          Left(io.circe.DecodingFailure(s"Invalid renderer.x264Preset value: '$v'", cursor.history))
-        case _ => Right(value)
-      }
+    implicit val decoder: Decoder[VideoRenderer] = CozyVideoQuality.rendererDecoder
   }
 
   sealed trait VideoEncodingPolicy {
@@ -469,8 +424,14 @@ private[cozy] object CozyVideoModel {
     width: Int,
     height: Int,
     crf: Int,
-    x264Preset: Option[String]
-  )
+    x264Preset: Option[String],
+    qualityProfile: Option[CozyVideoQuality.Profile] = None,
+    audioBitrate: String = "320k",
+    origins: Map[String, String] = Map.empty
+  ) {
+    def effectiveQualityProfile: CozyVideoQuality.Profile =
+      qualityProfile.getOrElse(CozyVideoQuality.fromLegacy(policy))
+  }
 
   object ResolvedEncodingSettings {
     val lightweight: ResolvedEncodingSettings = ResolvedEncodingSettings(

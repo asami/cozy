@@ -8,7 +8,7 @@ import CozyVideoTools.{VideoExecutionConfig, VideoToolMode}
 /** Shared video-only encoder policy; selection is intent, not native execution evidence. */
 /*
  * @since   Oct. 11, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoEncoder {
@@ -74,30 +74,31 @@ private[cozy] object CozyVideoEncoder {
   }
 
   def resolve(execution: VideoExecutionConfig, encoding: ResolvedEncodingSettings, stillImage: Boolean = false): EffectiveEncoder =
-    _resolve(execution, Some(encoding.policy), encoding.crf, encoding.x264Preset, stillImage)
+    _resolve(execution, Some(encoding.effectiveQualityProfile), Some(encoding.policy), encoding.crf, encoding.x264Preset, stillImage)
 
   def fromProps(execution: VideoExecutionConfig, props: Json): EffectiveEncoder = {
     val cursor = props.hcursor
     val hardware = execution.encoderName == "h264_videotoolbox"
+    val qualityprofile = cursor.downField("qualityProfile").focus.map { value =>
+      value.asString.flatMap(CozyVideoQuality.decode)
+        .getOrElse(RAISE.invalidArgumentFault("Invalid planned qualityProfile"))
+    }
     val policy = cursor.get[String]("encodingPolicy").toOption.flatMap(VideoEncodingPolicy.decode)
-    if (hardware && policy.isEmpty)
+    if (hardware && qualityprofile.isEmpty && policy.isEmpty)
       RAISE.invalidArgumentFault("Hardware encoding requires valid planned encodingPolicy")
     val crf = if (hardware) 0 else cursor.get[Int]("crf")
       .getOrElse(RAISE.invalidArgumentFault("Missing planned software CRF"))
     val preset = if (hardware) None else cursor.get[Option[String]]("x264Preset").getOrElse(None)
-    _resolve(execution, policy, crf, preset, false)
+    _resolve(execution, qualityprofile, policy, crf, preset, false)
   }
 
-  private def _resolve(execution: VideoExecutionConfig, policy: Option[VideoEncodingPolicy], crf: Int, preset: Option[String], stillimage: Boolean): EffectiveEncoder = {
+  private def _resolve(execution: VideoExecutionConfig, qualityprofile: Option[CozyVideoQuality.Profile], policy: Option[VideoEncodingPolicy], crf: Int, preset: Option[String], stillimage: Boolean): EffectiveEncoder = {
     validateExecution(execution)
     if (execution.encoderName == "h264_videotoolbox") {
       val bitrate = execution.encoderBitrate.map(value => normalizeBitrate(Json.fromString(value))).getOrElse {
-        policy.getOrElse(RAISE.invalidArgumentFault("Hardware encoding requires valid planned encodingPolicy")).name match {
-          case "lightweight" => "2M"
-          case "standard" => "6M"
-          case "quality" => "12M"
-          case other => RAISE.invalidArgumentFault(s"Unsupported hardware encodingPolicy: $other")
-        }
+        qualityprofile.orElse(policy.map(CozyVideoQuality.fromLegacy))
+          .getOrElse(RAISE.invalidArgumentFault("Hardware encoding requires valid planned encodingPolicy"))
+          .hardwareBitrate
       }
       EffectiveEncoder(execution.encoderName, Some(bitrate),
         if (execution.encoderBitrate.isDefined) execution.encoderBitrateOrigin else "profile-default",

@@ -1,0 +1,152 @@
+# Phase 71.8: Unified Video and Audio Quality Profiles
+
+status=in-progress
+depends_on=phase-71.7.md
+execution_priority=after_phase_71.7_closure
+validation_ownership=standalone
+
+Status: IN_PROGRESS; P718-01 validation, listening and independent review accepted; local Step commit pending
+Planned at: 2026-10-11
+Started at: 2026-10-12
+Primary owner: Cozy
+Predecessor: [Phase 71.7](phase-71.7.md).
+Completion ledger: [Phase 71.8 Checklist](phase-71.8-checklist.md).
+
+## Goal and boundary
+
+Let an operator select a video quality profile that resolves both picture and
+audio encoding settings, with individual overrides when needed. Rebase the
+quality ladder on the current lightweight picture settings: current lightweight
+becomes new `standard`, current standard becomes new `quality`, and current
+quality moves to the upper name `high-quality`. Add a new `lightweight`
+profile for practice drafts, with lower picture quality and measurably faster
+generation than the new standard. Keep quality selection distinct from the
+existing explanation/dialogue presentation profiles and tool/encoder choice.
+
+The historical policy carrier for the default picture is `lightweight`. The user
+explicitly selected new `standard` as the Phase71.8 default, retaining the
+current default picture settings:18fps,1280×720,CRF32. The new practice
+`lightweight` profile requires explicit selection. Audio currently uses fixed AAC320k encoding;
+joint-profile audio values now have current JA/EN listening acceptance. Specify migration of
+existing named selections and overrides before implementation so their intended
+quality is not silently changed by the shift in names.
+
+This is new work after 71.7, not a transfer of unfinished 71.7 acceptance.
+Phase 71.7 retains its current Goal, media/integration/benchmark obligations,
+aggregate validation ownership, review history and release boundary. The
+original plan started no execution and performed no commit. This Phase is now
+in progress under `p718-phase-authority-20261012-01@1`; predecessor history and
+its acceptance scope remain intact.
+
+## P718-01: Profile contract and executable specifications
+
+Status: IN_PROGRESS; implementation, validation, current listening and independent
+Step review accepted, exact local Step commit pending. Frozen contract and implementation are bound to
+`p718-01-qcontract-implementation01@1`. See
+[quality specification](../spec/video-quality-profiles.md),
+[resolution design](../design/video-quality-profiles.md) and
+[CozyVideoQualityProfileSpec](../../src/test/scala/cozy/video/CozyVideoQualityProfileSpec.scala).
+Canonical lightweight/standard/quality/high-quality resolve
+12fps480pCRF36/superfast/96k/1M,
+18fps720pCRF32/128k/2M,
+30fps720pCRF23/192k/6M and
+30fps1080pCRF18/320k/12M respectively. Audio defaults have current JA/EN
+lossless-source comparison and attributable human listening acceptance.
+Explicit legacy policy keeps its old picture and320k intent; canonical wins
+valid legacy, and independently validated field overrides win their own fields.
+P718-02 still owns audio route propagation and generated observations.
+
+Define the joint profile, audio bitrate customization, existing picture
+overrides, configuration precedence and observable effective settings.
+Specify the shifted ladder, new standard default, practice-profile behavior,
+omitted settings and migration of legacy named selections. Retain 48 kHz stereo
+and the current sample-based audio ending contract for this bounded change.
+Confirm candidate audio preset values through listening before treating them
+as accepted defaults; the [planning note](../notes/video-quality-profiles.md)
+contains the initial candidates, not a normative encoding contract.
+
+Promote the selected behavior into video specifications/design and Given /
+When / Then executable specifications, including override and invalid-setting
+behavior. Preserve supported software/hardware encoder selection.
+
+### P718-01 acceptance evidence
+
+On 2026-10-12, the current lossless-source JA/EN comparison completed eight
+independent AAC encodes and eight full decodes successfully. Source WAVs were
+PCM16,24kHz mono; comparison outputs were AAC-LC,48kHz stereo with cutoff18000.
+Each rate was encoded from its original lossless source, with retained actual
+argv, exits, duration and bytes at `target/phase718/audio-comparison01/`.
+
+| Language | Source duration (s) | 320k bytes | 96k bytes | 128k bytes | 192k bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| JA | 20.48 | 567851 | 249962 | 330696 | 497834 |
+| EN | 18.111625 | 521636 | 221999 | 294811 | 440443 |
+
+The current user confirmed: 「8本とも自然に聞こえた。71.8を再開して」.
+This accepts96k/128k/192k against320k for these selected speech samples and
+this native AAC encoder; it is not a universal perceptual-equivalence claim,
+Docker execution result or practice-speed measurement.
+
+The registered serialized runner passed15/15 focused quality specifications
+and165/165 accumulator specifications across the five declared suites, with
+SBT/wrapper exit0 and terminal lock release. Independent protected-focused
+Step review `p718-01-independent-step-review01@1` returned PASS with no blockers;
+typed ledger `p718-review-ledger-20261012-01@2` was saved and read back. Existing
+Publisher/specification size debt remains in HYG-P71.2-007/HYG-P71.2-002, and
+the prior Model size follow-up remains open; no maintenance split is admitted.
+P718-01's exact local commit is the remaining acceptance duty. P718-02,
+P718-03, full Phase review and final validation/release remain outstanding.
+
+## P718-02: Shared resolution across encoding routes
+
+Make the native/mixed frame encoder, Docker Remotion audio mux and final
+assembly consume the same resolved audio quality settings. The final build
+must not silently restore a fixed320k value after a lower-bitrate direct render.
+Expose selected profile, effective picture/audio settings and their origins in
+`video inspect` and relevant generated records. Preserve narration timing,
+lossless intermediate audio, one final AAC encode and the complete end card.
+
+## P718-03: Quality, size and regression acceptance
+
+Compare selected JA/EN narration from retained lossless inputs at the baseline
+and candidate bitrates. Record actual sizes and attributable listening results;
+do not infer perceptual equivalence from a bitrate or successful decode.
+Measure new lightweight versus new standard on the same representative inputs,
+tool route and encoder, recording render/encode/total time and image quality.
+Accept the practice profile only when actual generation is faster and its
+storyboard, text/layout checks and narration remain useful for practice review;
+a higher CRF or smaller file alone does not establish faster generation.
+Verify representative direct/final output, effective overrides and common
+media endings on the affected routes. Reuse relevant existing evidence and
+run proportional focused specifications before independent review and commits.
+Declare and complete this Phase's final validation/release obligations at entry;
+do not claim 71.7's earlier suite validates later71.8 implementation changes.
+
+## References
+
+- [Joint quality specification](../spec/video-quality-profiles.md)
+- [Joint resolution design](../design/video-quality-profiles.md)
+- [Current JA/EN comparison helper](../../scripts/test/compare-video-quality-audio.py)
+- [Request and baseline observation](../journal/2026/10/2026-10-11-phase-71.8-video-quality-profile-plan.md)
+- [Candidate profile values and compatibility questions](../notes/video-quality-profiles.md)
+- [Video tool execution specification](../spec/video-tool-execution.md)
+- [Video storyboard specification](../spec/video-storyboard.md)
+
+## Validation and release duties
+
+Parent-selected representative validation is `testOnly cozy.video.CozyVideoQualityProfileSpec`.
+The focused accumulator is `testOnly cozy.video.CozyVideoSpec cozy.video.CozyVideoHardwareEncodingSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoScaffoldSpec cozy.video.CozyVideoCompatibilitySpec`.
+All SBT runs use the registered runner and shared serial wrapper with scoped
+permission and terminal lock-release evidence. P718-01 acceptance additionally
+requires current retained lossless JA/EN comparison, full decode, actual bytes
+and attributable human listening; prior71.7 hearing is not substituted.
+
+Each Step requires proportional validation, independent acceptance review and
+its exact local commit. One comprehensive Phase review is permitted per PLAN
+epoch. Standalone final-only full Cozy `test` and `cozyExportRuntimeClasspath`
+must pass on the release candidate before the distinct bound local release
+commit and canonical checklist/journal closure. Practice speed and usefulness,
+direct/final/override observations and media ending duties remain P718-03.
+No acceptance, listening quality, measured speed or Phase closure is claimed
+by implementation alone. Stop after71.8; successor work, shared-skill redesign,
+external source edits and public publication/deployment/push are excluded.
