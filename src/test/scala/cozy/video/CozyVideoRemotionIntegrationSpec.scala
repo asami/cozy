@@ -14,7 +14,8 @@ import io.circe.parser
 /*
  * @since   Jul. 18, 2026
  *  version Aug. 26, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoRemotionIntegrationSpec
@@ -127,6 +128,131 @@ final class CozyVideoRemotionIntegrationSpec
           val summarystandaloneframes = if (summarystart == openingframes + contentframes) summaryframes else 0
           timing.get[Int]("totalFrames").toOption shouldBe Some(openingframes + contentframes + summarystandaloneframes + creditframes + finalframes)
           finalprops.hcursor.downField("credits").downField("items").as[Vector[io.circe.Json]].toOption.get should have size 1
+        }
+      }
+    }
+
+    "keep every declared final-card hold frame fully visible with the real toolchain" in {
+      val image = _integration_image()
+      _with_temp_dir("final-card-hold") { dir =>
+        Vector(12, 18, 30).foreach { fps =>
+          Given(s"an explanation scaffold at $fps fps with local silence audio and an opaque green final card")
+          val slug = s"final-card-hold-$fps"
+          val pkg = dir.resolve(s"$slug.video")
+          CozyVideoScaffold.scaffold(
+            CozyVideoScaffold.Config.create(
+              List(slug, s"--save=$pkg", "--profile=explanation")
+            )
+          )
+          val descriptor = _read(pkg.resolve("video.yaml")).replace(
+            "renderer:\n  engine: remotion",
+            s"renderer:\n  fps: $fps\n  engine: remotion"
+          )
+          val configured = fps match {
+            case 12 => descriptor
+              .replace("  opening: title-hold-subtle-motion", "  opening: none")
+              .replace("  section-start: line-sweep", "  section-start: none")
+              .replace("  summary: overview-and-conclusion", "  summary: none")
+            case 18 => descriptor.replace(
+              "  summary: overview-and-conclusion",
+              "  summary: overview-and-conclusion-hold"
+            )
+            case 30 =>
+              _write_integration_credit_profile(pkg)
+              descriptor.replace(
+                "credits:\n  include: []",
+                "credits:\n  profile: integration\n  include: [integration-credit]"
+              )
+          }
+          _write(pkg.resolve("video.yaml"), configured)
+          _write_audio_manifest(pkg, "explanation", if (fps == 12) 1.0 / fps else 1.0)
+          _write(
+            pkg.resolve("assets/final-page.svg"),
+            """<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#00c800"/></svg>"""
+          )
+
+          When(s"the real Docker Remotion renderer in $image renders the final-card hold at $fps fps")
+          CozyVideo.render(
+            CozyVideo.RenderConfig(
+              pkg.resolve("video.yaml"),
+              "remotion",
+              checkTools = true,
+              toolMode = Some("docker"),
+              dockerImage = Some(image)
+            ),
+            CozyVideo.VideoToolRegistry.default,
+            CozyVideo.VideoProcessRunner.default
+          )
+          val props = _json(pkg.resolve("target/cozy-video/remotion/explanation/props.json"))
+          val timing = props.hcursor.downField("timing")
+          val openingframes = timing.get[Int]("openingFrames").toOption.get
+          val contentframes = timing.get[Int]("contentFrames").toOption.get
+          val summarystart = timing.get[Int]("summaryStartFrame").toOption.get
+          val summaryframes = timing.get[Int]("summaryFrames").toOption.get
+          val creditframes = timing.get[Int]("creditPageHoldFrames").toOption.get
+          val finalstart = timing.get[Int]("finalPageStartFrame").toOption.get
+          val holdframes = timing.get[Int]("finalPageHoldFrames").toOption.get
+          val totalframes = timing.get[Int]("totalFrames").toOption.get
+          val standalonesummaryframes = if (summarystart == openingframes + contentframes) summaryframes else 0
+
+          And("the real native tools count the video frames and decode every declared hold frame, including the first")
+          val probe = _native_command(pkg, image, Vector(
+            "ffprobe", "-v", "error", "-count_frames", "-show_streams", "-show_format",
+            "-of", "json", "/workspace/build/parts/explanation.mp4"
+          ))
+          _write(pkg.resolve("build/final-card-hold.ffprobe.json"), probe.stdout)
+          _write(pkg.resolve("build/final-card-hold.ffprobe.stderr.log"), probe.stderr)
+          val decode = _native_command(pkg, image, Vector(
+            "ffmpeg", "-v", "error", "-i", "/workspace/build/parts/explanation.mp4",
+            "-an", "-vf", s"select=gte(n\\,$finalstart),scale=64:36",
+            "-fps_mode", "passthrough", "-frames:v", holdframes.toString,
+            "-pix_fmt", "rgb24", "-f", "rawvideo", "/workspace/build/final-card-hold.rgb"
+          ))
+          _write(pkg.resolve("build/final-card-hold.ffmpeg.stdout.log"), decode.stdout)
+          _write(pkg.resolve("build/final-card-hold.ffmpeg.stderr.log"), decode.stderr)
+
+          Then("native decoding succeeds and the declared timing and exact video frame count remain intact")
+          probe.isSuccess shouldBe true
+          decode.isSuccess shouldBe true
+          props.hcursor.get[Int]("fps").toOption shouldBe Some(fps)
+          holdframes shouldBe 2 * fps
+          totalframes shouldBe finalstart + holdframes
+          finalstart shouldBe openingframes + contentframes + standalonesummaryframes + creditframes
+          fps match {
+            case 12 =>
+              finalstart should be > 0
+              finalstart should be < math.ceil(fps * 0.45).toInt
+            case 18 =>
+              summaryframes shouldBe 5 * fps
+              summarystart shouldBe openingframes + contentframes
+            case 30 =>
+              creditframes shouldBe fps
+              props.hcursor.downField("credits").downField("items").as[Vector[Json]].toOption.get should have size 1
+          }
+          val stream = _ffprobe_video_stream(parser.parse(probe.stdout).toOption.get)
+          stream.hcursor.get[String]("nb_read_frames").toOption.get.toInt shouldBe totalframes
+          stream.hcursor.get[Int]("width").toOption shouldBe Some(1280)
+          stream.hcursor.get[Int]("height").toOption shouldBe Some(720)
+          _ffprobe_fps(stream) shouldBe fps.toDouble
+
+          And("every frame from the declared opaque hold start through the last frame preserves the green card")
+          val rgb = Files.readAllBytes(pkg.resolve("build/final-card-hold.rgb"))
+          val pixelsperframe = 64 * 36
+          val bytesperframe = pixelsperframe * 3
+          rgb.length shouldBe holdframes * bytesperframe
+          (0 until holdframes).foreach { frame =>
+            val offset = frame * bytesperframe
+            val greenpixels = (0 until pixelsperframe).count { pixel =>
+              val index = offset + pixel * 3
+              val red = rgb(index) & 0xff
+              val green = rgb(index + 1) & 0xff
+              val blue = rgb(index + 2) & 0xff
+              green >= 160 && red <= 40 && blue <= 40
+            }
+            withClue(s"$fps fps held frame $frame (video frame ${finalstart + frame}): ") {
+              greenpixels.toDouble / pixelsperframe should be >= 0.95
+            }
+          }
         }
       }
     }
@@ -313,6 +439,12 @@ final class CozyVideoRemotionIntegrationSpec
       }
     }
   }
+
+  private def _native_command(pkg: Path, image: String, args: Vector[String]): CozyVideo.VideoCommandResult =
+    CozyVideo.VideoProcessRunner.default.run(
+      Vector("docker", "run", "--rm", "--network=none", "-v", s"$pkg:/workspace", "-w", "/workspace", image) ++ args,
+      pkg
+    )
 
   private def _integration_image(): String = {
     if (!sys.props.get("cozy.video.remotion.integration").contains("true"))

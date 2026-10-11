@@ -586,3 +586,42 @@ remain OPEN.
 S12's same prepared 34-scene native generation, final assembly, inspection,
 visible unmuted playback, actual hearing, correct end card and player EOF
 remain OPEN. Focused results cannot close native, Step or Phase acceptance.
+
+## 2026-10-11 Phase 71.7 classic Remotion final-card transition amendment
+
+Authority: [Phase 71.7](../phase/phase-71.7.md), `P717-03`,
+`P71703-QA-CARD-START-01`. The classic generated Remotion producer owns the
+sequence-local crossfade before the opaque final-card hold. The existing props
+timing owner retains the declared hold start, hold count, composition end and
+scene/audio positions. The corresponding functional contract is the
+[opaque final-card hold amendment](../spec/video-storyboard.md#2026-10-11-phase-717-classic-remotion-opaque-final-card-hold-amendment).
+
+The producer bounds its internal `transitionFrames` by both the available
+preceding frames and `ceil(fps * 0.45)`. Its final-page sequence starts at
+`finalPageStartFrame - transitionFrames` and lasts
+`finalPageHoldFrames + transitionFrames`. Sequence-local interpolation moves
+the entire card surface from opacity 0 to 1 over `[0, transitionFrames]`,
+clamped at both ends, so it reaches opacity 1 exactly at the declared hold
+start and retains that opacity through the final frame. When no preceding
+frames are available, the card is immediately opaque and no zero-range
+interpolation is evaluated. The sequence cannot start before frame zero.
+
+The overlap retains authored preceding sequence durations and summary/credit
+frame counts while partially overlaying their final visual interval. It does
+not add frames to the composition, shorten the two-second hold, or move scene
+audio. No encoder, mux, public schema, ABI, Storyboard field, profile or props
+change belongs to this repair. Other generated renderer templates retain their
+existing responsibilities. No warning is suppressed and no acceptance
+threshold is weakened.
+
+The existing
+[CozyVideoRemotionIntegrationSpec](../../src/test/scala/cozy/video/CozyVideoRemotionIntegrationSpec.scala)
+owns the native three-case regression at 12, 18 and 30 fps for a bounded short
+predecessor, standalone summary and included credit respectively. Real frame
+counting and decoding check every opaque hold frame, including its first,
+against the unchanged timing envelope. The
+[CozyVideoMediaEndingSpec](../../src/test/scala/cozy/video/CozyVideoMediaEndingSpec.scala)
+retains separate audio/assembly end coverage. The native regression requires
+explicit Remotion integration enablement and actual tools; it does not supply
+listening or player EOF acceptance. This amendment claims no validation, Step
+or Phase completion.

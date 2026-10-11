@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -566,13 +566,12 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  );
       |};
       |
-      |const FinalPage: React.FC<{effect: VisualEffect; asset?: Asset}> = ({effect, asset}) => {
+      |const FinalPage: React.FC<{effect: VisualEffect; asset?: Asset; transitionFrames: number}> = ({effect, asset, transitionFrames}) => {
       |  const frame = useCurrentFrame();
-      |  const {fps} = useVideoConfig();
       |  const card = primitive(effect, 'end-card');
       |  const fade = primitive(effect, 'fade-rise');
       |  const hold = primitive(effect, 'hold');
-      |  const opacity = fade?.parameters.target === 'end-card' ? interpolate(frame, [0, fps * 0.45], [0, 1], {extrapolateRight: 'clamp'}) : 1;
+      |  const opacity = fade?.parameters.target === 'end-card' && transitionFrames > 0 ? interpolate(frame, [0, transitionFrames], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) : 1;
       |  return card && hold ? (
       |    <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', alignItems: 'center', justifyContent: 'center', opacity}}>
       |      <AssetFrame asset={asset} opacity={1} />
@@ -586,6 +585,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  const section = roleEffect(visualEffects, 'section-start');
       |  const summary = roleEffect(visualEffects, 'summary');
       |  const finalPage = roleEffect(visualEffects, 'final-page');
+      |  const finalPageTransitionFrames = finalPage && primitive(finalPage, 'fade-rise')?.parameters.target === 'end-card' ? Math.min(Math.max(0, timing.finalPageStartFrame), Math.ceil(fps * 0.45)) : 0;
       |  return (
       |    <AbsoluteFill>
       |      {opening && timing.openingFrames > 0 ? <Sequence from={0} durationInFrames={timing.openingFrames}><Opening title={title} effect={opening} asset={roleAsset(assets, 'opening')} durationInFrames={timing.openingFrames} /></Sequence> : null}
@@ -598,7 +598,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |      {section && timing.sectionStartFrames > 0 ? <Sequence from={timing.sectionStartFrame} durationInFrames={timing.sectionStartFrames}><SectionStart effect={section} asset={roleAsset(assets, 'section-start')} durationInFrames={timing.sectionStartFrames} /></Sequence> : null}
       |      {summary && timing.summaryFrames > 0 ? <Sequence from={timing.summaryStartFrame} durationInFrames={timing.summaryFrames}><Summary effect={summary} asset={roleAsset(assets, 'summary')} /></Sequence> : null}
       |      {timing.creditPageHoldFrames > 0 && credits.items.length > 0 ? <Sequence from={timing.creditPageStartFrame} durationInFrames={timing.creditPageHoldFrames}><CreditPage credits={credits} /></Sequence> : null}
-      |      {finalPage && timing.finalPageHoldFrames > 0 ? <Sequence from={timing.finalPageStartFrame} durationInFrames={timing.finalPageHoldFrames}><FinalPage effect={finalPage} asset={roleAsset(assets, 'final-page')} /></Sequence> : null}
+      |      {finalPage && timing.finalPageHoldFrames > 0 ? <Sequence from={timing.finalPageStartFrame - finalPageTransitionFrames} durationInFrames={timing.finalPageHoldFrames + finalPageTransitionFrames}><FinalPage effect={finalPage} asset={roleAsset(assets, 'final-page')} transitionFrames={finalPageTransitionFrames} /></Sequence> : null}
       |    </AbsoluteFill>
       |  );
       |};

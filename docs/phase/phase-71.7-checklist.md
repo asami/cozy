@@ -1,7 +1,7 @@
 # Phase 71.7 Checklist
 
 Phase status: IN-PROGRESS
-Updated: 2026-10-11
+Updated: 2026-10-12
 Ledger for: [Phase 71.7](phase-71.7.md)
 Primary owner: Cozy
 Repository-full validation: aggregate final owner for PHASE-71 through PHASE-71.7
@@ -160,13 +160,13 @@ repository-full suite, review and commits remain pending; next is parent PLAN.
 ## P717-03: Native execution and benchmark
 
 Stage Status:
-- Current status: OPEN
+- Current status: CLOSED
 - Owner: Cozy
 - Update rule: close against the transferred P716-04 procedure
 
-- [ ] Select the representative inputs, machine/tool versions and effective settings; record unsupported cases and missing prerequisites honestly.
-- [ ] Exercise the plan's Docker baseline, mixed software/hardware and supported native cases, confirming actual encoder use and media behavior.
-- [ ] Record separate render/encode/assembly/total times, cold startup and three warmed runs with medians, output size and visual quality; no speedup threshold is invented.
+- [x] Select the representative inputs, machine/tool versions and effective settings; record unsupported cases and missing prerequisites honestly.
+- [x] Exercise the plan's Docker baseline, mixed software/hardware and supported native cases, confirming actual encoder use and media behavior.
+- [x] Record separate render/encode/assembly/total times, cold startup and three warmed runs with medians, output size and visual quality; no speedup threshold is invented.
 
 ## P717-04: Aggregate validation and release
 
@@ -1085,3 +1085,224 @@ See the [factual checkpoint02](/Users/asami/src/dev2025/cozy/.codex-workflow/pha
 [shared admission](/Users/asami/src/dev2025/cozy/.codex-workflow/phases/PHASE-71.7/p717-runtime-recording-shared-admission-resolution01.json),
 [deployment native record](/Users/asami/src/dev2025/cozy/.codex-workflow/phases/PHASE-71.7/p717-runtime-recording-deployment-native01.json)
 and [SAR admission02](/Users/asami/src/dev2025/cozy/.codex-workflow/phases/PHASE-71.7/p717-02-evidence-sar-cli-admission02.json).
+
+
+## 2026-10-11 P717-03 preparation plan (execution pending)
+
+Frozen Slice `P717-03-PREPARE` selects the existing JA AI Development Harness
+project at `target/phase717-integration/work/simplemodeling-org/src/main/media/development-process/ai-development-harness/video/ja`.
+Every case uses the same unchanged `video.yaml`, `storyboard.md`, four role SVG
+assets, `simplemodeling-org` credit profile, narration manifest and its nine
+pre-generated WAV inputs. The ordered scenes are `opening`, `speed`,
+`business-wall`, `convergence`, `harness-definition`, `broad-concept`,
+`responsibility-boundary`, `technology-context`, and `series-roadmap`.
+The selected dimensions are 1280 × 720 at 18 fps. Current selected props record
+4827 frames; historical 4828 is retained as earlier evidence, with actual future
+production timing derived from unchanged authored inputs.
+
+| Case | Remotion | FFmpeg / encoder | ffprobe |
+| --- | --- | --- | --- |
+| baseline | Docker | Docker; normal renderMedia, no explicit encoder or FFmpeg executable | Host |
+| mixed-software | Docker | Host / libx264 | Host |
+| mixed-hardware | Docker | Host / h264_videotoolbox | Host |
+| native-software | Host Node | Host / libx264 | Host |
+| native-hardware | Host Node | Host / h264_videotoolbox | Host |
+
+Docker selects `ghcr.io/asami/textus-toolchain:0.2.1-SNAPSHOT`; host tools use
+`/opt/homebrew/bin/node`, `/opt/homebrew/bin/ffmpeg` and
+`/opt/homebrew/bin/ffprobe`. The baseline deliberately omits `video.encoder`
+and `video.tools.ffmpeg.executable`, preserving the normal Docker renderMedia
+branch. Actual lightweight settings must be recorded later: libx264 CRF32
+and VideoToolbox default 2M are not cross-encoder quality equivalents.
+The existing hardware producer enforces `-allow_sw 0 -require_sw 0` with no
+fallback; capability presence alone cannot establish hardware execution.
+
+Two private stdlib managed-uv Python >=3.12 helpers are authored under
+`target/phase717-benchmark/`: `prepare-inputs.py` selects only the declared
+source inputs and writes twenty case/run projects with case-specific configs
+and `selection.json`; `inspect-prerequisites.py` writes `prerequisites.json`
+from the frozen serial read-only probes, each with a 20-second timeout and
+bounded output. Container probes use `--pull never --network none --rm`.
+Required failures and optional unavailable native capabilities remain actual
+unavailable observations; no installation, pull or provider request is planned.
+
+Preparation execution, prerequisite execution and benchmarking are all pending.
+The four directories `cold`, `warm01`, `warm02`, `warm03` per case reserve labels
+only. A later parent measurement plan must declare and observe a consistent
+warmup/tool/project-cache policy; new project compilation is not warmed merely
+because of its directory label. Cold startup, render/encode/assembly/total times,
+three warmed runs and medians, output sizes, effective settings, decoded media,
+listening/final-card/player and visual-quality observations remain pending.
+Unsupported status cannot be inferred before actual execution.
+
+P717-01/02 remain CLOSED; P717-03/04 remain OPEN with their duties unchecked,
+and Phase 71.7 remains IN-PROGRESS. Earlier accepted history, original failures,
+refusals, review records and existing Hygiene remain unchanged. These authored
+helpers and this preparation plan claim no validation, media result, timing,
+hearing, acceptance, Step closure, commit or Phase closure. No Scala/product
+behavior changes; executable-specification authoring is not applicable to this
+preparation-only Slice. Parent source inspection, registered runtime validation,
+independent review and subsequent transitions remain required.
+
+## 2026-10-11 P717-03 readiness checkpoint and cold measurement boundary
+
+Registered preparation/readiness executions completed with actual terminal 0:
+twenty source projects, nine ordered audio scenes and fifteen native probes are
+recorded in `target/phase717-benchmark/{selection,prerequisites}.json`. Required
+Docker baseline/mixed software/mixed hardware prerequisites are available;
+the two host-native cases remain unavailable after the actual missing
+`@remotion/cli/package.json` lookup. Preparation evidence is not a benchmark,
+hardware execution or media result. Earlier pending entries remain dated history.
+
+The frozen cold Slice authors four private installer/observer/collector sources.
+Cold and the later three serial warmed renders reuse each case's one
+`work/<case>/cold` project and normal producer workspace. Only the descriptor's
+two output destinations vary as `build/benchmark/<run>/{dialogue,final}.mp4`.
+The prepared warm directories are unused labels. Cold means first full render
+in the active project with ready image/tools, with no system cold/flush/reboot
+claim. It is the preceding warmup for warm01..03; native caches remain where the
+producer naturally preserves them, with fresh Cozy/Node/browser processes and
+no extra unmeasured render or hot JVM/browser claim.
+
+Invocation-tagged observers append traces and preserve original generated code,
+native options and failures. Baseline retains normal renderMedia and overlapping
+frame/encode windows; mixed host encoding has no hardware fallback. Missing
+milestones are unknown, with only explicit completion upper bounds when justified.
+Stage durations use real monotonic clocks. Command wall estimates use actual
+admitted native started/result filesystem mtimes, including observer overhead,
+startup/report bookkeeping and clock-resolution limitations. Render plus
+final-build is two-command cost excluding setup/collection/inter-command waiting;
+the assembly column includes planning/checks/probe/credits. Remotion's internal
+encoder version is not inferred from the container FFmpeg probe.
+
+Cold production, three actual warmed runs per supported case, medians, sizes/
+effective settings and all AV decode/audio/listening/card/player EOF/visual QA
+duties remain unchecked and pending. CRF32/default2M imply no matched-quality or
+speedup claim. P717-01/02 remain CLOSED, P717-03/04 remain OPEN and the Phase
+remains IN-PROGRESS. Accepted history, failures, refusals, reviews and Hygiene
+are retained; this source/readiness checkpoint makes no acceptance transition.
+
+## 2026-10-11 P717-03 cold complete; warm and media QA pending
+
+Actual cold preparation, six serial native render/final-build commands and
+collection completed with terminal exit 0 and parent-admitted owned groups
+gone. `target/phase717-benchmark/measurements-cold.json` and the frozen
+`p717-03-cold-checkpoint01.json` retain three measured supported cases and two
+host-native unavailable cases. Baseline, mixed software and mixed hardware
+two-command wall estimates are 129.953, 166.067 and 163.225 seconds, respectively.
+Each actual composition is 4827 frames, 1280 × 720 at 18 fps, or 268.1667 seconds.
+
+Frozen `P717-03-WARM-QA` authors only the three observational helpers
+`inspect-media.py`, `serve-comparison.py` and `summarize-comparison.py` under
+`target/phase717-benchmark/`. Three actual serial warmed samples per supported
+case and their medians are pending. Native QA of all 24 direct/final movies,
+nine source-audio windows per movie, presented endpoints, 36 opaque card
+frames, all 24 genuine browser EOFs, current hearing and parent visual quality
+remain pending. The planned browser distinction is 21 muted technical tail
+seeks and three warm03 final full audible1x plays; tail EOF cannot complete
+listening. Authoring has not executed these helpers or established acceptance.
+
+Unequal CRF32/default2M settings, overlapping baseline frame/encode windows,
+observer overhead and native filesystem-mtime wall estimate limits remain.
+Original VideoToolbox color-range/filter diagnostics and unwaived prestart
+transcription/collector native-field-label gaps remain in their original
+records; no failed or uncertain evidence is reconstructed or promoted.
+
+All P717-03 duties above remain unchecked pending the accumulated Step review
+and exact local acceptance commit. P717-01/02 stay CLOSED, P717-03 is
+IN-PROGRESS, P717-04 stays OPEN and Phase 71.7 stays IN-PROGRESS. The original
+full Goal, consolidated full-suite, sole Phase review and distinct release
+obligations remain. Earlier pending entries are chronological history.
+
+## 2026-10-12 P717-03 corrected-current comparison factual checkpoint
+
+The corrected-current benchmark at `target/phase717-benchmark-card02` records
+one cold and three serial warmed runs for baseline, mixed-software and
+mixed-hardware. Their independently computed warmed two-command medians are
+107.225416518, 148.882353461 and 143.016075181 seconds, respectively. Both
+host-native cases remain unavailable after the actual missing
+`@remotion/cli/package.json` probe; no native production or installation is
+claimed. The current composition has 4827 frames at 18 fps, 1280 × 720,
+268.1666667 seconds and nine original WAV scenes. Detailed cold/warm samples,
+stage/byte medians, tool versions and measurement limits are in the
+[encoder journal](../journal/2026/10/2026-10-11-phase-71.7-encoder-comparison.md#2026-10-12-p717-03-corrected-current-comparison-factual-checkpoint).
+
+All 24 direct/final movies passed retained native full-AV decode, presented AV
+ends within one 48 kHz sample, nine-source waveform correspondence and all 36
+opaque final-card-frame gates. Actual browser receipts cover 21 muted technical
+tail EOFs and three warm03 final full audible 1× plays from zero; tail playback
+does not establish full listening. The current user separately answered
+“3本とも自然に聞こえた” for these three comparison cases. This does not repeat
+or replace earlier JA/EN hearing. Parent viewing covered all 24 last frames,
+36 chronological final snapshots and three contact sheets: selected content,
+cards and credits were complete, readable and in bounds. Baseline/software text
+edges showed more compression/jaggedness than hardware. Unequal CRF32/default2M
+settings, overlapping baseline callbacks, observer overhead, filesystem-mtime
+wall estimates and unsuppressed VideoToolbox color-range/filter diagnostics
+remain limitations; no matched quality, exhaustive perceptual score or speedup
+threshold is claimed.
+
+The player script exited 0 with readiness/clients/cleanup true, its owned process
+group gone and loopback endpoint closed. Its original supervisor exited 1 and
+remains incomplete because the parent declared runner-written
+`player-native01.json` as a script output before the runner could save it.
+`P71703-CARD02-PLAYER-PARENT-OUTPUT-ORDER-01` remains unwaived; original request,
+native and execution records are preserved. Current aggregation uses existing
+receipts/native/human/visual evidence without replay or promotion of that
+original admission. Summary exited 0 with complete original preparation,
+submission and terminal records. Its earlier two-finding diagnostic list is
+historical, not an exhaustive current ledger. All prior cold/warm preparation,
+native-record, transcription and disclosure gaps remain for whole-Step assessment.
+
+P717-01/02 remain CLOSED. P717-03 remains IN-PROGRESS with its three duties
+unchecked until independent whole-Step review and exact local acceptance commit.
+P717-04 remains OPEN and Phase 71.7 remains IN-PROGRESS. The original full Goal,
+bases, PLAN epoch, review ledger revision 7/five reviews and repair counts remain
+unchanged. Consolidated repository-full validation/runtime export, the
+original-epoch comprehensive Phase review and distinct release commit remain
+mandatory. No public deployment, publication or push is claimed. Earlier dated
+history is preserved.
+
+## 2026-10-12 P717-03 Step acceptance and closure basis
+
+The actual protected-focused independent whole-Step review by
+`/root/phase717_s03_independent_review01` sealed PASS: zero Current Phase
+Blockers, three nonblocking Hygiene records and zero Development Candidates.
+The typed review `p717-03-step-review-20261012-01@1` is recorded and read back
+by the parent in review ledger revision 8. It accepts all three original duties
+in the P717-03 checklist above. This parent-authorized M0 projection follows
+that review; the exact seven-path local Step acceptance commit supplies the
+closure basis subject to actual native Git readback. No completed commit
+execution or new commit SHA is claimed here.
+
+The [current factual comparison](../journal/2026/10/2026-10-11-phase-71.7-encoder-comparison.md#2026-10-12-p717-03-corrected-current-comparison-factual-checkpoint)
+records three supported cases, each with one cold and three warmed runs,
+24 outputs and two unavailable host-native cases. The accepted evidence includes
+the native 120-held-frame specification at 12/18/30 fps, 44 focused passes,
+zero failures, one existing optional native cancellation and runtime classpath
+export, current 24-output native media/browser observations and the separate
+user response “3本とも自然に聞こえた”. The cancellation supplies no native
+coverage. Unequal quality settings, timing limits and hardware diagnostics
+remain as recorded, without quality equivalence or a required speedup.
+
+The original supervisor remains exit 1/incomplete and the original standalone
+verification record remains unavailable. Earlier missing native records,
+failed samples, transcription and disclosure violations remain preserved and
+unwaived. PASS accepts separately admitted actual duties and does not promote
+the original execution-record admissions or reconstruct missing records.
+Earlier dated pending notes remain chronological history.
+
+These three accepted nonblocking records remain typed pending for original
+Phase journal materialization before release:
+
+- `HYG-P717-03-BENCHMARK-EVIDENCE-PROCEDURE-001`
+- `HYG-P717-03-RENDER-TEMPLATE-COHESION-001`
+- `HYG-P717-03-REMOTION-SPEC-STRUCTURE-001`
+
+P717-01/02/03 acceptance is CLOSED. P717-04 remains OPEN with all four duties
+unchecked, and Phase 71.7 remains IN-PROGRESS. The original full Goal,
+authority, binding and PLAN epoch remain unchanged; Step 0, Phase 0,
+pre-review 3 and nonconverging 0 repair accounting is preserved. Consolidated
+repository-full validation, required release runtime export, original-epoch
+comprehensive Phase review and the distinct release commit remain required.
+This Step projection does not close the Phase or claim public operations.

@@ -922,3 +922,47 @@ remain OPEN.
 S12's prepared 34-scene native generation, final assembly, inspection, visible
 unmuted playback, actual hearing, correct end card and player EOF remain OPEN.
 Focused specifications do not supply native, Step or Phase acceptance.
+
+## 2026-10-11 Phase 71.7 classic Remotion opaque final-card hold amendment
+
+Authority: [Phase 71.7](../phase/phase-71.7.md), `P717-03`,
+`P71703-QA-CARD-START-01`. For the classic Remotion producer,
+`timing.finalPageStartFrame` denotes the start of the fully opaque final-card
+hold. Every one of the declared `timing.finalPageHoldFrames` MUST show the
+opaque card, from that start through `timing.totalFrames - 1`.
+
+The `end-card` profile's `fade-rise` transition occurs before the declared
+hold, within the bounded preceding interval:
+
+```text
+transitionFrames = min(max(0, finalPageStartFrame), ceil(fps * 0.45))
+sequenceStart = finalPageStartFrame - transitionFrames
+sequenceFrames = finalPageHoldFrames + transitionFrames
+```
+
+At the declared hold start the transition has reached opacity 1. A zero
+start means an immediately opaque card, with no zero-range interpolation.
+The preceding authored sequence retains its full duration, while the final-card
+transition overlays its last bounded interval. Summary or credit pixels within
+that overlap are therefore not promised to remain fully unobscured.
+
+The two-second end-card hold, composition total, scene and audio positions,
+summary and credit frame counts, public profiles and emitted props retain their
+existing contracts. This amendment applies only to the classic Remotion
+producer; the other renderer templates retain their existing behavior.
+
+The [CozyVideoRemotionIntegrationSpec](../../src/test/scala/cozy/video/CozyVideoRemotionIntegrationSpec.scala)
+scenario “keep every declared final-card hold frame fully visible with the real
+toolchain” specifies three finite native witnesses: 12 fps with a predecessor
+shorter than the nominal transition, 18 fps with a separate five-second summary
+hold, and 30 fps with an included one-second credit hold. Actual `ffprobe`
+readback checks the exact video frame count, dimensions and frame rate. Actual
+`ffmpeg` decoding includes every declared final-card hold frame, including the
+first, and checks the opaque green fixture card in each frame. The existing
+[CozyVideoMediaEndingSpec](../../src/test/scala/cozy/video/CozyVideoMediaEndingSpec.scala)
+continues to specify separate common-end, audio-tail and assembly behavior.
+Native Remotion specifications require explicit
+`-Dcozy.video.remotion.integration=true` enablement and the actual cached
+toolchain; they do not substitute for listening or player EOF acceptance.
+This amendment records the contract and regression, with no validation, Step
+or Phase completion claim.
