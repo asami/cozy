@@ -1,7 +1,7 @@
 # Joint video and audio quality profiles
 
-Status: PHASE-71.8 / P718-01 contract accepted, 2026-10-12; exact local
-Step commit pending. Picture selection and compatibility semantics are frozen.
+Status: PHASE-71.8 / P718-01 accepted and locally committed, 2026-10-12.
+Picture selection and compatibility semantics are frozen.
 Audio defaults below have current JA/EN listening acceptance, recorded in
 [Phase 71.8](../phase/phase-71.8.md#p718-01-acceptance-evidence).
 Executable contract:
@@ -86,12 +86,78 @@ and rejects operating video bitrate.
 
 ## Route and acceptance boundaries
 
-P718-01 resolves accepted profile audio; existing routes still use AAC320 until
-P718-02 propagates it through native/mixed encoding, Docker Remotion mux,
-final assembly and observations. Propagation preserves lossless intermediate
+P718-02 is IN_PROGRESS. Its executable route contract is
+[CozyVideoQualityRouteSpec](../../src/test/scala/cozy/video/CozyVideoQualityRouteSpec.scala),
+with Storyboard roundtrip contracts in CozyVideoStoryboardReviewSpec and
+CozyVideoStoryboardBuildSpec. Native/mixed encoding, Docker Remotion mux and
+final assembly consume resolved audio. Propagation preserves lossless intermediate
 inputs, one final AAC encode, 48 kHz stereo, rational sample ending and complete
 scene/end-card timing. Final assembly must not restore fixed320k after a
 lower-bitrate direct render.
+
+P718-02 explicitly supersedes the undated fixed320k stitcher and final-assembly
+bitrate statements in the Storyboard
+[MP4 audio presentation and final assembly contract](video-storyboard.md#mp4-audio-presentation-and-final-assembly).
+For resolved joint selections, direct encoding, Remotion stitcher and final
+assembly use the selected `audioBitrate`. Historical320k remains only for the
+legacy-policy selection, missing legacy props and old internal helper
+construction compatibility cases specified here. The lossless PCM, single
+final AAC encode, cutoff, channels, sample rate and ending contracts continue
+to apply; dated predecessor history remains historical evidence.
+
+### Generated joint observations and legacy inputs
+
+Project, part, RDF and Storyboard mode `encoding` objects retain the six keys
+`policy`, `fps`, `width`, `height`, `crf`, `x264Preset` and append
+`qualityProfile`, normalized `audioBitrate`, and lexically sorted `origins`.
+Remotion props and the review manifest renderer instead retain `encodingPolicy`
+and use `encodingOrigins`. Simple-java2d props append canonical profile, audio
+and origins without changing their existing still-image dimensions.
+External encoder diagnostics record these selected fields alongside actual argv
+and exit; a Docker renderMedia invocation does not acquire invented FFmpeg argv.
+
+Inspect and build dry-run show `qualityProfile`, `encodingAudioBitrate` and
+sorted `encodingOrigin.<field>: <source>` lines. RDF adds `qualityProfile`,
+`audioBitrate` and `encodingOriginQualityProfile`, `encodingOriginFps`,
+`encodingOriginWidth`, `encodingOriginHeight`, `encodingOriginCrf`,
+`encodingOriginX264Preset`, `encodingOriginAudioBitrate` predicates while
+retaining historical policy triples. These are resolved encoding intent, not
+measured bitrates or proof of native execution.
+
+Native and generated Node audio adapters validate every present canonical token
+even with an explicit audio override. Canonical props require audioBitrate;
+supplied audio validates even without canonical props. Both fields absent means
+historical320k. Explicit null or malformed audio never means omission. Node
+string parsing uses positive signed64 bounds with BigInt and accepts positive
+integral safe JSON numbers, rejecting numbers that JavaScript cannot represent
+exactly. Selection is one argv value without shell parsing.
+
+Review inputs retain six-field error precedence. Presence of any joint field
+requires all three fields to equal current canonical/audio/origin intent.
+Missing-all joint fields is compatible only with original policy selection and
+legacy-policy320k audio, or old internal construction with empty origins and
+320k. Default/canonical plans and explicit audio overrides require current joint
+evidence, including explicit320k. Publication metadata also validates all three
+when any is supplied: exact canonical token, already normalized audio string,
+and exactly the seven known origin keys with default/legacy-policy/quality-profile/
+explicit values. Old six-field publication records pass through without
+fabricated audio/origins or measured-media claims.
+
+Authored Document Project and Storyboard renderer records preserve optional
+qualityProfile/audioBitrate only when supplied, without new null placeholders.
+Storyboard review still requires all nine historical renderer fields. The two
+new fields are optional but every supplied value is retained and validated;
+invalid optional fields cannot disappear as arbitrary extra metadata.
+
+Multi-part narrated assembly independently decodes each input to PCM, allocates
+cumulative rational sample floors, copies video and concatenates PCM before one
+selected-rate AAC encode with cutoff18000, stereo48k and movie_timescale48000.
+Single-part and video-only paths retain stream copy. Old package helper calls
+retain default320k. Direct frame encoding retains all N frames, full sample
+trim, video timescale and final card; simple-java2d retains its existing
+shortest/timing ownership with explicit selected audio, stereo48k and cutoff.
+Implementation and local fixture execution do not establish Step acceptance;
+parent validation and independent review remain outstanding.
 
 The test-only managed helper
 [compare-video-quality-audio.py](../../scripts/test/compare-video-quality-audio.py)

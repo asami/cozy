@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Oct. 10, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyVideoMixedRenderSpec {
@@ -123,7 +123,7 @@ final class CozyVideoMixedRenderSpec extends AnyWordSpec with Matchers with Give
           encoder should contain("yuv420p")
           encoder should contain("21")
           encoder should contain("fast")
-          encoder should contain("320k")
+          encoder should contain("128k")
           encoder should contain("18000")
           encoder should not contain "-shortest"
           val props = runner.compositions.head

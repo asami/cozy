@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoReviewEvidence {
@@ -244,14 +244,7 @@ private[cozy] trait CozyVideoReviewEvidence {
         "path" -> Json.fromString(videomanifest.toString),
         "status" -> Json.fromString("validated")
       ),
-      "renderer" -> Json.obj(
-        "encodingPolicy" -> Json.fromString(renderer.policy.name),
-        "fps" -> Json.fromInt(renderer.fps),
-        "width" -> Json.fromInt(renderer.width),
-        "height" -> Json.fromInt(renderer.height),
-        "crf" -> Json.fromInt(renderer.crf),
-        "x264Preset" -> renderer.x264Preset.map(Json.fromString).getOrElse(Json.Null)
-      ),
+      "renderer" -> CozyVideoQuality.encodingJson(renderer, "encodingPolicy", "encodingOrigins"),
       "frames" -> Json.fromValues(topframejson),
       "parts" -> Json.fromValues(partjson)
     )
@@ -530,6 +523,19 @@ private[cozy] trait CozyVideoReviewEvidence {
     fields.foreach { case (field, expected) =>
       if (json.hcursor.downField(field).focus != Some(expected))
         RAISE.invalidArgumentFault(s"$field does not match planned effective encoding in $label.")
+    }
+    val originsfield = if (policyfield == "encodingPolicy") "encodingOrigins" else "origins"
+    val jointfields = Vector("qualityProfile", "audioBitrate", originsfield)
+    val supplied = jointfields.exists(field => json.hcursor.downField(field).focus.isDefined)
+    val legacy = encoding.audioBitrate == "320k" && (
+      encoding.origins.get("qualityProfile").contains("legacy-policy") &&
+        encoding.origins.get("audioBitrate").contains("legacy-policy") || encoding.origins.isEmpty)
+    if (supplied || !legacy) {
+      val expected = CozyVideoQuality.encodingJson(encoding, policyfield, originsfield)
+      jointfields.foreach { field =>
+        if (json.hcursor.downField(field).focus != expected.hcursor.downField(field).focus)
+          RAISE.invalidArgumentFault(s"$field does not match planned effective encoding in $label.")
+      }
     }
   }
 

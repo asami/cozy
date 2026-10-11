@@ -37,16 +37,17 @@ Executable is one argv element, without expansion or command splitting.
 
 PHASE-71.8 P718-01 adds the separate
 [joint quality contract](video-quality-profiles.md), with current listening and
-independent Step acceptance complete; its exact local commit remains pending.
+independent Step acceptance and exact local commit complete.
 Canonical `qualityProfile` supplies hardware defaults 1M/lightweight,
 2M/standard, 6M/quality and 12M/high-quality. Original `encodingPolicy` props
 retain historical 2M/lightweight, 6M/standard and 12M/quality meanings.
 Present canonical props are authoritative and validate even when operating
 bitrate is explicit. Video bitrate override/origin stays independent of audio.
-Resolved audio defaults have current JA/EN listening acceptance;
-route propagation, serialization and inspect observations belong to P718-02.
-The AAC320 route description below records existing producer behavior until
-that propagation; it does not describe the later route implementation.
+Resolved audio defaults have current JA/EN listening acceptance.
+P718-02 is IN_PROGRESS: native/mixed and generated Docker mux routes consume
+resolved audio and observations carry canonical/audio/seven origins under the
+[joint wire contract](video-quality-profiles.md#generated-joint-observations-and-legacy-inputs).
+The route implementation is awaiting parent validation and independent review.
 
 Encoder name is exactly `libx264` (default) or `h264_videotoolbox`.
 `video.encoder.bitrate` resolves independently of name, with its own origin.
@@ -86,7 +87,7 @@ Hardware has no CRF, preset or tune and never falls back. Hardware frame props
 require a valid qualityProfile or legacy encodingPolicy; legacy software props
 may omit both.
 Both policies use yuv420p. The frame route resamples stereo48k, pads/trims to floor(N*48000/fps),
-encodes AAC320k with cutoff18000, movie_timescale48000 and video timescale
+encodes selected-rate AAC with cutoff18000, movie_timescale48000 and video timescale
 fps*1000. No shortest truncation. Final card, last-frame duration and all scene
 timing remain the complete composition's timing. Outputs use normal overwrite
 and process/I/O behavior. Part/build diagnostics record effective selection,
@@ -99,6 +100,20 @@ hardwareRequired. That flag expresses selection intent, never proof of actual
 hardware execution. Hardware initialization failure retains actual diagnostics
 and ordinary partial outputs without retry. Build remains stream copy with
 independent probe.
+
+Generated Remotion props always include qualityProfile/audioBitrate/encodingOrigins;
+missing-all legacy props retain320k. Present canonical requires valid canonical
+and audio, with null/malformed/overflow rejected. Docker pre-stitcher audio stays
+PCM and its sole libfdk_aac stitcher uses selected audio. Multi-part narrated
+build independently decodes inputs, allocates cumulative rational sample floors,
+copies video, concatenates PCM and encodes AAC once at the root-selected rate.
+Single-part/video-only assembly keeps copy behavior. Simple-java2d uses selected
+audio, cutoff18000, ar48000/ac2 and its existing shortest/stillimage controls.
+Part/project/Storyboard/RDF/review intent records report joint selection and
+origins; external encoding records also contain actual argv. No native/Docker
+execution or measured bitrate is inferred from intent. The mandatory generated
+callback fixture in CozyVideoQualityRouteSpec uses local Node modules and proves
+callback arguments only; actual media acceptance remains P718-03.
 
 Executable contracts: CozyVideoExecutionSpec, CozyVideoMixedRenderSpec and
 CozyVideoHardwareEncodingSpec. S01 software native evidence is accepted.

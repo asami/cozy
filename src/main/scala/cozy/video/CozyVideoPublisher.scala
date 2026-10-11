@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
  * @since   Jun. 19, 2026
  *  version Jul. 20, 2026
  *  version Aug. 19, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoPublisher {
@@ -627,7 +627,9 @@ private[cozy] object CozyVideoPublisher {
       renderer.height.map("height" -> PJson.toJson(_)),
       renderer.crf.map("crf" -> PJson.toJson(_)),
       renderer.x264Preset.map("x264Preset" -> PJson.toJson(_)),
-      renderer.effectProfile.map("effectProfile" -> PJson.toJson(_))
+      renderer.effectProfile.map("effectProfile" -> PJson.toJson(_)),
+      renderer.qualityProfile.map(profile => "qualityProfile" -> PJson.toJson(profile.name)),
+      renderer.audioBitrate.map("audioBitrate" -> PJson.toJson(_))
     ).flatten)
   }
 
@@ -900,6 +902,26 @@ private[cozy] object CozyVideoPublisher {
       case None | Some(JsNull) => ()
       case Some(JsString(value)) if Set("superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo").contains(value) => ()
       case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.x264Preset is malformed: $manifest")
+    }
+    val jointfields = Set("qualityProfile", "audioBitrate", "origins")
+    if (jointfields.exists(encoding.value.contains)) {
+      encoding.value.get("qualityProfile") match {
+        case Some(JsString(value)) if CozyVideoQuality.decode(value).isDefined => ()
+        case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.qualityProfile is missing or malformed: $manifest")
+      }
+      encoding.value.get("audioBitrate") match {
+        case Some(JsString(value)) if CozyVideoQuality.normalizeAudioBitrate(CJson.fromString(value)) == Right(value) => ()
+        case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.audioBitrate is missing or malformed: $manifest")
+      }
+      val names = Set("qualityProfile", "fps", "width", "height", "crf", "x264Preset", "audioBitrate")
+      val sources = Set("default", "legacy-policy", "quality-profile", "explicit")
+      encoding.value.get("origins") match {
+        case Some(value: JsObject) if value.keys.toSet == names && value.values.forall {
+          case JsString(source) => sources.contains(source)
+          case _ => false
+        } => ()
+        case _ => RAISE.invalidArgumentFault(s"Video build manifest encoding.origins is missing or malformed: $manifest")
+      }
     }
     encoding
   }

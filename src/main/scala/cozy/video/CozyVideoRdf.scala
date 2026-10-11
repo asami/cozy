@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct.  2, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRdf {
@@ -117,11 +117,16 @@ private[cozy] trait CozyVideoRdf {
   ): Vector[Rdf.Triple] =
     Vector(
       _rdf_literal(projectid, _cv("encodingPolicy"), encoding.policy.name),
+      _rdf_literal(projectid, _cv("qualityProfile"), encoding.effectiveQualityProfile.name),
+      _rdf_literal(projectid, _cv("audioBitrate"), encoding.audioBitrate),
       _rdf_literal(projectid, _cv("fps"), encoding.fps.toString, Some(_xsd_namespace + "integer")),
       _rdf_literal(projectid, _cv("width"), encoding.width.toString, Some(_xsd_namespace + "integer")),
       _rdf_literal(projectid, _cv("height"), encoding.height.toString, Some(_xsd_namespace + "integer")),
       _rdf_literal(projectid, _cv("crf"), encoding.crf.toString, Some(_xsd_namespace + "integer"))
-    ) ++ encoding.x264Preset.toVector.map(x => _rdf_literal(projectid, _cv("x264Preset"), x))
+    ) ++ encoding.x264Preset.toVector.map(x => _rdf_literal(projectid, _cv("x264Preset"), x)) ++
+      encoding.origins.toVector.sortBy(_._1).map { case (field, source) =>
+        _rdf_literal(projectid, _cv("encodingOrigin" + field.head.toUpper + field.tail), source)
+      }
 
   private[video] def _video_profile_rdf_triples(projectid: String, plan: VideoPlan): Vector[Rdf.Triple] = {
     val profile = plan.project.profile.map(x => _rdf_literal(projectid, _cv("compositionProfile"), x)).toVector

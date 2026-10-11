@@ -15,8 +15,7 @@ import scala.collection.JavaConverters._
  * @since   Aug. 26, 2026
  *  version Aug. 28, 2026
  *  version Sep. 30, 2026
- *  version Oct.  1, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardReviewSpec
@@ -115,7 +114,9 @@ final class CozyVideoStoryboardReviewSpec
           "visualPages" -> _rows_with_("visualPages", _.mapObject(fields => fields.add("assets", fields("assets").get.mapArray(_.map(_.mapObject(_.remove("modifiedAt"))))))),
           "visualPages" -> _rows_with_("visualPages", _.mapObject(fields => fields.add("assets", fields("assets").get.mapArray(_.map(_.mapObject(_.add("mediaType", Json.True)))))))
         ) ++ configurationnames.map(name => "effectiveRenderers" -> _configuration_with_(_.mapObject(_.remove(name)))) ++
-          Vector("fps" -> Json.fromInt(0), "width" -> Json.fromInt(-1), "height" -> Json.True, "crf" -> Json.fromInt(-1), "policy" -> Json.fromString("unknown"), "x264Preset" -> Json.fromString("unknown"), "engine" -> Json.True).map { case (name, invalid) =>
+          Vector("fps" -> Json.fromInt(0), "width" -> Json.fromInt(-1), "height" -> Json.True, "crf" -> Json.fromInt(-1), "policy" -> Json.fromString("unknown"), "x264Preset" -> Json.fromString("unknown"), "engine" -> Json.True,
+            "qualityProfile" -> Json.Null, "qualityProfile" -> Json.fromString("unknown"), "audioBitrate" -> Json.Null,
+            "audioBitrate" -> Json.fromString("0k"), "audioBitrate" -> Json.fromString("9223372036854775808")).map { case (name, invalid) =>
             "effectiveRenderers" -> _configuration_with_(_.mapObject(_.add(name, invalid)))
           }
 
@@ -585,6 +586,44 @@ final class CozyVideoStoryboardReviewSpec
       Then("equivalent normalized Storyboard inputs generate deterministic evidence bytes")
       withClue(s"ScalaCheck status=${result.status}, succeeded=${result.succeeded}, discarded=${result.discarded}") {
         result.passed shouldBe true
+      }
+    }
+  }
+
+  "Joint quality renderer review records" should {
+    "retain optional canonical and audio fields through v2 serialization and currentness admission" in {
+      Given("each canonical tier authored in a v2 project with a normalized independent audio override")
+      CozyVideoQuality.values.foreach { profile =>
+        _with_temp_dir("joint-renderer") { root =>
+          val storyboard = _v2_storyboard()
+          val source = _write_storyboard(root, storyboard)
+          val material = _write_visual_page_material(root)
+          val authored = Json.obj("engine" -> Json.fromString("remotion"), "qualityProfile" -> Json.fromString(profile.name),
+            "audioBitrate" -> Json.fromString(" 160k "))
+          val project = _write_v2_project(root, source, storyboard, material.binding, "obsolete", renderer = Some(authored))
+          When("public review evidence serializes the renderer and public currentness validates it")
+          val generated = CozyVideo.storyboardReviewEvidence(CozyVideo.StoryboardReviewConfig(project, root.resolve("target/cozy-video/v2-review")))
+          val current = CozyVideo.storyboardReviewCurrent(project)
+          val evidence = parser.parse(Files.readString(generated.evidencePath, StandardCharsets.UTF_8)).toOption.get
+          val handoff = parser.parse(Files.readString(generated.handoffPath, StandardCharsets.UTF_8)).toOption.get
+          Then("both records retain all nine historical keys and the two supplied strict fields without null placeholders")
+          Vector(evidence, handoff).foreach { record =>
+            val configuration = record.hcursor.downField("effectiveRenderers").downArray.downField("configuration").focus.get
+            configuration.asObject.get.keys.toSet shouldBe Set("engine", "strategy", "policy", "fps", "width", "height", "crf", "x264Preset", "effectProfile", "qualityProfile", "audioBitrate")
+            configuration.hcursor.get[String]("qualityProfile").toOption shouldBe Some(profile.name)
+            configuration.hcursor.get[String]("audioBitrate").toOption shouldBe Some("160k")
+            configuration.as[CozyVideo.VideoRenderer].toOption.get.audioBitrate shouldBe Some("160k")
+          }
+          current.evidencePath shouldBe generated.evidencePath
+          Given("the supplied audio observation contains a malformed zero bitrate")
+          val changed = evidence.mapObject(fields => fields.add("effectiveRenderers", fields("effectiveRenderers").get.mapArray(_.map(row =>
+            row.mapObject(values => values.add("configuration", values("configuration").get.mapObject(_.add("audioBitrate", Json.fromString("0k")))))))))
+          Files.writeString(generated.evidencePath, changed.noSpaces, StandardCharsets.UTF_8)
+          When("public currentness structurally validates the supplied known optional field")
+          val error = intercept[Exception](CozyVideo.storyboardReviewCurrent(project))
+          Then("the malformed audio is rejected instead of disappearing as arbitrary metadata")
+          error.getMessage should not be empty
+        }
       }
     }
   }

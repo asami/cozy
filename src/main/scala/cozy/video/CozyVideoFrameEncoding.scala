@@ -10,7 +10,7 @@ import CozyVideoTools.VideoExecutionConfig
 /** Ordinary schema/I/O admission for the renderer-to-encoder handoff. */
 /*
  * @since   Oct. 10, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoFrameEncoding {
@@ -75,12 +75,13 @@ private[cozy] object CozyVideoFrameEncoding {
     Files.writeString(list, rows.mkString("", "\n", s"\nfile '$last'\n"), StandardCharsets.UTF_8)
     val samples = BigInt(handoff.frameCount) * 48000 / handoff.fps
     val encoder = CozyVideoEncoder.fromProps(execution, props)
+    val audiobitrate = CozyVideoQuality.audioBitrateFromProps(props).fold(RAISE.invalidArgumentFault(_), identity)
     val args = Vector("-y", "-f", "concat", "-safe", "0", "-r", handoff.fps.toString, "-i", runtime._execution_path(projectRoot, execution, list),
       "-i", runtime._execution_path(projectRoot, execution, handoff.audioPath),
       "-map", "0:v:0", "-map", "1:a:0", "-r", handoff.fps.toString, "-frames:v", handoff.frameCount.toString
       ) ++ encoder.arguments ++ Vector(
       "-pix_fmt", "yuv420p", "-af", s"aresample=48000:first_pts=0,apad,atrim=end_sample=$samples,asetpts=PTS-STARTPTS",
-      "-ar", "48000", "-ac", "2", "-c:a", "aac", "-b:a", "320k", "-cutoff", "18000",
+      "-ar", "48000", "-ac", "2", "-c:a", "aac", "-b:a", audiobitrate, "-cutoff", "18000",
       "-movie_timescale", "48000", "-video_track_timescale", (handoff.fps * 1000L).toString,
       "-movflags", "+faststart", runtime._execution_path(projectRoot, execution, output))
     runtime._execution_command(projectRoot, execution, "ffmpeg", args,

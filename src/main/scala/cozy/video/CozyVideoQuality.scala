@@ -73,6 +73,40 @@ private[cozy] object CozyVideoQuality {
 
   def decode(value: String): Option[Profile] = values.find(_.name == value)
 
+  def encodingJson(
+    encoding: ResolvedEncodingSettings,
+    policyField: String = "policy",
+    originsField: String = "origins"
+  ): Json = Json.obj(
+    policyField -> Json.fromString(encoding.policy.name),
+    "fps" -> Json.fromInt(encoding.fps),
+    "width" -> Json.fromInt(encoding.width),
+    "height" -> Json.fromInt(encoding.height),
+    "crf" -> Json.fromInt(encoding.crf),
+    "x264Preset" -> encoding.x264Preset.map(Json.fromString).getOrElse(Json.Null),
+    "qualityProfile" -> Json.fromString(encoding.effectiveQualityProfile.name),
+    "audioBitrate" -> Json.fromString(encoding.audioBitrate),
+    originsField -> Json.fromFields(encoding.origins.toVector.sortBy(_._1).map { case (field, source) =>
+      field -> Json.fromString(source)
+    })
+  )
+
+  def audioBitrateFromProps(props: Json): Either[String, String] = {
+    val cursor = props.hcursor
+    val profile = cursor.downField("qualityProfile").focus
+    val admitted = profile match {
+      case None => Right(())
+      case Some(value) => value.asString.flatMap(decode).map(_ => ()).toRight("Invalid qualityProfile in encoding props")
+    }
+    admitted.flatMap { _ =>
+      cursor.downField("audioBitrate").focus match {
+        case Some(value) => normalizeAudioBitrate(value)
+        case None if profile.isDefined => Left("Canonical encoding props require audioBitrate")
+        case None => Right("320k")
+      }
+    }
+  }
+
   def fromLegacy(policy: VideoEncodingPolicy): Profile = policy match {
     case VideoEncodingPolicy.Lightweight => Standard
     case VideoEncodingPolicy.Standard => Quality

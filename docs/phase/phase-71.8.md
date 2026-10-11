@@ -5,7 +5,7 @@ depends_on=phase-71.7.md
 execution_priority=after_phase_71.7_closure
 validation_ownership=standalone
 
-Status: IN_PROGRESS; P718-01 validation, listening and independent review accepted; local Step commit pending
+Status: IN_PROGRESS; P718-01 CLOSED; P718-02 acceptance PASS, local commit pending
 Planned at: 2026-10-11
 Started at: 2026-10-12
 Primary owner: Cozy
@@ -26,7 +26,7 @@ existing explanation/dialogue presentation profiles and tool/encoder choice.
 The historical policy carrier for the default picture is `lightweight`. The user
 explicitly selected new `standard` as the Phase71.8 default, retaining the
 current default picture settings:18fps,1280×720,CRF32. The new practice
-`lightweight` profile requires explicit selection. Audio currently uses fixed AAC320k encoding;
+`lightweight` profile requires explicit selection. P718-02 propagates selected AAC bitrate;
 joint-profile audio values now have current JA/EN listening acceptance. Specify migration of
 existing named selections and overrides before implementation so their intended
 quality is not silently changed by the shift in names.
@@ -40,8 +40,8 @@ its acceptance scope remain intact.
 
 ## P718-01: Profile contract and executable specifications
 
-Status: IN_PROGRESS; implementation, validation, current listening and independent
-Step review accepted, exact local Step commit pending. Frozen contract and implementation are bound to
+Status: CLOSED on 2026-10-12; implementation, validation, current listening,
+independent Step review and exact local commit complete. Frozen contract and implementation are bound to
 `p718-01-qcontract-implementation01@1`. See
 [quality specification](../spec/video-quality-profiles.md),
 [resolution design](../design/video-quality-profiles.md) and
@@ -94,10 +94,34 @@ Step review `p718-01-independent-step-review01@1` returned PASS with no blockers
 typed ledger `p718-review-ledger-20261012-01@2` was saved and read back. Existing
 Publisher/specification size debt remains in HYG-P71.2-007/HYG-P71.2-002, and
 the prior Model size follow-up remains open; no maintenance split is admitted.
-P718-01's exact local commit is the remaining acceptance duty. P718-02,
-P718-03, full Phase review and final validation/release remain outstanding.
+P718-01's exact local commit succeeded as
+`1581c8d389dd036cf1717533d69f62c7e28a0114`, containing the ten owned files.
+This completed Step does not close the Phase. P718-02, P718-03, full Phase
+review and final validation/release remain outstanding.
 
 ## P718-02: Shared resolution across encoding routes
+
+Status: IN_PROGRESS; implementation and independent acceptance PASS under
+`p718-02-routes-implementation01@1`; exact local Step commit pending.
+The [route specification](../../src/test/scala/cozy/video/CozyVideoQualityRouteSpec.scala)
+covers native/mixed commands, executed generated Node mux callbacks, normal and
+Storyboard assembly, joint observations, legacy review evidence and publication
+metadata admission. Storyboard review/build specifications cover optional
+authored renderer serialization and strict supplied-field validation.
+The registered serialized runner passed18/18 route specifications and228/228
+accumulator specifications across ten suites, with SBT/wrapper exit0 and
+terminal lock release. Independent Step review found two bounded issues:
+legacy Storyboard final-manifest admission and an undated fixed320k statement.
+Their three-path repair and same-cycle fixture correction were validated;
+focused independent review `p718-02-focused-step-review-fix04-01@1` returned PASS,
+resolving both issues with no new blocker. Typed ledger
+`p718-review-ledger-20261012-01@6` was saved and read back.
+All four repair cycles and the earlier failed results remain recorded.
+The exact local Step commit remains pending; this record does not claim it
+has succeeded. Completing that commit establishes P718-02 closure.
+Generated Node callbacks and injected media runners establish the affected
+route behavior, not actual Docker media, perceptual quality or practice speed.
+P718-03 and the standalone Phase review/validation/release duties remain open.
 
 Make the native/mixed frame encoder, Docker Remotion audio mux and final
 assembly consume the same resolved audio quality settings. The final build
@@ -136,6 +160,10 @@ do not claim 71.7's earlier suite validates later71.8 implementation changes.
 
 Parent-selected representative validation is `testOnly cozy.video.CozyVideoQualityProfileSpec`.
 The focused accumulator is `testOnly cozy.video.CozyVideoSpec cozy.video.CozyVideoHardwareEncodingSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoScaffoldSpec cozy.video.CozyVideoCompatibilitySpec`.
+P718-02's representative is `testOnly cozy.video.CozyVideoQualityRouteSpec`.
+Its accumulator is `testOnly cozy.video.CozyVideoQualityProfileSpec cozy.video.CozyVideoSpec cozy.video.CozyVideoMixedRenderSpec cozy.video.CozyVideoHardwareEncodingSpec cozy.video.CozyVideoAssemblyAudioSpec cozy.video.CozyVideoStoryboardReviewSpec cozy.video.CozyVideoStoryboardBuildSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoScaffoldSpec cozy.video.CozyVideoCompatibilitySpec`.
+The route suite requires Node from PATH or the `cozy.video.quality.node` property;
+missing Node fails explicitly rather than cancelling required specifications.
 All SBT runs use the registered runner and shared serial wrapper with scoped
 permission and terminal lock-release evidence. P718-01 acceptance additionally
 requires current retained lossless JA/EN comparison, full decode, actual bytes

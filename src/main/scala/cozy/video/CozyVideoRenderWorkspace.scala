@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Sep. 16, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoRenderWorkspace {
@@ -520,6 +520,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
     val outputargs = Vector(
       "-c:a",
       "aac",
+      "-b:a", encoding.audioBitrate, "-cutoff", "18000", "-ar", "48000", "-ac", "2",
       "-shortest",
       "-pix_fmt",
       "yuv420p",
@@ -562,7 +563,10 @@ private[cozy] trait CozyVideoRenderWorkspace {
         "frameCount" -> Json.fromInt(handoff.frameCount), "audioPath" -> Json.fromString(handoff.audioPath.toString),
         "outputPath" -> Json.fromString(part.outputPath.toString), "selection" -> execution.selected("ffmpeg").toJson,
         "encoder" -> Json.fromString(execution.encoderName),
-        "effectiveEncoder" -> CozyVideoEncoder.fromProps(execution, props).toJson)
+        "effectiveEncoder" -> CozyVideoEncoder.fromProps(execution, props).toJson,
+        "qualityProfile" -> props.hcursor.downField("qualityProfile").focus.getOrElse(Json.Null),
+        "audioBitrate" -> Json.fromString(CozyVideoQuality.audioBitrateFromProps(props).fold(RAISE.invalidArgumentFault(_), identity)),
+        "encodingOrigins" -> props.hcursor.downField("encodingOrigins").focus.getOrElse(Json.obj()))
       Files.writeString(workdir.resolve("encoding-result.json"), evidence.spaces2, StandardCharsets.UTF_8)
       if (!encoded.isSuccess) RAISE.invalidArgumentFault(s"Selected FFmpeg frame encoding failed for ${part.id}: ${encoded.text}")
       evidence
@@ -594,6 +598,7 @@ private[cozy] trait CozyVideoRenderWorkspace {
       "toolMode" -> Json.fromString(plan.execution.toolMode.label),
       "dockerImage" -> Json.fromString(plan.execution.dockerImage),
       "effectiveTools" -> plan.execution.effectiveToolsJson,
+      "encoding" -> CozyVideoQuality.encodingJson(plan.encoding),
       workdirfield -> Json.fromString(workdir.toString)
     ) ++ extra
     val json = Json.obj(fields: _*)

@@ -28,7 +28,7 @@ import scala.util.control.NonFatal
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
  *  version Sep. 29, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -193,6 +193,9 @@ private[cozy] trait CozyVideoRenderTemplates {
       "title" -> Json.fromString(plan.project.title.orElse(script.title).getOrElse(part.id)),
       "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, part.outputPath)),
       "encodingPolicy" -> Json.fromString(encoding.policy.name),
+      "qualityProfile" -> Json.fromString(encoding.effectiveQualityProfile.name),
+      "audioBitrate" -> Json.fromString(encoding.audioBitrate),
+      "encodingOrigins" -> CozyVideoQuality.encodingJson(encoding).hcursor.downField("origins").focus.get,
       "fps" -> Json.fromInt(fps),
       "width" -> Json.fromInt(width),
       "height" -> Json.fromInt(height),
@@ -259,6 +262,9 @@ private[cozy] trait CozyVideoRenderTemplates {
       "text" -> Json.fromString(text),
       "sceneCount" -> Json.fromInt(script.expandedScenes.size),
       "estimatedDuration" -> Json.fromDoubleOrNull(script.estimatedDuration),
+      "qualityProfile" -> Json.fromString(plan.encoding.effectiveQualityProfile.name),
+      "audioBitrate" -> Json.fromString(plan.encoding.audioBitrate),
+      "encodingOrigins" -> CozyVideoQuality.encodingJson(plan.encoding).hcursor.downField("origins").focus.get,
       "width" -> Json.fromInt(1280),
       "height" -> Json.fromInt(720),
       "framePath" -> Json.fromString(workdir.resolve("frame.png").toString),
@@ -340,6 +346,25 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const projectRoot = process.env.COZY_PROJECT_ROOT || process.cwd();
       |const propsPath = path.join(workDir, 'props.json');
       |const props = JSON.parse(fs.readFileSync(propsPath, 'utf8'));
+      |const hasProfile = Object.hasOwn(props, 'qualityProfile');
+      |if (hasProfile && !['lightweight', 'standard', 'quality', 'high-quality'].includes(props.qualityProfile)) {
+      |  throw new Error('Invalid qualityProfile in encoding props');
+      |}
+      |const normalizeAudioBitrate = (value) => {
+      |  if (typeof value === 'number') {
+      |    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('audioBitrate must be a positive safe integer');
+      |    return String(value);
+      |  }
+      |  if (typeof value !== 'string') throw new Error('audioBitrate must be a positive integer or bitrate string');
+      |  const trimmed = value.trim();
+      |  const match = /^([1-9][0-9]*)([kM]?)$/.exec(trimmed);
+      |  if (!match) throw new Error('Invalid audioBitrate in encoding props');
+      |  const scaled = BigInt(match[1]) * (match[2] === 'k' ? 1000n : match[2] === 'M' ? 1000000n : 1n);
+      |  if (scaled <= 0n || scaled > 9223372036854775807n) throw new Error('audioBitrate must fit a positive signed 64-bit value');
+      |  return trimmed;
+      |};
+      |if (hasProfile && !Object.hasOwn(props, 'audioBitrate')) throw new Error('Canonical encoding props require audioBitrate');
+      |const audioBitrate = Object.hasOwn(props, 'audioBitrate') ? normalizeAudioBitrate(props.audioBitrate) : '320k';
       |const entry = path.join(scriptDir, 'Root.tsx');
       |const publicDir = path.join(workDir, 'public');
       |const output = path.resolve(projectRoot, props.outputPath);
@@ -368,7 +393,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |    if (result[audio + 1] !== 'copy' || result.lastIndexOf('-c:a') !== audio) {
       |      throw new Error('Cozy PCM mux expected one stitcher -c:a copy pair; rerender using the configured PCM audio codec');
       |    }
-      |    result.splice(audio, 2, '-c:a', 'libfdk_aac', '-b:a', '320k', '-cutoff', '18000', '-ar', '48000', '-ac', '2');
+      |    result.splice(audio, 2, '-c:a', 'libfdk_aac', '-b:a', audioBitrate, '-cutoff', '18000', '-ar', '48000', '-ac', '2');
       |    result.splice(result.length - 1, 0, '-af', `apad,atrim=end_sample=${samples},asetpts=PTS-STARTPTS`);
       |  }
       |  result.splice(result.length - 1, 0, '-movie_timescale', '48000', '-f', 'mp4');

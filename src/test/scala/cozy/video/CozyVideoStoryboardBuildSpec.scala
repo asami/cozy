@@ -9,7 +9,7 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Oct.  2, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardBuildSpec
@@ -370,6 +370,30 @@ final class CozyVideoStoryboardBuildSpec
         Then("the collision is rejected before any generated Storyboard handoff path exists")
         failure.getMessage should include("Duplicate effective video part id: part-02")
         Files.exists(root.resolve("target/cozy-video")) shouldBe false
+      }
+    }
+  }
+
+  "Storyboard joint quality planning" should {
+    "retain authored canonical and audio selection in the projected public build plan" in {
+      Given("a native Storyboard with a practice quality tier and an independent trimmed audio override")
+      _with_temp_dir("joint-quality") { root =>
+        Files.writeString(root.resolve("storyboard.md"), CozyVideo.canonicalStoryboardMarkdown(_storyboard()), StandardCharsets.UTF_8)
+        val project = _write_project(root, "storyboard.md", configuration =
+          "\"renderer\": {\"engine\": \"remotion\", \"qualityProfile\": \"lightweight\", \"audioBitrate\": \" 160k \"},\n")
+        When("public inspect and confirmation dry-run interpret the projected Storyboard")
+        val inspection = CozyVideo.inspect(CozyVideo.InspectConfig(project, checkTools = false), CozyVideo.VideoToolRegistry(Vector.empty))
+        val dryrun = CozyVideo.build(CozyVideo.BuildConfig(project, dryRun = true, checkTools = false, mode = Some("confirmation")), CozyVideo.VideoToolRegistry(Vector.empty))
+        Then("the same root selection supplies both presentations while Storyboard content remains projected")
+        Vector(inspection, dryrun).foreach { text =>
+          text should include("qualityProfile: lightweight")
+          text should include("encodingAudioBitrate: 160k")
+          text should include("encodingOrigin.audioBitrate: explicit")
+        }
+        val plan = CozyVideoImplementation._plan(project, None, None)
+        plan.project.renderer.get.qualityProfile shouldBe Some(CozyVideoQuality.Lightweight)
+        plan.project.renderer.get.audioBitrate shouldBe Some("160k")
+        plan.parts.head.script.get.scenes should have size 2
       }
     }
   }

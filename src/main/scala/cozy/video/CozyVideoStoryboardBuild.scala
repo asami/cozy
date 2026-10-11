@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoStoryboardBuild {
@@ -239,14 +239,7 @@ private[cozy] trait CozyVideoStoryboardBuild {
     })
 
   private def _storyboard_encoding_json(encoding: ResolvedEncodingSettings): Json =
-    Json.obj(
-      "policy" -> Json.fromString(encoding.policy.name),
-      "fps" -> Json.fromInt(encoding.fps),
-      "width" -> Json.fromInt(encoding.width),
-      "height" -> Json.fromInt(encoding.height),
-      "crf" -> Json.fromInt(encoding.crf),
-      "x264Preset" -> encoding.x264Preset.map(Json.fromString).getOrElse(Json.Null)
-    )
+    CozyVideoQuality.encodingJson(encoding)
 
   private def _storyboard_renderers_json(plan: VideoPlan): Json =
     Json.obj(
@@ -276,7 +269,10 @@ private[cozy] trait CozyVideoStoryboardBuild {
           "crf" -> value.crf.map(Json.fromInt).getOrElse(Json.Null),
           "x264Preset" -> value.x264Preset.map(Json.fromString).getOrElse(Json.Null),
           "effectProfile" -> value.effectProfile.map(Json.fromString).getOrElse(Json.Null)
-        )
+        ).deepMerge(Json.fromFields(Vector(
+          value.qualityProfile.map(profile => "qualityProfile" -> Json.fromString(profile.name)),
+          value.audioBitrate.map(bitrate => "audioBitrate" -> Json.fromString(bitrate))
+        ).flatten))
       case None => Json.Null
     }
 
@@ -584,12 +580,31 @@ private[cozy] trait CozyVideoStoryboardBuild {
 
   private def _valid_final_records(plan: VideoPlan, mode: StoryboardBuildMode, parts: Vector[StoryboardBuildPart], manifest: Path): Boolean =
     _is_direct_nonempty_file(manifest) &&
-      _record_contains(manifest, _storyboard_mode_record(plan, mode, parts, None, includenarration = false)) &&
+      _storyboard_mode_record_valid(plan, mode, parts, manifest) &&
       _valid_stored_narration(plan, manifest, parts) &&
       parts.forall(part => _valid_handoff(plan.projectRoot, part)) &&
       plan.parts.filter(_.renderable).forall(part => _is_direct_nonempty_file(part.outputPath) &&
         _record_contains(_storyboard_part_artifact_path(plan.projectRoot, mode, part.id), _storyboard_part_artifact_record(plan.projectRoot, mode, part))) &&
       _stored_ffprobe_valid(manifest) && _credit_files_current(plan, mode)
+
+  private def _storyboard_mode_record_valid(
+    plan: VideoPlan,
+    mode: StoryboardBuildMode,
+    parts: Vector[StoryboardBuildPart],
+    manifest: Path
+  ): Boolean =
+    if (!_is_direct_nonempty_file(manifest)) false
+    else try {
+      val required = _storyboard_mode_record(plan, mode, parts, None, includenarration = false)
+        .mapObject(_.remove("encoding"))
+      parser.parse(Files.readString(manifest, StandardCharsets.UTF_8)).toOption.exists { actual =>
+        CozyVideoStoryboardRecordValidation.contains(actual, required) &&
+          actual.hcursor.downField("encoding").focus.filter(_.isObject).exists { encoding =>
+            _review_require_effective_encoding(encoding, "policy", plan.encoding, "Storyboard final manifest encoding")
+            true
+          }
+      }
+    } catch { case NonFatal(_) => false }
 
   private def _valid_stored_narration(plan: VideoPlan, manifest: Path, parts: Vector[StoryboardBuildPart]): Boolean =
     try parser.parse(Files.readString(manifest, StandardCharsets.UTF_8)).toOption.flatMap(_.hcursor.downField("narration").focus).flatMap(_.asArray).exists { entries =>
@@ -718,7 +733,7 @@ private[cozy] trait CozyVideoStoryboardBuild {
       val partoutputs = plan.parts.filter(_.renderable).map(_.outputPath)
       val concatlist = assemblywork.resolve("concat.txt")
       _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, partoutputs)
-      _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, partoutputs, mode.outputpath, runner)
+      _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, partoutputs, mode.outputpath, runner, plan.encoding)
       _require_direct_regular_file(mode.outputpath, s"Storyboard ${mode.name} output")
       val ffprobe = _ffprobe_summary(_run_build_ffprobe(plan.projectRoot, plan.execution, mode.outputpath, runner))
       _require_valid_ffprobe_summary(ffprobe, s"Storyboard ${mode.name} output")

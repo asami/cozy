@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoPresentation {
@@ -172,8 +172,10 @@ private[cozy] trait CozyVideoPresentation {
       s"encodingFps: ${encoding.fps}",
       s"encodingDimensions: ${encoding.width}x${encoding.height}",
       s"encodingCrf: ${encoding.crf}",
-      s"encodingX264Preset: ${encoding.x264Preset.getOrElse("none")}"
-    )
+      s"encodingX264Preset: ${encoding.x264Preset.getOrElse("none")}",
+      s"qualityProfile: ${encoding.effectiveQualityProfile.name}",
+      s"encodingAudioBitrate: ${encoding.audioBitrate}"
+    ) ++ encoding.origins.toVector.sortBy(_._1).map { case (field, source) => s"encodingOrigin.$field: $source" }
 
   private def _render_encoder_policy(execution: VideoExecutionConfig, encoding: ResolvedEncodingSettings): Vector[String] = {
     val effective = CozyVideoEncoder.resolve(execution, encoding)

@@ -27,7 +27,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoBuildReplay {
@@ -57,7 +57,7 @@ private[cozy] trait CozyVideoBuildReplay {
     val workspace = _assembly_workspace(plan.projectRoot)
     val concatlist = _ffmpeg_concat_list_path(workspace)
     _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, partoutputs)
-    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, partoutputs, plan.outputPath, runner)
+    _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, partoutputs, plan.outputPath, runner, plan.encoding)
     if (!Files.isRegularFile(plan.outputPath))
       RAISE.invalidArgumentFault(s"ffmpeg concat/mux did not create output: ${plan.outputPath}")
     val ffprobe = _run_build_ffprobe(plan.projectRoot, plan.execution, plan.outputPath, runner)
@@ -117,7 +117,8 @@ private[cozy] trait CozyVideoBuildReplay {
     concatlist: Path,
     executionparts: Vector[Path],
     output: Path,
-    runner: VideoProcessRunner
+    runner: VideoProcessRunner,
+    encoding: ResolvedEncodingSettings = ResolvedEncodingSettings.lightweight
   ): Unit = {
     Files.createDirectories(output.getParent)
     val timelines = if (executionparts.size > 1) executionparts.map { input =>
@@ -163,7 +164,7 @@ private[cozy] trait CozyVideoBuildReplay {
       _run_assembly_stage(projectroot, execution, runner, output, "final PCM/AAC mux", Vector(
         "-y", "-copyts", "-f", "concat", "-safe", "0", "-i", _execution_path(projectroot, execution, videolist),
         "-i", _execution_path(projectroot, execution, combined), "-map", "0:v:0", "-map", "1:a:0",
-        "-c:v", "copy", "-c:a", "aac", "-b:a", "320k", "-cutoff", "18000", "-ar", "48000", "-ac", "2",
+        "-c:v", "copy", "-c:a", "aac", "-b:a", encoding.audioBitrate, "-cutoff", "18000", "-ar", "48000", "-ac", "2",
         "-movie_timescale", "48000", "-movflags", "+faststart", _execution_path(projectroot, execution, output)))
     }
   }
@@ -330,14 +331,7 @@ private[cozy] trait CozyVideoBuildReplay {
   }
 
   private[video] def _encoding_json(encoding: ResolvedEncodingSettings): Json =
-    Json.obj(
-      "policy" -> Json.fromString(encoding.policy.name),
-      "fps" -> Json.fromInt(encoding.fps),
-      "width" -> Json.fromInt(encoding.width),
-      "height" -> Json.fromInt(encoding.height),
-      "crf" -> Json.fromInt(encoding.crf),
-      "x264Preset" -> encoding.x264Preset.map(Json.fromString).getOrElse(Json.Null)
-    )
+    CozyVideoQuality.encodingJson(encoding)
 
   private[video] def _replay_script(
     config: ReplayConfig,

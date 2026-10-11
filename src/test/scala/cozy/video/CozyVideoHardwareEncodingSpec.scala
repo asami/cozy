@@ -13,7 +13,7 @@ import CozyVideoTools.{VideoExecutionConfig, VideoToolMode}
 
 /*
  * @since   Oct. 11, 2026
- * @version Oct. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoHardwareEncodingSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -288,8 +288,8 @@ final class CozyVideoHardwareEncodingSpec extends AnyWordSpec with Matchers with
 
       "require valid hardware encodingPolicy in composition props before invoking FFmpeg" in {
         Given("hardware frame production with omitted or invalid planned encodingPolicy")
-        Vector[Json => Json](json => json.mapObject(_.remove("encodingPolicy")),
-          json => json.mapObject(_.add("encodingPolicy", Json.fromString("automatic")))).foreach { change =>
+        Vector[Json => Json](json => json.mapObject(_.remove("qualityProfile").remove("audioBitrate").remove("encodingOrigins").remove("encodingPolicy")),
+          json => json.mapObject(_.remove("qualityProfile").remove("audioBitrate").remove("encodingOrigins").add("encodingPolicy", Json.fromString("automatic")))).foreach { change =>
           _with_project { (root, _) =>
             _fixture(root)
             _hardware(root)
@@ -318,7 +318,7 @@ final class CozyVideoHardwareEncodingSpec extends AnyWordSpec with Matchers with
         baseline.commands.head should not contain "--frame-audio"
         Given("explicit software encoding and legacy props without encodingPolicy")
         _write(root.resolve(".cozy/config.json"), _operating(Json.obj("name" -> Json.fromString("libx264"))))
-        val software = new HardwareRunner(propschange = json => json.mapObject(_.remove("encodingPolicy")))
+        val software = new HardwareRunner(propschange = json => json.mapObject(_.remove("qualityProfile").remove("audioBitrate").remove("encodingOrigins").remove("encodingPolicy")))
         When("the explicit software render consumes its complete frame/audio handoff")
         _render(root, software)
         Then("the established CRF and preset remain active without a hardware bitrate")

@@ -19,7 +19,7 @@ import cozy.CozySpecVocabulary
  *  version Jun. 24, 2026
  *  version Jul. 20, 2026
  *  version Sep. 16, 2026
- * @version Oct. 10, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoSpec
@@ -332,7 +332,7 @@ final class CozyVideoSpec
           props.hcursor.get[String]("x264Preset").toOption shouldBe Some("slow")
           buildmanifest.hcursor.downField("encoding").focus shouldBe Some(encoding)
           _read(dir.resolve("rdf/video.ttl")) should include_text("cozy-video:encodingPolicy \"standard\"")
-          rdfmanifest.hcursor.downField("encoding").focus shouldBe Some(encoding)
+          rdfmanifest.hcursor.downField("encoding").focus shouldBe Some(CozyVideoQuality.encodingJson(CozyVideoImplementation._plan(project, None, None).encoding))
           reviewmanifest.hcursor.downField("renderer").get[String]("encodingPolicy").toOption shouldBe Some("standard")
           reviewmanifest.hcursor.downField("renderer").get[Int]("fps").toOption shouldBe Some(24)
           reviewmanifest.hcursor.downField("renderer").get[Int]("width").toOption shouldBe Some(1440)
@@ -4236,6 +4236,7 @@ final class CozyVideoSpec
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
               |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
+              |  "qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},
               |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
               |  "scenes": [
               |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
@@ -4309,6 +4310,7 @@ final class CozyVideoSpec
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
               |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
+              |  "qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},
               |  "timing": {"openingFrames": 0, "contentFrames": 20, "summaryStartFrame": 20, "summaryFrames": 0, "finalPageStartFrame": 20, "finalPageHoldFrames": 0, "totalFrames": 20},
               |  "scenes": [{"id":"scene","startFrame":0,"durationFrames":20,"leadInFrames":0,"sectionTransitionFrames":0,"audioDurationFrames":2,"requestedTailSilenceSeconds":0.8,"effectiveTailSilenceSeconds":1.8,"effectiveTailSilenceFrames":18}]
               |}
@@ -4471,6 +4473,7 @@ final class CozyVideoSpec
             dir.resolve("target/cozy-video/remotion/intro/props.json"),
             """{
               |  "partId": "intro", "encodingPolicy": "lightweight", "fps": 10, "width": 100, "height": 50, "crf": 32, "x264Preset": null,
+              |  "qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},
               |  "timing": {"openingFrames": 5, "contentFrames": 70, "summaryStartFrame": 70, "summaryFrames": 5, "finalPageStartFrame": 75, "finalPageHoldFrames": 3, "totalFrames": 78},
               |  "scenes": [
               |    {"id":"first/scene","speaker":"narrator","line":"First line","text":"First text","caption":"First caption","section":"start","startFrame":0,"durationFrames":20,"leadInFrames":2,"sectionTransitionFrames":0},
@@ -4591,7 +4594,7 @@ final class CozyVideoSpec
           _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
           _write_review_video_manifest(dir.resolve("build/final.mp4"))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
 
           When("Cozy extracts a review frame")
           val extraction = intercept[RuntimeException] {
@@ -4613,7 +4616,7 @@ final class CozyVideoSpec
           _write_bytes(dir.resolve("build/final.mp4"), Array[Byte](1))
           _write_review_video_manifest(dir.resolve("build/final.mp4"))
           _write(dir.resolve("build/audio/intro/manifest.json"), """[{"sceneId":"one","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":0,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"one","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
 
           When("Cozy extracts a review frame")
           val absent = intercept[RuntimeException] {
@@ -4814,7 +4817,7 @@ final class CozyVideoSpec
           val project = dir.resolve("video_project.json")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":0,"contentFrames":20,"summaryStartFrame":20,"summaryFrames":0,"finalPageStartFrame":20,"finalPageHoldFrames":0,"totalFrames":20},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0},{"id":"scene","startFrame":10,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":0,"contentFrames":20,"summaryStartFrame":20,"summaryFrames":0,"finalPageStartFrame":20,"finalPageHoldFrames":0,"totalFrames":20},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0},{"id":"scene","startFrame":10,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates props and audio evidence")
@@ -4834,7 +4837,7 @@ final class CozyVideoSpec
           val project = dir.resolve("video_project.json")
           val save = dir.resolve("review")
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"))
-          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":9,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/intro/props.json"), """{"partId":"intro","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":9,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates props timing against the audio manifest")
@@ -4856,7 +4859,7 @@ final class CozyVideoSpec
           _write_review_evidence_fixture(dir, "build/final.mp4", dir.resolve("build/final.mp4"), Vector("first", "second"))
           _write(dir.resolve("build/audio/first/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":0.4,"targetDuration":0.4,"tailSilence":0.0}]""")
           _write_bytes(dir.resolve("build/audio/first/01.wav"), _wav_bytes(0.4))
-          _write(dir.resolve("target/cozy-video/remotion/first/props.json"), """{"partId":"first","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":5,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"scene","startFrame":6,"durationFrames":4,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+          _write(dir.resolve("target/cozy-video/remotion/first/props.json"), """{"partId":"first","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":5,"contentFrames":10,"summaryStartFrame":10,"summaryFrames":0,"finalPageStartFrame":10,"finalPageHoldFrames":0,"totalFrames":10},"scenes":[{"id":"scene","startFrame":6,"durationFrames":4,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
           val runner = ReviewEvidenceRunner()
 
           When("Cozy validates the first part's scene bounds")
@@ -6035,7 +6038,7 @@ final class CozyVideoSpec
     partids.foreach { id =>
       _write_bytes(dir.resolve(s"build/audio/$id/01.wav"), _wav_bytes(1.0))
       _write(dir.resolve(s"build/audio/$id/manifest.json"), """[{"sceneId":"scene","speaker":null,"file":"01.wav","leadSilence":0.0,"audioDuration":1.0,"targetDuration":1.0,"tailSilence":0.0}]""")
-      _write(dir.resolve(s"target/cozy-video/remotion/$id/props.json"), s"""{"partId":"$id","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
+      _write(dir.resolve(s"target/cozy-video/remotion/$id/props.json"), s"""{"partId":"$id","encodingPolicy":"lightweight","fps":10,"width":100,"height":50,"crf":32,"x264Preset":null,"qualityProfile":"standard","audioBitrate":"128k","encodingOrigins":{"qualityProfile":"default","fps":"explicit","width":"explicit","height":"explicit","crf":"default","x264Preset":"default","audioBitrate":"default"},"timing":{"openingFrames":1,"contentFrames":10,"summaryStartFrame":11,"summaryFrames":0,"finalPageStartFrame":11,"finalPageHoldFrames":0,"totalFrames":11},"scenes":[{"id":"scene","startFrame":0,"durationFrames":10,"leadInFrames":0,"sectionTransitionFrames":0}]}""")
     }
   }
 
@@ -6045,7 +6048,12 @@ final class CozyVideoSpec
     "width" -> Json.fromInt(100),
     "height" -> Json.fromInt(50),
     "crf" -> Json.fromInt(32),
-    "x264Preset" -> Json.Null
+    "x264Preset" -> Json.Null,
+    "qualityProfile" -> Json.fromString("standard"),
+    "audioBitrate" -> Json.fromString("128k"),
+    "origins" -> Json.obj("qualityProfile" -> Json.fromString("default"), "fps" -> Json.fromString("explicit"),
+      "width" -> Json.fromString("explicit"), "height" -> Json.fromString("explicit"), "crf" -> Json.fromString("default"),
+      "x264Preset" -> Json.fromString("default"), "audioBitrate" -> Json.fromString("default"))
   ))): Unit = {
     val json = Json.obj(
       "status" -> Json.fromString("validated"),

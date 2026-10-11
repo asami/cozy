@@ -8,14 +8,15 @@ Primary owner: Cozy
 P718-01 implementation is accepted under
 `p718-01-qcontract-implementation01@1`, with180 successful specifications,
 current eight-file JA/EN listening and independent Step review PASS.
-Its exact local Step commit remains outstanding. Phase closure is not claimed.
+Its exact local Step commit succeeded as
+`1581c8d389dd036cf1717533d69f62c7e28a0114`. P718-01 is CLOSED; Phase closure is not claimed.
 Phase71.7 retains its predecessor history and obligations
 at their original scope.
 
 ## P718-01: Profile contract and executable specifications
 
 Stage Status:
-- Current status: IN_PROGRESS
+- Current status: CLOSED on 2026-10-12
 - Owner: Cozy
 - Update rule: close against the following selected contracts and specification results
 
@@ -26,7 +27,7 @@ Stage Status:
 - [x] Given / When / Then executable specifications cover profile resolution, supported overrides and invalid settings, including existing software/hardware behavior.
 - [x] Parent-selected `CozyVideoQualityProfileSpec` and the declared focused accumulator pass with runner/serial-wrapper terminal evidence.
 - [x] The managed test-only JA/EN helper compares320k/96k/128k/192k from selected lossless WAV inputs, retains actual sizes/full decode and current attributable human listening accepts candidate audio before Step REVIEW/commit.
-- [ ] Independent P718-01 acceptance review and its exact local Step commit complete.
+- [x] Independent P718-01 acceptance review and its exact local Step commit complete.
 
 Contract/design: [joint quality specification](../spec/video-quality-profiles.md),
 [resolution design](../design/video-quality-profiles.md). The default is new
@@ -36,20 +37,37 @@ valid legacy, with independent field overrides and complete origins.
 The [current acceptance evidence](phase-71.8.md#p718-01-acceptance-evidence)
 records180 passing specifications, all eight natural JA/EN outputs and independent
 Step review PASS. Practice speed and useful output remain P718-03 duties; they
-are not inferred from the table/specifications. The combined review/commit
-checkbox remains open until the exact local Step commit succeeds.
+are not inferred from the table/specifications. Closure basis: the actual
+independent PASS, saved/read-back typed ledger, terminal validation/listening
+results and native ten-file Step commit above. The later Steps and release
+checkboxes remain open.
 
 ## P718-02: Shared resolution across encoding routes
 
 Stage Status:
-- Current status: OPEN
+- Current status: IN_PROGRESS; implementation and independent acceptance PASS under `p718-02-routes-implementation01@1`; local Step commit pending
 - Owner: Cozy
 - Update rule: close against actual affected route behavior and its executable specifications
 
-- [ ] Native/mixed encoding, Docker Remotion mux and final assembly honor the same resolved audio setting; final assembly does not replace a selected bitrate with320k.
-- [ ] `video inspect` and relevant generated records report the chosen profile and effective picture/audio settings with their origins.
-- [ ] Lossless intermediate audio, the single final AAC encode,48kHz stereo timing and complete end-card behavior are preserved.
+- [x] Native/mixed encoding, Docker Remotion mux and final assembly honor the same resolved audio setting; final assembly does not replace a selected bitrate with320k.
+- [x] `video inspect` and relevant generated records report the chosen profile and effective picture/audio settings with their origins.
+- [x] Lossless intermediate audio, the single final AAC encode,48kHz stereo timing and complete end-card behavior are preserved.
 - [ ] Independent P718-02 acceptance review, proportional validation and exact local Step commit complete.
+
+Executable route contract:
+[CozyVideoQualityRouteSpec](../../src/test/scala/cozy/video/CozyVideoQualityRouteSpec.scala),
+plus the focused Storyboard review/build specifications. Joint observations
+and legacy missing-field admission are specified in the
+[quality wire contract](../spec/video-quality-profiles.md#generated-joint-observations-and-legacy-inputs).
+Closure evidence:18 passing route specifications and228 passing accumulator
+specifications, terminal SBT/wrapper exit0 and lock release, and independent
+focused review `p718-02-focused-step-review-fix04-01@1` PASS after both bounded
+review findings were resolved. Typed ledger revision6 was saved and read back.
+The three behavior items are verified at this Step's executable route boundary;
+actual media/Docker observations and comparable practice speed remain P718-03.
+The combined review/validation/commit item stays open until the exact local
+Step commit succeeds. Its native receipt then establishes Step closure;
+Phase completion and later acceptance are not implied.
 
 ## P718-03: Quality, size and regression acceptance
 

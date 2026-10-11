@@ -16,8 +16,7 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 30, 2026
- *  version Oct.  1, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyVideoStoryboardReview {
@@ -583,7 +582,10 @@ private[cozy] trait CozyVideoStoryboardReview {
       "crf" -> renderer.crf.map(Json.fromInt).getOrElse(Json.Null),
       "x264Preset" -> renderer.x264Preset.map(Json.fromString).getOrElse(Json.Null),
       "effectProfile" -> renderer.effectProfile.map(Json.fromString).getOrElse(Json.Null)
-    )
+    ).deepMerge(Json.fromFields(Vector(
+      renderer.qualityProfile.map(profile => "qualityProfile" -> Json.fromString(profile.name)),
+      renderer.audioBitrate.map(bitrate => "audioBitrate" -> Json.fromString(bitrate))
+    ).flatten))
 
   private def _safe_storyboard_relative_file(projectroot: Path, storyboardroot: Path, raw: String, label: String): Path = {
     val relative = _safe_relative_path(raw, label)
@@ -722,7 +724,9 @@ private[cozy] trait CozyVideoStoryboardReview {
       val fields = _fields_(row, Set("partId", "configuration"))
       val configuration = fields("configuration").get
       val names = Set("engine", "strategy", "policy", "fps", "width", "height", "crf", "x264Preset", "effectProfile")
-      val knownconfiguration = Json.fromJsonObject(_fields_(configuration, names))
+      _fields_(configuration, names)
+      val knownconfiguration = Json.fromJsonObject(_known_review_fields(configuration.asObject.get,
+        names ++ Set("qualityProfile", "audioBitrate")))
       if (knownconfiguration.as[VideoRenderer].isLeft) _invalid_("renderer configuration is invalid")
       _reference_(fields, "partId")
     }
