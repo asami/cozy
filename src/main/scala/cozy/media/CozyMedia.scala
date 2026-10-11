@@ -18,7 +18,7 @@ import scala.util.control.NonFatal
  *  version Jul. 20, 2026
  *  version Aug. 30, 2026
  *  version Sep. 14, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMedia {
@@ -363,15 +363,17 @@ private[cozy] object CozyMedia {
     }
 
   def build(config: CommandConfig, runner: ProcessRunner = ProcessRunner.default): String =
-    _build(config, runner, None, CozyVideo.VideoProcessRunner.default)
+    _build(config, runner, None, CozyVideo.VideoProcessRunner.default, CozyVideo.VideoToolRegistry.default)
 
-  private[cozy] def buildWithVideoRunner(config: CommandConfig, runner: CozyVideo.VideoProcessRunner): String =
-    _build(config, ProcessRunner.default, None, runner)
+  private[cozy] def buildWithVideoRunner(config: CommandConfig, runner: CozyVideo.VideoProcessRunner,
+    toolRegistry: CozyVideo.VideoToolRegistry = CozyVideo.VideoToolRegistry.default): String =
+    _build(config, ProcessRunner.default, None, runner, toolRegistry)
 
   private[cozy] def buildSummarySlidesPdf(config: CommandConfig, pageSetInput: Path, runner: ProcessRunner): String =
-    _build(config, runner, Some(pageSetInput), CozyVideo.VideoProcessRunner.default)
+    _build(config, runner, Some(pageSetInput), CozyVideo.VideoProcessRunner.default, CozyVideo.VideoToolRegistry.default)
 
-  private def _build(config: CommandConfig, runner: ProcessRunner, pagesetinput: Option[Path], videorunner: CozyVideo.VideoProcessRunner): String = {
+  private def _build(config: CommandConfig, runner: ProcessRunner, pagesetinput: Option[Path], videorunner: CozyVideo.VideoProcessRunner,
+    toolregistry: CozyVideo.VideoToolRegistry): String = {
     val mediaplan = _plan(config)
     val selected = _selected(mediaplan, config.target)
     val plannedidentity = if (config.dryRun) None else Some(CozyMediaReceipt.capture(mediaplan))
@@ -395,7 +397,8 @@ private[cozy] object CozyMedia {
           resolved,
           runner,
           if (resolved.resource.build == "summary-slides-pdf") pagesetinput else None,
-          videorunner
+          videorunner,
+          toolregistry
         )
       }
     }
@@ -803,7 +806,8 @@ private[cozy] object CozyMedia {
   }
 
   private def _build_resource(plan: Plan, resolved: ResolvedResource, runner: ProcessRunner, pagesetinput: Option[Path] = None,
-    videorunner: CozyVideo.VideoProcessRunner = CozyVideo.VideoProcessRunner.default): String =
+    videorunner: CozyVideo.VideoProcessRunner = CozyVideo.VideoProcessRunner.default,
+    toolregistry: CozyVideo.VideoToolRegistry = CozyVideo.VideoToolRegistry.default): String =
     resolved.action match {
       case Action.MissingSource =>
         RAISE.invalidArgumentFault(s"Missing media source for ${resolved.resource.id}")
@@ -811,7 +815,7 @@ private[cozy] object CozyMedia {
         CozyMediaReceipt.prebuiltAcceptanceAllowed(plan, resolved)
         s"${resolved.resource.id}: adopted prebuilt ${resolved.source.get}"
       case Action.Current if resolved.resource.build == "video-project" =>
-        _build_video_resource(plan, resolved, videorunner)
+        _build_video_resource(plan, resolved, videorunner, toolregistry)
       case Action.Current =>
         s"${resolved.resource.id}: current"
       case Action.AdoptPrebuilt =>
@@ -839,13 +843,14 @@ private[cozy] object CozyMedia {
         }
         s"${resolved.resource.id}: built $output"
       case Action.DelegateVideo =>
-        _build_video_resource(plan, resolved, videorunner)
+        _build_video_resource(plan, resolved, videorunner, toolregistry)
     }
 
-  private def _build_video_resource(plan: Plan, resolved: ResolvedResource, runner: CozyVideo.VideoProcessRunner): String = {
+  private def _build_video_resource(plan: Plan, resolved: ResolvedResource, runner: CozyVideo.VideoProcessRunner,
+    toolregistry: CozyVideo.VideoToolRegistry): String = {
     CozyMediaReceipt.requireVideoOutput(resolved)
     val result = CozyVideo.buildMedia(CozyVideo.BuildConfig(resolved.project.get, dryRun = false, checkTools = false),
-      CozyVideo.VideoToolRegistry.default, runner, CozyMediaReceipt.videoAdditionalInputs(plan))
+      toolregistry, runner, CozyMediaReceipt.videoAdditionalInputs(plan))
     s"${resolved.resource.id}: delegated to cozy video build ($result)"
   }
 

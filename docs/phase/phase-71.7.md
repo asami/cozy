@@ -1,6 +1,6 @@
 # Phase 71.7: Integrated Media Acceptance and Aggregate Validation
 
-status=in-progress
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -10,7 +10,7 @@ aggregate_validation_sequence=["PHASE-71","PHASE-71.1","PHASE-71.2","PHASE-71.3"
 depends_on=phase-71.6.md
 execution_priority=after_phase_71.6_closure
 
-Status: in-progress; P717-01/02/03 acceptance closed, P717-04 open
+Status: closed; P717-01/02/03/04 acceptance closed on 2026-10-12, effective on distinct release native readback
 Updated at: 2026-10-12
 Planned at: 2026-10-05
 Primary owner: Cozy
@@ -33,6 +33,68 @@ checkpoints, not the current status. P717-03 encoder comparison and P717-04
 full validation, Phase review and distinct release remain open. See the
 [integration journal](../journal/2026/10/2026-10-11-phase-71.7-integration-acceptance.md)
 and [Hygiene follow-up](../journal/2026/10/2026-10-11-phase-71.7-hygiene-follow-up.md).
+
+## 2026-10-12 P717-04 aggregate validation and final release basis
+
+The original sole full Phase review `p717-phase-full-review-20261012-01@1`
+by `/root/phase717_full_review01` accepted all51original selected owned paths.
+The later final Cozy suite actually failed24cases and canceled31; that result
+remains failure history. Explicit human authorization admitted a five-file
+repair of obsolete canonical CAR fixtures/SHA expectations and a deterministic
+package-private video-tool registry seam. All4affected suites passed76tests.
+Fresh independent focused review
+`p717-final-validation-repair-focused-result-20261012-01@1` by
+`/root/phase717_final_repair_review01` sealed PASS, resolved both actual failure
+groups and reported no current blocker. Ledger11 retains original bases,
+Goal, PLAN epoch, all earlier reviews, sole full-review count1 and accepted
+Phase repair cycle1/nonconverging0. It records11nonblocking Hygiene items,
+each once in the canonical [Hygiene journal](../journal/2026/10/2026-10-11-phase-71.7-hygiene-follow-up.md).
+Header maintenance is mechanically completed for the repaired5Scala files
+before this release; the remaining10follow-ups stay outside Phase acceptance.
+The original finding text and failure records are preserved. No accepted
+Development Candidate item requires a new journal.
+
+Actual final `sbt --batch test` results are SmartDox's retained
+468 successful executed tests across43 suites
+and Cozy's post-repair2417 successful executed tests
+across191 suites. Both SBT/wrapper exits are0 and both
+serial locks are released; zero failed tests and zero aborted suites.
+SmartDox has4 pre-existing ignored cases and0 cancellations;
+Cozy has0 ignored and31 canceled cases.
+Skipped cases supply no executed/native coverage. Actual separate media,
+listening, PDF/site/packaging and native120-held-frame evidence retains its
+accepted scope. Final admissions are
+`p717-release-smartdox-full-test01-admission.json` and
+`p717-release-cozy-full-test02-admission.json`; the original failed Cozy01
+is never relabeled. Actual emitted warnings/diagnostics remain unsuppressed
+in these original logs and the final evidence record.
+
+Applicable actual runtime export is admitted from its original success and
+current480readable entries, compiled Cozy classes,0.3.3-SNAPSHOT and approved
+SmartDox2.4.19-SNAPSHOT. The bounded registry seam/fixture repairs alter no
+dependency/classpath settings. Comment/commit/transport changes require no
+export replay or unchanged-artifact proof.
+
+Feature Step commits are P717-01 `4e1b1c4`, P717-02 `40838f9`
+(SmartDox `d13ab32`) and P717-03 `18d26df`. P717-04 is the final validation,
+review and release unit. Its Git closure is supplied by the distinct exact
+local release binding `P717-RELEASE-20261012@1`. This closed projection takes
+effect only after that commit and its canonical documents are successfully
+read back; it invents no not-yet-created commit SHA.
+
+The actual final-owner outcome discharges the declared transferred full-suite
+obligation for Phase71..71.7. Original deferred-not-run, failed, refused,
+missing and incomplete records remain chronological history. The current
+comparison retains3supported cases, each one cold and3serial warmed runs,
+24movies, full/native/browser/visual evidence and “3本とも自然に聞こえた”.
+Two host-native cases remain unavailable. Unequal-quality/timing limits,
+hardware diagnostics and the original incomplete supervisor stay explicit.
+
+Shared `docs/phase/README.md` and `docs/strategy/cozy-development-strategy.md`
+retain synchronization-deferred disposition. Canonical Phase71.7 documents
+govern this closure. All27unrelated changes remain outside the release.
+No successor Phase, public publication/deployment or push is started.
+Earlier dated pending entries below are retained historical checkpoints.
 
 ## Goal and ownership
 

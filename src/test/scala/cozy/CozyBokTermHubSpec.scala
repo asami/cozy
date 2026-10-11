@@ -11,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jun. 22, 2026
  *  version Jun. 25, 2026
- * @version Aug. 11, 2026
+ *  version Aug. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTermHubSpec
@@ -74,9 +75,6 @@ class CozyBokTermHubSpec
               |    channel: stable
               |    component: org.example.runtime.Car
               |    file: repository/car/org/example/runtime/runtime-car/1.0.0/runtime-car-1.0.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.example.runtime:runtime-car:1.0.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(

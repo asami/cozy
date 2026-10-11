@@ -10,7 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 28, 2026
- * @version Aug. 11, 2026
+ *  version Aug. 11, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokTagSpec
@@ -77,9 +78,6 @@ class CozyBokTagSpec
               |    channel: stable
               |    component: org.example.review.Runtime
               |    file: repository/car/org/example/review/review-runtime/1.0.0/review-runtime-1.0.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.example.review:review-runtime:1.0.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(List(dir.toString, "--strategy", "preview"))

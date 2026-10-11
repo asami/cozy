@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyMediaVideoBuildSpec {
@@ -430,7 +430,8 @@ final class CozyMediaVideoBuildSpec extends AnyWordSpec with GivenWhenThen with 
     else { val path = Paths.get(value); if (path.isAbsolute) path else cwd.resolve(path).normalize() }
 
   private def _build(root: Path, runner: RecordingRunner, target: String = "video-en"): String =
-    CozyMedia.buildWithVideoRunner(CozyMedia.CommandConfig.create(List(root.resolve("media.yaml").toString, "--target", target)), runner)
+    CozyMedia.buildWithVideoRunner(CozyMedia.CommandConfig.create(List(root.resolve("media.yaml").toString, "--target", target)), runner,
+      CozyVideo.VideoToolRegistry(Vector.empty))
 
   private def _fixture(root: Path, languages: Vector[String] = Vector("en")): Unit = {
     _write(root.resolve("conf/cozy/config.yaml"), "project:\n  id: media-video-spec\nvideo:\n  tool-mode: host\n")
