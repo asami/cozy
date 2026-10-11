@@ -23,13 +23,11 @@ import play.api.libs.json.{Json, JsArray}
 
 /*
  * @since   Oct.  7, 2026
- * @version Oct.  7, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleCardRenderingSpec extends AnyWordSpec with Matchers with GivenWhenThen {
-  private final case class Fixture(root: Path, publication: Path, warehouse: Path, source: Path)
-  private final case class Rendered(doxsite: Path, arcadiasite: Path)
-  private final case class Anchor(href: String, classes: Set[String], caption: String)
+  import CozyArticleCardRenderingSpec.{Anchor, Fixture, Rendered}
   private val _identity = "development-process/example"
   private val _plain = "development-process/plain"
   private val _other = "development-process/other"
@@ -313,4 +311,10 @@ final class CozyArticleCardRenderingSpec extends AnyWordSpec with Matchers with 
     try stream.iterator.asScala.toVector.sortBy(path => (-path.getNameCount, path.toString)).foreach(Files.deleteIfExists)
     finally stream.close()
   }
+}
+
+private object CozyArticleCardRenderingSpec {
+  final case class Fixture(root: Path, publication: Path, warehouse: Path, source: Path)
+  final case class Rendered(doxsite: Path, arcadiasite: Path)
+  final case class Anchor(href: String, classes: Set[String], caption: String)
 }

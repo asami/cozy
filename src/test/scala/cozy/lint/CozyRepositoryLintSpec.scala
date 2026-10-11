@@ -2,7 +2,6 @@ package cozy.lint
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
@@ -12,7 +11,8 @@ import cozy.{Cozy, CozyCliPreflight}
 
 /*
  * @since   Jul. 21, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyRepositoryLintSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -34,8 +34,8 @@ class CozyRepositoryLintSpec extends AnyWordSpec with Matchers with GivenWhenThe
       "accepts a consistent local index without network access" in {
         _with_temp_dir("cozy-repository-lint-valid") { dir =>
           Given("a repository index and matching detailed CAR catalog")
-          val digest = _write_archive(dir)
-          _write(dir.resolve("repository/catalog/car/org/sample/sample-component.yaml"), _catalog("1.0.0", digest))
+          _write_archive(dir)
+          _write(dir.resolve("repository/catalog/car/org/sample/sample-component.yaml"), _catalog("1.0.0"))
           _write(dir.resolve("repository/catalog/index.json"), _index("1.0.0"))
 
           When("Cozy lints the local repository root")
@@ -50,8 +50,8 @@ class CozyRepositoryLintSpec extends AnyWordSpec with Matchers with GivenWhenThe
       "reports a stale selector deterministically" in {
         _with_temp_dir("cozy-repository-lint-stale") { dir =>
           Given("an index selector that differs from its detailed catalog")
-          val digest = _write_archive(dir)
-          _write(dir.resolve("repository/catalog/car/org/sample/sample-component.yaml"), _catalog("1.0.0", digest))
+          _write_archive(dir)
+          _write(dir.resolve("repository/catalog/car/org/sample/sample-component.yaml"), _catalog("1.0.0"))
           _write(dir.resolve("repository/catalog/index.json"), _index("0.9.0"))
 
           When("Cozy lints the local repository root")
@@ -82,7 +82,7 @@ class CozyRepositoryLintSpec extends AnyWordSpec with Matchers with GivenWhenThe
        |}
        |""".stripMargin
 
-  private def _catalog(recommended: String, digest: String): String =
+  private def _catalog(recommended: String): String =
     s"""schemaVersion: 2
        |kind: car
        |namespace: org.sample
@@ -98,12 +98,9 @@ class CozyRepositoryLintSpec extends AnyWordSpec with Matchers with GivenWhenThe
        |    status: active
        |    component: org.sample.Component
        |    file: repository/car/org/sample/sample-component/1.0.0/sample-component-1.0.0.car
-       |    checksum:
-       |      sha256: $digest
-       |    integrityKey: org.sample:sample-component:1.0.0@sha256:$digest
        |""".stripMargin
 
-  private def _write_archive(root: Path): String = {
+  private def _write_archive(root: Path): Path = {
     val archive = root.resolve("repository/car/org/sample/sample-component/1.0.0/sample-component-1.0.0.car")
     Option(archive.getParent).foreach(Files.createDirectories(_))
     val output = new ZipOutputStream(Files.newOutputStream(archive))
@@ -118,14 +115,7 @@ class CozyRepositoryLintSpec extends AnyWordSpec with Matchers with GivenWhenThe
         output.closeEntry()
       }
     } finally output.close()
-    val digest = _sha256(Files.readAllBytes(archive))
-    _write(archive.resolveSibling(archive.getFileName.toString + ".sha256"), digest + "\n")
-    digest
-  }
-
-  private def _sha256(bytes: Array[Byte]): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.digest(bytes).map(bytevalue => "%02x".format(bytevalue & 0xff)).mkString
+    archive
   }
 
   private def _write(path: Path, text: String): Path = {
