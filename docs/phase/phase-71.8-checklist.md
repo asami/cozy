@@ -1,7 +1,7 @@
 # Phase 71.8 Checklist
 
-Phase status: IN_PROGRESS
-Updated: 2026-10-12
+Phase status: CLOSED on 2026-10-13
+Updated: 2026-10-13
 Ledger for: [Phase 71.8](phase-71.8.md)
 Primary owner: Cozy
 
@@ -75,10 +75,11 @@ and later acceptance are not implied.
 ## P718-03: Quality, size and regression acceptance
 
 Stage Status:
-- Current status: IN_PROGRESS
+- Current status: CLOSED on 2026-10-13
 - Owner: Cozy
 - Update rule: close only with actual listening/media evidence, validation and review/commit results
 
+Historical checkpoint13/14 (pending acceptance when recorded; final closure basis below supersedes those projections):
 Checkpoint13 records all17 selected root03 technical/visual observations:
 34 successful original Cozy commands,17 reports/561 actual checks,34 full
 decodes and408 individually parent-viewed PNGs. Original texts/labels/opening/
@@ -126,22 +127,77 @@ timing and unused imports are nonblocking separate follow-ups. Proportional
 all standalone Phase gates remain pending; the three following composite items
 remain unchecked until their complete stated obligations are proven.
 
-- [ ] Affected focused executable specifications and the Phase's declared final validation pass; earlier71.7 acceptance is retained at its original scope.
-- [ ] Independent review and required local acceptance/release commits are complete, with any remaining work explicitly recorded.
-- [ ] Independent P718-03 acceptance review, proportional validation and exact local Step commit complete.
+- [x] Affected focused executable specifications and the Phase's declared final validation pass; earlier71.7 acceptance is retained at its original scope.
+- [x] Independent review and required local acceptance/release commits are complete, with any remaining work explicitly recorded.
+- [x] Independent P718-03 acceptance review, proportional validation and exact local Step commit complete.
 
 ## Standalone Phase release boundary
 
 Stage Status:
-- Current status: OPEN
+- Current status: CLOSED on 2026-10-13
 - Owner: Cozy parent workflow
 - Update rule: close only on actual final candidate evidence and distinct bound local release commit
 
-- [ ] All three Step contracts, current audio listening and comparable practice measurements are accepted with exact local Step commits.
-- [ ] One comprehensive Phase review in the current PLAN epoch passes; accepted finding/Hygiene/Development Candidate journals retain their required dispositions.
-- [ ] Final-only full Cozy `test` passes on the release candidate through the registered serialized runner.
-- [ ] Final `cozyExportRuntimeClasspath` succeeds on the same candidate with terminal execution and lock-release evidence.
-- [ ] A distinct bound local release commit and canonical Phase/checklist/journal closure are complete;71.7 history and unrelated changes are preserved.
+- [x] All three Step contracts, current audio listening and comparable practice measurements are accepted with exact local Step commits.
+- [x] One comprehensive Phase review in the current PLAN epoch passes; accepted finding/Hygiene/Development Candidate journals retain their required dispositions.
+- [x] Final-only full Cozy `test` passes on the release candidate through the registered serialized runner.
+- [x] Final `cozyExportRuntimeClasspath` succeeds on the same candidate with terminal execution and lock-release evidence.
+- [x] A distinct bound local release commit and canonical Phase/checklist/journal closure are complete;71.7 history and unrelated changes are preserved.
 
 Stop after exactly71.8. External source/shared-skill changes, successor Phases,
 public publication, deployment and push remain excluded.
+
+## Final closure — 2026-10-13
+
+Current closure basis supersedes earlier checkpoint/Step paragraphs that describe
+their pending gates when recorded. All three declared Steps have independent
+acceptance and exact native local commits: P718-01 `1581c8d389dd036cf1717533d69f62c7e28a0114`,
+P718-02 `3befd92f53c0bc6919e1e5be2cc52b266e3e0279`, and
+P718-03 `0bf393a5044e87004e7c1171daccf555e56af352`.
+
+The sole full Phase review `p718-full-phase-review17@1` passed in original PLAN
+epoch1. Final whole validation first exposed two incomplete Storyboard test
+fixtures; the single closure repair added the three prescribed quality/audio/
+origin fields to that shared fixture, preserving production code and all
+expectations. Its35-specification suite passed; independent focused review
+`p718-phase-fixture-focused-result20@1` accepted the repair in the original
+full-review chain at ledger12, with zero blockers. Repair count1 and consecutive
+non-convergence0 are retained; no second full review was performed.
+
+Final standalone Cozy `sbt --batch test` passed2457 specifications in194 suites,
+zero failed/aborted,31 canceled, zero ignored/pending. The31 actual cancellations
+remain recorded; no task filters or settings were supplied. Actual SBT/wrapper
+exit0 and shared-lock release were verified from the original log/summary.
+Separate `cozyExportRuntimeClasspath` succeeded with exit0 and lock release;
+all480 entries exist, include compiled Cozy classes and retain `0.3.3-SNAPSHOT`.
+The actual final gate receipts are `p718-final-full-test-admission21` and
+`p718-final-classpath-admission21` in the ignored Phase workflow records.
+
+Current original JA/EN listening,17-case direct/final/override observations,
+34 successful Cozy commands,561 technical checks and408 original visual
+observations retain their accepted measured scope. Warm practice medians remain
+32.5% shorter on mixed and38.5% on Docker, with cold excluded and all samples/
+overhead limits retained. Gap14 was independently reassessed by Step15 and the
+sole full review: surviving original evidence supports current product
+acceptance, while both missing original API objects stay missing and the old
+runner completion stays INCOMPLETE. No evidence reconstruction or hearing
+substitution is claimed.
+
+Accepted nonblocking records are persisted exactly in the
+[Hygiene journal](../journal/2026/10/2026-10-12-phase-71.8-hygiene-follow-up.md) and
+[Development Candidate journal](../journal/2026/10/2026-10-12-phase-71.8-development-candidate-follow-up.md).
+Unused template imports and generic authored-lead scheduling remain separate
+follow-ups; no such maintenance or scheduling change is included.
+
+The CLOSED declarations are final release projections, effective only after
+the distinct local commit carrying
+`Phase-Closure-Binding: p718-phase-release-20261013-01@1` succeeds and its native
+closure receipt is verified. That commit includes the final Phase/checklist,
+accepted journals and the repaired integration specification. The shared
+`docs/phase/README.md` and `docs/strategy/cozy-development-strategy.md` projections
+are explicitly preserved/deferred because concurrent Phase81/Phase76 planning
+and its complete related management data remain outside this Phase. Canonical
+Phase/checklist/journals own this closure. Preserve all unrelated dirty work,
+original bases, Step/review/repair/refusal history and71.7 acceptance. Stop after
+exactly71.8; no successor execution, external/shared-skill change, push,
+publication or deployment is included.

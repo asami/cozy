@@ -16,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 /*
  * @since   Aug. 26, 2026
  *  version Sep. 29, 2026
- * @version Oct.  8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyVideoStoryboardBuildModeSpec {
@@ -1408,6 +1408,9 @@ final class CozyVideoStoryboardBuildModeSpec
     val props = Json.obj(
       "partId" -> Json.fromString(part.id),
       "encodingPolicy" -> Json.fromString(encoding.policy.name),
+      "qualityProfile" -> Json.fromString(encoding.effectiveQualityProfile.name),
+      "audioBitrate" -> Json.fromString(encoding.audioBitrate),
+      "encodingOrigins" -> CozyVideoQuality.encodingJson(encoding).hcursor.downField("origins").focus.get,
       "fps" -> Json.fromInt(encoding.fps),
       "width" -> Json.fromInt(encoding.width),
       "height" -> Json.fromInt(encoding.height),
