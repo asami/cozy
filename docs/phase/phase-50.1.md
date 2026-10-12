@@ -1,6 +1,6 @@
 # Phase 50.1: Logical UI Target-Readiness and Complete Static Web Acceptance
 
-status=in_progress
+status=closed
 split_full_test_policy=final-only
 split_full_validation_method=sbt-full-suite
 split_validation_bootstrap=none
@@ -11,7 +11,7 @@ depends_on=phase-50.md
 
 Plan date: 2026-10-08
 
-Current status: IN_PROGRESS
+Current status: CLOSED
 Owner: parent execution task `/root`; explicit acceptance remains with the human reviewer.
 Update rule: Update this status when admitted evidence or pending gates change;
 record acceptance and closure only through their explicit authorized gates.
@@ -46,11 +46,21 @@ No semantic source revision is requested. Candidate receipts retain null accepta
 retains the generated native four-role declaration export and both current accepted
 projections. Two producer suites passed all 21 tests; accepted-binding browser
 run002 passed six normal/loading cases, 107 observations and eight parent-inspected
-images. Actual native/browser admission passed with cleanup complete. Whole E4
-Step review/manual local commit, full Phase review, final full
-suite, closure ledger and distinct release remain outstanding.
+images. Actual native/browser admission passed with cleanup complete. S50.1.2/E4
+passed its independent whole-Step review and was manually committed at
+`c39d13d6f31905ebf3ce76e969aeb735736f61a2`. The sole original-epoch full Phase
+review `P501-FULL-REVIEW-001 r1` passed with zero Current Phase Blockers and was
+admitted in review ledger revision 7. Final serialized `sbt --batch test`
+passed: 3,139 succeeded, 216 suites completed, 0 failed/aborted, 9 existing
+cancellations, 0 ignored/pending; SBT/wrapper exit 0 and shared lock released.
+The [canonical checklist](phase-50.1-checklist.md#canonical-59-outcome-evidence-mapping)
+records all 59 outcomes and explicit conditional applicability. The
+[outgoing accepted-input handoff](phase-51-handoff.md) carries the exact Phase 51
+input/evidence boundary. This closure document is bound to the distinct local
+release by `Phase-Closure-Binding: P501-CLOSURE-001@1`; the native release receipt
+is the completion authority, rather than a pre-commit draft status.
 The [sole coverage matrix](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract)
-records current candidate evidence. All 59 original outcomes remain unchecked.
+records candidate and accepted projection proof; all 59 outcomes are closed in the canonical checklist.
 
 Split from Phase 50 on 2026-10-08 under the explicit `$cncf-split-phase 50`
 invocation. Predecessor: [Phase 50](phase-50.md) accepted compact producer
