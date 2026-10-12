@@ -86,6 +86,10 @@ deferred under DP-751-01.
 | Kroki/Antora toolchain | Coordinated launch, readiness, listener and endpoint settings for port `8000`. |
 | SimpleModeling.org production entry points | Separate prepared-media placement, repeated Web-only build and normal `website.d`, with explicit local `/media/` mapping. |
 
+Enabled Arcadia owns home-page production even when its expected output is
+missing. Cozy does not substitute a BoK home for that missing result. Existing
+per-category fallback and dedicated knowledge-page production remain separate.
+
 These consumers remain in P751-02 and the remaining Phase work. Article-card
 links retain priority, followed by Arcadia ownership/CSS after evidenced
 prerequisites. Generator evidence cannot close the Step or Phase. Preserve

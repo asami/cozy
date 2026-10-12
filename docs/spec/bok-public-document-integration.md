@@ -106,7 +106,7 @@ execution against the accepted dependency before a positive result is claimed.
 ## Executable specification and evidence boundary
 
 [CozyDocumentProjectSiteProjectionSpec](../../src/test/scala/cozy/publication/CozyDocumentProjectSiteProjectionSpec.scala)
-authors exactly four observable scenarios:
+authors seven observable scenarios:
 
 | Scenario | Observable contract |
 | --- | --- |
@@ -114,6 +114,10 @@ authors exactly four observable scenarios:
 | P751-02A-SPEC-02 | Direct/deep private Markdown and bare `_source` exclusion from HTML, Antora and public notice/card metadata, with positive public-index controls. |
 | P751-02A-SPEC-03 | Published bilingual YAML, genuine Markdown emphasis, literal Dox body directives, Production HTML and Antora routes for both suffixes. |
 | P751-02A-SPEC-04 | Incoming ordinary/Markdown direct-source and HTML aliases, localized canonical hrefs, real preserved target fragment and sibling compatibility. |
+
+The three additional imported scenario groups cover nested physical includes
+and sibling/private-Dox behavior, default Markdown table rendering, and native
+per-locale package metadata with canonical public links.
 
 Each scenario has adjacent Given/When/Then clauses and `should` matchers.
 Fresh physical fixtures and their cleanup are bounded to the specification's
@@ -126,6 +130,14 @@ cards, Arcadia page ownership, locale CSS, coordinated Kroki readiness or the
 normal production `website.d`. Those consumers require their own actual gates,
 including native build/browser evidence and the explicit local `/media/`
 warehouse mapping in [Phase 75.1](../phase/phase-75.1.md).
+
+## Arcadia home-page ownership
+
+When Arcadia is enabled, Cozy does not generate a replacement home page even
+when the expected Arcadia `index.html` is absent. Existing Arcadia home pages
+remain intact; a missing home remains missing. Dedicated knowledge pages and
+the existing fallback for missing category destinations remain separate.
+When Arcadia is disabled, stale Arcadia output does not establish ownership.
 
 ## Native article-card rendering
 

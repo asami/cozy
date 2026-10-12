@@ -1,6 +1,6 @@
 # Phase 57.2: SimpleModeling.org Publication Target Binding
 
-Status: PLANNED
+Status: COMPLETE
 
 Plan date: 2026-09-10
 Split from: [Phase 57](phase-57.md)
@@ -49,9 +49,9 @@ Phase Plan Gate: PROCEED
 
 | ID | Outcome | Status |
 | --- | --- | --- |
-| P572-01 | Add one typed SimpleModeling.org target binding that consumes the generic export contract. | planned |
-| P572-02 | Use Phase 55 site-aware registration rather than a compatibility descriptor. | planned |
-| P572-03 | Reject stale or partial generic export evidence at the target boundary. | planned |
+| P572-01 | Add one typed SimpleModeling.org target binding that consumes the generic export contract. | complete |
+| P572-02 | Use Phase 55 site-aware registration rather than a compatibility descriptor. | complete |
+| P572-03 | Reject stale or partial generic export evidence at the target boundary. | complete |
 
 ## Frozen handoff to Phase 57.3
 
@@ -80,6 +80,23 @@ Phase Plan Gate: PROCEED
   public upload, push, or production-site mutation.
 - Compatibility descriptors, adapters, manual evidence adoption, or fabricated
   successful attempts.
+
+## Accepted delivery evidence
+
+- P572-01: `4eb0fda2f2d57e917f61db44544649b78e6f1098` — typed,
+  portable SimpleModeling.org target admission through the generic verifier.
+- P572-02: `6922787f70e4eee031d238e5a724d20ed216c11c` — original
+  Phase 55 media registration and optional canonical site context.
+- P572-03: `b0b323fde396eee4645ce947cdafca303d7ed5da` — five-facet
+  live currentness, stale/partial rejection and whole-snapshot revalidation.
+- Each Step passed focused validation and independent acceptance review.
+  The final focused accumulator passed 58 tests across five suites; the single
+  epoch-1 comprehensive Phase review passed with no blockers or new HYG/DEV
+  records. Repository-full validation is the final release gate.
+- The [publication target contract](../spec/document-project-publication-target.md)
+  and its three executable specifications are the accepted Phase 57.3 handoff.
+  Phase 57.3 remains planned. Preparation, publication, deployment, upload,
+  push and production-site mutation remain outside this closure.
 
 ## References
 
