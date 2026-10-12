@@ -23,10 +23,32 @@ images, 12 pointer recoveries from focused input and five focused-recovery
 resize walks. Historical run006 PASS remains retained. Independent focused
 Step re-review passed and was accepted in review ledger revision 3, resolving
 CPB-P501-E3-001; the [accepted re-review checkpoint](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-recovery-rereview-checkpoint-001.json)
-records that closure. Parent manual local Step commit remains pending. E4 attributed
-feedback/revision, explicit acceptance of one exact
-complete identity and both accepted projections remain outstanding, as do the
-independent Phase review, aggregate full validation, closure ledger and release.
+records that historical closure. The latest independent integrity focused review
+PASS was accepted in review ledger revision 5. S50.1.1/E3 was manually committed
+at `84ab85a0984a0286507d63aca906c9a88c923f9b`, as recorded in the
+[Step commit checkpoint 002](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-step-acceptance-commit-002.json).
+The narrow formatting integrity delta removes blank provenance separator spaces
+in the current comparison; all 21 producer tests passed. Run007 remains the
+interaction proof, predates that formatting change and is not a new browser
+observation of the current comparison bytes. Actual attributed human feedback
+「修正不要」 was received on 2026-10-13; the
+[feedback record](../evidence/phase-50.1/readiness-candidate-001/feedback.md)
+documents the separate no-source-change disposition. On 2026-10-13, the human
+user of owning conversation `01a0ff01-4772-76b2-bba1-e2542f0a9647` explicitly said:
+
+> この候補を最終受入れする。Phase 50.1を最後まで続けて。コミットは引き続き親による手動ローカルコミットで。
+
+[The exact acceptance decision](../evidence/phase-50.1/readiness-accepted-001/acceptance.json)
+binds complete candidate `sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1`
+and consumed input `sha256:dd1f3b249795e3857bdcb19a72abc2cc205edee8e4d736f8f2db42a2dd08c0a1`.
+No semantic source revision is requested. Candidate receipts retain null acceptance.
+[The accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md)
+retains the generated native four-role declaration export and both current accepted
+projections. Two producer suites passed all 21 tests; accepted-binding browser
+run002 passed six normal/loading cases, 107 observations and eight parent-inspected
+images. Actual native/browser admission passed with cleanup complete. Whole E4
+Step review/manual local commit, full Phase review, final full
+suite, closure ledger and distinct release remain outstanding.
 The [sole coverage matrix](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract)
 records current candidate evidence. All 59 original outcomes remain unchecked.
 

@@ -1,0 +1,10 @@
+{
+  "decisionId": "P501-E4-FINAL-ACCEPTANCE-001",
+  "candidateIdentity": "sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1",
+  "consumedInputIdentity": "sha256:dd1f3b249795e3857bdcb19a72abc2cc205edee8e4d736f8f2db42a2dd08c0a1",
+  "reviewerId": "owning-chat-human:01a0ff01-4772-76b2-bba1-e2542f0a9647",
+  "sourceConversation": "01a0ff01-4772-76b2-bba1-e2542f0a9647",
+  "sourceClientDate": "2026-10-13",
+  "sourceMessage": "この候補を最終受入れする。Phase 50.1を最後まで続けて。コミットは引き続き親による手動ローカルコミットで。",
+  "purpose": "Explicit human final acceptance of this exact complete target-neutral Logical UI and consumed four authoritative inputs for Phase51."
+}

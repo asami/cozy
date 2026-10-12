@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 import assert from 'node:assert/strict';
@@ -15,9 +15,8 @@ const flags = ['--site', '--receipt', '--evidence', '--playwright', '--browser']
 const viewports = { compact: { width: 390, height: 844 }, medium: { width: 834, height: 1112 },
   expanded: { width: 1440, height: 900 } };
 const outcomeIds = ['conflict', 'empty', 'loading', 'normal', 'operation-failed', 'unavailable', 'validation-failed'];
-const screenshots = Object.keys(viewports).flatMap(name => outcomeIds.map(id => `${name}-${id}.png`))
-  .concat(['structural-review.png', 'responsive-comparison.png']);
-const outputNames = [...screenshots, 'browser-observations.json', 'server-process.json', 'browser-result.json'];
+let screenshots, outputNames;
+let proofMode = 'candidate-full', proofScope, acceptedInput;
 const startedAt = new Date().toISOString();
 const errors = [], requests = [], cases = [], observations = [], capturedScreenshots = [], writtenOutputs = [];
 let options, source, review, ready, normal, flow, field, sourceFlow, server, context, browser, profile;
@@ -26,17 +25,26 @@ let evidenceReady = false, readiness = false, clientSuccess = false, cleanupSucc
 let actionContext = 'input admission';
 
 function parseArgs(argv) {
-  assert.equal(argv.length, 10, 'Exactly five flag/value pairs required');
+  assert([10, 12].includes(argv.length), 'Five required pairs and optional --accepted-input pair');
   const result = {};
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index], value = argv[index + 1];
-    assert(flags.includes(flag) && !Object.hasOwn(result, flag), `Unknown or duplicate flag: ${flag}`);
+    assert([...flags, '--accepted-input'].includes(flag) && !Object.hasOwn(result, flag), `Unknown or duplicate flag: ${flag}`);
     assert(value && !value.startsWith('--') && path.isAbsolute(value), `Absolute value required: ${flag}`);
     assert(!value.split(path.sep).some(part => part === '.' || part === '..'), `Traversal forbidden: ${flag}`);
     assert.equal(path.normalize(value), value, `Canonical path required: ${flag}`);
     result[flag] = value;
   }
   flags.forEach(flag => assert(Object.hasOwn(result, flag), `Missing flag: ${flag}`));
+  assert.equal(Object.hasOwn(result, '--accepted-input'), argv.length === 12);
+  proofMode = result['--accepted-input'] ? 'accepted-binding' : 'candidate-full';
+  const selectedOutcomes = proofMode === 'accepted-binding' ? ['loading', 'normal'] : outcomeIds;
+  screenshots = Object.keys(viewports).flatMap(name => selectedOutcomes.map(id => `${name}-${id}.png`))
+    .concat(['structural-review.png', 'responsive-comparison.png']);
+  outputNames = [...screenshots, 'browser-observations.json', 'server-process.json', 'browser-result.json'];
+  proofScope = { declaredSourceCases: 21, expectedObservedCases: selectedOutcomes.length * 3,
+    observedOutcomes: selectedOutcomes, exhaustiveDeclaredCoverage: proofMode === 'candidate-full',
+    reusedCandidateEvidence: proofMode === 'accepted-binding' ? 'E3 run007' : null };
   return result;
 }
 
@@ -92,7 +100,21 @@ function admitReceipt() {
     semanticProjectionIdentity: 'sha256:99cfa256b7dd2402907e3859605dc17f25a8ef00870e2319de04f7971642dcc0',
     acceptedIdentity: null, decisionIdentity: null, decision: null
   };
-  assert.deepEqual(review.binding, expectedBinding, 'Exact frozen complete candidate binding');
+  if (proofMode === 'accepted-binding') {
+    assert.deepEqual(Object.keys(acceptedInput).sort(), ['binding', 'sourceInputs']);
+    assert.deepEqual(review.binding, acceptedInput.binding, 'Exact accepted export binding');
+    assert.deepEqual(review.sourceInputs, acceptedInput.sourceInputs, 'All four accepted source declarations');
+    assert.deepEqual(Object.keys(review.binding).sort(), Object.keys(expectedBinding).sort());
+    for (const key of Object.keys(expectedBinding).filter(key => !['acceptedIdentity', 'decisionIdentity', 'decision'].includes(key)))
+      assert.equal(review.binding[key], expectedBinding[key], `Unchanged complete source identity: ${key}`);
+    for (const value of [review.binding.acceptedIdentity, review.binding.decisionIdentity,
+      review.binding.decision?.decisionId, review.binding.decision?.candidateIdentity, review.binding.decision?.reviewerId])
+      assert(typeof value === 'string' && value.length > 0 && value === value.trim(), 'Trimmed accepted attribution required');
+    assert.deepEqual(Object.keys(review.binding.decision).sort(), ['candidateIdentity', 'decisionId', 'reviewerId']);
+    assert.equal(review.binding.decision.candidateIdentity, review.binding.candidateIdentity);
+    assert.equal(new Set(['candidateIdentity', 'consumedInputIdentity', 'acceptedIdentity', 'decisionIdentity']
+      .map(key => review.binding[key])).size, 4, 'Four distinct complete identity roles');
+  } else assert.deepEqual(review.binding, expectedBinding, 'Exact frozen complete candidate binding');
   const schemas = { kernelContent: 'cozy.logical-ui.v1', projectionContent: 'cozy.usecase-screen-projection.v1',
     semanticContent: 'cozy.logical-ui-semantics.v1', readinessContent: 'cozy.logical-ui-target-ready.v1' };
   assert.deepEqual(Object.keys(review.sourceInputs).sort(), Object.keys(schemas).sort());
@@ -150,7 +172,14 @@ async function prepareInputs() {
   assert.deepEqual((await fs.readdir(options['--evidence'])).sort(), supervisorFiles,
     'Only selected supervisor start/log files may precede child execution; no replay or overwrite');
   for (const name of supervisorFiles) await regularFile(path.join(options['--evidence'], name));
-  for (const input of [options['--site'], options['--receipt'], options['--playwright'], options['--browser']]) {
+  const inputPaths = [options['--site'], options['--receipt'], options['--playwright'], options['--browser']];
+  if (options['--accepted-input']) {
+    await regularFile(options['--accepted-input']);
+    assert(!within(options['--site'], options['--accepted-input']), 'Accepted input outside served site required');
+    inputPaths.push(options['--accepted-input']);
+    acceptedInput = JSON.parse(await fs.readFile(options['--accepted-input'], 'utf8'));
+  }
+  for (const input of inputPaths) {
     assert(!within(input, options['--evidence']) && !within(options['--evidence'], input), 'Source/output overlap forbidden');
   }
   assert(!within(options['--site'], options['--receipt']), 'Receipt outside served site required');
@@ -649,6 +678,46 @@ async function exerciseProfile(page, name) {
   assert.deepEqual(semanticState(resetAgain), semanticState(baseline), 'Exact baseline restored after replay');
 }
 
+async function inspectAcceptedProvenance(target, name) {
+  const summary = target.locator('summary').filter({ hasText: /^Complete source provenance$/ });
+  await summary.click();
+  const actual = await target.locator('#source-provenance').evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    return { open: node.closest('details').open, visible: Boolean(node.getClientRects().length),
+      text: node.innerText, provenance: JSON.parse(node.textContent),
+      rectangle: { x: rect.x, y: rect.y, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom },
+      documentWidth: document.documentElement.clientWidth, documentScrollWidth: document.documentElement.scrollWidth,
+      viewport: { width: innerWidth, height: innerHeight } };
+  });
+  observations.push({ name: `${name}/visible-accepted-provenance`, ...actual });
+  assert(actual.open && actual.visible && actual.rectangle.width > 0 && actual.rectangle.height > 0);
+  assert(actual.rectangle.x >= -1 && actual.rectangle.right <= actual.documentWidth + 1);
+  assert(actual.documentScrollWidth <= actual.documentWidth + 1, 'Opened provenance has no document overflow');
+  assert.deepEqual(actual.provenance, review, 'Visible complete native provenance');
+  for (const value of [review.binding.acceptedIdentity, review.binding.decisionIdentity,
+    review.binding.decision.decisionId, review.binding.decision.reviewerId]) assert(actual.text.includes(value));
+  assert.equal(await target.locator('#assurance').innerText(), 'Explicitly accepted complete input; simulated review fixture');
+  await summary.click();
+}
+
+async function exerciseAcceptedProfile(page, name) {
+  actionContext = `${name}/accepted-entry`; await page.setViewportSize(viewports[name]);
+  await page.goto(`${baseUrl}/index.html`, { waitUntil: 'load' });
+  assert.deepEqual(JSON.parse(await page.locator('#readiness-data').textContent()), source, 'Full embedded accepted receipt');
+  await observe(page, `${name}/accepted-entry`, actual => assertReset(actual, viewports[name]));
+  await openReady(page, `${name}/accepted-normal-flow`, 'SO-EDIT-01', name === 'medium' ? 'Space' : 'Enter');
+  const loading = await beginNormal(page, `${name}/accepted-normal-flow`, name === 'expanded' ? 'Enter' : 'Space');
+  await capture(page, `${name}-loading.png`, loading);
+  const rectangle = await page.locator('#confirm-order').boundingBox(); assert(rectangle);
+  await page.mouse.click(rectangle.x + rectangle.width / 2, rectangle.y + rectangle.height / 2);
+  const duplicate = await observe(page, `${name}/accepted-duplicate-disabled-invocation`, actual => assertOutcome(actual, outcome('loading')));
+  assert.deepEqual(semanticState(duplicate), semanticState(loading), 'Duplicate pending invocation retains state');
+  const successful = await completeNormal(page, `${name}/accepted-normal-flow`);
+  await capture(page, `${name}-normal.png`, successful);
+  await inspectAcceptedProvenance(page, name);
+  await observe(page, `${name}/accepted-provenance-retains-normal`, actual => assertOutcome(actual, outcome('normal')));
+}
+
 async function resizeRetainingState(page, widths, name) {
   let before = await observe(page, `${name}/before`);
   for (const width of widths) {
@@ -762,7 +831,11 @@ async function inspectStructuralReview(page) {
     'Profile and outcome coverage', 'Exact Operation, StateMachine and Powertype source flow', 'Kernel candidate evidence'])
     assert(actual.headings.includes(heading), heading);
   for (const identity of Object.values(review.binding).filter(value => typeof value === 'string')) assert(actual.text.includes(identity));
-  assert(actual.text.includes(normal.fixtureId) && actual.text.includes('acceptance pending'));
+  assert(actual.text.includes(normal.fixtureId));
+  if (proofMode === 'accepted-binding') {
+    assert(actual.text.includes('Accepted complete input; explicit attributed decision'));
+    for (const value of [review.binding.decision.decisionId, review.binding.decision.reviewerId]) assert(actual.text.includes(value));
+  } else assert(actual.text.includes('acceptance pending'));
   assert.equal(actual.scripts, 0); assert.equal(actual.forms, 0); assert.equal(actual.networkAssets, 0);
   assert.deepEqual(Object.fromEntries(actual.sources.map(item => [item.name, item.content])), review.sourceInputs);
   const coverage = actual.tables.find(item => item.heading === 'Profile and outcome coverage');
@@ -789,6 +862,7 @@ async function inspectComparison(page) {
     await observe(frame, `comparison/${name}/completed`, actual => {
       assert.deepEqual(actual.viewport, viewports[name]); assertOutcome(actual, outcome('normal'));
     });
+    if (proofMode === 'accepted-binding') await inspectAcceptedProvenance(frame, `comparison/${name}`);
   }
   for (let index = 0; index < names.length; index++) {
     const frame = await (await frames.nth(index).elementHandle()).contentFrame();
@@ -797,6 +871,10 @@ async function inspectComparison(page) {
   const shell = await page.evaluate(() => ({ text: document.body.textContent,
     horizontalScroll: document.getElementById('frames').scrollWidth > document.getElementById('frames').clientWidth }));
   for (const identity of Object.values(review.binding).filter(value => typeof value === 'string')) assert(shell.text.includes(identity));
+  if (proofMode === 'accepted-binding') {
+    assert(shell.text.includes('Explicit accepted complete input'));
+    for (const value of [review.binding.decision.decisionId, review.binding.decision.reviewerId]) assert(shell.text.includes(value));
+  }
   assert(shell.horizontalScroll, 'Comparison shell intentionally scrolls horizontally');
   observations.push({ name: 'responsive-comparison-shell', ...shell });
   // Frame the completed profiles from the top without changing their declared viewports.
@@ -836,10 +914,15 @@ async function inspectComparison(page) {
 }
 
 async function walkBrowser(page) {
-  for (const name of Object.keys(viewports)) await exerciseProfile(page, name);
-  assert.equal(cases.length, 21);
-  assert.deepEqual(cases.map(item => item.coverageId).sort(), review.scenario.coverage.map(item => item.coverageId).sort());
-  await exerciseResize(page); await inspectStructuralReview(page); await inspectComparison(page);
+  for (const name of Object.keys(viewports)) {
+    if (proofMode === 'accepted-binding') await exerciseAcceptedProfile(page, name);
+    else await exerciseProfile(page, name);
+  }
+  const expectedCases = review.scenario.coverage.filter(item => proofScope.observedOutcomes.includes(item.outcomeId));
+  assert.equal(cases.length, proofScope.expectedObservedCases);
+  assert.deepEqual(cases.map(item => item.coverageId).sort(), expectedCases.map(item => item.coverageId).sort());
+  if (proofMode === 'candidate-full') await exerciseResize(page);
+  await inspectStructuralReview(page); await inspectComparison(page);
   assert.deepEqual([...capturedScreenshots].sort(), [...screenshots].sort()); assertActive(); clientSuccess = true;
 }
 
@@ -890,6 +973,7 @@ try {
         message: error.message.replace(/https?:\/\/[^\s)]+/g, '[request URL]')
           .replace(/\/(?:Users|Applications|private|var|tmp)\/[^\s)]+/g, '[local path]') }));
       await writeJson('browser-observations.json', { schema: 'cozy.logical-ui-target-ready-browser.v1',
+        proofMode, proofScope,
         binding: review?.binding, rendererProfile: source?.rendererProfile, rendererVersion: source?.version,
         browserVersion, playwrightVersion, fixtureId: normal?.fixtureId, sourceReceipt: source,
         cases, observations, screenshots: capturedScreenshots, network: { requests,
@@ -897,6 +981,7 @@ try {
           mutatingRequests: requests.filter(item => item.method !== 'GET').length },
         errors: portableErrors, result: success ? 'PASS' : 'FAIL' });
       await writeJson('browser-result.json', { schema: 'cozy.logical-ui-target-ready-browser-result.v1',
+        proofMode, proofScope,
         runDirectory: options['--evidence'], readiness, clientSuccess, cleanupSuccess, processCompletion: 'terminal',
         pid: process.pid, startedAt, completedAt: new Date().toISOString(), baseUrl,
         requiredOutputs: outputNames, actualOutputs: [...writtenOutputs, 'browser-result.json'],
@@ -904,6 +989,7 @@ try {
     } catch (error) { success = false; process.stderr.write(`Evidence write failed: ${error.message}\n`); }
   }
   process.stdout.write(JSON.stringify({ readiness, clientSuccess, cleanupSuccess, processCompletion: 'terminal',
+    proofMode, proofScope,
     result: success ? 'PASS' : 'FAIL' }) + '\n');
   if (!success) {
     process.stderr.write(errors.map(error => `${error.type} (${error.context}): ${error.message}`).join('\n') + '\n');

@@ -444,12 +444,29 @@ fixture decisions. The legacy accumulator remains the compatibility proof.
 No fixture decision authenticates human acceptance. At the IR slice,
 structural/Web projection receipts and actual browser evidence belonged to
 later slices; their current E3 candidate proof is recorded in section 13 and
-the sole specification section 11 matrix. Independent E3 Step review is accepted
-following the focused re-review PASS; parent manual local Step commit remains
-pending. E4 still owns attributable feedback, source
-revision/regeneration when applicable and actual explicit exact-complete
-acceptance. Neither the historical IR slice nor current candidate proof claims
-human acceptance or Step/Phase closure.
+the sole specification section 11 matrix. Independent E3 Step review is accepted,
+with the latest integrity focused review PASS accepted in review ledger revision 5.
+S50.1.1/E3 was manually committed at
+`84ab85a0984a0286507d63aca906c9a88c923f9b`; the
+[Step commit checkpoint 002](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-step-acceptance-commit-002.json)
+records that status. Actual attributed human feedback 「修正不要」 was received
+on 2026-10-13; the [feedback record](../evidence/phase-50.1/readiness-candidate-001/feedback.md)
+documents the separate no-source-change disposition. On 2026-10-13, the human
+user of owning conversation `01a0ff01-4772-76b2-bba1-e2542f0a9647` separately said:
+
+> この候補を最終受入れする。Phase 50.1を最後まで続けて。コミットは引き続き親による手動ローカルコミットで。
+
+[The actual acceptance input](../evidence/phase-50.1/readiness-accepted-001/acceptance.json)
+binds complete candidate `sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1`
+and consumed input `sha256:dd1f3b249795e3857bdcb19a72abc2cc205edee8e4d736f8f2db42a2dd08c0a1`.
+No semantic source revision or personal reviewer name is added. Candidate
+receipts remain null; [the accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md)
+retains the generated native accepted projection/export. Both producer suites
+passed 21 tests, and accepted-binding run002 passed six normal/loading cases,
+107 observations and eight parent-inspected images; parent native/browser
+admission passed with cleanup complete. Whole E4 Step review/manual local
+commit, full Phase review, final full suite and distinct release/closure remain
+pending. Neither the historical IR slice nor browser success closes these gates.
 
 ## 13. Shared complete review and one Web interpreter
 
@@ -576,12 +593,59 @@ is unchanged, rebuilding only on outcome change or clearing. Parent-admitted
 focused validation and run007 passed; independent focused re-review passed and
 was accepted in review ledger revision 3, resolving CPB-P501-E3-001 as recorded
 in the [accepted re-review checkpoint](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-recovery-rereview-checkpoint-001.json).
-Parent manual local Step commit remains pending.
+The latest independent integrity focused review PASS was accepted in review
+ledger revision 5, and S50.1.1/E3 was manually committed at
+`84ab85a0984a0286507d63aca906c9a88c923f9b` in
+[Step commit checkpoint 002](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-step-acceptance-commit-002.json).
+The narrow formatting integrity delta removes blank provenance separator spaces
+in the current comparison; all 21 producer tests passed. Run007 remains the
+interaction proof, predates that formatting change and is not a new browser
+observation of the current comparison bytes.
 [The portable candidate review](../evidence/phase-50.1/readiness-candidate-001/browser-review.md)
 links the regenerated three HTML/two complete receipts, observed data and images,
 with relative screenshot references and scope limits. Private session/PID/temp/
 endpoint records remain local; portable copies are product-review material.
 The sole [specification section 11 matrix](../spec/logical-ui-model.md#11-shared-salesorder-compact-success-contract)
 records these 21 browser cases and preserves the historical P50 compact row.
-Attributable feedback/revision and genuine exact human acceptance belong to
-E4; no producer or fixture closes E3, Step, Phase or the full-suite gate.
+Actual attributed human feedback 「修正不要」 received on 2026-10-13 and its
+applicable no-source-change disposition are documented in the
+[feedback record](../evidence/phase-50.1/readiness-candidate-001/feedback.md).
+The separate actual final acceptance is recorded in section 12 and
+[acceptance.json](../evidence/phase-50.1/readiness-accepted-001/acceptance.json).
+It authorizes the same complete inputs; no producer or fixture supplies consent.
+
+[RenderAcceptedReadiness.scala](../../scripts/test/phase501/RenderAcceptedReadiness.scala)
+is a thin Test-classpath adapter, separate from the Cozy CLI and semantic codec.
+It reads the actual decision, recomposes the single ready candidate/scenario,
+guards exact candidate/consumed identities before mutation and calls native
+currentness, acceptance and both accepted render/currentness factories. Both
+complete bindings/declarations and structural receipts must agree; deterministic
+Web rerender is checked before the unchanged native five-file writer runs.
+The structural receipt's existing `binding` and `sourceInputs` are exported as
+the only top-level fields in `accepted-logical-ui.json`, supplying Phase 51's
+approved four-role declarations. Native accepted/decision identities remain
+factory-owned. Single-writer local generation adds no hashes/locks/retries/
+rollback/certificate or acceptance acquisition.
+
+The same browser driver accepts an optional sixth absolute `--accepted-input`
+pair for that canonical regular export outside site/output. Its existing five
+pairs retain candidate/null/full-21 behavior. Accepted-binding compares exact
+receipt/export binding and four declarations, frozen six source identities,
+distinct candidate/consumed/decision/accepted roles and trimmed attribution.
+The walk uses existing DOM/reset/navigation/normal helpers for six normal/loading
+cases at the three declared viewports. Visible Complete source provenance is
+opened through its summary and recorded with text, geometry and parsed native
+accepted/decision/reviewer values, without document overflow. Structural
+accepted labeling and independent comparison frames retain complete attribution
+and normal flow. Six case images plus structural/completed-frame comparison
+images and explicit `proofMode`/`proofScope` describe bounded coverage; unchanged
+failure/recovery/reset/replay/resize reuse E3 run007. The GET-only owned
+server/Chrome/profile/startup/interruption/cleanup lifecycle is unchanged.
+
+The [accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md)
+retains actual generated artifacts and bounded accepted-binding run002 proof:
+six normal/loading cases, 107 observations and eight parent-inspected images.
+Native generation/currentness/determinism and both producer suites (21 tests)
+passed; parent native/browser admission and owned cleanup are complete. Whole E4
+Step review/manual local commit, full Phase review,
+final full suite and distinct release/closure remain pending.

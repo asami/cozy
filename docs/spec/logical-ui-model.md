@@ -445,22 +445,22 @@ admission already present in Phase43.
 | Coverage ID | Fixture | UI step | Screen interactions in order | Exact public bindings | Profile | Outcome | Phase50 requirements | Evidence status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | P50-COMPACT-NORMAL-001 | sales-order-compact-v1 | normal `confirm` | `order-list/entry`, `order-list/to-detail`, `order-detail/select`, `order-detail/invoke`, `order-detail/observe` | SalesOrder exact public binding set declared above; command `#operation` / `#state-machine`, selection `#powertype` variant `awaiting-confirmation` | compact, NavigateToDetail | simulated success: domain draft to confirmed, UI succeeded | P50-MAIN-02/03/04/05/06/07 | selected eight suites: 74/74 passed; actual compact browser PASS, Chrome 154.0.8037.94 at 390 × 844, parent inspected six screenshots; retained [app](../evidence/phase-50/compact/index.html), [structural review](../evidence/phase-50/compact/review.html), [complete receipt](../evidence/phase-50/compact/compact-preview-receipt.json), [portable observations](../evidence/phase-50/compact/browser-observations.json), [six screenshots and evidence scope](../evidence/phase-50/compact/README.md); partial compact normal simulation only, broader target/profile/outcome and aggregate full-suite assurance pending Phase50.1; independent Step reviews `P50-S5011-STEP-REVIEW-001@1` / `P50-S5021-STEP-REVIEW-001@1` and sole Phase review `P50-PHASE-FULL-REVIEW-001@1` PASS; narrow increment closure is bound to [the distinct local release and native audit](../phase/phase-50-closure-ledger.md) |
-| P501-COMPACT-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | compact | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
-| P501-COMPACT-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | compact | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-COMPACT-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | compact | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); historical candidate/null receipt retained; native accepted generation and actual accepted-binding run002 PASS (six observed cases, 107 observations, eight parent-inspected images); [current accepted case image](../evidence/phase-50.1/readiness-accepted-001/screenshots/compact-normal.png); [accepted observations and scope](../evidence/phase-50.1/readiness-accepted-001/README.md) |
+| P501-COMPACT-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | compact | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); historical candidate/null receipt retained; native accepted generation and actual accepted-binding run002 PASS (six observed cases, 107 observations, eight parent-inspected images); [current accepted case image](../evidence/phase-50.1/readiness-accepted-001/screenshots/compact-loading.png); [accepted observations and scope](../evidence/phase-50.1/readiness-accepted-001/README.md) |
 | P501-COMPACT-EMPTY-001 | sales-order-target-ready-v1 | normal confirm; alternative recover | list entry; recover list entry | same exact SalesOrder public binding set | compact | empty: draft/idle; retry entry | empty/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-empty.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-COMPACT-VALIDATION-001 | sales-order-target-ready-v1 | alternative enter/recover | detail input/feedback; recover input | same exact SalesOrder public binding set | compact | validation-failed: draft/failed; edit input | input/local validation/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-validation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-COMPACT-CONFLICT-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover input | same exact SalesOrder public binding set | compact | conflict: draft/failed; edit input | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-conflict.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-COMPACT-UNAVAILABLE-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | compact | unavailable: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-unavailable.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-COMPACT-OPERATION-FAILED-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | compact | operation-failed: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 390 × 844; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/compact-operation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
-| P501-MEDIUM-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | medium | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
-| P501-MEDIUM-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | medium | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-MEDIUM-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | medium | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); historical candidate/null receipt retained; native accepted generation and actual accepted-binding run002 PASS (six observed cases, 107 observations, eight parent-inspected images); [current accepted case image](../evidence/phase-50.1/readiness-accepted-001/screenshots/medium-normal.png); [accepted observations and scope](../evidence/phase-50.1/readiness-accepted-001/README.md) |
+| P501-MEDIUM-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | medium | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); historical candidate/null receipt retained; native accepted generation and actual accepted-binding run002 PASS (six observed cases, 107 observations, eight parent-inspected images); [current accepted case image](../evidence/phase-50.1/readiness-accepted-001/screenshots/medium-loading.png); [accepted observations and scope](../evidence/phase-50.1/readiness-accepted-001/README.md) |
 | P501-MEDIUM-EMPTY-001 | sales-order-target-ready-v1 | normal confirm; alternative recover | list entry; recover list entry | same exact SalesOrder public binding set | medium | empty: draft/idle; retry entry | empty/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-empty.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-MEDIUM-VALIDATION-001 | sales-order-target-ready-v1 | alternative enter/recover | detail input/feedback; recover input | same exact SalesOrder public binding set | medium | validation-failed: draft/failed; edit input | input/local validation/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-validation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-MEDIUM-CONFLICT-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover input | same exact SalesOrder public binding set | medium | conflict: draft/failed; edit input | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-conflict.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-MEDIUM-UNAVAILABLE-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | medium | unavailable: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-unavailable.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-MEDIUM-OPERATION-FAILED-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover invoke | same exact SalesOrder public binding set | medium | operation-failed: draft/failed; retry invoke | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 834 × 1112; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/medium-operation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
-| P501-EXPANDED-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | expanded | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
-| P501-EXPANDED-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | expanded | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
+| P501-EXPANDED-NORMAL-001 | sales-order-target-ready-v1 | normal confirm | list entry/navigation; detail selection/invoke/feedback/observe | same exact SalesOrder public binding set | expanded | normal: confirmed/succeeded | complete readiness/profile/normal | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-normal.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); historical candidate/null receipt retained; native accepted generation and actual accepted-binding run002 PASS (six observed cases, 107 observations, eight parent-inspected images); [current accepted case image](../evidence/phase-50.1/readiness-accepted-001/screenshots/expanded-normal.png); [accepted observations and scope](../evidence/phase-50.1/readiness-accepted-001/README.md) |
+| P501-EXPANDED-LOADING-001 | sales-order-target-ready-v1 | normal confirm | detail invoke/feedback | same exact SalesOrder public binding set | expanded | loading: draft/pending | loading/accessibility | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-loading.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); historical candidate/null receipt retained; native accepted generation and actual accepted-binding run002 PASS (six observed cases, 107 observations, eight parent-inspected images); [current accepted case image](../evidence/phase-50.1/readiness-accepted-001/screenshots/expanded-loading.png); [accepted observations and scope](../evidence/phase-50.1/readiness-accepted-001/README.md) |
 | P501-EXPANDED-EMPTY-001 | sales-order-target-ready-v1 | normal confirm; alternative recover | list entry; recover list entry | same exact SalesOrder public binding set | expanded | empty: draft/idle; retry entry | empty/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-empty.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-EXPANDED-VALIDATION-001 | sales-order-target-ready-v1 | alternative enter/recover | detail input/feedback; recover input | same exact SalesOrder public binding set | expanded | validation-failed: draft/failed; edit input | input/local validation/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-validation-failed.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
 | P501-EXPANDED-CONFLICT-001 | sales-order-target-ready-v1 | exception failure; alternative recover | detail invoke/feedback; recover input | same exact SalesOrder public binding set | expanded | conflict: draft/failed; edit input | failure/recovery | actual browser PASS, run007, Chrome 154.0.8037.94 at 1440 × 900; parent inspected [case image](../evidence/phase-50.1/readiness-candidate-001/screenshots/expanded-conflict.png); [actual observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json); candidate, acceptance pending |
@@ -480,7 +480,11 @@ medium placement navigates. Medium and expanded declare persistent navigation.
 
 This is the single canonical coverage matrix retaining historical S50.2
 compact evidence and the 21 S50.1.1 complete-candidate browser cases. It does
-not claim exact human target-ready acceptance. The original
+not derive human target-ready acceptance from browser success. The separate
+actual final acceptance and pending six-case accepted projection proof are
+recorded in [the accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md).
+Only the six normal/loading rows add this bounded pending evidence reference;
+the other 15 rows retain candidate E3 run007 evidence. The original
 full-outcome checklist rows remain open in Phase50.1; no second coverage
 matrix or target/framework/browser fields are added to Logical UI semantic IR.
 
@@ -739,11 +743,29 @@ browser evidence includes normal and admitted failure/recovery flows in
 compact, medium and expanded, keyboard/focus and visible content/overflow,
 viewport switching and retained input/selection. The IR slice alone did not
 close E3, Phase50.1 or the 59 original outcome obligations. Independent E3 Step
-review is accepted following the focused re-review PASS; parent manual local
-Step commit remains pending. E4 still must record actual attributable
-feedback, applicable revision/currentness and explicit acceptance of one exact
-complete identity, then bind both regenerated projections; Phase closure and
-the 59 original outcome obligations remain outstanding.
+review is accepted, with the latest integrity focused review PASS accepted in
+review ledger revision 5. S50.1.1/E3 was manually committed at
+`84ab85a0984a0286507d63aca906c9a88c923f9b`; the
+[Step commit checkpoint 002](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-step-acceptance-commit-002.json)
+records that status. Actual attributed human feedback 「修正不要」 was received
+on 2026-10-13; the [feedback record](../evidence/phase-50.1/readiness-candidate-001/feedback.md)
+documents the applicable no-source-change disposition and retains the current
+complete candidate without semantic source revision. On 2026-10-13, the human
+user of owning conversation `01a0ff01-4772-76b2-bba1-e2542f0a9647` separately said:
+
+> この候補を最終受入れする。Phase 50.1を最後まで続けて。コミットは引き続き親による手動ローカルコミットで。
+
+[The actual acceptance input](../evidence/phase-50.1/readiness-accepted-001/acceptance.json)
+binds complete candidate `sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1`
+and consumed input `sha256:dd1f3b249795e3857bdcb19a72abc2cc205edee8e4d736f8f2db42a2dd08c0a1`.
+The separate [accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md)
+is generated from the same four authoritative source declarations; historical
+candidate receipts remain candidate/null. Two producer suites passed 21 tests;
+accepted-binding run002 passed six normal/loading cases, 107 observations and
+eight parent-inspected images, with native/browser admission and cleanup complete.
+Whole E4 Step review/manual local commit, full Phase review, final full
+suite and distinct release/closure remain pending. The 59 original outcome
+obligations remain outstanding.
 
 ## 14. Complete structural and Progressive Static Web producers
 
@@ -903,10 +925,52 @@ Their explicit accepted values are specification fixtures. The Web writer
 scenario retains candidate output under `target/phase501-readiness-preview/site`
 and receipts under its `evidence` sibling. The bounded executable browser
 specification is [run-readiness-browser.mjs](../../scripts/test/phase501/run-readiness-browser.mjs),
-with exactly `--site`, `--receipt`, `--evidence`, `--playwright` and `--browser`
-absolute flag/value pairs. A supervised exclusive run directory, GET-only
+with required `--site`, `--receipt`, `--evidence`, `--playwright` and `--browser`
+absolute flag/value pairs and optional `--accepted-input`. Five pairs retain
+candidate-full mode with null accepted fields and all 21 cases. The sixth pair
+selects accepted-binding mode and points to the canonical regular declaration
+export outside the served site and output. It admits exactly `binding` and
+`sourceInputs`, requires the frozen six source identities, all four full
+declarations equal to the native receipt, distinct candidate/consumed/decision/
+accepted roles and trimmed native decision/reviewer attribution. This checks
+projection relationships; the actual human decision is recorded above.
+A supervised exclusive run directory, GET-only
 three-resource loopback server and invocation-owned Chrome profile bound its
 actual execution; success/failure/interruption await owned cleanup.
+
+[RenderAcceptedReadiness.scala](../../scripts/test/phase501/RenderAcceptedReadiness.scala)
+is a thin reproducible Test-classpath proof adapter with two absolute arguments:
+the actual acceptance JSON and an output parent. It recomposes the existing
+`readyCandidate()` and `readinessWebScenario()`, requires the decision's exact
+candidate/consumed identities before any output mutation and uses native
+`verifyCurrent`, `TargetReadyAcceptanceDecision`, `accept`, both `renderAccepted`
+and `verifyAcceptedCurrent` entrypoints. Complete binding/source declarations
+and structural receipts must agree; Web observables must rerender deterministically.
+The unchanged native `Web.write` generates three HTML and two receipt files in
+`site`/`evidence`; `accepted-logical-ui.json` exports exactly the structural
+receipt's `binding` and `sourceInputs`. It supplies approved complete declarations
+for Phase 51 without a new semantic schema, transport decoder or CLI. Accepted
+and decision identities come from native values, never independent calculation.
+Native failure code/path/reason remains attributable and prevents success.
+
+Accepted-binding browser mode is bounded to six normal/loading cases at
+390 × 844, 834 × 1112 and 1440 × 900, with six case images plus structural and
+completed comparison images. It retains embedded native receipts, keyboard
+navigation/input/variant/focus, pending duplicate-disabled invocation and normal
+completion. It opens Complete source provenance through the native summary and
+records visible text, geometry and parsed accepted/decision/reviewer provenance
+without document overflow. Structural accepted attribution and all three
+independent comparison frames bind the same complete inputs. Portable/terminal
+`proofMode` and `proofScope` distinguish this six-case proof from the still
+declared 21-case source coverage. Unchanged failure/recovery/reset/replay/resize
+reuse admitted E3 run007. No interpreter invocation or lifecycle change is added.
+The actual accepted-binding run002 passed all six selected cases and retained
+107 observations and eight parent-inspected images. Native generation/currentness/
+determinism and both producer suites (21 tests) passed; the parent admitted
+the actual export, both accepted projections and browser evidence with owned
+cleanup complete. [The accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md)
+retains those products. This six-case proof does not rerun the other 15 declared
+cases or failure/recovery/reset/replay/resize transitions.
 
 The current admitted run007 supplied 21 individually attributed cases, 1067 observations
 and 23 parent-inspected images, covering all declared recoveries, actual local
@@ -924,7 +988,14 @@ retains recovery nodes/listeners when the exact active outcome is unchanged.
 Parent-admitted focused validation and run007 passed; independent focused
 re-review passed and was accepted in review ledger revision 3, resolving
 CPB-P501-E3-001 as recorded in the [accepted re-review checkpoint](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-recovery-rereview-checkpoint-001.json).
-Parent manual local Step commit remains pending. The retained
+The latest independent integrity focused review PASS was accepted in review
+ledger revision 5, and S50.1.1/E3 was manually committed at
+`84ab85a0984a0286507d63aca906c9a88c923f9b` in
+[Step commit checkpoint 002](../../.codex-workflow/phases/PHASE-50.1/p501-s5011-step-acceptance-commit-002.json).
+The narrow formatting integrity delta removes blank provenance separator spaces
+in the current comparison; all 21 producer tests passed. Run007 remains the
+interaction proof, predates that formatting change and is not a new browser
+observation of the current comparison bytes. The retained
 [app](../evidence/phase-50.1/readiness-candidate-001/site/index.html),
 [structural review](../evidence/phase-50.1/readiness-candidate-001/site/review.html),
 [comparison](../evidence/phase-50.1/readiness-candidate-001/site/compare.html),
@@ -935,5 +1006,13 @@ share the same complete candidate; section 11 owns the sole coverage matrix.
 The [browser review](../evidence/phase-50.1/readiness-candidate-001/browser-review.md)
 records versions, relative screenshots, limits and retained prior-run history.
 Portable copies supply product review rather than host-specific management
-proof. Attributed feedback/revision, exact human acceptance, parent manual local
-Step commit, independent Phase acceptance and final full-suite validation remain separate gates.
+proof. Actual attributed human feedback 「修正不要」 received on 2026-10-13 and
+its applicable no-source-change disposition are documented in the
+[feedback record](../evidence/phase-50.1/readiness-candidate-001/feedback.md).
+The separate exact human acceptance is recorded in section 13 and
+[acceptance.json](../evidence/phase-50.1/readiness-accepted-001/acceptance.json).
+Native accepted projection/export and bounded six-case browser admission passed
+and their real products are retained in
+[the accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md).
+Whole E4 Step review/parent manual local commit, full Phase review, final
+full-suite validation and distinct release/closure remain pending.

@@ -1,0 +1,1486 @@
+{
+  "binding" : {
+    "candidateIdentity" : "sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1",
+    "consumedInputIdentity" : "sha256:dd1f3b249795e3857bdcb19a72abc2cc205edee8e4d736f8f2db42a2dd08c0a1",
+    "kernelCandidateIdentity" : "sha256:3e5a37efbcdf29e7e950118bbf5763f4e2bf6b76c8d80011a5896877af3d7c47",
+    "kernelInputIdentity" : "sha256:9199b0a67e6581c3a2f24a8ce24675499226f3699a21a9fc772156fc01a121f0",
+    "projectionIdentity" : "sha256:2a47d6264607e6514687e0f7a15abb7a2b9385101c019b09458b8ce26c2a9d10",
+    "semanticProjectionIdentity" : "sha256:99cfa256b7dd2402907e3859605dc17f25a8ef00870e2319de04f7971642dcc0",
+    "acceptedIdentity" : "sha256:07ba4c050dd4d393ab893d53e921a5f6b24f09b6ff5f8d552d14597acf275210",
+    "decisionIdentity" : "sha256:4be0685d7bbe310e648589fe385503d117d19ebed5cb2e23b095ec9747f2af39",
+    "decision" : {
+      "decisionId" : "P501-E4-FINAL-ACCEPTANCE-001",
+      "candidateIdentity" : "sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1",
+      "reviewerId" : "owning-chat-human:01a0ff01-4772-76b2-bba1-e2542f0a9647"
+    }
+  },
+  "sourceInputs" : {
+    "kernelContent" : {
+      "schema" : "cozy.logical-ui.v1",
+      "version" : 1,
+      "componentSurfaces" : [ {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportIds" : [ "aggregate", "datatype", "entity", "operation", "powertype", "service", "state-machine", "value", "view", "workflow" ]
+      } ],
+      "componentBindings" : [ {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "aggregate"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "datatype"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "entity"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "operation"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "powertype"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "service"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "state-machine"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "value"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "view"
+      }, {
+        "component" : {
+          "namespace" : "org.example.sales",
+          "id" : "SalesOrder",
+          "version" : "1.0.0"
+        },
+        "exportId" : "workflow"
+      } ],
+      "useCases" : {
+        "business" : {
+          "layer" : "business",
+          "id" : "business-confirm-sales-order"
+        },
+        "system" : {
+          "layer" : "system",
+          "id" : "system-confirm-sales-order"
+        },
+        "ui" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "realizations" : [ {
+          "source" : {
+            "layer" : "business",
+            "id" : "business-confirm-sales-order"
+          },
+          "target" : {
+            "layer" : "system",
+            "id" : "system-confirm-sales-order"
+          }
+        }, {
+          "source" : {
+            "layer" : "system",
+            "id" : "system-confirm-sales-order"
+          },
+          "target" : {
+            "layer" : "ui",
+            "id" : "ui-confirm-sales-order"
+          }
+        } ]
+      }
+    },
+    "projectionContent" : {
+      "schema" : "cozy.usecase-screen-projection.v1",
+      "version" : 1,
+      "candidateIdentity" : "sha256:3e5a37efbcdf29e7e950118bbf5763f4e2bf6b76c8d80011a5896877af3d7c47",
+      "catalog" : [ {
+        "business" : {
+          "layer" : "business",
+          "id" : "business-confirm-sales-order"
+        },
+        "system" : {
+          "layer" : "system",
+          "id" : "system-confirm-sales-order"
+        },
+        "ui" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "realizations" : [ {
+          "source" : {
+            "layer" : "business",
+            "id" : "business-confirm-sales-order"
+          },
+          "target" : {
+            "layer" : "system",
+            "id" : "system-confirm-sales-order"
+          }
+        }, {
+          "source" : {
+            "layer" : "system",
+            "id" : "system-confirm-sales-order"
+          },
+          "target" : {
+            "layer" : "ui",
+            "id" : "ui-confirm-sales-order"
+          }
+        } ]
+      } ],
+      "steps" : [ {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "confirm",
+        "path" : "normal"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "enter",
+        "path" : "alternative"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "failure",
+        "path" : "exception"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "recover",
+        "path" : "alternative"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "system-check",
+        "path" : "system-only"
+      } ],
+      "screens" : [ {
+        "id" : "order-detail",
+        "primaryPurpose" : "confirm",
+        "secondaryPurposes" : [ "review" ],
+        "subject" : {
+          "role" : "Workflow",
+          "binding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "workflow"
+          }
+        },
+        "regions" : [ {
+          "id" : "detail-body",
+          "parentId" : "detail-root",
+          "order" : 1
+        }, {
+          "id" : "detail-root",
+          "parentId" : null,
+          "order" : 0
+        } ],
+        "interactions" : [ {
+          "id" : "feedback",
+          "kind" : "feedback",
+          "componentUsages" : [ ],
+          "mutation" : null,
+          "navigation" : null
+        }, {
+          "id" : "input",
+          "kind" : "input",
+          "componentUsages" : [ {
+            "role" : "Datatype",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "datatype"
+            }
+          }, {
+            "role" : "Value",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "value"
+            }
+          } ],
+          "mutation" : null,
+          "navigation" : null
+        }, {
+          "id" : "invoke",
+          "kind" : "invocation",
+          "componentUsages" : [ {
+            "role" : "Operation",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "operation"
+            }
+          }, {
+            "role" : "Service",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "service"
+            }
+          }, {
+            "role" : "StateMachine",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            }
+          } ],
+          "mutation" : {
+            "target" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "aggregate"
+            },
+            "operation" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "operation"
+            }
+          },
+          "navigation" : null
+        }, {
+          "id" : "observe",
+          "kind" : "observation",
+          "componentUsages" : [ {
+            "role" : "Aggregate",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "aggregate"
+            }
+          } ],
+          "mutation" : null,
+          "navigation" : null
+        }, {
+          "id" : "select",
+          "kind" : "selection",
+          "componentUsages" : [ {
+            "role" : "Powertype",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "powertype"
+            }
+          } ],
+          "mutation" : null,
+          "navigation" : null
+        } ],
+        "feedbackStates" : [ "conflict", "empty", "loading", "normal", "operation-failed", "unavailable", "validation-failed" ]
+      }, {
+        "id" : "order-list",
+        "primaryPurpose" : "browse",
+        "secondaryPurposes" : [ "search", "sort" ],
+        "subject" : {
+          "role" : "View",
+          "binding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "view"
+          }
+        },
+        "regions" : [ {
+          "id" : "list-root",
+          "parentId" : null,
+          "order" : 0
+        } ],
+        "interactions" : [ {
+          "id" : "entry",
+          "kind" : "entry",
+          "componentUsages" : [ {
+            "role" : "Entity",
+            "binding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "entity"
+            }
+          } ],
+          "mutation" : null,
+          "navigation" : null
+        }, {
+          "id" : "to-detail",
+          "kind" : "navigation",
+          "componentUsages" : [ ],
+          "mutation" : null,
+          "navigation" : {
+            "endpointId" : "to-detail",
+            "targetScreenId" : "order-detail"
+          }
+        } ],
+        "feedbackStates" : [ "empty", "loading", "normal", "unavailable" ]
+      } ],
+      "mappings" : [ {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "confirm",
+        "screenId" : "order-detail",
+        "interactionId" : "feedback"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "confirm",
+        "screenId" : "order-detail",
+        "interactionId" : "invoke"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "confirm",
+        "screenId" : "order-detail",
+        "interactionId" : "observe"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "confirm",
+        "screenId" : "order-detail",
+        "interactionId" : "select"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "confirm",
+        "screenId" : "order-list",
+        "interactionId" : "entry"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "confirm",
+        "screenId" : "order-list",
+        "interactionId" : "to-detail"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "enter",
+        "screenId" : "order-detail",
+        "interactionId" : "feedback"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "enter",
+        "screenId" : "order-detail",
+        "interactionId" : "input"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "failure",
+        "screenId" : "order-detail",
+        "interactionId" : "feedback"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "failure",
+        "screenId" : "order-detail",
+        "interactionId" : "invoke"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "recover",
+        "screenId" : "order-detail",
+        "interactionId" : "input"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "recover",
+        "screenId" : "order-detail",
+        "interactionId" : "invoke"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "recover",
+        "screenId" : "order-list",
+        "interactionId" : "entry"
+      }, {
+        "uiUseCase" : {
+          "layer" : "ui",
+          "id" : "ui-confirm-sales-order"
+        },
+        "stepId" : "recover",
+        "screenId" : "order-list",
+        "interactionId" : "to-detail"
+      } ],
+      "aggregateBoundaries" : [ {
+        "aggregate" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "aggregate"
+        },
+        "root" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "aggregate"
+        },
+        "members" : [ {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "aggregate"
+        }, {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "entity"
+        } ],
+        "publicOperations" : [ {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "operation"
+        } ]
+      } ]
+    },
+    "semanticContent" : {
+      "schema" : "cozy.logical-ui-semantics.v1",
+      "version" : 1,
+      "projectionIdentity" : "sha256:2a47d6264607e6514687e0f7a15abb7a2b9385101c019b09458b8ce26c2a9d10",
+      "screens" : [ {
+        "screenId" : "order-detail",
+        "purpose" : "confirm",
+        "regions" : [ {
+          "regionId" : "detail-body",
+          "display" : "detail"
+        }, {
+          "regionId" : "detail-root",
+          "display" : "detail"
+        } ],
+        "interactions" : [ {
+          "interactionId" : "feedback",
+          "pattern" : "observe"
+        }, {
+          "interactionId" : "input",
+          "pattern" : "input"
+        }, {
+          "interactionId" : "invoke",
+          "pattern" : "command"
+        }, {
+          "interactionId" : "observe",
+          "pattern" : "observe"
+        }, {
+          "interactionId" : "select",
+          "pattern" : "select"
+        } ],
+        "interactionStates" : [ {
+          "interactionId" : "feedback",
+          "state" : "failed"
+        }, {
+          "interactionId" : "input",
+          "state" : "pending"
+        }, {
+          "interactionId" : "invoke",
+          "state" : "succeeded"
+        }, {
+          "interactionId" : "observe",
+          "state" : "idle"
+        }, {
+          "interactionId" : "select",
+          "state" : "idle"
+        } ]
+      }, {
+        "screenId" : "order-list",
+        "purpose" : "browse",
+        "regions" : [ {
+          "regionId" : "list-root",
+          "display" : "collection"
+        } ],
+        "interactions" : [ {
+          "interactionId" : "entry",
+          "pattern" : "observe"
+        }, {
+          "interactionId" : "to-detail",
+          "pattern" : "navigate"
+        } ],
+        "interactionStates" : [ {
+          "interactionId" : "entry",
+          "state" : "idle"
+        }, {
+          "interactionId" : "to-detail",
+          "state" : "idle"
+        } ]
+      } ],
+      "componentBindings" : [ {
+        "role" : "Aggregate",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "aggregate"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      }, {
+        "role" : "Datatype",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "datatype"
+        },
+        "multiplicity" : "zero-or-more",
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      }, {
+        "role" : "Entity",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "entity"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      }, {
+        "role" : "Operation",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "operation"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      }, {
+        "role" : "Powertype",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "powertype"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : "awaiting-confirmation",
+        "domainStates" : [ ]
+      }, {
+        "role" : "Service",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "service"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      }, {
+        "role" : "StateMachine",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "state-machine"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : null,
+        "domainStates" : [ {
+          "stateMachineBinding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "state-machine"
+          },
+          "stateId" : "confirmed"
+        }, {
+          "stateMachineBinding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "state-machine"
+          },
+          "stateId" : "draft"
+        } ]
+      }, {
+        "role" : "Value",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "value"
+        },
+        "multiplicity" : "exactly-one",
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      }, {
+        "role" : "View",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "view"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      }, {
+        "role" : "Workflow",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "workflow"
+        },
+        "multiplicity" : null,
+        "powertypeVariantId" : null,
+        "domainStates" : [ ]
+      } ],
+      "constraints" : [ {
+        "constraintId" : "confirm-order",
+        "detailCode" : "SALES_ORDER_POST",
+        "kind" : "operation-postcondition",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "operation"
+        },
+        "validation" : "server-authoritative"
+      }, {
+        "constraintId" : "confirm-order",
+        "detailCode" : "SALES_ORDER_PRE",
+        "kind" : "operation-precondition",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "operation"
+        },
+        "validation" : "local-deterministic"
+      }, {
+        "constraintId" : "confirm-order",
+        "detailCode" : "VALUE_LOCAL",
+        "kind" : "value",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "value"
+        },
+        "validation" : "context-dependent"
+      }, {
+        "constraintId" : "sales-order",
+        "detailCode" : "AGGREGATE_INVARIANT",
+        "kind" : "aggregate-invariant",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "aggregate"
+        },
+        "validation" : "server-authoritative"
+      }, {
+        "constraintId" : "sales-order-code",
+        "detailCode" : "DATATYPE_FORMAT",
+        "kind" : "datatype",
+        "binding" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "datatype"
+        },
+        "validation" : "local-deterministic"
+      } ],
+      "feedbackAssociations" : [ {
+        "feedbackId" : "conflict",
+        "constraintId" : "confirm-order",
+        "detailCode" : "SALES_ORDER_PRE"
+      }, {
+        "feedbackId" : "validation-failed",
+        "constraintId" : "confirm-order",
+        "detailCode" : "VALUE_LOCAL"
+      }, {
+        "feedbackId" : "validation-failed",
+        "constraintId" : "sales-order-code",
+        "detailCode" : "DATATYPE_FORMAT"
+      } ],
+      "transitionActions" : [ {
+        "step" : {
+          "layer" : "ui",
+          "uiUseCaseId" : "ui-confirm-sales-order",
+          "stepId" : "confirm",
+          "path" : "normal"
+        },
+        "screenId" : "order-detail",
+        "interactionId" : "invoke",
+        "operation" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "operation"
+        },
+        "stateMachine" : {
+          "component" : {
+            "namespace" : "org.example.sales",
+            "id" : "SalesOrder",
+            "version" : "1.0.0"
+          },
+          "exportId" : "state-machine"
+        },
+        "from" : {
+          "stateMachineBinding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "state-machine"
+          },
+          "stateId" : "draft"
+        },
+        "to" : {
+          "stateMachineBinding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "state-machine"
+          },
+          "stateId" : "confirmed"
+        },
+        "workflowState" : {
+          "workflowId" : "sales-order-workflow",
+          "stateId" : "awaiting"
+        },
+        "interactionState" : "succeeded"
+      } ]
+    },
+    "readinessContent" : {
+      "schema" : "cozy.logical-ui-target-ready.v1",
+      "version" : 1,
+      "kernelCandidateIdentity" : "sha256:3e5a37efbcdf29e7e950118bbf5763f4e2bf6b76c8d80011a5896877af3d7c47",
+      "kernelInputIdentity" : "sha256:9199b0a67e6581c3a2f24a8ce24675499226f3699a21a9fc772156fc01a121f0",
+      "projectionIdentity" : "sha256:2a47d6264607e6514687e0f7a15abb7a2b9385101c019b09458b8ce26c2a9d10",
+      "semanticProjectionIdentity" : "sha256:99cfa256b7dd2402907e3859605dc17f25a8ef00870e2319de04f7971642dcc0",
+      "readiness" : {
+        "semanticProjectionIdentity" : "sha256:99cfa256b7dd2402907e3859605dc17f25a8ef00870e2319de04f7971642dcc0",
+        "profiles" : [ {
+          "windowClass" : "compact",
+          "detailPlacement" : "navigate-to-detail",
+          "persistentNavigation" : false,
+          "regions" : [ {
+            "region" : {
+              "screenId" : "order-detail",
+              "regionId" : "detail-body"
+            },
+            "role" : "secondary",
+            "persistent" : false
+          }, {
+            "region" : {
+              "screenId" : "order-detail",
+              "regionId" : "detail-root"
+            },
+            "role" : "primary",
+            "persistent" : false
+          }, {
+            "region" : {
+              "screenId" : "order-list",
+              "regionId" : "list-root"
+            },
+            "role" : "primary",
+            "persistent" : false
+          } ]
+        }, {
+          "windowClass" : "expanded",
+          "detailPlacement" : "update-detail-region",
+          "persistentNavigation" : true,
+          "regions" : [ {
+            "region" : {
+              "screenId" : "order-detail",
+              "regionId" : "detail-body"
+            },
+            "role" : "secondary",
+            "persistent" : true
+          }, {
+            "region" : {
+              "screenId" : "order-detail",
+              "regionId" : "detail-root"
+            },
+            "role" : "primary",
+            "persistent" : true
+          }, {
+            "region" : {
+              "screenId" : "order-list",
+              "regionId" : "list-root"
+            },
+            "role" : "primary",
+            "persistent" : true
+          } ]
+        }, {
+          "windowClass" : "medium",
+          "detailPlacement" : "navigate-to-detail",
+          "persistentNavigation" : true,
+          "regions" : [ {
+            "region" : {
+              "screenId" : "order-detail",
+              "regionId" : "detail-body"
+            },
+            "role" : "secondary",
+            "persistent" : false
+          }, {
+            "region" : {
+              "screenId" : "order-detail",
+              "regionId" : "detail-root"
+            },
+            "role" : "primary",
+            "persistent" : false
+          }, {
+            "region" : {
+              "screenId" : "order-list",
+              "regionId" : "list-root"
+            },
+            "role" : "primary",
+            "persistent" : false
+          } ]
+        } ],
+        "controls" : [ {
+          "control" : {
+            "screenId" : "order-detail",
+            "interactionId" : "feedback"
+          },
+          "role" : "feedback",
+          "labelTextId" : "feedback-label",
+          "focusOrder" : null
+        }, {
+          "control" : {
+            "screenId" : "order-detail",
+            "interactionId" : "input"
+          },
+          "role" : "input",
+          "labelTextId" : "input-label",
+          "focusOrder" : 2
+        }, {
+          "control" : {
+            "screenId" : "order-detail",
+            "interactionId" : "invoke"
+          },
+          "role" : "command",
+          "labelTextId" : "command-label",
+          "focusOrder" : 4
+        }, {
+          "control" : {
+            "screenId" : "order-detail",
+            "interactionId" : "observe"
+          },
+          "role" : "observation",
+          "labelTextId" : "observation-label",
+          "focusOrder" : null
+        }, {
+          "control" : {
+            "screenId" : "order-detail",
+            "interactionId" : "select"
+          },
+          "role" : "selection",
+          "labelTextId" : "selection-label",
+          "focusOrder" : 3
+        }, {
+          "control" : {
+            "screenId" : "order-list",
+            "interactionId" : "entry"
+          },
+          "role" : "entry",
+          "labelTextId" : "entry-label",
+          "focusOrder" : null
+        }, {
+          "control" : {
+            "screenId" : "order-list",
+            "interactionId" : "to-detail"
+          },
+          "role" : "navigation",
+          "labelTextId" : "navigation-label",
+          "focusOrder" : 1
+        } ],
+        "fields" : [ {
+          "fieldId" : "order-reference",
+          "control" : {
+            "screenId" : "order-detail",
+            "interactionId" : "input"
+          },
+          "valueBinding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "value"
+          },
+          "datatypeBinding" : {
+            "component" : {
+              "namespace" : "org.example.sales",
+              "id" : "SalesOrder",
+              "version" : "1.0.0"
+            },
+            "exportId" : "datatype"
+          },
+          "labelTextId" : "input-label",
+          "inputIntent" : "text",
+          "required" : true,
+          "initialValue" : "SO-001",
+          "localRules" : [ {
+            "constraint" : {
+              "constraintId" : "sales-order-code",
+              "detailCode" : "DATATYPE_FORMAT"
+            },
+            "ruleKind" : "ascii-identifier",
+            "feedbackId" : "validation-failed",
+            "messageTextId" : "format-message"
+          }, {
+            "constraint" : {
+              "constraintId" : "sales-order-code",
+              "detailCode" : "DATATYPE_FORMAT"
+            },
+            "ruleKind" : "required-text",
+            "feedbackId" : "validation-failed",
+            "messageTextId" : "required-message"
+          } ]
+        } ],
+        "textSources" : [ {
+          "textId" : "command-label",
+          "sourceIdentity" : "sales-order-ui:command-label",
+          "defaultText" : "Confirm order"
+        }, {
+          "textId" : "conflict-message",
+          "sourceIdentity" : "sales-order-ui:conflict-message",
+          "defaultText" : "Order conflict; edit the reference"
+        }, {
+          "textId" : "empty-message",
+          "sourceIdentity" : "sales-order-ui:empty-message",
+          "defaultText" : "No sales orders"
+        }, {
+          "textId" : "entry-label",
+          "sourceIdentity" : "sales-order-ui:entry-label",
+          "defaultText" : "Sales orders"
+        }, {
+          "textId" : "feedback-label",
+          "sourceIdentity" : "sales-order-ui:feedback-label",
+          "defaultText" : "Order feedback"
+        }, {
+          "textId" : "format-message",
+          "sourceIdentity" : "sales-order-ui:format-message",
+          "defaultText" : "Use uppercase letters, digits and hyphen"
+        }, {
+          "textId" : "input-label",
+          "sourceIdentity" : "sales-order-ui:input-label",
+          "defaultText" : "Order reference"
+        }, {
+          "textId" : "loading-message",
+          "sourceIdentity" : "sales-order-ui:loading-message",
+          "defaultText" : "Confirmation pending"
+        }, {
+          "textId" : "navigation-label",
+          "sourceIdentity" : "sales-order-ui:navigation-label",
+          "defaultText" : "Open order"
+        }, {
+          "textId" : "normal-message",
+          "sourceIdentity" : "sales-order-ui:normal-message",
+          "defaultText" : "Sales order confirmed"
+        }, {
+          "textId" : "observation-label",
+          "sourceIdentity" : "sales-order-ui:observation-label",
+          "defaultText" : "Order status"
+        }, {
+          "textId" : "operation-failed-message",
+          "sourceIdentity" : "sales-order-ui:operation-failed-message",
+          "defaultText" : "Confirmation failed; retry"
+        }, {
+          "textId" : "required-message",
+          "sourceIdentity" : "sales-order-ui:required-message",
+          "defaultText" : "Enter an order reference"
+        }, {
+          "textId" : "selection-label",
+          "sourceIdentity" : "sales-order-ui:selection-label",
+          "defaultText" : "Confirmation choice"
+        }, {
+          "textId" : "unavailable-message",
+          "sourceIdentity" : "sales-order-ui:unavailable-message",
+          "defaultText" : "Confirmation unavailable; retry"
+        }, {
+          "textId" : "validation-failed-message",
+          "sourceIdentity" : "sales-order-ui:validation-failed-message",
+          "defaultText" : "Review the order reference"
+        } ],
+        "outcomes" : [ {
+          "outcomeId" : "conflict",
+          "step" : {
+            "uiUseCase" : {
+              "layer" : "ui",
+              "id" : "ui-confirm-sales-order"
+            },
+            "stepId" : "failure",
+            "path" : "exception"
+          },
+          "trigger" : {
+            "screenId" : "order-detail",
+            "interactionId" : "invoke"
+          },
+          "feedbackControl" : {
+            "screenId" : "order-detail",
+            "interactionId" : "feedback"
+          },
+          "feedbackState" : "conflict",
+          "uiState" : "failed",
+          "domainState" : {
+            "stateMachineBinding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            },
+            "stateId" : "draft"
+          },
+          "workflowState" : {
+            "workflowId" : "sales-order-workflow",
+            "stateId" : "awaiting"
+          },
+          "recoveries" : [ {
+            "kind" : "edit-input",
+            "step" : {
+              "uiUseCase" : {
+                "layer" : "ui",
+                "id" : "ui-confirm-sales-order"
+              },
+              "stepId" : "recover",
+              "path" : "alternative"
+            },
+            "target" : {
+              "screenId" : "order-detail",
+              "interactionId" : "input"
+            }
+          } ],
+          "messageTextId" : "conflict-message"
+        }, {
+          "outcomeId" : "empty",
+          "step" : {
+            "uiUseCase" : {
+              "layer" : "ui",
+              "id" : "ui-confirm-sales-order"
+            },
+            "stepId" : "confirm",
+            "path" : "normal"
+          },
+          "trigger" : {
+            "screenId" : "order-list",
+            "interactionId" : "entry"
+          },
+          "feedbackControl" : {
+            "screenId" : "order-list",
+            "interactionId" : "entry"
+          },
+          "feedbackState" : "empty",
+          "uiState" : "idle",
+          "domainState" : {
+            "stateMachineBinding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            },
+            "stateId" : "draft"
+          },
+          "workflowState" : null,
+          "recoveries" : [ {
+            "kind" : "retry-interaction",
+            "step" : {
+              "uiUseCase" : {
+                "layer" : "ui",
+                "id" : "ui-confirm-sales-order"
+              },
+              "stepId" : "recover",
+              "path" : "alternative"
+            },
+            "target" : {
+              "screenId" : "order-list",
+              "interactionId" : "entry"
+            }
+          } ],
+          "messageTextId" : "empty-message"
+        }, {
+          "outcomeId" : "loading",
+          "step" : {
+            "uiUseCase" : {
+              "layer" : "ui",
+              "id" : "ui-confirm-sales-order"
+            },
+            "stepId" : "confirm",
+            "path" : "normal"
+          },
+          "trigger" : {
+            "screenId" : "order-detail",
+            "interactionId" : "invoke"
+          },
+          "feedbackControl" : {
+            "screenId" : "order-detail",
+            "interactionId" : "feedback"
+          },
+          "feedbackState" : "loading",
+          "uiState" : "pending",
+          "domainState" : {
+            "stateMachineBinding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            },
+            "stateId" : "draft"
+          },
+          "workflowState" : {
+            "workflowId" : "sales-order-workflow",
+            "stateId" : "awaiting"
+          },
+          "recoveries" : [ ],
+          "messageTextId" : "loading-message"
+        }, {
+          "outcomeId" : "normal",
+          "step" : {
+            "uiUseCase" : {
+              "layer" : "ui",
+              "id" : "ui-confirm-sales-order"
+            },
+            "stepId" : "confirm",
+            "path" : "normal"
+          },
+          "trigger" : {
+            "screenId" : "order-detail",
+            "interactionId" : "invoke"
+          },
+          "feedbackControl" : {
+            "screenId" : "order-detail",
+            "interactionId" : "feedback"
+          },
+          "feedbackState" : "normal",
+          "uiState" : "succeeded",
+          "domainState" : {
+            "stateMachineBinding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            },
+            "stateId" : "confirmed"
+          },
+          "workflowState" : {
+            "workflowId" : "sales-order-workflow",
+            "stateId" : "awaiting"
+          },
+          "recoveries" : [ ],
+          "messageTextId" : "normal-message"
+        }, {
+          "outcomeId" : "operation-failed",
+          "step" : {
+            "uiUseCase" : {
+              "layer" : "ui",
+              "id" : "ui-confirm-sales-order"
+            },
+            "stepId" : "failure",
+            "path" : "exception"
+          },
+          "trigger" : {
+            "screenId" : "order-detail",
+            "interactionId" : "invoke"
+          },
+          "feedbackControl" : {
+            "screenId" : "order-detail",
+            "interactionId" : "feedback"
+          },
+          "feedbackState" : "operation-failed",
+          "uiState" : "failed",
+          "domainState" : {
+            "stateMachineBinding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            },
+            "stateId" : "draft"
+          },
+          "workflowState" : {
+            "workflowId" : "sales-order-workflow",
+            "stateId" : "awaiting"
+          },
+          "recoveries" : [ {
+            "kind" : "retry-interaction",
+            "step" : {
+              "uiUseCase" : {
+                "layer" : "ui",
+                "id" : "ui-confirm-sales-order"
+              },
+              "stepId" : "recover",
+              "path" : "alternative"
+            },
+            "target" : {
+              "screenId" : "order-detail",
+              "interactionId" : "invoke"
+            }
+          } ],
+          "messageTextId" : "operation-failed-message"
+        }, {
+          "outcomeId" : "unavailable",
+          "step" : {
+            "uiUseCase" : {
+              "layer" : "ui",
+              "id" : "ui-confirm-sales-order"
+            },
+            "stepId" : "failure",
+            "path" : "exception"
+          },
+          "trigger" : {
+            "screenId" : "order-detail",
+            "interactionId" : "invoke"
+          },
+          "feedbackControl" : {
+            "screenId" : "order-detail",
+            "interactionId" : "feedback"
+          },
+          "feedbackState" : "unavailable",
+          "uiState" : "failed",
+          "domainState" : {
+            "stateMachineBinding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            },
+            "stateId" : "draft"
+          },
+          "workflowState" : {
+            "workflowId" : "sales-order-workflow",
+            "stateId" : "awaiting"
+          },
+          "recoveries" : [ {
+            "kind" : "retry-interaction",
+            "step" : {
+              "uiUseCase" : {
+                "layer" : "ui",
+                "id" : "ui-confirm-sales-order"
+              },
+              "stepId" : "recover",
+              "path" : "alternative"
+            },
+            "target" : {
+              "screenId" : "order-detail",
+              "interactionId" : "invoke"
+            }
+          } ],
+          "messageTextId" : "unavailable-message"
+        }, {
+          "outcomeId" : "validation-failed",
+          "step" : {
+            "uiUseCase" : {
+              "layer" : "ui",
+              "id" : "ui-confirm-sales-order"
+            },
+            "stepId" : "enter",
+            "path" : "alternative"
+          },
+          "trigger" : {
+            "screenId" : "order-detail",
+            "interactionId" : "input"
+          },
+          "feedbackControl" : {
+            "screenId" : "order-detail",
+            "interactionId" : "feedback"
+          },
+          "feedbackState" : "validation-failed",
+          "uiState" : "failed",
+          "domainState" : {
+            "stateMachineBinding" : {
+              "component" : {
+                "namespace" : "org.example.sales",
+                "id" : "SalesOrder",
+                "version" : "1.0.0"
+              },
+              "exportId" : "state-machine"
+            },
+            "stateId" : "draft"
+          },
+          "workflowState" : null,
+          "recoveries" : [ {
+            "kind" : "edit-input",
+            "step" : {
+              "uiUseCase" : {
+                "layer" : "ui",
+                "id" : "ui-confirm-sales-order"
+              },
+              "stepId" : "recover",
+              "path" : "alternative"
+            },
+            "target" : {
+              "screenId" : "order-detail",
+              "interactionId" : "input"
+            }
+          } ],
+          "messageTextId" : "validation-failed-message"
+        } ]
+      }
+    }
+  }
+}
