@@ -1706,6 +1706,7 @@ Origin:
 | DEV-034 | [2026-09-21 Phase 71 decision](../journal/2026/09/2026-09-21-phase-71-core-rooted-media-regeneration-decision.md), revised by the 2026-09-28 hash-removal decision; time-bound split applied 2026-09-29; [Phase 71.5 adoption](../journal/2026/10/2026-10-03-phase-71.5-removal-plan-adoption.md) on 2026-10-03; [main-route-first revision](../journal/2026/10/2026-10-08-phase-71-main-route-first.md) on 2026-10-08 | Resolve Core/DSL/Storyboard/video behavior. Phase 71.4 completes the real representative generation/final-build/audible-EOF route and video Specs; 71.5 removes remaining management hashes and artifact protection while keeping that route working. Phase 71.7 owns remaining integration breadth and aggregate full validation. Keep completed removals and all history. | NEW_PHASE | [71–71.3](../phase/phase-71.md) CLOSED → [71.4](../phase/phase-71.4.md) CLOSED on 2026-10-08 / representative JA accepted, F04 committed as `d0b646a`, sole full review and M0 closure chain accepted; distinct Phase release; 75 and 75.1 CLOSED → [71.5](../phase/phase-71.5.md) CLOSED on 2026-10-10 / six Steps, sole full review PASS, JA34 route and distinct release `P715-RELEASE-20261010@1`; four-root full SBT and broader integration deferred-not-run to 71.7 → [71.6](../phase/phase-71.6.md) CLOSED projection on 2026-10-11 under `P716-RELEASE-20261011@1`, effective only on parent verification of the distinct native release commit; three Steps and sole full review PASS accepted → [71.7](../phase/phase-71.7.md) PLANNED and unstarted, aggregate owner | ADOPTED |
 | DEV-035 | [CNCF Phase 77 design authority](https://github.com/asami/goldenport-cncf/blob/766df74a3bcd6e8286c5ef88fa2bf1bf9fbae036/docs/phase/phase-77.md), [Candidate-Admission producer ABI](../design/cml-candidate-admission-producer-abi.md), and a demonstrated absence of `JudgmentAction` / `Judgment` producer semantics in the current Cozy Scala source and executable specifications | Supply the minimum versioned, provider-neutral CML StateMachine/Workflow Candidate-Admission Model producer contract that enables CNCF Phase 77 development: explicit candidate-producing Action classification, typed candidate/result/rationale/evidence requirements, deterministic admission boundary, provenance, diagnostics, and Phase 62.3 compatibility. CNCF retains runtime admission/progression/commitment, provider dispatch, transport, and `sm-workflow` implementation. | NEW_PHASE | [Phase 73](../phase/phase-73.md) CLOSED on 2026-09-23 after CB-73-01/02 repair, full validation, and independent re-review; CNCF Phase 77.1 CWF-77-04C subsequently accepted the producer ABI in `3006494c`. `DP-73-01` remains for later compatible-release consumption, not receiver creation or runtime completion. | RESOLVED |
 | DEV-036 | [2026-10-05 encoder selection request and placement decision](../journal/2026/10/2026-10-05-video-encoder-selection-and-benchmark-request.md); [main-route-first revision](../journal/2026/10/2026-10-08-phase-71-main-route-first.md) | Add explicit per-tool host/Docker configuration, local software/hardware encoder selection, Docker rendering with host encoding, and measured native/end-to-end comparison while preserving video semantics and the removal policy. | NEW_PHASE | [Phase 71.6](../phase/phase-71.6.md) CLOSED projection on 2026-10-11 under `P716-RELEASE-20261011@1`, effective only on parent verification of the distinct native release commit; all three Steps, actual representative mixed software/selected hardware execution and current hearing, 233 focused specifications in nine suites and sole full review PASS at ledger revision 8 accepted; three nonblocking maintenance Hygiene records retained; remaining combinations, benchmark and repository-full SBT deferred-not-run to [Phase 71.7](../phase/phase-71.7.md), PLANNED and unstarted | ADOPTED |
+| DEV-037 | [2026-10-11 joint video/audio quality-profile request and same-day ladder refinement](../journal/2026/10/2026-10-11-phase-71.8-video-quality-profile-plan.md) | Select picture/audio quality together with individual overrides across direct rendering and assembly. Rename current lightweight to new standard, shift existing upper settings upward and add a lower-quality faster practice profile. Preserve narration/end-card semantics; accept preset audio quality and practice speed through actual observations. | NEW_PHASE | [Phase 71.8](../phase/phase-71.8.md) CLOSED on 2026-10-13; release `bcd3ba2`; joint profiles, actual JA/EN listening and measured practice speed accepted; full Cozy suite and runtime classpath export passed | ADOPTED |
 
 The Phase 71 sequence is a serial, single-Cozy-repository planning split.
 The current user-approved completion boundaries are in the
@@ -1807,6 +1808,27 @@ Phases 75 and 75.1 are not aggregate-chain members. Keep integration scenarios f
 reuse relevant existing results and fix integration defects within 71.7 rather
 than reopening closed Phases. No unchanged-input proof or protection substitute
 is introduced. Phase 72 and other identities/scopes remain unchanged.
+
+The user added [Phase71.8](../phase/phase-71.8.md) on2026-10-11 for unified
+picture/audio quality profiles after71.7 closure. Current picture defaults to
+`lightweight`; current audio remains fixed AAC320k. The new plan supports joint
+quality selection and individual overrides across encoding and assembly. The
+same-day refinement makes current lightweight the new standard/default,
+shifts current standard/quality upward and adds a faster lower-quality practice
+lightweight profile. Confirm candidate audio values by listening and practice
+speed by comparable actual generation measurements. It does not change the active
+71.7 Goal, its fixed benchmark settings or its aggregate validation ownership.
+See the [candidate note](../notes/video-quality-profiles.md); implementation,
+specification promotion and separate71.8 acceptance were unstarted at that planning decision.
+
+Current result — 2026-10-13: [Phase 71.7](../phase/phase-71.7.md) and
+[Phase 71.8](../phase/phase-71.8.md) are CLOSED in their canonical plans and
+checklists. Phase 71.7 release is `83ee0f2`; Phase 71.8 release is `bcd3ba2`.
+Phase 71.8 completed joint quality selection, propagation, listening and measured
+practice-profile acceptance; its final Cozy suite passed 2,457 specifications
+with zero failures (31 canceled), and `cozyExportRuntimeClasspath` succeeded.
+The dated candidate note retains the original proposal; it does not override the
+accepted video specification or reopen either Phase.
 
 The Phase 61 sequence is an independently planned video-authoring boundary.
 Phase 61 is CLOSED for P610-01/P610-02, closing the protected contract and
