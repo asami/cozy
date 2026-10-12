@@ -5,7 +5,7 @@ depends_on=phase-71.7.md
 execution_priority=after_phase_71.7_closure
 validation_ownership=standalone
 
-Status: IN_PROGRESS; P718-01 CLOSED; P718-02 acceptance PASS, local commit pending
+Status: IN_PROGRESS; P718-01 CLOSED; P718-02 CLOSED; P718-03 IN_PROGRESS
 Planned at: 2026-10-11
 Started at: 2026-10-12
 Primary owner: Cozy
@@ -101,8 +101,9 @@ review and final validation/release remain outstanding.
 
 ## P718-02: Shared resolution across encoding routes
 
-Status: IN_PROGRESS; implementation and independent acceptance PASS under
-`p718-02-routes-implementation01@1`; exact local Step commit pending.
+Status: CLOSED on 2026-10-12; implementation, proportional validation,
+independent acceptance and exact local Step commit complete under
+`p718-02-routes-implementation01@1`.
 The [route specification](../../src/test/scala/cozy/video/CozyVideoQualityRouteSpec.scala)
 covers native/mixed commands, executed generated Node mux callbacks, normal and
 Storyboard assembly, joint observations, legacy review evidence and publication
@@ -117,8 +118,11 @@ focused independent review `p718-02-focused-step-review-fix04-01@1` returned PAS
 resolving both issues with no new blocker. Typed ledger
 `p718-review-ledger-20261012-01@6` was saved and read back.
 All four repair cycles and the earlier failed results remain recorded.
-The exact local Step commit remains pending; this record does not claim it
-has succeeded. Completing that commit establishes P718-02 closure.
+The exact local Step commit succeeded as
+`3befd92f53c0bc6919e1e5be2cc52b266e3e0279`, containing the22 owned files.
+The parent read back the terminal native receipt, actual HEAD, ordered parent
+and exact committed path set; the25 unrelated dirty paths remained outside
+the commit. This establishes P718-02 closure, not Phase closure.
 Generated Node callbacks and injected media runners establish the affected
 route behavior, not actual Docker media, perceptual quality or practice speed.
 P718-03 and the standalone Phase review/validation/release duties remain open.
@@ -131,6 +135,79 @@ Expose selected profile, effective picture/audio settings and their origins in
 lossless intermediate audio, one final AAC encode and the complete end card.
 
 ## P718-03: Quality, size and regression acceptance
+
+Status: IN_PROGRESS on2026-10-12. Checkpoint13 records all17 selected root03
+technical/visual observations:34 successful original Cozy commands,17 reports/
+561 actual checks,34 fully decoded movies and408 individually parent-viewed
+PNGs. Original nine texts/labels/opening/summary/credits are readable and
+unclipped in selected frames. All movies show H264/AAC stereo48k, rational ends
+within one sample, nine/eighteen original WAV full≥0.80/tail≥0.60 matches and
+complete two-second end-card frames. Root01 cold measurements/clipping07 and
+wrong-origin05/snapshot-collision06 remain preserved history.
+
+The settled generic lower-resolution SceneCard contract and ownership are in
+[spec](../spec/video-quality-profiles.md#generic-scenecard-lower-resolution-layout)
+and [design](../design/video-quality-profiles.md#generic-scenecard-layout-ownership).
+Layout04 product/spec delivery completed; CozyVideoSceneLayoutSpec passed5
+specifications and the five affected suites passed163, with one explicit opt-in
+Docker cancellation at layout04 scope. Earlier helper-tests05 passed14 scenarios
+in1.030s. Root02's first
+mixed-standard CLI then failed during observer tool checking (exit1,8.988s),
+before any new movie. Parent diagnosis08 identifies both observers still
+selecting root01 while helper TARGET selected root02.
+The complete matrix at `target/phase718/quality-media03/` comprises both routes,
+cold plus three paired warm runs and one mixed override cold pair. Three coherent
+literal selectors are delivered; helper-tests06 refreshed all14 groups in1.034s.
+Original CLI/Node/Docker final exercised both observers at root03. Other guards,
+forwarding/measurement behavior and helper specifications remain unchanged.
+Mixed lightweight/standard warm whole-pair medians are99.736/147.785s (32.5%
+shorter); Docker80.229/130.418s (38.5% shorter). All three pairs, including the
+longer third Docker lightweight run, remain recorded; cold is excluded. Totals
+include native lifecycle/tool/observer overhead, exclude agent queue/idle and
+make no process-hot/system-cold or uninterrupted wall-clock claim; overlapping
+Docker windows are not added or called pure encode.
+The explicit lightweight override observed960×540@15fps/CRF28/veryfast/AAC192k,
+six explicit field origins, quality-profile selection and4023/8046 frames.
+Direct144.815s/final12.423s total157.238s is cold and excluded from speed.
+Independent final-input PCM decodes precede one final AAC; the repeat input is
+copied rather than independently produced.
+There are16 complete case-runs plus `P718-03-RUNTIME-INSPECTION-REPLAY-14` on
+docker-standard/warm02. First inspection exit0/33 checks/24 viewed PNGs and
+original app history/first terminal poll are retained; the erroneous duplicate
+exited1 at the existing-directory guard before probing. Original initial-exec
+and renderer API objects remain missing and runner completion is INCOMPLETE.
+Fresh independent Step reassessment including gap14, exact local Step commit
+and Phase review/validation/release gates remain pending. Aggregate observations
+do not discharge gap14 or establish Step acceptance. Root01/root02 evidence and
+failure chronology are preserved without credit as root03 outputs.
+The [quality/media journal](../journal/2026/10/2026-10-12-phase-71.8-quality-media-acceptance.md)
+records current observations, all samples/bytes and retained failure history.
+`DEV-P718-03-GENERIC-AUDIO-TIMING-01` remains untouched separate follow-up,
+pending independent scrutiny; all nine original WAVs and current generic
+scene-local0 audio/positive lead metadata remain exposed. No silence
+implementation or source/tail/usefulness waiver is claimed. P718-01/P718-02
+closed status, exact local commits and original acceptance scopes remain intact.
+
+### P718-03 independent acceptance checkpoint
+
+On2026-10-12, fresh independent Step review
+`p718-03-independent-step-review15@1` returned PASS with zero current blockers
+over all12 owned paths, six whole target programs and affected integration
+edges. Typed ledger `p718-review-ledger-20261012-01@9` was saved and read back.
+The accepted P718-01 JA/EN hearing and size evidence retains its original scope;
+current17-case speed, technical ending and useful-layout observations are
+accepted at this Step's measured scope. The preceding checkpoint13/14 paragraphs
+retain their earlier pending state as history.
+
+The reviewer independently assessed gap14 from original native history,
+terminal exit0,33 inspection records and original PNG evidence. This supports
+current product-evidence acceptance; both missing original API objects remain
+missing and old runner completion remains INCOMPLETE. No reconstruction,
+retroactive execution approval or rerun occurred. Generic lead scheduling is
+confirmed as nonblocking `DEV-P718-03-GENERIC-AUDIO-TIMING-01`; existing unused
+imports are `HYG-P718-03-TEMPLATE-IMPORTS-01`. They remain separate follow-ups.
+The local Step commit, sole Phase full review, final full `test`, runtime
+classpath export and distinct release commit/closure are still pending.
 
 Compare selected JA/EN narration from retained lossless inputs at the baseline
 and candidate bitrates. Record actual sizes and attributable listening results;
@@ -162,6 +239,24 @@ Parent-selected representative validation is `testOnly cozy.video.CozyVideoQuali
 The focused accumulator is `testOnly cozy.video.CozyVideoSpec cozy.video.CozyVideoHardwareEncodingSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoScaffoldSpec cozy.video.CozyVideoCompatibilitySpec`.
 P718-02's representative is `testOnly cozy.video.CozyVideoQualityRouteSpec`.
 Its accumulator is `testOnly cozy.video.CozyVideoQualityProfileSpec cozy.video.CozyVideoSpec cozy.video.CozyVideoMixedRenderSpec cozy.video.CozyVideoHardwareEncodingSpec cozy.video.CozyVideoAssemblyAudioSpec cozy.video.CozyVideoStoryboardReviewSpec cozy.video.CozyVideoStoryboardBuildSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoScaffoldSpec cozy.video.CozyVideoCompatibilitySpec`.
+P718-03 additionally selects representative `testOnly cozy.video.CozyVideoSceneLayoutSpec`
+and affected accumulator `testOnly cozy.video.CozyVideoSpec cozy.video.CozyVideoQualityRouteSpec cozy.video.CozyVideoMixedRenderSpec cozy.video.CozyVideoProfileRenderSpec cozy.video.CozyVideoMediaEndingSpec`.
+These completed with5 and163 successes respectively, plus one explicit opt-in
+Docker cancellation; receipts remain reusable at their original layout04 scope.
+Helper-tests05 completed14 scenarios in1.030s before the root02 CLI failure;
+helper-tests06 refreshed14 groups in1.034s after the delivered three coherent
+root03 literal selector changes. The actual17-run matrix used registered
+Cozy/runtime runners and retains gap14's incomplete runner completion.
+P718-02's accepted18 route and228 accumulator results may be reused for
+unchanged Scala/config at its committed boundary; causal source/generated or
+dependency changes require affected refresh. Changed RenderTemplates received
+the selected five-suite refresh; the three test-only root selectors introduce
+no Scala/config/dependency change or unconditional SBT requirement. Unchanged
+profile/assembly/hardware/Storyboard pure-logic receipts retain original scope. Current runtime uses
+`target/cozy.d/runtime-classpath.txt` through exact `--runtime-dev-dir`; actual
+CLI/props must prove current behavior. Helper tests and prior Scala receipts
+cannot substitute for native measurements, useful-layout review, independent
+P718-03 review or its exact local Step commit.
 The route suite requires Node from PATH or the `cozy.video.quality.node` property;
 missing Node fails explicitly rather than cancelling required specifications.
 All SBT runs use the registered runner and shared serial wrapper with scoped

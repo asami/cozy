@@ -45,14 +45,14 @@ checkboxes remain open.
 ## P718-02: Shared resolution across encoding routes
 
 Stage Status:
-- Current status: IN_PROGRESS; implementation and independent acceptance PASS under `p718-02-routes-implementation01@1`; local Step commit pending
+- Current status: CLOSED on 2026-10-12 under `p718-02-routes-implementation01@1`
 - Owner: Cozy
 - Update rule: close against actual affected route behavior and its executable specifications
 
 - [x] Native/mixed encoding, Docker Remotion mux and final assembly honor the same resolved audio setting; final assembly does not replace a selected bitrate with320k.
 - [x] `video inspect` and relevant generated records report the chosen profile and effective picture/audio settings with their origins.
 - [x] Lossless intermediate audio, the single final AAC encode,48kHz stereo timing and complete end-card behavior are preserved.
-- [ ] Independent P718-02 acceptance review, proportional validation and exact local Step commit complete.
+- [x] Independent P718-02 acceptance review, proportional validation and exact local Step commit complete.
 
 Executable route contract:
 [CozyVideoQualityRouteSpec](../../src/test/scala/cozy/video/CozyVideoQualityRouteSpec.scala),
@@ -65,20 +65,67 @@ focused review `p718-02-focused-step-review-fix04-01@1` PASS after both bounded
 review findings were resolved. Typed ledger revision6 was saved and read back.
 The three behavior items are verified at this Step's executable route boundary;
 actual media/Docker observations and comparable practice speed remain P718-03.
-The combined review/validation/commit item stays open until the exact local
-Step commit succeeds. Its native receipt then establishes Step closure;
-Phase completion and later acceptance are not implied.
+The exact22-file local Step commit succeeded as
+`3befd92f53c0bc6919e1e5be2cc52b266e3e0279`. Parent read-back accepted the terminal
+native receipt, actual HEAD, ordered parent and exact committed paths; the25
+unrelated dirty paths were preserved. Together with the selected review and
+validation evidence above, this establishes Step closure. Phase completion
+and later acceptance are not implied.
 
 ## P718-03: Quality, size and regression acceptance
 
 Stage Status:
-- Current status: OPEN
+- Current status: IN_PROGRESS
 - Owner: Cozy
 - Update rule: close only with actual listening/media evidence, validation and review/commit results
 
-- [ ] Selected JA/EN baseline/candidate listening and actual size measurements establish acceptable audio preset values from lossless inputs.
-- [ ] Comparable actual render/encode/total measurements show the practice profile generates faster than new standard on the same selected inputs, route and encoder; reduced size alone is not counted as speed acceptance.
-- [ ] Representative direct/final outputs and an explicit override exhibit the selected settings, decode successfully and preserve the common media ending.
+Checkpoint13 records all17 selected root03 technical/visual observations:
+34 successful original Cozy commands,17 reports/561 actual checks,34 full
+decodes and408 individually parent-viewed PNGs. Original texts/labels/opening/
+summary/credits are readable and unclipped; H264/AAC stereo48k, rational ends
+within one sample, nine/eighteen WAV full≥0.80/tail≥0.60 matches and complete
+two-second end cards were observed. Three coherent root03 selectors are
+delivered; helper-tests06 passed14 groups in1.034s. Layout04 retains5+163 Scala
+successes and one explicit opt-in Docker cancellation at its original scope.
+Mixed lightweight/standard warm whole-pair medians are99.736/147.785s (32.5%
+shorter), Docker80.229/130.418s (38.5% shorter), with all pairs retained and cold
+excluded. The explicit lightweight override observed960×540@15fps/CRF28/
+veryfast/AAC192k and common ending. Timing includes native lifecycle/tool/
+observer overhead, excludes queue/idle, and does not sum Docker overlap windows.
+There are16 complete case-runs plus gap14 on docker-standard/warm02: first
+inspection exit0/33 checks/24 viewed PNGs is retained, the duplicate attempt
+exited1 before probing at the existing-directory guard, and original initial-
+exec/renderer API objects remain missing. Runner completion is INCOMPLETE;
+fresh independent P718-03 reassessment must explicitly assess this gap.
+Root01 cold measurements/clipping07/wrong-origin05/collision06, root02 failure08
+and earlier helper-tests05's14/1.030s result remain history without credit as
+root03 output. Independent Step review/commit and all final Phase gates remain
+open. Aggregate observations do not establish acceptance, discharge gap14 or
+check any P718-03/final release item.
+`DEV-P718-03-GENERIC-AUDIO-TIMING-01` remains untouched separate follow-up,
+pending independent scrutiny, with all nine original WAVs/lead metadata and
+current preservation/usefulness obligations intact. The
+[selected protocol and factual history](../journal/2026/10/2026-10-12-phase-71.8-quality-media-acceptance.md)
+records the fresh matrix. P718-01 eight JA/EN listening records and P718-02
+closed status, validation/review and exact local commits retain their original
+scope; all P718-03 items remain unchecked until actual parent admission.
+
+- [x] Selected JA/EN baseline/candidate listening and actual size measurements establish acceptable audio preset values from lossless inputs.
+- [x] Comparable actual render/encode/total measurements show the practice profile generates faster than new standard on the same selected inputs, route and encoder; reduced size alone is not counted as speed acceptance.
+- [x] Representative direct/final outputs and an explicit override exhibit the selected settings, decode successfully and preserve the common media ending.
+
+Acceptance checkpoint on2026-10-12: independent complete Step review
+`p718-03-independent-step-review15@1` PASS, zero current blockers; typed ledger9
+saved/read back. This supersedes the preceding checkpoint13/14 pending-review
+projection. The first three items are accepted from P718-01 hearing/sizes at
+their original scope and current17-case measurements/technical/visual evidence.
+Gap14 was independently reassessed from surviving originals; the missing API
+objects and old INCOMPLETE runner completion remain unchanged. Generic lead
+timing and unused imports are nonblocking separate follow-ups. Proportional
+168-spec/14-helper validation retains its original scope. Local Step commit and
+all standalone Phase gates remain pending; the three following composite items
+remain unchecked until their complete stated obligations are proven.
+
 - [ ] Affected focused executable specifications and the Phase's declared final validation pass; earlier71.7 acceptance is retained at its original scope.
 - [ ] Independent review and required local acceptance/release commits are complete, with any remaining work explicitly recorded.
 - [ ] Independent P718-03 acceptance review, proportional validation and exact local Step commit complete.

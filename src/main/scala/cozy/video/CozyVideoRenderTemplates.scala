@@ -445,11 +445,25 @@ private[cozy] trait CozyVideoRenderTemplates {
       |}
       |""".stripMargin
 
+  private[video] val _remotion_scene_card_layout_js: String =
+    """const _scene_card_layout = ({width = 1280, height = 720} = {}) => {
+      |  const scale = Math.min(1, width / 1280, height / 720);
+      |  return {
+      |    padding: 80 * scale,
+      |    fontSize: 56 * scale,
+      |    labelFontSize: 24 * scale,
+      |    labelBottom: 48 * scale,
+      |    labelRight: 64 * scale
+      |  };
+      |};
+      |""".stripMargin
+
   private[video] val _remotion_root_tsx: String =
     """import React from 'react';
       |import {AbsoluteFill, Audio, Composition, Img, Sequence, interpolate, registerRoot, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
       |import {cozyVideoProps} from './props';
       |
+      |""".stripMargin + _remotion_scene_card_layout_js + """
       |type Scene = {
       |  id: string;
       |  text: string;
@@ -540,13 +554,17 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const AssetFrame: React.FC<{asset?: Asset; opacity?: number}> = ({asset, opacity = 1}) =>
       |  asset?.path ? <Img src={staticFile(asset.path)} style={{position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity}} /> : null;
       |
-      |const SceneCard: React.FC<{scene: Scene}> = ({scene}) => (
-      |  <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', alignItems: 'center', justifyContent: 'center', padding: 80}}>
-      |    <div style={{fontSize: 56, lineHeight: 1.25, textAlign: 'center'}}>{scene.text || scene.id}</div>
-      |    <div style={{position: 'absolute', bottom: 48, right: 64, fontSize: 24, opacity: 0.7}}>{scene.id}</div>
+      |const SceneCard: React.FC<{scene: Scene}> = ({scene}) => {
+      |  const {width, height} = useVideoConfig();
+      |  const layout = _scene_card_layout({width, height});
+      |  return (
+      |  <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', alignItems: 'center', justifyContent: 'center', padding: layout.padding}}>
+      |    <div style={{fontSize: layout.fontSize, lineHeight: 1.25, textAlign: 'center'}}>{scene.text || scene.id}</div>
+      |    <div style={{position: 'absolute', bottom: layout.labelBottom, right: layout.labelRight, fontSize: layout.labelFontSize, opacity: 0.7}}>{scene.id}</div>
       |    <Audio src={staticFile(scene.audioPath)} />
       |  </AbsoluteFill>
-      |);
+      |  );
+      |};
       |
       |const Opening: React.FC<{title: string; effect: VisualEffect; asset?: Asset; durationInFrames: number}> = ({title, effect, asset, durationInFrames}) => {
       |  const frame = useCurrentFrame();

@@ -44,10 +44,16 @@ retain historical 2M/lightweight, 6M/standard and 12M/quality meanings.
 Present canonical props are authoritative and validate even when operating
 bitrate is explicit. Video bitrate override/origin stays independent of audio.
 Resolved audio defaults have current JA/EN listening acceptance.
-P718-02 is IN_PROGRESS: native/mixed and generated Docker mux routes consume
+P718-02 is CLOSED on2026-10-12 at local Step commit
+`3befd92f53c0bc6919e1e5be2cc52b266e3e0279`: native/mixed and generated Docker mux routes consume
 resolved audio and observations carry canonical/audio/seven origins under the
 [joint wire contract](video-quality-profiles.md#generated-joint-observations-and-legacy-inputs).
-The route implementation is awaiting parent validation and independent review.
+Its18 route and228 accumulator specifications and independent focused review
+PASS are accepted. P718-03 checkpoint13 records all17 selected root03
+technical/visual observations, with lightweight warm whole-pair medians32.5%
+shorter on mixed and38.5% shorter on Docker. There are16 complete case-runs
+and gap14 requiring fresh independent reassessment; Step/Phase acceptance remains
+pending.
 
 Encoder name is exactly `libx264` (default) or `h264_videotoolbox`.
 `video.encoder.bitrate` resolves independently of name, with its own origin.
@@ -114,6 +120,87 @@ origins; external encoding records also contain actual argv. No native/Docker
 execution or measured bitrate is inferred from intent. The mandatory generated
 callback fixture in CozyVideoQualityRouteSpec uses local Node modules and proves
 callback arguments only; actual media acceptance remains P718-03.
+
+P718-03's selected measurement route preserves ordinary Docker renderMedia
+for both canonical tiers: direct Docker FFmpeg keeps mode=docker, its standard
+executable and inherited common image, with no per-tool Docker image or
+operating encoder override. Mixed cases explicitly select software libx264
+and the host FFmpeg observer. Both routes use the selected Remotion Node
+observer. Only prepare-final switches Docker FFmpeg executable to
+`/workspace/quality-tools/ffmpeg-observed.mjs`, keeping mode=docker and the
+common image; the next warm prepare restores the ordinary direct selection.
+This basename-selected Node proxy forwards FFmpeg argv in the container and
+does not instrument Remotion's internal FFmpeg binary. Mixed host forwarding
+uses the existing selected host executable unchanged. Final-only observer
+selection is equal for both profiles.
+
+Observer traces retain monotonic durations, actual argv, case/run/part and
+invocation metadata. Bundle/selectComposition/renderFrames/audio-mix and host
+encode are separate stages; Docker renderMedia has overlapping rendering,
+encoding and progress windows plus actual pre-stitcher/stitcher arguments.
+Callback arguments are not native subprocess logs. Parent-matched native
+commandExecution ID/command/durationMs supplies tool wall time, including
+executor/lifecycle bookkeeping but excluding agent creation/queue. File mtimes
+are diagnostic only. No substitute stopwatch, missing-duration fallback,
+cross-domain clock subtraction or overlap sum establishes speed.
+Private inspection follows explicit emitted template scheduling:
+generic `rendererTemplate=null` uses openingFrames plus accumulated scene
+start; the known character dialogue/web-demo templates add leadInFrames to
+openingFrames plus startFrame. It validates authored allocation, source/full
+tail preservation and both copies; missing/unknown templates fail without
+origin search. Existing generic lead metadata does not prove silence is
+scheduled; `DEV-P718-03-GENERIC-AUDIO-TIMING-01` remains separate untouched
+behavior/design follow-up, open to independent scrutiny.
+
+`inspect --output-directory` selects a new safe owned inspection
+directory without overwriting the retained failed attempt. Repeated
+`summarize --inspection` inputs are parent-selected exact paths, with duplicate
+case/run rejection and no implicit latest selection or failure filtering.
+These are private helper selectors; the exact Cozy command surface and all17
+successful inspection/34 command duties stay unchanged. No inspection may run
+during timed warm comparisons. Root01 cold technical inspections, wrong-origin05,
+snapshot-collision06 and lightweight clipping07 remain historical. The delivered generic SceneCard correction
+uses actual composition dimensions and the capped1280×720 scale specified in
+[the layout contract](video-quality-profiles.md#generic-scenecard-lower-resolution-layout).
+It changes no audio/Sequence/props/observer or native execution route.
+CozyVideoSceneLayoutSpec passed5 specifications and the five affected suites
+passed163, with one explicit opt-in Docker cancellation at layout04 scope.
+Earlier helper-tests05 passed14 scenarios in1.030s. Root02's first mixed-standard CLI failed at observer
+tool checking (exit1,8.988s), before a new movie: Node metadata and host FFmpeg
+still selected root01 while helper TARGET selected root02
+(`P718-03-OBSERVER-ROOT-SELECTION-08`).
+The complete17-case/run,34-command matrix was observed in
+`target/phase718/quality-media03/`, with explicit selected inspection paths and
+all12 PNGs/movie individually viewed (408 across34 movies). Three coherent
+literal selections were delivered at root03: helper TARGET, Node metadata host
+projectRoot suffix and host FFmpeg canonical project suffix. All other guards/forwarding/argv,
+streams/environment, exits/signals/lifecycle and measurement conventions remain
+intact. Existing14 helper specifications remain unchanged; helper-tests06
+passed in1.034s. Original CLI, Node rendering and Docker final exercised both
+observers at root03. There is no new root API,
+retry or unconditional SBT refresh. Root01 movies/native records/PNG failures
+and root02's prepared project/terminal failure stay retained without credit
+as root03 results. Checkpoint13 records17 technical reports/561 real checks,
+34 fully decoded H264/AAC stereo48k movies, rational ends within one sample,
+nine/eighteen original WAV full≥0.80/tail≥0.60 matches and all two-second end-card
+frames. Selected original texts/labels/opening/summary/credits are readable and
+unclipped. Mixed lightweight/standard warm whole-pair medians are99.736/147.785s
+(32.5% shorter); Docker80.229/130.418s (38.5% shorter), cold excluded. Native
+totals include lifecycle/tool/observer overhead, exclude agent queue/idle and
+make no process-hot/system-cold or uninterrupted-clock claim. Docker overlapping
+render/encode windows are neither summed nor called pure encode.
+The mixed cold override observed960×540@15fps/CRF28/veryfast/AAC192k, six explicit
+field origins and quality-profile selection,4023/8046 direct/final frames and
+one final AAC after independent PCM decodes. Its157.238s total is excluded from
+speed. There are16 complete case-runs plus `P718-03-RUNTIME-INSPECTION-REPLAY-14`:
+docker-standard/warm02 first inspection exited0 with33 checks/24 viewed PNGs;
+the duplicate attempt exited1 at the existing-directory guard before probing.
+Original initial-exec/renderer API objects remain missing, runner completion
+is INCOMPLETE, and fresh independent Step reassessment is mandatory. Aggregate
+observations do not discharge this gap or grant acceptance. Final full test,
+runtime classpath export, review/commits and Phase release remain pending.
+Protocol, current results, cold facts and retained failure evidence are recorded in the
+[P718-03 journal](../journal/2026/10/2026-10-12-phase-71.8-quality-media-acceptance.md).
 
 Executable contracts: CozyVideoExecutionSpec, CozyVideoMixedRenderSpec and
 CozyVideoHardwareEncodingSpec. S01 software native evidence is accepted.
