@@ -4,6 +4,16 @@ Purpose: engineering work management.
 
 Phase status index (individual Phase/checklist files are authoritative):
 
+- [Phase 82](phase-82.md) / [checklist](phase-82-checklist.md) — PLANNED CAR
+  distribution verification and optional signatures. Renumbered from the local
+  Phase 76 plan on 2026-10-13; GitHub Phase 76 keeps Logical UI ABI production.
+
+- [Phase 81](phase-81.md) / [checklist](phase-81-checklist.md) — PLANNED CML-derived
+  review scope metadata, driven by sm-workflow Phase 6 with CNCF 106 and
+  cbd-support 15. Deliver the bounded Step -> integrated review -> repair/Final
+  handoff using existing metadata paths; no active media/site Phase is resumed
+  or expanded. GitHub Phase 80 retains its separate site-tag-navigation allocation.
+
 - Historical closed phase: `phase-46.md`: Content Core Story Flow and
   per-unit Explanation Structure are frozen as one typed logical-presentation
   authority. The accepted handoff preserves the closed Phase 36/37/41/45.*
