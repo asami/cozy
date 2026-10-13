@@ -35,3 +35,47 @@ record in `2026-10-01-phase-57.3-hygiene-follow-up.md`; it is not duplicated.
 - **HYG-SYNC-20261013-GIT-DIAGNOSTIC-001 — optional Git provenance emits misleading fatal diagnostics.** Evidence: successful T4 log lines 8–13; `CozyPublicationCompiler.scala:1290–1292`, `1620–1636`; `CozyArticleMediaRegistry.scala:331,639`; `CozyBokSpec.scala:2809,4026–4027`. The legacy video-publication scenario creates a non-Git temporary source tree. `CozyBokPublication.publishVideo` delegates through `CozyArticleMediaVideoCommand.publish`; registry normalization invokes `validateMetadataPublication`, and first publication invokes `publishMetadata`. Each constructs `_metadata_bundle`, issuing two `--show-toplevel` probes and one `HEAD` probe: two constructions explain all six diagnostics. `Try(...).toOption` explicitly treats unavailable provenance as absent; repository name falls back to the source directory name, source path to `"."`, and source commit to `None`. These helpers, scenario and call chain are unchanged by this merge. The observed effect is diagnostic noise and absent optional Git provenance, not failed export admission, registry installation or merge validation. Owner: Cozy publication/compiler maintainers. Follow-up: a separately admitted optional-provenance diagnostic maintenance task, preserving genuine Git failures and existing fallback semantics. This review authorizes no suppression or edit.
 
 - **HYG-SYNC-20261013-TEMP-001 — legacy BoK fixtures use system temporary roots.** Evidence: `CozyBokSpec.scala:4026–4032` calls `Files.createTempDirectory(prefix)` without a `target/` parent. This predates the merge; the newly added Kroki assertion’s own fixture remains under `target/`. Risk: inherited nonconformance with work-artifact placement and less discoverable fixture ownership. Owner: Cozy BoK specification maintainers. Follow-up: a dedicated fixture-maintenance task that preserves all scenario semantics and cleanup.
+
+## Generation compatibility and portable Dart SDK maintenance — 2026-10-13
+
+These pre-existing observations were retained by the standalone repair's
+independent focused review. They are nonblocking maintenance items, not
+implementation or acceptance requirements for either completed repair.
+This journal records their disposition without changing any Phase status or
+embedding execution logs or review payloads.
+
+<!-- cncf-phase-finding:HYG-COZY-DART-RUNTIME-REPORT-OWNERSHIP:begin -->
+### HYG-COZY-DART-RUNTIME-REPORT-OWNERSHIP — OPEN
+
+The two Dart runtime specifications retain pre-existing private CommandReport case classes owned by their test instances. Shared type-modeling rules require instance-independent data declarations. Move these reports to package-level or companion objects under a separately admitted ownership-maintenance scope; preserve command fields, observations and runtime acceptance.
+
+- Discovery: 2026-10-13, standalone generation compatibility and portable SDK
+  repair review, followed by validated-commit preparation.
+- Owner repository: Cozy; category: test-support type ownership; priority: P3.
+- Evidence: `src/test/scala/cozy/modeler/DartModelRuntimeSpec.scala:142` and
+  `src/test/scala/cozy/modeler/DartPackageRuntimeSpec.scala:333` declare private
+  instance-owned `CommandReport` case classes. Both declarations predate and
+  are unchanged by the SDK discovery repair.
+- Risk: test-only report identity remains tied to an enclosing instance rather
+  than a stable namespace. Neither report crosses the production ABI boundary.
+- Deferred boundary: a separate test-support ownership maintenance task;
+  neither SDK discovery nor generated product compatibility requires this move.
+- Scheduling: no task or implementation commit is scheduled by this record.
+<!-- cncf-phase-finding:HYG-COZY-DART-RUNTIME-REPORT-OWNERSHIP:end -->
+
+<!-- cncf-phase-finding:HYG-COZY-FAILURE-MODEL-ABI-SPEC-GROUPING:begin -->
+### HYG-COZY-FAILURE-MODEL-ABI-SPEC-GROUPING — OPEN
+
+Consider shallow which grouping for generation, legacy compatibility, serialization and library admission in FailureModelAbiGenerationSpec. Preserve all behavioral expectations; handle in a separate specification-maintenance task.
+
+- Discovery: 2026-10-13, standalone generation compatibility repair review,
+  retained in portable SDK repair review and validated-commit preparation.
+- Owner repository: Cozy; category: executable-spec organization; priority: P3.
+- Evidence: `src/test/scala/cozy/modeler/FailureModelAbiGenerationSpec.scala:31`
+  retains one pre-existing flat group covering several acceptance concerns.
+- Risk: navigation and maintenance readability only; this is not a defective
+  behavioral assertion or an unverified generation contract.
+- Deferred boundary: a separate shallow specification-grouping maintenance
+  task preserving every fixture, generated product and behavioral expectation.
+- Scheduling: no task or implementation commit is scheduled by this record.
+<!-- cncf-phase-finding:HYG-COZY-FAILURE-MODEL-ABI-SPEC-GROUPING:end -->
