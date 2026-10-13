@@ -1808,6 +1808,30 @@ CNCF-hosted publication including explicit parent-connected exposure, and
 expose separately authorized operations that extract mobile/Desktop artifacts
 and distribute them through official platform channels.
 
+The PLANNED UI sequence was split on 2026-10-08 by explicit
+`$cncf-split-phase 50`: [Phase 50](../phase/phase-50.md) ->
+[Phase 50.1](../phase/phase-50.1.md) -> unchanged Phase 51. Phase 50 owns the
+minimum genuine candidate-preview contract and actual compact-browser
+list/select/detail/confirm/success route, with aligned structural HTML.
+Phase 50.1 extends the working flow with input/validation, failure/recovery,
+responsive/remaining metadata decisions, feedback and exact complete accepted
+target-ready inputs. Both expect 6.5h (5.5–8.5h range), with gpt-6.1-sol/high
+parents under standard mode. The original 12h expected gate is dated pre-split
+evidence; current structural gates are PROCEED. Added closure/handoff overhead
+is approximately 1h; no reasoning-cost saving is claimed.
+
+The [main-route ledger](../phase/phase-50-checklist.md) owns narrow increment
+outcomes. All 59 original rows remain verbatim, open and owned exactly once by
+the [complete successor ledger](../phase/phase-50.1-checklist.md). One shared
+SalesOrder matrix preserves main-route-first execution and reuses evidence.
+Final-only / sbt-full-suite assigns the single aggregate full Cozy validation
+for PHASE-50 and PHASE-50.1 to final owner 50.1. Every member retains focused
+validation, independent Phase review, Step acceptance, closure and its release;
+50 records full-suite deferral explicitly. Phase 51 consumes only 50.1's exact
+accepted target-ready identity and owns Flutter projection. Runtime Display
+Model/Android integration remains outside this sequence's prerequisites.
+No implementation or acceptance is recorded by this planning split.
+
 Phase 74 has accepted its minimum Abstract/Logical UI runtime List/Detail
 contract and Cozy executable fixtures while preserving the Phase 43/50
 semantic authority. The one full Phase review and bounded cycle-1 focused

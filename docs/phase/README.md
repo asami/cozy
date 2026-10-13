@@ -4,6 +4,17 @@ Purpose: engineering work management.
 
 Phase status index (individual Phase/checklist files are authoritative):
 
+- PLANNED UI producer sequence, split applied 2026-10-08:
+  [Phase 50](phase-50.md) owns candidate preview and actual compact main flow
+  (6.5h expected, gpt-6.1-sol/high), with its [main-route checklist](phase-50-checklist.md).
+- PLANNED successor: [Phase 50.1](phase-50.1.md) owns remaining branches,
+  responsive/IR decisions, all 59 original outcomes and exact target-ready
+  acceptance (6.5h expected, gpt-6.1-sol/high), with its [complete checklist](phase-50.1-checklist.md).
+  Final-only / sbt-full-suite defers only repository-full tests from 50 to
+  final owner 50.1; both keep focused/review/Step/release obligations.
+- Unchanged planned successor: [Phase 51](phase-51.md), Flutter Target
+  Projection, starts from the accepted target-ready authority of 50.1.
+
 - CLOSED: [Phase 65](phase-65.md), CBD Support Dart Model and API Code Generation. All nine outcomes/eight original boxes/four groups are closed; four native Steps, sole full Phase review PASS and repository-full tests PASS bind P65-RELEASE-CLOSURE-001 r1. The [checklist](phase-65-checklist.md) retains live007, historical limits and the exact separate Hygiene journal.
 
 - Historical closed phase: `phase-46.md`: Content Core Story Flow and

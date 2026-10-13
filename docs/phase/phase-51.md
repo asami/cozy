@@ -4,12 +4,12 @@ Status: PLANNED
 
 Plan date: 2026-09-06
 
-Predecessor: Phase 50 Logical UI Target-Readiness and Progressive Static Web closure.
+Predecessor: Phase 50.1 Logical UI Target-Readiness and Progressive Static Web closure.
 
 ## Goal
 
 Introduce the first Flutter-specific projection boundary from the exact accepted
-target-ready Logical UI produced by Phase 50. Freeze a versioned Flutter Target
+target-ready Logical UI produced by Phase 50.1. Freeze a versioned Flutter Target
 Policy and target-specific Target UI Plan, then generate deterministic Flutter
 base source without redefining Logical UI semantics.
 
@@ -55,7 +55,7 @@ Represent at least:
 - public Operation/action binding;
 - target UI-local state;
 - validation/feedback presentation binding;
-- responsive arrangement derived from Phase 50 intent plus target Policy;
+- responsive arrangement derived from Phase 50.1 intent plus target Policy;
 - localization/accessibility realization;
 - target adaptation metadata; and
 - reverse provenance to Logical UI, UI UseCase Step, and Component authority.
@@ -74,7 +74,7 @@ the final choice.
 
 ## P51-04: Projection equivalence proof
 
-Use the same SalesOrder semantics already exercised through the Phase 50
+Use the same SalesOrder semantics already exercised through the Phase 50.1
 Progressive Static Web projection and prove that the Flutter projection retains:
 
 - screen/navigation coverage;
@@ -101,7 +101,7 @@ Web as mobile acceptance.
 
 Phase 51 completes when one exact accepted target-ready Logical UI plus one
 versioned Flutter Target Policy deterministically produces a valid Target UI
-Plan and Flutter base source, retains Phase 50 semantic/behavioral coverage and
+Plan and Flutter base source, retains Phase 50.1 semantic/behavioral coverage and
 provenance, and passes focused format/analyze/test evidence without semantic
 drift.
 
@@ -114,6 +114,7 @@ verification.
 ## References
 
 - `docs/phase/phase-51-checklist.md`
-- `docs/phase/phase-50.md`
+- `docs/phase/phase-50.md` (compact producer foundation)
+- `docs/phase/phase-50.1.md` (complete target-ready acceptance)
 - `docs/notes/flutter-ui-projection-and-responsive-preview-specification-proposal.md`
 - `docs/journal/2026/09/2026-09-06-flutter-mobile-first-web-first-development-direction.md`

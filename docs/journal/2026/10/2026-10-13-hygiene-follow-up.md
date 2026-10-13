@@ -1,0 +1,5 @@
+# Hygiene follow-up — 2026-10-13
+
+<!-- cncf-phase-finding:HYG-COZY-SYNC-UI-STATUS-001:begin -->
+HYG-COZY-SYNC-UI-STATUS-001 — OPEN. Discovery: 2026-10-13, documentation preservation during repository synchronization. Owner repository: Cozy. Category: derived documentation status. Priority: P3. Evidence: the preserved 2026-10-08 UI split additions in docs/phase/README.md:6 and docs/strategy/cozy-development-strategy.md:1811,1825 still project Phase 50/50.1 as PLANNED and the 59 successor outcomes as open, while the canonical Phase 50 and Phase 50.1 documents/checklists record closure. Risk: readers of the derived index or strategy can mistake dated planning for current execution status. This is nonblocking for the documentation preservation boundary: individual Phase/checklist files remain authoritative, and these commits grant no Phase acceptance or successor execution. Maintenance boundary: separately reconcile current index/strategy projections with canonical closure records; preserve the dated split decision and chronological journal. No maintenance task or commit is scheduled by this record.
+<!-- cncf-phase-finding:HYG-COZY-SYNC-UI-STATUS-001:end -->

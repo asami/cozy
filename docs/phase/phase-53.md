@@ -35,7 +35,7 @@ semantic application identities.
 
 ## P53-02: Platform-specific validation
 
-Exercise behaviors that Phase 50 Progressive Static Web and Phase 52 Flutter
+Exercise behaviors that Phase 50.1 Progressive Static Web and Phase 52 Flutter
 Web cannot prove:
 
 - safe-area handling;
@@ -111,6 +111,7 @@ consumer verification.
 - `docs/phase/phase-53-checklist.md`
 - `docs/phase/phase-52.md`
 - `docs/phase/phase-51.md`
-- `docs/phase/phase-50.md`
+- `docs/phase/phase-50.md` (compact producer foundation)
+- `docs/phase/phase-50.1.md` (complete target-ready acceptance)
 - `docs/notes/flutter-ui-projection-and-responsive-preview-specification-proposal.md`
 - `docs/journal/2026/09/2026-09-06-flutter-mobile-first-web-first-development-direction.md`
