@@ -5,6 +5,12 @@ Updated: 2026-10-10 (Asia/Tokyo)
 
 Status: active
 
+## Logical UI producer status — 2026-10-13
+
+[Phase 76](../phase/phase-76.md) is CLOSED with all 24 criteria accepted. All six Step commits
+are retained; full producer validation and recovery full review passed. The generated
+CNCF consumer handoff is accepted. Other Phase priorities remain unchanged.
+
 ## Purpose
 
 This document defines Cozy's standalone development strategy.

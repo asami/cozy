@@ -1,6 +1,8 @@
 package cozy.modeler
 
 import org.goldenport.RAISE
+import org.goldenport.context.Conclusion
+import org.goldenport.realm.Realm
 
 /*
  * @since   Sep. 28, 2026
@@ -12,6 +14,20 @@ sealed trait ModelGenerationTarget
 object ModelGenerationTarget {
   case object Cncf extends ModelGenerationTarget
   case object Library extends ModelGenerationTarget
+
+  def requireLogicalUiInput(logicalUi: Option[Realm]): Unit =
+    if (logicalUi == null || logicalUi.contains(null))
+      Conclusion.invalidArgumentFault(
+        "logicalUi must be a non-null Option containing a non-null Realm."
+      ).RAISEC
+
+  def requireLibraryLogicalUi(logicalUi: Option[Realm]): Unit = {
+    requireLogicalUiInput(logicalUi)
+    if (logicalUi.nonEmpty)
+      Conclusion.invalidArgumentFault(
+        "LIBRARY_GENERATION_UNSUPPORTED_RUNTIME: category=logical-ui is a CNCF runtime feature. Use --generation-target cncf."
+      ).RAISEC
+  }
 
   def requireInvocation(command: String, args: List[String]): ModelGenerationTarget =
     _values(args, "generation-target") match {
@@ -62,6 +78,10 @@ object ModelGenerationTarget {
       org.goldenport.kaleidox.Config.default,
       normalized.toFile
     )
+    LogicalUiScalaGenerator.fromModel(model) match {
+      case Left(diagnostic) => LogicalUiScalaGenerator.conclusion(diagnostic).RAISEC
+      case Right(logicalui) => requireLibraryLogicalUi(logicalui)
+    }
     val builder = Modeler.ModelBuilder(
       model,
       PredefinedResultCatalog.empty,
