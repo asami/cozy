@@ -10,6 +10,10 @@ This document supplies the originally required outgoing handoff. The existing
 [Phase 50 → 50.1 handoff](phase-50.1-handoff.md) remains unchanged as incoming
 historical evidence. This handoff starts no successor implementation.
 
+実行証跡の保存先: `macmini:~/backup/journal/2026/10/cozy/COZY-SCALA2-SYNC-20261013-001/COZY-EVIDENCE-CLEANUP-20261013-003/`。同期完了が2026-10-13の場合の原則保持期限: 2026-11-12（完了から30日）。同期中は期限なしで保持し、期限到来だけで自動削除しません。
+
+「ローカル保管」と記した元のリポジトリ相対パスは、保存先の `original-tree/<元の相対パス>` に対応します。大きな JSON・HTML は `.gz` 付きで保存し、`gzip -dc` で元の記録を読み取れます。別ホストではこの保存先の可用性を確認してください。
+
 ## Exact authority and attribution
 
 Consume [accepted-logical-ui.json](../evidence/phase-50.1/readiness-accepted-001/accepted-logical-ui.json)
@@ -55,8 +59,8 @@ Window classes compact/medium/expanded and placement/persistence fully express
 the admitted driver, so additional device/form-factor hints were unnecessary.
 Text-source metadata does not claim a locale-resolution service.
 
-Both [structural receipt](../evidence/phase-50.1/readiness-accepted-001/evidence/readiness-review-receipt.json)
-and [Web receipt](../evidence/phase-50.1/readiness-accepted-001/evidence/readiness-web-receipt.json)
+Both structural receipt（ローカル保管: `docs/evidence/phase-50.1/readiness-accepted-001/evidence/readiness-review-receipt.json`）
+and Web receipt（ローカル保管: `docs/evidence/phase-50.1/readiness-accepted-001/evidence/readiness-web-receipt.json`）
 carry exactly the same accepted binding and four complete declarations.
 In the Web receipt these fields are inside `reviewReceipt`; Web scenario
 declarations remain projection evidence. The native adapter checks genuine
@@ -65,9 +69,9 @@ generation. Source revisions invalidate old identities/products.
 Use existing factories/currentness APIs and complete native declarations;
 this handoff introduces no new semantic codec or synthetic acceptance API.
 
-Generated [app](../evidence/phase-50.1/readiness-accepted-001/site/index.html),
-[structural HTML](../evidence/phase-50.1/readiness-accepted-001/site/review.html),
-[three-profile comparison](../evidence/phase-50.1/readiness-accepted-001/site/compare.html),
+Generated app（ローカル保管: `docs/evidence/phase-50.1/readiness-accepted-001/site/index.html`）,
+structural HTML（ローカル保管: `docs/evidence/phase-50.1/readiness-accepted-001/site/review.html`）,
+three-profile comparison（ローカル保管: `docs/evidence/phase-50.1/readiness-accepted-001/site/compare.html`）,
 screenshots and observations are review projections. They are not source
 authority for Flutter widget selection, target state management or code generation.
 
@@ -77,12 +81,12 @@ The sole [SalesOrder matrix](../spec/logical-ui-model.md#11-shared-salesorder-co
 joins the declared source steps/outcomes/profiles. The [canonical checklist](phase-50.1-checklist.md#canonical-59-outcome-evidence-mapping)
 maps all 59 original IDs individually to source/specification/execution evidence.
 
-- E3 candidate [observations](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json)
-  and [review](../evidence/phase-50.1/readiness-candidate-001/browser-review.md):
+- E3 candidate observations（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/browser-observations.json`）
+  and review（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/browser-review.md`）:
   21 actual cases, 1,067 observations, 23 parent-inspected screenshots; seven
   outcomes in all three profiles, 12 pointer recoveries from focused input and
   five focused-recovery resize families including 599/600/1023/1024 boundaries.
-- E4 accepted [observations](../evidence/phase-50.1/readiness-accepted-001/browser-observations.json)
+- E4 accepted observations（ローカル保管: `docs/evidence/phase-50.1/readiness-accepted-001/browser-observations.json`）
   and [package](../evidence/phase-50.1/readiness-accepted-001/README.md): six
   normal/loading cases, 107 observations, eight parent-inspected screenshots,
   six actually opened visible accepted-provenance observations across standalone

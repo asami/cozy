@@ -5,6 +5,10 @@ The executable contract is [`docs/spec/logical-ui-model.md`](../spec/logical-ui-
 This design owns `cozy.logical-ui.v1` only; it does not define screen projection,
 HTML rendering, target-framework generation, or CML/CNCF source semantics.
 
+実行証跡の保存先: `macmini:~/backup/journal/2026/10/cozy/COZY-SCALA2-SYNC-20261013-001/COZY-EVIDENCE-CLEANUP-20261013-003/`。同期完了が2026-10-13の場合の原則保持期限: 2026-11-12（完了から30日）。同期中は期限なしで保持し、期限到来だけで自動削除しません。
+
+「ローカル保管」と記した元のリポジトリ相対パスは、保存先の `original-tree/<元の相対パス>` に対応します。大きな JSON・HTML は `.gz` 付きで保存し、`gzip -dc` で元の記録を読み取れます。別ホストではこの保存先の可用性を確認してください。
+
 ## 1. Authority boundary
 
 Logical UI v1 is a consumer of a public Component surface and of three explicit
@@ -492,7 +496,7 @@ The narrow formatting integrity delta removes blank provenance separator spaces
 in the current comparison; all 21 producer tests passed. Run007 remains the
 interaction proof, predates that formatting change and is not a new browser
 observation of the current comparison bytes.
-[The portable candidate review](../evidence/phase-50.1/readiness-candidate-001/browser-review.md)
+The portable candidate review（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/browser-review.md`）
 links the regenerated three HTML/two complete receipts, observed data and images,
 with relative screenshot references and scope limits. Private session/PID/temp/
 endpoint records remain local; portable copies are product-review material.

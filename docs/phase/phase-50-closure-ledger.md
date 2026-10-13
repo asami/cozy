@@ -8,6 +8,10 @@ Status: CLOSED under `P50-CLOSURE-001@1`, effective upon the distinct native
 release commit carrying `Phase-Closure-Binding: P50-CLOSURE-001@1` and successful
 native post-commit closure audit. A prepared document alone grants no closure.
 
+実行証跡の保存先: `macmini:~/backup/journal/2026/10/cozy/COZY-SCALA2-SYNC-20261013-001/COZY-EVIDENCE-CLEANUP-20261013-003/`。同期完了が2026-10-13の場合の原則保持期限: 2026-11-12（完了から30日）。同期中は期限なしで保持し、期限到来だけで自動削除しません。
+
+「ローカル保管」と記した元のリポジトリ相対パスは、保存先の `original-tree/<元の相対パス>` に対応します。大きな JSON・HTML は `.gz` 付きで保存し、`gzip -dc` で元の記録を読み取れます。別ホストではこの保存先の可用性を確認してください。
+
 ## Native acceptance and review
 
 Original Phase base: `78d0f0a659b9fccc0eb28b5b18869a557be7b3c9`.
@@ -40,8 +44,8 @@ the four preparation rows added before the split plus those 55 form the
 | P50-MAIN-02 | Genuine candidate preview in `CozyLogicalUiReview`, exact four input identities and candidate/accepted separation; `CozyLogicalUiCandidateReviewSpec`, S50.1 61-test receipt and accepted commit. |
 | P50-MAIN-03 | Shared `CozyLogicalUiSalesOrderFixtures.candidate()` / `compactSuccess` / `compactWebScenario`, one initial order and explicit simulated result; sole canonical `P50-COMPACT-NORMAL-001` row. |
 | P50-MAIN-04 | Existing target-neutral Phase 43 semantics, bindings and UI-state separation retained; seven/eight affected-suite validation and both independent Step reviews. |
-| P50-MAIN-05 | `CozyLogicalUiCompactWeb` deterministic compact and structural rendering, exact tuple/full-scenario currentness, escaping and output preflight; `CozyLogicalUiCompactWebSpec`, full [production receipt](../evidence/phase-50/compact/compact-preview-receipt.json). |
-| P50-MAIN-06 | Actual list → selection → detail → confirm → simulated success plus structural review in Chrome at 390 × 844; [observations and six screenshots](../evidence/phase-50/compact/README.md), successful readiness/client completion/cleanup. |
+| P50-MAIN-05 | `CozyLogicalUiCompactWeb` deterministic compact and structural rendering, exact tuple/full-scenario currentness, escaping and output preflight; `CozyLogicalUiCompactWebSpec`, full production receipt（ローカル保管: `docs/evidence/phase-50/compact/compact-preview-receipt.json`）. |
+| P50-MAIN-06 | Actual list → selection → detail → confirm → simulated success plus structural review in Chrome at 390 × 844; observations and six screenshots（ローカル保管: `docs/evidence/phase-50/compact/README.md`）, successful readiness/client completion/cleanup. |
 | P50-MAIN-07 | Two distinct parent manual local Step commits above, 61/74-test terminal successes, both accepted Step review references; no duplicate test count is summed as unique coverage. |
 | P50-MAIN-08 | Sole independent 40-path full Phase PASS above, zero Current Phase Blockers and this committed coherent increment ledger; retained parent release-bookkeeping amendment. |
 | P50-MAIN-09 | Typed aggregate deferred release record and exact Git audit trailer: final-only / sbt-full-suite, no bootstrap, owner PHASE-50.1, sequence PHASE-50 → PHASE-50.1. Full suite not run; aggregate assurance pending. |

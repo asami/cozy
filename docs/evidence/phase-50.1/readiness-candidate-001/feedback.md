@@ -12,11 +12,15 @@ PHASE-50.1 / S50.1.2 / E4 / S50.1.2.2 のレビュー記録です。
 
 > 修正不要
 
+実行証跡の保存先: `macmini:~/backup/journal/2026/10/cozy/COZY-SCALA2-SYNC-20261013-001/COZY-EVIDENCE-CLEANUP-20261013-003/`。同期完了が2026-10-13の場合の原則保持期限: 2026-11-12（完了から30日）。同期中は期限なしで保持し、期限到来だけで自動削除しません。
+
+「ローカル保管」と記した元のリポジトリ相対パスは、保存先の `original-tree/<元の相対パス>` に対応します。大きな JSON・HTML は `.gz` 付きで保存し、`gzip -dc` で元の記録を読み取れます。別ホストではこの保存先の可用性を確認してください。
+
 ## レビュー対象の完全な同一性
 
 対象は `sales-order-target-ready-v1` の現在の完全な Logical UI 候補です。
-[構造レビューの完全ソース receipt](evidence/readiness-review-receipt.json) の
-`binding` と [Web の完全ソース receipt](evidence/readiness-web-receipt.json) の
+構造レビューの完全ソース receipt（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/evidence/readiness-review-receipt.json`） の
+`binding` と Web の完全ソース receipt（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/evidence/readiness-web-receipt.json`） の
 `reviewReceipt.binding` が示す対象に、この修正不要フィードバックを結び付けます。
 
 | 項目 | 値 |
@@ -32,7 +36,7 @@ PHASE-50.1 / S50.1.2 / E4 / S50.1.2.2 のレビュー記録です。
 `reviewReceipt.sourceInputs` にあります。入力 payload はここに複製しません。
 生成 Web ソース、HTML、画像は投影・観察証拠であり、Logical UI の権威ではありません。
 レビューの操作順序は [レビューガイド](README.md)、既存の実ブラウザ観察と
-run007 の範囲・書式変更に関する制限は [browser review](browser-review.md) にあります。
+run007 の範囲・書式変更に関する制限は browser review（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/browser-review.md`） にあります。
 
 ## 改訂の適用判断と処置
 

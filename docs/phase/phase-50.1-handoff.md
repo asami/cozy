@@ -6,6 +6,10 @@ candidate/accepted separation, ordinary serial validation/review and native
 history. Status: READY as a committed PHASE-50 release handoff; PHASE-50.1
 remains planned and its 59 original outcomes remain open.
 
+実行証跡の保存先: `macmini:~/backup/journal/2026/10/cozy/COZY-SCALA2-SYNC-20261013-001/COZY-EVIDENCE-CLEANUP-20261013-003/`。同期完了が2026-10-13の場合の原則保持期限: 2026-11-12（完了から30日）。同期中は期限なしで保持し、期限到来だけで自動削除しません。
+
+「ローカル保管」と記した元のリポジトリ相対パスは、保存先の `original-tree/<元の相対パス>` に対応します。大きな JSON・HTML は `.gz` 付きで保存し、`gzip -dc` で元の記録を読み取れます。別ホストではこの保存先の可用性を確認してください。
+
 ## Starting authority
 
 Consume [Phase 50 closure](phase-50-closure-ledger.md) and its original base,
@@ -29,7 +33,7 @@ projection via the existing Phase 43 factories; it makes no acceptance decision.
 `compactSuccess` supplies the declared initial/success records;
 `compactWebScenario` translates that complete scenario for the producer.
 
-The actual [production receipt](../evidence/phase-50/compact/compact-preview-receipt.json)
+The actual production receipt（ローカル保管: `docs/evidence/phase-50/compact/compact-preview-receipt.json`）
 is authoritative for the full tuple and scenario. These are existing product
 input identities, not workflow-control hashes or file-immutability certificates.
 
@@ -87,11 +91,11 @@ does not require repeating applicable validation.
 
 ## Compact outputs and actual browser proof
 
-Retain [app](../evidence/phase-50/compact/index.html),
-[structural HTML](../evidence/phase-50/compact/review.html),
-[full receipt](../evidence/phase-50/compact/compact-preview-receipt.json),
-[portable observations](../evidence/phase-50/compact/browser-observations.json)
-and [six screenshots plus browser-entry prerequisites](../evidence/phase-50/compact/README.md).
+Retain app（ローカル保管: `docs/evidence/phase-50/compact/index.html`）,
+structural HTML（ローカル保管: `docs/evidence/phase-50/compact/review.html`）,
+full receipt（ローカル保管: `docs/evidence/phase-50/compact/compact-preview-receipt.json`）,
+portable observations（ローカル保管: `docs/evidence/phase-50/compact/browser-observations.json`）
+and six screenshots plus browser-entry prerequisites（ローカル保管: `docs/evidence/phase-50/compact/README.md`）.
 The actual Chrome 154.0.8037.94 run at 390 × 844 observed list, selected,
 detail, confirmation-ready, simulated-success and structural-review, without
 horizontal overflow in the compact stages. The owned-session receipt admitted

@@ -68,6 +68,10 @@ Full serialized Cozy validation is final-only / sbt-full-suite, owned here for
 PHASE-50 and PHASE-50.1. Both members retain their own focused validation,
 independent full Phase review, Step acceptance, closure ledger and release.
 
+実行証跡の保存先: `macmini:~/backup/journal/2026/10/cozy/COZY-SCALA2-SYNC-20261013-001/COZY-EVIDENCE-CLEANUP-20261013-003/`。同期完了が2026-10-13の場合の原則保持期限: 2026-11-12（完了から30日）。同期中は期限なしで保持し、期限到来だけで自動削除しません。
+
+「ローカル保管」と記した元のリポジトリ相対パスは、保存先の `original-tree/<元の相対パス>` に対応します。大きな JSON・HTML は `.gz` 付きで保存し、`gzip -dc` で元の記録を読み取れます。別ホストではこの保存先の可用性を確認してください。
+
 ## Execution preparation
 
 - [x] P50-PREP-01: Record Phase 43/74 reuse and gaps, medium-intent disposition,
@@ -255,9 +259,9 @@ successor semantic input itself is the committed complete accepted export.
 - `OUTCOME_PLAN`: [p501-outcome-coverage-plan-001.json](../../.codex-workflow/phases/PHASE-50.1/p501-outcome-coverage-plan-001.json).
 - `CHECKLIST`: [phase-50.1-checklist.md](phase-50.1-checklist.md).
 - `PHASE`: [phase-50.1.md](phase-50.1.md).
-- `B`: [browser-observations.json](../evidence/phase-50.1/readiness-candidate-001/browser-observations.json).
-- `B_SCOPE`: [browser-review.md](../evidence/phase-50.1/readiness-candidate-001/browser-review.md).
-- `AB`: [browser-observations.json](../evidence/phase-50.1/readiness-accepted-001/browser-observations.json).
+- `B`: browser-observations.json（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/browser-observations.json`）.
+- `B_SCOPE`: browser-review.md（ローカル保管: `docs/evidence/phase-50.1/readiness-candidate-001/browser-review.md`）.
+- `AB`: browser-observations.json（ローカル保管: `docs/evidence/phase-50.1/readiness-accepted-001/browser-observations.json`）.
 - `ACCEPTANCE`: [acceptance.json](../evidence/phase-50.1/readiness-accepted-001/acceptance.json).
 - `EXPORT`: [accepted-logical-ui.json](../evidence/phase-50.1/readiness-accepted-001/accepted-logical-ui.json).
 - `ACCEPTED_SCOPE`: [README.md](../evidence/phase-50.1/readiness-accepted-001/README.md).
