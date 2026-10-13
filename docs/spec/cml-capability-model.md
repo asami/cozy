@@ -1,6 +1,6 @@
 # CML Capability Model Specification
 
-Status: normative semantic IR, private CML normalization and finite semantic validation contract
+Status: normative semantic IR, private normalization, finite validation and generation contract
 
 ## Authority and scope
 
@@ -13,7 +13,10 @@ Graphs or CNCF projections. E1 through E12 remain expected semantic examples;
 the C64P executable cases below passed focused validation and independent
 CAP-64-02 acceptance on 2026-10-05. C64V01–32 are authored semantic validation
 specifications; their focused validation and independent CAP-64-03 acceptance are
-recorded in [Phase 64](../phase/phase-64.md#cap-64-03-acceptance).
+recorded in [Phase 64](../phase/phase-64.md#cap-64-03-acceptance). C64G01–33
+are generation specifications with accepted focused validation, independent
+protected Step review and independent focused closure recorded in
+[Phase 64](../phase/phase-64.md#cap-64-04-acceptance).
 
 The [Capability Model design](../design/cml-capability-model.md) provides
 structural context. The [CML Semantic Foundation](cml-semantic-foundation.md)
@@ -103,7 +106,7 @@ and existing Foundation meanings, not new public implementation signatures.
 | `CapabilitySource` | `modelAuthority: supplied exact authority`<br>`path: canonical project-relative POSIX path`<br>`sourceRevision: upstream-authored explicit value`<br>`line: explicit None \| Some(positive line)` | Location and revision remain independent of identity and contract version. |
 | `CapabilityOrigin` | `Declared \| Derived(ruleId, nonempty ordered Vector[CapabilitySource])` | Declared and derived facts remain distinct; derived inputs preserve supplied evidence and order. |
 | `CapabilityModel` | `applicationCapabilities: Vector[ApplicationCapability]`<br>`componentCapabilities: Vector[ComponentCapability]`<br>`componentDeclarations: Vector[ComponentDeclaration]`<br>`compatibility: Presence[Vector[CompatibilityEdge]]` | Retain supplied order and source ownership. Zero definitions or declarations differ from source acquisition failure. |
-| `GenerationContext` | `projection semantic generation`<br>`producer identity/version`<br>`generated CNCF ABI version`<br>`Component identity`<br>`package coordinate/release`<br>`explicit declaration/edge source revisions` | Separate supplied generation inputs; no concrete wire keys or invented ABI value. |
+| `GenerationContext` | `projectiongeneration: Int`<br>`schemaversion: Int`<br>`generatedabiversion: String`<br>`producer: Producer`<br>`component: ComponentCoordinate`<br>`packagecoordinate: PackageCoordinate`<br>`source: CapabilitySource` | Separate supplied generation inputs; the private generation contract below consumes accepted CNCF R11 without inventing a wire or resource name. |
 
 ### R4 Demand and discovery model links
 
@@ -254,10 +257,10 @@ coordinate/release, and explicit declaration/edge source revisions. None of
 these domains substitutes for stable Capability identity or its contract version.
 
 CNCF CAP-78-02 owns concrete external wire keys, codec, and the exact supported
-ABI set. Cozy CAP-64-04 MUST consume that accepted contract before generating
-output. This specification freezes no guessed ABI, extension namespace,
-resource filename or external JSON shape. The private CML field grammar below
-is separate from the generated CNCF projection.
+ABI set. Cozy CAP-64-04 consumes that accepted R11 contract through the private
+generation entry specified below. No extension namespace or canonical CAR
+resource filename is selected. The private CML field grammar below remains
+separate from the generated CNCF projection.
 
 ### R12 Implementation and proof boundary
 
@@ -733,10 +736,187 @@ through the actual parser. This does not promise all escaped-quote spellings or
 repair upstream LogicalLines. That separate parser work remains tracked by
 the coordinating Phase 11 as DEV-P11-COZY64-CAP02-001.
 
+## Private deterministic projection generation
+
+The `private[cozy]` production entry MUST compose the unchanged normalization
+and finite validation entries:
+
+```scala
+CmlCapabilityGeneration.generate(inputs: Vector[SourceInput],
+  scopeInput: ScopeInput, contexts: Vector[GenerationContext]):
+  Either[Failure, Generated]
+CmlCapabilityGeneration.project(validated: CmlCapabilityValidation.Validated,
+  contexts: Vector[GenerationContext]): Either[Vector[Issue], Generated]
+```
+
+`project` MUST accept only the original successful `Validated`; there is no raw
+IR overload or new validation certificate. The sole successful `Generated`
+constructor retains that original result, its Application records, scope and
+ordered bindings, plus immutable Component projections. `SyntaxFailure`,
+`SemanticFailure` and `GenerationFailure` MUST preserve their original ordered
+syntax, semantic/acquisition and generation vectors. Failure supplies no partial
+Generated, admitted-empty relation or NoProvider evidence. No target executes.
+
+### Explicit independent contexts and snapshot coverage
+
+`Producer(id, version)`, `ComponentCoordinate(component: Java ComponentId,
+version)` and `PackageCoordinate(coordinate, version)` MUST be explicit.
+Semantic generation MUST be 1, schema version MUST be 1 and projection ABI MUST
+be exactly `cncf.component-capability.v1`, independently of target ABIs.
+Producer identity MUST be `cozy` and its supplied version MUST equal actual
+`org.simplemodeling.cozy.BuildInfo.version`; disagreement MUST fail rather than
+be rewritten. Component release admission MUST use the existing canonical Java
+identity and Cozy release-coordinate codec. Package coordinate/version and source
+revision retain valid nonempty exact literal text and MUST NOT alias those domains.
+
+`SnapshotKey(SourceScope(modelAuthority, path), ComponentId)` MUST select exactly
+one original document. Header source MUST have that exact scope, an explicit valid
+revision, and None or a positive line. Duplicate keys MUST fail even with different
+releases/revisions, retaining related sources. Every authored Component declaration
+requires its exact key; every document with Component definitions or declarations
+requires at least one context. Missing, unknown and app-only selections MUST fail.
+Definition-only documents require an explicit selected Component. App-only or
+empty documents require no external context and remain in the original Validated;
+an empty external projection vector is a successful private retention result.
+
+Contexts MUST be checked completely before projection, with issues in supplied
+context/field order followed by document coverage issues, then compatibility issues
+in authored document and edge order. Each selected Component document MUST reject
+every second or later occurrence of the exact compatibility tuple `(identity,
+requiredVersion, providedVersion)` before any Generated is returned. Each rejection
+MUST retain the repeated edge's source and the first edge's related source, even
+when source or origin differs. A document selected by several contexts MUST be
+checked only once; absent compatibility supplies no edges. The original Validated
+MUST remain unchanged, with no deduplication or winner. Each successful snapshot
+contains its selected document's Component definitions, declarations for its exact
+Component and compatibility Presence. Several Components selected for a document
+each receive its definitions without asserting that they provide all of them.
+Catalog definitions, synthetic edges and Application data MUST NOT enter the wire.
+Snapshots MUST sort by exact path, authority, Component namespace and local ID.
+Authored definitions, declarations, edges, derivation inputs and compatibility
+vectors MUST retain their original order, sources and Presence; document states
+MUST NOT be merged across paths or resolved by labels.
+
+### Exact accepted CNCF R11 serialization
+
+The accepted CNCF `ComponentCapabilityProjectionJsonEncodingPart` owns the closed
+record keys and order. The Play JSON encoder MUST emit root keys in this order:
+`schemaVersion`, `generatedAbiVersion`, `producer`, `component`, `package`,
+`source`, `capabilities`, `declarations`, `compatibility`. Producer has `id,version`;
+Component coordinate has `namespace,id,version`; package has `coordinate,version`.
+Component definitions have `kind,identity,contractVersion,name,summary,description,
+source,discoveryReferences,grounding,traceability`, with fixed kind COMPONENT.
+The previously specified Source, Presence, Origin, model/vocabulary identity,
+reference, label, discovery, grounding, trace, declaration, repeated realization
+key, realization and compatibility records MUST use the same complete accepted
+R11 keys and order. Null line/language, all absence reasons/detail, declared and
+ordered derived inputs, MODEL/TERM targets and separate vocabulary domains MUST
+remain exact. No alias, inferred relationship, omitted key or Application branch
+is allowed. `Projection` exposes its typed context, original selected records,
+`JsObject` and compact `Json.stringify` representation without reparsing CML.
+
+### Explicit pure Scala carriers and bounded publication
+
+`ScalaOutput(key, path, packagename: Vector[String], objectname)` MUST select each
+generated snapshot exactly once. Missing, unknown or repeated keys and duplicate
+paths or qualified symbols MUST fail before a publishable batch exists. Paths MUST
+be canonical project-relative POSIX paths beneath `target/` ending `.scala`.
+Package segments and object names MUST match `[A-Za-z][A-Za-z0-9_]*` and exclude
+Scala 2/3 keywords: abstract, case, catch, class, def, do, else, extends, false,
+final, finally, for, forSome, if, implicit, import, lazy, macro, match, new, null, object,
+override, package, private, protected, return, sealed, super, this, throw, trait,
+true, try, type, val, var, while, with, yield, enum, export, given, then, using,
+end, extension, inline, opaque, open, transparent and derives. No name/path is
+inferred from labels or chosen as a canonical CAR resource name.
+
+`CmlCapabilityGenerationScala.render` MUST produce a Scala 2.12/Scala 3 common
+object with pure `def projectionJson: String`, immutable private `_segments:
+Vector[String]` and `_segments.mkString`. Ordinary escaped string literals MUST
+preserve JSON exactly, without interpolation or triple-quote exposure. Segments
+MUST contain at most 2000 UTF-16 units and MUST NOT split a supplementary pair;
+the whole value MUST NOT become one oversized JVM string constant. Production
+code imports no compiler/reflection or executable model/runtime dependency.
+The sole successful `RenderedBatch` constructor retains Generated, explicit
+selections and artifacts sorted by path.
+
+`write(outputRoot: Path, batch: RenderedBatch)` MUST preflight the root, actual
+ancestors and all selected artifacts before writing. Symlinks, nonregular existing
+outputs, traversal and existing different-content artifacts MUST fail. Identical
+regular artifacts are idempotent. New artifacts MUST use same-directory temporary
+files and atomic move where supported, cleaning their own temporary files. No
+unselected files are touched or previous output automatically cleared/overwritten.
+IO failure MUST report structured issues and exact already written paths; there
+is no filesystem-wide rollback or multiwriter guarantee.
+
+### Existing provenance and outstanding consumer proof
+
+Actual generated regular `.scala` files participate in the unchanged Phase 63.1
+V1 capture, V2 artifact union, legacy rebind and package validation. These existing
+physical-content fields remain that product provenance contract; header/source
+revisions MUST NOT be treated as content digests. The generator adds no evidence
+seal, provenance schema, artifact vocabulary, bridge rule or control hash.
+
+CAP-64-05 retains normal producer composition, actual source/target acquisition,
+Scala 3 CNCF decoder/admission/binding/package/discovery and CBD no-reparse proof,
+with actual source/Cozy/ABI/CNCF/CBD revisions. This callable core and its test-only
+pure carrier loader establish no current CLI hookup, runtime target activation,
+canonical resource placement, CNCF/CBD acceptance or Phase closure. Separate
+Cozy Step and Phase validation/review/local release precede main integration.
+
+### Authored executable generation cases
+
+[CmlCapabilityGenerationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityGenerationSpec.scala)
+authors C64G01–20 and the C64G33 compatibility-tuple regression, including actual
+validation/project JSON round trips and two ScalaCheck properties requiring at
+least 100 successes and zero discards.
+[CmlCapabilityGenerationProvenanceSpec](../../src/test/scala/cozy/modeler/CmlCapabilityGenerationProvenanceSpec.scala)
+authors C64G21–32, using the existing test compiler with an explicit Scala-library
+classpath, closed test-only child classloader and actual generated outputs in
+the accepted provenance APIs. Every behavior has adjacent Given/When/Then clauses.
+The C64G01–33 Step obligations have accepted focused validation, independent
+protected Step review and independent focused closure, recorded in
+[Phase 64](../phase/phase-64.md#cap-64-04-acceptance).
+
+| Case | Observable authored behavior |
+| --- | --- |
+| C64G01 | Real two-CML composition, all explicit snapshots and original Validated retention. |
+| C64G02 | Provided/required declarations, exact Component/versioned reference and repeated realization key. |
+| C64G03 | Three realization target families, boundaries, independent contracts/ABIs and edge sources/origins. |
+| C64G04 | Complete closed definition/discovery/grounding/trace records and authored values. |
+| C64G05 | Independent Specification/Evidence roles, revisions and explicit Local/External traces. |
+| C64G06 | Literal qualified MODEL/TERM, Relation and Profile domains. |
+| C64G07 | Present-empty, four absent reasons/detail and null or supplied line/language. |
+| C64G08 | Independent header/definition/edge revisions and ordered foreign Derived inputs. |
+| C64G09 | Actual Cozy version and independent Component/package/contract/ABI domains. |
+| C64G10 | Unsupported semantic generation/schema/projection ABI without conversion. |
+| C64G11 | Producer identity/version disagreement without rewriting. |
+| C64G12 | Malformed context text/source/line/canonical Component/release and package fields. |
+| C64G13 | Unknown scope/path and duplicate snapshot keys with changed revisions/releases. |
+| C64G14 | Complete declaration/document coverage, explicit definitions-only selection and app-only rejection. |
+| C64G15 | Original Application records retained upstream; valid zero external projections. |
+| C64G16 | Original parser, target validation and acquisition vectors retained by failure wrappers. |
+| C64G17 | Authored inner definition/trace/Derived/compatibility order under canonical outer order. |
+| C64G18 | Same authority with separate paths and separate compatibility states. |
+| C64G19 | At least 100 active literal validation/project/JSON round trips, zero discards. |
+| C64G20 | At least 100 independent source/context permutations with exact JSON/rendered artifacts, zero discards. |
+| C64G21 | Real files compiled and pure accessor returns exact generated JSON. |
+| C64G22 | Compiled hostile and larger-than-64k literal with a supplementary pair at the segment boundary. |
+| C64G23 | Complete explicit output selection and lexical/path/keyword rejection. |
+| C64G24 | Path and symbol conflicts with both explicit snapshot sources. |
+| C64G25 | Safe publication/idempotence; different/nonregular/symlink rejection preserves sentinels. |
+| C64G26 | Actual two-source V1 captures to package-valid V2 generated artifact union. |
+| C64G27 | Actual aggregation is identical in both delegated orders. |
+| C64G28 | Direct V1 admission and accepted legacy one-source V2 rebind. |
+| C64G29 | Actual duplicate source produces SourceAmbiguous without a winner. |
+| C64G30 | Actual generator/target/backend input disagreement produces InputMismatch. |
+| C64G31 | Real different generated bytes at one path produce OutputConflict. |
+| C64G32 | Actual missing output/manifest or mismatched installed artifact failure without reconstructed evidence. |
+| C64G33 | Repeated compatibility tuple rejection before any snapshot, ordered repeated/first source attribution for exact and distinct-origin repetitions, and original Validated retention. |
+
 ## Semantic acceptance matrix
 
-These examples specify expected outcomes only. The future implementation and
-executable specifications must establish their behavior under the R12 owners.
+These examples specify expected outcomes only. The executable case maps above
+and separate acceptance records establish behavior under the R12 owners.
 
 | ID | Case | Expected semantic outcome | Rules |
 | --- | --- | --- | --- |

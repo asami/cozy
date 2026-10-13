@@ -66,7 +66,7 @@ term identity model.
 | CAP-64-01 | Freeze the Application/Component Capability IR, identity/reference model, and semantic-reference boundary against Phase 54 and CNCF Phase 78. | closed |
 | CAP-64-02 | Admit CML syntax and parser/metamodel support for Application and Component Capability without Use Case Group containment semantics. | closed |
 | CAP-64-03 | Implement semantic validation and source-correlated diagnostics, including Goal/Use Case, Capability, realization, and admitted Glossary/BoK references. | closed |
-| CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Application Capability as the application-management IR. | planned |
+| CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Application Capability as the application-management IR. | closed |
 | CAP-64-05 | Prove CNCF admission and cbd-support consumption with a real fixture covering Use Case-to-Capability discovery evidence and terminology grounding. | planned |
 
 ## CAP-64-01 acceptance
@@ -135,7 +135,7 @@ owns the exact scope, all-or-nothing diagnostic, Local/External resolution,
 declaration/realization tuple, finite dependency-cycle and directed compatibility
 contracts. The
 [design](../design/cml-capability-model.md#finite-semantic-validation-responsibilities)
-maps the modules and normalization-to-validation-to-future-generation pipeline.
+maps the modules and normalization-to-validation-to-generation pipeline.
 
 C64V01–05 are authored in
 [CmlCapabilityValidationCmlSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationCmlSpec.scala)
@@ -152,11 +152,51 @@ CAP-64-03 acceptance (2026-10-14): the required focused validation and independe
 protected Step review are accepted. All four CAP-64-03 checklist criteria are DONE.
 
 These finite synthetic facts establish no actual target extraction, generated
-CNCF resource or real producer/admission/CBD proof. CAP-64-04 and CAP-64-05 remain
-OPEN, CBD CAP-11-01 remains incomplete and Phase 64 remains in progress. The
+CNCF resource or real producer/admission/CBD proof. CAP-64-04 is accepted;
+CAP-64-05 remains OPEN,
+CBD CAP-11-01 remains incomplete and Phase 64 remains in progress. The
 coordinating Phase 11 retains primary tracking of DEV-P11-COZY64-CAP02-001 for
 separate upstream escaped-quote parser work; this Step changes no parser or
 journal ownership.
+
+## CAP-64-04 acceptance
+
+Stage Status:
+- Current status: DONE
+- Owner: Cozy generator/provenance owner
+- Update rule: DONE records accepted selected focused validation, independent
+  protected Step review and independent focused closure.
+- Closure basis: All four CAP-64-04 items in the
+  [checklist](phase-64-checklist.md#cap-64-04-cncf-projection-generation)
+  are DONE against C64G01–33 coverage and accepted validation/review/closure.
+
+Eight private modules author the actual normalization/validation/generation
+composition, exact Component-only R11 snapshots, explicit source/Component/output
+selection, pure segmented Scala carriers and bounded publication. The
+[specification](../spec/cml-capability-model.md#private-deterministic-projection-generation)
+owns the frozen contract and
+[design](../design/cml-capability-model.md#deterministic-generation-and-existing-provenance-responsibilities)
+maps its responsibilities.
+
+[CmlCapabilityGenerationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityGenerationSpec.scala)
+authors C64G01–20 and the C64G33 compatibility-tuple regression, including two
+active properties requiring at least 100 successes and zero discards.
+[CmlCapabilityGenerationProvenanceSpec](../../src/test/scala/cozy/modeler/CmlCapabilityGenerationProvenanceSpec.scala)
+authors C64G21–32: actual generated-carrier compilation/pure accessor behavior,
+selected output boundaries and existing V1/V2 aggregation/rebinding/conflict
+contracts. All cases have adjacent Given/When/Then clauses.
+
+CAP-64-04 acceptance (2026-10-14): selected focused validation, independent
+protected Step review and independent focused closure are accepted. All four
+CAP-64-04 checklist criteria are DONE.
+
+CAP-64-05 still owns normal producer composition, actual source/target
+acquisition, Scala 3 CNCF decoding/admission/binding/package/discovery and CBD
+no-reparse consumer proof. CNCF CAP-78-03/04/05, CBD CAP-11 and separate Cozy
+Phase review/full validation/local release remain unfinished. Main integration
+follows that participant closure with current main conflict and combined
+validation handling. These authored core specifications supply no CLI hookup,
+target activation, canonical CAR resource or downstream acceptance claim.
 
 ## Required behavior
 

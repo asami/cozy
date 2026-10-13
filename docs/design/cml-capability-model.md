@@ -1,7 +1,8 @@
 # CML Capability Model Design
 
 This document describes the stable structure and responsibility boundaries of
-Capability Model IR, private CML normalization and finite semantic validation.
+Capability Model IR, private CML normalization, finite semantic validation and
+deterministic Component projection generation.
 The [Capability Model specification](../spec/cml-capability-model.md)
 owns normative semantics, carriers and authored grammar. [Phase 64](../phase/phase-64.md)
 and its [checklist](../phase/phase-64-checklist.md) own progress and acceptance.
@@ -152,7 +153,10 @@ original Kaleidox models + explicit per-document SourceScope
   -> original ordered CapabilityDocuments + explicitly supplied finite ScopeInput
   -> CmlCapabilityValidation.validate
   -> private Validated(documents, scope, ordered target bindings)
-  -> future CAP-64-04 generator using the accepted CNCF projection contract
+  -> CmlCapabilityGeneration.project + explicit per-snapshot GenerationContexts
+  -> canonical Component-only CNCF R11 JSON snapshots + original Validated retention
+  -> CmlCapabilityGenerationScala.render + explicit ScalaOutputs
+  -> pure segmented Scala carriers and bounded selected-path publication
 ```
 
 Normalization and semantic validation remain separate callable entries. The
@@ -187,5 +191,55 @@ two active properties to this boundary. Supplied synthetic facts exercise the
 validator when executed; actual acquisition/extraction and producer/admission/
 consumer evidence remain separate. CAP-64-03 validation and independent acceptance
 are recorded in [Phase 64](../phase/phase-64.md#cap-64-03-acceptance).
-CAP-64-04 generation, CAP-64-05 interoperability and the separately
-tracked upstream parser candidate remain with their existing owners.
+CAP-64-04 generation acceptance is recorded in
+[Phase 64](../phase/phase-64.md#cap-64-04-acceptance);
+CAP-64-05 interoperability and the separately tracked upstream parser candidate
+remain with their existing owners.
+
+## Deterministic generation and existing provenance responsibilities
+
+The callable producer core composes original normalization, explicit finite
+validation and validated-only projection. It retains the entire original
+Validated record alongside canonical per-document/Component snapshots. Explicit
+context selection provides attribution and Component/package/version domains;
+it does not acquire facts or infer definition ownership. R11 encoding uses the
+accepted CNCF closed wire through Play JSON on Cozy's Scala 2.12 floor.
+
+The specification owns the
+[generation, selection and publication contract](../spec/cml-capability-model.md#private-deterministic-projection-generation).
+The eight modules divide those responsibilities:
+
+| Module | Structural responsibility |
+| --- | --- |
+| [CmlCapabilityGenerationContext](../../src/main/scala/cozy/modeler/CmlCapabilityGenerationContext.scala) | Explicit independent contexts, SnapshotKey, ScalaOutput and closed structured failure carriers. |
+| [CmlCapabilityGeneration](../../src/main/scala/cozy/modeler/CmlCapabilityGeneration.scala) | Actual normalization/validation composition, validated-only projection and original successful retention. |
+| [CmlCapabilityGenerationValidationPart](../../src/main/scala/cozy/modeler/CmlCapabilityGenerationValidationPart.scala) | Context domains, truthful producer, exact source/key ownership and complete document/declaration coverage. |
+| [CmlCapabilityProjectionJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityProjectionJsonPart.scala) | Closed accepted R11 root and immutable Play JSON snapshot. |
+| [CmlCapabilityProjectionReferenceJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityProjectionReferenceJsonPart.scala) | Source/origin, Presence, qualified identities, boundary, labels, discovery, grounding and trace encoders. |
+| [CmlCapabilityProjectionDefinitionJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityProjectionDefinitionJsonPart.scala) | Component definition and original per-document compatibility encoding. |
+| [CmlCapabilityProjectionDeclarationJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityProjectionDeclarationJsonPart.scala) | Directional Component declarations, repeated keys and all realization target families. |
+| [CmlCapabilityGenerationScala](../../src/main/scala/cozy/modeler/CmlCapabilityGenerationScala.scala) | Complete explicit selection, segmented pure common-Scala carriers and bounded file publication. |
+
+Context/generation/Scala entries are private to Cozy; JSON and validation helpers
+are private to the modeler package. The successful constructors preserve the
+validated/projection/rendered chain, so callers cannot turn raw IR into an
+external certificate. Canonical outer order leaves original authored inner
+vectors and compatibility states intact.
+
+Real selected carriers remain ordinary generated `.scala` artifacts beneath
+`target/`. Existing GenerationProvenance captures V1 and aggregates/rebinds V2
+through its unchanged package boundary. The new specifications use actual
+original CML files, core generation, selected output publication and accepted
+provenance APIs. The compiler and temporary child loader exist only in the
+specification of the pure metadata accessor; production generation has no
+ClassLoader or target-runtime responsibility.
+
+The [C64G case map](../spec/cml-capability-model.md#authored-executable-generation-cases)
+connects the core, literal/order properties, compiled carriers and existing
+provenance outcomes. CAP-64-04 Step acceptance is complete and recorded in
+[Phase 64](../phase/phase-64.md#cap-64-04-acceptance).
+Normal CLI composition, actual target acquisition, Scala 3 CNCF
+decoder/admission/binding/package/discovery and CBD consumption remain
+CAP-64-05 and the CNCF/CBD owners. Resource placement and runtime activation are
+not selected by this core. Separate Phase closure/local release and main
+integration remain outstanding obligations.

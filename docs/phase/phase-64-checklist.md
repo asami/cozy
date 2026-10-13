@@ -118,22 +118,45 @@ Acceptance evidence (2026-10-14):
   regression accumulator and independent protected Step review are accepted.
   All four checklist items are checked and Current status is DONE.
 - Supplied synthetic scope facts are not actual acquisition/extraction,
-  generated producer/CNCF admission/CBD evidence or Phase closure. CAP-64-04/05
-  remain OPEN. DEV-P11-COZY64-CAP02-001 retains coordinating Phase 11 ownership.
+  generated producer/CNCF admission/CBD evidence or Phase closure. CAP-64-04
+  is DONE and CAP-64-05 remains OPEN. DEV-P11-COZY64-CAP02-001 retains
+  coordinating Phase 11 ownership.
 
 ## CAP-64-04: CNCF projection generation
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy generator/provenance owner
 - Update rule: Mark DONE only after generated output matches the admitted CNCF
-  ABI and is deterministic under multi-CML generation.
+  ABI, selected focused validation passes, independent protected Step review
+  accepts deterministic multi-CML generation and local Step acceptance is recorded.
+- Closure basis: All four requirements below are checked against C64G01–33
+  behavior coverage, accepted focused validation, independent protected Step
+  review and independent focused closure.
 
-- [ ] Generate provided and required Capability projections.
-- [ ] Generate explicit realization references and traceability links.
-- [ ] Bind generated ABI version and exact source provenance.
-- [ ] Prove deterministic output and conflict handling with the completed
+- [x] Generate provided and required Capability projections.
+- [x] Generate explicit realization references and traceability links.
+- [x] Bind generated ABI version and exact source provenance.
+- [x] Prove deterministic output and conflict handling with the completed
       Phase 63.1 multi-CML provenance bridge behavior.
+
+Acceptance (2026-10-14):
+
+- Eight private modules implement actual normalization/validation composition,
+  exact per-document/Component R11 snapshots and complete explicit output selection.
+- [CmlCapabilityGenerationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityGenerationSpec.scala)
+  authors C64G01–20, the C64G33 compatibility-tuple regression and two properties
+  requiring at least 100 successes and zero discards; original
+  Validated/Application data remain retained upstream.
+- [CmlCapabilityGenerationProvenanceSpec](../../src/test/scala/cozy/modeler/CmlCapabilityGenerationProvenanceSpec.scala)
+  authors C64G21–32 with actual carrier compilation/pure accessor behavior,
+  bounded publication and existing V1/V2 product provenance APIs.
+- The [case map](../spec/cml-capability-model.md#authored-executable-generation-cases)
+  states every observable obligation. Selected focused validation, independent
+  protected Step review and independent focused closure are accepted. All four
+  checklist criteria are DONE.
+- CAP-64-05, CNCF/CBD proof, separate Cozy Phase full validation/review/local
+  release and subsequent main integration remain unfinished.
 
 ## CAP-64-05: Cross-repository acceptance
 
@@ -142,6 +165,8 @@ Stage Status:
 - Owner: Cozy Phase 64 with CNCF Phase 78 and CBD Support Phase 11
 - Update rule: Mark DONE only after one real fixture completes the producer,
   admission, and consumer path with reproducible evidence.
+- Closure basis: All four requirements below need actual producer, CNCF
+  admission and CBD consumer evidence with their independent revisions.
 
 - [ ] Produce a real Capability CML fixture.
 - [ ] Admit the generated projection through CNCF Phase 78.
