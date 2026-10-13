@@ -77,12 +77,15 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       save.source.line shouldBe Some(_line(Files.readString(input), "#### save"))
     }
 
-    "preserve original products except removed source hashes when declarations are absent" in {
-      Given("the immutable parent baseline from SOURCE commit 6c15b65cd83181fdf61aa8674c9a847f79751805 with the explicit source hash removal")
+    "preserve original products with only declared source identity and operation metadata changes when declarations are absent" in {
+      Given("the immutable SOURCE baseline with removed source hashes, the selected fixture path and the accepted operation content metadata")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
-      val expected = groups.map(group => (group \ "files").as[Vector[JsObject]].map(file =>
-        (file \ "path").as[String] -> _legacy_expected_bytes((file \ "path").as[String], (file \ "text").as[String])).toMap)
+      val expected = groups.map { group =>
+        val source = _base.resolve((group \ "fixture").as[String])
+        (group \ "files").as[Vector[JsObject]].map(file =>
+          (file \ "path").as[String] -> _legacy_expected_bytes((file \ "path").as[String], (file \ "text").as[String], source)).toMap
+      }
 
       When("the four original fixture and route groups generate into fresh output directories twice")
       val actual = groups.zipWithIndex.map { case (group, index) =>
@@ -98,7 +101,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       val empty = FailureModelAbiGenerator.generate(Vector.empty)
       val emptyjson = Json.parse(FailureModelAbiGenerator.canonicalJson(Vector.empty))
 
-      Then("all inventories and UTF-8 bytes equal independent expected files apart from removed source hashes and empty input adds no artifact")
+      Then("all inventories and UTF-8 bytes equal the independently adapted baseline and empty input adds no artifact")
       groups.size shouldBe 4
       expected.map(_.size).sum shouldBe 80
       (baseline \ "producerCommit").as[String] shouldBe "6c15b65cd83181fdf61aa8674c9a847f79751805"
@@ -114,6 +117,43 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       empty.get(_scala_path) shouldBe None
       empty.get(_json_path) shouldBe None
       emptyjson shouldBe Json.obj("schemaVersion" -> "cozy.failure-model.v1", "components" -> Json.arr())
+    }
+
+    "adapt only selected source identity and the four accepted operation content declarations" in {
+      Given("the historical Workflow fixture and a selected source path containing spaces and Unicode")
+      val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
+      val groups = (baseline \ "groups").as[Vector[JsObject]]
+      val group = groups(2)
+      val files = (group \ "files").as[Vector[JsObject]].map(file =>
+        (file \ "path").as[String] -> (file \ "text").as[String]).toMap
+      val source = _base.resolve("target/relocated checkout/審査/workflow-semantic-outcome.cml")
+      val jsonpath = "target/cozy/model-metadata.json"
+      val yamlpath = "target/cozy/model-metadata.yaml"
+      val componentpath = "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
+      val original = Json.parse(files(jsonpath)).as[JsObject]
+      val originalsource = (original \ "source").as[JsObject]
+      val originalpath = (originalsource \ "path").as[String]
+      val annotated = original + ("unrelatedSourceText" -> JsString(originalpath))
+
+      When("the historical expected products are adapted without consulting newly generated content")
+      val json = Json.parse(new String(_legacy_expected_bytes(jsonpath, Json.prettyPrint(annotated), source).toArray, UTF_8))
+      val yaml = new String(_legacy_expected_bytes(yamlpath, files(yamlpath), source).toArray, UTF_8)
+      val component = new String(_legacy_expected_bytes(componentpath, files(componentpath), source).toArray, UTF_8)
+      val unchanged = _legacy_expected_bytes("unrelated.txt", originalpath, source)
+
+      Then("only source.path is rebound, the obsolete source hash is removed and all unrelated metadata remains exact")
+      json shouldBe annotated + ("source" -> ((originalsource - "sha256") + ("path" -> JsString(source.toString))))
+      yaml should include(s"  path: ${Json.stringify(JsString(source.toString))}\n")
+      yaml should not include "  sha256:"
+      new String(unchanged.toArray, UTF_8) shouldBe originalpath
+
+      And("the exact four operation content additions leave every historical line intact and do not authorize other contract changes")
+      val additions = Vector("beginReview", "submitReview", "supplyInput", "reviseChange").map(name =>
+        s"""          content = org.goldenport.value.BaseContent.Builder("$name"),""")
+      component.linesIterator.filterNot(additions.contains).mkString("\n") shouldBe files(componentpath).linesIterator.mkString("\n")
+      additions.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
+      component.replace("BaseContent.Builder(\"beginReview\")", "BaseContent.Builder(\"wrongOperation\")") should not be component
+      component.replace("\"ReviewResult\"", "\"ChangedResult\"") should not be component
     }
 
     "retain null, optional provenance and safely escaped pure IR values" in {
@@ -320,12 +360,30 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
     realm.get(path).collect { case value: Realm.StringData => value.string }.getOrElse(fail(s"Missing generated artifact: $path"))
   private def _line(source: String, heading: String): Int = source.linesIterator.toVector.indexOf(heading) + 1
   private def _scopes(contract: EffectiveFailureContract): Vector[String] = contract.entries.map(_.scope.name)
-  private def _legacy_expected_bytes(path: String, text: String): Vector[Byte] = {
+  private def _legacy_expected_bytes(path: String, text: String, source: Path): Vector[Byte] = {
     val expected = path match {
       case "target/cozy/model-metadata.json" =>
-        text.replaceAll("(?m)^    \"sha256\" : \"[0-9a-f]{64}\",\n", "")
+        val oldpath = Json.stringify((Json.parse(text) \ "source" \ "path").as[JsValue])
+        val oldline = s"""    "path" : $oldpath,
+"""
+        text should include(oldline)
+        text.replace(oldline, s"""    "path" : ${Json.stringify(JsString(source.toString))},
+""")
+          .replaceAll("(?m)^    \"sha256\" : \"[0-9a-f]{64}\",\n", "")
       case "target/cozy/model-metadata.yaml" =>
-        text.replaceAll("(?m)^  sha256: [0-9a-f]{64}\n", "")
+        val oldline = text.linesIterator.find(_.startsWith("  path: ")).getOrElse(fail("Missing baseline source.path"))
+        text.replace(oldline + "\n", s"  path: ${Json.stringify(JsString(source.toString))}\n")
+          .replaceAll("(?m)^  sha256: [0-9a-f]{64}\n", "")
+      case "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala" =>
+        // SimpleModeler 549a38c intentionally names operation content, even without descriptions.
+        Vector("beginReview", "submitReview", "supplyInput", "reviseChange").foldLeft(text) { (current, name) =>
+          val anchor = s"""val specification = OperationDefinition.Specification.Builder("$name").
+        copy(
+"""
+          current should include(anchor)
+          current.replace(anchor, anchor + s"""          content = org.goldenport.value.BaseContent.Builder("$name"),
+""")
+        }
       case _ => text
     }
     expected.getBytes(UTF_8).toVector

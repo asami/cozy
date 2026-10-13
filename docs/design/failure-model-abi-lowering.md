@@ -1,6 +1,6 @@
 # Failure Model ABI lowering
 
-*Since / Version:* Oct. 3, 2026
+*Since:* Oct. 3, 2026. *Version:* Oct. 13, 2026.
 
 The [ABI contract](../spec/failure-model-abi-contract.md) fixes product paths,
 public shapes and behavior. `FailureModelAbiGenerator.scala` is the cohesive,
@@ -60,10 +60,14 @@ The parent admitted legacy generation on native SOURCE commit
 `6c15b65cd83181fdf61aa8674c9a847f79751805` before ABI editing, with terminal success
 and released serial lock. The resulting parent-owned fixture retains all four
 fixture/route inventories and 80 complete files. The current spec reads it unchanged and compares every generated file and byte,
-with one explicit migration: only the historical `source.sha256` line in the
-expected `model-metadata.json` and `.yaml` is removed to reflect the accepted
-artifact protection removal. The baseline producer identity, inventories and
-all other expected bytes remain unchanged.
+with the explicit adaptations in the ABI contract. Expected model metadata
+removes the historical `source.sha256` line and rebinds only `source.path` to
+the selected fixture, without replacing unrelated strings or changing the
+producer. The normal Workflow component expectation adds only the four named
+operation content builders introduced independently by SimpleModeler `549a38c`.
+Every original component line, inventory and other expected byte remains exact.
+The baseline producer identity and fixture remain unchanged; no expectation is
+derived from newly generated output and no broad comparison exclusion is added.
 
 Typed Scala consumers are written beside actual normal/value/mixed generated
 metadata. Mixed output retains the original single Domain component and old
