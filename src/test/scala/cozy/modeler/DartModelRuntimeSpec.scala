@@ -1,6 +1,5 @@
 package cozy.modeler
 
-import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
@@ -14,7 +13,7 @@ import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 13, 2026
  */
 class DartModelRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "A consumer of emitted Dart 3.0 model code" should {
@@ -142,34 +141,8 @@ class DartModelRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThen 
 
   private case class CommandReport(argv: Vector[String], exit: Int, stdout: String, stderr: String, timedout: Boolean)
 
-  private def _direct_sdk: Path = {
-    val explicit = sys.props.get("cozy.dart.executable").orElse(sys.env.get("COZY_DART_EXECUTABLE"))
-    val fromsdk = sys.env.get("DART_SDK").map(value => Paths.get(value).resolve("bin/dart"))
-    val candidate = explicit.map(Paths.get(_)).orElse(fromsdk).getOrElse {
-      sys.env.getOrElse("PATH", "").split(java.util.regex.Pattern.quote(File.pathSeparator)).toVector.
-        map(directory => Paths.get(directory).resolve("dart")).find(path => Files.isRegularFile(path) && Files.isExecutable(path)).
-        getOrElse(fail("A real Dart SDK executable is required: set cozy.dart.executable, COZY_DART_EXECUTABLE or DART_SDK, or put dart on PATH."))
-    }
-    if (!Files.isRegularFile(candidate) || !Files.isExecutable(candidate))
-      fail(s"Dart SDK prerequisite is not an executable file: $candidate")
-    val resolved = candidate.toRealPath()
-    val direct = if (explicit.isEmpty && fromsdk.isEmpty && !_is_binary(resolved)) {
-      // Flutter's bin/dart is a shell wrapper. Inspect its adjacent SDK; never run it.
-      val adjacent = resolved.getParent.resolve("cache/dart-sdk/bin/dart")
-      if (Files.isRegularFile(adjacent) && Files.isExecutable(adjacent)) adjacent.toRealPath() else resolved
-    } else resolved
-    if (!Files.isRegularFile(direct) || !Files.isExecutable(direct) || !_is_binary(direct))
-      fail(s"Dart SDK prerequisite must be a direct native binary, never a shell wrapper: $direct")
-    direct
-  }
-
-  private def _is_binary(path: Path): Boolean = {
-    val stream = Files.newInputStream(path)
-    val header = new Array[Byte](4)
-    val length = try stream.read(header) finally stream.close()
-    val magic = header.map(value => f"${value & 0xff}%02x").mkString
-    length == 4 && (Set("7f454c46", "feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")(magic) || magic.startsWith("4d5a"))
-  }
+  private def _direct_sdk: Path =
+    DartSdkSupport.resolve(sys.props.toMap, sys.env).fold(message => fail(message), sdk => sdk)
 
   private def _scratch(prefix: String): Path = {
     val root = Paths.get("target/test-generated/phase65-dart-models").toAbsolutePath

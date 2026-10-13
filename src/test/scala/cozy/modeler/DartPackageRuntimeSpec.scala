@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  6, 2026
+ * @version Oct. 13, 2026
  */
 class DartPackageRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Independent consumers of a generated Dart package" should {
@@ -332,20 +332,8 @@ class DartPackageRuntimeSpec extends AnyWordSpec with Matchers with GivenWhenThe
 
   private case class CommandReport(argv: Vector[String], exit: Int, stdout: String, stderr: String, timedout: Boolean, elapsedmillis: Long)
 
-  private def _direct_sdk: Path = {
-    val selected = Paths.get(sys.props.getOrElse("cozy.dart.sdk", "/opt/homebrew/Caskroom/flutter/3.47.5/flutter/bin/cache/dart-sdk/bin/dart"))
-    val executable = if (Files.isDirectory(selected)) selected.resolve("bin/dart") else selected
-    if (!Files.isRegularFile(executable) || !Files.isExecutable(executable))
-      fail(s"A direct Dart SDK is required; set cozy.dart.sdk to the SDK or direct binary: $executable")
-    val direct = executable.toRealPath()
-    val stream = Files.newInputStream(direct)
-    val bytes = new Array[Byte](4)
-    val length = try stream.read(bytes) finally stream.close()
-    val magic = bytes.map(value => f"${value & 0xff}%02x").mkString
-    val binary = length == 4 && (Set("7f454c46", "feedface", "cefaedfe", "feedfacf", "cffaedfe", "cafebabe", "bebafeca", "cafebabf", "bfbafeca")(magic) || magic.startsWith("4d5a"))
-    if (!binary) fail(s"Dart SDK must be a direct native executable: $direct")
-    direct
-  }
+  private def _direct_sdk: Path =
+    DartSdkSupport.resolve(sys.props.toMap, sys.env).fold(message => fail(message), sdk => sdk)
 
   private def _scratch(prefix: String): Path = {
     val root = Paths.get("target/phase65/s653/runtime").toAbsolutePath

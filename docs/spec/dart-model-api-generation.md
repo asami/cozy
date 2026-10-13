@@ -379,6 +379,26 @@ decoding/re-encoding. The consumer accesses named wrappers and counts and owns
 no second request/response/domain model. A toy fixture, copied JSON or generated
 text assertion does not satisfy this requirement.
 
+## Portable native Dart test prerequisites
+
+The model and package runtime specifications share SDK discovery. They do not
+depend on a workstation name, Homebrew prefix, processor architecture, or
+Flutter version. Selection precedence is `cozy.dart.sdk` (SDK root or direct
+binary), `cozy.dart.executable` (direct binary), `COZY_DART_EXECUTABLE` (direct
+binary), `DART_SDK` (SDK root), then the first executable `dart` on `PATH`.
+An invalid explicit setting fails with a prerequisite diagnostic; it never
+silently falls back to another installed SDK.
+
+Discovery resolves symlinks. When implicit PATH discovery selects Flutter's
+shell wrapper, it inspects the adjacent `cache/dart-sdk/bin/dart` and selects
+that direct native binary. The wrapper is never executed, and no SDK is
+installed or downloaded by discovery. Missing SDKs and explicit shell wrappers
+remain failures, not skipped runtime acceptance. Fixture tests cover both
+Intel and Apple Silicon Homebrew layouts and independent SDK installations;
+native runtime tests still analyze and execute real emitted Dart products.
+This prerequisite clarification does not alter generated contracts or the
+historical Phase 65 acceptance evidence below.
+
 ## Observable acceptance scenarios and evidence status
 
 Every row below remains a required executable acceptance scenario. S65.2's
