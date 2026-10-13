@@ -1,6 +1,6 @@
 # CML Capability Model Specification
 
-Status: normative semantic IR and private CML normalization contract
+Status: normative semantic IR, private CML normalization and finite semantic validation contract
 
 ## Authority and scope
 
@@ -10,8 +10,10 @@ provenance, grounding, and validation boundaries. R1 through R12 are normative.
 The R3 tables describe semantic data. The private Scala IR and initial authored
 CML syntax are specified below for CAP-64-02. Parsed documents are not admitted
 Graphs or CNCF projections. E1 through E12 remain expected semantic examples;
-the C64P executable cases below have been authored, with validation and
-independent Step acceptance pending.
+the C64P executable cases below passed focused validation and independent
+CAP-64-02 acceptance on 2026-10-05. C64V01–32 are authored semantic validation
+specifications; their focused validation and independent CAP-64-03 acceptance are
+recorded in [Phase 64](../phase/phase-64.md#cap-64-03-acceptance).
 
 The [Capability Model design](../design/cml-capability-model.md) provides
 structural context. The [CML Semantic Foundation](cml-semantic-foundation.md)
@@ -493,7 +495,9 @@ authors C64P01–23;
 authors C64P24–25 and immutable-carrier behavior. All cases use semantic
 should/which/in grouping and actual Given/When/Then boundaries. Active
 ScalaCheck requires at least 100 successful samples with zero discards.
-Validation and independent acceptance are pending.
+CAP-64-02 focused validation and independent acceptance are recorded in
+[Phase 64](../phase/phase-64.md#cap-64-02-acceptance). This syntax acceptance
+does not certify semantic validation, generation or producer/consumer behavior.
 
 | Cases | Observable normalization obligation |
 | --- | --- |
@@ -508,6 +512,226 @@ Validation and independent acceptance are pending.
 | C64P19–20 | Direct source ownership, foreign derivation evidence, parser failures, malformed scopes and duplicate paths without partial salvage. |
 | C64P21–23 | Parsed unresolved graph facts, independent Application edges and per-document directed compatibility. |
 | C64P24–25 | Active literal-ID/revision/order determinism and invalid source/identity/path with explicit Presence/Origin variation properties. |
+
+## Private finite semantic validation
+
+The separate `private[cozy]` entry is:
+
+```scala
+CmlCapabilityValidation.validate(
+  documents: Vector[CmlCapabilitySource.CapabilityDocument],
+  input: CmlCapabilityValidationScope.ScopeInput
+): Either[Vector[CmlCapabilityValidationScope.Diagnostic],
+          CmlCapabilityValidation.Validated]
+```
+
+Documents MUST be the original ordered envelopes from successful normalization.
+Callers MUST NOT feed a failed normalization into validation, clear parser errors,
+merge away source scopes or reinterpret SyntaxIssue as a semantic diagnostic.
+The entry has no parser, loader, acquisition default, runtime activation or IO.
+It validates supplied Cozy semantic facts; it is not CNCF admission, generated
+output, target execution or runtime usability evidence.
+
+`Validated` has a private constructor and no `apply` or `copy` bypass. Only the
+successful entry constructs it. It retains exact `documents`, exact `scope` and
+ordered `bindings: Vector[(RealizationEdge, TargetContract)]`. Every failure
+returns Left with no partial Validated or successful-sibling salvage.
+
+### Explicit scope and admitted fact carriers
+
+`CmlCapabilityValidationScope` is private to Cozy. Its new internal fields are
+flatcase; the accepted R3 authored carriers retain their existing field names.
+
+| Carrier | Complete fields or alternatives |
+| --- | --- |
+| ScopeInput | `Ready(scope: Scope)` or `Rejected(diagnostics: nonempty Vector[Diagnostic])` |
+| Scope | `scopeid: String`, `source: CapabilitySource`, `modelfacts: Vector[ModelFact]`, `termfacts: Vector[TermFact]`, `relationfacts: Vector[RelationFact]`, `profilefacts: Vector[ProfileFact]`, `applicationcontracts: Vector[ApplicationContract]`, `componentcontracts: Vector[ComponentContract]`, `targetcontracts: Vector[TargetContract]` |
+| ModelFact | `identity: Foundation.ModelElementId`, `kind: ModelKind`, `source: CapabilitySource` |
+| TermFact | `identity: Foundation.TermId`, `source: CapabilitySource` |
+| RelationFact | `identity: Foundation.RelationId`, `source: CapabilitySource` |
+| ProfileFact | `identity: Foundation.ProfileId`, `source: CapabilitySource` |
+| ApplicationContract | `identity: Foundation.ModelElementId`, `contractversion: String`, `source: CapabilitySource` |
+| ComponentContract | `identity: Foundation.ModelElementId`, `contractversion: String`, `source: CapabilitySource` |
+| TargetContract | `kind: CmlCapabilityModel.TargetKind`, `identity: Foundation.ModelElementId`, `component: existing Java ComponentId`, `contractversion: String`, `generatedabiversion: String`, `source: CapabilitySource` |
+
+ModelKind is closed, with these exact tags and Scala alternatives:
+
+| Tag | ModelKind alternative |
+| --- | --- |
+| DOMAIN_CONCEPT | DomainConcept |
+| GOAL | Goal |
+| USE_CASE | UseCase |
+| SCENARIO | Scenario |
+| USE_CASE_SLICE | UseCaseSlice |
+| COMPONENT | Component |
+| COMPONENT_CAPABILITY | ComponentCapability |
+| APPLICATION_CAPABILITY | ApplicationCapability |
+| SPECIFICATION | Specification |
+| EVIDENCE | Evidence |
+| OPERATION | Operation |
+| WORKFLOW | Workflow |
+| STATE_MACHINE | StateMachine |
+
+Scope acquisition and actual Foundation/BoK/catalog adapters, target-contract
+extraction, reflection and source-currentness proof belong to later owners.
+Callers MUST supply actual Foundation IDs and separately explicit revision-bearing
+sources; legacy sha256 MUST NOT supply any revision. An explicit Ready empty scope
+means successful finite acquisition selected by the caller. Rejected input MUST
+return its original nonempty diagnostic vector unchanged, including its original
+kind, detail and source. It MUST NOT be replaced with Ready emptiness or NoProvider.
+
+### Source and candidate rejection contract
+
+Scope facts and typed R3 values MUST satisfy the accepted literal validity and
+canonical path rules. Mandatory identity components, opaque versions, revisions,
+ABI, names, Presence details, labels/languages and derivation rules MUST reject
+null, empty, padded or ISO-control-bearing values. Missing source carriers,
+invalid lines, empty Derived inputs and missing closed typed values fail.
+Container objects, vectors and their members MUST be nonnull; null container
+graphs are outside the entry contract. No fallback, repair, hashing or preprocessing
+is permitted. Present-empty remains present, and each Absent reason/detail remains
+unchanged. Direct record/edge authority and path MUST equal the original document
+scope; definition/fact source authority MUST equal its qualified identity authority.
+Derived input sources remain independently valid, nonempty, ordered and may be
+foreign. Revisions and optional source lines remain independent of each other.
+Repeated original document paths MUST fail.
+
+The combined documents form one current declaring snapshot per model authority.
+Every repeated qualified Capability identity MUST fail as DuplicateDefinition,
+including equal records, differing versions/labels, cross-file repeats and reuse
+across Application/Component families. The identity has one fixed family.
+Historical catalog contracts MAY retain distinct versions of one fixed family.
+Exact repeated catalog identity/version candidates, or a current definition plus
+the same exact catalog identity/version, are Ambiguous. Opposite catalog/current
+families are WrongKind. Equal Model/Term/Relation/Profile facts and full target
+tuples are ambiguous scope candidates, not deduplication opportunities.
+
+Model candidate sets contain explicit ModelFacts plus one family candidate per
+distinct Capability identity from definitions/catalogs. Historical versions alone
+MUST NOT multiply that model identity. A separately supplied ModelFact at the same
+Capability identity is an additional candidate and makes Local resolution ambiguous.
+No first/last, provider, label, URI, synonym or descriptive-kind winner is selected.
+
+| Authored boundary | Required finite resolution / failure |
+| --- | --- |
+| Local demand/discovery | One exact qualified model candidate with the full role kind; no candidate is DanglingReference, multiple candidates Ambiguous, another kind WrongKind. Demand remains restricted to its four roles. |
+| Local Specification/Evidence | Resolve each independent list to its exact role; no executed-proof inference. |
+| Local Model/Term grounding | Resolve exactly one candidate in its own domain. Model grounding retains the explicitly admitted model kind without ontology inference. |
+| Local present Relation/Profile | Resolve uniquely in the corresponding exact vocabulary domain. |
+| External model/grounding/traceability | Preserve External without Local resolution or target-availability certification, even with matching or conflicting local facts. |
+| Local Component mapping / Application dependency | Resolve one exact family/identity/version candidate. Missing identity is DanglingReference, opposite family WrongKind, absent exact version Incompatible and multiple exact candidates Ambiguous. |
+| External mapping/dependency | Retain explicit unresolved boundary; no catalog or global cycle certificate. |
+| Component declaration | Require one exact Component Capability identity/version in current definitions or the supplied historical catalog. Compatibility cannot replace that candidate. |
+| Declaration uniqueness | Reject repeated full `(ComponentId, direction, qualified Capability identity, contractVersion)` as DuplicateDeclaration; retain distinct providers, directions and empty realization lists. |
+| Repeated realization key | Every Component, direction, qualified identity component and version MUST equal the enclosing complete declaration key; mismatch is Malformed at the realization key. |
+| Realization target | Require exact target-owning ComponentId plus qualified model identity, then kind, target contract version and generated ABI. Missing identity/Component is DanglingReference; kind mismatch WrongKind; version/ABI mismatch Incompatible at their distinct fields; multiple exact contracts Ambiguous. External also requires this evidence. |
+
+Target ABI MUST match the supplied executable target contract. It is not a guessed
+global constant or CNCF projection ABI input. Procedure, order, retry, compensation,
+authorization and runtime state are rejected by the existing closed CML syntax and
+cannot inhabit the closed IR. No target invocation, adapter, classloading or runtime
+policy is part of validation.
+
+### Dependency graph and directed compatibility
+
+Only supplied Local ApplicationDependency edges enter cycle checks. A self-loop
+or directed cycle across original files MUST issue CyclicDependency for every
+participating authored edge, preserving edge order and source. External edges
+remain excluded even when their target is current. Missing or version-invalid
+Local dependencies retain their independent resolution errors; failed resolution
+does not certify an empty graph. Demand/discovery, grounding, traceability,
+Component mappings and realizations are not dependency edges. Success certifies
+only this explicitly selected finite Local graph.
+
+Every supplied CompatibilityEdge identity and its required/provided versions MUST
+resolve exact Component contract candidates. Direct edges retain independent
+source, origin and order. The result exposes:
+
+```scala
+validated.isCompatible(
+  required: VersionedComponentCapabilityReference,
+  provided: VersionedComponentCapabilityReference
+): Boolean
+```
+
+Both references MUST have unique admitted exact candidates and the same identity.
+The predicate is true only for equal versions or a supplied direct same-identity
+required-to-provided edge. It MUST NOT infer reverse, transitive, SemVer, same-name,
+cross-identity or provider-order compatibility. It selects no provider and waives
+no realization contract/ABI checks.
+
+### Structured source-correlated diagnostics
+
+Diagnostic has complete fields `kind`, `fieldpath`, `scope: Option[SourceScope]`,
+`source: Option[CapabilitySource]`, `relatedsources: Vector[CapabilitySource]`,
+and `detail`. DiagnosticKind is closed: Malformed, Unsupported, Unavailable,
+Unauthorized, Stale, DuplicateDefinition, DuplicateDeclaration, DanglingReference,
+Ambiguous, WrongKind, Incompatible and CyclicDependency.
+
+Document diagnostics MUST carry the exact original scope and offending authored
+record/edge source, including its own revision and optional line. Scope issues
+carry their fact source and no document scope; absent source remains None.
+Duplicate issues retain the previous source as related evidence. Acquisition
+diagnostics are preserved exactly. Deterministic scope checks precede document
+checks; snapshot/record/reference checks precede graph checks. A malformed carrier
+gate stops before those carriers can be consumed. Structurally valid duplicate
+candidates remain available for contextual ambiguity diagnostics, with no winner
+selection. Issue generation follows supplied document, record, field and edge order
+within each gate. Every nonempty issue vector is an all-or-nothing rejection.
+
+### Authored executable semantic validation cases
+
+[CmlCapabilityValidationCmlSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationCmlSpec.scala)
+authors C64V01–05 through real Kaleidox parsing and successful normalization.
+[CmlCapabilityValidationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationSpec.scala)
+authors C64V06–24 over explicit source-bearing semantic facts.
+[CmlCapabilityValidationGraphSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationGraphSpec.scala)
+authors C64V25–32 and active ScalaCheck properties requiring at least 100 successes
+and zero discards. Every behavior has actual Given/When/Then boundaries.
+These supplied facts prove the validator contract when executed; they do not prove
+actual target extraction or producer/admission/CBD interoperability. Validation
+and independent protected CAP-64-03 Step acceptance are recorded in
+[Phase 64](../phase/phase-64.md#cap-64-03-acceptance).
+
+| Case | Observable authored behavior |
+| --- | --- |
+| C64V01 | Both unchanged real resources normalize and validate; original documents/scope/order, revisions and three realization pairs survive. |
+| C64V02 | Four Local Use Case demand links, Scenario discovery, standalone Application, equal labels and three provider/direction keys stay independent. |
+| C64V03 | Real CML gaps, Local/External Domain and Term grounding, Relation/Profile/labels and ordered foreign Derived evidence remain exact. |
+| C64V04 | Each forbidden procedure/order/retry/compensation/authorization/runtimeState field yields contextual SyntaxIssue before semantic validation. |
+| C64V05 | Original parser errors and unavailable/unauthorized/stale/unsupported Rejected scope cannot become successful empty input. |
+| C64V06 | Equal, version-changing, cross-file and cross-family current IDs are duplicate definitions. |
+| C64V07 | Three distinct provider/direction keys succeed; a complete key repeat fails with previous source evidence. |
+| C64V08 | All four demand and seven discovery roles require exact Local kind, with missing/wrong-kind/ambiguous edge diagnostics. |
+| C64V09 | Definition/declaration Specification and Evidence resolve independently; missing/wrong/duplicate facts fail. |
+| C64V10 | Local Model and BoK Term grounding use distinct domains, rejecting missing and duplicate candidates. |
+| C64V11 | Local present Relation/Profile use their own domains; unknown External grounding remains External. |
+| C64V12 | Local mapping/dependency require exact family and version; External needs no invented catalog availability. |
+| C64V13 | Exact historical Component declaration candidate resolves; compatibility cannot repair missing family/version/identity. |
+| C64V14 | Each repeated realization key field must agree with its enclosing complete tuple. |
+| C64V15 | Three target kinds bind exactly under either boundary; missing identity or owning Component fails. |
+| C64V16 | Target kind, contract, ABI and exact-candidate multiplicity have distinct typed/field-specific rejection. |
+| C64V17 | Every absence reason, present-empty relationship, optional language and ordered foreign evidence survives equality. |
+| C64V18 | Invalid mandatory literals, source paths/lines and empty derivation evidence fail without defaults. |
+| C64V19 | Direct sources match scope/identity authority, while foreign derivation and independent revisions are retained. |
+| C64V20 | Malformed facts/contracts and equal duplicates in every scope domain fail before successful use. |
+| C64V21 | Historical distinct versions succeed; exact catalog/current collisions and family reuse fail. |
+| C64V22 | Historical versions give one family model candidate; independent same-ID ModelFact makes Local grounding ambiguous. |
+| C64V23 | Duplicate and edge sources/lines/revisions, previous evidence and repeated diagnostic order remain exact without salvage. |
+| C64V24 | Parsed explicit empty root plus explicit Ready empty scope succeeds; invalid/rejected/repeated paths fail. |
+| C64V25 | Self/two-node/long cross-file cycles diagnose every edge; a finite acyclic chain succeeds. |
+| C64V26 | External dependency and cyclic ordinary grounding/independent model links do not form Local dependency cycles. |
+| C64V27 | Missing/family/version/ambiguity dependency failure stays typed, never an admitted empty graph. |
+| C64V28 | Equality/direct edges require exact admitted references and cannot waive realization ABI failure. |
+| C64V29 | No inverse/transitive/SemVer/name/cross-identity/provider-order compatibility is inferred. |
+| C64V30 | Failed compatibility identity/family/required/provided version/candidate evidence retains its own source. |
+| C64V31 | Active real-parser literal-ID/property samples retain case, Unicode, delimiters, quote/backslash, independent revisions/versions, Presence/origin/order and deterministic failures. |
+| C64V32 | Active graph/version properties preserve Local cycle policy and exact directed nontransitive compatibility without discarded samples. |
+
+Equivalent valid JSON Unicode escapes retain decoded quote/backslash literals
+through the actual parser. This does not promise all escaped-quote spellings or
+repair upstream LogicalLines. That separate parser work remains tracked by
+the coordinating Phase 11 as DEV-P11-COZY64-CAP02-001.
 
 ## Semantic acceptance matrix
 

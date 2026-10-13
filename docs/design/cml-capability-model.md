@@ -1,7 +1,7 @@
 # CML Capability Model Design
 
 This document describes the stable structure and responsibility boundaries of
-Capability Model IR and its private CML normalization implementation.
+Capability Model IR, private CML normalization and finite semantic validation.
 The [Capability Model specification](../spec/cml-capability-model.md)
 owns normative semantics, carriers and authored grammar. [Phase 64](../phase/phase-64.md)
 and its [checklist](../phase/phase-64-checklist.md) own progress and acceptance.
@@ -101,7 +101,7 @@ scope before any legacy aggregate merge. The normalization entry consumes
 original logical sections, using containment filtering to keep promoted
 divisions attached to their original parent. Its result is an ordered vector
 of parsed document envelopes. Retaining the envelope makes source authority,
-path and per-document compatibility available to the future validator without
+path and per-document compatibility available to the semantic validator without
 flattening or choosing among records.
 
 The [private input contract](../spec/cml-capability-model.md#private-scala-ir-and-per-document-input)
@@ -130,7 +130,7 @@ single-value boundary before Play JSON can construct an object map.
 
 Authored source line/revision and parser section location have distinct roles.
 Direct sources bind to the document's explicit scope; derivation inputs can
-retain foreign source scopes. The future semantic validator receives unresolved
+retain foreign source scopes. The semantic validator receives unresolved
 duplicates and graph/target facts through these same parsed envelopes, then
 owns semantic admission and structured resolution. The generator consumes
 validated facts under CAP-64-04 and the accepted CNCF external contract.
@@ -138,5 +138,54 @@ validated facts under CAP-64-04 and the accepted CNCF external contract.
 The [C64P executable case map](../spec/cml-capability-model.md#authored-executable-normalization-cases)
 links two real separately parsed CML resources, complete typed expectations and
 active property specifications. These inputs demonstrate authored syntax and
-normalization when validated; they supply no generated producer/admission/CBD
-proof. CAP-64-02 validation and independent acceptance remain pending.
+normalization with focused validation and independent CAP-64-02 acceptance
+recorded in [Phase 64](../phase/phase-64.md#cap-64-02-acceptance); they supply no
+generated producer/admission/CBD proof.
+
+## Finite semantic validation responsibilities
+
+The pipeline retains separately parsed source envelopes throughout:
+
+```text
+original Kaleidox models + explicit per-document SourceScope
+  -> CmlCapabilityCml.normalize
+  -> original ordered CapabilityDocuments + explicitly supplied finite ScopeInput
+  -> CmlCapabilityValidation.validate
+  -> private Validated(documents, scope, ordered target bindings)
+  -> future CAP-64-04 generator using the accepted CNCF projection contract
+```
+
+Normalization and semantic validation remain separate callable entries. The
+validator receives acquisition outcomes as supplied values rather than acquiring
+Foundation, BoK or executable contracts itself. Scope facts use existing identity
+domains with new explicit revision-bearing sources. Its result connects original
+source records to exact target facts without making targets executable or selecting
+providers. The specification owns the
+[private API and finite resolution policy](../spec/cml-capability-model.md#private-finite-semantic-validation).
+
+| Module | Structural responsibility |
+| --- | --- |
+| [CmlCapabilityValidationScope](../../src/main/scala/cozy/modeler/CmlCapabilityValidationScope.scala) | Immutable explicit acquisition outcome, finite model/vocabulary/contract/target fact carriers, closed model kinds and source-correlated diagnostics. |
+| [CmlCapabilityValidation](../../src/main/scala/cozy/modeler/CmlCapabilityValidation.scala) | Orchestration of gates, sole successful construction of private Validated, original envelopes/scope and ordered bindings. |
+| [CmlCapabilityValidationShapePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationShapePart.scala) | Typed R3 lexical, Presence, closed role/reference and Component carrier checks. |
+| [CmlCapabilityValidationSourcePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationSourcePart.scala) | Source validity, original scope ownership, qualified authority and independent derivation evidence contexts. |
+| [CmlCapabilityValidationScopePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationScopePart.scala) | Scope fact validity, exact candidate sets, current snapshot uniqueness and historical family/version distinctions. |
+| [CmlCapabilityValidationReferencePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationReferencePart.scala) | Local role/grounding/vocabulary/traceability resolution and exact Application mapping/dependency references. |
+| [CmlCapabilityValidationDeclarationPart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationDeclarationPart.scala) | Complete declaration uniqueness, repeated-key agreement and exact executable target tuple binding. |
+| [CmlCapabilityValidationGraphPart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationGraphPart.scala) | Finite Local dependency reachability, cycle edge attribution, direct Component compatibility and result predicate. |
+
+The two carrier/entry objects remain private to Cozy and the six responsibility
+helpers private to modeler. Scalar/source checks keep malformed carriers out of
+resolution. Valid duplicate candidates remain available to contextual diagnostics;
+no intermediate successful bindings escape an eventual failure. Finite graph
+reachability marks authored cycle edges in supplied order and excludes the
+independent demand, grounding, traceability and realization relationship domains.
+
+The [C64V case map](../spec/cml-capability-model.md#authored-executable-semantic-validation-cases)
+connects real-parser scenarios, source-bearing fact and target mismatch tables and
+two active properties to this boundary. Supplied synthetic facts exercise the
+validator when executed; actual acquisition/extraction and producer/admission/
+consumer evidence remain separate. CAP-64-03 validation and independent acceptance
+are recorded in [Phase 64](../phase/phase-64.md#cap-64-03-acceptance).
+CAP-64-04 generation, CAP-64-05 interoperability and the separately
+tracked upstream parser candidate remain with their existing owners.

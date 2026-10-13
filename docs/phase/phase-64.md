@@ -65,7 +65,7 @@ term identity model.
 | --- | --- | --- |
 | CAP-64-01 | Freeze the Application/Component Capability IR, identity/reference model, and semantic-reference boundary against Phase 54 and CNCF Phase 78. | closed |
 | CAP-64-02 | Admit CML syntax and parser/metamodel support for Application and Component Capability without Use Case Group containment semantics. | closed |
-| CAP-64-03 | Implement semantic validation and source-correlated diagnostics, including Goal/Use Case, Capability, realization, and admitted Glossary/BoK references. | planned |
+| CAP-64-03 | Implement semantic validation and source-correlated diagnostics, including Goal/Use Case, Capability, realization, and admitted Glossary/BoK references. | closed |
 | CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Application Capability as the application-management IR. | planned |
 | CAP-64-05 | Prove CNCF admission and cbd-support consumption with a real fixture covering Use Case-to-Capability discovery evidence and terminology grounding. | planned |
 
@@ -124,6 +124,39 @@ CAP-64-04 owns generation against CNCF's accepted v1 contract and Phase 63.1
 multi-CML provenance. CAP-64-05 owns real producer/admission/consumer evidence.
 These authored parser inputs are not generated CNCF resources. CNCF target
 adapters/discovery, CBD CAP-11-01 and Phase closure are not established here.
+
+## CAP-64-03 acceptance
+
+The private finite validation entry and eight responsibility modules are authored
+for original normalized documents plus explicitly supplied model, vocabulary,
+historical Capability and executable target contract facts. The
+[specification](../spec/cml-capability-model.md#private-finite-semantic-validation)
+owns the exact scope, all-or-nothing diagnostic, Local/External resolution,
+declaration/realization tuple, finite dependency-cycle and directed compatibility
+contracts. The
+[design](../design/cml-capability-model.md#finite-semantic-validation-responsibilities)
+maps the modules and normalization-to-validation-to-future-generation pipeline.
+
+C64V01–05 are authored in
+[CmlCapabilityValidationCmlSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationCmlSpec.scala)
+using the two unchanged real parser resources and separately supplied scope facts.
+C64V06–24 are authored in
+[CmlCapabilityValidationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationSpec.scala);
+C64V25–32 are authored in
+[CmlCapabilityValidationGraphSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationGraphSpec.scala),
+including two active ScalaCheck properties requiring at least 100 successes and
+zero discards. Given/When/Then setup, action and expectation clauses accompany
+every behavior.
+
+CAP-64-03 acceptance (2026-10-14): the required focused validation and independent
+protected Step review are accepted. All four CAP-64-03 checklist criteria are DONE.
+
+These finite synthetic facts establish no actual target extraction, generated
+CNCF resource or real producer/admission/CBD proof. CAP-64-04 and CAP-64-05 remain
+OPEN, CBD CAP-11-01 remains incomplete and Phase 64 remains in progress. The
+coordinating Phase 11 retains primary tracking of DEV-P11-COZY64-CAP02-001 for
+separate upstream escaped-quote parser work; this Step changes no parser or
+journal ownership.
 
 ## Required behavior
 

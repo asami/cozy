@@ -83,17 +83,43 @@ Acceptance evidence (2026-10-05):
 ## CAP-64-03: Validation and diagnostics
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy validation owner
 - Update rule: Mark DONE only after every admitted invalid boundary has
-  source-correlated executable specification coverage.
+  source-correlated executable specification coverage, the selected focused
+  validation passes and independent protected Step acceptance is recorded.
+- Closure basis: Exact private finite scope/reference/declaration/target/graph
+  contracts, C64V01–32 executable behavior coverage, focused validation and
+  independent acceptance; authored implementation alone does not close the Step.
 
-- [ ] Reject missing, duplicate, ambiguous, cyclic, and incompatible
+- [x] Reject missing, duplicate, ambiguous, cyclic, and incompatible
       Capability references.
-- [ ] Reject procedure/order, retry, compensation, authorization, and runtime
+- [x] Reject procedure/order, retry, compensation, authorization, and runtime
       state embedded in Capability realization.
-- [ ] Reject unresolved or wrong-kind realization targets.
-- [ ] Produce structured diagnostics with exact source identity/location.
+- [x] Reject unresolved or wrong-kind realization targets.
+- [x] Produce structured diagnostics with exact source identity/location.
+
+Acceptance evidence (2026-10-14):
+
+- Eight private validation modules preserve original documents and explicit
+  scope facts, reject semantic contradictions with source-correlated diagnostics,
+  bind supplied target tuples and expose direct compatibility without execution.
+- [CmlCapabilityValidationCmlSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationCmlSpec.scala)
+  authors C64V01–05: real original CML normalization/validation, independent
+  relationships and rejected syntax/acquisition outcomes.
+- [CmlCapabilityValidationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationSpec.scala)
+  authors C64V06–24: roles/vocabularies, definition/declaration candidates, exact
+  targets, malformed source facts, Presence/origin and deterministic diagnostics.
+- [CmlCapabilityValidationGraphSpec](../../src/test/scala/cozy/modeler/CmlCapabilityValidationGraphSpec.scala)
+  authors C64V25–32: finite Local cycles, direct compatibility and two active
+  properties requiring at least 100 successes with zero discards.
+- The [exact 32-case map](../spec/cml-capability-model.md#authored-executable-semantic-validation-cases)
+  records each observable obligation. Required focused validation, the retained
+  regression accumulator and independent protected Step review are accepted.
+  All four checklist items are checked and Current status is DONE.
+- Supplied synthetic scope facts are not actual acquisition/extraction,
+  generated producer/CNCF admission/CBD evidence or Phase closure. CAP-64-04/05
+  remain OPEN. DEV-P11-COZY64-CAP02-001 retains coordinating Phase 11 ownership.
 
 ## CAP-64-04: CNCF projection generation
 
