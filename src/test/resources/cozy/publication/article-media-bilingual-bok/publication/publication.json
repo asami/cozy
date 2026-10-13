@@ -20,7 +20,6 @@
         "publicPath": "/repository/article-media/development-process/example/en/infographic.png",
         "repositoryPath": "article-media/development-process/example/en/infographic.png",
         "mediaType": "image/png",
-        "sha256": "385a92647193b6011c5e5e5260d7b7014351c56cabb30add4d458ae6efc49557",
         "provenance": {
           "kind": "media-package",
           "descriptor": "src/main/doxsite/media/en/media.yaml",
@@ -42,7 +41,6 @@
         "publicPath": "/repository/video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
         "repositoryPath": "video/article-media-bilingual-example-en-video/1.0.0/article-media-bilingual-example-en-video-1.0.0.mp4",
         "mediaType": "video/mp4",
-        "sha256": "5831b03f9e7cb75d39ac055b2a26362a08a85cb912db7af22e117ab32ce46c55",
         "provenance": {
           "kind": "video-publication",
           "videoManifest": "metadata/video/article-media-bilingual-example-en-video/1.0.0/manifest.json",
@@ -63,7 +61,6 @@
         "publicPath": "/repository/article-media/development-process/example/ja/infographic.png",
         "repositoryPath": "article-media/development-process/example/ja/infographic.png",
         "mediaType": "image/png",
-        "sha256": "e6aeb8688de618cf3c8d49d4c0798db5eb5e6fd9cd58e63b38b5f348f743d014",
         "provenance": {
           "kind": "media-package",
           "descriptor": "src/main/doxsite/media/ja/media.yaml",
@@ -85,7 +82,6 @@
         "publicPath": "/repository/video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
         "repositoryPath": "video/article-media-bilingual-example-ja-video/1.0.0/article-media-bilingual-example-ja-video-1.0.0.mp4",
         "mediaType": "video/mp4",
-        "sha256": "f3516712531453356f9a945dadde0af33e9427d99012b0a9e588720a0038468a",
         "provenance": {
           "kind": "video-publication",
           "videoManifest": "metadata/video/article-media-bilingual-example-ja-video/1.0.0/manifest.json",

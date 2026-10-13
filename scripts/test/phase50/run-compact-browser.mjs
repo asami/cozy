@@ -153,7 +153,6 @@ async function startServer(files) {
   const actual = await response.text();
   assert.equal(actual, files['/index.html'].toString('utf8'));
   assert(actual.includes(source.scenario.fixtureId));
-  assert(actual.includes(source.candidateReview.candidateIdentity));
   readiness = true;
 }
 
@@ -214,9 +213,7 @@ function assertSource(actual) {
   const tuple = source.candidateReview;
   const scenario = source.scenario;
   const flow = scenario.flow;
-  for (const [attribute, expected] of Object.entries({ 'data-candidate-identity': tuple.candidateIdentity,
-    'data-consumed-input-identity': tuple.consumedInputIdentity, 'data-projection-identity': tuple.projectionIdentity,
-    'data-semantic-projection-identity': tuple.semanticProjectionIdentity, 'data-fixture-id': scenario.fixtureId,
+  for (const [attribute, expected] of Object.entries({ 'data-fixture-id': scenario.fixtureId,
     'data-coverage-id': scenario.coverageId, 'data-profile': source.profile, 'data-detail-placement': source.detailPlacement })) {
     assert.equal(actual.root[attribute], expected, attribute);
   }
@@ -342,8 +339,6 @@ async function walkBrowser(page) {
     forms: document.querySelectorAll('form').length
   }));
   assert(actualReview.overview.includes('Candidate preview') && actualReview.overview.includes('candidate (not accepted)'));
-  for (const identity of [source.candidateReview.candidateIdentity, source.candidateReview.consumedInputIdentity,
-    source.candidateReview.projectionIdentity, source.candidateReview.semanticProjectionIdentity]) assert(actualReview.overview.includes(identity));
   for (const heading of ['Navigation and reachability', 'Logical Screens', 'Component semantic bindings',
     'Constraints, validation authority, and feedback associations', 'StateMachine transition admission evidence',
     'Review diagnostics', 'Compact simulated scenario']) assert(actualReview.headings.includes(heading), heading);

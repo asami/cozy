@@ -18,10 +18,11 @@ The root is an object with exactly these fields:
 | `terms` | array | Authored `Catalog.terms` order. |
 | `extensions` | object | Required namespace-to-opaque-object map; `{}` means none. |
 
-Objects have exact field sets. The reader accepts a non-null Play `JsValue`,
+Core objects have exact field sets except the ordinary SourceAttribution
+projection described below. The reader accepts a non-null Play `JsValue`,
 not JSON text. It validates `schemaVersion` before catalog decoding, rejects an
 unknown version without legacy upgrading, and does not repair absent/null
-fields or ignore unknown core fields. Parser-level text syntax and duplicate
+fields or ignore unknown core fields outside SourceAttribution. Parser-level text syntax and duplicate
 member handling belong to the caller that produces the `JsValue`.
 
 `toJson` and `canonicalJson` recursively sort object keys lexicographically,
@@ -46,7 +47,6 @@ The complete v1 core field/type matrix is:
 | Term | `source` | `SourceAttribution` |
 | SourceAttribution | `authorityId` | string |
 | SourceAttribution | `path` | string |
-| SourceAttribution | `sha256` | string |
 | SourceAttribution | `line` | integral number in `Int` range, or explicit `null` |
 | LocalizedLabel | `text` | string |
 | LocalizedLabel | `language` | string, or explicit `null` |
@@ -74,7 +74,8 @@ The qualified identity objects have these exact fields:
 | Relation | `vocabularyId`, `relationId` |
 | Profile | `vocabularyId`, `profileId` |
 
-`source` has exactly `authorityId`, `path`, `sha256`, and `line`. `line` is an
+`source` requires `authorityId`, `path`, and `line`. Unknown source-object
+extras are ignored generically regardless of JSON type and are not emitted. `line` is an
 integral JSON number in `Int` range or explicit `null` for `None`.
 `LocalizedLabel` has exactly `text` and `language`; `language` is a string or
 explicit `null`. These are observational options, not semantic absence.
@@ -113,7 +114,7 @@ identity has no local record.
 
 ## Validation and diagnostics
 
-The reader traverses root, elements, terms, then extensions. For a core object,
+The reader traverses root, elements, terms, then extensions. For a core object other than SourceAttribution,
 an extra field is rejected before expected fields are decoded; unknown fields
 are considered in lexicographic key order and are reported only at their known
 containing object coordinate. Valid coordinates contain only schema field names
@@ -143,9 +144,27 @@ or absence semantics. A namespace is not proof of ownership and this version
 defines no registered extension meanings.
 
 v1 fixes its core field names, tags, and validation semantics. Future optional
-projection information uses independent namespaced extensions. Any core change
-requires a new schema identifier and separately designed migration. This
+projection information uses independent namespaced extensions. Future material core semantic changes
+require a new schema identifier and separately designed migration. This
 contract neither reads nor upgrades `cozy.cml.model-metadata.v1` JSON/YAML and
 does not change StateMachine/Workflow ABI outputs. `metadataPath` names a
 dedicated future artifact destination only: this callable serializer/reader has
 no filesystem writer, CML parser integration, CLI flag, or automatic emission.
+
+## Phase 71 attribution retirement
+
+Under [file update management](../spec/file-update-management.md), Phase 71
+retires the non-integrity source digest while retaining
+`cozy.cml.semantic-metadata.v1` and `cozy.cml.structure.v1`. This is an explicit
+exception to historical all-core-changes-new-version wording: ordinary
+SourceAttribution loading projects required `authorityId`, `path`, and `line`,
+ignoring unknown source extras of any JSON type. Missing known fields remain
+invalid; explicit `line: null` means no line, and supplied lines must be positive.
+There is no legacy decoder, upgrade, alternate version, or fake value. All other
+core shapes stay closed; identity, Presence, references, opaque extensions, and
+genuine diagnostics retain their contracts. Attribution supplies authority,
+canonical project-relative POSIX path, and optional line without hash, snapshot,
+or currentness proof. Future material core semantics require independently
+designed versioning. Canonical fixtures publish the retired field set; their
+STR evidence remains synthetic supplier evidence, without external runtime or
+CML integration acceptance.

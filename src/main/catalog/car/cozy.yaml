@@ -12,5 +12,3 @@ versions:
     component: cozy
     publishedAt: 2026-07-12T21:20:58.565744+09:00
     file: repository/car/cozy/0.2.25/cozy-0.2.25.car
-    checksum:
-      sha256: 919af4d74d03768fcd382eb5ec68d4e0ca0700eb3f200e182e4a78bc1714e48f

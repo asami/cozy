@@ -2,7 +2,7 @@ package cozy
 
 import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
-import cozy.archive.{ComponentRepositoryIndex, RepositoryArtifactCatalog}
+import cozy.archive.ComponentRepositoryIndex
 import cozy.runtime.CozySbtBridge
 import play.api.libs.json.Json
 import org.scalacheck.{Gen, Prop, Test}
@@ -15,7 +15,8 @@ import org.scalatest.wordspec.AnyWordSpec
  *  version May. 20, 2026
  *  version Jun. 27, 2026
  *  version Aug. 13, 2026
- * @version Sep. 17, 2026
+ *  version Sep. 17, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class BridgeContractSpec
@@ -252,20 +253,17 @@ final class BridgeContractSpec
       "carry the selected CNCF runtime descriptor into delegated generation" in {
         Given("bridge settings with an extracted CNCF runtime descriptor")
         val descriptor = "/tmp/cncf-runtime.yaml"
-        val digest = "a" * 64
 
         When("the bridge constructs modeler version arguments")
         val args = CozySbtBridge._version_args_for_settings_for_test(Map(
           "generation.versions.cncf" -> "0.5.0",
-          "runtime.cncf.descriptor" -> descriptor,
-          "runtime.cncf.descriptor.sha256" -> digest
+          "runtime.cncf.descriptor" -> descriptor
         ))
 
         Then("the descriptor path accompanies the selected CNCF version")
         args should contain allElementsOf List(
           "--cncf-version", "0.5.0",
-          "--cncf-runtime-descriptor", descriptor,
-          "--cncf-runtime-descriptor-sha256", digest
+          "--cncf-runtime-descriptor", descriptor
         )
       }
 
@@ -357,14 +355,12 @@ final class BridgeContractSpec
       "forward component identity and the selected CNCF runtime contract together" in {
         Given("an sbt bridge generation request with component and runtime settings")
         val descriptor = "/tmp/cncf-runtime.yaml"
-        val digest = "b" * 64
         val settings = Map(
           "component.namespace" -> "org.example.textus",
           "component.id" -> "TextusArtScene",
           "component.version" -> "0.1.0-SNAPSHOT",
           "generation.versions.cncf" -> "0.5.1-SNAPSHOT",
-          "runtime.cncf.descriptor" -> descriptor,
-          "runtime.cncf.descriptor.sha256" -> digest
+          "runtime.cncf.descriptor" -> descriptor
         )
 
         When("the bridge constructs the complete modeler argument list")
@@ -376,8 +372,7 @@ final class BridgeContractSpec
           "--component-id", "TextusArtScene",
           "--component-version", "0.1.0-SNAPSHOT",
           "--cncf-version", "0.5.1-SNAPSHOT",
-          "--cncf-runtime-descriptor", descriptor,
-          "--cncf-runtime-descriptor-sha256", digest
+          "--cncf-runtime-descriptor", descriptor
         )
       }
 
@@ -391,9 +386,7 @@ final class BridgeContractSpec
             val args = List(
               source.toString,
               "--cncf-runtime-descriptor",
-              projectdir.resolve("runtime.yaml").toString,
-              "--cncf-runtime-descriptor-sha256",
-              "a" * 64
+              projectdir.resolve("runtime.yaml").toString
             )
             CozySbtBridge._generation_source_identity_args_for_test(
               args,

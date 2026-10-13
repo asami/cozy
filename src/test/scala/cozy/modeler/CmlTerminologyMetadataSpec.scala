@@ -10,7 +10,7 @@ import CmlTerminologyMetadata._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlTerminologyMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Terminology declarations" should {
@@ -415,7 +415,7 @@ final class CmlTerminologyMetadataSpec extends AnyWordSpec with Matchers with Gi
   private val _conflict_detail = "The Terminology extension namespace is already supplied by the caller."
 
   private def _source(authority: String): SourceAttribution = {
-    SourceAttribution(authority, "models/literal.cml", "a" * 64, Some(7))
+    SourceAttribution(authority, "models/literal.cml", Some(7))
   }
 
   private def _fixture(): Input = {
@@ -466,7 +466,7 @@ final class CmlTerminologyMetadataSpec extends AnyWordSpec with Matchers with Gi
   }
 
   private def _source_wire(value: SourceAttribution): JsObject = {
-    Json.obj("authorityId" -> value.authorityId, "path" -> value.path, "sha256" -> value.sha256,
+    Json.obj("authorityId" -> value.authorityId, "path" -> value.path,
       "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(BigDecimal(line))))
   }
 

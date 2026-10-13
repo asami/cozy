@@ -7,13 +7,8 @@ import cozy.runtime.CozyCliArgs
 import play.api.libs.json._
 import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
-import java.nio.channels.FileChannel
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{AtomicMoveNotSupportedException, FileAlreadyExistsException, Files, LinkOption, Path, Paths, StandardCopyOption, StandardOpenOption}
-import java.security.MessageDigest
-import java.util.concurrent.ConcurrentHashMap
+import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import scala.util.Try
-import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
 import scala.sys.process._
 
@@ -21,7 +16,8 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version Jun.  8, 2026
  *  version Jun. 19, 2026
- * @version Aug. 12, 2026
+ *  version Aug. 12, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyPublicationCompiler {
@@ -66,7 +62,7 @@ private[cozy] object CozyPublicationCompiler {
     cncfDependency: Boolean,
     sbtCozyPlugin: Boolean
   )
-  final case class SourceFile(path: String, size: Long, sha256: String)
+  final case class SourceFile(path: String, size: Long)
   final case class ArtifactFile(
     layer: String,
     artifactType: String,
@@ -104,9 +100,8 @@ private[cozy] object CozyPublicationCompiler {
   final case class ArticleRelation(path: String, role: String, title: Option[String])
 
   /*
-   * The immutable input to the one-file publication-bundle writer.  Keeping
-   * the source/provenance inputs here lets a caller prepare metadata before a
-   * registry transaction without creating a second lock domain.
+   * The semantic input to the publication-bundle writer. Source/provenance
+   * inputs let a caller prepare metadata before artifact admission.
    */
   private[cozy] final case class MetadataPublication(
     name: String,
@@ -115,13 +110,10 @@ private[cozy] object CozyPublicationCompiler {
     entries: Vector[(String, JsValue)]
   )
 
-  private[publication] final case class SiteRootEvidence(
-    lexical: Path,
-    real: Path,
-    fileKey: AnyRef
-  )
+  def publish(args: List[String]): Unit =
+    publishBeforeRegistry(args, _ => ())
 
-  def publish(args: List[String]): Unit = {
+  private[cozy] def publishBeforeRegistry(args: List[String], beforeRegistry: Path => Unit): Unit = {
     val projectdir = _project_dir(args)
     if (!Files.isDirectory(projectdir))
       RAISE.invalidArgumentFault(s"Project directory does not exist: ${projectdir}")
@@ -131,7 +123,7 @@ private[cozy] object CozyPublicationCompiler {
     val config = CozyProjectYamlConfig.loadOperationDefaults(projectdir)
     val savedir = _publication_output(projectdir, args, config)
     val publication = _compile(projectdir, savedir, args, config)
-    _write(publication, savedir, projectdir)
+    _write(publication, savedir, projectdir, beforeRegistry)
   }
 
   private def _compile(projectdir: Path, savedir: Path, args: List[String], config: CozyProjectYamlConfig.Config): Publication = {
@@ -266,134 +258,27 @@ private[cozy] object CozyPublicationCompiler {
     name: String,
     entries: Vector[(String, JsValue)],
     removePrefixes: Vector[String],
-    expectedBundleDigests: Map[String, String] = Map.empty
+    createArticleMedia: Boolean = false
   ): Unit =
     PublicationRegistry.replaceMetadata(
       root,
       name,
       entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
       removePrefixes,
-      expectedBundleDigests
+      createArticleMedia
     )
 
-  /*
-   * Article-media registration holds one registry transaction across its
-   * complete snapshot/preflight/replacement lifecycle.  The capability is
-   * opaque outside this compiler: it is made only while the one existing
-   * registry lock is owned, and every operation proves its owner thread and
-   * lifetime before touching the filesystem.
-   */
-  private[publication] sealed trait RegistryLockCapability {
-    private[publication] def realRoot: Path
-    private[publication] def validateRootEvidence(): Unit
-    private[publication] def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit
-    private[publication] def replaceMetadata(
-      name: String,
-      entries: Vector[(String, JsValue)],
-      removePrefixes: Vector[String],
-      expectedBundleDigests: Map[String, String],
-      createArticleMedia: Boolean
-    ): Unit
-    private[publication] def publishMetadata(publication: MetadataPublication): Unit
-    private[publication] def bundleBytes(name: String): Option[Vector[Byte]]
-    private[publication] def restoreBundle(
-      name: String,
-      bytes: Option[Vector[Byte]],
-      expectedBundleDigests: Map[String, String]
-    ): Unit
-  }
-
-  private final class RegistryLockCapabilityImpl(
-    private val _real_root: Path,
-    ownerthread: Thread,
-    private val _site_root_evidence: Option[SiteRootEvidence]
-  ) extends RegistryLockCapability {
-    private var _active = true
-
-    override def realRoot: Path = {
-      _require_owner()
-      _real_root
-    }
-
-    override def validateRootEvidence(): Unit = {
-      _require_owner()
-      _site_root_evidence.foreach(PublicationRegistry.validateSiteRootEvidence)
-    }
-
-    override def validateSnapshot(expectedBundleDigests: Map[String, String]): Unit = {
-      _require_owner()
-      PublicationRegistry.validateRegistrySnapshotLocked(_real_root, expectedBundleDigests)
-    }
-
-    override def replaceMetadata(
-      name: String,
-      entries: Vector[(String, JsValue)],
-      removePrefixes: Vector[String],
-      expectedBundleDigests: Map[String, String],
-      createArticleMedia: Boolean
-    ): Unit = {
-      _require_owner()
-      PublicationRegistry.replaceMetadataLocked(
-        _real_root,
-        name,
-        entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
-        removePrefixes,
-        expectedBundleDigests,
-        createArticleMedia
-      )
-    }
-
-    override def publishMetadata(publication: MetadataPublication): Unit = {
-      _require_owner()
-      PublicationRegistry.publishMetadataLocked(_real_root, publication)
-    }
-
-    override def bundleBytes(name: String): Option[Vector[Byte]] = {
-      _require_owner()
-      PublicationRegistry.bundleBytesLocked(_real_root, name)
-    }
-
-    override def restoreBundle(
-      name: String,
-      bytes: Option[Vector[Byte]],
-      expectedBundleDigests: Map[String, String]
-    ): Unit = {
-      _require_owner()
-      PublicationRegistry.restoreBundleLocked(_real_root, name, bytes, expectedBundleDigests)
-    }
-
-    private[CozyPublicationCompiler] def _close(): Unit = {
-      _require_owner()
-      _active = false
-    }
-
-    private def _require_owner(): Unit = {
-      if (!_active)
-        RAISE.invalidArgumentFault("Publication registry lock capability is no longer active")
-      if (Thread.currentThread ne ownerthread)
-        RAISE.invalidArgumentFault("Publication registry lock capability must be used by its owner thread")
-    }
-  }
-
-  private[publication] def withRegistryLockCapability[A](root: Path)(f: RegistryLockCapability => A): A = {
-    if (f == null)
-      RAISE.invalidArgumentFault("Publication registry lock callback must be defined")
-    PublicationRegistry.withRegistryLock(root) { realroot =>
-      val capability = new RegistryLockCapabilityImpl(realroot, Thread.currentThread, None)
-      try f(capability) finally capability._close()
-    }
-  }
-
-  private[publication] def captureSiteRootEvidence(root: Path): SiteRootEvidence =
-    PublicationRegistry.captureSiteRootEvidence(root)
-
-  private[publication] def withExistingRegistryLockCapability[A](evidence: SiteRootEvidence)(f: RegistryLockCapability => A): A = {
-    if (evidence == null || f == null)
-      RAISE.invalidArgumentFault("Existing publication registry lock inputs must be defined")
-    PublicationRegistry.withExistingRegistryLock(evidence) { realroot =>
-      val capability = new RegistryLockCapabilityImpl(realroot, Thread.currentThread, Some(evidence))
-      try f(capability) finally capability._close()
-    }
+  private[publication] def replaceMetadataCurrent(
+    root: Path,
+    name: String,
+    entries: Vector[(String, JsValue)],
+    createArticleMedia: Boolean
+  ): Unit = {
+    if (entries == null || entries.exists(x => x == null || x._1 == null || x._2 == null))
+      RAISE.invalidArgumentFault("Current publication metadata entries must be defined")
+    PublicationRegistry.replaceMetadataCurrent(root, name,
+      entries.map { case (path, json) => PublicationBundleEntry(path, _publication_bundle_key(path), json) },
+      createArticleMedia)
   }
 
   def publishMetadata(
@@ -418,7 +303,7 @@ private[cozy] object CozyPublicationCompiler {
 
   /* Build the exact legacy bundle before a caller enters a larger transaction.
    * This is read-only: it deliberately exercises source provenance and entry
-   * canonicalization without acquiring the registry lock or writing a file. */
+   * canonicalization without writing a file. */
   private[cozy] def validateMetadataPublication(publication: MetadataPublication): MetadataPublication =
     PublicationRegistry.validateMetadataPublication(publication)
 
@@ -433,7 +318,7 @@ private[cozy] object CozyPublicationCompiler {
     MetadataPublication(name, publicationpath, projectdir, entries)
   }
 
-  private def _write(publication: Publication, savedir: Path, projectdir: Path): Unit = {
+  private def _write(publication: Publication, savedir: Path, projectdir: Path, beforeregistry: Path => Unit): Unit = {
     val name = publication.project.name
     _delete_legacy_placeholder(savedir.resolve(s"repository/artifacts/${name}"))
     _delete_legacy_placeholder(savedir.resolve(s"maven/artifacts/${name}"))
@@ -441,6 +326,7 @@ private[cozy] object CozyPublicationCompiler {
     val staging = Files.createTempDirectory("cozy-publication-")
     try {
       _write_publication_files(publication, staging)
+      beforeregistry(staging)
       PublicationRegistry.publish(savedir, publication, projectdir, staging)
     } finally {
       _delete_directory(staging)
@@ -967,14 +853,12 @@ private[cozy] object CozyPublicationCompiler {
   private def _source_file_yaml(p: SourceFile): String =
     s"""  - path: ${_yaml_string(p.path)}
        |    size: ${p.size}
-       |    sha256: ${_yaml_string(p.sha256)}
        |""".stripMargin
 
   private def _source_file_json(p: SourceFile): JsValue =
     Json.obj(
       "path" -> p.path,
-      "size" -> p.size,
-      "sha256" -> p.sha256
+      "size" -> p.size
     )
 
   private def _project_json(p: ProjectMetadata): JsValue =
@@ -1048,7 +932,7 @@ private[cozy] object CozyPublicationCompiler {
       stream.iterator().asScala.toVector.collect {
         case p if Files.isRegularFile(p) && !_excluded(projectdir, p, save, excludes) =>
           val rel = projectdir.relativize(p).toString.replace('\\', '/')
-          SourceFile(rel, Files.size(p), _sha256(p))
+          SourceFile(rel, Files.size(p))
       }.sortBy(_.path)
     } finally {
       stream.close()
@@ -1114,23 +998,6 @@ private[cozy] object CozyPublicationCompiler {
     val excludedbyname = normalizedexcludes.exists(x => !x.contains("/") && segments.contains(x))
     val excludedbypath = normalizedexcludes.exists(x => x.contains("/") && (rel == x || rel.startsWith(x + "/")))
     excludedbyname || excludedbypath || abs.startsWith(savedir)
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => f"${b & 0xff}%02x").mkString
   }
 
   private def _delete_directory(path: Path): Unit =
@@ -1354,7 +1221,8 @@ private[cozy] object CozyPublicationCompiler {
     sourcePath: String,
     sourceCommit: Option[String],
     entries: Vector[PublicationBundleEntry],
-    raw: Option[JsObject] = None
+    raw: Option[JsObject] = None,
+    preserveentryfields: Boolean = false
   )
   private final case class MetadataRemoval(path: String, exact: Boolean)
 
@@ -1367,22 +1235,20 @@ private[cozy] object CozyPublicationCompiler {
   }
 
   private object PublicationRegistry {
-    private val _registry_locks = new ConcurrentHashMap[String, Object]()
-    def publish(root: Path, publication: Publication, projectdir: Path, staging: Path): Unit = {
+    def publish(root: Path, publication: Publication, projectDir: Path, staging: Path): Unit = {
       val name = publication.project.name
       val bundle = PublicationBundle(
         publication = name,
         publicationPath = publication.project.publicationPath,
-        sourceRepository = _source_repository(projectdir),
-        sourcePath = _source_path(projectdir),
-        sourceCommit = _source_commit(projectdir),
+        sourceRepository = _source_repository(projectDir),
+        sourcePath = _source_path(projectDir),
+        sourceCommit = _source_commit(projectDir),
         entries = _bundle_entries(staging)
       )
-      _with_registry_lock(root) { realroot =>
-        val target = _locked_target(realroot, name, requireexisting = false)
-        _check_collisions(realroot, bundle)
-        _write_bundle(target, bundle)
-      }
+      val realroot = _publication_root(root)
+      val target = _bundle_target(realroot, name, requireexisting = false)
+      _check_collisions(realroot, bundle)
+      _write_bundle(target, bundle)
     }
 
     def publishMetadata(
@@ -1398,18 +1264,8 @@ private[cozy] object CozyPublicationCompiler {
       if (publication == null)
         RAISE.invalidArgumentFault("Publication metadata plan must be defined")
       val bundle = _metadata_bundle(publication)
-      _with_registry_lock(root) { realroot =>
-        val target = _locked_target(realroot, bundle.publication, requireexisting = false)
-        _check_collisions(realroot, bundle)
-        _write_bundle(target, bundle)
-      }
-    }
-
-    def publishMetadataLocked(realroot: Path, publication: MetadataPublication): Unit = {
-      if (publication == null)
-        RAISE.invalidArgumentFault("Publication metadata plan must be defined")
-      val bundle = _metadata_bundle(publication)
-      val target = _locked_target(realroot, bundle.publication, requireexisting = false)
+      val realroot = _publication_root(root)
+      val target = _bundle_target(realroot, bundle.publication, requireexisting = false)
       _check_collisions(realroot, bundle)
       _write_bundle(target, bundle)
     }
@@ -1442,7 +1298,7 @@ private[cozy] object CozyPublicationCompiler {
     }
 
     def registerMetadata(root: Path, name: String, entries: Vector[PublicationBundleEntry]): Unit = {
-      _replace_metadata(root, name, entries, Vector.empty, Map.empty)
+      _replace_metadata(root, name, entries, Vector.empty, createarticlemedia = false)
     }
 
     def replaceMetadata(
@@ -1450,16 +1306,56 @@ private[cozy] object CozyPublicationCompiler {
       name: String,
       entries: Vector[PublicationBundleEntry],
       removePrefixes: Vector[String],
-      expectedBundleDigests: Map[String, String]
+      createArticleMedia: Boolean
     ): Unit =
-      _replace_metadata(root, name, entries, removePrefixes, expectedBundleDigests)
+      _replace_metadata(root, name, entries, removePrefixes, createArticleMedia)
+
+    /* The canonical site route preserves its current wrapper and generic entry
+     * fields through ordinary read/transform/write. */
+    def replaceMetadataCurrent(
+      root: Path,
+      name: String,
+      entries: Vector[PublicationBundleEntry],
+      createArticleMedia: Boolean
+    ): Unit = {
+      if (root == null || entries == null)
+        RAISE.invalidArgumentFault("Current publication metadata inputs must be defined")
+      val realroot = root.toAbsolutePath.normalize()
+      if (Files.isSymbolicLink(realroot) || !Files.isDirectory(realroot, LinkOption.NOFOLLOW_LINKS) || realroot.toRealPath() != realroot)
+        RAISE.invalidArgumentFault(s"Current publication replacement requires a direct canonical root: $root")
+      val bundlename = _validate_bundle_name(name)
+      if (createArticleMedia && bundlename != "article-media")
+        RAISE.invalidArgumentFault("Publication metadata creation is limited to article-media")
+      val target = realroot.resolve(s"$bundlename.json")
+      if (Files.isSymbolicLink(target) ||
+        (Files.exists(target, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)))
+        RAISE.invalidArgumentFault(s"Current publication bundle must be a direct regular file: $target")
+      val old = _load_bundle(target, bundlename).getOrElse {
+        if (createArticleMedia && Files.notExists(target, LinkOption.NOFOLLOW_LINKS))
+          PublicationBundle("article-media", None, "", ".", None, Vector.empty)
+        else
+          RAISE.invalidArgumentFault(s"Publication bundle not found: $bundlename")
+      }
+      val validated = entries.map { entry =>
+        val value = _validate_entry(entry)
+        if (value.path != entry.path || value.key != entry.key || !value.path.endsWith(".json") || value.path != value.path.trim)
+          RAISE.invalidArgumentFault(s"Current publication entry must use canonical path/key: ${entry.path}")
+        value
+      }
+      if (validated.map(_.path).distinct.size != validated.size || validated.map(_.key).distinct.size != validated.size)
+        RAISE.invalidArgumentFault("Current publication replacement has duplicate entries")
+      val paths = validated.map(_.path).toSet
+      val bundle = old.copy(entries = (old.entries.filterNot(x => paths.contains(x.path)) ++ validated).sortBy(_.path),
+        preserveentryfields = true)
+      _check_collisions(realroot, bundle)
+      _write_bundle(target, bundle)
+    }
 
     def remove(root: Path, name: String): Unit = {
-      _with_registry_lock(root) { realroot =>
-        val target = _locked_target(realroot, name, requireexisting = true)
-        _load_bundle(target, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
-        Files.delete(target)
-      }
+      val realroot = _publication_root(root)
+      val target = _bundle_target(realroot, name, requireexisting = true)
+      _load_bundle(target, name).getOrElse(RAISE.invalidArgumentFault(s"Publication bundle not found: ${name}"))
+      Files.delete(target)
     }
 
     private def _load_bundle(target: Path, expectedname: String): Option[PublicationBundle] = {
@@ -1537,69 +1433,14 @@ private[cozy] object CozyPublicationCompiler {
       name: String,
       entries: Vector[PublicationBundleEntry],
       removeprefixes: Vector[String],
-      expectedbundledigests: Map[String, String]
-    ): Unit =
-      _with_registry_lock(root) { realroot =>
-        _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundledigests, createarticlemedia = false)
-      }
-
-    def replaceMetadataLocked(
-      realroot: Path,
-      name: String,
-      entries: Vector[PublicationBundleEntry],
-      removeprefixes: Vector[String],
-      expectedbundledigests: Map[String, String],
-      createarticlemedia: Boolean
-    ): Unit =
-      _replace_metadata_locked(realroot, name, entries, removeprefixes, expectedbundledigests, createarticlemedia)
-
-    def bundleBytesLocked(realroot: Path, name: String): Option[Vector[Byte]] = {
-      val target = _locked_target(realroot, name, requireexisting = false)
-      if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) Some(Files.readAllBytes(target).toVector) else None
-    }
-
-    def restoreBundleLocked(
-      realroot: Path,
-      name: String,
-      bytes: Option[Vector[Byte]],
-      expectedbundledigests: Map[String, String]
-    ): Unit = {
-      if (bytes == null || expectedbundledigests == null)
-        RAISE.invalidArgumentFault("Publication bundle rollback inputs must be defined")
-      val target = _locked_target(realroot, name, requireexisting = false)
-      bytes match {
-        case Some(value) => _write_exact_bundle(target, value.toArray)
-        case None => Files.deleteIfExists(target)
-      }
-      validateRegistrySnapshotLocked(realroot, expectedbundledigests)
-    }
-
-    def validateRegistrySnapshotLocked(realroot: Path, expectedbundledigests: Map[String, String]): Unit = {
-      if (realroot == null || !Files.isDirectory(realroot) || expectedbundledigests == null)
-        RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
-      if (realroot.toAbsolutePath.normalize() != realroot || realroot.toRealPath() != realroot)
-        RAISE.invalidArgumentFault(s"Publication registry replacement requires a canonical real root: $realroot")
-      val actual = CozyArticleMediaRegistry.load(realroot).bundleDigests
-      if (actual != expectedbundledigests)
-        RAISE.invalidArgumentFault("Publication bundle stale configured snapshot")
-    }
-
-    private def _replace_metadata_locked(
-      realroot: Path,
-      name: String,
-      entries: Vector[PublicationBundleEntry],
-      removeprefixes: Vector[String],
-      expectedbundledigests: Map[String, String],
       createarticlemedia: Boolean
     ): Unit = {
-      if (realroot == null || !Files.isDirectory(realroot) || entries == null || removeprefixes == null || expectedbundledigests == null)
+      if (root == null || entries == null || removeprefixes == null)
         RAISE.invalidArgumentFault("Publication metadata replacement inputs must be defined")
-      if (realroot.toAbsolutePath.normalize() != realroot || realroot.toRealPath() != realroot)
-        RAISE.invalidArgumentFault(s"Publication registry replacement requires a canonical real root: $realroot")
+      val realroot = _publication_root(root)
       if (createarticlemedia && name != "article-media")
         RAISE.invalidArgumentFault("Publication metadata creation is limited to article-media")
-      val target = _locked_target(realroot, name, requireexisting = !createarticlemedia)
-      _validate_expected_bundle_digests(realroot, expectedbundledigests)
+      val target = _bundle_target(realroot, name, requireexisting = !createarticlemedia)
       val old = _load_bundle(target, name).getOrElse {
         if (createarticlemedia)
           PublicationBundle("article-media", None, "", ".", None, Vector.empty)
@@ -1609,6 +1450,7 @@ private[cozy] object CozyPublicationCompiler {
       val validatedentries = entries.map(_validate_entry)
       val replacepaths = validatedentries.map(_.path).toSet
       val removals = removeprefixes.map(_validate_metadata_removal).distinct
+      CozyArticleMediaRegistry.load(realroot)
       val bundle = old.copy(
         entries = (old.entries.filterNot { entry =>
           replacepaths.contains(entry.path) || removals.exists { removal =>
@@ -1620,104 +1462,12 @@ private[cozy] object CozyPublicationCompiler {
       _write_bundle(target, bundle)
     }
 
-    def withRegistryLock[A](root: Path)(f: Path => A): A =
-      _with_registry_lock(root)(f)
-
-    def captureSiteRootEvidence(root: Path): SiteRootEvidence = {
-      val lexical = _site_root_path(root)
-      val real = _site_root_real_path(lexical)
-      val attributes = _site_root_attributes(lexical)
-      SiteRootEvidence(lexical, real, attributes.fileKey())
-    }
-
-    def validateSiteRootEvidence(evidence: SiteRootEvidence): Unit = {
-      if (evidence == null)
-        RAISE.invalidArgumentFault("Existing publication registry root evidence must be defined")
-      val actual = captureSiteRootEvidence(evidence.lexical)
-      if (actual != evidence)
-        RAISE.invalidArgumentFault("Publication registry root evidence has changed")
-    }
-
-    def withExistingRegistryLock[A](evidence: SiteRootEvidence)(f: Path => A): A = {
-      if (evidence == null || f == null)
-        RAISE.invalidArgumentFault("Existing publication registry lock inputs must be defined")
-      validateSiteRootEvidence(evidence)
-      val realroot = evidence.real
-      val monitor = _registry_locks.computeIfAbsent(realroot.toString, new java.util.function.Function[String, Object] {
-        override def apply(value: String): Object = new Object()
-      })
-      monitor.synchronized {
-        validateSiteRootEvidence(evidence)
-        val lockpath = realroot.resolve(".cozy-publication-registry.lock")
-        if (!Files.exists(lockpath, LinkOption.NOFOLLOW_LINKS))
-          try Files.createFile(lockpath)
-          catch {
-            case _: FileAlreadyExistsException =>
-          }
-        _validate_lock_path(lockpath)
-        val channel = FileChannel.open(lockpath, StandardOpenOption.WRITE)
-        try {
-          val lock = channel.lock()
-          try f(realroot) finally lock.release()
-        } finally channel.close()
-      }
-    }
-
-    private def _with_registry_lock[A](root: Path)(f: Path => A): A = {
+    private def _publication_root(root: Path): Path = {
       Files.createDirectories(root)
-      val realroot = root.toAbsolutePath.normalize().toRealPath()
-      val monitor = _registry_locks.computeIfAbsent(realroot.toString, new java.util.function.Function[String, Object] {
-        override def apply(value: String): Object = new Object()
-      })
-      monitor.synchronized {
-        val lockpath = realroot.resolve(".cozy-publication-registry.lock")
-        if (!Files.exists(lockpath, LinkOption.NOFOLLOW_LINKS))
-          try Files.createFile(lockpath)
-          catch {
-            case _: FileAlreadyExistsException =>
-          }
-        _validate_lock_path(lockpath)
-        val channel = FileChannel.open(lockpath, StandardOpenOption.WRITE)
-        try {
-          val lock = channel.lock()
-          try f(realroot) finally lock.release()
-        } finally channel.close()
-      }
+      root.toAbsolutePath.normalize().toRealPath()
     }
 
-    private def _site_root_path(root: Path): Path = {
-      val lexical = Option(root).map(_.toAbsolutePath.normalize()).getOrElse(
-        RAISE.invalidArgumentFault("Configured publication root must be defined")
-      )
-      if (Files.isSymbolicLink(lexical) || !Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS))
-        RAISE.invalidArgumentFault(s"Configured publication root must be an existing direct non-symlink directory: $lexical")
-      lexical
-    }
-
-    private def _site_root_real_path(lexical: Path): Path = {
-      val real = try lexical.toRealPath() catch {
-        case NonFatal(e) => RAISE.invalidArgumentFault(s"Configured publication root cannot be resolved: ${e.getMessage}")
-      }
-      if (real != lexical)
-        RAISE.invalidArgumentFault(s"Configured publication root must not use a lexical or symlink alias: $lexical")
-      real
-    }
-
-    private def _site_root_attributes(path: Path): BasicFileAttributes = {
-      val attributes = try Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-        case NonFatal(e) => RAISE.invalidArgumentFault(s"Configured publication root attributes cannot be read: ${e.getMessage}")
-      }
-      if (attributes.fileKey() == null)
-        RAISE.invalidArgumentFault(s"Configured publication root has no stable file identity: $path")
-      attributes
-    }
-
-    private def _validate_lock_path(lockpath: Path): Unit =
-      if (Files.exists(lockpath, LinkOption.NOFOLLOW_LINKS) &&
-        (Files.isSymbolicLink(lockpath) || !Files.isRegularFile(lockpath, LinkOption.NOFOLLOW_LINKS)))
-        RAISE.invalidArgumentFault(s"Publication registry lock must be a direct regular file: ${lockpath}")
-
-    private def _locked_target(realroot: Path, name: String, requireexisting: Boolean): Path = {
+    private def _bundle_target(realroot: Path, name: String, requireexisting: Boolean): Path = {
       val validatedname = _validate_bundle_name(name)
       val target = realroot.resolve(s"$validatedname.json").normalize()
       if (!target.startsWith(realroot))
@@ -1736,14 +1486,6 @@ private[cozy] object CozyPublicationCompiler {
       target
     }
 
-    private def _validate_expected_bundle_digests(realroot: Path, expectedbundledigests: Map[String, String]): Unit =
-      if (expectedbundledigests.nonEmpty) {
-        expectedbundledigests.keys.foreach(_validate_bundle_name)
-        val actual = CozyArticleMediaRegistry.load(realroot).bundleDigests
-        if (actual != expectedbundledigests)
-          RAISE.invalidArgumentFault("Publication bundle stale configured snapshot")
-      }
-
     private def _validate_metadata_removal(value: String): MetadataRemoval = {
       val raw = Option(value).getOrElse(RAISE.invalidArgumentFault("Publication bundle metadata removal must be defined"))
       val path = _validate_relative_metadata_path(raw.stripSuffix("/"))
@@ -1755,35 +1497,7 @@ private[cozy] object CozyPublicationCompiler {
       val name = _validate_bundle_name(bundle.publication)
       if (target.getFileName.toString != s"$name.json")
         RAISE.invalidArgumentFault(s"Publication bundle target does not match declaration: $name")
-      val temporary = Files.createTempFile(target.getParent, target.getFileName.toString + ".", ".tmp")
-      try {
-        val bytes = (Json.prettyPrint(_bundle_json(bundle)) + "\n").getBytes(StandardCharsets.UTF_8)
-        Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
-        val channel = FileChannel.open(temporary, StandardOpenOption.WRITE)
-        try channel.force(true) finally channel.close()
-        try {
-          Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        } catch {
-          case _: AtomicMoveNotSupportedException =>
-            RAISE.invalidArgumentFault(s"Atomic publication bundle replacement is not supported: ${target}")
-        }
-      } finally {
-        Files.deleteIfExists(temporary)
-      }
-    }
-
-    private def _write_exact_bundle(target: Path, bytes: Array[Byte]): Unit = {
-      val temporary = Files.createTempFile(target.getParent, target.getFileName.toString + ".", ".rollback.tmp")
-      try {
-        Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
-        val channel = FileChannel.open(temporary, StandardOpenOption.WRITE)
-        try channel.force(true) finally channel.close()
-        try Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        catch {
-          case _: AtomicMoveNotSupportedException =>
-            RAISE.invalidArgumentFault(s"Atomic publication bundle rollback is not supported: $target")
-        }
-      } finally Files.deleteIfExists(temporary)
+      Files.writeString(target, Json.prettyPrint(_bundle_json(bundle)) + "\n", StandardCharsets.UTF_8)
     }
 
     private def _bundle_json(p: PublicationBundle): JsValue = {
@@ -1798,9 +1512,19 @@ private[cozy] object CozyPublicationCompiler {
         "sourceRepository" -> p.sourceRepository,
         "sourcePath" -> p.sourcePath,
         "sourceCommit" -> p.sourceCommit,
-        "entries" -> JsArray(p.entries.sortBy(_.path).map(_entry_json))
+        "entries" -> JsArray(p.entries.sortBy(_.path).map { entry =>
+          val canonicalentry = _entry_json(entry).as[JsObject]
+          if (p.preserveentryfields) {
+            val previous = p.raw.toVector.flatMap(x => (x \ "entries").asOpt[JsArray].toVector.flatMap(_.value))
+              .collectFirst { case value: JsObject if (value \ "path").asOpt[String].contains(entry.path) => value }
+            previous.map(_ ++ canonicalentry).getOrElse(canonicalentry)
+          } else canonicalentry
+        })
       )
-      p.raw.map(_ ++ canonical).getOrElse(canonical)
+      if (p.preserveentryfields)
+        p.raw.map(_ ++ Json.obj("entries" -> (canonical \ "entries").as[JsArray])).getOrElse(canonical)
+      else
+        p.raw.map(_ ++ canonical).getOrElse(canonical)
     }
 
     private def _entry_json(p: PublicationBundleEntry): JsValue =

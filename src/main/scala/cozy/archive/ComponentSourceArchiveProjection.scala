@@ -2,13 +2,12 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
-import java.security.MessageDigest
 
 import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 24, 2026
- * @version Aug. 24, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object ComponentSourceArchiveProjection {
@@ -30,8 +29,8 @@ private[cozy] object ComponentSourceArchiveProjection {
     "tmp"
   )
 
-  final case class Archive(entries: Vector[Entry], archiveDigest: String)
-  final case class Entry(path: String, sha256: String)
+  final case class Archive(entries: Vector[Entry])
+  final case class Entry(path: String)
 
   def project(projectRoot: Path): Archive = {
     val root = _normalized_root(projectRoot)
@@ -40,7 +39,7 @@ private[cozy] object ComponentSourceArchiveProjection {
       .flatMap(path => _entry(root, rootreal, path))
       .sortBy(_.path)
       .toVector
-    Archive(entries, _archive_digest(entries))
+    Archive(entries)
   }
 
   def write(projectRoot: Path, output: Path): Path = {
@@ -65,9 +64,9 @@ private[cozy] object ComponentSourceArchiveProjection {
 
   def render(archive: Archive): String = {
     val entries = archive.entries.map { entry =>
-      s"""{"path":${_json(entry.path)},"sha256":${_json(entry.sha256)}}"""
+      s"""{"path":${_json(entry.path)}}"""
     }.mkString("[", ",", "]")
-    s"""{"schema":${_json(Schema)},"archiveDigest":${_json(archive.archiveDigest)},"entries":$entries}"""
+    s"""{"schema":${_json(Schema)},"entries":$entries}"""
   }
 
   private def _normalized_root(projectroot: Path): Path = {
@@ -110,7 +109,7 @@ private[cozy] object ComponentSourceArchiveProjection {
       val real = try normalized.toRealPath()
       catch { case _: java.io.IOException => return None }
       if (!real.startsWith(rootreal)) None
-      else Some(Entry(relative, _sha256(Files.readAllBytes(real))))
+      else Some(Entry(relative))
     }
   }
 
@@ -172,9 +171,6 @@ private[cozy] object ComponentSourceArchiveProjection {
       }
   }
 
-  private def _archive_digest(entries: Vector[Entry]): String =
-    _sha256(entries.map(entry => s"${entry.path}\t${entry.sha256}\n").mkString.getBytes(StandardCharsets.UTF_8))
-
   private def _json(s: String): String = {
     val builder = new StringBuilder("\"")
     s.foreach {
@@ -191,10 +187,4 @@ private[cozy] object ComponentSourceArchiveProjection {
     builder.append('"').result()
   }
 
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest
-      .getInstance("SHA-256")
-      .digest(bytes)
-      .map(byte => f"${byte & 0xff}%02x")
-      .mkString
 }

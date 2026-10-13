@@ -3,7 +3,6 @@ package cozy.archive
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.time.Instant
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -11,7 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 21, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -103,6 +103,69 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
       }
     }
 
+    "admit SAR distributions" which {
+      "accepts schema1 SAR release records" in {
+        _with_temp_dir("sar-schema1") { dir =>
+          Given("a schema1 SAR catalog and its ordinary installed release records")
+          val catalog = _sar_fixture(dir)
+          val index = _sar_index(catalog)
+          When("the distribution index admits the release")
+          val admitted = ComponentRepositoryIndex.validateCatalogs(index, dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+          Then("SAR identity and schema remain unchanged")
+          admitted shouldBe index
+          catalog.schemaVersion shouldBe "1"
+          catalog.namespace shouldBe empty
+          catalog.id shouldBe empty
+        }
+      }
+
+      "rejects a missing archive" in {
+        _with_temp_dir("sar-missing-record") { dir =>
+          Given("an installed SAR release and its detailed catalog")
+          val catalog = _sar_fixture(dir)
+          val archive = dir.resolve(catalog.versions.head.file.get)
+
+          When("the selected archive is removed and the installed distribution is admitted")
+          Files.delete(archive)
+          val error = intercept[IllegalArgumentException] {
+            ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+          }
+
+          Then("the missing archive is rejected for the named SAR")
+          error.getMessage should include("component.repository.integrity.mismatch")
+          error.getMessage should include("kind=sar artifact=sample-app")
+          error.getMessage should include("field=archive")
+        }
+      }
+
+      "rejects unsafe versions and noncanonical archive paths" in {
+        val cases = Vector(".", "..", "nested/version", "nested\\version").map { version =>
+          version -> s"repository/sar/sample-app/$version/sample-app-$version.sar"
+        } ++ Vector(
+          "1.0.0" -> "../sample-app-1.0.0.sar",
+          "1.0.0" -> "repository/sar/other/1.0.0/sample-app-1.0.0.sar",
+          "1.0.0" -> "repository/sar/sample-app/1.0.0/wrong.sar"
+        )
+        cases.foreach { case (version, file) =>
+          _with_temp_dir("sar-unsafe-path") { dir =>
+            Given("a schema1 SAR catalog naming an unsafe version or wrong file path")
+            val original = _sar_fixture(dir)
+            val catalog = original.copy(recommended = Some(version), latestStable = Some(version),
+              versions = original.versions.map(_.copy(version = version, file = Some(file))))
+            _write(dir.resolve("repository/catalog/sar/sample-app.yaml"), catalog.toYaml)
+            When("the distribution is admitted")
+            val error = intercept[IllegalArgumentException] {
+              ComponentRepositoryIndex.validateCatalogs(_sar_index(catalog), dir.resolve(ComponentRepositoryIndex.PUBLIC_PATH))
+            }
+            Then("the canonical SAR path contract rejects before reading another archive")
+            error.getMessage should include("kind=sar")
+            error.getMessage should include(if (version == "1.0.0") "field=file" else "field=version")
+          }
+        }
+      }
+
+    }
+
     "maintain publication state" which {
       "merges unrelated entries and removes an entry whose catalog is empty" in {
         Given("an existing SAR entry and a release CAR catalog")
@@ -133,9 +196,9 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
           val catalog = _car_fixture(dir)
           val index = ComponentRepositoryIndex.update(None, catalog, Instant.parse("2026-07-21T01:02:03Z"))
 
-          When("Cozy validates and atomically writes the index")
+          When("Cozy validates and directly writes the index")
           ComponentRepositoryIndex.validateCatalogs(index, indexpath)
-          ComponentRepositoryIndex.writeAtomic(indexpath, index)
+          ComponentRepositoryIndex.write(indexpath, index)
 
           Then("the persisted index remains valid and stale selectors are rejected")
           ComponentRepositoryIndex.load(indexpath) shouldBe index
@@ -151,7 +214,7 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
           val warehouse = dir.resolve("warehouse")
           val indexpath = warehouse.resolve("repository/catalog/index.json")
           val car = _car_fixture(warehouse)
-          ComponentRepositoryIndex.writeAtomic(
+          ComponentRepositoryIndex.write(
             indexpath,
             ComponentRepositoryIndex.update(None, car, Instant.parse("2026-07-21T01:02:03Z"))
           )
@@ -215,7 +278,6 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
   private val _car_catalog_path = "car/org/example/example-sample.yaml"
   private val _car_archive_path = "repository/car/org/example/example-sample/1.0.0/example-sample-1.0.0.car"
   private val _car_archive_bytes = "component-repository-index-car".getBytes(StandardCharsets.UTF_8)
-  private val _car_digest = _sha256(_car_archive_bytes)
 
   private def _entry(kind: String, artifactid: String): ComponentRepositoryIndexEntry =
     if (kind == "car")
@@ -260,9 +322,7 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
         Some(s"${_car_namespace}.${_car_id}"),
         Some("2026-07-21T01:02:03Z"),
         Some(_car_archive_path),
-        None,
-        Some(_car_digest),
-        Some(s"${_car_namespace}:${_car_artifact_id}:1.0.0@sha256:${_car_digest}")
+        None
       )
     else
       RepositoryArtifactCatalogVersion(
@@ -272,8 +332,7 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
         None,
         Some("2026-07-21T01:02:03Z"),
         Some(s"repository/sar/$id/1.0.0/$id-1.0.0.sar"),
-        None,
-        Some("abc")
+        None
       )
 
   private def _car_index_entry_json(catalog: String = _car_catalog_path): String =
@@ -301,10 +360,6 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
       val archive = root.resolve(release.file.get)
       Files.createDirectories(archive.getParent)
       Files.write(archive, _car_archive_bytes)
-      Files.write(
-        archive.resolveSibling(archive.getFileName.toString + ".sha256"),
-        (_car_digest + "\n").getBytes(StandardCharsets.UTF_8)
-      )
     }
 
   private def _car_fixture(root: Path): RepositoryArtifactCatalog = {
@@ -314,8 +369,15 @@ class ComponentRepositoryIndexSpec extends AnyWordSpec with Matchers with GivenW
     catalog
   }
 
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(value => "%02x".format(value & 0xff)).mkString
+  private def _sar_fixture(root: Path): RepositoryArtifactCatalog = {
+    _write(root.resolve("repository/sar/sample-app/1.0.0/sample-app-1.0.0.sar"), "sar-body")
+    val catalog = _catalog("sar", "sample-app", Vector(_version("sar", "sample-app")))
+    _write(root.resolve("repository/catalog/sar/sample-app.yaml"), catalog.toYaml)
+    catalog
+  }
+
+  private def _sar_index(catalog: RepositoryArtifactCatalog): ComponentRepositoryIndex =
+    ComponentRepositoryIndex.update(None, catalog, Instant.parse("2026-10-04T00:00:00Z"))
 
   private def _write(path: Path, text: String): Path = {
     Option(path.getParent).foreach(Files.createDirectories(_))

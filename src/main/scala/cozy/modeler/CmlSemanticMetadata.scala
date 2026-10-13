@@ -7,7 +7,7 @@ import CmlSemanticFoundation._
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlSemanticMetadata {
@@ -144,7 +144,6 @@ private[cozy] object CmlSemanticMetadata {
     _sorted_object(Vector(
       "authorityId" -> JsString(value.authorityId),
       "path" -> JsString(value.path),
-      "sha256" -> JsString(value.sha256),
       "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(BigDecimal(line)))
     ))
 

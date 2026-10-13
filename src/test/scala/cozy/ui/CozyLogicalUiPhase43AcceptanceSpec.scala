@@ -28,7 +28,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Sep. 2, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -42,13 +42,13 @@ final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers
         val projection = fixture._2
         val semantics = fixture._3
 
-        When("the candidate is projected, semantically classified, and explicitly accepted")
+        When("the accepted candidate, screen projection, and typed semantics are inspected")
         val coordinate = candidate.input.componentSurfaces.head.component
         val detail = projection.input.screens.find(_.id == "order-detail").get
         val invocation = detail.interactions.find(_.id == "invoke").get
         val transition = semantics.input.transitionActions.head
 
-        Then("the exact SalesOrder identity, three-layer authority, Aggregate Operation boundary, and distinct accepted identities remain bound")
+        Then("the exact SalesOrder identity, three-layer authority, Aggregate Operation boundary, and explicit acceptance decision remain available")
         candidate.input.componentSurfaces should have size 1
         coordinate shouldBe _sales_order
         coordinate.qualifiedName shouldBe "org.example.sales.SalesOrder"
@@ -58,7 +58,6 @@ final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers
           UseCaseRealization(_system_use_case, _ui_use_case)
         )
         candidate.input.componentBindings should contain allElementsOf _all_bindings
-        projection.candidate.identity shouldBe candidate.identity
         projection.input.aggregateBoundaries.head.root shouldBe _aggregate_binding
         projection.input.aggregateBoundaries.head.publicOperations should contain (_operation_binding)
         detail.subject shouldBe ScreenSubject(WorkflowRole, _workflow_binding)
@@ -81,8 +80,8 @@ final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers
           PowertypeRole,
           StateMachineRole
         )
-        Set(candidate.identity, candidate.inputIdentity, accepted.decision.decisionIdentity, accepted.identity).size shouldBe 4
-        accepted.candidate.identity shouldBe candidate.identity
+        accepted.candidate.input shouldBe candidate.input
+        accepted.decision.decisionId shouldBe "accepted-sales-order"
       }
     }
 
@@ -142,34 +141,24 @@ final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers
     }
 
     "remain deterministic under repeated equivalent input" which {
-      "produce one review document and typed currentness receipt for every admitted ordering" in {
+      "produce one complete review document for every admitted ordering" in {
         Given("canonical and reordered SalesOrder candidate, projection, semantic, and acceptance tuples")
         val first = _fixture()
         val second = _fixture(reversed = true)
+        When("equivalent tuples are rendered repeatedly through the read-only review boundary")
         val firstreview = _right(CozyLogicalUiReview.render(first._1, first._2, first._3))
         val secondreview = _right(CozyLogicalUiReview.render(second._1, second._2, second._3))
-
-        When("equivalent tuples are rendered repeatedly through the read-only review boundary")
         val property = Prop.forAll(Gen.oneOf(true, false)) { reverse =>
           val fixture = _fixture(reversed = reverse)
           val review = _right(CozyLogicalUiReview.render(fixture._1, fixture._2, fixture._3))
-          review.html == firstreview.html && review.receipt == firstreview.receipt
+          review.html == firstreview.html
         }
         val propertyresult = Test.check(Test.Parameters.default.withMinSuccessfulTests(20), property)
-        val currentresult = CozyLogicalUiReview.verifyCurrent(first._1, first._2, first._3, firstreview)
 
-        Then("canonical identities, HTML bytes, diagnostics, and typed receipt fields are stable while the page remains read-only")
-        first._1.identity shouldBe second._1.identity
-        first._2.identity shouldBe second._2.identity
-        first._3.identity shouldBe second._3.identity
+        Then("HTML bytes and diagnostics are stable while the page remains read-only")
         firstreview.html shouldBe secondreview.html
         firstreview.htmlBytes shouldBe secondreview.htmlBytes
         firstreview.diagnostics shouldBe empty
-        firstreview.receipt.schema shouldBe "cozy.logical-ui-review.v1"
-        firstreview.receipt.version shouldBe 1
-        firstreview.receipt.rendererProfile shouldBe "cozy.logical-ui-review.renderer.v1"
-        firstreview.receipt.htmlIdentity should startWith("sha256:")
-        firstreview.receipt.identity should startWith("sha256:")
         firstreview.html should include ("Business -&gt; System -&gt; UI")
         firstreview.html should include ("Step-to-screen interaction coverage")
         firstreview.html should include ("Navigation and reachability")
@@ -183,35 +172,16 @@ final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers
         firstreview.html should not include ("<form")
         firstreview.html should not include ("http://")
         firstreview.html should not include ("https://")
-        currentresult shouldBe Right(())
         propertyresult.passed shouldBe true
       }
     }
 
-    "diagnose stale semantic input" which {
-      "reject a changed typed semantic projection through verifyCurrent" in {
-        Given("a current accepted SalesOrder review and an equivalent semantic input changed only in its typed purpose")
-        val fixture = _fixture()
-        val review = _right(CozyLogicalUiReview.render(fixture._1, fixture._2, fixture._3))
-        val changedinput = fixture._3.input.copy(screens = fixture._3.input.screens.map(screen =>
-          if (screen.screenId == "order-detail") screen.copy(purpose = BrowsePurpose) else screen
-        ))
-
-        When("the changed semantic input is projected and checked against the existing typed review receipt")
-        val changedsemantics = _right(CozyLogicalUiSemantics.project(fixture._2, changedinput))
-        val result = CozyLogicalUiReview.verifyCurrent(fixture._1, fixture._2, changedsemantics, review)
-
-        Then("currentness fails closed with the existing structured review diagnostic")
-        _left(result).code shouldBe "LUI43_REVIEW_CURRENTNESS_INVALID"
-        review.receipt.semanticProjectionIdentity should not equal changedsemantics.identity
-      }
-    }
   }
 
   private def _fixture(reversed: Boolean = false): (AcceptedLogicalUi, LogicalUiProjection, LogicalUiSemanticProjection) = {
     val fixture = _right(CozyLogicalUiSalesOrderFixtures.candidate(reversed))
     val candidate = fixture._1
-    val accepted = _right(CozyLogicalUi.accept(candidate, AcceptanceDecision("accepted-sales-order", candidate.identity)))
+    val accepted = _right(CozyLogicalUi.accept(candidate, AcceptanceDecision("accepted-sales-order")))
     (accepted, fixture._2, fixture._3)
   }
 
@@ -220,8 +190,4 @@ final class CozyLogicalUiPhase43AcceptanceSpec extends AnyWordSpec with Matchers
     case Left(error) => fail(s"Expected a Logical UI result but received ${error.code}: ${error.reason}")
   }
 
-  private def _left[A](value: Either[LogicalUiError, A]): LogicalUiError = value match {
-    case Left(error) => error
-    case Right(_) => fail("Expected a closed Logical UI failure")
-  }
 }

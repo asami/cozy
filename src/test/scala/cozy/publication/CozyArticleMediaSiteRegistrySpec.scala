@@ -12,7 +12,7 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug. 11, 2026
- * @version Aug. 11, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -24,7 +24,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           val update = _infographic_update()
 
           When("the strict-only transaction merges the role")
-          val result = CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(update), () => ()))
+          val result = CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(update)))
 
           Then("the canonical article-media bundle contains only the strict record")
           result.bundlePaths shouldBe Vector(root.resolve("article-media.json"))
@@ -44,7 +44,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           val second = _infographic_update("development-process/second")
 
           When("both strict-only roles merge in one transaction")
-          val result = CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(first, second), () => ()))
+          val result = CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(first, second)))
 
           Then("one canonical bundle replacement contains both deterministic strict records")
           result.bundlePaths shouldBe Vector(root.resolve("article-media.json"))
@@ -68,7 +68,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           When("a strict-only infographic is merged for that article")
           val result = CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(
             _infographic_update("development-process/integrity-owner")
-          ), () => ()))
+          )))
 
           Then("the existing owner receives the strict record without moving or replacing integrity evidence")
           result.bundlePaths shouldBe Vector(root.resolve("existing-owner.json"))
@@ -104,7 +104,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           When("the Japanese external-link video is replaced")
           val result = CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(
             _video_update(identity, "ja", "https://www.youtube.com/watch?v=new-example")
-          ), () => ()))
+          )))
           val merged = result.snapshot.entries.find(_.path == strict.entryPath).map(_.metadata).get
 
           Then("only that nested role changes")
@@ -119,7 +119,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
       }
     }
 
-    "reject unsafe strict-only plans atomically" which {
+    "reject invalid strict-only plans before replacement" which {
       "reject duplicate normalized role keys and split owners before replacement" in {
         _with_root { root =>
           Given("an owner split between a strict path and its complete integrity prefix")
@@ -137,10 +137,10 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           val duplicate = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(
             _infographic_update(" development-process/other "),
             _infographic_update("development-process/other")
-          ), () => ())))
+          ))))
           val split = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(
             _video_update(identity, "ja", "https://youtu.be/new-example")
-          ), () => ())))
+          ))))
 
           Then("both failures occur without a registry replacement")
           duplicate.getMessage should include("Duplicate article-media site role update")
@@ -151,7 +151,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
         }
       }
 
-      "reject a site-hosted video and a missing callback before mutation" in {
+      "reject a site-hosted video before mutation" in {
         _with_root { root =>
           Given("an existing generic owner bundle and a strict-only site-hosted video")
           _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("kept" -> true))))
@@ -167,13 +167,11 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
             )))
           )
 
-          When("the transaction receives a hosted video or a null replacement callback")
-          val hostederror = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(hosted), () => ())))
-          val callbackerror = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(_infographic_update()), null)))
+          When("the transaction receives a hosted video")
+          val hostederror = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(hosted))))
 
-          Then("strict-only mutation rejects both conditions without rewriting the owner")
+          Then("strict-only mutation rejects the hosted video without rewriting the owner")
           hostederror.getMessage should include("external-link")
-          callbackerror.getMessage should include("before-replace callback")
           _bundle_bytes(root.resolve("owner.json")) shouldBe before
           Files.exists(root.resolve("article-media.json")) shouldBe false
         }
@@ -188,7 +186,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           )
 
           When("the strict-only transaction receives the incomplete variant")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(update), () => ())))
+          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(update))))
 
           Then("the exactly-one-medium contract rejects the update without a canonical bundle write")
           error.getMessage should include("exactly one medium")
@@ -209,7 +207,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           )
 
           When("the strict-only transaction receives the ambiguous variant")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(update), () => ())))
+          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(Vector(update))))
 
           Then("the exactly-one-medium contract rejects the update without a canonical bundle write")
           error.getMessage should include("exactly one medium")
@@ -217,71 +215,10 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
         }
       }
 
-      "leave registry bytes unchanged when its callback throws" in {
-        _with_root { root =>
-          Given("an existing generic registry bundle and a site infographic")
-          _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("kept" -> true))))
-          val before = _bundle_bytes(root.resolve("owner.json"))
-
-          When("the callback throws before replacement")
-          val error = intercept[RuntimeException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(
-            Vector(_infographic_update()),
-            () => throw new RuntimeException("callback failure")
-          )))
-
-          Then("the existing bundle is byte-identical and no strict owner is created")
-          error.getMessage shouldBe "callback failure"
-          _bundle_bytes(root.resolve("owner.json")) shouldBe before
-          Files.exists(root.resolve("article-media.json")) shouldBe false
-        }
-      }
-
-      "reject callback-driven snapshot drift without creating a transaction-generated strict record" in {
-        _with_root { root =>
-          Given("an existing generic registry bundle and a callback that mutates it")
-          _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("revision" -> 1))))
-          val before = _bundle_bytes(root.resolve("owner.json"))
-
-          When("the callback changes a configured bundle before revalidation")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root)(_.mergeSite(
-            Vector(_infographic_update()),
-            () => _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("revision" -> 2))))
-          )))
-
-          Then("the callback mutation may remain, but no transaction-generated strict record is created")
-          error.getMessage should include("stale configured snapshot")
-          _bundle_bytes(root.resolve("owner.json")) should not be before
-          CozyArticleMediaRegistry.load(root).entries.map(_.path) shouldBe Vector("metadata/generic.json")
-          Files.exists(root.resolve("article-media.json")) shouldBe false
-        }
-      }
-    }
-
-    "run before replacement under the current transaction owner" which {
-      "allow the callback to use the active owner-thread transaction snapshot" in {
-        _with_root { root =>
-          Given("an active transaction callback owner and one site infographic")
-          val ownerthread = Thread.currentThread
-          var callbackthread: Thread = null
-          var callbacksnapshot: CozyArticleMediaRegistry.Snapshot = null
-
-          When("the strict-only callback runs immediately before replacement")
-          CozyArticleMediaRegistry.transaction(root) { transaction =>
-            transaction.mergeSite(Vector(_infographic_update()), () => {
-              callbackthread = Thread.currentThread
-              callbacksnapshot = transaction.snapshot
-            })
-          }
-
-          Then("the callback remains on the transaction owner thread with its active snapshot")
-          callbackthread shouldBe ownerthread
-          callbacksnapshot.entries shouldBe empty
-        }
-      }
     }
 
     "validate site plans read-only" which {
-      "plan a strict site merge against an existing snapshot without creating a lock or bundle" in {
+      "plan a strict site merge against an existing snapshot without creating a bundle" in {
         _with_root { root =>
           Given("an existing generic publication bundle and one exact site infographic")
           _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("kept" -> true))))
@@ -293,8 +230,7 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
           Then("the existing bundle remains byte-identical")
           _bundle_bytes(root.resolve("owner.json")) shouldBe before
 
-          And("no registry lock or canonical strict bundle is created")
-          Files.exists(root.resolve(".cozy-publication-registry.lock")) shouldBe false
+          And("no canonical strict bundle is created")
           Files.exists(root.resolve("article-media.json")) shouldBe false
         }
       }
@@ -311,10 +247,9 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
             _infographic_update("development-process/example")
           )))
 
-          Then("the duplicate is rejected without a lock, bundle replacement, or canonical owner")
+          Then("the duplicate is rejected without bundle replacement or canonical owner creation")
           error.getMessage should include("Duplicate article-media site role update")
           _bundle_bytes(root.resolve("owner.json")) shouldBe before
-          Files.exists(root.resolve(".cozy-publication-registry.lock")) shouldBe false
           Files.exists(root.resolve("article-media.json")) shouldBe false
         }
       }
@@ -337,42 +272,14 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
             _infographic_update(identity)
           )))
 
-          Then("ownership conflict rejects without a lock or replacement")
+          Then("ownership conflict rejects before replacement")
           error.getMessage should include("multiple bundle owners")
           _bundle_bytes(root.resolve("strict-owner.json")) shouldBe strictbefore
           _bundle_bytes(root.resolve("integrity-owner.json")) shouldBe integritybefore
-          Files.exists(root.resolve(".cozy-publication-registry.lock")) shouldBe false
           Files.exists(root.resolve("article-media.json")) shouldBe false
         }
       }
 
-      "reject null callbacks and callback-driven snapshot drift without a registry mutation" in {
-        _with_root { root =>
-          Given("an existing generic publication bundle and a site infographic")
-          _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("revision" -> 1))))
-          val before = _bundle_bytes(root.resolve("owner.json"))
-
-          When("the read-only callback is absent or changes the snapshot")
-          val nullerror = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateSiteReadOnly(
-            root,
-            Vector(_infographic_update()),
-            null
-          ))
-          val drifterror = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateSiteReadOnly(
-            root,
-            Vector(_infographic_update()),
-            () => _write_bundle(root, "owner", Vector(_entry("metadata/generic.json", Json.obj("revision" -> 2))))
-          ))
-
-          Then("both callback boundaries reject before a strict replacement or lock creation")
-          nullerror.getMessage should include("before-revalidation callback")
-          drifterror.getMessage should include("stale read-only snapshot")
-          _bundle_bytes(root.resolve("owner.json")) should not be before
-          CozyArticleMediaRegistry.load(root).entries.map(_.path) shouldBe Vector("metadata/generic.json")
-          Files.exists(root.resolve(".cozy-publication-registry.lock")) shouldBe false
-          Files.exists(root.resolve("article-media.json")) shouldBe false
-        }
-      }
     }
   }
 
@@ -403,11 +310,10 @@ final class CozyArticleMediaSiteRegistrySpec extends AnyWordSpec with Matchers w
       articleIdentity = identity,
       locale = locale,
       role = role,
-      artifact = CozyArticleMediaIntegrity.Artifact("example", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example", "1.0.0")),
       publicPath = new URI("/repository/video/example.mp4"),
       repositoryPath = "video/example.mp4",
       mediaType = "video/mp4",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example/manifest.json", "metadata/artifacts/repository/example.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))

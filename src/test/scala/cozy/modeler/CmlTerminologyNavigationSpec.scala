@@ -11,7 +11,7 @@ import CmlTerminologyNavigation._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlTerminologyNavigationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Terminology navigation" should {
@@ -278,7 +278,7 @@ final class CmlTerminologyNavigationSpec extends AnyWordSpec with Matchers with 
     targets: Vector[Either[TerminologyDiagnostic, ReferenceTarget]])
 
   private def _source(authority: String): SourceAttribution = {
-    SourceAttribution(authority, "src/model.cml", "a" * 64, Some(7))
+    SourceAttribution(authority, "src/model.cml", Some(7))
   }
 
   private def _ref(authority: String, target: TermId, boundary: ReferenceBoundary): SemanticReference = {
@@ -382,7 +382,7 @@ final class CmlTerminologyNavigationSpec extends AnyWordSpec with Matchers with 
     val source = ref.source
     val elements = Vector(element.copy(identity = Present(ModelElementId("foreign", "shared"))),
       element.copy(kind = ""), element.copy(name = ""), element.copy(source = source.copy(authorityId = "foreign")),
-      element.copy(source = source.copy(path = "other/model.cml")), element.copy(source = source.copy(sha256 = "b" * 64)),
+      element.copy(source = source.copy(path = "other/model.cml")),
       element.copy(source = source.copy(line = None)), element.copy(references = Present(Vector(ref))),
       element.copy(identity = _gaps(1)))
     val refs = Vector(ref.copy(target = TermTarget(TermId("missing:v", "unregistered"))), ref.copy(boundary = External),
@@ -393,7 +393,7 @@ final class CmlTerminologyNavigationSpec extends AnyWordSpec with Matchers with 
       ref.copy(context = Present("other context")), ref.copy(preferredLabel = Present(LocalizedLabel("other", Some("JA")))),
       ref.copy(preferredLabel = Present(LocalizedLabel("参照ラベル", None))),
       ref.copy(source = source.copy(authorityId = "foreign")), ref.copy(source = source.copy(path = "foreign/ref.cml")),
-      ref.copy(source = source.copy(sha256 = "b" * 64)), ref.copy(source = source.copy(line = Some(8))),
+      ref.copy(source = source.copy(line = Some(8))),
       ref.copy(origin = Declared), ref.copy(origin = Derived("other:rule", Vector(_source("input:A")))),
       ref.copy(origin = Derived("rule:literal", Vector(_source("input:B"), _source("input:A")))))
     elements.map(value => link.copy(element = value)) ++ refs.map(value => link.copy(reference = value))
@@ -403,8 +403,7 @@ final class CmlTerminologyNavigationSpec extends AnyWordSpec with Matchers with 
     Vector(null, source.copy(authorityId = null), source.copy(authorityId = ""), source.copy(authorityId = "\u00a0bad"),
       source.copy(path = null), source.copy(path = ""), source.copy(path = "/absolute"), source.copy(path = "http:remote"),
       source.copy(path = "a\\b"), source.copy(path = "a//b"), source.copy(path = "a/./b"), source.copy(path = "a/../b"),
-      source.copy(path = "a/"), source.copy(path = "a\u0000b"), source.copy(sha256 = null), source.copy(sha256 = "A" * 64),
-      source.copy(sha256 = "a" * 63), source.copy(sha256 = "g" * 64), source.copy(line = null),
+      source.copy(path = "a/"), source.copy(path = "a\u0000b"), source.copy(line = null),
       source.copy(line = Some(0)), source.copy(line = Some(-1)))
   }
 

@@ -5,7 +5,8 @@ import java.nio.file.Path
 /*
  * @since   May. 20, 2026
  *  version Jul. 13, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 object RepositoryArtifactCatalog {
@@ -68,9 +69,7 @@ object RepositoryArtifactCatalogVersion {
     component: Option[String],
     publishedAt: Option[String],
     file: Option[String],
-    runtime: Option[RepositoryArtifactRuntimeRequirement],
-    checksumSha256: Option[String],
-    integrityKey: Option[String] = None
+    runtime: Option[RepositoryArtifactRuntimeRequirement]
   ): RepositoryArtifactCatalogVersion =
     _root_.cozy.archive.RepositoryArtifactCatalogVersion(
       version,
@@ -79,15 +78,13 @@ object RepositoryArtifactCatalogVersion {
       component,
       publishedAt,
       file,
-      runtime,
-      checksumSha256,
-      integrityKey
+      runtime
     )
 
   def unapply(value: RepositoryArtifactCatalogVersion): Option[
-    (String, Option[String], Option[String], Option[String], Option[String], Option[String], Option[RepositoryArtifactRuntimeRequirement], Option[String])
+    (String, Option[String], Option[String], Option[String], Option[String], Option[String], Option[RepositoryArtifactRuntimeRequirement])
   ] =
-    Option(value).map(x => (x.version, x.channel, x.status, x.component, x.publishedAt, x.file, x.runtime, x.checksumSha256))
+    Option(value).map(x => (x.version, x.channel, x.status, x.component, x.publishedAt, x.file, x.runtime))
 }
 
 object RepositoryArtifactRuntimeRequirement {

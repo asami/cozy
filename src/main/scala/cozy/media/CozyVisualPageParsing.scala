@@ -3,13 +3,13 @@ package cozy.media
 import cozy.media.CozyVisualPage._
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 2, 2026
- * @version Sep. 2, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVisualPageParsing {
@@ -65,7 +65,7 @@ private[cozy] trait CozyVisualPageParsing {
   }
 
   private[cozy] final def _asset_value(asset: Asset): Value = VObject(Vector(
-    "id" -> VString(asset.id), "path" -> VString(asset.path), "mediaType" -> VString(asset.mediaType), "sha256" -> VString(asset.sha256)
+    "id" -> VString(asset.id), "path" -> VString(asset.path), "mediaType" -> VString(asset.mediaType)
   ))
 
   private[cozy] final def _source_value(source: SourceBinding): Value =
@@ -117,12 +117,6 @@ private[cozy] trait CozyVisualPageParsing {
     "\"" + escaped + "\""
   }
 
-  private[cozy] final def _identity(value: Value): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(_canonical(value).getBytes(StandardCharsets.UTF_8)).map(byte => f"${byte & 0xff}%02x").mkString
-
-  private[cozy] final def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
-
   private[cozy] final def _markdown_line(key: String, value: Value): String = s"$key: ${_canonical(value)}"
   private[cozy] final def _parameter_text(value: ParameterValue): String = _canonical(_parameter_value(value))
   private[cozy] final def _normalize_newlines(value: String): String = Option(value).getOrElse("").replace("\r\n", "\n").replace('\r', '\n')
@@ -165,28 +159,19 @@ private[cozy] trait CozyVisualPageParsing {
     case NonFatal(e) => _fail("VISUAL_PAGE_READ", label, Option(e.getMessage).getOrElse("cannot read UTF-8 file"))
   }
 
-  private[cozy] final def _atomic_write(path: Path, text: String): Unit = {
+  private[cozy] final def _write_output(path: Path, text: String): Unit = {
     val output = path.toAbsolutePath.normalize()
     val parent = Option(output.getParent).getOrElse(_fail("VISUAL_PAGE_SAVE", "$save", "output parent is required"))
     if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(parent))
       _fail("VISUAL_PAGE_SAVE", "$save", "output parent must be an existing direct directory")
     if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(output))
       _fail("VISUAL_PAGE_SAVE", "$save", "output must not be a symbolic link")
-    var temporary = Option.empty[Path]
     try {
-      val prefix = Option(output.getFileName).map(_.toString).filter(_.length >= 3).getOrElse("vpg")
-      val staged = Files.createTempFile(parent, prefix, ".tmp")
-      temporary = Some(staged)
-      Files.write(staged, text.getBytes(StandardCharsets.UTF_8))
-      try Files.move(staged, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      catch {
-        case _: AtomicMoveNotSupportedException => _fail("VISUAL_PAGE_SAVE_ATOMIC", "$save", "filesystem does not support same-directory atomic output replacement")
-      }
-      temporary = None
+      Files.write(output, text.getBytes(StandardCharsets.UTF_8))
     } catch {
       case fault: VisualPageFault => throw fault
       case NonFatal(e) => _fail("VISUAL_PAGE_SAVE", "$save", Option(e.getMessage).getOrElse("cannot write output"))
-    } finally temporary.foreach(path => Files.deleteIfExists(path))
+    }
   }
 
   private[cozy] final def _cli_path(value: String, path: String): Path = try {

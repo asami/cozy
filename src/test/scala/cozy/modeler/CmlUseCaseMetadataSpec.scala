@@ -13,7 +13,7 @@ import CmlUseCaseMetadata._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlUseCaseMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -473,7 +473,7 @@ final class CmlUseCaseMetadataSpec extends AnyWordSpec with Matchers with GivenW
   private val _flow_fields = Vector("name", "summary", "description", "condition", "steps", "alternates", "exceptions")
 
   private def _source(authority: String): SourceAttribution = {
-    SourceAttribution(authority, "src/main/cml/use-case-spec.cml", "c" * 64, Some(7))
+    SourceAttribution(authority, "src/main/cml/use-case-spec.cml", Some(7))
   }
 
   private def _record(kind: String, id: String, authority: String = "supplier.example"): ElementRecord = {
@@ -671,7 +671,7 @@ final class CmlUseCaseMetadataSpec extends AnyWordSpec with Matchers with GivenW
     }
     Json.obj("identity" -> identity, "kind" -> record.kind, "name" -> record.name,
       "source" -> Json.obj("authorityId" -> record.source.authorityId, "path" -> record.source.path,
-        "sha256" -> record.source.sha256, "line" -> record.source.line), "references" -> references)
+        "line" -> record.source.line), "references" -> references)
   }
 
   private def _literal_refs(ids: Vector[String]): JsObject = {

@@ -7,7 +7,7 @@ import CmlSemanticMetadata._
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlSemanticMetadataReader {
@@ -199,18 +199,14 @@ private[cozy] object CmlSemanticMetadataReader {
 
   private def _source(value: JsValue, path: String): Result[SourceAttribution] =
     _object(value, path).flatMap { objectvalue =>
-      _exact_fields(objectvalue, Vector("authorityId", "path", "sha256", "line"), path).flatMap { _ =>
-        for {
-          authorityvalue <- _field(objectvalue, "authorityId", s"$path.authorityId")
-          authorityid <- _string(authorityvalue, s"$path.authorityId")
-          pathvalue <- _field(objectvalue, "path", s"$path.path")
-          sourcename <- _string(pathvalue, s"$path.path")
-          digestvalue <- _field(objectvalue, "sha256", s"$path.sha256")
-          digest <- _string(digestvalue, s"$path.sha256")
-          linevalue <- _field(objectvalue, "line", s"$path.line")
-          line <- _line(linevalue, s"$path.line")
-        } yield SourceAttribution(authorityid, sourcename, digest, line)
-      }
+      for {
+        authorityvalue <- _field(objectvalue, "authorityId", s"$path.authorityId")
+        authorityid <- _string(authorityvalue, s"$path.authorityId")
+        pathvalue <- _field(objectvalue, "path", s"$path.path")
+        sourcename <- _string(pathvalue, s"$path.path")
+        linevalue <- _field(objectvalue, "line", s"$path.line")
+        line <- _line(linevalue, s"$path.line")
+      } yield SourceAttribution(authorityid, sourcename, line)
     }
 
   private def _label(value: JsValue, path: String): Result[LocalizedLabel] =

@@ -32,12 +32,13 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
-private[cozy] trait CozyBokModel {
-  self: CozyBokImplementation.type =>
+private[cozy] object CozyBokModel {
+  import CozyBokImplementation._
+
   private[bok] final case class BokInspection(
     input: Path,
     root: Option[Path],
@@ -53,9 +54,13 @@ private[cozy] trait CozyBokModel {
       else
         "needs-fix"
   }
+
   private[bok] final case class BokFix(description: String, apply: () => Unit)
+
   private[bok] final case class DoxMetadataSectionIssue(path: Path, line: Int, heading: String)
+
   private[bok] final case class MarkdownMetadataIssue(path: Path, message: String)
+
   private[bok] final case class CategoryContent(
     slug: String,
     title: String,
@@ -64,6 +69,7 @@ private[cozy] trait CozyBokModel {
     articles: Vector[CategoryPageItem],
     terms: Vector[CategoryPageItem]
   )
+
   private[bok] final case class CategoryPageItem(
     href: String,
     title: String,
@@ -71,6 +77,7 @@ private[cozy] trait CozyBokModel {
     modifiedatmillis: Long,
     reading: Option[String] = None
   )
+
   private[bok] final case class LocalizedGlossaryItem(
     href: String,
     title: String,
@@ -78,6 +85,7 @@ private[cozy] trait CozyBokModel {
     categoryslug: String,
     categorytitle: String
   )
+
   private[bok] final case class ArticleIndexItem(
     categoryslug: String,
     categorytitle: String,
@@ -86,12 +94,14 @@ private[cozy] trait CozyBokModel {
     brief: String,
     termextraction: TermExtraction
   )
+
   private[bok] final case class DashboardCounts(
     categorycount: Int,
     articlecount: Int,
     glossarytermcount: Int,
     totalitemcount: Int
   )
+
   private[bok] final case class DashboardBucket(
     label: String,
     startdate: String,
@@ -101,16 +111,19 @@ private[cozy] trait CozyBokModel {
     glossarytermcount: Int,
     hasbreakdown: Boolean
   )
+
   private[bok] final case class DashboardRdfSummary(
     resourcecount: Int,
     triplecount: Int,
     subjectcount: Int,
     predicatecount: Int
   )
+
   private[bok] final case class DashboardIncrements(
     scale: String,
     buckets: Vector[DashboardBucket]
   )
+
   private[bok] final case class DashboardRecentItem(
     href: String,
     title: String,
@@ -118,6 +131,7 @@ private[cozy] trait CozyBokModel {
     kindkey: String,
     modifiedatmillis: Long
   )
+
   private[bok] final case class DashboardCategory(
     name: String,
     title: String,
@@ -125,6 +139,7 @@ private[cozy] trait CozyBokModel {
     increments: DashboardIncrements,
     rdf: Option[DashboardRdfSummary]
   )
+
   private[bok] final case class BokDashboard(
     counts: DashboardCounts,
     rdf: DashboardRdfSummary,
@@ -133,6 +148,7 @@ private[cozy] trait CozyBokModel {
   )
 
   private[bok] final case class ScenarioIndex(scenarios: Vector[ScenarioEntry])
+
   private[bok] final case class ScenarioEntry(
     id: String,
     slug: String,
@@ -155,6 +171,7 @@ private[cozy] trait CozyBokModel {
   }
 
   private[bok] final case class TermIndex(terms: Vector[TermEntry])
+
   private[bok] final case class TermEntry(
     id: String,
     slug: String,
@@ -195,9 +212,13 @@ private[cozy] trait CozyBokModel {
       }
     def cmlLinks: Vector[TermCmlLink] = (cml ++ event.toVector.flatMap(_.cmlLinks)).distinct
   }
+
   private[bok] final case class TermReference(title: String, path: String, relation: String)
+
   private[bok] final case class TermRdfReference(resource: String, label: String, predicate: Option[String], direction: String)
+
   private[bok] final case class TermCmlLink(kind: String, value: String)
+
   private[bok] final case class TermEvent(
     occurredat: Option[String],
     startat: Option[String],
@@ -219,9 +240,13 @@ private[cozy] trait CozyBokModel {
         cmlstatemachine.map(TermCmlLink("statemachine", _))
       ).flatten
   }
+
   private[bok] final case class TermActor(roles: Vector[String], organization: Option[String], description: Option[String])
+
   private[bok] final case class TermRole(actors: Vector[String], responsibilities: Vector[String], permissions: Vector[String])
+
   private[bok] final case class TermQuality(isolated: Boolean, unreferenced: Boolean, weaklyconnected: Boolean)
+
   private[bok] final case class TermExtraction(status: Option[String], planned: Option[Boolean]) {
     def isPlanned: Boolean =
       planned.getOrElse(true) && !status.map(_normalize_status).exists(x => x == "skipped" || x == "out-of-scope")
@@ -235,21 +260,11 @@ private[cozy] trait CozyBokModel {
     val empty: TermExtraction = TermExtraction(None, None)
   }
 
-  private def _decode_term_extraction(c: HCursor): Decoder.Result[TermExtraction] =
-    for {
-      obj <- c.downField("workflow").downField("term").as[Option[TermExtraction]]
-    } yield obj.getOrElse(TermExtraction.empty)
-
-  private[bok] implicit val _term_extraction_decoder: Decoder[TermExtraction] = (c: HCursor) =>
-    for {
-      status <- c.downField("status").as[Option[String]]
-      planned <- c.downField("planned").as[Option[Boolean]]
-    } yield TermExtraction(status, planned)
-
   private[bok] final case class DocumentFragmentIndex(fragments: Vector[DocumentFragment]) {
     def get(sourcepath: String, locale: String): Option[DocumentFragment] =
       fragments.find(x => x.sourcepath == sourcepath && x.locale == locale)
   }
+
   private[bok] final case class DocumentFragment(
     sourcepath: String,
     publicpath: String,
@@ -268,6 +283,120 @@ private[cozy] trait CozyBokModel {
     def effectiveHeadline: Option[String] = headline.orElse(title)
     def effectiveBrief: Option[String] = brief.orElse(summary).orElse(description)
   }
+
+  private[bok] final case class TagIndex(tags: Vector[TagEntry]) {
+    def isEmpty: Boolean = tags.isEmpty
+    def forCategory(category: String): TagIndex =
+      TagIndex(tags.flatMap { tag =>
+        val refs = tag.refs.filter(_.category.contains(category))
+        if (refs.isEmpty) None else Some(tag.copy(refs = refs))
+      })
+    def namespaces: Vector[String] =
+      tags.flatMap(_.namespace).distinct.sorted
+  }
+
+  private[bok] final case class TagEntry(
+    id: String,
+    key: String,
+    segments: Vector[String],
+    namespace: Option[String],
+    parent: Option[String],
+    slug: String,
+    label: String,
+    title: Option[String],
+    summary: Option[String],
+    aliases: Vector[String],
+    locale: Option[String],
+    sourcepath: Option[String],
+    publicpath: String,
+    bodyhtml: Option[String],
+    refs: Vector[TagReference],
+    children: Vector[String]
+  ) {
+    def count: Int = refs.size
+    def effectiveTitle: String = title.getOrElse(key)
+  }
+
+  private[bok] final case class TagReference(kind: String, title: String, href: String, category: Option[String])
+}
+
+private[cozy] trait CozyBokModel {
+  self: CozyBokImplementation.type =>
+
+  private[bok] type BokInspection = CozyBokModel.BokInspection
+  private[bok] lazy val BokInspection = CozyBokModel.BokInspection
+  private[bok] type BokFix = CozyBokModel.BokFix
+  private[bok] lazy val BokFix = CozyBokModel.BokFix
+  private[bok] type DoxMetadataSectionIssue = CozyBokModel.DoxMetadataSectionIssue
+  private[bok] lazy val DoxMetadataSectionIssue = CozyBokModel.DoxMetadataSectionIssue
+  private[bok] type MarkdownMetadataIssue = CozyBokModel.MarkdownMetadataIssue
+  private[bok] lazy val MarkdownMetadataIssue = CozyBokModel.MarkdownMetadataIssue
+  private[bok] type CategoryContent = CozyBokModel.CategoryContent
+  private[bok] lazy val CategoryContent = CozyBokModel.CategoryContent
+  private[bok] type CategoryPageItem = CozyBokModel.CategoryPageItem
+  private[bok] lazy val CategoryPageItem = CozyBokModel.CategoryPageItem
+  private[bok] type LocalizedGlossaryItem = CozyBokModel.LocalizedGlossaryItem
+  private[bok] lazy val LocalizedGlossaryItem = CozyBokModel.LocalizedGlossaryItem
+  private[bok] type ArticleIndexItem = CozyBokModel.ArticleIndexItem
+  private[bok] lazy val ArticleIndexItem = CozyBokModel.ArticleIndexItem
+  private[bok] type DashboardCounts = CozyBokModel.DashboardCounts
+  private[bok] lazy val DashboardCounts = CozyBokModel.DashboardCounts
+  private[bok] type DashboardBucket = CozyBokModel.DashboardBucket
+  private[bok] lazy val DashboardBucket = CozyBokModel.DashboardBucket
+  private[bok] type DashboardRdfSummary = CozyBokModel.DashboardRdfSummary
+  private[bok] lazy val DashboardRdfSummary = CozyBokModel.DashboardRdfSummary
+  private[bok] type DashboardIncrements = CozyBokModel.DashboardIncrements
+  private[bok] lazy val DashboardIncrements = CozyBokModel.DashboardIncrements
+  private[bok] type DashboardRecentItem = CozyBokModel.DashboardRecentItem
+  private[bok] lazy val DashboardRecentItem = CozyBokModel.DashboardRecentItem
+  private[bok] type DashboardCategory = CozyBokModel.DashboardCategory
+  private[bok] lazy val DashboardCategory = CozyBokModel.DashboardCategory
+  private[bok] type BokDashboard = CozyBokModel.BokDashboard
+  private[bok] lazy val BokDashboard = CozyBokModel.BokDashboard
+  private[bok] type ScenarioIndex = CozyBokModel.ScenarioIndex
+  private[bok] lazy val ScenarioIndex = CozyBokModel.ScenarioIndex
+  private[bok] type ScenarioEntry = CozyBokModel.ScenarioEntry
+  private[bok] lazy val ScenarioEntry = CozyBokModel.ScenarioEntry
+  private[bok] type TermIndex = CozyBokModel.TermIndex
+  private[bok] lazy val TermIndex = CozyBokModel.TermIndex
+  private[bok] type TermEntry = CozyBokModel.TermEntry
+  private[bok] lazy val TermEntry = CozyBokModel.TermEntry
+  private[bok] type TermReference = CozyBokModel.TermReference
+  private[bok] lazy val TermReference = CozyBokModel.TermReference
+  private[bok] type TermRdfReference = CozyBokModel.TermRdfReference
+  private[bok] lazy val TermRdfReference = CozyBokModel.TermRdfReference
+  private[bok] type TermCmlLink = CozyBokModel.TermCmlLink
+  private[bok] lazy val TermCmlLink = CozyBokModel.TermCmlLink
+  private[bok] type TermEvent = CozyBokModel.TermEvent
+  private[bok] lazy val TermEvent = CozyBokModel.TermEvent
+  private[bok] type TermActor = CozyBokModel.TermActor
+  private[bok] lazy val TermActor = CozyBokModel.TermActor
+  private[bok] type TermRole = CozyBokModel.TermRole
+  private[bok] lazy val TermRole = CozyBokModel.TermRole
+  private[bok] type TermQuality = CozyBokModel.TermQuality
+  private[bok] lazy val TermQuality = CozyBokModel.TermQuality
+  private[bok] type TermExtraction = CozyBokModel.TermExtraction
+  private[bok] lazy val TermExtraction = CozyBokModel.TermExtraction
+  private[bok] type DocumentFragmentIndex = CozyBokModel.DocumentFragmentIndex
+  private[bok] lazy val DocumentFragmentIndex = CozyBokModel.DocumentFragmentIndex
+  private[bok] type DocumentFragment = CozyBokModel.DocumentFragment
+  private[bok] lazy val DocumentFragment = CozyBokModel.DocumentFragment
+  private[bok] type TagIndex = CozyBokModel.TagIndex
+  private[bok] lazy val TagIndex = CozyBokModel.TagIndex
+  private[bok] type TagEntry = CozyBokModel.TagEntry
+  private[bok] lazy val TagEntry = CozyBokModel.TagEntry
+  private[bok] type TagReference = CozyBokModel.TagReference
+  private[bok] lazy val TagReference = CozyBokModel.TagReference
+  private def _decode_term_extraction(c: HCursor): Decoder.Result[TermExtraction] =
+    for {
+      obj <- c.downField("workflow").downField("term").as[Option[TermExtraction]]
+    } yield obj.getOrElse(TermExtraction.empty)
+
+  private[bok] implicit val _term_extraction_decoder: Decoder[TermExtraction] = (c: HCursor) =>
+    for {
+      status <- c.downField("status").as[Option[String]]
+      planned <- c.downField("planned").as[Option[Boolean]]
+    } yield TermExtraction(status, planned)
 
   private[bok] implicit val _document_fragment_decoder: Decoder[DocumentFragment] = (c: HCursor) =>
     for {
@@ -290,39 +419,6 @@ private[cozy] trait CozyBokModel {
     for {
       fragments <- c.downField("fragments").as[Option[Vector[DocumentFragment]]]
     } yield DocumentFragmentIndex(fragments.getOrElse(Vector.empty))
-
-  private[bok] final case class TagIndex(tags: Vector[TagEntry]) {
-    def isEmpty: Boolean = tags.isEmpty
-    def forCategory(category: String): TagIndex =
-      TagIndex(tags.flatMap { tag =>
-        val refs = tag.refs.filter(_.category.contains(category))
-        if (refs.isEmpty) None else Some(tag.copy(refs = refs))
-      })
-    def namespaces: Vector[String] =
-      tags.flatMap(_.namespace).distinct.sorted
-  }
-  private[bok] final case class TagEntry(
-    id: String,
-    key: String,
-    segments: Vector[String],
-    namespace: Option[String],
-    parent: Option[String],
-    slug: String,
-    label: String,
-    title: Option[String],
-    summary: Option[String],
-    aliases: Vector[String],
-    locale: Option[String],
-    sourcepath: Option[String],
-    publicpath: String,
-    bodyhtml: Option[String],
-    refs: Vector[TagReference],
-    children: Vector[String]
-  ) {
-    def count: Int = refs.size
-    def effectiveTitle: String = title.getOrElse(key)
-  }
-  private[bok] final case class TagReference(kind: String, title: String, href: String, category: Option[String])
 
   private[bok] implicit val _tag_reference_decoder: Decoder[TagReference] = (c: HCursor) =>
     for {

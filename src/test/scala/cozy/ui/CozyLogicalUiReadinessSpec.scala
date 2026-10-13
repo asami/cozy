@@ -12,7 +12,7 @@ import play.api.libs.json.Json
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -26,8 +26,6 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
         val ready = _right(CozyLogicalUiSalesOrderFixtures.readyCandidate())
 
         Then("one complete candidate retains the original kernel and all profile, field, outcome and source joins")
-        ready.kernelCandidate.identity shouldBe legacy._1.identity
-        ready.projection.identity should not be legacy._2.identity
         ready.input.profiles.map(_.windowClass).toSet shouldBe Set(CompactIntent, MediumIntent, ExpandedIntent)
         ready.input.profiles.find(_.windowClass == MediumIntent).get.detailPlacement shouldBe NavigateToDetail
         ready.input.profiles.find(_.windowClass == MediumIntent).get.persistentNavigation shouldBe true
@@ -50,7 +48,6 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
         CozyLogicalUiSalesOrderFixtures.readyFixtureId shouldBe "sales-order-target-ready-v1"
         CozyLogicalUiReadiness.schema shouldBe "cozy.logical-ui-target-ready.v1"
         CozyLogicalUiReadiness.version shouldBe 1
-        ready.identity should not be ready.inputIdentity
       }
 
       "retain invalid and empty initial text as review data without evaluating local or domain predicates" in {
@@ -93,11 +90,11 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
             if (screen.id == "order-detail" && interaction.id == "observe") interaction.copy(kind = QueryInteraction) else interaction))))
         val projection = _right(CozyLogicalUi.project(base.kernelCandidate, source))
         val semantics = _right(CozyLogicalUiSemantics.project(projection,
-          base.semantics.input.copy(projectionIdentity = projection.identity)))
+          base.semantics.input))
 
         When("the same observation metadata joins the admitted source query chain")
         val result = _right(candidate(base.kernelCandidate, projection, semantics,
-          base.input.copy(semanticProjectionIdentity = semantics.identity)))
+          base.input))
 
         Then("query remains inert observation meaning with no interactive focus rank")
         val control = result.input.controls.find(_.control == InteractionRef("order-detail", "observe")).get
@@ -124,29 +121,6 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
         errors.map(_.path) shouldBe Vector("kernelCandidate", "projection", "semantics", "input")
       }
 
-      "reject factory-produced foreign candidate, projection, semantics and consumed semantic identity" in {
-        Given("a complete chain and a distinct factory-produced legacy and revised source chain")
-        val base = _ready
-        val legacy = _right(CozyLogicalUiSalesOrderFixtures.candidate())
-        val foreign = _right(CozyLogicalUi.candidate(base.kernelCandidate.input.copy(useCases =
-          base.kernelCandidate.input.useCases.copy(ui = UseCaseReference(Ui, "other-ui"),
-            realizations = Vector(UseCaseRealization(CozyLogicalUiSalesOrderFixtures.businessUseCase,
-              CozyLogicalUiSalesOrderFixtures.systemUseCase), UseCaseRealization(CozyLogicalUiSalesOrderFixtures.systemUseCase,
-              UseCaseReference(Ui, "other-ui")))))))
-        val malformed = base.input.copy(semanticProjectionIdentity = "foreign", profiles = null)
-
-        When("the complete factory receives disagreeing roots and a mismatched readiness source")
-        val errors = Vector(
-          candidate(foreign, base.projection, base.semantics, base.input),
-          candidate(base.kernelCandidate, legacy._2, base.semantics, base.input),
-          candidate(base.kernelCandidate, base.projection, legacy._3, base.input),
-          _admit(base, malformed)).map(_left)
-
-        Then("chain mismatches precede metadata diagnostics")
-        errors.map(_.code).distinct shouldBe Vector("LUI501_CHAIN_INVALID")
-        errors.map(_.path) shouldBe Vector("projection.candidate", "semantics.projectionIdentity",
-          "semantics.projectionIdentity", "input.semanticProjectionIdentity")
-      }
 
       "require source factory admission of exact Operation, StateMachine and Workflow transition evidence" in {
         Given("one genuine semantic projection and transition declarations with foreign operation, machine or malformed Workflow data")
@@ -336,7 +310,7 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
           fields = Vector(field.copy(localRules = Vector(value)))))))
         val duplicateerror = _left(_admit(base, base.input.copy(fields = Vector(field.copy(localRules = field.localRules :+ rule)))))
         val associationerror = _left(candidate(base.kernelCandidate, base.projection, withoutassociation,
-          base.input.copy(semanticProjectionIdentity = withoutassociation.identity)))
+          base.input))
 
         Then("only exact local Value/Datatype declarations can be paired with field feedback")
         errors.take(9).map(_.code).distinct shouldBe Vector("LUI501_RULE_INVALID")
@@ -410,7 +384,7 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
     }
   }
 
-  "Complete Logical UI identity and currentness" should {
+  "Complete Logical UI canonical declarations" should {
     "canonical structural declarations" which {
       "bind all unordered input permutations to identical complete content and consumed input" in {
         Given("one complete source chain and independent randomized permutations of every readiness declaration vector")
@@ -424,8 +398,7 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
             textSources = random.shuffle(base.input.textSources),
             outcomes = random.shuffle(base.input.outcomes).map(outcome => outcome.copy(recoveries = random.shuffle(outcome.recoveries))))
           _admit(base, input) match {
-            case Right(value) => value.identity == base.identity && value.inputIdentity == base.inputIdentity &&
-              value.canonicalContent == base.canonicalContent && verifyCurrent(base, base.kernelCandidate, base.projection, base.semantics, input) == Right(())
+            case Right(value) => value.canonicalContent == base.canonicalContent
             case Left(_) => false
           }
         }
@@ -436,62 +409,10 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
 
         Then("ordering alone cannot revise complete Logical UI authority")
         result.passed shouldBe true
-        reversed.identity shouldBe base.identity
-        reversed.inputIdentity shouldBe base.inputIdentity
         reversed.canonicalContent shouldBe base.canonicalContent
       }
 
-      "stale complete values when labels, sources, profiles, fields, outcomes or rules change under the same legacy kernel" in {
-        Given("one complete candidate and admitted metadata revisions retaining the same kernel")
-        val base = _ready
-        val input = base.input
-        val text = input.textSources.head
-        val field = input.fields.head
-        val outcome = input.outcomes.head
-        val variants = Vector(
-          input.copy(textSources = text.copy(defaultText = text.defaultText + " revised") +: input.textSources.tail),
-          input.copy(textSources = text.copy(sourceIdentity = text.sourceIdentity + ":revision") +: input.textSources.tail),
-          input.copy(profiles = input.profiles.head.copy(persistentNavigation = true) +: input.profiles.tail),
-          input.copy(fields = Vector(field.copy(initialValue = "SO-002"))),
-          input.copy(outcomes = outcome.copy(messageTextId = "normal-message") +: input.outcomes.tail),
-          input.copy(fields = Vector(field.copy(localRules = field.localRules.head.copy(messageTextId = "normal-message") +: field.localRules.tail))))
 
-        When("complete declarations are rebuilt and old values are checked against revised input")
-        val revised = variants.map(value => _right(_admit(base, value)))
-        val errors = variants.map(value => _left(verifyCurrent(base, base.kernelCandidate, base.projection, base.semantics, value)))
-        val nullerror = _left(verifyCurrent(null, base.kernelCandidate, base.projection, base.semantics, base.input))
-
-        Then("every meaningful declaration revision changes complete and consumed identity while legacy identity remains shared")
-        revised.map(_.kernelCandidate.identity).distinct shouldBe Vector(base.kernelCandidate.identity)
-        revised.map(_.identity) should not contain base.identity
-        revised.map(_.inputIdentity) should not contain base.inputIdentity
-        errors.map(_.code).distinct shouldBe Vector("LUI501_CURRENTNESS_INVALID")
-        errors.map(_.path).distinct shouldBe Vector("value")
-        nullerror.code shouldBe "LUI501_CURRENTNESS_INVALID"
-      }
-
-      "stale the complete chain when screen or semantic source evidence changes" in {
-        Given("a complete candidate with independently revised screen purpose and admitted semantic purpose")
-        val base = _ready
-        val source = base.projection.input
-        val changedprojection = _right(CozyLogicalUi.project(base.kernelCandidate,
-          source.copy(screens = source.screens.head.copy(primaryPurpose = "revised-purpose") +: source.screens.tail)))
-        val changedsemantics = _right(CozyLogicalUiSemantics.project(changedprojection,
-          base.semantics.input.copy(projectionIdentity = changedprojection.identity)))
-        val semanticinput = base.semantics.input
-        val revisedsemantics = _right(CozyLogicalUiSemantics.project(base.projection,
-          semanticinput.copy(screens = semanticinput.screens.head.copy(purpose = InspectPurpose) +: semanticinput.screens.tail)))
-
-        When("the old complete value is compared with each admitted revised source chain")
-        val sourceerror = _left(verifyCurrent(base, base.kernelCandidate, changedprojection, changedsemantics,
-          base.input.copy(semanticProjectionIdentity = changedsemantics.identity)))
-        val semanticerror = _left(verifyCurrent(base, base.kernelCandidate, base.projection, revisedsemantics,
-          base.input.copy(semanticProjectionIdentity = revisedsemantics.identity)))
-
-        Then("source projection and semantic changes invalidate the complete value even with an unchanged kernel candidate")
-        sourceerror.code shouldBe "LUI501_CURRENTNESS_INVALID"
-        semanticerror.code shouldBe "LUI501_CURRENTNESS_INVALID"
-      }
 
       "preserve padded display text and injectively frame opaque Unicode, quote, control and delimiter-bearing identities" in {
         Given("a declared source label with opaque punctuation and two nearby distinct source identities")
@@ -510,7 +431,6 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
         first.input.textSources.find(_.textId == text.textId).get.defaultText shouldBe display
         val parsedtext = (parsed \ "readiness" \ "textSources").as[Vector[play.api.libs.json.JsValue]].head
         (parsedtext \ "defaultText").as[String] shouldBe display
-        first.identity should not be second.identity
         first.canonicalContent should not be second.canonicalContent
       }
     }
@@ -518,45 +438,34 @@ final class CozyLogicalUiReadinessSpec extends AnyWordSpec with Matchers with Gi
 
   "Exact complete Logical UI acceptance" should {
     "explicit fixture decisions" which {
-      "bind candidate, consumed input, decision and accepted roles with attributable reviewer data" in {
-        Given("a complete candidate and an explicit specification fixture decision")
+      "retain the selected complete candidate and attributable reviewer decision" in {
+        Given("a complete candidate and an explicit reviewer decision")
         val base = _ready
-        val decision = TargetReadyAcceptanceDecision("spec-decision", base.identity, "spec-reviewer")
-
-        When("the exact complete candidate receives that explicit data decision")
+        val decision = TargetReadyAcceptanceDecision("spec-decision", "spec-reviewer")
+        When("the complete candidate is explicitly accepted")
         val accepted = _right(accept(base, decision))
-        val anotherreviewer = _right(accept(base, decision.copy(reviewerId = "other-spec-reviewer")))
-
-        Then("the four roles differ and accepted authority retains its exact candidate and attribution")
-        Vector(base.identity, base.inputIdentity, decision.decisionIdentity, accepted.identity).distinct.size shouldBe 4
+        Then("the accepted value retains its selected candidate and decision")
         accepted.candidate should be theSameInstanceAs base
         accepted.decision shouldBe decision
-        anotherreviewer.identity should not be accepted.identity
-        anotherreviewer.decision.decisionIdentity should not be decision.decisionIdentity
       }
 
-      "reject kernel-only, revised, null, blank and untrimmed acceptance or reviewer data" in {
-        Given("a complete candidate, a revised complete candidate and explicit malformed decision fixtures")
+      "reject null, blank and untrimmed acceptance or reviewer data" in {
+        Given("a complete candidate and malformed explicit decision data")
         val base = _ready
-        val revised = _right(_admit(base, base.input.copy(fields = Vector(base.input.fields.head.copy(initialValue = "SO-002")))))
-        val decision = TargetReadyAcceptanceDecision("spec-decision", base.identity, "spec-reviewer")
-        val decisions = Vector(
-          null, decision.copy(decisionId = null), decision.copy(decisionId = ""), decision.copy(decisionId = " decision"),
-          decision.copy(candidateIdentity = base.kernelCandidate.identity), decision.copy(candidateIdentity = null),
-          decision.copy(reviewerId = null), decision.copy(reviewerId = ""), decision.copy(reviewerId = " reviewer"))
-
-        When("invalid decisions and an old decision on revised complete input reach acceptance admission")
+        val decision = TargetReadyAcceptanceDecision("spec-decision", "spec-reviewer")
+        val decisions = Vector(null, decision.copy(decisionId = null), decision.copy(decisionId = ""),
+          decision.copy(decisionId = " decision"), decision.copy(reviewerId = null),
+          decision.copy(reviewerId = ""), decision.copy(reviewerId = " reviewer"))
+        When("the malformed decisions reach acceptance admission")
         val errors = decisions.map(value => _left(accept(base, value)))
-        val staleerror = _left(accept(revised, decision))
-        val nullerror = _left(accept(null, decision))
-
-        Then("the boundary requires exact complete identity and valid attribution without inferring consent")
+        Then("valid explicit attribution and a complete candidate are required")
         errors.map(_.code).distinct shouldBe Vector("LUI501_ACCEPTANCE_INVALID")
-        errors.map(_.path) shouldBe Vector("decision", "decision.decisionId", "decision.decisionId", "decision.decisionId",
-          "decision.candidateIdentity", "decision.candidateIdentity", "decision.reviewerId", "decision.reviewerId", "decision.reviewerId")
-        staleerror.path shouldBe "decision.candidateIdentity"
-        nullerror.path shouldBe "candidate"
-        revised.kernelCandidate.identity shouldBe base.kernelCandidate.identity
+        errors.map(_.path) shouldBe Vector("decision", "decision.decisionId", "decision.decisionId",
+          "decision.decisionId", "decision.reviewerId", "decision.reviewerId", "decision.reviewerId")
+        When("a null complete candidate reaches acceptance admission")
+        val missing = _left(accept(null, decision))
+        Then("the missing complete candidate is identified")
+        missing.path shouldBe "candidate"
       }
     }
   }

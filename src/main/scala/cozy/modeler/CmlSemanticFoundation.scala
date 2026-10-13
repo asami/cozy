@@ -2,7 +2,7 @@ package cozy.modeler
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlSemanticFoundation {
@@ -14,7 +14,6 @@ private[cozy] object CmlSemanticFoundation {
   final case class SourceAttribution(
     authorityId: String,
     path: String,
-    sha256: String,
     line: Option[Int]
   )
 
@@ -254,11 +253,6 @@ private[cozy] object CmlSemanticFoundation {
       s"$path.path",
       "Source path must be a canonical project-relative POSIX path."
     ))
-    val digestdiagnostics = if (_valid_digest(value.sha256)) Vector.empty else Vector(Diagnostic(
-      InvalidProvenance,
-      s"$path.sha256",
-      "Source digest must be exactly 64 lowercase hexadecimal characters."
-    ))
     val linediagnostics = value.line match {
       case Some(line) if line > 0 => Vector.empty
       case Some(_) => Vector(Diagnostic(
@@ -268,7 +262,7 @@ private[cozy] object CmlSemanticFoundation {
       ))
       case None => Vector.empty
     }
-    authoritydiagnostics ++ pathdiagnostics ++ digestdiagnostics ++ linediagnostics
+    authoritydiagnostics ++ pathdiagnostics ++ linediagnostics
   }
 
   private def _model_element_id_diagnostics(value: ModelElementId, path: String): Vector[Diagnostic] =
@@ -370,9 +364,6 @@ private[cozy] object CmlSemanticFoundation {
       !value.startsWith("/") && !value.contains("\\") &&
       !value.matches("^[A-Za-z][A-Za-z0-9+.-]*:.*") &&
       value.split("/", -1).forall(segment => segment.nonEmpty && segment != "." && segment != "..")
-
-  private def _valid_digest(value: String): Boolean =
-    value != null && value.matches("[0-9a-f]{64}")
 
   private def _edge_whitespace(value: String): Boolean =
     _is_whitespace(value.codePointAt(0)) || _is_whitespace(value.codePointBefore(value.length))

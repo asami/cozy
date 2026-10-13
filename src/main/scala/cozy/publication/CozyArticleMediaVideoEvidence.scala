@@ -2,13 +2,13 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import org.goldenport.RAISE
 import play.api.libs.json.{JsArray, JsObject, JsString, JsValue}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug.  5, 2026
+ *  version Aug.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaVideoEvidence {
@@ -35,19 +35,15 @@ private[cozy] object CozyArticleMediaVideoEvidence {
     val registry = _selected_object(normalized.entries, registrypath, "repository registry")
     val evidence = _validate_evidence(manifest, registry, normalized.videoname, normalized.videoversion)
     val artifactpath = _resolve_artifact(normalized.repositoryroot, evidence.repositorypath, normalized.stagedartifact)
-    val actualsha = _sha256(normalized.stagedartifact.getOrElse(artifactpath))
-    if (actualsha != evidence.sha256)
-      _invalid(s"Article-media video artifact SHA-256 does not match selected evidence: ${evidence.repositorypath}")
     Result(
       integrity = CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
         articleIdentity = normalized.articleidentity,
         locale = normalized.locale,
         role = CozyArticleMediaIntegrity.Role.Video,
-        artifact = CozyArticleMediaIntegrity.Artifact(normalized.videoname, normalized.videoversion),
+        artifact = Some(CozyArticleMediaIntegrity.Artifact(normalized.videoname, normalized.videoversion)),
         publicPath = new URI(s"/${evidence.repositorypublicpath}"),
         repositoryPath = evidence.repositorypath,
         mediaType = "video/mp4",
-        sha256 = evidence.sha256,
         provenance = CozyArticleMediaIntegrity.VideoPublication(manifestpath, registrypath),
         publicationState = evidence.publicationstate
       )),
@@ -68,7 +64,6 @@ private[cozy] object CozyArticleMediaVideoEvidence {
   private final case class Evidence(
     repositorypath: String,
     repositorypublicpath: String,
-    sha256: String,
     publicationstate: CozyArticleMediaIntegrity.PublicationState
   )
 
@@ -162,7 +157,6 @@ private[cozy] object CozyArticleMediaVideoEvidence {
     if (!warehousepath.endsWith(".mp4"))
       _invalid(s"Article-media video manifest warehousePath must end with .mp4: $warehousepath")
     val repositorypublicpath = _repository_path(_required_exact_string(artifact, "repositoryPublicPath", "video manifest artifact"), "video manifest artifact.repositoryPublicPath")
-    val manifestsha = _sha256_string(_required_exact_string(artifact, "sha256", "video manifest artifact"), "video manifest artifact.sha256")
 
     _require_exact(registry, "schema", "cozy.publish-project.v1", "repository registry")
     _require_exact(registry, "type", "repository-artifact", "repository registry")
@@ -187,10 +181,7 @@ private[cozy] object CozyArticleMediaVideoEvidence {
       _invalid("Article-media video repository registry has ambiguous selected video artifact files")
     val selectedfile = selected.head
     _require_exact(selectedfile, "extension", "mp4", "repository registry selected video file")
-    val registrysha = _sha256_string(_required_exact_string(selectedfile, "sha256", "repository registry selected video file"), "repository registry selected video file.sha256")
-    if (registrysha != manifestsha)
-      _invalid("Article-media video manifest and repository registry SHA-256 values must match")
-    Evidence(warehousepath.stripPrefix("repository/"), repositorypublicpath, manifestsha, publicationstate)
+    Evidence(warehousepath.stripPrefix("repository/"), repositorypublicpath, publicationstate)
   }
 
   private def _repository_path(value: String, label: String): String = {
@@ -261,12 +252,6 @@ private[cozy] object CozyArticleMediaVideoEvidence {
   private def _string(value: JsObject, field: String): Option[String] =
     value.value.get(field).collect { case JsString(x) => x }
 
-  private def _sha256_string(value: String, label: String): String = {
-    if (!value.matches("[0-9a-f]{64}"))
-      _invalid(s"Article-media video $label must be 64 lowercase hexadecimal characters: $value")
-    value
-  }
-
   private def _publication_state(value: String): CozyArticleMediaIntegrity.PublicationState =
     value match {
       case "registered" => CozyArticleMediaIntegrity.PublicationState.Registered
@@ -274,23 +259,6 @@ private[cozy] object CozyArticleMediaVideoEvidence {
       case "withdrawn" => CozyArticleMediaIntegrity.PublicationState.Withdrawn
       case _ => _invalid(s"Article-media video repository registry artifact.status is invalid: $value")
     }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => f"${b & 0xff}%02x").mkString
-  }
 
   private def _invalid(message: String): Nothing =
     RAISE.invalidArgumentFault(message)

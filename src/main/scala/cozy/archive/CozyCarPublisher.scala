@@ -6,14 +6,15 @@ import cozy.compatibility.{
 }
 import cozy.config.CozyProjectYamlConfig
 import cozy.modeler.GenerationProvenance
-import java.nio.file.{Files, Path, StandardCopyOption}
+import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 object CozyCarPublisher {
@@ -57,35 +58,9 @@ object CozyCarPublisher {
       "version",
       "publish-car"
     )
-    _with_prebuilt_car_snapshot(args) { publicationargs =>
-      _require_prebuilt_car_admission(publicationargs, compatibility, coordinate)
-      RepositoryArtifactPublisher.publish(
-        publicationargs,
-        _policy(compatibility, coordinate)
-      )
-    }
+    _require_prebuilt_car_admission(args, compatibility, coordinate)
+    RepositoryArtifactPublisher.publish(args, _policy(compatibility, coordinate))
   }
-
-  private def _with_prebuilt_car_snapshot[A](
-    args: List[String]
-  )(body: List[String] => A): A =
-    RepositoryArtifactPublisher.path(args, "car") match {
-      case Some(source) =>
-        if (!Files.isRegularFile(source))
-          throw new IllegalArgumentException(s"CAR archive does not exist: $source")
-        val projectdir = RepositoryArtifactPublisher.projectDir(args, "Missing project directory for publish-car")
-        val workroot = projectdir.resolve("target/cozy/work/publish-car")
-        Files.createDirectories(workroot)
-        val snapshot = Files.createTempFile(workroot, "snapshot-", ".car")
-        try {
-          Files.copy(source, snapshot, StandardCopyOption.REPLACE_EXISTING)
-          body(_replace_option(args, "car", snapshot.toString))
-        } finally {
-          Files.deleteIfExists(snapshot)
-        }
-      case None =>
-        body(args)
-    }
 
   private def _require_prebuilt_car_admission(
     args: List[String],
@@ -102,56 +77,33 @@ object CozyCarPublisher {
           val generatedrelease =
             !coordinate.version.toUpperCase(java.util.Locale.ROOT).contains("SNAPSHOT") &&
               _has_cml_source(projectdir)
-          _with_validated_generation_provenance(
-            projectdir,
+          if (generatedrelease)
+            _require_generation_provenance(projectdir, contract)
+          // Full compatibility validation already includes canonical admission.
+          CozyCarRuntimeManifest.requireValidArchive(
+            archive,
             contract,
-            generatedrelease
-          ) { generationprovenance =>
-            // Full compatibility validation already includes canonical admission.
-            CozyCarRuntimeManifest.requireValidArchive(
-              archive,
-              contract,
-              coordinate,
-              generationprovenance
-            )
-          }
+            coordinate,
+            requireGenerationProvenance = generatedrelease
+          )
         case None =>
           CozyCarRuntimeManifest.requireCanonicalArchiveAdmission(archive, coordinate)
       }
     }
 
-  private def _with_validated_generation_provenance[A](
+  private def _require_generation_provenance(
     projectdir: Path,
-    contract: CarMetadataCompatibility.Contract,
-    required: Boolean
-  )(body: Option[Path] => A): A =
-    if (!required)
-      body(None)
-    else {
-      val source = projectdir.resolve(GenerationProvenance.METADATA_PATH)
-      if (!Files.isRegularFile(source))
-        GenerationProvenance.requireValidForPackaging(
-          source,
-          projectdir,
-          Some(contract.cncfCompileTarget.version),
-          Some(contract.cozyVersion)
-        )
-      val workroot = projectdir.resolve("target/cozy/work/publish-car")
-      Files.createDirectories(workroot)
-      val snapshot = Files.createTempFile(workroot, "generation-provenance-", ".json")
-      try {
-        Files.copy(source, snapshot, StandardCopyOption.REPLACE_EXISTING)
-        GenerationProvenance.requireValidForPackaging(
-          snapshot,
-          projectdir,
-          Some(contract.cncfCompileTarget.version),
-          Some(contract.cozyVersion)
-        )
-        body(Some(snapshot))
-      } finally {
-        Files.deleteIfExists(snapshot)
-      }
-    }
+    contract: CarMetadataCompatibility.Contract
+  ): Unit = {
+    val source = projectdir.resolve(GenerationProvenance.METADATA_PATH)
+    GenerationProvenance.requireValidForPackaging(
+      source,
+      projectdir,
+      Some(contract.cncfCompileTarget.version),
+      Some(contract.cozyVersion)
+    )
+    ()
+  }
 
   private def _has_cml_source(projectdir: Path): Boolean = {
     val source = projectdir.resolve("src/main/cozy")
@@ -168,27 +120,6 @@ object CozyCarPublisher {
     }
   }
 
-  private def _replace_option(
-    args: List[String],
-    key: String,
-    value: String
-  ): List[String] = {
-    val flag = s"--$key"
-    val inlineprefix = s"$flag="
-    def _go_(remaining: List[String], result: List[String]): List[String] =
-      remaining match {
-        case Nil =>
-          result.reverse
-        case head :: tail if head.startsWith(inlineprefix) =>
-          _go_(tail, s"$inlineprefix$value" :: result)
-        case head :: _ :: tail if head == flag =>
-          _go_(tail, value :: head :: result)
-        case head :: tail =>
-          _go_(tail, head :: result)
-      }
-    _go_(args, Nil)
-  }
-
   private def _policy(
     compatibility: Option[CarMetadataCompatibility.Contract],
     coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
@@ -198,12 +129,11 @@ object CozyCarPublisher {
       archiveOption = "car",
       missingProjectMessage = "Missing project directory for publish-car",
       missingArchiveMessage = "CAR archive does not exist",
-      versionEntry = (version, channel, file, publishedcar, args) =>
+      versionEntry = (version, channel, file, args) =>
         _version_entry(
           version,
           channel,
           file,
-          publishedcar,
           args,
           compatibility
         ),
@@ -236,7 +166,6 @@ object CozyCarPublisher {
     version: String,
     channel: String,
     file: String,
-    publishedcar: Path,
     args: List[String],
     compatibility: Option[CarMetadataCompatibility.Contract]
   ): RepositoryArtifactCatalogVersion = {
@@ -249,8 +178,7 @@ object CozyCarPublisher {
       component = None,
       publishedAt = Some(RepositoryArtifactPublisher.publishedAt(args)),
       file = Some(file),
-      runtime = compatibility.map(_runtime_requirement).orElse(_runtime_requirement(config)),
-      checksumSha256 = Some(RepositoryArtifactPublisher.sha256(publishedcar))
+      runtime = compatibility.map(_runtime_requirement).orElse(_runtime_requirement(config))
     )
   }
 

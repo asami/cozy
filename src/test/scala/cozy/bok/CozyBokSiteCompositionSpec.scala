@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @author  ASAMI, Tomoharu
  * @since   Oct.  1, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 13, 2026
  */
 class CozyBokSiteCompositionSpec
     extends AnyWordSpec
@@ -95,7 +95,7 @@ class CozyBokSiteCompositionSpec
       }
     }
 
-    "generate BoK fallback for individual missing locale and category destinations" in {
+    "retain missing Arcadia home while generating fallback for missing category destinations" in {
       _with_project { project =>
         Given("Arcadia with a root and Japanese home but only selected category outputs")
         val config = _config(project, "multi_locale_subdirs", enabled = true)
@@ -110,8 +110,11 @@ class CozyBokSiteCompositionSpec
         outputs.foreach { case (relative, bytes) =>
           Files.readAllBytes(config.websitePath.resolve(relative)).toVector shouldBe bytes.toVector
         }
-        And("missing locale home, regular-category and category-index files receive BoK pages")
-        Vector("en/index.html", "en/architecture/index.html", "ja/guide/index.html", "en/guide/index.html", "ja/category/index.html").foreach { relative =>
+        And("an absent Arcadia locale home is not replaced by a Cozy home")
+        Files.isRegularFile(config.arcadiaSitePath.resolve("en/index.html")) shouldBe false
+        Files.exists(config.websitePath.resolve("en/index.html")) shouldBe false
+        And("missing regular-category and category-index files receive BoK pages")
+        Vector("en/architecture/index.html", "ja/guide/index.html", "en/guide/index.html", "ja/category/index.html").foreach { relative =>
           Files.isRegularFile(config.arcadiaSitePath.resolve(relative)) shouldBe false
           Files.readString(config.websitePath.resolve(relative), StandardCharsets.UTF_8) should include("<!doctype html>")
         }
@@ -228,7 +231,7 @@ class CozyBokSiteCompositionSpec
         }
       }
       if (command.take(2) == Vector("arcadia", "site")) {
-        val outputroot = cwd.resolve(command(3))
+        val outputroot = cwd.resolve("arcadiasite.d")
         outputs.foreach { case (relative, bytes) =>
           _write_bytes(outputroot.resolve(relative), bytes)
         }

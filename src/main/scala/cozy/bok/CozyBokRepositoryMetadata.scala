@@ -32,12 +32,13 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
-private[cozy] trait CozyBokRepositoryMetadata {
-  self: CozyBokImplementation.type =>
+private[cozy] object CozyBokRepositoryMetadata {
+  import CozyBokImplementation._
+
   private[bok] final case class RepositoryCarIndex(
     entries: Vector[RepositoryCarEntry],
     diagnostics: Vector[RepositoryCarDiagnostic]
@@ -222,7 +223,6 @@ private[cozy] trait CozyBokRepositoryMetadata {
     runtimecncfminimum: Option[String],
     runtimecncfmaximum: Option[String],
     runtimecncftested: Vector[String],
-    checksumsha256: Option[String],
     componentdescriptor: Option[Json],
     abimanifest: Option[Json],
     componentknowledge: Option[RepositoryCarComponentKnowledge],
@@ -247,7 +247,6 @@ private[cozy] trait CozyBokRepositoryMetadata {
             "tested" -> runtimecncftested.asJson
           )
         ),
-        "checksum" -> Json.obj("sha256" -> checksumsha256.asJson),
         "component_descriptor" -> componentdescriptor.asJson,
         "abi_manifest" -> abimanifest.asJson,
         "component_knowledge" -> componentknowledge.map(_.toJson).asJson,
@@ -255,10 +254,6 @@ private[cozy] trait CozyBokRepositoryMetadata {
       )
   }
 
-  /**
-   * A version-scoped, digest-bound consumer-contract sidecar.  `source` is
-   * build-only and is never serialized into published catalog metadata.
-   */
   private[bok] final case class RepositoryCarComponentKnowledge(
     carrier: Json,
     consumercontractpath: String,
@@ -321,7 +316,43 @@ private[cozy] trait CozyBokRepositoryMetadata {
     version: Option[String],
     expectedname: String
   )
+}
 
+private[cozy] trait CozyBokRepositoryMetadata {
+  self: CozyBokImplementation.type =>
+
+  private[bok] type RepositoryCarIndex = CozyBokRepositoryMetadata.RepositoryCarIndex
+  private[bok] lazy val RepositoryCarIndex = CozyBokRepositoryMetadata.RepositoryCarIndex
+  import CozyBokRepositoryMetadata.ComponentReferenceIndex
+  import CozyBokRepositoryMetadata.ComponentReferenceEntry
+  import CozyBokRepositoryMetadata.ComponentReferenceVersion
+  private[bok] type RepositoryCarDiagnostic = CozyBokRepositoryMetadata.RepositoryCarDiagnostic
+  private[bok] lazy val RepositoryCarDiagnostic = CozyBokRepositoryMetadata.RepositoryCarDiagnostic
+  private[bok] type RepositoryCatalogSource = CozyBokRepositoryMetadata.RepositoryCatalogSource
+  private[bok] lazy val RepositoryCatalogSource = CozyBokRepositoryMetadata.RepositoryCatalogSource
+  private[bok] type RepositoryCatalogDiagnostic = CozyBokRepositoryMetadata.RepositoryCatalogDiagnostic
+  private[bok] lazy val RepositoryCatalogDiagnostic = CozyBokRepositoryMetadata.RepositoryCatalogDiagnostic
+  private[bok] type RepositoryCatalogDiscovery = CozyBokRepositoryMetadata.RepositoryCatalogDiscovery
+  private[bok] lazy val RepositoryCatalogDiscovery = CozyBokRepositoryMetadata.RepositoryCatalogDiscovery
+  private[bok] type RepositoryCarEntry = CozyBokRepositoryMetadata.RepositoryCarEntry
+  private[bok] lazy val RepositoryCarEntry = CozyBokRepositoryMetadata.RepositoryCarEntry
+  private[bok] type RepositoryCarSidecars = CozyBokRepositoryMetadata.RepositoryCarSidecars
+  private[bok] lazy val RepositoryCarSidecars = CozyBokRepositoryMetadata.RepositoryCarSidecars
+  private[bok] type RepositoryCarVersion = CozyBokRepositoryMetadata.RepositoryCarVersion
+  private[bok] lazy val RepositoryCarVersion = CozyBokRepositoryMetadata.RepositoryCarVersion
+  private[bok] type RepositoryCarComponentKnowledge = CozyBokRepositoryMetadata.RepositoryCarComponentKnowledge
+  private[bok] lazy val RepositoryCarComponentKnowledge = CozyBokRepositoryMetadata.RepositoryCarComponentKnowledge
+  private[bok] type RepositoryCarLinks = CozyBokRepositoryMetadata.RepositoryCarLinks
+  private[bok] lazy val RepositoryCarLinks = CozyBokRepositoryMetadata.RepositoryCarLinks
+  private[bok] type RepositoryCarArchiveMetadata = CozyBokRepositoryMetadata.RepositoryCarArchiveMetadata
+  private[bok] lazy val RepositoryCarArchiveMetadata = CozyBokRepositoryMetadata.RepositoryCarArchiveMetadata
+  private[bok] type RepositoryCarMetadataCoordinate = CozyBokRepositoryMetadata.RepositoryCarMetadataCoordinate
+  private[bok] lazy val RepositoryCarMetadataCoordinate = CozyBokRepositoryMetadata.RepositoryCarMetadataCoordinate
+
+  /**
+   * A version-scoped consumer-contract sidecar.  `source` is
+   * build-only and is never serialized into published catalog metadata.
+   */
   private[bok] def _write_repository_car_metadata(config: BuildConfig): Unit = {
     val index = _repository_car_index(config)
     _write_text(

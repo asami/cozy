@@ -20,6 +20,83 @@ The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. The
 corresponding responsibility and ownership design is in
 [`docs/design/video-storyboard.md`](../design/video-storyboard.md).
 
+## 2026-10-08 Phase 71.5 production/assembly amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md), P715-02-S01-VIDEO-PRODUCTION,
+P715-02-S02-TEMPLATE-CREDITS, P715-02-S03-RENDER-ASSEMBLY-OUTPUT, and the
+[artifact-protection removal](../design/artifact-protection-removal.md) policy. This current amendment
+supersedes the earlier Video-generated output backup, restoration, rollback,
+atomic-install and producer input-interference promises below. Those prior
+decisions and accepted results remain dated history; they do not define the
+current selected Video production/assembly failure contract.
+
+Selected Remotion and simple-java2d renderers write their declared part outputs
+directly. Ordinary final assembly writes and probes the configured final output
+directly, then writes its manifest. Native
+confirmation/final assembly muxes and probes the selected mode output directly,
+then writes its handoffs, part records, applicable credit companions and mode
+manifest to their declared destinations. Normal Media-to-Video production uses
+one selected input graph and direct render/build/credit writes, without
+before/after input comparison or output preservation. A unique assembly work
+directory holds concat lists, extracted compressed video, per-part PCM WAVs and
+combined WAV processing; it does not hold complete products for later installation.
+Selected original part paths and their order are used directly. Docker maps
+project-contained paths through `/workspace`, mounts each selected external input
+file at its actual absolute path read-only, and mounts the selected external output
+parent at its actual absolute path read-write. Exact mounts are deduplicated; an
+input already covered by the selected writable output parent needs no extra mount.
+The selected output parent is created normally before the command.
+
+Remotion uses the official bundle, composition-selection and media-render APIs
+with H264 and PCM16 processing, then writes the returned encoded buffer directly
+to the props-selected part output. Its FFmpeg override retains parallel video
+encoding and the existing video timebase, CRF and optional x264 preset, and performs
+one AAC encode with the existing 320k/18000Hz/stereo-48k parameters. The finite
+audio envelope remains `floor(totalFrames * 48000 / fps)` with a 48000 movie
+timescale and actual MP4 output. Multi-part assembly retains exact cumulative
+48k allocations, lossless WAV concatenation and one final AAC encode.
+
+Malformed or missing required inputs, selected safe paths, explicit mode/output
+locations, generation/reuse FileTime decisions, typed Storyboard/handoff schemas,
+positive media validity, narration and common final-card/end-of-media semantics,
+and required credits remain in force. Authored sources, confirmation products
+when final is selected, and unselected outputs remain outside the selected write
+scope. Ordinary renderer, mux, probe and I/O failures report the actual failed
+operation and selected path. Failed production promises neither success nor
+preservation of prior generated outputs; recovery is regeneration.
+
+Bundled named character-dialogue renderer resources (`DialogueVideo.jsx` and
+`DiagramLayout.js`) are read once as actual workspace payload, without fixed
+SHA pins. Resource names, layout and the actionable missing-resource failure
+remain. Selected direct regular non-symlink credit files are read once and
+parsed normally, without a file-key prerequisite or repeated-read interference
+proof. Direct directory and lexical/real-path admission, context precedence,
+schema, vocabulary, duplicate IDs, credit obligations and projections remain;
+ordinary read and parse failures identify the selected input. These changes
+preserve renderer, narration, domain and timing semantics. The affected existing
+Executable Specifications are
+[CozyVideoSpec](../../src/test/scala/cozy/video/CozyVideoSpec.scala),
+[CozyVideoCreditsSpec](../../src/test/scala/cozy/video/CozyVideoCreditsSpec.scala),
+[CozyVideoAssemblyAudioSpec](../../src/test/scala/cozy/video/CozyVideoAssemblyAudioSpec.scala),
+[CozyVideoProfileRenderSpec](../../src/test/scala/cozy/video/CozyVideoProfileRenderSpec.scala),
+[CozyVideoMediaEndingSpec](../../src/test/scala/cozy/video/CozyVideoMediaEndingSpec.scala), and
+[CozyVideoStoryboardBuildModeSpec](../../src/test/scala/cozy/video/CozyVideoStoryboardBuildModeSpec.scala).
+
+S01 is implemented and focused-validated: four existing suites reported 72
+successes, zero failures and one optional native case canceled because its
+native property is disabled by default; the serial lock was released. That
+canceled case is not native acceptance. S02 template/credit focused validation
+reported 154 successes, zero failures and zero canceled cases; the serial lock
+was released. S03 direct render/assembly output and selected Docker mounts are
+implemented, with focused and enabled native validation pending; S03 is not
+accepted.
+The representative native generation/final-assembly/audible-playback result,
+including correct end card and EOF, and Step/Phase acceptance remain pending.
+Document/media evidence and concrete external readers remain explicit
+obligations on Phase 71.5's finite list. This amendment closes no Step or Phase,
+claims no accepted native route and grants no protection exception. Repository-full
+validation remains deferred-not-run to Phase 71.7.
+
 ## 2026-09-29 Phase 71 generation-boundary amendment
 
 Authority: [Phase 71 P710-02](../phase/phase-71.md) and its
@@ -28,11 +105,9 @@ generation and confirmation prerequisites. A build validates each declared
 `parts[].storyboard` source, section, tools, credits, and safe output path; it
 does not read or require `storyboardReview`, visual evidence, or
 `confirmationReview` approval. Confirmation and final remain explicitly
-selected, independent modes with separate outputs. `storyboardReview` and its
-hash/evidence decoders remain review-only transitional contracts: malformed
-legacy declarations are not promised to load before the separately assigned
-native hash/model/scaffold removal. Existing cache and evidence identities are
-also transitional, not the future Phase 71 currentness contract.
+selected, independent modes with separate outputs. `storyboardReview` remains
+a review-only contract. The DM14 contract in Section 9.1 supersedes its former
+approval/hash decoding; actual declaration syntax is still validated.
 
 ### 2026-09-29 P710-02C native currentness amendment
 
@@ -41,9 +116,8 @@ Native generated records are `cozy.video.storyboard-build-handoff.v2`,
 `cozy.video.storyboard-part-artifact.v2`. They carry descriptive paths,
 selected typed Storyboard content, mode/settings, declared artifacts, and a
 successful ffprobe summary; they MUST NOT carry source, projected, handoff,
-cache, credit, output, or manifest hash identities. This amendment does not
-remove the accepted Storyboard v1/v2 semantic identity contract or the
-separately owned review/audio/integrity hashes.
+cache, credit, output, or manifest hash identities. General Storyboard v1/v2 semantic hashes are subsequently removed by S04.
+Separately owned review/audio/integrity mechanisms are outside that removal.
 
 Currentness is a `CozyFileUpdatePolicy` generation decision over direct,
 declared safe inputs and `FileTime` observations. Missing, invalid, symlinked,
@@ -60,26 +134,46 @@ already replaced file from a staged byte/mode/mtime backup or removes only a
 new absent-before file. This is a single-writer ordinary-I/O-error guarantee;
 it is not a crash-safe multi-file transaction or a new receipt/lock framework.
 
-## 1. Scope and semantic identity
+## 2026-10-02 Phase 71.2 S04 typed Storyboard amendment
+
+Authority: [Phase 71.2](../phase/phase-71.2.md) and the approved
+[file-update boundary](file-update-management.md). S04 removes the general
+Storyboard semantic SHA API, result property, helper and CLI identity output,
+plus the immediate Explanation Projection Storyboard selector and receipt
+proof. There is no replacement identity or canonical-content currentness
+comparison. This supersedes only the hash purpose of earlier v1/v2 decisions;
+their accepted historical validation evidence and typed schema contracts remain.
+
+Canonical serialization and actual validate/inspect/convert/migrate behavior
+are specified by [CozyVideoStoryboardSpec](../../src/test/scala/cozy/video/CozyVideoStoryboardSpec.scala).
+Actual planning and source preservation are specified by
+[CozyVideoStoryboardBuildSpec](../../src/test/scala/cozy/video/CozyVideoStoryboardBuildSpec.scala)
+and [CozyVideoStoryboardBuildModeSpec](../../src/test/scala/cozy/video/CozyVideoStoryboardBuildModeSpec.scala).
+The immediate named-media consumer is specified by
+[CozyExplanationProjectionSpec](../../src/test/scala/cozy/media/CozyExplanationProjectionSpec.scala).
+S04 validation and independent review were subsequently accepted. The complete
+hash-removal Step passed 331 focused tests in 15 suites and independent Step
+review, with exact acceptance commit `00e73d9`. Phase 71.2 is CLOSED by the distinct local release containing the [normal closure record](../journal/2026/10/2026-10-03-phase-71.2-normal-closure.md). The sole independent full Phase review and its accepted M0 clarification amendment leave zero current blockers. Repository-full validation remains deferred-not-run to PHASE-71.4; no successor execution is claimed.
+
+## 1. Scope and typed semantics
 
 The Storyboard is the single content contract for Cozy video production. A
 human-authored restricted `storyboard.md` and an external machine-authored
 `storyboard.json` are two serializations of one typed semantic model. They
-MUST normalize to the same model and semantic identity when their defined
-values are equivalent. Formatting, key order in input JSON, line endings, and
-the choice of representation MUST NOT change that identity.
+MUST normalize to the same model when their defined values are equivalent.
+Formatting, input JSON key order, line endings and representation choice do
+not change the typed values.
 
-The public schema identifier is exactly `cozy.video.storyboard.v1`. The root
+The public v1 schema identifier is exactly `cozy.video.storyboard.v1`. The root
 model MUST contain both `schema` and integer `version` fields with values
 `cozy.video.storyboard.v1` and `1`. There is no second v1 Storyboard schema.
-`schema` and `version` are part of the semantic identity.
+Both fields remain required typed source data.
 
-The normalized identity is the `sha256:`-prefixed SHA-256 digest of the UTF-8
-canonical JSON serialization of the typed model. Canonical JSON has the field
-order specified in Section 3, preserves array order, uses no insignificant
-whitespace, and writes timing decimals in their normalized decimal form. The
-source filename, Markdown formatting, and filesystem location are not part of
-the identity; referenced path strings are part of it.
+Canonical JSON has the field order specified in Section 3, preserves array
+order, uses no insignificant whitespace, and writes timing decimals in their
+normalized decimal form. It defines lossless serialization and round trips,
+not an identity or currentness token. Referenced path strings remain literal
+typed data; source filename and filesystem location are provenance.
 
 ## 2. Typed semantic model
 
@@ -257,7 +351,7 @@ Both inputs MUST follow this pipeline:
 
 ```text
 source bytes -> representation parser -> typed Storyboard
-             -> validation -> canonical normalization -> semantic identity
+             -> validation -> canonical lossless serialization
 ```
 
 Parsing and validation happen before conversion output is written. Conversion
@@ -265,9 +359,9 @@ between Markdown and JSON is semantic and lossless: every required field,
 empty value, scene order, nested-array order, and safe reference is retained.
 Formatting is allowed to change, but no semantic value may be silently
 discarded, inferred from another field, or rewritten. Converting an already
-normalized file twice MUST produce byte-identical canonical output and the
-same semantic identity. Equivalent Markdown and JSON MUST yield byte-identical
-canonical JSON and the same identity.
+normalized file twice MUST produce byte-identical canonical output.
+Equivalent Markdown and JSON MUST yield the same typed fields and
+byte-identical canonical JSON.
 
 Unknown fields are rejected because v1 has no extension container that can
 preserve them. A future extension requires a separately versioned, explicitly
@@ -318,6 +412,8 @@ ambiguous, and unmapped field. It MUST fail rather than silently claim a
 lossless Storyboard when a legacy value cannot be represented. No automatic
 filename convention or schema omission may silently select the adapter.
 
+Same-visual legacy dialogue is specified by the [Video Dialogue Continuity contract](video-dialogue-continuity.md).
+
 ## 8. Intended Cozy command contracts
 
 These command contracts define the later CLI surface; they do not claim that
@@ -325,10 +421,10 @@ the commands exist in the current implementation.
 
 | Command | Contract |
 | --- | --- |
-| `cozy video storyboard validate <storyboard.md\|storyboard.json>` | Parse, validate, normalize, and report the semantic identity and structured diagnostics. It MUST not build video or mutate a source Storyboard. |
-| `cozy video storyboard inspect <storyboard.md\|storyboard.json>` | Perform the same safe parse/validation and display normalized schema/version, scene order, field summary, references, and identity without changing semantic content. |
+| `cozy video storyboard validate <storyboard.md\|storyboard.json>` | Parse, validate, normalize, and report schema/version, scene count and structured diagnostics. It MUST not build video or mutate a source Storyboard. |
+| `cozy video storyboard inspect <storyboard.md\|storyboard.json>` | Perform the same safe parse/validation and display normalized schema/version, scene order, field summary and references without changing semantic content. |
 | `cozy video storyboard convert <input> --save <output.md\|output.json>` | Validate first, then write deterministic canonical output. A legacy input requires an explicit adapter selection and diagnostic migration report. Failed validation MUST not produce a claimed Storyboard output. |
-| `cozy video storyboard review-evidence <video-project> --save <dir>` | Create deterministic content-review evidence from the approved normalized Storyboard, recording its identity and any optional visual-story/diagram/asset identities. It MUST reject stale or unapproved input. |
+| `cozy video storyboard review-evidence <video-project> --save <dir>` | Create deterministic content-review data from the selected current Storyboard and optional declared safe visual inputs, without digest-based approval or historical currentness gates. |
 | `cozy video build <video-project> --mode confirmation` | Validate and consume each declared Storyboard part source and create a confirmation output with a distinct location. Optional review state is not a build prerequisite. |
 | `cozy video build <video-project> --mode final` | Validate and consume each declared Storyboard part source, create a separate final output, and never overwrite confirmation output. Final does not require a confirmation artifact or approval record. |
 
@@ -341,56 +437,47 @@ Storyboard.
 
 ## 9. Review, build, and external boundaries
 
-Storyboard approval is an explicit review concern, not a generation or audiovisual acceptance gate. Optional
-image-backed visual-story evidence is a projection of normalized data and is
-required only when diagrams, assets, frames, layout, or image selection need
-separate inspection. When requested, its input identity MUST include the
-Storyboard identity and the identities of admitted visual inputs; changed
-inputs make the evidence stale.
+Storyboard semantic, visual, and audiovisual approval remains an explicit human/AI
+decision outside deterministic generation. A review declaration selects inputs;
+neither its presence nor generated evidence claims quality approval.
 
 ### 9.1 Project declaration and P30-02 evidence contract
 
-A video project MAY declare one root `storyboardReview` object. Its required
-`source` is a safe project-relative direct regular Storyboard file and its
-required `approvedIdentity` is the exact `sha256:<lowercase-hex>` identity of
-the normalized Storyboard that a human has approved. The declaration is an
-explicit approval record; a current source whose identity differs from
-`approvedIdentity` is unapproved and MUST be rejected by explicit review
-operations that claim it current; it is not a build prerequisite.
+A video project MAY declare one root `storyboardReview` object with a required
+safe project-relative direct regular `source`, optional `visualStory`, and
+optional `visualPage`. Historical `approvedIdentity` and
+`approvedEvidenceIdentity` properties are ignored for any JSON value; they
+are not required, parsed, compared, or re-emitted. No replacement whole-model
+proof, approval fingerprint, or new approval metadata framework is introduced.
 
-`storyboardReview.visualStory` is optional. Its presence means that the
-project explicitly requests image-backed visual review. It contains:
+`visualStory` selects a safe `evidenceDirectory` below `target/cozy-video`
+and ordered duplicate-free `inputRefs` from the Storyboard's declared
+diagram/asset references. The review-evidence command validates current source
+syntax and selected direct safe files, requires the declared save directory,
+copies the selected inputs, and writes deterministic review/handoff data.
+Evidence retains schema, `status:validated`, source, scenes and optional
+`visualInputs` containing `reference,source,path`; no content digests are
+computed. V1 handoff contains only schema and evidencePath.
+The typed result/current APIs carry file locations only.
 
-- `evidenceDirectory`: a safe project-relative directory below
-  `target/cozy-video` where Cozy writes the derived package;
-- `inputRefs`: an ordered, duplicate-free subset of the selected Storyboard's
-  `diagramRefs` and `assetRefs`; and
-- optional `approvedEvidenceIdentity`: the exact identity of a previously
-  inspected visual-story evidence package.
+Explicit review validation checks supported schema/status, required non-hash
+fields, current declared inputs and existing direct visual copies. It does not
+compare old evidence bytes, copied-input digests, renderer configuration, or
+the full historical payload with current inputs. Valid source/material updates
+can proceed; malformed documents, missing/unsafe actual inputs, invalid
+PageSet/catalog/page/Binding, and missing effective renderer/part still reject.
+Generation does not turn optional review state into a build prerequisite.
+No hash value, including a historical approval value, grants semantic quality
+approval. External reviewers retain that responsibility.
 
-`cozy video storyboard review-evidence <video-project> --save <dir>` requires
-the current Storyboard identity to equal `approvedIdentity`. When
-`visualStory` is present, `--save` MUST equal its `evidenceDirectory`; every
-selected input reference MUST be a present, direct regular non-symlink file
-contained by the project. Cozy writes `review-evidence.json`, copied visual
-inputs below `visual-inputs/`, and `handoff.json`. `review-evidence.json` has
-schema `cozy.video.storyboard-review-evidence.v1`, status `validated`, the
-Storyboard source path and identity, ordered scene review data (section,
-speaker, role, narration, screen heading/content, caption, timing, direction),
-and visual-input records only when requested. Its `identity` is the
-`sha256:` digest of the canonical evidence payload excluding that identity
-field. `handoff.json` has schema `cozy.video.storyboard-handoff.v1` and carries
-only the evidence path, evidence identity, Storyboard identity, and optional
-visual-input identities for a Dox/PPTX consumer; Cozy neither creates nor
-accepts that consumer's artifact.
-
-A requested visual review is current only when the evidence package exists,
-revalidates against the current approved Storyboard and selected input hashes,
-and its identity equals `approvedEvidenceIdentity`. A missing approval, missing
-evidence, changed input, missing input, malformed record, or identity mismatch
-MUST fail closed when explicit review currentness is requested. Generation does
-not invoke this validator or open saved evidence. Without `visualStory`, no
-visual evidence or handoff is required.
+Saved scene, visual-input, and renderer entries retain their required non-hash
+field types. Scene arrays are nonempty; visual-input references, renderer part
+IDs, visual-page scene IDs, and per-page asset IDs must be unique. Generated
+evidence readers positively select their known semantic fields at every object
+and ignore unspecified properties of any JSON type. They use no named
+historical-field exclusion mask. Visual-copy safety
+includes every parent component below the evidence directory. These checks do
+not compare historical scene content or renderer settings with current values.
 
 ### 9.1.1 P36-05 Storyboard-v2 Visual Page proof
 
@@ -399,7 +486,7 @@ and `cozy.video.storyboard-handoff.v2`; this dispatch never upgrades a v1
 Storyboard or alters its v1 evidence/handoff bytes. A v2 Storyboard containing
 one or more `kind: visual-page` screens MUST declare exactly one closed
 `storyboardReview.visualPage` object with exactly these required fields:
-`binding`, `evidenceDirectory`, and `approvedEvidenceIdentity`. A v1
+`binding` and `evidenceDirectory`. Historical `approvedEvidenceIdentity` is ignored. A v1
 Storyboard, or a v2 Storyboard with no visual-page screen, MUST reject that
 declaration rather than ignore it. Existing `visualStory` grammar remains a
 separate optional visual-input route; when both declarations occur in v2 their
@@ -410,33 +497,63 @@ For every visual-page screen, Cozy resolves the literal `source` and `catalog`
 from the Storyboard source directory, loads exactly that VisualPageSet with
 exactly that catalog, selects `pageId` exactly once, and validates the one
 declared binding against that resolved set/catalog. It never infers a catalog,
-page, binding, renderer, path, or identity. Evidence and handoff retain each
-literal `{kind,source,catalog,pageId}` and, in scene order, record
-`visualPageSetIdentity`, `catalogIdentity`, `logicalIdentity`,
-`visualPageIdentity`, ordered selected assets `{id,path,mediaType,sha256}`,
-and `bindingIdentity`.
+page, binding, renderer, path, or identity. Generated evidence and handoff
+`visualPages` entries are exactly `sceneId,kind,source,catalog,pageId,assets`.
+Assets retain ordered `{id,path,mediaType,modifiedAt}` declarations/observations,
+with full `FileTime.toString` precision. Current referenced safe files are
+resolved directly. DM14 deletes the four VisualPage digests and copied Binding
+proof; ordinary readers select only `sceneId,kind,source,catalog,pageId,assets`
+and `id,path,mediaType,modifiedAt` respectively, retaining their required relative
+key order and exact string types while ignoring arbitrary extras. An old VisualPage/assets/Binding snapshot
+is not required to equal current inputs.
+
+DM14 removes the review-local Storyboard/approval/evidence/handoff digests,
+visual-copy digests and renderer digests together with historical full-payload
+comparison gates. S04 also removes the general Storyboard identity API;
+separate confirmation/runtime/publication contracts retain their own ownership.
 
 For every project part selecting `storyboardReview.source`, Cozy selects its
 effective `VideoRenderer` from the part override or project renderer. At least
 one such part and one selected renderer per part are required for v2
 visual-page review. Evidence and handoff record `effectiveRenderers` ordered
-by part ID; each entry carries the canonical renderer configuration and its
-SHA-256 identity. Renderer execution is not part of this proof route.
+by part ID; each entry carries only partId and the selected renderer configuration. Renderer execution is not part of this proof route.
 Generation parts need not share that review source: each build part instead
 uses its own declared safe Storyboard source under the Phase 71 boundary.
 
-The v2 evidence payload has ordered fields `schema`, `status`, `source`,
-`storyboardIdentity`, `scenes`, `visualInputs`, `visualPages`, and
-`effectiveRenderers`, followed by its SHA-256 `identity`. The v2 handoff
-payload has ordered fields `schema`, `status`, `evidencePath`,
-`evidenceIdentity`, `storyboardIdentity`, `visualInputs`, `visualPages`, and
-`effectiveRenderers`, followed by its own SHA-256 `identity`. Before a v2
-visual-page explicit review-currentness operation, Cozy
-recomputes both expected values from direct current inputs and rejects any
-schema, payload, self-identity, approval, binding, catalog, logical/visual
-page, page asset, selected renderer, or handoff mismatch as stale. This does
-not self-approve visual quality or change narration, timing, transition, or
-audiovisual-review authority.
+The v2 evidence fields are `schema,status,source,scenes,visualInputs,
+visualPages,effectiveRenderers`. Handoff fields are
+`schema,status,evidencePath,visualInputs,visualPages,effectiveRenderers`.
+Root reading selects the semantic names for the schema/label: v1 evidence
+requires schema/status/source/scenes with optional visualInputs; v2 evidence and
+handoff require their listed fields. An unspecified root collection, including
+`scenes` on a handoff, is ignored and is not passed into row validation. Missing
+required collections still reject. No top-level key-order constraint is added.
+Scene rows require section/speaker/role/narration/caption/transition/direction
+strings, numeric duration/leadSilence, and the existing discriminated screen
+fields: v1 heading/content; v2 text kind/heading/content or visual-page
+kind/source/catalog/pageId. Visual inputs require safe relative reference/source/
+path strings and unique references. Effective renderers require unique nonempty
+partId and configuration with every existing field present: engine, strategy,
+policy, fps, width, height, crf, x264Preset, effectProfile. Positive projection
+precedes the unchanged VideoRenderer decoding and domain checks, including its
+existing null/value types. Extras do not make a configuration field optional.
+Arbitrary extras are ignored at all these generated row/configuration levels.
+Generated records remain deterministic and omit hashes; authored Storyboard,
+Scene/Screen and configuration parsing, review declarations and approval
+ownership are unchanged. VisualPage operational entries remain
+structurally validated, but are not compared as historical currentness proofs.
+
+The public CrossReview consumer still invokes `storyboardReviewCurrent`, resolves
+actual live selected assets, compares material bytes across roots, protects all
+participating inputs and atomically preserves its prior aggregate on failure.
+Its generated root/slides/pages/assets/verification and Presentation
+wrappers/slides use the same ordinary positive known-field principle while
+retaining their existing required relative order and `not-recorded` approval
+values. Timestamp-preserved valid Presentation edits are not promised historical
+content detection; actual path/PNG/PPTX/OOXML/material QA remains. This direct
+reader amendment adds no feature or Phase closure. SummarySlidesPdf S07,
+Publisher/rsync, final named-integrity audit, English-PDF and complete isolated-site
+drivers remain pending.
 
 ### 9.2 P30-03 Storyboard build and confirmation contract
 
@@ -462,8 +579,8 @@ MUST NOT write the project final output. Its canonical manifest has schema
 selected part/source paths, declared handoff and part-artifact paths, frozen
 mode/settings projections, and a successful ffprobe summary. Native mode
 records and handoffs MUST NOT carry local cache, source, handoff, output, or
-manifest hash identities. The accepted v1/v2 Storyboard semantic identity and
-the separately owned review/audio/integrity hash contracts remain unchanged.
+manifest hash identities. S04 removes general v1/v2 Storyboard semantic
+hashes; separately owned audio/integrity contracts retain their own scope.
 
 `video.yaml` MAY retain one root `confirmationReview` object with the exact
 single field `approvedIdentity` as historical review metadata. `final` does
@@ -497,7 +614,7 @@ removes an absent-before destination; unrecoverable rollback retains its
 staging recovery evidence. This is neither a crash-safe transaction nor a
 concurrency/receipt framework. Final rendered-video review evidence remains
 an independent gate; a video-derived review PPTX is an optional external
-hand-off/distribution artifact and never changes Storyboard identity or
+hand-off/distribution artifact and never changes authored Storyboard content or
 final-review state by itself.
 
 Dox/PPTX generation, SmartDox/Textus consumer acceptance, publication,
@@ -511,14 +628,14 @@ claimed here.
 Later implementation and executable specifications MUST establish that:
 
 1. equivalent restricted Markdown and canonical JSON normalize to the same
-   typed model and semantic identity;
+   typed model and canonical JSON;
 2. every field in Section 2, including empty values and ordering, survives
    both conversion directions without semantic loss;
 3. every rejection in Section 6 is deterministic and diagnostic;
 4. legacy `script.json` and `parts[].script` remain distinct unless an
    explicitly accepted migration adapter is selected;
-5. approved Storyboard identity and optional visual-input identities gate only
-   explicit review currentness; declared source, tool, credit, and output
+5. explicit review validates actual named Storyboard and optional visual inputs
+   without historical approval hashes; declared source, tool, credit and output
    safety remain build validation; and
 6. no source-managed `script.json` is required on the new Storyboard path,
    while the legacy path remains available pending migration acceptance.
@@ -553,9 +670,8 @@ the specified catalog and requires `pageId` to match exactly one page. It does
 not infer a catalog, binding, renderer, or any resolved identity.
 
 Canonical v2 JSON preserves the existing root and Scene field order. A v2
-screen uses the displayed field order, and the Storyboard semantic identity
-contains the literal `source`, `catalog`, and `pageId` reference rather than a
-substituted page/catalog digest. Video planning projects that same reference
+screen uses the displayed field order and preserves the literal
+`source`, `catalog`, and `pageId` reference as typed source data. Video planning projects that same reference
 into existing scene planning metadata; it does not invoke a renderer or change
 the ownership of narration, timing, transition, confirmation/final, or
 audiovisual review.
@@ -577,14 +693,17 @@ deployment. Those responsibilities remain separately scoped.
 
 ### Cross-media Review consumption
 
-The optional `cozy media cross-review` route consumes only an already current
-Storyboard-v2 review-evidence/handoff pair. It verifies the pair through the
-same approved Storyboard, literal visual-page screen, binding, selected asset,
-and effective-renderer reconstruction used before video confirmation/final
-work. It then compares the resulting VisualPageSet/catalog/binding and selected
-page identities against a current Visual Page presentation review. It neither
-changes the Storyboard contract, generates a video or a scene image, approves
-semantic/visual/audiovisual content, nor changes the existing video build gate.
+CrossReview consumes current presentation and validated Storyboard-v2 inputs.
+Actual per-side references, declared ordered asset IDs/media types, and safe file
+bytes are checked by the existing operation. No PageSet/catalog/logical/page/
+Binding historical or cross-medium snapshot equality is required. Aggregate
+assets remain `{id,mediaType}`; removed proof properties are ignored for any
+JSON value. Saved verification enforces structure, uniqueness, and references,
+not whole aggregate equality. Build may atomically replace a safe existing
+aggregate while protecting actual inputs/review evidence and prior bytes on
+failure. It does not render, publish, or approve semantic/visual/audiovisual
+content. Media receipt admission and non-review artifact integrity remain
+separate responsibilities.
 
 ## 12. Phase 61 legacy dialogue authoring compatibility
 
@@ -616,6 +735,10 @@ headings, and every other source or display string unchanged. A malformed or
 nonboolean configuration MUST fail before provider I/O. This contract does not
 add recursive dictionary processing or any broader punctuation normalization.
 
+The [compound-narration contract](video-compound-narration.md) specifies the
+existing dictionary/display boundary and repeated public synthesis, with
+actual private-driver provider evidence separate from listening acceptance.
+
 ### 12.3 Requested versus generated effective timing
 
 Let `T` be the established selected target duration, `L` the lead silence,
@@ -632,6 +755,51 @@ output interval, not the authored requested input. Phase 61.1 realizes that
 timing from the actual normalized WAV and carries both values through Remotion
 props and deterministic review evidence.
 
+On the renderer's integer frame grid at positive `fps`, the same timing request
+uses this coverage-preserving envelope (with Long arithmetic). At the render
+and review boundaries, `A` MUST be measured from the selected actual normalized
+WAV; the millisecond-rounded stored `audioDuration` MUST NOT determine integer
+audio or scene coverage:
+
+```text
+leadFrames = max(0, round(L * fps))
+audioFrames = max(1, ceil(A * fps))
+tailFrames = max(0, ceil(E * fps))
+effectiveFrameCount = max(1, ceil(effectiveSceneDuration * fps),
+                          leadFrames + audioFrames + tailFrames)
+```
+
+Here `E` is the interval supplied at that boundary: authored requested tail
+during synthesis, generated effective tail during rendering and review. The
+target floor MUST NOT be added a second time to a supplied effective tail.
+The integer scene envelope uses the existing `VideoTiming(T,L,actualA,E,fps)`
+contract. Continuous manifest and props seconds, including historical rounded
+`audioDuration`, and the selected `T`, `L` and supplied `E` remain unchanged.
+Missing or malformed required WAVs MUST fail actionably rather than guessing
+their duration from the manifest.
+Authored lead keeps nearest-frame rounding; audio and tail use ceiling so
+their final fractional samples and requested intervals fit inside the scene.
+
+Each section transition adds its integer frames once to the scene envelope
+and lead, shifting speech once. Scene starts are adjacent accumulated integer
+durations; content, summary, credits, final-page starts and composition total
+derive from that same accumulation. Independently configured card holds keep
+their existing semantics. Renderer Audio and speech/mouth activity consume
+the emitted integer audio duration. Review selects the first whole tail frame
+after the full ceiling audio window. Props without the optional audio-frame
+field remain supported, but explicitly under-covering fractional timings are
+contradictions requiring rerender. These contracts are specified by
+`CozyVideoSpec`, `CozyVideoDialogueContinuitySpec` and `CozyVideoMediaEndingSpec`;
+they do not establish player EOF behavior or provider listening acceptance.
+The [public synthesis boundary regression](../../src/test/scala/cozy/video/CozyVideoMediaEndingSpec.scala)
+retains 24001 actual samples at 24k with stored `audioDuration=1.000`, requiring
+19 audio frames at 18 fps through synthesis, rendering, final build and review.
+It also specifies sample offsets across frame rates, optional-field acceptance
+and rejection of explicit under-covering windows before extraction, using
+injected provider and render runners. Native media measurement remains a
+separate scenario; this regression does not establish actual provider or
+player acceptance.
+
 The Cozy-only executable acceptance fixture uses Article-9-shaped Japanese
 source and display text containing U+30FB (`・`) with a deterministic local
 provider. It proves that only provider speech loses U+30FB, while source,
@@ -646,7 +814,155 @@ infographic and credits cards remain separate holds and do not inherit or
 duplicate the final scene tail. It performs no external-provider call, external
 Article 9 project acceptance, publication, upload, or deployment.
 
-Storyboard v1 and v2 strict schemas, canonical serialization, and identity are
-unchanged. This Slice also does not change their historical generated audio
+## MP4 audio presentation and final assembly
+
+Direct Remotion rendering uses the official bundle, `selectComposition` and
+`renderMedia` APIs. H264/PCM16 processing keeps the merged PCM WAV until the
+stitcher encodes it once into MP4 with the existing bundled `libfdk_aac`,
+320k bitrate, 18000Hz cutoff, stereo 48k audio and a 48000 movie timescale.
+The generated render script passes the FFmpeg override explicitly and requests
+an encoded Buffer with `outputLocation: null`; that actual result is written
+directly to the props-selected output. No complete CLI product is renamed or
+installed. The override forces actual MP4 with output `-f mp4` in both
+pre-stitcher and stitcher. The pre-stitcher retains parallel encoding and every
+original argument, including the 90000 video-track timescale. The stitcher
+retains the original video, renderer and metadata arguments while encoding
+PCM to AAC inside actual MP4. CRF and optional x264 preset are taken from the
+selected props. Public part paths and manifests retain `.mp4`.
+Native readback requires actual H264, AAC stereo 48k and a
+positive MP4 major-brand family (`isom`/`iso*`, `mp41`, `mp42` or `avc1`), excluding
+QuickTime and Matroska. Positive safe integer
+`timing.totalFrames` and `fps` determine the finite audio envelope as
+`floor(totalFrames * 48000 / fps)` samples. Padding supplies silence within that
+envelope; the accepted actual-WAV frame coverage retains every narration sample
+and the authored opaque final-card hold. Invalid timing or an unexpected audio
+codec pair fails explicitly. Audio-free compositions force actual MP4 through
+the same overrides without adding audio.
+
+Single-part final assembly uses concat/copy with `copyts` to retain the MP4
+edit-list priming semantics and the precise movie timescale. Multiple selected
+inputs require exact video presentation durations from `duration_ts*time_base`,
+or the exact decimal video-stream duration when rational data is absent. Format
+duration and encoded audio packet counts do not define those input timelines.
+Video origins must be zero. An audio origin must be finite and nonnegative;
+its presented end may exceed video by at most one 48k sample. Missing, invalid
+or genuinely overrunning presentation data identifies the affected input and
+requires rerender before final assembly.
+
+Multiple audio-bearing or mixed inputs copy their video frames into a private
+video-only concat sequence, with explicit exact durations rendered to 18 decimal
+places. Each audio input is decoded independently so its edit/skip semantics are
+consumed before concatenation. Resampling represents admitted positive audio
+origins as leading silence. Audio-free intervals receive finite stereo 48k
+silence. If cumulative video ends are `V_i`, PCM boundary `i` is
+`floor(V_i * 48000)` and each part receives the difference of adjacent boundaries.
+The accumulated allocation is never longer than the video timeline and loses
+less than one sample, rather than one rounding loss per part. The WAVs are
+concatenated losslessly; the selected final FFmpeg encodes AAC LC only once at
+the existing bitrate, cutoff, sample rate and channels. No fixed priming delay is
+subtracted. All-video-only inputs retain concat/copy without inventing audio.
+Final assembly never reencodes video, changes frame rate, appends frames or
+shortens the end-card hold.
+
+Both ordinary and Storyboard final builds require a positive format duration
+and video stream, then validate stream presentation ends when audio exists.
+Each FFmpeg stage retains its complete stderr beside its actual output,
+including any DTS warning. Tool failures, malformed JSON, missing intermediates
+and contradictory media remain actionable failures. Ordinary Host and Docker
+builds allocate a fresh `assembly-` directory under `target/cozy-video/ffmpeg`
+for concat lists and presentation intermediates; attempts remain on success and
+failure. The selected original parts are read directly in declared order.
+External Docker input files are mounted read-only at their absolute paths;
+the external selected final-output parent is mounted read-write. Final mux,
+probe and stderr use the declared final path directly. Ordinary credits and
+manifests are written after media validation. Storyboard modes retain ordinary
+processing-work cleanup and directly write their selected artifacts.
+The descriptive
+`concatListPath` records the actual retained per-attempt concat list in selected
+part order. Configured public paths, `partOutputs`, `parts[].script`, manifest schema and historical
+non-hash evidence retain their established meaning.
+
+`CozyVideoAssemblyAudioSpec` specifies allocation, mixed/no-audio command effects
+and ordinary failure diagnostics. `CozyVideoMediaEndingSpec` specifies native one-part,
+two-part and mixed-input onset, complete-tail, frame, timestamp and opaque-card
+evidence. Native specifications require actual tools when explicitly enabled;
+they do not substitute for actual-provider listening or player EOF acceptance.
+
+The historical Phase 61 fixture preserves Storyboard v1/v2 strict schemas
+and canonical serialization; S04 subsequently removes the general identity API. This Slice also does not change their historical generated audio
 manifests or any render, evidence, or currentness behavior. Storyboard and
 pipeline conversion that carries this legacy contract is Phase 61.1 work.
+
+## 2026-10-09 Phase 71.5 descriptor admission amendment
+
+Authority: [Phase 71.5](../phase/phase-71.5.md),
+`P715-02-S13-CONTEXT-DESCRIPTOR-READ`. Video descriptor admission retains the
+existing non-null selected path, absolute normalization, existence and direct
+regular non-symlink checks, ordinary canonical path resolution, and direct
+canonical-target admission. The same canonical path proceeds to the existing
+loader, parsing and effect validation. There is no descriptor stable-key
+prerequisite, repeated attribute comparison, or changed-while-checking proof.
+This amendment supersedes only those descriptor protection promises and
+preserves the earlier dated outcomes and unrelated review/media contracts.
+
+The existing [CozyVideoProfileRenderSpec](../../src/test/scala/cozy/video/CozyVideoProfileRenderSpec.scala)
+and [CozyProjectContextSpec](../../src/test/scala/cozy/config/CozyProjectContextSpec.scala)
+retain descriptor/path and shared-context semantics. The
+[S13 journal](../journal/2026/10/2026-10-09-phase-71.5-context-descriptor-read.md)
+records the bounded changes and initial pending focused-validation status.
+
+2026-10-09 actual-result continuation: S13 is
+implemented-focused-validated-unreviewed. The selected five existing suites
+completed with zero aborted suites: 104 tests succeeded, with zero failed,
+canceled, ignored or pending tests. SBT reported zero warnings and zero errors;
+SBT and wrapper exits were 0 and the terminal shared serial lock was released.
+No hostile-XML diagnostic lines occurred in this selected command. This result
+does not supply native, Step or Phase acceptance; all recorded open obligations
+remain OPEN.
+S12's prepared 34-scene native generation, final assembly, inspection, visible
+unmuted playback, actual hearing, correct end card and player EOF remain OPEN.
+Focused specifications do not supply native, Step or Phase acceptance.
+
+## 2026-10-11 Phase 71.7 classic Remotion opaque final-card hold amendment
+
+Authority: [Phase 71.7](../phase/phase-71.7.md), `P717-03`,
+`P71703-QA-CARD-START-01`. For the classic Remotion producer,
+`timing.finalPageStartFrame` denotes the start of the fully opaque final-card
+hold. Every one of the declared `timing.finalPageHoldFrames` MUST show the
+opaque card, from that start through `timing.totalFrames - 1`.
+
+The `end-card` profile's `fade-rise` transition occurs before the declared
+hold, within the bounded preceding interval:
+
+```text
+transitionFrames = min(max(0, finalPageStartFrame), ceil(fps * 0.45))
+sequenceStart = finalPageStartFrame - transitionFrames
+sequenceFrames = finalPageHoldFrames + transitionFrames
+```
+
+At the declared hold start the transition has reached opacity 1. A zero
+start means an immediately opaque card, with no zero-range interpolation.
+The preceding authored sequence retains its full duration, while the final-card
+transition overlays its last bounded interval. Summary or credit pixels within
+that overlap are therefore not promised to remain fully unobscured.
+
+The two-second end-card hold, composition total, scene and audio positions,
+summary and credit frame counts, public profiles and emitted props retain their
+existing contracts. This amendment applies only to the classic Remotion
+producer; the other renderer templates retain their existing behavior.
+
+The [CozyVideoRemotionIntegrationSpec](../../src/test/scala/cozy/video/CozyVideoRemotionIntegrationSpec.scala)
+scenario “keep every declared final-card hold frame fully visible with the real
+toolchain” specifies three finite native witnesses: 12 fps with a predecessor
+shorter than the nominal transition, 18 fps with a separate five-second summary
+hold, and 30 fps with an included one-second credit hold. Actual `ffprobe`
+readback checks the exact video frame count, dimensions and frame rate. Actual
+`ffmpeg` decoding includes every declared final-card hold frame, including the
+first, and checks the opaque green fixture card in each frame. The existing
+[CozyVideoMediaEndingSpec](../../src/test/scala/cozy/video/CozyVideoMediaEndingSpec.scala)
+continues to specify separate common-end, audio-tail and assembly behavior.
+Native Remotion specifications require explicit
+`-Dcozy.video.remotion.integration=true` enablement and the actual cached
+toolchain; they do not substitute for listening or player EOF acceptance.
+This amendment records the contract and regression, with no validation, Step
+or Phase completion claim.

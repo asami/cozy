@@ -5,14 +5,14 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.security.MessageDigest
 import java.util.Comparator
 import scala.collection.JavaConverters._
 import org.scalatest.matchers.should.Matchers
 
 /*
  * @since   Jun. 23, 2026
- * @version Jul. 31, 2026
+ *  version Jul. 31, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 trait ModelerSpecSupport extends Matchers {
@@ -50,8 +50,6 @@ trait ModelerSpecSupport extends Matchers {
             "0.0.1-SNAPSHOT",
             "--cncf-runtime-descriptor",
             runtimeDescriptor.toString,
-            "--cncf-runtime-descriptor-sha256",
-            _sha256(runtimeDescriptor),
             "--generation-source-identity",
             sourceidentity
           ))
@@ -66,12 +64,6 @@ trait ModelerSpecSupport extends Matchers {
 
   protected def test_cncf_runtime_descriptor: Path =
     Path.of(sys.props("user.dir")).toAbsolutePath.normalize().resolve("src/test/resources/cncf/runtime-with-predefined-results.yaml")
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").
-      digest(Files.readAllBytes(path)).
-      map(byte => f"${byte & 0xff}%02x").
-      mkString
 
   protected def write_file(path: Path, content: String): Unit = {
     Files.createDirectories(path.getParent)

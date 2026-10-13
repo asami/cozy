@@ -19,12 +19,12 @@ named explanation catalog + named P36 presentation catalog + authored Compositio
   -> cozy.explanation-plan.v1
   -> cozy.explanation-projection-map.v1
   -> named VisualPageSet + named Storyboard-v2
-  -> cozy.explanation-projection.v1 receipt
+  -> cozy.explanation-projection.v1
 ```
 
 The subject, explanation strategy, facts, claims, logical graph, parameters,
 and page/scene mappings are authored inputs. Cozy MUST validate, normalize,
-copy, project, derive identities and receipts, and reject invalid or stale
+copy, project, and reject invalid or semantically mismatched
 input. Cozy MUST NOT infer a subject, select a pattern, summarize or
 paraphrase meaning, write claims or narration, generate a logical graph,
 generate a ProjectionMap, or make semantic, visual, audiovisual, publication,
@@ -36,7 +36,7 @@ compatibility, presentation pages, and the Storyboard-v2 screen reference.
 Phase 30 remains authoritative for Storyboard narration and production
 semantics. This specification does not define or alter those schemas.
 
-## 2. Closed documents and identity rules
+## 2. Closed documents and canonical values
 
 ### 2.1 Schema envelope
 
@@ -54,15 +54,17 @@ shown here:
 Unknown root or nested fields, duplicate JSON object fields, malformed UTF-8,
 malformed JSON, `null`, non-finite numbers, unsupported scalar types, and a
 wrong schema/version MUST be rejected before a typed value is exposed.
+Source and asset declaration objects retain their existing ordinary extra-metadata
+loading; their required fields and duplicate-key checks remain strict. Catalog
+selectors contain exactly `id` and `revision` with no extra-field adapter.
 
 ### 2.2 Canonical JSON
 
 Canonical JSON MUST be UTF-8, contain no insignificant whitespace, use the
 field order declared in this specification, preserve semantic array order,
 and emit all and only defined fields. Input object key order does not change
-meaning, but duplicate and unknown keys are errors. Canonical identity MUST
-be calculated only after strict parsing and typed normalization; a failed or
-lossy parse has no identity.
+meaning, but duplicate and unknown keys are errors. Canonical serialization
+follows strict parsing and typed normalization.
 
 For the explanation catalog, strict parsing and duplicate validation MUST
 complete before array normalization. The canonical `subjectPatterns` and
@@ -73,7 +75,7 @@ ordered ascending by `(id,version)`; and
 `reservedNarrativeArgumentIds` preserves its specified fixed Narrative /
 Argument order. These catalog input arrays are normalized to those canonical
 orders only after strict parsing and duplicate validation, so equivalent
-catalog values have the same canonical bytes and identity. Semantic authored
+catalog values have the same canonical serialization. Semantic authored
 arrays—subject facts, explanation parameters and steps, claims, logical
 nodes/Relations, references, and mapping targets—retain their authored or
 contract-defined order and MUST NOT be reordered by catalog normalization.
@@ -81,40 +83,26 @@ contract-defined order and MUST NOT be reordered by catalog normalization.
 Semantic arrays—facts, parameters, authored steps, claims, nodes, Relations,
 references, and mapping targets—retain authored or normalized order. Catalog
 definition arrays are emitted in the deterministic order specified below.
-Duplicate array identities, duplicate IDs, and duplicate names MUST be
+Duplicate IDs and duplicate names MUST be
 rejected rather than silently deduplicated.
 
-### 2.3 SHA-256 identities
+### 2.3 Semantic selectors and direct inputs
 
-Every P37-derived identity MUST be the SHA-256 digest of the corresponding
-canonical JSON UTF-8 bytes, serialized as
-`sha256:<64-lowercase-hex>`. The value field that records an identity is
-excluded from the bytes hashed for that value; all other defined fields are
-included.
+The catalog `id` and `revision`, authored Composition `id`, pattern references,
+and step/page/scene/resource IDs describe actual authored meaning. Plan contains
+exactly the two catalog selectors, Subject and Explanation Pattern references,
+and ordered steps. ProjectionMap contains the two catalog selectors and ordered
+presentation/video mapping sections. Projection contains those selectors,
+presentation `{visualPageSet:{id},stepMappings}`, and video `{stepMappings}`.
+Parameter provenance contains only the ordered selected `values`.
 
-The existing P36 logical-catalog and full presentation-catalog identity
-results consumed by this contract are likewise canonical UTF-8 SHA-256
-identities under the P36 contract; P37 only records and compares them.
-
-Catalog and Composition identity results are derived results and MUST NOT be
-serialized as an `identity` self field in their roots. The catalog root's
-`id` is a stable catalog identifier, and the Composition root's `id` is a
-stable authored Composition identifier; neither is a digest. A catalog
-identity is derived from its complete canonical root. A Composition identity
-is derived from its complete canonical root, including its selected catalog
-identity.
-
-Plan, ProjectionMap, and Projection each have a root `identity` self field as
-their final field. That field is excluded from the bytes hashed for the root.
-Plan step identity, presentation/video mapping identity, and receipt identity
-likewise exclude only their own identity field. A change to any other defined
-value changes the corresponding identity.
-
-No filesystem path is serialized into a P37 semantic identity. A
-cross-document dependency is represented by an identity or stable selector
-and supplied later as an explicitly named file. The only path-like values
-that P37 may inspect are the existing Storyboard-v2 literal `source` and
-`catalog` screen fields; P37 does not add or change those fields.
+Dependencies are supplied as explicitly named direct files. Plan loading checks
+catalog ID/revision and pattern references, then compares its typed steps with
+`expand` of the selected Composition. Projection loading compares meaningful
+selectors, PageSet ID, and mapping values with the resolved named inputs. These
+checks validate authored meaning; they are not unchanged-content certificates.
+No hash-only receipt, content identity, replacement proof, schema bump, or
+legacy protection adapter belongs to these v1 contracts.
 
 ## 3. Explanation Catalog contract
 
@@ -275,8 +263,7 @@ The canonical Composition root has exactly this field order and has no root
   "id": "<composition-id>",
   "explanationCatalog": {
     "id":"<catalog-id>",
-    "revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+    "revision":1
   },
   "subject": {
     "pattern":{"id":"software-product","version":1},
@@ -292,8 +279,8 @@ The canonical Composition root has exactly this field order and has no root
 }
 ```
 
-`explanationCatalog.identity` is the derived identity of the explicitly
-supplied explanation-catalog file. It is not a catalog self field. `subject`
+`explanationCatalog` is exactly `{id,revision}` and resolves the explicitly
+supplied catalog. `subject`
 has exactly `pattern` and `facts`; `explanation` has exactly `pattern`,
 `parameters`, and `steps`.
 
@@ -303,16 +290,19 @@ the selected catalog definitions. The value MUST have its exact catalog type;
 there is no string-to-number, scalar-to-list, record, default, or nullable
 coercion.
 
-Sources have exactly `{id,sha256}` and assets have exactly
-`{id,mediaType,sha256}`. IDs are unique, `mediaType` is nonempty text, and
-each digest is a lowercase SHA-256 token for the explicitly named bytes. No
-source or asset path is serialized. For every operation whose validated
-direct-file input closure includes declared sources or assets, the caller
-MUST provide each declaration exactly once using the repeatable bindings
-`--source <id>=<file>` and `--asset <id>=<file>`. The ID MUST match the
-declaration, and `<file>` MUST name a direct regular file whose bytes match
-the declared SHA-256. These flags are explicit call inputs, MUST NOT be
-serialized into any P37 identity, and MUST NOT be discovered.
+Sources require `{id}` and assets require `{id,mediaType}`. IDs are unique and
+`mediaType` is nonempty text. Ordinary extra material fields, including malformed
+obsolete metadata, are ignored without parsing, validating, retaining, or
+re-emitting them; missing or ill-typed required fields and duplicate keys
+reject. Other Composition object shapes remain closed. No source or asset
+path is serialized. For every operation whose validated direct-file input
+closure includes declared sources or assets, the caller MUST provide each
+declaration exactly once using the repeatable bindings `--source <id>=<file>`
+and `--asset <id>=<file>`. The ID MUST match the declaration, and `<file>` MUST
+name a safe direct regular file with neither symlinked ancestors nor a
+symlinked leaf. Current valid bytes require no declaration digest rebinding.
+These flags are explicit call inputs, MUST NOT be serialized into any P37
+document, and MUST NOT be discovered.
 
 ### 4.2 Authored explanation steps
 
@@ -365,8 +355,8 @@ version claim for a P36 logical pattern entry. Each node is exactly
 `{id,role,label,sourceRefs}`, and each Relation is exactly
 `{id,type,from,to,sourceRefs}`. Logical nodes and Relations have no
 `assetRefs`; the `assetRefs` fields on claims, facts, and P37 step/root
-provenance remain separate P37 data. The P36 catalog identity/revision
-binding is carried by the Plan and Projection selectors and receipts.
+provenance remain separate P37 data. The P36 catalog ID/revision
+binding is carried by the Plan and Projection selectors.
 
 `claims` is nonempty. Claim `emphasis` is the closed enum exactly
 `supporting|primary`; no other spelling or value is accepted. IDs, roles,
@@ -403,36 +393,33 @@ The canonical Plan root has exactly this field order:
 
 ```json
 {
-  "schema":"cozy.explanation-plan.v1",
-  "version":1,
-  "compositionIdentity":"sha256:<64-lowercase-hex>",
-  "explanationCatalog":{
-    "id":"<catalog-id>",
-    "revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+  "schema": "cozy.explanation-plan.v1",
+  "version": 1,
+  "explanationCatalog": {
+    "id": "<catalog-id>",
+    "revision": 1
   },
-  "presentationCatalog":{
-    "id":"<p36-catalog-id>",
-    "revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+  "presentationCatalog": {
+    "id": "<p36-catalog-id>",
+    "revision": 1
   },
-  "subjectPattern":{"id":"<subject-pattern-id>","version":1},
-  "explanationPattern":{"id":"<explanation-pattern-id>","version":1},
-  "steps":[],
-  "identity":"sha256:<64-lowercase-hex>"
+  "subjectPattern": {
+    "id": "<subject-pattern-id>",
+    "version": 1
+  },
+  "explanationPattern": {
+    "id": "<explanation-pattern-id>",
+    "version": 1
+  },
+  "steps": []
 }
 ```
 
-The Plan `presentationCatalog` selector is exactly `{id,revision,identity}`;
-its `identity` MUST be the existing Phase-36 logical-catalog identity from
-the explicitly supplied `cozy.presentation-semantics.catalog.v1` file. It is
-not a new P36 field or schema. The explanation-catalog selector carries the
-derived full explanation-catalog identity.
-
-`compositionIdentity` MUST match the current normalized Composition, both
-catalog selectors MUST match the supplied files, and pattern references MUST
-match the Composition exactly. `steps` is nonempty and ordered by contiguous
-positive `order` values.
+Both Plan catalog selectors are exactly `{id,revision}` and resolve the
+explicitly supplied catalogs. Pattern references MUST match the selected
+Composition exactly. Typed `steps` MUST equal the actual validated Composition
+expansion, preserving authored claims, graphs, references, and parameter values.
+`steps` is nonempty and ordered by contiguous positive `order` values.
 
 ### 5.2 Plan step shape
 
@@ -440,44 +427,64 @@ Each Plan step has exactly these fields, in this order:
 
 ```json
 {
-  "id":"<step-id>",
-  "order":1,
-  "semanticRole":"<catalog-role>",
-  "claims":[
-    {"id":"<claim-id>","text":"<authored-claim>",
-     "emphasis":"primary","sourceRefs":[],"assetRefs":[]}
+  "id": "<step-id>",
+  "order": 1,
+  "semanticRole": "<catalog-role>",
+  "claims": [
+    {
+      "id": "<claim-id>",
+      "text": "<authored-claim>",
+      "emphasis": "primary",
+      "sourceRefs": [],
+      "assetRefs": []
+    }
   ],
-  "logical":{
-    "pattern":"<logical-pattern-id>",
-    "nodes":[
-      {"id":"<node-id>","role":"<node-role>","label":"<node-label>",
-       "sourceRefs":[]}
+  "logical": {
+    "pattern": "<logical-pattern-id>",
+    "nodes": [
+      {
+        "id": "<node-id>",
+        "role": "<node-role>",
+        "label": "<node-label>",
+        "sourceRefs": []
+      }
     ],
-    "relations":[
-      {"id":"<relation-id>","type":"<typed-relation>",
-       "from":"<node-id>","to":"<node-id>",
-       "sourceRefs":[]}
+    "relations": [
+      {
+        "id": "<relation-id>",
+        "type": "<typed-relation>",
+        "from": "<node-id>",
+        "to": "<node-id>",
+        "sourceRefs": []
+      }
     ]
   },
-  "sourceRefs":[],
-  "assetRefs":[],
-  "patternProvenance":{
-    "subjectPattern":{"id":"<subject-pattern-id>","version":1},
-    "explanationPattern":{"id":"<explanation-pattern-id>","version":1}
+  "sourceRefs": [],
+  "assetRefs": [],
+  "patternProvenance": {
+    "subjectPattern": {
+      "id": "<subject-pattern-id>",
+      "version": 1
+    },
+    "explanationPattern": {
+      "id": "<explanation-pattern-id>",
+      "version": 1
+    }
   },
-  "parameterProvenance":{
-    "values":[{"name":"<parameter-name>","value":"<typed-value>"}],
-    "identity":"sha256:<64-lowercase-hex>"
-  },
-  "identity":"sha256:<64-lowercase-hex>"
+  "parameterProvenance": {
+    "values": [
+      {
+        "name": "<parameter-name>",
+        "value": "<typed-value>"
+      }
+    ]
+  }
 }
 ```
 
 The example `value` above is schematic only; its actual JSON value MUST have
 the exact catalog-declared type. `parameterProvenance.values` is an ordered
-copy of the selected `{name,value}` values, not a names-only list. Its
-identity is derived from the canonical values array and excludes only its
-own identity field. The `expand` operation means deterministic strict
+copy of the selected `{name,value}` values, not a names-only list. The `expand` operation means deterministic strict
 validation, normalization, and copying of the explicitly authored Composition
 steps, claims, logical Pattern/Relation values, references, and parameter
 values into ordered Plan steps. It never generates or infers a logical graph,
@@ -489,14 +496,13 @@ The Plan step `logical` value retains the exact P36-compatible shape
 `{pattern,nodes,relations}`: the pattern is a stable string ID, and nodes and
 Relations have only their P36 fields, including `sourceRefs` but no
 `assetRefs`. No P36 logical-pattern version is asserted here; its catalog
-identity/revision binding remains in the Plan `presentationCatalog` selector
-and the later Projection receipt.
+ID/revision binding remains in the Plan `presentationCatalog` selector.
 
 ### 5.3 Expansion behavior
 
 `expand` MUST be deterministic for one unchanged Composition and the two
 explicitly supplied catalogs. It MUST produce identical canonical Plan bytes
-and identities on repeated execution. It MUST perform only deterministic
+on repeated execution. It MUST perform only deterministic
 validation, normalization, and copying of explicitly authored steps and their
 Phase-36 Logical Pattern and Relation graph before any visual selection. It
 MUST reject unsupported, ambiguous, incomplete, non-deterministic, or lossy
@@ -521,34 +527,27 @@ The canonical ProjectionMap root has exactly this field order:
 
 ```json
 {
-  "schema":"cozy.explanation-projection-map.v1",
-  "version":1,
-  "compositionIdentity":"sha256:<64-lowercase-hex>",
-  "planIdentity":"sha256:<64-lowercase-hex>",
-  "explanationCatalog":{
-    "id":"<catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+  "schema": "cozy.explanation-projection-map.v1",
+  "version": 1,
+  "explanationCatalog": {
+    "id": "<catalog-id>",
+    "revision": 1
   },
-  "presentationCatalog":{
-    "id":"<p36-catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+  "presentationCatalog": {
+    "id": "<p36-catalog-id>",
+    "revision": 1
   },
-  "presentation":{
-    "stepMappings":[],
-    "identity":"sha256:<64-lowercase-hex>"
+  "presentation": {
+    "stepMappings": []
   },
-  "video":{
-    "stepMappings":[],
-    "identity":"sha256:<64-lowercase-hex>"
-  },
-  "identity":"sha256:<64-lowercase-hex>"
+  "video": {
+    "stepMappings": []
+  }
 }
 ```
 
-ProjectionMap has its own root identity. Its `presentation` and `video`
-identity fields are independent mapping identities, each calculated from its
-mapping object excluding that mapping identity field. Their exact closed
-mapping entries are:
+The presentation and video sections contain only `stepMappings`. Their exact
+closed mapping entries are:
 
 ```json
 {"stepId":"<plan-step-id>","pageIds":["<page-id>"]}
@@ -563,11 +562,10 @@ and
 Each mapping array contains exactly one entry per Plan step in Plan order;
 target arrays are nonempty, ordered, duplicate-free stable IDs. Presentation
 and video target counts are independent. `stepId` values MUST match Plan
-steps exactly. The explanation-catalog selector is the full derived catalog
-identity, and the presentation-catalog selector is exactly the P36 logical
-selector `{id,revision,identity}`.
+steps exactly. Both catalog selectors are exactly `{id,revision}` and validate
+named catalog references.
 
-ProjectionMap carries only selectors, identities, and independently authored
+ProjectionMap carries only catalog selectors and independently authored
 page/scene step mappings. It MUST NOT contain a resource path, VisualPageSet,
 Storyboard or media content, renderer state, review/approval state, layout,
 coordinate, timing, transition, narration, generated artifact, or publication
@@ -576,12 +574,11 @@ target.
 
 ### 6.2 ProjectionMap validation
 
-The loader MUST require the current Composition and Plan identities, both
-explicit catalog files, and exact selector agreement. It MUST reject a
-missing, extra, reordered, duplicate, or unknown step mapping; a target ID
-with unsafe syntax; a mapping identity mismatch; or a mapping that changes
-the authored semantic plan. No best-effort mapping is returned after a
-rejection.
+The loader MUST validate the named Composition and Plan against both explicit
+catalog files and require exact catalog selector agreement. It MUST reject a
+missing, extra, reordered, duplicate, or unknown step mapping, a target ID with
+unsafe syntax, or a mapping that changes the authored semantic plan. No
+best-effort mapping is returned after rejection.
 
 ## 7. Final Projection contract
 
@@ -591,65 +588,44 @@ The canonical final Projection root has exactly this field order:
 
 ```json
 {
-  "schema":"cozy.explanation-projection.v1",
-  "version":1,
-  "compositionIdentity":"sha256:<64-lowercase-hex>",
-  "planIdentity":"sha256:<64-lowercase-hex>",
-  "projectionMapIdentity":"sha256:<64-lowercase-hex>",
-  "explanationCatalog":{
-    "id":"<catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+  "schema": "cozy.explanation-projection.v1",
+  "version": 1,
+  "explanationCatalog": {
+    "id": "<catalog-id>",
+    "revision": 1
   },
-  "presentationCatalog":{
-    "id":"<p36-catalog-id>","revision":1,
-    "identity":"sha256:<64-lowercase-hex>"
+  "presentationCatalog": {
+    "id": "<p36-catalog-id>",
+    "revision": 1
   },
-  "presentation":{
-    "visualPageSet":{"id":"<set-id>","identity":"sha256:<64-lowercase-hex>"},
-    "stepMappings":[],
-    "identity":"sha256:<64-lowercase-hex>"
+  "presentation": {
+    "visualPageSet": {
+      "id": "<set-id>"
+    },
+    "stepMappings": []
   },
-  "video":{
-    "storyboard":{"identity":"sha256:<64-lowercase-hex>"},
-    "stepMappings":[],
-    "identity":"sha256:<64-lowercase-hex>"
-  },
-  "receipt":{
-    "compositionIdentity":"sha256:<64-lowercase-hex>",
-    "planIdentity":"sha256:<64-lowercase-hex>",
-    "projectionMapIdentity":"sha256:<64-lowercase-hex>",
-    "explanationCatalogIdentity":"sha256:<64-lowercase-hex>",
-    "presentationLogicalCatalogIdentity":"sha256:<64-lowercase-hex>",
-    "presentationCatalogIdentity":"sha256:<64-lowercase-hex>",
-    "visualPageSetIdentity":"sha256:<64-lowercase-hex>",
-    "storyboardIdentity":"sha256:<64-lowercase-hex>",
-    "presentationMappingIdentity":"sha256:<64-lowercase-hex>",
-    "videoMappingIdentity":"sha256:<64-lowercase-hex>",
-    "identity":"sha256:<64-lowercase-hex>"
-  },
-  "identity":"sha256:<64-lowercase-hex>"
+  "video": {
+    "stepMappings": []
+  }
 }
 ```
 
-The final Projection copies the ProjectionMap's presentation and video
-`stepMappings` and independent mapping identities exactly. Its
-`presentationCatalog.identity` remains the existing P36 logical-catalog
-identity. The full P36 presentation-catalog identity is recorded separately
-as `receipt.presentationCatalogIdentity`; both that identity and the logical
-identity are required receipt inputs.
+The final Projection copies the ProjectionMap's ordered presentation and video
+`stepMappings` exactly. Catalog selectors are `{id,revision}`; the PageSet selector
+is `{id}`. All objects remain closed with the existing v1 schema/version.
 
-The existing Storyboard-v2 root has no separately modeled stable `id`. Its
-canonical `storyboardIdentity` is therefore the only Storyboard descriptor
-recorded by a P37 Projection and its receipt. P37 MUST NOT derive an ID from a
-file path, filename, scene, or any other substitute value.
+The Storyboard is an explicitly named direct input validated against its actual
+v2 schema, scene IDs, and visual-page screens. Its literal screen source/catalog
+paths resolve to the named files. Projection introduces no Storyboard descriptor
+or derived ID.
 
 ### 7.2 Project behavior and media agreement
 
 `project` receives exactly these named direct-file inputs: a ProjectionMap,
 Composition, Plan, explanation catalog, P36 presentation catalog, VisualPageSet,
-and Storyboard. It MUST verify Composition, Plan, ProjectionMap, and both
-catalog selectors and identities before writing only the final Projection and
-receipt selected by `--save`.
+and Storyboard. It MUST validate the Composition and Plan's actual authored
+meaning, ProjectionMap mappings, and both catalog ID/revision selectors before
+writing only the final Projection selected by `--save`.
 
 Every page ID MUST resolve exactly once in the named VisualPageSet. For every
 Plan step -> mapped page ID, that exact page MUST resolve in the explicitly
@@ -659,9 +635,12 @@ carried anywhere by that Plan step—the step itself, its claims, and its
 logical nodes or Relations as applicable—MUST occur in the resolved P36 page's
 `sources` or `assets` declarations. The existing P37 explicit
 `--source <id>=<file>` and `--asset <id>=<file>` bindings MUST be used to
-verify current direct bytes against the P37 declarations and the resolved P36
-declarations under their existing path/digest rules. Extra P36 page provenance
-remains governed by P36 and MUST NOT alter Plan identity.
+require declaration presence and safe direct resolution in both P37 bindings
+and the resolved P36 declarations. Asset media types MUST agree. Required descriptor resources and explicit bindings
+must independently resolve to safe direct files. Missing declarations, invalid
+paths, or disagreeing media types remain `EXPLANATION_PROJECTION_STALE` with
+field-path diagnostics and fail before writing output. Extra P36 page provenance
+remains governed by P36.
 
 Every scene ID MUST resolve exactly once in the named Storyboard. For every
 Plan step -> mapped scene ID, the resolved scene MUST contain an existing
@@ -676,18 +655,16 @@ fields, and P37 MUST NOT rewrite or infer them.
 
 P37 preserves authored claims in the Plan. It MUST NOT add claim text to a P36
 VisualPage, which has no claim field, and it MUST NOT self-approve semantic
-meaning; `project` verifies graph and provenance linkage and currentness only.
+meaning; `project` verifies graph and provenance linkage.
 
 `project` MUST NOT discover, generate, modify, render, publish, or approve the
 VisualPageSet, Storyboard, or any media. It only writes the selected final
-Projection/receipt. Page and scene cardinalities remain independent.
+Projection. Page and scene cardinalities remain independent.
 
-The receipt identity is calculated from all receipt fields except its own
-identity. Verification MUST fail when Composition, Plan, ProjectionMap,
-explanation catalog, P36 logical catalog, full P36 presentation catalog,
-VisualPageSet, Storyboard, or either mapping changes, is missing, cannot be
-resolved, or is stale. A receipt proves identity/currentness only; it is not
-semantic, visual, audiovisual, publication, deployment, or consumer approval.
+Storyboard narration, caption, direction, or formatting changes alone MUST NOT
+veto valid actual media mappings. Malformed inputs, unresolved page/scene mappings,
+and missing required files still fail. Projection is not semantic, visual,
+audiovisual, publication, deployment, or consumer approval.
 
 ## 8. Direct-file command/input matrix
 
@@ -699,9 +676,8 @@ command input, not a P37 semantic identity field.
 Common declared-resource companion rule: every row below whose validated
 input closure includes one or more declared sources or assets MUST also
 receive one `--source <id>=<file>` for each declared source and one
-`--asset <id>=<file>` for each declared asset, each exactly once. The direct
-regular-file bytes MUST match the declaration's SHA-256. These flags are
-explicit call inputs, are not serialized in identities, and are never
+`--asset <id>=<file>` for each declared asset, each exactly once. Each binding names a safe direct
+regular file. These flags are explicit call inputs, are not serialized, and are never
 discovered. Catalog-only rows have no declared-resource bindings; this rule
 is in addition to the named catalog, Composition, Plan, ProjectionMap,
 VisualPageSet, and Storyboard companions shown in the matrix.
@@ -728,8 +704,10 @@ VisualPageSet, and Storyboard companions shown in the matrix.
 | `verify-projection <projection>` | `--composition <file> --plan <file> --projection-map <file> --explanation-catalog <file> --presentation-catalog <file> --visual-page-set <file> --storyboard <file>` | none |
 
 `validate`, `inspect`, and `convert` use the same companion requirements for
-each document kind. Any selected output uses atomic same-directory
-replacement. No command starts a server, invokes a renderer, builds PPTX or
+each document kind. Selected outputs use ordinary UTF-8 direct writes with a
+canonical trailing newline after validation. Validation errors before writing
+leave previous output untouched; ordinary write failures may leave partial output
+and regeneration is recovery. No command starts a server, invokes a renderer, builds PPTX or
 MP4, modifies media, publishes, or records approval.
 
 ## 9. Diagnostics, invariants, and non-goals
@@ -748,7 +726,7 @@ path, and concise reason. At minimum, implementations MUST distinguish:
   changed references;
 - `EXPLANATION_EXPANSION_INCOMPLETE` for ambiguous, unsupported, or lossy
   plans; and
-- `EXPLANATION_PROJECTION_STALE` for missing, changed, or identity-mismatched
+- `EXPLANATION_PROJECTION_STALE` for missing or semantically mismatched
   projection inputs.
 
 The following remain unchanged outside this contract:
@@ -767,3 +745,42 @@ renderers, layout, coordinates, fonts, colors, Shape kinds, timing,
 transitions, narration synthesis, PPTX, MP4, HTML, infographic, Mermaid,
 PlantUML, SVG, publication, deployment, or review approval. Those concerns
 remain separate contracts and later work.
+
+
+## Phase 71.5 bounded implementation status
+
+S07 reconciles Explanation, Plan, ProjectionMap, Projection, and Preview with
+these protection-free typed shapes and direct writes. On 2026-10-08 its four
+existing focused suites completed with 41 successes, zero failures, canceled,
+ignored, or pending cases, no warnings, SBT/wrapper exit 0, and terminal shared
+serial-lock release. Independent review and Step/Phase acceptance remain pending.
+S08 implements the bounded VisualPage conversion and direct semantic Preview
+writers. On 2026-10-08 its two existing focused suites completed with 14 successes,
+zero failures, canceled, ignored, or pending cases, zero warnings/errors,
+SBT/wrapper exit 0, and terminal shared serial-lock release. S09 implements bounded
+direct Article/Summary PDF generation and immediate build-input capture removal.
+On 2026-10-08 its six existing focused suites completed with 114 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+S10 removes Presentation copied-image byte/multiset checks and shared acceptance
+staging/backup/rollback, retaining initial asset/target ownership and actual
+structural semantics with ordered direct review-state then receipt writes.
+On 2026-10-08 its six existing focused suites completed with 113 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero SBT
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+Five hostile-XML/DOCTYPE diagnostics are intentional existing negative-fixture
+output, not SBT compilation or test failures.
+S11 implements direct PresentationMigration and CrossReview output writes and
+direct creation of the absent article source package. Its five-suite focused
+validation completed on 2026-10-08 with 58 successes, zero
+failed/canceled/ignored/pending cases, zero aborted suites, zero SBT
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+S11 emitted five intentional hostile-XML/DOCTYPE negative-fixture diagnostics,
+separate from SBT compilation or test failures. S12's current JA native route is
+planned/not-run; generation, assembly, native inspection, browser EOF and current
+listening remain OPEN ([journal](../journal/2026/10/2026-10-08-phase-71.5-ja-main-route.md)).
+Remaining Receipt publication/prepared-input
+observations and finite publication/runtime/CAR groups, independent
+review/Step/Phase acceptance, the same full 34-scene native route, and external
+E715-01..04 consumer reconciliation remain pending without an exception or
+whole-Phase closure claim.

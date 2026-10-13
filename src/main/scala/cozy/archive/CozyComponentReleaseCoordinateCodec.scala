@@ -7,7 +7,7 @@ import play.api.libs.json.{JsObject, JsValue, Json}
 
 /*
  * @since   Aug.  7, 2026
- * @version Aug.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 /** The sole Cozy boundary for the shared canonical CAR release coordinate. */
@@ -32,7 +32,6 @@ private[cozy] object CozyComponentReleaseCoordinateCodec {
     def carRepositoryRelativePath: String = value.carRepositoryRelativePath()
     def carCatalogRelativePath: String = value.carCatalogRelativePath()
     def carIndexKey: String = value.carIndexKey()
-    def integrityKey(sha256: String): String = value.requireIntegrityKey(sha256)
     def apiArtifactPath: String = s"spi/${mavenArtifactId}-api.jar"
     def componentJson: JsObject = Json.obj(
       "namespace" -> namespace,

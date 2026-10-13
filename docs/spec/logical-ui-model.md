@@ -14,25 +14,20 @@ exact field set and canonical field order:
   "schema": "cozy.logical-ui.v1",
   "version": 1,
   "kind": "candidate",
-  "inputIdentity": "sha256:<64-lowercase-hex>",
   "componentSurfaces": [],
   "componentBindings": [],
-  "useCases": {},
-  "identity": "sha256:<64-lowercase-hex>"
+  "useCases": {}
 }
 ```
 
 The codec MUST reject a missing, unknown, duplicate, malformed, mistyped, or
-wrong-version field before it exposes a candidate. It MUST reject an
-`inputIdentity` or `identity` that differs from the normalized canonical value.
-JSON object order is transport-only; canonical emission always uses the order
-above. Array ordering is normalized as defined below before identity creation.
+wrong-version field before it exposes a candidate. JSON object order is
+transport-only; canonical emission always uses the order above. Array ordering
+is normalized as defined below before canonical serialization.
 
-The candidate `identity` is the SHA-256 digest of canonical logical content:
-`schema`, `version`, `componentSurfaces`, `componentBindings`, and `useCases`.
-The self `identity`, codec `kind`, and transport formatting are not part of that
-digest. `inputIdentity` is a distinct SHA-256 identity over that normalized
-logical content under the `consumed-input` role.
+A candidate retains normalized `CandidateInput`, canonical logical content,
+and canonical candidate JSON. Canonical logical content contains `schema`,
+`version`, `componentSurfaces`, `componentBindings`, and `useCases`.
 
 ## 2. Exact Component admission
 
@@ -101,31 +96,29 @@ boundary, not an inheritance or a name-resolution rule.
 ## 4. Candidate and accepted authority
 
 `CozyLogicalUi.candidate` is the only candidate constructor. It validates and
-normalizes the supplied `CandidateInput` before calculating identity.
-`CozyLogicalUi.accept` requires both a candidate and an `AcceptanceDecision`.
-The decision has nonempty `decisionId` and a `candidateIdentity` exactly equal
-to that candidate. Its `decisionIdentity` is SHA-256 of the canonical
-acceptance-decision content. An accepted identity is SHA-256 of the candidate,
-consumed-input, and decision identities under the `accepted` role, and MUST
-differ from the candidate identity.
+normalizes the supplied `CandidateInput`. `CozyLogicalUi.accept` requires a
+nonnull candidate and an explicit nonnull `AcceptanceDecision` whose
+`decisionId` is nonempty and exactly trimmed. The accepted value retains the
+actual candidate and decision. The decision ID records the explicit acceptance
+fact; it does not certify the bytes or currentness of another artifact.
 
 Raw authoring prompts, serialized codec bytes, generated HTML, route tables,
 target code, and caches are not fields of `CandidateInput` or acceptance. They
-cannot create accepted authority or affect semantic identities.
+cannot create accepted authority.
 
 ## 5. Executable specification
 
 `src/test/scala/cozy/ui/CozyLogicalUiSpec.scala` is the executable
 specification for canonical admission, closed-export and malformed-coordinate
 rejection, three-layer realization validation, candidate/accepted separation,
-canonical identity plus strict codec roundtrip, and non-authority boundaries.
+normalized canonical serialization plus strict codec roundtrip, and non-authority boundaries.
 It includes a ScalaCheck ordering property in addition to Given/When/Then
 scenarios.
 
 ## 6. UseCase-to-Screen projection
 
-`cozy.usecase-screen-projection.v1` is a typed projection pinned to the exact
-`LogicalUiCandidate.identity` supplied to `CozyLogicalUi.project`. It is
+`cozy.usecase-screen-projection.v1` is a typed projection constructed with the
+actual `LogicalUiCandidate` supplied to `CozyLogicalUi.project`. It is
 deliberately separate from the already committed `cozy.logical-ui.v1`
 candidate JSON and `CozyLogicalUiCodec`; it has no JSON transport or acceptance
 envelope in this slice.
@@ -185,20 +178,20 @@ substitute or a client-side replacement for server Workflow, authorization, or
 observability.
 
 Projection construction normalizes catalogs, steps, screens, interactions,
-regions, mappings, usages, feedback, and Aggregate boundaries before computing
-a canonical identity from the exact candidate identity and normalized
-projection content. It performs no reachability analysis, pattern selection,
-constraint or StateMachine interpretation, HTML/receipt generation,
-serialization, or target realization.
+regions, mappings, usages, feedback, and Aggregate boundaries. It retains the
+actual candidate and normalized projection input and exposes canonical content
+of that input. It performs no reachability analysis, pattern selection,
+constraint or StateMachine interpretation, HTML generation, serialization, or
+target realization.
 
 ## 7. Typed semantic projection
 
-`cozy.logical-ui-semantics.v1` is a package-local, typed projection over one
+`cozy.logical-ui-semantics.v1` is a package-local, typed projection over an
 already-normalized `LogicalUiProjection`. `CozyLogicalUiSemantics.project`
-requires an explicit `projectionIdentity` equal to the supplied projection's
-exact identity. It is separate from the candidate and
-`cozy.usecase-screen-projection.v1` identities, has no JSON transport or
-acceptance envelope, and does not discover CML or private Component source.
+consumes the actual screen projection and explicit typed semantic input. Its
+result retains normalized input and canonical content. It has no JSON
+transport or acceptance envelope and does not discover CML or private
+Component source.
 
 The semantic input covers every projected `LogicalScreen` exactly once. Each
 screen has one closed Purpose (`browse`, `inspect`, `edit`, or `confirm`), an
@@ -241,36 +234,30 @@ a transition, calls a server, evaluates a constraint, infers Workflow state,
 or changes feedback wording.
 
 The semantic projection sorts every input vector by structural identity keys
-and hashes canonical content containing the exact projection identity. Duplicate
-or omitted screen, region, interaction, component, constraint, feedback, or
+and exposes canonical content of the normalized typed input. Duplicate or
+omitted screen, region, interaction, component, constraint, feedback, or
 transition identities fail closed under `LUI43_SEMANTICS_*` diagnostics.
-Equivalent permutations therefore produce identical canonical content and
-semantic identity. The executable specification is
+Equivalent permutations produce identical normalized input and canonical
+content. The executable specification is
 `src/test/scala/cozy/ui/CozyLogicalUiSemanticsSpec.scala`.
 
-## 8. Read-only review HTML and currentness
+## 8. Read-only review HTML and direct output
 
 `cozy.logical-ui-review.v1` is a typed, package-local review projection over
-exactly one `AcceptedLogicalUi`, its `LogicalUiProjection`, and the semantic
-projection bound to that projection. `CozyLogicalUiReview.render` rejects
-missing values and every reused-identity mismatch before rendering. It does
-not construct or change candidate/accepted authority, normalize semantics,
-evaluate a constraint, execute an Operation or transition, or perform target
-realization.
+supplied `AcceptedLogicalUi`, `LogicalUiProjection`, and semantic projection
+values. `CozyLogicalUiReview.render` requires nonnull accepted, projection,
+semantics, accepted/projected candidate, and acceptance decision values. A
+missing value returns `LogicalUiError` with `LUI43_REVIEW_INPUT_INVALID` at the
+actual missing-input path. Each construction boundary owns its domain
+validation; review performs no cross-stage currentness certification. It does
+not construct or change accepted authority, normalize semantics, evaluate a
+constraint, execute an Operation or transition, or perform target realization.
 
-The result contains deterministic UTF-8, self-contained accessible HTML, typed
-review diagnostics, and a `ReviewReceipt`. The receipt has schema
-`cozy.logical-ui-review.v1`, version `1`, and the closed renderer profile
-`cozy.logical-ui-review.renderer.v1`. Its canonical identity binds, in a fixed
-order, the accepted identity, candidate identity, consumed-input identity,
-the candidate's exact three-layer UseCase identity, normalized catalog
-identity, projection identity, semantic projection identity, renderer profile,
-and SHA-256 identity of the emitted HTML bytes. Receipt identity is distinct
-from every reused authority identity and is not emitted into the HTML.
-The UseCase and catalog identities are SHA-256 values over local canonical JSON
-objects and arrays with fully JSON-escaped dynamic layer and ID strings; no
-delimiter-derived encoding is used, so valid delimiter-, quote-, and
-control-character-bearing IDs remain injectively distinct.
+The result contains deterministic UTF-8, self-contained accessible HTML and
+typed review diagnostics. Its `htmlBytes` accessor encodes the HTML as UTF-8.
+The overview shows schema `cozy.logical-ui-review.v1`, the renderer profile
+`cozy.logical-ui-review.renderer.v1`, and the escaped explicit acceptance
+`decisionId` as a review fact.
 
 The HTML shows Business/System/UI realization and catalog membership, every
 UseCase step and screen-interaction mapping (including system-only steps),
@@ -291,20 +278,19 @@ Review diagnostics are informational and deterministic. They can identify
 coverage/reference issues, unreachable screens, Aggregate mutation boundary
 discrepancies, missing StateMachine action evidence, missing Powertype
 variants, and missing expected failure feedback. These conditions do not make
-the renderer execute behavior or alter semantic acceptance. Identity and
-currentness errors fail closed with `LogicalUiError` diagnostics, including
-`LUI43_REVIEW_IDENTITY_MISMATCH` and
-`LUI43_REVIEW_CURRENTNESS_INVALID`.
+the renderer execute behavior or alter semantic acceptance.
 
-`verifyCurrent` recomputes the tuple and requires exact receipt fields,
-identity, and HTML bytes. `write` verifies currentness first and accepts only
-an existing non-symlink parent directory and a regular-or-absent non-symlink
-`*.html` target whose `target.getParent` is exactly the supplied parent path as
-written. It rejects `.`/`..` and every intermediate component, including
-symlink-plus-`..` traversal, before temporary output creation or replacement.
-It writes only the HTML through a same-parent temporary file and an atomic move.
-Rejected validation or staging leaves an existing target unchanged; receipts
-are not persisted to a second file.
+`write` requires a nonnull review and admits the selected output path once. It
+accepts only an existing non-symlink parent directory and a regular-or-absent
+non-symlink `*.html` target whose `target.getParent` is exactly the supplied
+parent path as written. It rejects `.`/`..` and intermediate symbolic-link
+components, including symlink-plus-`..` traversal, before writing. It writes
+UTF-8 HTML directly to the selected target with create, write, and truncate
+options. The render-then-write overload uses the same path admission.
+`IOException`, `SecurityException`, and `RuntimeException` become ordinary
+`LUI43_REVIEW_OUTPUT_INVALID` HTML-write diagnostics. Prewrite path rejection
+leaves the target untouched; a late write failure may leave partial generated
+output. Recovery is regeneration.
 
 ## 9. Provisional runtime instances
 
@@ -319,7 +305,42 @@ selection are specified in
 96 may consume that local provisional contract before a separate Android mock
 integration acceptance is completed.
 
-## 10. Candidate preview and currentness
+## S23 implementation and validation facts — 2026-10-09
+
+P715-02-S23-LOGICAL-UI-DIRECT-REVIEW is
+**implemented-focused-validated-unreviewed**, retaining original Phase 71.4
+base `fc640ec25e443d00c22b2c26b437a205d39910eb`. Its initial editing handoff
+on 2026-10-09 was **implemented-unvalidated-unreviewed**. The facts below
+record selected execution evidence; the normative behavior above retains its
+meaning, and independent review and acceptance remain OPEN.
+
+### Actual S23 focused validation — 2026-10-09
+
+The [actual S23 focused result](../../.codex-workflow/phases/PHASE-71.5/p715-02-s23-focused-validation-result.json), following the
+[parent edit admission](../../.codex-workflow/phases/PHASE-71.5/p715-02-s23-parent-edit-admission.json), records **50 successes in 6 completed
+suites**. Two sequential groups passed: 3 tests in the Phase43 SalesOrder
+acceptance suite, then 47 tests in the existing LogicalUi, Semantics, Review,
+Runtime, and `cozyruntime` List/Detail acceptance suites. Failed, canceled,
+ignored, pending, and aborted counts are zero. The initial registered runner
+route completed with SBT/wrapper exits 0/0 and shared serial lock release.
+Compiler warnings, errors, fixture diagnostics, and runtime Logback warning
+lines are zero for this invocation. Existing `HYG-P715-S19-LOGBACK-001` remains
+pending its original Step classification; no suppression or whole-Phase
+warning-free claim is made.
+
+Parent assessment confines the changed source to LogicalUI typed values,
+review, and direct HTML output, with existing runtime List/Detail consumers
+covered. It identifies no JA34 narration/synthesis/frame/render/assembly/audio/
+credit/end-card producer edge. No new native generation or hearing is claimed;
+S14 native and S22 142/6 remain dated evidence only. CAR-provider request/evidence
+digests in original R715-06, all remaining finite duties and E715-01..04,
+final current JA34 generation/assembly/hearing/end-card/EOF, independent M2
+cycles 6/7/8/10, whole-Step/full-Phase assurance and acceptance, exact local
+commits, and distinct release remain OPEN. Repository-full SBT and broader
+integration remain **deferred-not-run to PHASE-71.7**. Stage Status triples,
+checkboxes, aggregate metadata, and prior dated history retain their status.
+
+## 10. Candidate preview and output
 
 `CozyLogicalUiReview.renderCandidate(candidate, projection, semantics)` admits
 one genuine `LogicalUiCandidate`, its `LogicalUiProjection`, and its bound
@@ -334,12 +355,7 @@ def renderCandidate(
   semantics: LogicalUiSemanticProjection
 ): Either[LogicalUiError, LogicalUiCandidateReview]
 
-def verifyCandidateCurrent(
-  candidate: LogicalUiCandidate,
-  projection: LogicalUiProjection,
-  semantics: LogicalUiSemanticProjection,
-  reviewValue: LogicalUiCandidateReview
-): Either[LogicalUiError, Unit]
+Rendering consumes selected typed declarations directly. Schema and renderer metadata describe production; explicit decision/reviewer attribution describes acceptance. No artifact hash, currentness API or regenerated-artifact equality gate is retained. Writers validate inputs and paths, then write UTF-8 directly; ordinary failures report errors and recovery is regeneration.
 
 def writeCandidate(
   reviewValue: LogicalUiCandidateReview,
@@ -348,59 +364,24 @@ def writeCandidate(
 ): Either[LogicalUiError, Unit]
 ```
 
-`LogicalUiCandidateReview` exposes immutable `html`, `receipt`, `diagnostics`,
+`LogicalUiCandidateReview` exposes `html`, `receipt`, `diagnostics`,
 and UTF-8 `htmlBytes`. Its `copy(html, receipt, diagnostics)` retains the
 private declared candidate/projection/semantics tuple. `CandidateReviewReceipt`
 has exactly these fields, in order:
 
-```scala
-final case class CandidateReviewReceipt(
-  schema: String, version: Int, rendererProfile: String,
-  candidateIdentity: String, consumedInputIdentity: String,
-  projectionIdentity: String, semanticProjectionIdentity: String
-)
-```
-
-Schema is `cozy.logical-ui-candidate-review.v1`, version is `1`, and renderer
-profile is `cozy.logical-ui-candidate-review.renderer.v1`. The four identity
-fields equal the supplied candidate identity, candidate consumed-input
-identity, screen projection identity, and semantic projection identity. There
-is no accepted identity, decision, HTML hash, receipt hash, or additional
-identity. Candidate identity alone does not bind screen or semantic extensions.
-
-Admission requires three non-null inputs, a projected candidate, and nonempty
-canonical identities. Candidate identity, consumed-input identity, and
-canonical content must equal those of `projection.candidate` exactly, and
-`semantics.projectionIdentity` must equal `projection.identity`. Factories own
-normalization and semantic validation. Failure is a structured
-`LUI50_CANDIDATE_REVIEW_IDENTITY_MISMATCH` with the precise path and reason;
-the renderer performs no normalization or source lookup.
-
 The overview displays `Candidate preview`, status `candidate (not accepted)`,
-schema/profile and all four bound identities. Accepted identity and decision
+schema/profile and schema/profile and source declarations. Acceptance decision
 evidence are absent. The other sections and informational diagnostics use the
 same structural builders as accepted review in section 8. Dynamic text is
 escaped; output is self-contained read-only HTML with inline CSS, without
 scripts, forms, remote resources, route execution, or an acceptance action.
-The accepted APIs, receipt fields, HTML and identities retain their section 8
+The accepted review API and HTML use their section 8
 contract.
-
-`verifyCandidateCurrent` renders the supplied tuple and compares complete HTML,
-receipt and diagnostics. Null review, invalid tuple, or any stale observable
-returns `LUI50_CANDIDATE_REVIEW_CURRENTNESS_INVALID` with its pertinent path
-and reason. This is product currentness, not workflow integrity control.
-`writeCandidate` first verifies the result against its stored declared tuple,
-then shares section 8's direct-parent, traversal/symlink, HTML suffix and
-same-parent atomic UTF-8 write boundary. Shared path/write failures retain
-`LUI43_REVIEW_OUTPUT_INVALID`; rejected stale or invalid output preserves prior
-bytes. Only HTML is installed, without a receipt side file. The failure model
-covers tuple/currentness and the existing explicit output failures; it adds no
-locks, retries, backups, snapshots, checksums, or interference detection.
 
 The executable specification is
 `src/test/scala/cozy/ui/CozyLogicalUiCandidateReviewSpec.scala`. It consumes the
 shared SalesOrder fixture, exercises factory-admitted foreign and changed
-tuples, result-field currentness, at least twenty reordered constructions,
+tuples,  at least twenty reordered constructions,
 escaped purpose text, and direct writer admission/preservation.
 
 ## 11. Shared SalesOrder compact success contract
@@ -410,7 +391,7 @@ fixture shared by the Phase43 accepted specification and candidate preview.
 Its pure `candidate(reversed)` composes existing candidate, screen projection,
 and semantic factories with `Either` and never accepts a candidate. The
 Phase43 acceptance specification explicitly calls
-`accept(candidate, AcceptanceDecision("accepted-sales-order", candidate.identity))`.
+`accept(candidate, AcceptanceDecision("accepted-sales-order"))`.
 `projectionInput(candidate, reversed)` and `semanticsInput(projection, reversed)`
 expose the same logical values and mappings. Reordered constructions permute
 candidate exports/bindings/realizations, screen vectors, and semantic vectors
@@ -510,18 +491,7 @@ nonempty opaque presentation text. Initial and result retain the same order
 ID, label and amount. Invalid declarations report
 `LUI50_WEB_CONTRACT_INVALID` with the specific scenario path and reason.
 
-The private-constructor `CompactWebPreview` retains the complete declared
-tuple and exposes immutable `html`, `reviewHtml`, `receipt`, `receiptJson`,
-diagnostics and UTF-8 HTML byte vectors. Its observable-field `copy` retains
-the original inputs. The receipt schema is `cozy.logical-ui-compact-web.v1`,
-version `1`, renderer `cozy.logical-ui-compact-web.renderer.v1`, profile
-`compact`, placement `navigate-to-detail`, and `simulated=true`. It reuses
-the candidate review's four source identities and carries the complete
-scenario, normalized public binding set, exact derived command/selection
-bindings and variant. Outputs are ordered `index.html`, `review.html`,
-`compact-preview-receipt.json`. Fixed-order JSON includes coordinates, exports,
-UI step/path, flow IDs, both records/domain references and separate UI state;
-it contains no machine path, port, timestamp or acceptance assertion.
+Rendering consumes selected typed declarations directly. Schema and renderer metadata describe production; explicit decision/reviewer attribution describes acceptance. No artifact hash, currentness API or regenerated-artifact equality gate is retained. Writers validate inputs and paths, then write UTF-8 directly; ordinary failures report errors and recovery is regeneration.
 
 The app is one self-contained accessible single-column page. At 390 × 844,
 the list initially displays the supplied order and draft domain state, with
@@ -536,16 +506,6 @@ StateMachine, Workflow or domain transition. Candidate and simulated assurance
 labels accompany the flow; source identities stay in machine attributes and
 the linked read-only review. Reset/replay/error/input behavior remains pending.
 
-The frozen DOM boundary is `main#compact-preview` with four source identities,
-fixture/coverage/profile/placement, active screen and selected order attributes;
-`#order-list-screen`, `#order-detail-screen`, `#select-order`, `#selected-order`,
-`#open-detail`, `#confirmation-option`, `#confirm-order`, `#domain-state`,
-`#ui-state`, and `#simulated-result`. Source regions/controls carry interaction
-and UI step IDs. Selection carries `data-powertype-binding`; command carries
-`data-operation-binding` and `data-state-machine-binding`, each encoded as
-`canonicalIdentity#exportId`. Domain and UI outputs retain separate state
-attributes. The list's selection context introduces no new source interaction.
-
 Dynamic markup and attributes are HTML escaped. The inert `application/json`
 element contains the full receipt, escaping literal `<`, `>`, `&`, U+2028 and
 U+2029 as Unicode escapes. One fixed script uses `textContent` and declared
@@ -556,30 +516,6 @@ retains all candidate review sections/diagnostics and inserts a read-only
 `Compact simulated scenario` section immediately before the closing main.
 This section binds the same declaration and exact public command/selection
 bindings; it adds no script, form or action to the structural renderer.
-
-`verifyCurrent` re-renders all supplied inputs and compares all five observable
-values. A changed record or flow under the same fixture ID is stale. Null
-preview, invalid current inputs and changed observables report
-`LUI50_WEB_CURRENTNESS_INVALID` at the precise input or result path.
-`write(preview, siteParent, receiptParent)` checks the retained tuple first,
-then preflights both existing canonical absolute distinct parents and all three
-direct destinations. Traversal, intermediate/target symlinks, missing/relative
-parents and non-regular targets report `LUI50_WEB_OUTPUT_INVALID` before any
-write. Prior bytes survive contract/currentness/path rejection. Same-parent
-temporary UTF-8 files and atomic moves install each output and owned temporary
-files are cleaned up. An I/O failure after one installation does not provide
-group rollback; unrelated files are preserved. The S50.1 candidate writer
-continues to write only its existing direct HTML output.
-
-`CozyLogicalUiCompactWebSpec` covers genuine/full alignment, invalid tuples and
-declarations, changed-source/currentness behavior, at least twenty ScalaCheck
-reordered constructions, hostile opaque text round trips, and production
-writer success/preflight rejection. Its meaningful generation scenario uses
-the production writer and retains
-`target/phase50-compact-preview/site/{index.html,review.html}` and
-`target/phase50-compact-preview/evidence/compact-preview-receipt.json` for
-actual browser validation. The parent runs the selected suites through the
-serialized SBT runner.
 
 The actual browser entry is the executable Node ESM driver
 `scripts/test/phase50/run-compact-browser.mjs` with exactly
@@ -613,15 +549,7 @@ It is package-local, like the existing kernel. Legacy schema, codec fields,
 factory signatures, identities and accepted behavior remain unchanged.
 There is no new transport codec or runtime model field.
 
-The complete input consists of `semanticProjectionIdentity`, `profiles`,
-`controls`, `fields`, `textSources` and `outcomes`. The same input is shared
-by compact, medium and expanded views; it is not a per-profile authority.
-`candidate(kernelCandidate, projection, semantics, input)` returns
-`Either[LogicalUiError, TargetReadyCandidate]`. The private-constructor value
-exposes `identity`, `inputIdentity`, `kernelCandidate`, `projection`,
-`semantics`, normalized `input` and `canonicalContent`. Root and exact chain
-identity disagreement is rejected before metadata traversal. Pure existing
-factories retain kernel, projection and semantic admission responsibility.
+Rendering consumes selected typed declarations directly. Schema and renderer metadata describe production; explicit decision/reviewer attribution describes acceptance. No artifact hash, currentness API or regenerated-artifact equality gate is retained. Writers validate inputs and paths, then write UTF-8 directly; ordinary failures report errors and recovery is regeneration.
 
 `ProfileIntent(windowClass, detailPlacement, persistentNavigation, regions)`
 uses the existing `AdaptiveIntent` and `DetailPlacement`. Exactly one compact,
@@ -702,34 +630,6 @@ opaque Unicode, quote, control and delimiter-bearing values injectively.
 consumed-input roles are distinct. No management hashes, generated file bytes,
 paths, timestamps, HTML or CSS occur in complete logical content.
 
-`verifyCurrent(value, kernelCandidate, projection, semantics, input)` rebuilds
-the complete chain and compares candidate identity, consumed-input identity
-and content. Equivalent reordering is current. Any changed source, label,
-profile, local rule, field or outcome invalidates the old complete value,
-even if its legacy candidate is unchanged. Generated files cannot revise
-authoritative input.
-
-`accept(completeCandidate, TargetReadyAcceptanceDecision(decisionId,
-candidateIdentity, reviewerId))` returns
-`Either[LogicalUiError, AcceptedTargetReadyLogicalUi]`. IDs are nonnull,
-nonempty and exactly trimmed. Candidate identity equals the exact complete
-candidate, never the kernel-only identity. Decision identity binds that
-candidate plus decision/reviewer attribution; accepted identity also binds
-complete consumed input. The accepted private-constructor value exposes
-`identity`, `candidate` and `decision`. This API validates data, not human
-consent. Fixture construction and generation never accept implicitly; all
-specification decisions are explicit fixtures, not final Phase acceptance.
-
-Malformed null roots, vectors, elements, references or Option containers return
-stable `LogicalUiError` codes and dotted/indexed input paths without null
-exceptions. The `LUI501_` categories are `CHAIN_INVALID`, `INPUT_INVALID`,
-`ELEMENT_INVALID`, `DUPLICATE_INVALID`, `PROFILE_INVALID`, `REGION_INVALID`,
-`CONTROL_INVALID`, `FOCUS_INVALID`, `TEXT_INVALID`, `TEXT_REFERENCE_INVALID`,
-`FIELD_INVALID`, `RULE_INVALID`, `SOURCE_INVALID`, `OUTCOME_INVALID`,
-`RECOVERY_INVALID`, `CURRENTNESS_INVALID` and `ACCEPTANCE_INVALID`.
-Executable specifications are `CozyLogicalUiReadinessSpec` and the additive
-three-intent scenario in `CozyLogicalUiRuntimeSpec`.
-
 At the IR slice, structural readiness HTML, one Progressive Static Web
 simulation and browser evidence for the then-planned section 11 rows were
 subsequent work. The current complete E3 candidate structural/Web producers
@@ -754,18 +654,6 @@ complete candidate without semantic source revision. On 2026-10-13, the human
 user of owning conversation `01a0ff01-4772-76b2-bba1-e2542f0a9647` separately said:
 
 > この候補を最終受入れする。Phase 50.1を最後まで続けて。コミットは引き続き親による手動ローカルコミットで。
-
-[The actual acceptance input](../evidence/phase-50.1/readiness-accepted-001/acceptance.json)
-binds complete candidate `sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1`
-and consumed input `sha256:dd1f3b249795e3857bdcb19a72abc2cc205edee8e4d736f8f2db42a2dd08c0a1`.
-The separate [accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md)
-is generated from the same four authoritative source declarations; historical
-candidate receipts remain candidate/null. Two producer suites passed 21 tests;
-accepted-binding run002 passed six normal/loading cases, 107 observations and
-eight parent-inspected images, with native/browser admission and cleanup complete.
-Whole E4 Step review/manual local commit, full Phase review, final full
-suite and distinct release/closure remain pending. The 59 original outcome
-obligations remain outstanding.
 
 ## 14. Complete structural and Progressive Static Web producers
 
@@ -798,17 +686,7 @@ command, empty joins Entry and validation joins the input. Normal retains the
 successful source state; all other outcomes retain the initial domain state.
 Recovery targets remain exactly factory-admitted source interactions.
 
-`CompleteBinding` carries `candidateIdentity`, `consumedInputIdentity`,
-`kernelCandidateIdentity`, `kernelInputIdentity`, `projectionIdentity`,
-`semanticProjectionIdentity`, optional `acceptedIdentity`, optional
-`decisionIdentity` and optional explicit decision. `SourceInputs` retains
-`kernelContent`, `projectionContent`, `semanticContent`, `readinessContent`
-from existing canonical APIs. Receipt JSON includes these as complete parsed
-JSON subtrees, including every profile, control, field, rule, text, outcome
-and recovery. SourceFlow keeps exact Operation/StateMachine/Powertype/variant,
-from/to domain references, success UI and separate optional Workflow evidence.
-These are product provenance, without output hashes, timestamps, absolute
-paths or workflow certificates.
+Rendering consumes selected typed declarations directly. Schema and renderer metadata describe production; explicit decision/reviewer attribution describes acceptance. No artifact hash, currentness API or regenerated-artifact equality gate is retained. Writers validate inputs and paths, then write UTF-8 directly; ordinary failures report errors and recovery is regeneration.
 
 `ReviewReceipt` has schema `cozy.logical-ui-target-ready-review.v1`, version
 `1`, renderer `cozy.logical-ui-target-ready-review.renderer.v1`, the common
@@ -821,18 +699,6 @@ receipt, `simulated=true` and outputs, in order: `index.html`, `review.html`,
 Serialization uses fixed field order and escaped structural data. Candidate
 accepted/decision fields are consistently JSON null; accepted mode retains
 actual complete decision/reviewer attribution and identities.
-
-The structural preview exposes `html`, `receipt`, `receiptJson`, `diagnostics`
-and UTF-8 `htmlBytes`. The Web preview exposes `html`, `reviewHtml`,
-`compareHtml`, `receipt`, `receiptJson`, `reviewReceiptJson`, `diagnostics` and
-UTF-8 byte accessors for its five output strings. Private constructors and
-observable-only `copy` preserve the original candidate/accepted/scenario.
-`verifyCandidateCurrent` and `verifyAcceptedCurrent` rerender supplied complete
-authority and compare every observable, mode, declaration and decision.
-Input, source, label, rule, profile, outcome, record, coverage or reviewer
-revisions invalidate prior output even under the same kernel or fixture ID;
-equivalent declaration order is current. No separate unchanged-file
-certificate or management digest substitutes for recomposition.
 
 Structural HTML reuses the unchanged candidate source renderer, with a
 prominent complete authority overview and distinct `Kernel candidate evidence`
@@ -907,17 +773,6 @@ the same declared list fixture and exact provenance. The comparison shell
 may intentionally scroll horizontally; each app viewport retains its own
 diagnostics. No cross-frame controller or per-profile source copy exists.
 
-`Web.write(preview, siteParent, receiptParent)` is the sole five-file writer.
-It recomposes captured original authority/mode/scenario and rejects stale
-observables before any destination mutation. Both distinct parents must be
-existing canonical absolute normalized nonsymlink directories, without
-traversal or symlink components. All five direct targets are preflighted as
-absent or regular nonsymlink files before any temporary creation or writing.
-Owned UTF-8 sibling temporaries are staged and installed by per-file atomic
-replacement, without a non-atomic fallback or cross-file transaction promise.
-Structured IOException/SecurityException failures retain precise output
-paths; only owned temporaries are cleaned and unrelated files are preserved.
-
 Executable contracts are
 [CozyLogicalUiReadinessReviewSpec](../../src/test/scala/cozy/ui/CozyLogicalUiReadinessReviewSpec.scala)
 and [CozyLogicalUiReadinessWebSpec](../../src/test/scala/cozy/ui/CozyLogicalUiReadinessWebSpec.scala).
@@ -937,40 +792,6 @@ projection relationships; the actual human decision is recorded above.
 A supervised exclusive run directory, GET-only
 three-resource loopback server and invocation-owned Chrome profile bound its
 actual execution; success/failure/interruption await owned cleanup.
-
-[RenderAcceptedReadiness.scala](../../scripts/test/phase501/RenderAcceptedReadiness.scala)
-is a thin reproducible Test-classpath proof adapter with two absolute arguments:
-the actual acceptance JSON and an output parent. It recomposes the existing
-`readyCandidate()` and `readinessWebScenario()`, requires the decision's exact
-candidate/consumed identities before any output mutation and uses native
-`verifyCurrent`, `TargetReadyAcceptanceDecision`, `accept`, both `renderAccepted`
-and `verifyAcceptedCurrent` entrypoints. Complete binding/source declarations
-and structural receipts must agree; Web observables must rerender deterministically.
-The unchanged native `Web.write` generates three HTML and two receipt files in
-`site`/`evidence`; `accepted-logical-ui.json` exports exactly the structural
-receipt's `binding` and `sourceInputs`. It supplies approved complete declarations
-for Phase 51 without a new semantic schema, transport decoder or CLI. Accepted
-and decision identities come from native values, never independent calculation.
-Native failure code/path/reason remains attributable and prevents success.
-
-Accepted-binding browser mode is bounded to six normal/loading cases at
-390 × 844, 834 × 1112 and 1440 × 900, with six case images plus structural and
-completed comparison images. It retains embedded native receipts, keyboard
-navigation/input/variant/focus, pending duplicate-disabled invocation and normal
-completion. It opens Complete source provenance through the native summary and
-records visible text, geometry and parsed accepted/decision/reviewer provenance
-without document overflow. Structural accepted attribution and all three
-independent comparison frames bind the same complete inputs. Portable/terminal
-`proofMode` and `proofScope` distinguish this six-case proof from the still
-declared 21-case source coverage. Unchanged failure/recovery/reset/replay/resize
-reuse admitted E3 run007. No interpreter invocation or lifecycle change is added.
-The actual accepted-binding run002 passed all six selected cases and retained
-107 observations and eight parent-inspected images. Native generation/currentness/
-determinism and both producer suites (21 tests) passed; the parent admitted
-the actual export, both accepted projections and browser evidence with owned
-cleanup complete. [The accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md)
-retains those products. This six-case proof does not rerun the other 15 declared
-cases or failure/recovery/reset/replay/resize transitions.
 
 The current admitted run007 supplied 21 individually attributed cases, 1067 observations
 and 23 parent-inspected images, covering all declared recoveries, actual local
@@ -1016,3 +837,7 @@ and their real products are retained in
 [the accepted package](../evidence/phase-50.1/readiness-accepted-001/README.md).
 Whole E4 Step review/parent manual local commit, full Phase review, final
 full-suite validation and distinct release/closure remain pending.
+
+## October 13 integration with Phase 71.5
+
+The completed Phase 50/50.1 candidate review, readiness admission, explicit acceptance and compact/medium/expanded Web functions remain available. `TargetReadyAcceptanceDecision(decisionId, reviewerId)` is applied to the selected complete candidate passed to `accept`. `CompleteBinding` retains that optional decision; source IR, domain bindings, scenarios, diagnostics and output names remain ordinary production metadata. `CandidateReviewReceipt` contains schema, version and renderer profile. Artifact hashes, currentness comparisons and atomic temporary-file installation are removed without a replacement freshness mechanism. Required declarations, domain joins, null inputs, output containment and ordinary I/O failures remain checked. Historical Phase acceptance records and generated evidence retain their dated implementation meaning.

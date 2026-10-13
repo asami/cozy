@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -28,7 +27,8 @@ import scala.util.control.NonFatal
 /*
  * @since   Aug. 14, 2026
  *  version Aug. 19, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoRenderTemplates {
@@ -39,11 +39,9 @@ private[cozy] trait CozyVideoRenderTemplates {
     script: VideoScript,
     audio: VideoAudioInput,
     assets: Vector[(CozyVideoAssets.Resolved, Option[String])],
-    workdir: Path,
     characterdialogue: Boolean,
     template: Option[String],
-    templatedigest: Option[String],
-    templateresources: Option[Vector[(String, String)]],
+    templateresources: Option[Vector[String]],
     dialogueassets: CharacterDialogueAssets,
     recording: Option[String]
   ): Json = {
@@ -74,10 +72,12 @@ private[cozy] trait CozyVideoRenderTemplates {
       else
         0
     }
+    val actualaudiodurations = audio.files.map(_wav_duration)
     val contentframes = math.max(
       1,
-      audio.entries.zip(scenesectiontransitions).map { case (entry, transitionframes) =>
-        math.max(1, math.round(_effective_render_duration(entry) * fps).toInt) + transitionframes
+      audio.entries.zip(actualaudiodurations).zip(scenesectiontransitions).map { case ((entry, actualduration), transitionframes) =>
+        VideoTiming.evaluate(entry.targetDuration, entry.leadSilence, actualduration, entry.tailSilence, fps).
+          effectiveFrameCount.toInt + transitionframes
       }.sum
     )
     val isfirstpart = plan.parts.filter(_.renderable).headOption.exists(_.id == part.id)
@@ -125,11 +125,13 @@ private[cozy] trait CozyVideoRenderTemplates {
     val finalframes = if (isfinalpart) math.max(0, math.round(holdseconds * fps).toInt) else 0
     val totalframes = openingframes + contentframes + summarystandaloneframes + creditframes + finalframes
     var startframe = 0
-    val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).zip(scenesectiontransitions).map {
-      case (((scene, entry), file), transitionframes) =>
-        val authoreddurationframes = math.max(1, math.round(_effective_render_duration(entry) * fps).toInt)
+    val scenes = script.expandedScenes.zip(audio.entries).zip(audio.files).zip(actualaudiodurations).zip(scenesectiontransitions).map {
+      case ((((scene, entry), file), actualduration), transitionframes) =>
+        val authoreddurationframes = VideoTiming.evaluate(
+          entry.targetDuration, entry.leadSilence, actualduration, entry.tailSilence, fps
+        ).effectiveFrameCount.toInt
         val authoredleadframes = math.max(0, math.round(entry.leadSilence * fps).toInt)
-        val audiodurationframes = math.max(1, math.round(entry.audioDuration * fps).toInt)
+        val audiodurationframes = math.max(1, math.ceil(actualduration * fps).toInt)
         val durationframes = authoreddurationframes + transitionframes
         val leadinframes = authoredleadframes + transitionframes
         val requestedtailsilence = scene.tailSilence.getOrElse(0.0)
@@ -155,7 +157,7 @@ private[cozy] trait CozyVideoRenderTemplates {
           "audioDurationFrames" -> Json.fromInt(audiodurationframes),
           "requestedTailSilenceSeconds" -> Json.fromDoubleOrNull(requestedtailsilence),
           "effectiveTailSilenceSeconds" -> Json.fromDoubleOrNull(entry.tailSilence),
-          "effectiveTailSilenceFrames" -> Json.fromInt(math.max(0, math.round(entry.tailSilence * fps).toInt))
+          "effectiveTailSilenceFrames" -> Json.fromInt(math.max(0, math.ceil(entry.tailSilence * fps).toInt))
         )
         startframe += durationframes
         json
@@ -189,8 +191,11 @@ private[cozy] trait CozyVideoRenderTemplates {
     Json.obj(
       "partId" -> Json.fromString(part.id),
       "title" -> Json.fromString(plan.project.title.orElse(script.title).getOrElse(part.id)),
-      "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, _remotion_staged_output(workdir))),
+      "outputPath" -> Json.fromString(_project_relative(plan.projectRoot, part.outputPath)),
       "encodingPolicy" -> Json.fromString(encoding.policy.name),
+      "qualityProfile" -> Json.fromString(encoding.effectiveQualityProfile.name),
+      "audioBitrate" -> Json.fromString(encoding.audioBitrate),
+      "encodingOrigins" -> CozyVideoQuality.encodingJson(encoding).hcursor.downField("origins").focus.get,
       "fps" -> Json.fromInt(fps),
       "width" -> Json.fromInt(width),
       "height" -> Json.fromInt(height),
@@ -201,10 +206,9 @@ private[cozy] trait CozyVideoRenderTemplates {
       "characters" -> dialogueassets.characters,
       "sections" -> Json.fromValues(script.sections),
       "rendererTemplate" -> template.map(Json.fromString).getOrElse(Json.Null),
-      "rendererTemplateSha256" -> templatedigest.map(Json.fromString).getOrElse(Json.Null),
       "rendererTemplateResources" -> templateresources.map { resources =>
-        Json.fromValues(resources.map { case (name, sha256) =>
-          Json.obj("path" -> Json.fromString(name), "sha256" -> Json.fromString(sha256))
+        Json.fromValues(resources.map { name =>
+          Json.obj("path" -> Json.fromString(name))
         })
       }.getOrElse(Json.arr()),
       "recordingPath" -> recording.map(Json.fromString).getOrElse(Json.Null),
@@ -229,15 +233,10 @@ private[cozy] trait CozyVideoRenderTemplates {
   }
 
   private[video] val _character_dialogue_template_id = "cozy-character-dialogue-v1"
-  private[video] val _character_dialogue_template_sha256 = "a3d9df7640383fe75848afd995ac78dca391fb6ec8b066362ee02b988b06399a"
-  private[video] val _character_dialogue_diagram_layout_sha256 = "9f36dd5c7765af8613cbe3924de5aae14b4b7e8c92d54418e58b95f798e81b56"
   private[video] val _character_web_demo_template_id = "cozy-character-web-demo-v1"
 
   private[video] def _effective_render_duration(entry: VideoAudioManifestEntry): Double =
     math.max(entry.targetDuration, entry.leadSilence + entry.audioDuration + entry.tailSilence)
-
-  private[video] def _remotion_staged_output(workdir: Path): Path =
-    workdir.resolve("rendered.mp4")
 
   private[video] def _effect_parameter_double(
     effects: Vector[CozyVideoEffects.Expansion],
@@ -263,6 +262,9 @@ private[cozy] trait CozyVideoRenderTemplates {
       "text" -> Json.fromString(text),
       "sceneCount" -> Json.fromInt(script.expandedScenes.size),
       "estimatedDuration" -> Json.fromDoubleOrNull(script.estimatedDuration),
+      "qualityProfile" -> Json.fromString(plan.encoding.effectiveQualityProfile.name),
+      "audioBitrate" -> Json.fromString(plan.encoding.audioBitrate),
+      "encodingOrigins" -> CozyVideoQuality.encodingJson(plan.encoding).hcursor.downField("origins").focus.get,
       "width" -> Json.fromInt(1280),
       "height" -> Json.fromInt(720),
       "framePath" -> Json.fromString(workdir.resolve("frame.png").toString),
@@ -333,9 +335,10 @@ private[cozy] trait CozyVideoRenderTemplates {
       |""".stripMargin
 
   private[video] val _remotion_render_mjs: String =
-    """import {execFileSync} from 'node:child_process';
+    """import dns from 'node:dns';
       |import fs from 'node:fs';
       |import path from 'node:path';
+      |import {createRequire} from 'node:module';
       |import {fileURLToPath} from 'node:url';
       |
       |const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -343,21 +346,116 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const projectRoot = process.env.COZY_PROJECT_ROOT || process.cwd();
       |const propsPath = path.join(workDir, 'props.json');
       |const props = JSON.parse(fs.readFileSync(propsPath, 'utf8'));
+      |const hasProfile = Object.hasOwn(props, 'qualityProfile');
+      |if (hasProfile && !['lightweight', 'standard', 'quality', 'high-quality'].includes(props.qualityProfile)) {
+      |  throw new Error('Invalid qualityProfile in encoding props');
+      |}
+      |const normalizeAudioBitrate = (value) => {
+      |  if (typeof value === 'number') {
+      |    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('audioBitrate must be a positive safe integer');
+      |    return String(value);
+      |  }
+      |  if (typeof value !== 'string') throw new Error('audioBitrate must be a positive integer or bitrate string');
+      |  const trimmed = value.trim();
+      |  const match = /^([1-9][0-9]*)([kM]?)$/.exec(trimmed);
+      |  if (!match) throw new Error('Invalid audioBitrate in encoding props');
+      |  const scaled = BigInt(match[1]) * (match[2] === 'k' ? 1000n : match[2] === 'M' ? 1000000n : 1n);
+      |  if (scaled <= 0n || scaled > 9223372036854775807n) throw new Error('audioBitrate must fit a positive signed 64-bit value');
+      |  return trimmed;
+      |};
+      |if (hasProfile && !Object.hasOwn(props, 'audioBitrate')) throw new Error('Canonical encoding props require audioBitrate');
+      |const audioBitrate = Object.hasOwn(props, 'audioBitrate') ? normalizeAudioBitrate(props.audioBitrate) : '320k';
       |const entry = path.join(scriptDir, 'Root.tsx');
       |const publicDir = path.join(workDir, 'public');
       |const output = path.resolve(projectRoot, props.outputPath);
-      |fs.mkdirSync(path.dirname(output), {recursive: true});
-      |const renderArgs = ['render', entry, 'CozyVideo', output, '--overwrite', `--public-dir=${publicDir}`, `--crf=${props.crf}`];
-      |if (props.x264Preset) renderArgs.push(`--x264-preset=${props.x264Preset}`);
-      |execFileSync('remotion', renderArgs, {
-      |  cwd: workDir,
-      |  stdio: 'inherit',
-      |  env: {
-      |    ...process.env,
-      |    NODE_PATH: process.env.NODE_PATH || '/usr/local/lib/node_modules',
-      |    NODE_OPTIONS: [process.env.NODE_OPTIONS, '--dns-result-order=ipv4first'].filter(Boolean).join(' ')
+      |const localRequire = createRequire(import.meta.url);
+      |const moduleRoots = [workDir, ...(process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean), '/usr/local/lib/node_modules', '/usr/lib/node_modules'];
+      |const cliRequire = createRequire(localRequire.resolve('@remotion/cli/package.json', {paths: moduleRoots}));
+      |const {bundle} = cliRequire('@remotion/bundler');
+      |const {selectComposition, renderFrames, renderMedia} = cliRequire('@remotion/renderer');
+      |dns.setDefaultResultOrder('ipv4first');
+      |const frames = props.timing?.totalFrames;
+      |const fps = props.fps;
+      |if (!Number.isSafeInteger(frames) || frames <= 0 || !Number.isSafeInteger(fps) || fps <= 0) {
+      |  throw new Error('Cozy PCM mux requires positive safe integer timing.totalFrames and fps; rerender with valid composition timing');
+      |}
+      |const samples = BigInt(frames) * 48000n / BigInt(fps);
+      |if (samples <= 0n) throw new Error('Cozy PCM mux composition has no 48k presentation samples');
+      |const ffmpegOverride = ({type, args}) => {
+      |  if (type !== 'pre-stitcher' && type !== 'stitcher') return args;
+      |  const result = [...args];
+      |  if (type === 'pre-stitcher') {
+      |    result.splice(result.length - 1, 0, '-f', 'mp4');
+      |    return result;
       |  }
+      |  const audio = result.indexOf('-c:a');
+      |  if (audio !== -1) {
+      |    if (result[audio + 1] !== 'copy' || result.lastIndexOf('-c:a') !== audio) {
+      |      throw new Error('Cozy PCM mux expected one stitcher -c:a copy pair; rerender using the configured PCM audio codec');
+      |    }
+      |    result.splice(audio, 2, '-c:a', 'libfdk_aac', '-b:a', audioBitrate, '-cutoff', '18000', '-ar', '48000', '-ac', '2');
+      |    result.splice(result.length - 1, 0, '-af', `apad,atrim=end_sample=${samples},asetpts=PTS-STARTPTS`);
+      |  }
+      |  result.splice(result.length - 1, 0, '-movie_timescale', '48000', '-f', 'mp4');
+      |  return result;
+      |};
+      |const serveUrl = await bundle({
+      |  entryPoint: entry,
+      |  publicDir,
+      |  webpackOverride: (config) => ({...config, resolve: {...config.resolve,
+      |    modules: [...(config.resolve?.modules || []), ...(cliRequire.resolve.paths('remotion') || [])]}})
       |});
+      |const composition = await selectComposition({serveUrl, id: 'CozyVideo', inputProps: props});
+      |if (composition.durationInFrames !== frames || composition.fps !== fps || composition.width !== props.width || composition.height !== props.height) {
+      |  throw new Error('Selected Cozy composition differs from the planned full timing/dimensions');
+      |}
+      |if (process.argv.includes('--frame-audio')) {
+      |  const frameDir = fs.mkdtempSync(path.join(workDir, 'frames-'));
+      |  const rendered = await renderFrames({composition, serveUrl, inputProps: props, outputDir: frameDir,
+      |    imageFormat: 'png', imageSequencePattern: 'frame-[frame].png', frameRange: [0, frames - 1],
+      |    onFrameUpdate: (renderedFrames) => console.log(`Rendered ${renderedFrames}/${frames}`)});
+      |  if (rendered.frameCount !== frames) throw new Error('Cozy renderFrames returned an unexpected frame count');
+      |  const audioPath = path.join(workDir, 'composition.wav');
+      |  await renderMedia({composition, serveUrl, inputProps: props, codec: 'wav', audioCodec: 'pcm-16',
+      |    imageFormat: 'none', enforceAudioTrack: true, outputLocation: audioPath});
+      |  const ordered = fs.readdirSync(frameDir).filter((name) => /^frame-\d+\.png$/.test(name))
+      |    .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
+      |  if (ordered.length !== frames || ordered.some((name, index) => Number(name.match(/\d+/)[0]) !== index)) {
+      |    throw new Error('Cozy renderFrames did not produce the complete ordered composition');
+      |  }
+      |  fs.writeFileSync(path.join(workDir, 'frame-audio.json'), JSON.stringify({schema: 'cozy.video.frame-audio.v1',
+      |    width: composition.width, height: composition.height, fps, frameCount: frames,
+      |    frames: ordered.map((name) => `${path.basename(frameDir)}/${name}`), audioPath: 'composition.wav'}, null, 2));
+      |} else {
+      |const result = await renderMedia({
+      |  composition,
+      |  serveUrl,
+      |  codec: 'h264',
+      |  audioCodec: 'pcm-16',
+      |  inputProps: props,
+      |  crf: props.crf,
+      |  ...(props.x264Preset ? {x264Preset: props.x264Preset} : {}),
+      |  outputLocation: null,
+      |  ffmpegOverride,
+      |  onProgress: ({renderedFrames, encodedFrames}) => console.log(`Rendered ${renderedFrames}/${frames}, encoded ${encodedFrames}/${frames}`)
+      |});
+      |if (!Buffer.isBuffer(result.buffer)) throw new Error('Cozy Remotion render did not return an encoded media buffer');
+      |fs.mkdirSync(path.dirname(output), {recursive: true});
+      |fs.writeFileSync(output, result.buffer);
+      |}
+      |""".stripMargin
+
+  private[video] val _remotion_scene_card_layout_js: String =
+    """const _scene_card_layout = ({width = 1280, height = 720} = {}) => {
+      |  const scale = Math.min(1, width / 1280, height / 720);
+      |  return {
+      |    padding: 80 * scale,
+      |    fontSize: 56 * scale,
+      |    labelFontSize: 24 * scale,
+      |    labelBottom: 48 * scale,
+      |    labelRight: 64 * scale
+      |  };
+      |};
       |""".stripMargin
 
   private[video] val _remotion_root_tsx: String =
@@ -365,11 +463,13 @@ private[cozy] trait CozyVideoRenderTemplates {
       |import {AbsoluteFill, Audio, Composition, Img, Sequence, interpolate, registerRoot, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
       |import {cozyVideoProps} from './props';
       |
+      |""".stripMargin + _remotion_scene_card_layout_js + """
       |type Scene = {
       |  id: string;
       |  text: string;
       |  audioPath: string;
       |  duration: number;
+      |  durationFrames?: number;
       |};
       |
       |type Primitive = {
@@ -454,13 +554,17 @@ private[cozy] trait CozyVideoRenderTemplates {
       |const AssetFrame: React.FC<{asset?: Asset; opacity?: number}> = ({asset, opacity = 1}) =>
       |  asset?.path ? <Img src={staticFile(asset.path)} style={{position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity}} /> : null;
       |
-      |const SceneCard: React.FC<{scene: Scene}> = ({scene}) => (
-      |  <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', alignItems: 'center', justifyContent: 'center', padding: 80}}>
-      |    <div style={{fontSize: 56, lineHeight: 1.25, textAlign: 'center'}}>{scene.text || scene.id}</div>
-      |    <div style={{position: 'absolute', bottom: 48, right: 64, fontSize: 24, opacity: 0.7}}>{scene.id}</div>
+      |const SceneCard: React.FC<{scene: Scene}> = ({scene}) => {
+      |  const {width, height} = useVideoConfig();
+      |  const layout = _scene_card_layout({width, height});
+      |  return (
+      |  <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', fontFamily: 'Noto Sans CJK JP, sans-serif', alignItems: 'center', justifyContent: 'center', padding: layout.padding}}>
+      |    <div style={{fontSize: layout.fontSize, lineHeight: 1.25, textAlign: 'center'}}>{scene.text || scene.id}</div>
+      |    <div style={{position: 'absolute', bottom: layout.labelBottom, right: layout.labelRight, fontSize: layout.labelFontSize, opacity: 0.7}}>{scene.id}</div>
       |    <Audio src={staticFile(scene.audioPath)} />
       |  </AbsoluteFill>
-      |);
+      |  );
+      |};
       |
       |const Opening: React.FC<{title: string; effect: VisualEffect; asset?: Asset; durationInFrames: number}> = ({title, effect, asset, durationInFrames}) => {
       |  const frame = useCurrentFrame();
@@ -505,13 +609,12 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  );
       |};
       |
-      |const FinalPage: React.FC<{effect: VisualEffect; asset?: Asset}> = ({effect, asset}) => {
+      |const FinalPage: React.FC<{effect: VisualEffect; asset?: Asset; transitionFrames: number}> = ({effect, asset, transitionFrames}) => {
       |  const frame = useCurrentFrame();
-      |  const {fps} = useVideoConfig();
       |  const card = primitive(effect, 'end-card');
       |  const fade = primitive(effect, 'fade-rise');
       |  const hold = primitive(effect, 'hold');
-      |  const opacity = fade?.parameters.target === 'end-card' ? interpolate(frame, [0, fps * 0.45], [0, 1], {extrapolateRight: 'clamp'}) : 1;
+      |  const opacity = fade?.parameters.target === 'end-card' && transitionFrames > 0 ? interpolate(frame, [0, transitionFrames], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) : 1;
       |  return card && hold ? (
       |    <AbsoluteFill style={{backgroundColor: '#101820', color: '#f4efe6', alignItems: 'center', justifyContent: 'center', opacity}}>
       |      <AssetFrame asset={asset} opacity={1} />
@@ -525,11 +628,12 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  const section = roleEffect(visualEffects, 'section-start');
       |  const summary = roleEffect(visualEffects, 'summary');
       |  const finalPage = roleEffect(visualEffects, 'final-page');
+      |  const finalPageTransitionFrames = finalPage && primitive(finalPage, 'fade-rise')?.parameters.target === 'end-card' ? Math.min(Math.max(0, timing.finalPageStartFrame), Math.ceil(fps * 0.45)) : 0;
       |  return (
       |    <AbsoluteFill>
       |      {opening && timing.openingFrames > 0 ? <Sequence from={0} durationInFrames={timing.openingFrames}><Opening title={title} effect={opening} asset={roleAsset(assets, 'opening')} durationInFrames={timing.openingFrames} /></Sequence> : null}
       |      {scenes.map((scene) => {
-      |        const duration = Math.max(1, Math.round((scene.duration || 1) * fps));
+      |        const duration = Math.max(1, scene.durationFrames ?? Math.ceil((scene.duration || 1) * fps));
       |        const sequence = <Sequence key={scene.id} from={start} durationInFrames={duration}><SceneCard scene={scene} /></Sequence>;
       |        start += duration;
       |        return sequence;
@@ -537,7 +641,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |      {section && timing.sectionStartFrames > 0 ? <Sequence from={timing.sectionStartFrame} durationInFrames={timing.sectionStartFrames}><SectionStart effect={section} asset={roleAsset(assets, 'section-start')} durationInFrames={timing.sectionStartFrames} /></Sequence> : null}
       |      {summary && timing.summaryFrames > 0 ? <Sequence from={timing.summaryStartFrame} durationInFrames={timing.summaryFrames}><Summary effect={summary} asset={roleAsset(assets, 'summary')} /></Sequence> : null}
       |      {timing.creditPageHoldFrames > 0 && credits.items.length > 0 ? <Sequence from={timing.creditPageStartFrame} durationInFrames={timing.creditPageHoldFrames}><CreditPage credits={credits} /></Sequence> : null}
-      |      {finalPage && timing.finalPageHoldFrames > 0 ? <Sequence from={timing.finalPageStartFrame} durationInFrames={timing.finalPageHoldFrames}><FinalPage effect={finalPage} asset={roleAsset(assets, 'final-page')} /></Sequence> : null}
+      |      {finalPage && timing.finalPageHoldFrames > 0 ? <Sequence from={timing.finalPageStartFrame - finalPageTransitionFrames} durationInFrames={timing.finalPageHoldFrames + finalPageTransitionFrames}><FinalPage effect={finalPage} asset={roleAsset(assets, 'final-page')} transitionFrames={finalPageTransitionFrames} /></Sequence> : null}
       |    </AbsoluteFill>
       |  );
       |};
@@ -619,7 +723,7 @@ private[cozy] trait CozyVideoRenderTemplates {
       |  const scene = (props.scenes || []).find((candidate) => frame >= candidate.startFrame && frame < candidate.startFrame + candidate.durationFrames) || props.scenes?.[0];
       |  const localFrame = Math.max(0, frame - (scene?.startFrame || 0));
       |  const character = scene?.speaker ? props.characters?.[scene.speaker] : null;
-      |  const audioDurationFrames = Math.max(1, Number(scene?.audioDurationFrames || Math.round(Number(scene?.audioDuration || 0) * Number(props.fps || 1)) || ((scene?.durationFrames || 1) - (scene?.leadInFrames || 0))));
+      |  const audioDurationFrames = Math.max(1, Number(scene?.audioDurationFrames || Math.ceil(Number(scene?.audioDuration || 0) * Number(props.fps || 1)) || ((scene?.durationFrames || 1) - (scene?.leadInFrames || 0))));
       |  const mouthOpen = !scene?.silent && character?.mouthOpenAsset && character?.mouthClosedAsset && localFrame >= (scene?.leadInFrames || 0) && localFrame < (scene?.leadInFrames || 0) + audioDurationFrames && Math.floor(localFrame / 4) % 2 === 0;
       |  const source = mouthOpen ? character.mouthOpenAsset : (character?.mouthClosedAsset || character?.asset);
       |  const side = character?.side === 'right' ? 'right' : 'left';

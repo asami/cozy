@@ -32,7 +32,8 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -140,19 +141,19 @@ private[cozy] trait CozyBokCommand {
   private def _print_publication_usage(name: String): Unit = {
     name match {
       case "publish" =>
-        println("Usage: cozy bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]")
+        println("Usage: cozy bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--dry-run]")
         println("Run update-publication, build, optional stage, and configured upload workflow. Use --dry-run to print the plan without publication, repository, site, or upload side effects.")
       case "publish-video" =>
-        println("Usage: cozy bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Usage: cozy bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>]")
         println("Publish .video packages into the BoK publication registry and artifact repository.")
       case "publish-media" =>
-        println("Usage: cozy bok publish-media <project-dir> [--publication <dir>] [--repository <dir>] [--version <version>] [--force]")
+        println("Usage: cozy bok publish-media <project-dir> [--publication <dir>] [--repository <dir>] [--version <version>]")
         println("Publish explicit detailed-infographic media packages into the BoK article-media registry and artifact repository.")
       case "publish-projects" =>
-        println("Usage: cozy bok publish-projects <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Usage: cozy bok publish-projects <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>]")
         println("Register src/main/doxsite/projects/<category>/<slug> project knowledge packages into the BoK publication registry. CAR artifact publishing remains the responsibility of cozy publish-car.")
       case "update-publication" =>
-        println("Usage: cozy bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]")
+        println("Usage: cozy bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>]")
         println("Update the BoK publication registry for .video, detailed-infographic media, and project knowledge packages.")
       case other =>
         RAISE.invalidArgumentFault(s"Unknown publication command: ${other}")
@@ -162,8 +163,6 @@ private[cozy] trait CozyBokCommand {
   private def _print_workflow_usage(name: String): Unit = {
     println(s"Usage: cozy bok ${name} [<project-dir>]")
     println(s"Run the external command registered at bok.workflow.${name}.command.")
-    if (name == "upload")
-      println("When bok.backup.enabled is true, website.d is backed up before upload. Defaults: enabled=false, dir=website.backup, compressed=true.")
   }
 
   private def _print_bibliography_search_usage(): Unit = {

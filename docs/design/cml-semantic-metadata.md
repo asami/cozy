@@ -27,8 +27,9 @@ Its constructor is not a public construction or copy bypass. It separately
 rejects null descriptive kind/name values and malformed extension namespaces.
 
 `CmlSemanticMetadataReader` owns strict typed-`JsValue` traversal. It accepts
-no raw text, unsafe casts, coercions, defaults, ignored fields, or partial
-success. Shape failures are one deterministic typed diagnostic; a completed
+no raw text, unsafe casts, coercions, defaults, or partial success. Only
+SourceAttribution projects its three required known fields and ignores unknown
+source extras generically; every other core shape remains closed. Shape failures are one deterministic typed diagnostic; a completed
 shape is passed to `CmlSemanticFoundation.build`, whose complete diagnostic
 vector is wrapped without changing foundation kinds or logical coordinates.
 The reader never reads sources, hashes files, derives IDs from labels/paths, or
@@ -56,3 +57,21 @@ producer. Later projection phases must supply explicit upstream IDs and Terms;
 they may use namespaced extensions for optional independent data without
 guessing IDs from legacy metadata, names, paths, symbols, slugs, RDF candidates,
 or delimiters.
+
+## Phase 71 attribution retirement
+
+Under [file update management](../spec/file-update-management.md), Phase 71
+retires the non-integrity source digest while retaining
+`cozy.cml.semantic-metadata.v1` and `cozy.cml.structure.v1`. This is an explicit
+exception to historical all-core-changes-new-version wording: ordinary
+SourceAttribution loading projects required `authorityId`, `path`, and `line`,
+ignoring unknown source extras of any JSON type. Missing known fields remain
+invalid; explicit `line: null` means no line, and supplied lines must be positive.
+There is no legacy decoder, upgrade, alternate version, or fake value. All other
+core shapes stay closed; identity, Presence, references, opaque extensions, and
+genuine diagnostics retain their contracts. Attribution supplies authority,
+canonical project-relative POSIX path, and optional line without hash, snapshot,
+or currentness proof. Future material core semantics require independently
+designed versioning. Canonical fixtures publish the retired field set; their
+STR evidence remains synthetic supplier evidence, without external runtime or
+CML integration acceptance.

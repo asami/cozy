@@ -2,7 +2,7 @@ package cozy.ui
 
 import java.io.{IOException, StringWriter}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path}
 import com.fasterxml.jackson.core.JsonFactory
 import cozy.ui.CozyLogicalUi._
 import cozy.ui.CozyLogicalUiReview.{CandidateReviewReceipt, ReviewDiagnostic}
@@ -10,7 +10,7 @@ import cozy.ui.CozyLogicalUiSemantics._
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiCompactWeb {
@@ -73,32 +73,9 @@ private[cozy] object CozyLogicalUiCompactWeb {
     }
   }
 
-  def verifyCurrent(
-    candidate: LogicalUiCandidate, projection: LogicalUiProjection,
-    semantics: LogicalUiSemanticProjection, scenario: CompactScenario, preview: CompactWebPreview
-  ): Either[LogicalUiError, Unit] = {
-    if (preview == null) Left(_error("preview", "a CompactWebPreview is required", "CURRENTNESS"))
-    else render(candidate, projection, semantics, scenario) match {
-      case Left(error) => Left(_error(error.path, error.reason, "CURRENTNESS"))
-      case Right(current) =>
-        val changed = Vector(
-          (current.html != preview.html, "preview.html"),
-          (current.reviewHtml != preview.reviewHtml, "preview.reviewHtml"),
-          (current.receipt != preview.receipt, "preview.receipt"),
-          (current.receiptJson != preview.receiptJson, "preview.receiptJson"),
-          (current.diagnostics != preview.diagnostics, "preview.diagnostics")
-        ).find(_._1)
-        changed match {
-          case Some((_, path)) => Left(_error(path, "compact preview observable is stale", "CURRENTNESS"))
-          case None => Right(())
-        }
-    }
-  }
-
   def write(preview: CompactWebPreview, siteParent: Path, receiptParent: Path): Either[LogicalUiError, Unit] = {
-    if (preview == null) Left(_error("preview", "a CompactWebPreview is required", "CURRENTNESS"))
+    if (preview == null) Left(_error("preview", "a CompactWebPreview is required", "CONTRACT"))
     else for {
-      _ <- verifyCurrent(preview._candidate, preview._projection, preview._semantics, preview._scenario, preview)
       _ <- _preflight(siteParent, receiptParent)
       _ <- _install(Vector(
         siteParent.resolve("index.html") -> preview.html,
@@ -217,9 +194,7 @@ private[cozy] object CozyLogicalUiCompactWeb {
       "schema" -> _string(value.schema), "version" -> value.version.toString,
       "rendererProfile" -> _string(value.rendererProfile),
       "candidateReview" -> _object(Vector("schema" -> _string(review.schema), "version" -> review.version.toString,
-        "rendererProfile" -> _string(review.rendererProfile), "candidateIdentity" -> _string(review.candidateIdentity),
-        "consumedInputIdentity" -> _string(review.consumedInputIdentity), "projectionIdentity" -> _string(review.projectionIdentity),
-        "semanticProjectionIdentity" -> _string(review.semanticProjectionIdentity))),
+        "rendererProfile" -> _string(review.rendererProfile))),
       "scenario" -> _scenario_json(value.scenario),
       "componentBindings" -> value.componentBindings.map(_binding_json).mkString("[", ",", "]"),
       "operationBinding" -> _binding_json(value.operationBinding), "stateMachineBinding" -> _binding_json(value.stateMachineBinding),
@@ -284,7 +259,7 @@ private[cozy] object CozyLogicalUiCompactWeb {
     val review = value.candidateReview
     s"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><title>Sales order candidate preview</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#172b3a;font:16px/1.5 system-ui,sans-serif}main{max-width:32rem;margin:auto;padding:1rem;overflow-wrap:anywhere}section{background:white;border:1px solid #c4ced6;border-radius:.75rem;padding:1rem;margin:1rem 0}h1{font-size:1.5rem}h2{font-size:1.25rem}button,select{display:block;width:100%;min-width:0;font:inherit;padding:.65rem;margin:.75rem 0;border:1px solid #718595;border-radius:.4rem}button{background:#183e58;color:white}button:disabled{background:#dce3e8;color:#4e616e}dt{font-weight:650}dd{margin:0 0 .6rem}output{display:block}[hidden]{display:none!important}.assurance{font-size:.9rem;color:#435966}a{color:#164e78}</style></head><body>
-<main id="compact-preview" data-candidate-identity="${_escape(review.candidateIdentity)}" data-consumed-input-identity="${_escape(review.consumedInputIdentity)}" data-projection-identity="${_escape(review.projectionIdentity)}" data-semantic-projection-identity="${_escape(review.semanticProjectionIdentity)}" data-fixture-id="${_escape(scenario.fixtureId)}" data-coverage-id="${_escape(scenario.coverageId)}" data-profile="compact" data-detail-placement="navigate-to-detail" data-active-screen="${_escape(flow.listScreenId)}" data-selected-order="">
+<main id="compact-preview" data-fixture-id="${_escape(scenario.fixtureId)}" data-coverage-id="${_escape(scenario.coverageId)}" data-profile="compact" data-detail-placement="navigate-to-detail" data-active-screen="${_escape(flow.listScreenId)}" data-selected-order="">
 <h1>Sales order</h1><p class="assurance">Candidate preview · not accepted. Confirmation displays a declared simulated outcome.</p>
 <section id="order-list-screen" data-screen-id="${_escape(flow.listScreenId)}" ${_source_attributes(flow.listEntryInteractionId, flow.step)} aria-labelledby="list-heading"><h2 id="list-heading">Orders</h2>
 <dl><dt>Order</dt><dd id="list-order-id">${_escape(initial.orderId)}</dd><dt>Label</dt><dd id="list-order-label">${_escape(initial.label)}</dd><dt>Amount</dt><dd id="list-order-amount">${_escape(initial.amount)}</dd><dt>Domain state</dt><dd id="list-domain-state" data-domain-state="${_escape(initial.domainState.stateId)}">${_escape(initial.domainState.stateId)}</dd></dl>
@@ -395,26 +370,12 @@ private[cozy] object CozyLogicalUiCompactWeb {
   }
 
   private def _install(values: Vector[(Path, String)]): Either[LogicalUiError, Unit] = {
-    var temporary = Vector.empty[Path]
     try {
-      val prepared = values.map { case (target, text) =>
-        val created = Files.createTempFile(target.getParent, ".cozy-compact-", ".tmp")
-        temporary :+= created
-        Files.write(created, text.getBytes(StandardCharsets.UTF_8))
-        created -> target
-      }
-      prepared.foreach { case (created, target) =>
-        Files.move(created, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      }
+      values.foreach { case (target, text) => Files.write(target, text.getBytes(StandardCharsets.UTF_8)) }
       Right(())
     } catch {
-      case error: IOException => Left(_error("output", "atomic installation failed: " + error.getMessage, "OUTPUT"))
-      case _: SecurityException => Left(_error("output", "atomic installation was denied", "OUTPUT"))
-    } finally {
-      temporary.foreach { path =>
-        try Files.deleteIfExists(path)
-        catch { case _: IOException => (); case _: SecurityException => () }
-      }
+      case error: IOException => Left(_error("output", "output write failed: " + error.getMessage, "OUTPUT"))
+      case _: SecurityException => Left(_error("output", "output write denied", "OUTPUT"))
     }
   }
 

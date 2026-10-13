@@ -7,7 +7,7 @@ import cozy.media.CozyMedia
 
 /*
  * @since   Oct. 1, 2026
- * @version Oct. 1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectPublicationTarget {
@@ -42,47 +42,20 @@ private[cozy] object CozyDocumentProjectPublicationTarget {
     siteContext: Option[CozyMedia.SiteContext]
   )
 
-  final case class CurrentRegistrationConfig(project: Path, registration: RegistrationConfig)
+  final case class ProjectRegistrationConfig(project: Path, registration: RegistrationConfig)
 
-  final case class CurrentRegistrationPlan(
-    config: CurrentRegistrationConfig,
-    registration: RegistrationPlan,
-    currentness: CozyDocumentProjectExport.Currentness
+  final case class ProjectRegistrationPlan(
+    config: ProjectRegistrationConfig,
+    registration: RegistrationPlan
   )
 
-  def planCurrentRegistration(config: CurrentRegistrationConfig): CurrentRegistrationPlan = {
+  def planProjectRegistration(config: ProjectRegistrationConfig): ProjectRegistrationPlan = {
     if (config == null || config.project == null || config.registration == null)
-      _invalid("current publication registration requires project and registration configuration")
+      _invalid("publication registration requires project and registration configuration")
     val project = _project_path(config.project)
-    val descriptor = CozyDocumentProject._load_project(project)
+    CozyDocumentProject._load_project(project)
     val registration = planRegistration(config.registration)
-    val currentness = CozyDocumentProjectExport.currentness(project, descriptor, registration.export.bundleRoot)
-    val facets = Vector(
-      "sourceauthority" -> currentness.sourceauthority,
-      "selection" -> currentness.selection,
-      "retainedproductionevidence" -> currentness.retainedproductionevidence,
-      "manifestauthority" -> currentness.manifestauthority,
-      "exportedbytes" -> currentness.exportedbytes
-    ).filter(_._2 != "current")
-    if (facets.nonEmpty)
-      _invalid("current publication registration requires current export facets: " + facets.map {
-        case (name, state) => s"$name=$state"
-      }.mkString(", "))
-    CurrentRegistrationPlan(config.copy(project = project), registration, currentness)
-  }
-
-  def revalidateRegistration(value: RegistrationPlan): RegistrationPlan = {
-    if (value == null) _invalid("publication registration snapshot is required")
-    val recomputed = planRegistration(value.config)
-    if (recomputed != value) _invalid("publication registration snapshot has changed")
-    recomputed
-  }
-
-  def revalidateCurrentRegistration(value: CurrentRegistrationPlan): CurrentRegistrationPlan = {
-    if (value == null) _invalid("current publication registration snapshot is required")
-    val recomputed = planCurrentRegistration(value.config)
-    if (recomputed != value) _invalid("current publication registration snapshot has changed")
-    recomputed
+    ProjectRegistrationPlan(config.copy(project = project), registration)
   }
 
   def planRegistration(config: RegistrationConfig): RegistrationPlan = {
@@ -97,12 +70,8 @@ private[cozy] object CozyDocumentProjectPublicationTarget {
         profile = Some(binding.publicationProfile),
         siteRoot = config.media.siteRoot,
         siteConfig = config.media.siteConfig
-      ),
-      binding.descriptorBytes
+      )
     )
-    if (mediaplan.descriptor != binding.descriptor || mediaplan.context != binding.context ||
-      mediaplan.effectiveProfile != Some(binding.effectiveProfile))
-      _invalid("publication registration media authority is inconsistent with the site binding")
     val sitecontext = CozyMedia.requireSiteContext(mediaplan)
     RegistrationPlan(config, admitted, binding, sitecontext)
   }
@@ -127,16 +96,16 @@ private[cozy] object CozyDocumentProjectPublicationTarget {
 
   private def _project_path(project: Path): Path = {
     val normalized = try project.toAbsolutePath.normalize() catch {
-      case _: RuntimeException => _invalid("current publication project path is invalid")
+      case _: RuntimeException => _invalid("publication project path is invalid")
     }
     if (!Files.isDirectory(normalized, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(normalized) ||
       !Option(normalized.getFileName).exists(_.toString.endsWith(".dox")))
-      _invalid("current publication project must be a direct canonical .dox directory")
+      _invalid("publication project must be a direct canonical .dox directory")
     val canonical = try normalized.toRealPath() catch {
-      case _: RuntimeException => _invalid("current publication project path is invalid")
+      case _: RuntimeException => _invalid("publication project path is invalid")
     }
     if (canonical != normalized)
-      _invalid("current publication project must be a direct canonical .dox directory")
+      _invalid("publication project must be a direct canonical .dox directory")
     normalized
   }
 

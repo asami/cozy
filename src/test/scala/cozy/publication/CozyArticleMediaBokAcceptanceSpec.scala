@@ -2,7 +2,6 @@ package cozy.publication
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import org.goldenport.cli.{Config => CliConfig, Environment}
 import org.goldenport.realm.Realm
@@ -18,7 +17,7 @@ import cozy.bok.CozyBok
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug.  5, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -34,7 +33,7 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
         )(value => value)
         val source = Realm.create(DoxSite.realmConfig, fixture.source.toFile)
 
-        When("the exact production-effective immutable snapshot is passed to the actual DoxSiteGenerator")
+        When("the selected production-effective publication context is passed to the actual DoxSiteGenerator")
         val site = new DoxSiteGenerator(
           _smartdox_context,
           DoxSite.Config.default,
@@ -193,8 +192,6 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
           publicpath.stripPrefix("/") shouldBe s"repository/$repositorypath"
           staged.normalize.startsWith(worktree.resolve("repository").normalize) shouldBe true
           Files.readAllBytes(staged).toVector shouldBe Files.readAllBytes(expected).toVector
-          _sha256(staged) shouldBe record._3
-          _sha256(expected) shouldBe record._3
           Files.isRegularFile(staged, LinkOption.NOFOLLOW_LINKS) shouldBe true
           val mediatype = if (repositorypath.endsWith(".png")) "image/png" else "video/mp4"
           _media_signature(expected, mediatype)
@@ -212,7 +209,6 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
           integrity.hcursor.downField("mediaType").as[String].toOption shouldBe Some("image/png")
           val publicpath = integrity.hcursor.downField("publicPath").as[String].toOption.getOrElse(fail(s"Missing infographic publicPath: $integritypath"))
           val repositorypath = integrity.hcursor.downField("repositoryPath").as[String].toOption.getOrElse(fail(s"Missing infographic repositoryPath: $integritypath"))
-          val integritysha = integrity.hcursor.downField("sha256").as[String].toOption.getOrElse(fail(s"Missing infographic SHA-256: $integritypath"))
           val provenance = integrity.hcursor.downField("provenance")
           provenance.downField("kind").as[String].toOption shouldBe Some("media-package")
           val descriptor = provenance.downField("descriptor").as[String].toOption.getOrElse(fail(s"Missing infographic descriptor provenance: $integritypath"))
@@ -221,7 +217,7 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
           descriptor shouldBe s"src/main/doxsite/media/$locale/media.yaml"
           buildmanifest shouldBe s"src/main/doxsite/media/$locale/target/cozy-media/manifest.json"
           integrity.hcursor.downField("artifact").downField("identity").as[String].toOption shouldBe Some(resourceid)
-          records should contain((publicpath, repositorypath, integritysha))
+          records should contain((publicpath, repositorypath))
 
           val descriptorpath = fixture.project.resolve(descriptor)
           Files.isRegularFile(descriptorpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
@@ -260,8 +256,6 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
           matchingmanifestresources should have size 1
           val manifestresource = matchingmanifestresources.head
           manifestresource.hcursor.downField("path").as[String].toOption shouldBe Some(sourcepath)
-          manifestresource.hcursor.downField("sha256").as[String].toOption shouldBe Some(integritysha)
-          _sha256(prebuilt) shouldBe integritysha
         }
         val expectedmanifestpaths = Vector(
           "metadata/video/article-media-bilingual-example-en-video/1.0.0/manifest.json",
@@ -280,7 +274,6 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
           val integritypath = s"metadata/article-media-integrity/development-process/example/$locale/video.json"
           val integrity = bundleentries.getOrElse(integritypath, fail(s"Missing video integrity entry: $integritypath"))
           val repositorypath = integrity.hcursor.downField("repositoryPath").as[String].toOption.getOrElse(fail(s"Missing video repositoryPath: $integritypath"))
-          val integritysha = integrity.hcursor.downField("sha256").as[String].toOption.getOrElse(fail(s"Missing video SHA-256: $integritypath"))
           integrity.hcursor.downField("mediaType").as[String].toOption shouldBe Some("video/mp4")
           val provenance = integrity.hcursor.downField("provenance")
           val manifestpath = provenance.downField("videoManifest").as[String].toOption.getOrElse(fail(s"Missing video manifest provenance: $integritypath"))
@@ -296,7 +289,6 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
           manifest.hcursor.downField("video").downField("version").as[String].toOption shouldBe Some("1.0.0")
           manifestartifact.downField("warehousePath").as[String].toOption shouldBe Some(warehousepath)
           manifestartifact.downField("repositoryPublicPath").as[String].toOption shouldBe Some(warehousepath)
-          manifestartifact.downField("sha256").as[String].toOption shouldBe Some(integritysha)
           val registry = bundleentries.getOrElse(registrypath, fail(s"Missing video registry entry: $registrypath"))
           registry.hcursor.downField("schema").as[String].toOption shouldBe Some("cozy.publish-project.v1")
           registry.hcursor.downField("type").as[String].toOption shouldBe Some("repository-artifact")
@@ -308,10 +300,8 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
           }
           selectedfiles should have size 1
           val selectedfile = selectedfiles.head
-          selectedfile.hcursor.downField("sha256").as[String].toOption shouldBe Some(integritysha)
           val artifact = fixture.repository.resolve(repositorypath)
           Files.isRegularFile(artifact, LinkOption.NOFOLLOW_LINKS) shouldBe true
-          _sha256(artifact) shouldBe integritysha
           Files.size(artifact) shouldBe selectedfile.hcursor.downField("size").as[Long].toOption.getOrElse(fail(s"Missing video registry size: $registrypath"))
         }
         val stagedenglish = _read_file(worktree.resolve("en/development-process/example.html"))
@@ -384,7 +374,7 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
     CozyBok.ProcessRunner.run(Vector("git", "commit", "-m", "seed"), path)
   }
 
-  private def _integrity_records(publication: Path): Vector[(String, String, String)] = {
+  private def _integrity_records(publication: Path): Vector[(String, String)] = {
     val value = io.circe.parser.parse(new String(Files.readAllBytes(publication), StandardCharsets.UTF_8)).toOption.get
     value.hcursor.downField("entries").as[Vector[io.circe.Json]].toOption.toVector.flatten.flatMap { entry =>
       val metadata = entry.hcursor.downField("metadata")
@@ -392,8 +382,7 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
         schema <- metadata.downField("schema").as[String].toOption if schema == "cozy.article-media-integrity.v1"
         publicpath <- metadata.downField("publicPath").as[String].toOption
         repositorypath <- metadata.downField("repositoryPath").as[String].toOption
-        sha256 <- metadata.downField("sha256").as[String].toOption
-      } yield (publicpath, repositorypath, sha256)
+      } yield (publicpath, repositorypath)
     }.toVector
   }
 
@@ -482,11 +471,6 @@ final class CozyArticleMediaBokAcceptanceSpec extends AnyWordSpec with Matchers 
     }
 
   private def _read_file(path: Path): String = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
-  }
 
   private def _media_signature(path: Path, mediatype: String): Unit = {
     val bytes = Files.readAllBytes(path)

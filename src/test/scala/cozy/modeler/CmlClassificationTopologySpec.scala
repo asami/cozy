@@ -12,7 +12,7 @@ import CmlClassificationTopology._
 
 /*
  * @since   Oct. 3, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlClassificationTopologySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -305,7 +305,7 @@ final class CmlClassificationTopologySpec extends AnyWordSpec with Matchers with
     ClassificationDiagnostic(InvalidShape, path, "The Classification query identity is invalid.", None)
 
   private def _source(authority: String): SourceAttribution =
-    SourceAttribution(authority, "src/main/cml/classification.cml", "a" * 64, Some(7))
+    SourceAttribution(authority, "src/main/cml/classification.cml", Some(7))
 
   private def _record(kind: String, id: String, authority: String = "model.example"): ElementRecord =
     ElementRecord(Present(ModelElementId(authority, id)), kind, "共有", _source(authority), Present(Vector.empty))

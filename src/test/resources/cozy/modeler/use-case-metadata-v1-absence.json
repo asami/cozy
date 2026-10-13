@@ -14,7 +14,6 @@
       "source": {
         "authorityId": "structure.example",
         "path": "src/main/cml/structure-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 1
       },
       "references": {
@@ -36,7 +35,6 @@
       "source": {
         "authorityId": "structure.example",
         "path": "src/main/cml/structure-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 2
       },
       "references": {
@@ -58,7 +56,6 @@
       "source": {
         "authorityId": "structure.example",
         "path": "src/main/cml/structure-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 3
       },
       "references": {
@@ -80,7 +77,6 @@
       "source": {
         "authorityId": "structure.example",
         "path": "src/main/cml/structure-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 4
       },
       "references": {
@@ -102,7 +98,6 @@
       "source": {
         "authorityId": "structure.example",
         "path": "src/main/cml/structure-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 5
       },
       "references": {
@@ -124,7 +119,6 @@
       "source": {
         "authorityId": "structure.example",
         "path": "src/main/cml/structure-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 6
       },
       "references": {
@@ -146,7 +140,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 7
       },
       "references": {
@@ -168,7 +161,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 8
       },
       "references": {
@@ -190,7 +182,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 9
       },
       "references": {
@@ -212,7 +203,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 10
       },
       "references": {
@@ -234,7 +224,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 11
       },
       "references": {
@@ -256,7 +245,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 12
       },
       "references": {
@@ -278,7 +266,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 13
       },
       "references": {
@@ -300,7 +287,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 14
       },
       "references": {
@@ -322,7 +308,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 15
       },
       "references": {
@@ -344,7 +329,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 16
       },
       "references": {
@@ -366,7 +350,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 17
       },
       "references": {
@@ -388,7 +371,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 18
       },
       "references": {
@@ -410,7 +392,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 19
       },
       "references": {
@@ -432,7 +413,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 20
       },
       "references": {
@@ -454,7 +434,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 21
       },
       "references": {
@@ -476,7 +455,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 22
       },
       "references": {
@@ -498,7 +476,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 23
       },
       "references": {
@@ -520,7 +497,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 24
       },
       "references": {
@@ -542,7 +518,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 25
       },
       "references": {
@@ -564,7 +539,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 26
       },
       "references": {
@@ -586,7 +560,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 27
       },
       "references": {
@@ -608,7 +581,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 28
       },
       "references": {
@@ -630,7 +602,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 29
       },
       "references": {
@@ -652,7 +623,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 30
       },
       "references": {
@@ -674,7 +644,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 31
       },
       "references": {
@@ -696,7 +665,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 32
       },
       "references": {
@@ -718,7 +686,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 33
       },
       "references": {
@@ -740,7 +707,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 34
       },
       "references": {
@@ -762,7 +728,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 35
       },
       "references": {
@@ -784,7 +749,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 36
       },
       "references": {
@@ -806,7 +770,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 37
       },
       "references": {
@@ -828,7 +791,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 38
       },
       "references": {
@@ -850,7 +812,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 39
       },
       "references": {
@@ -872,7 +833,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 40
       },
       "references": {
@@ -894,7 +854,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 41
       },
       "references": {
@@ -916,7 +875,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 42
       },
       "references": {
@@ -936,7 +894,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 43
       },
       "references": {
@@ -958,7 +915,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 44
       },
       "references": {
@@ -978,7 +934,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 45
       },
       "references": {
@@ -1000,7 +955,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 46
       },
       "references": {
@@ -1022,7 +976,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 47
       },
       "references": {
@@ -1044,7 +997,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 48
       },
       "references": {
@@ -1066,7 +1018,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 49
       },
       "references": {
@@ -1085,7 +1036,6 @@
       "source": {
         "authorityId": "structure.example",
         "path": "glossary/structure.dox",
-        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
         "line": null
       }
     },
@@ -1097,7 +1047,6 @@
       "source": {
         "authorityId": "classification.example",
         "path": "src/main/cml/classification-handoff.cml",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "line": 7
       }
     },
@@ -1109,7 +1058,6 @@
       "source": {
         "authorityId": "dynamic.example",
         "path": "src/main/cml/dynamic-handoff.cml",
-        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "line": 23
       }
     },
@@ -1121,7 +1069,6 @@
       "source": {
         "authorityId": "usecase.example",
         "path": "src/main/cml/use-case-handoff.cml",
-        "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "line": 45
       }
     }
@@ -1153,7 +1100,6 @@
             "source": {
               "authorityId": "structure.example",
               "path": "src/main/cml/structure-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 1
             },
             "references": {
@@ -1197,7 +1143,6 @@
             "source": {
               "authorityId": "structure.example",
               "path": "src/main/cml/structure-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 2
             },
             "references": {
@@ -1227,7 +1172,6 @@
             "source": {
               "authorityId": "structure.example",
               "path": "src/main/cml/structure-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 3
             },
             "references": {
@@ -1273,7 +1217,6 @@
             "source": {
               "authorityId": "structure.example",
               "path": "src/main/cml/structure-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 4
             },
             "references": {
@@ -1405,7 +1348,6 @@
             "source": {
               "authorityId": "structure.example",
               "path": "src/main/cml/structure-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 5
             },
             "references": {
@@ -1528,7 +1470,6 @@
             "source": {
               "authorityId": "structure.example",
               "path": "src/main/cml/structure-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 6
             },
             "references": {
@@ -1654,7 +1595,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 7
             },
             "references": {
@@ -1678,7 +1618,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 8
             },
             "references": {
@@ -1704,7 +1643,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 9
             },
             "references": {
@@ -1747,7 +1685,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 10
             },
             "references": {
@@ -1792,7 +1729,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 15
             },
             "references": {
@@ -1836,7 +1772,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 16
             },
             "references": {
@@ -1880,7 +1815,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 17
             },
             "references": {
@@ -1926,7 +1860,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 18
             },
             "references": {
@@ -1970,7 +1903,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 19
             },
             "references": {
@@ -2016,7 +1948,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 20
             },
             "references": {
@@ -2060,7 +1991,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 21
             },
             "references": {
@@ -2104,7 +2034,6 @@
             "source": {
               "authorityId": "classification.example",
               "path": "src/main/cml/classification-handoff.cml",
-              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
               "line": 22
             },
             "references": {
@@ -2162,7 +2091,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 23
             },
             "references": {
@@ -2370,7 +2298,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 24
             },
             "references": {
@@ -2455,7 +2382,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 25
             },
             "references": {
@@ -2548,7 +2474,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 26
             },
             "references": {
@@ -2657,7 +2582,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 27
             },
             "references": {
@@ -2742,7 +2666,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 28
             },
             "references": {
@@ -2829,7 +2752,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 29
             },
             "references": {
@@ -2888,7 +2810,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 30
             },
             "references": {
@@ -2960,7 +2881,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 31
             },
             "references": {
@@ -3032,7 +2952,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 32
             },
             "references": {
@@ -3091,7 +3010,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 33
             },
             "references": {
@@ -3152,7 +3070,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 34
             },
             "references": {
@@ -3250,7 +3167,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 35
             },
             "references": {
@@ -3292,7 +3208,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 36
             },
             "references": {
@@ -3336,7 +3251,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 37
             },
             "references": {
@@ -3505,7 +3419,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 41
             },
             "references": {
@@ -3574,7 +3487,6 @@
             "source": {
               "authorityId": "dynamic.example",
               "path": "src/main/cml/dynamic-handoff.cml",
-              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
               "line": 42
             },
             "references": {
@@ -3671,7 +3583,6 @@
             "source": {
               "authorityId": "usecase.example",
               "path": "src/main/cml/use-case-handoff.cml",
-              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
               "line": 43
             },
             "references": {
@@ -3735,7 +3646,6 @@
             "source": {
               "authorityId": "usecase.example",
               "path": "src/main/cml/use-case-handoff.cml",
-              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
               "line": 44
             },
             "references": {
@@ -3799,7 +3709,6 @@
             "source": {
               "authorityId": "usecase.example",
               "path": "src/main/cml/use-case-handoff.cml",
-              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
               "line": 45
             },
             "references": {
@@ -3903,7 +3812,6 @@
             "source": {
               "authorityId": "usecase.example",
               "path": "src/main/cml/use-case-handoff.cml",
-              "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
               "line": 46
             },
             "references": {

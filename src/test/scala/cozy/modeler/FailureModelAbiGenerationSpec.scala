@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValu
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -77,12 +77,12 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       save.source.line shouldBe Some(_line(Files.readString(input), "#### save"))
     }
 
-    "preserve every original file and byte when declarations are absent" in {
-      Given("the immutable parent baseline captured from native SOURCE commit 6c15b65cd83181fdf61aa8674c9a847f79751805")
+    "preserve original products except removed source hashes when declarations are absent" in {
+      Given("the immutable parent baseline from SOURCE commit 6c15b65cd83181fdf61aa8674c9a847f79751805 with the explicit source hash removal")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
       val expected = groups.map(group => (group \ "files").as[Vector[JsObject]].map(file =>
-        (file \ "path").as[String] -> (file \ "text").as[String].getBytes(UTF_8).toVector).toMap)
+        (file \ "path").as[String] -> _legacy_expected_bytes((file \ "path").as[String], (file \ "text").as[String])).toMap)
 
       When("the four original fixture and route groups generate into fresh output directories twice")
       val actual = groups.zipWithIndex.map { case (group, index) =>
@@ -98,7 +98,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       val empty = FailureModelAbiGenerator.generate(Vector.empty)
       val emptyjson = Json.parse(FailureModelAbiGenerator.canonicalJson(Vector.empty))
 
-      Then("all inventories and UTF-8 bytes equal the independent expected files and empty input adds no artifact")
+      Then("all inventories and UTF-8 bytes equal independent expected files apart from removed source hashes and empty input adds no artifact")
       groups.size shouldBe 4
       expected.map(_.size).sum shouldBe 80
       (baseline \ "producerCommit").as[String] shouldBe "6c15b65cd83181fdf61aa8674c9a847f79751805"
@@ -320,6 +320,16 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
     realm.get(path).collect { case value: Realm.StringData => value.string }.getOrElse(fail(s"Missing generated artifact: $path"))
   private def _line(source: String, heading: String): Int = source.linesIterator.toVector.indexOf(heading) + 1
   private def _scopes(contract: EffectiveFailureContract): Vector[String] = contract.entries.map(_.scope.name)
+  private def _legacy_expected_bytes(path: String, text: String): Vector[Byte] = {
+    val expected = path match {
+      case "target/cozy/model-metadata.json" =>
+        text.replaceAll("(?m)^    \"sha256\" : \"[0-9a-f]{64}\",\n", "")
+      case "target/cozy/model-metadata.yaml" =>
+        text.replaceAll("(?m)^  sha256: [0-9a-f]{64}\n", "")
+      case _ => text
+    }
+    expected.getBytes(UTF_8).toVector
+  }
   private def _legacy_text(fixture: String, route: String, path: String): String = {
     val groups = (Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json"))) \ "groups").as[Vector[JsObject]]
     val group = groups.find(g => (g \ "fixture").as[String].endsWith("/" + fixture) && (g \ "route").as[String] == route).get

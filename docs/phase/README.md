@@ -16,6 +16,15 @@ Phase status index (individual Phase/checklist files are authoritative):
   Projection, starts from the accepted target-ready authority of 50.1.
 
 - CLOSED: [Phase 65](phase-65.md), CBD Support Dart Model and API Code Generation. All nine outcomes/eight original boxes/four groups are closed; four native Steps, sole full Phase review PASS and repository-full tests PASS bind P65-RELEASE-CLOSURE-001 r1. The [checklist](phase-65-checklist.md) retains live007, historical limits and the exact separate Hygiene journal.
+- [Phase 82](phase-82.md) / [checklist](phase-82-checklist.md) — PLANNED CAR
+  distribution verification and optional signatures. Renumbered from the local
+  Phase 76 plan on 2026-10-13; GitHub Phase 76 keeps Logical UI ABI production.
+
+- [Phase 81](phase-81.md) / [checklist](phase-81-checklist.md) — PLANNED CML-derived
+  review scope metadata, driven by sm-workflow Phase 6 with CNCF 106 and
+  cbd-support 15. Deliver the bounded Step -> integrated review -> repair/Final
+  handoff using existing metadata paths; no active media/site Phase is resumed
+  or expanded. GitHub Phase 80 retains its separate site-tag-navigation allocation.
 
 - Historical closed phase: `phase-46.md`: Content Core Story Flow and
   per-unit Explanation Structure are frozen as one typed logical-presentation
@@ -130,21 +139,75 @@ Phase status index (individual Phase/checklist files are authoritative):
     operation/producer contract and digest-purpose inventory; 7h expected,
     Sol high.
   - [Phase 71.1](phase-71.1.md): document/media and inventoried adjacent
-    application hash removal, timestamps and explicit adoption; 7h, Terra high.
+    application hash removal, timestamps and explicit adoption; CLOSED.
+    Current user-defined completion criteria are satisfied: warning-free clean
+    main/test compile at 20:28:10 JST and all 16 Storyboard review tests passed
+    at 20:30:25 JST. The [normal closure record](../journal/2026/10/2026-10-01-phase-71.1-normal-closure.md)
+    preserves original criteria and their explicit consolidation. Existing
+    work was committed locally as `a4687b7`; no push is claimed.
   - [Phase 71.2](phase-71.2.md): remaining video hashes, dialogue continuity
-    and pronunciation propagation/actual synthesis; 6h, Sol high.
+    and pronunciation propagation/actual synthesis; CLOSED by its distinct
+    local release, with 331/170/165 successful focused-test results and actual
+    native driver evidence. See the [normal closure record](../journal/2026/10/2026-10-03-phase-71.2-normal-closure.md).
   - [Phase 71.3](phase-71.3.md): complete local site/PDF currentness and
     purpose-bound publication-integrity adapters; 6h, Terra high.
-  - [Phase 71.4](phase-71.4.md): non-black video ending, combined-tree real
-    media/site acceptance and the one aggregate full SBT suite; 6h, Sol high.
+  - [Phase 71.4](phase-71.4.md): video-ending/narration implementation and
+    corresponding Executable Specifications, with the existing JA representative
+    actually generated and audibly played through EOF first; CLOSED on 2026-10-08 by its distinct release. Already implemented
+    hash removals remain, but further removal is not a completion condition.
+  - [Phase 71.5](phase-71.5.md): remaining management-hash and artifact-protection
+    removal; CLOSED on 2026-10-10 by the distinct release carrying
+    `P715-RELEASE-20261010@1`. All six Steps, the sole full Phase review PASS and
+    the post-removal JA34 generation/assembly/hearing/end-card/EOF are accepted.
+    Four-root repository-full SBT and broader integration remain deferred-not-run
+    to 71.7; retained warnings and unverified historical records are not rewritten.
+  - [Phase 71.6](phase-71.6.md): per-tool host/Docker selection, local encoders
+    and mixed rendering/encoding; CLOSED projection on 2026-10-11 under distinct
+    release binding `P716-RELEASE-20261011@1`, effective only on parent verification
+    of its native release commit. All three Steps and representative software/
+    hardware media/current hearing are accepted; 233 focused specifications in
+    nine suites pass with no warnings and serial lock release. Sole full Phase
+    review PASS is accepted at ledger revision 8; three nonblocking maintenance
+    Hygiene records remain separate. Remaining combinations, benchmark and
+    repository-full SBT remain deferred-not-run to 71.7.
+  - [Phase 71.7](phase-71.7.md): remaining media/site/packaging and locale/player
+    coverage, native encoder comparison and one aggregate full SBT
+    suite; PLANNED, after 71.6.
 
-  Phases 71.1–71.4 remain PLANNED/not started. Default final-only defers only
-  repository-full validation to 71.4; focused validation, review, Step
-  acceptance and release closure remain mandatory for every member. Human
-  approval is not a generation prerequisite. All application hashes except
-  named publication/distribution integrity digests are deleted across the
-  sequence; file updates use declared inputs and modification times, not
-  speculative metadata or hash gates.
+  The [2026-10-08 execution plan](phase-71.md#current-series-execution-plan--2026-10-08)
+  retains the historical Phase 75 priority and accepted S07 pause. Phase 75
+  closed with `218ea19`; 75.1 closed with `e1e1db5`. The user explicitly resumed
+  the same 71.4 Goal; representative JA generation, final build and audible EOF
+  are accepted, with F04 committed as `d0b646a`. Its distinct Phase release
+  closes 71.4. Phase 71.5 subsequently closes under `P715-RELEASE-20261010@1`;
+  Phase 71.6 has its final closed projection under `P716-RELEASE-20261011@1`,
+  effective only on verification of the distinct native release commit;
+  remaining planning is 71.7, which is planned and unstarted. Do not repeat accepted preservation work
+  or use the old S08 manifest to expand 71.4 again.
+  71.4 first delivers the working real video route; 71.5 keeps it working while
+  removing protection; 71.6 runs software and hardware mixed routes before
+  expanding branches. 71.7 consumes these results and completes remaining
+  coverage, its fixed comparison matrix and the aggregate suite. Existing Step/Phase reviews and commits remain;
+  no helper-level review gates or new subphases are added.
+  This document does not stop a live command, change a Goal or close a Phase.
+  Phase 75 keeps its own validation/release and is not an aggregate-chain member.
+
+  Under the [2026-10-05 completion decision](../journal/2026/10/2026-10-05-phase-71-completion-boundaries.md),
+  unfinished removal moves to 71.5; integration and full validation moved to 71.7.
+  The 2026-10-08 revision restores representative main-route execution to
+  71.4–71.6; only remaining breadth and full validation stay in 71.7.
+  Current declarations name 71.7 across the chain. Earlier committed handoffs
+  naming 71.4 remain historical; no result is rewritten or unrun test called
+  passed. The closed 71–71.3 results and all review/repair history remain.
+  71.4–71.6 require their actual representative routes, normal review and
+  commits; remaining native breadth and full SBT stay deferred. Reuse relevant accepted results without new hash,
+  comparison-copy or unchanged-input proofs. Do not reopen predecessors for
+  later integration defects; fix those within 71.7's finite selected scenarios.
+  Earlier main-route failures are fixed in their owning Phase before closure.
+  Ordinary format/path/domain validity and standard codec behavior remain;
+  [removal](../design/artifact-protection-removal.md) introduces no replacement
+  protection. Existing Specs for retained behavior stay; only obsolete
+  protection expectations are removed or amended.
   The unchanged former numeric successor is [Phase 72](phase-72.md), CML
   Failure Model; the split did not start or renumber it. Updated 2026-10-03:
   Phase 72 is COMPLETE, with SOURCE and ABI accepted at
@@ -157,9 +220,34 @@ Phase status index (individual Phase/checklist files are authoritative):
   local release closes the [checklist](phase-72-checklist.md).
   Receiver/runtime integration and workflow/AI wiring remain
   recipient-owned prerequisites.
-- Planned site-production contract after the Phase 74 collision was resolved:
-  [Phase 75](phase-75.md) retains the local planned scope under a distinct
-  number; GitHub's closed UI Phase 74 remains unchanged.
+- [Phase 75](phase-75.md): Historical Artifact Preservation and Canonical
+  Media Deployment; CLOSED in its current checklist, COZY-75-10/09. The 2026-10-06 split retains
+  completed recovery/decision history and the original identity. Expected 6.5h,
+  gpt-6.1-sol/high; each-phase full SBT validation, independent review and release.
+  Canonical data store: `maven-repository/media/<ja|en>/<category>/<article>/`;
+  payloads are not committed/pushed to GitHub. Closed UI Phase 74 is unchanged.
+- [Phase 75.1](phase-75.1.md): Public Document Contract and Site Recovery;
+  CLOSED on 2026-10-08 with local release `e1e1db5`. The required integrated
+  full validation, independent review and closure are complete in its current
+  checklist. Historical delivery plan and execution-stop context follow.
+  The 2026-10-07 user priority was the current simplemodeling.org
+  build through its normal entry: restore what `runweb-production.sh` could
+  previously do, then deliver video/article-PDF/summary-slide-PDF management
+  and working article-card links. Both are required. Drive that actual site
+  first; retain its necessary repairs from SDX-75-01–04 and COZY-75-04–09.
+  Additional generic coverage, operations tooling beyond that requirement,
+  and optional improvements are explicitly
+  [deferred](phase-75.1-deferred.md). At that planning point, required integrated
+  full validation, independent review and closing remained; the accepted
+  `e1e1db5` closure supersedes that pending status. The earlier 7.5h estimate is historical,
+  not a remaining-time forecast. Later numeric Phase identities stay unchanged.
+  Execution batches are A: previous normal-site behavior, B: artifact management
+  through actual cards, C: integrated validation/closing. Necessary P751-02/03
+  connections are built together. The earlier development Goal capacity stop
+  and planning-only update remain historical; neither is a current stop
+  prerequisite. This status correction starts no successor Goal.
+  See the [split proposal](../notes/phase-75-split-proposal.md) and retained
+  [2026-10-05 priority decision](../journal/2026/10/2026-10-05-phase-75-artifact-deployment-priority.md).
 - CBD Support semantic-metadata sequence: `phase-54.md` establishes
   capability inventory, stable identity, explicit absence, and versioned
   publication. `phase-54.md` and `phase-54.1.md` are CLOSED;
@@ -200,6 +288,8 @@ Phase status index (individual Phase/checklist files are authoritative):
   its native release OID, committed-tree receipt and final requirement audit are
   verified after committing and retained in parent workflow evidence.
   The sequence is a Cozy
+  Following children remain PLANNED and unstarted: `phase-54.6.md` Event
+  Storming traversal and `phase-54.7.md` consumer fixtures. The sequence is a Cozy
   semantic supplier for Textus CBD Support and does not implement its UI or
   publish SimpleModeling.org.
 - Closed Document Project scaffold phase: `phase-48.md` adds the

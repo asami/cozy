@@ -5,7 +5,8 @@ import CozyExplanationJson._
 
 /*
  * @since   Aug. 28, 2026
- * @version Aug. 28, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[media] object CozyExplanationCodec {
@@ -152,11 +153,10 @@ private[media] object CozyExplanationCodec {
 
   private[media] def _parse_catalog_selector(value: JsonValue, path: String): CatalogSelector = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "revision", "identity"), path)
+    _exact_fields(fields, Vector("id", "revision"), path)
     CatalogSelector(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _positive_int(_field(fields, "revision", path), s"$path.revision"),
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
+      _positive_int(_field(fields, "revision", path), s"$path.revision")
     )
   }
 
@@ -270,20 +270,18 @@ private[media] object CozyExplanationCodec {
 
   private[media] def _parse_source_declaration(value: JsonValue, path: String): SourceDeclaration = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "sha256"), path)
+    _unique(fields.map(_._1), path, "field")
     SourceDeclaration(
-      _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _sha256_text(_string(_field(fields, "sha256", path), s"$path.sha256"), s"$path.sha256")
+      _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id")
     )
   }
 
   private[media] def _parse_asset_declaration(value: JsonValue, path: String): AssetDeclaration = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "mediaType", "sha256"), path)
+    _unique(fields.map(_._1), path, "field")
     AssetDeclaration(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
-      _text(_string(_field(fields, "mediaType", path), s"$path.mediaType"), s"$path.mediaType"),
-      _sha256_text(_string(_field(fields, "sha256", path), s"$path.sha256"), s"$path.sha256")
+      _text(_string(_field(fields, "mediaType", path), s"$path.mediaType"), s"$path.mediaType")
     )
   }
 
@@ -466,14 +464,8 @@ private[media] object CozyExplanationCodec {
       _fail("EXPLANATION_REFERENCE_INVALID", "$command.source", "each declared source requires exactly one direct --source binding and no extras")
     if (bindings.assets.keySet != declaredassets)
       _fail("EXPLANATION_REFERENCE_INVALID", "$command.asset", "each declared asset requires exactly one direct --asset binding and no extras")
-    sources.foreach { source =>
-      if (_sha256_file(_direct_input(bindings.sources(source.id), s"source.${source.id}")) != source.sha256)
-        _fail("EXPLANATION_ASSET_STALE", s"$$.sources.${source.id}.sha256", "direct source bytes do not match the declared SHA-256")
-    }
-    assets.foreach { asset =>
-      if (_sha256_file(_direct_input(bindings.assets(asset.id), s"asset.${asset.id}")) != asset.sha256)
-        _fail("EXPLANATION_ASSET_STALE", s"$$.assets.${asset.id}.sha256", "direct asset bytes do not match the declared SHA-256")
-    }
+    sources.foreach(source => _direct_input(bindings.sources(source.id), s"source.${source.id}"))
+    assets.foreach(asset => _direct_input(bindings.assets(asset.id), s"asset.${asset.id}"))
   }
 
   private[media] def _validate_references(references: Vector[String], declared: Set[String], path: String): Unit =
@@ -650,16 +642,14 @@ private[media] object CozyExplanationCodec {
 
   private[media] def _parse_plan(value: JsonValue, path: String): Plan = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("schema", "version", "compositionIdentity", "explanationCatalog", "presentationCatalog", "subjectPattern", "explanationPattern", "steps", "identity"), path)
+    _exact_fields(fields, Vector("schema", "version", "explanationCatalog", "presentationCatalog", "subjectPattern", "explanationPattern", "steps"), path)
     _schema_version(fields, _plan_schema, path)
     val plan = Plan(
-      _identity_text(_string(_field(fields, "compositionIdentity", path), s"$path.compositionIdentity"), s"$path.compositionIdentity"),
       _parse_catalog_selector(_field(fields, "explanationCatalog", path), s"$path.explanationCatalog"),
       _parse_catalog_selector(_field(fields, "presentationCatalog", path), s"$path.presentationCatalog"),
       _parse_pattern_reference(_field(fields, "subjectPattern", path), s"$path.subjectPattern"),
       _parse_pattern_reference(_field(fields, "explanationPattern", path), s"$path.explanationPattern"),
-      _array(_field(fields, "steps", path), s"$path.steps").zipWithIndex.map { case (item, index) => _parse_plan_step(item, s"$path.steps[$index]") },
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
+      _array(_field(fields, "steps", path), s"$path.steps").zipWithIndex.map { case (item, index) => _parse_plan_step(item, s"$path.steps[$index]") }
     )
     if (plan.steps.isEmpty) _fail("EXPLANATION_EXPANSION_INCOMPLETE", s"$path.steps", "Plan steps must be nonempty")
     _unique(plan.steps.map(_.id), s"$path.steps", "Plan step id")
@@ -670,7 +660,7 @@ private[media] object CozyExplanationCodec {
 
   private[media] def _parse_plan_step(value: JsonValue, path: String): PlanStep = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("id", "order", "semanticRole", "claims", "logical", "sourceRefs", "assetRefs", "patternProvenance", "parameterProvenance", "identity"), path)
+    _exact_fields(fields, Vector("id", "order", "semanticRole", "claims", "logical", "sourceRefs", "assetRefs", "patternProvenance", "parameterProvenance"), path)
     PlanStep(
       _token(_string(_field(fields, "id", path), s"$path.id"), s"$path.id"),
       _positive_int(_field(fields, "order", path), s"$path.order"),
@@ -680,8 +670,7 @@ private[media] object CozyExplanationCodec {
       _references(_field(fields, "sourceRefs", path), s"$path.sourceRefs"),
       _references(_field(fields, "assetRefs", path), s"$path.assetRefs"),
       _parse_pattern_provenance(_field(fields, "patternProvenance", path), s"$path.patternProvenance"),
-      _parse_parameter_provenance(_field(fields, "parameterProvenance", path), s"$path.parameterProvenance"),
-      _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity")
+      _parse_parameter_provenance(_field(fields, "parameterProvenance", path), s"$path.parameterProvenance")
     )
   }
 
@@ -696,17 +685,17 @@ private[media] object CozyExplanationCodec {
 
   private[media] def _parse_parameter_provenance(value: JsonValue, path: String): ParameterProvenance = {
     val fields = _object(value, path)
-    _exact_fields(fields, Vector("values", "identity"), path)
+    _exact_fields(fields, Vector("values"), path)
     val values = _array(_field(fields, "values", path), s"$path.values").zipWithIndex.map { case (item, index) => _parse_parameter(item, s"$path.values[$index]") }
     _unique(values.map(_.name), s"$path.values", "parameter provenance name")
-    ParameterProvenance(values, _identity_text(_string(_field(fields, "identity", path), s"$path.identity"), s"$path.identity"))
+    ParameterProvenance(values)
   }
 
   private[media] def _catalog_selector(catalog: ValidatedCatalog): CatalogSelector =
-    CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.identity)
+    CatalogSelector(catalog.catalog.id, catalog.catalog.revision)
 
   private[media] def _presentation_selector(catalog: PresentationCatalog): CatalogSelector =
-    CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.logicalCatalogIdentity)
+    CatalogSelector(catalog.catalog.id, catalog.catalog.revision)
 
   private[media] def _catalog_value(catalog: Catalog): JsonValue = JsonObject(Vector(
     "schema" -> JsonString(_catalog_schema),
@@ -814,24 +803,23 @@ private[media] object CozyExplanationCodec {
   ))
 
   private[media] def _source_declaration_value(source: SourceDeclaration): JsonValue = JsonObject(Vector(
-    "id" -> JsonString(source.id), "sha256" -> JsonString(source.sha256)
+    "id" -> JsonString(source.id)
   ))
 
   private[media] def _asset_declaration_value(asset: AssetDeclaration): JsonValue = JsonObject(Vector(
-    "id" -> JsonString(asset.id), "mediaType" -> JsonString(asset.mediaType), "sha256" -> JsonString(asset.sha256)
+    "id" -> JsonString(asset.id), "mediaType" -> JsonString(asset.mediaType)
   ))
 
-  private[media] def _plan_value(plan: Plan, includeidentity: Boolean): JsonValue = {
+  private[media] def _plan_value(plan: Plan): JsonValue = {
     val fields = Vector[(String, JsonValue)](
       "schema" -> JsonString(_plan_schema),
       "version" -> JsonNumber(1),
-      "compositionIdentity" -> JsonString(plan.compositionIdentity),
       "explanationCatalog" -> _catalog_selector_value(plan.explanationCatalog),
       "presentationCatalog" -> _catalog_selector_value(plan.presentationCatalog),
       "subjectPattern" -> _pattern_reference_value(plan.subjectPattern),
       "explanationPattern" -> _pattern_reference_value(plan.explanationPattern),
       "steps" -> JsonArray(plan.steps.map(_plan_step_value))
-    ) ++ (if (includeidentity) Vector("identity" -> JsonString(plan.identity)) else Vector.empty)
+    )
     JsonObject(fields)
   }
 
@@ -848,14 +836,12 @@ private[media] object CozyExplanationCodec {
       "explanationPattern" -> _pattern_reference_value(step.patternProvenance.explanationPattern)
     )),
     "parameterProvenance" -> JsonObject(Vector(
-      "values" -> JsonArray(step.parameterProvenance.values.map(_parameter_value)),
-      "identity" -> JsonString(step.parameterProvenance.identity)
-    )),
-    "identity" -> JsonString(step.identity)
+      "values" -> JsonArray(step.parameterProvenance.values.map(_parameter_value))
+    ))
   ))
 
   private[media] def _catalog_selector_value(selector: CatalogSelector): JsonValue = JsonObject(Vector(
-    "id" -> JsonString(selector.id), "revision" -> JsonNumber(selector.revision), "identity" -> JsonString(selector.identity)
+    "id" -> JsonString(selector.id), "revision" -> JsonNumber(selector.revision)
   ))
 
   private[media] def _pattern_reference_value(reference: PatternReference): JsonValue = JsonObject(Vector(
@@ -863,13 +849,5 @@ private[media] object CozyExplanationCodec {
   ))
 
   private[media] def _references_value(values: Vector[String]): JsonValue = JsonArray(values.map(JsonString))
-
-  private[media] def _parameter_provenance_identity(values: Vector[Parameter]): String =
-    _identity(JsonObject(Vector("values" -> JsonArray(values.map(_parameter_value)))))
-
-  private[media] def _plan_step_identity(step: PlanStep): String = {
-    val fields = _plan_step_value(step).asInstanceOf[JsonObject].fields.dropRight(1)
-    _identity(JsonObject(fields))
-  }
 
 }

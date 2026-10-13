@@ -39,9 +39,23 @@ private[modeler] object StateMachineOperationTrigger {
 
 /*
  * @since Sep. 18, 2026
+ * @version Oct.  1, 2026
  * @author ASAMI, Tomoharu
  */
+private[modeler] object StateMachineNormalizationProjector {
+  import Modeler._
+
+  private final case class NormalizationFailure(
+    code: String,
+    message: String,
+    location: MComponent.StateMachineSourceLocation,
+    transition: Option[MComponent.StateMachineTransitionIdentity] = None
+  ) extends RuntimeException(message)
+}
+
 private[modeler] final class StateMachineNormalizationProjector(val context: ModelBuildContext) {
+  import StateMachineNormalizationProjector.NormalizationFailure
+
   import context._
   import Modeler._
 
@@ -52,13 +66,6 @@ private[modeler] final class StateMachineNormalizationProjector(val context: Mod
     iscalltransition: Boolean,
     declarationpath: Vector[String]
   )
-
-  private final case class NormalizationFailure(
-    code: String,
-    message: String,
-    location: MComponent.StateMachineSourceLocation,
-    transition: Option[MComponent.StateMachineTransitionIdentity] = None
-  ) extends RuntimeException(message)
 
   private[modeler] def normalize(
     p: StateMachineClass,

@@ -43,6 +43,19 @@ double colon selects the Scala binary-cross artifact.
 `project/plugins.sbt` remains a bootstrap exception because `sbt-cozy` must be
 resolved before `project.yaml` can be projected into the loaded build.
 
+## CML Model Metadata
+
+The CML model-metadata producer owns descriptive source `path`, `compiler`, and
+`cozyVersion`, plus the unchanged semantic surface, ordered model elements,
+and optional component-style snapshot. Its v1 JSON/YAML projection contains no
+local CML source digest or replacement identity. Both actual source routes
+retain required readable-regular-input checks: `fromCml` parses that input and
+`fromKaleidox` consumes the selected already parsed model while requiring the
+actual source independently. CAR distributed bytes retain their separate
+integrity owner. Generation provenance now has the separate nonhash contract below. Runtime,
+publication distribution-integrity, and scaffold ownership remain independent;
+Phase 71.4 validation and acceptance are still pending.
+
 ## Package Gate
 
 For a CAR, package admission reads the unmerged `project.yaml` contract.
@@ -63,10 +76,27 @@ must not be excluded, and must be present in `tested`. Missing, duplicated, or
 contradictory evidence is rejected before archive acceptance.
 
 When generation produced `target/cozy/generation-provenance.json`, the package
-gate revalidates that document against the current project source, generated
-Scala output, and accepted CNCF/Cozy coordinates. It then copies the unchanged
+gate validates its known exact versions and canonical declarations against
+the readable selected project source, actual generated Scala path inventory, and
+accepted CNCF/Cozy coordinates. Direct v1 and aggregate v2 retain their existing
+schema/path identities. Generic historical JSON extras are ignored at every
+object level; known required types, nonempty versions, safe canonical paths,
+unique sorted sources/artifacts, and the v2 source/output path union remain
+strict. Shared paths deduplicate independently of readable content. Readable
+local source/generated content changes alone do not invalidate the metadata. It then copies the unchanged
 byte snapshot to the top-level CAR entry `generation-provenance.json`. This
 provenance is inspectable build metadata and is not a runtime dependency.
+
+The producer owns a selected `SourceInput(path, identity)` reference and checks
+actual regular-file readability by opening and closing the source; the modeler
+and model metadata read the actual path directly. It retains no source-byte
+capture or replacement certificate. Direct and aggregate metadata stages check
+their required inputs and path contracts before replacing the final document,
+then use validated temporary JSON and an atomic move with cleanup. A failed
+stage preserves previous successful metadata, and preflight no longer clears
+it. This does not create a new backend source-install transaction.
+`requireValidPackagedMetadata` checks known schema/versions/declarations and v2
+union without accessing local project sources.
 
 After all CAR files and placeholder entries are staged, Cozy projects the
 accepted CNCF runtime range into CNCF-owned
@@ -95,8 +125,11 @@ manifest against the project-owned identity and runtime contract, requires an
 exact archive path set, and verifies every recorded SHA-256 digest. A generated
 release CAR must also carry bytes equal to an immutable snapshot of the owning
 project's generation provenance after that evidence has been revalidated
-against current CML/generated Scala output and the accepted exact CNCF/Cozy
-pair. Cozy snapshots the prebuilt CAR before admission and copies the same
+against the readable selected CML source, actual generated Scala path
+inventory, and the accepted exact CNCF/Cozy pair. Local source/generated content
+changes alone do not invalidate an intact CAR. The source-to-packaged metadata
+byte comparison protects actual distribution transfer independently of local
+provenance currentness. Cozy snapshots the prebuilt CAR before admission and copies the same
 snapshot into the repository. Validation completes before repository writes.
 
 For a declared CAR, the project component version also owns publication

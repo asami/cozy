@@ -5,7 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import java.security.MessageDigest
+import java.nio.file.attribute.FileTime
 import javax.imageio.ImageIO
 import scala.collection.JavaConverters._
 import org.scalacheck.{Gen, Prop, Test}
@@ -13,17 +13,19 @@ import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import cozy.media.CozyMedia
+import play.api.libs.json.{JsArray, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 25, 2026
+ *  version Aug. 25, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "CozyArticleMediaInfographicEvidence" should {
     "project one exact explicit infographic evidence record" which {
       "preserve canonical integrity fields and project-relative provenance" in {
-        Given("an explicit descriptor, its exact build manifest, and a published PNG under the configured root")
+        Given("an explicit descriptor, its actual CozyMedia.build receipt, and a published PNG under the configured root")
         _with_fixture { fixture =>
           When("the explicit infographic evidence is projected")
           val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
@@ -37,11 +39,17 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           record.articleIdentity shouldBe "development-process/example"
           record.locale shouldBe "ja"
           record.role shouldBe CozyArticleMediaIntegrity.Role.Infographic
-          record.artifact shouldBe CozyArticleMediaIntegrity.Artifact("example-infographic-ja", "1.0.0")
+          record.artifact shouldBe Some(CozyArticleMediaIntegrity.Artifact("example-infographic-ja", "1.0.0"))
           record.publicPath.toString shouldBe "/images/development-process/example-ja.png"
           record.repositoryPath shouldBe "images/development-process/example-ja.png"
           record.mediaType shouldBe "image/png"
-          record.sha256 shouldBe fixture.sha256
+          val entries = (Json.parse(Files.readString(fixture.manifest)) \ "resources").as[JsArray].value
+          entries.foreach { entry =>
+            (entry \ "sha256").toOption shouldBe None
+            (entry \ "receipt" \ "inputs").as[JsArray].value.foreach { input =>
+              (input \ "sha256").toOption shouldBe None
+            }
+          }
           record.provenance shouldBe CozyArticleMediaIntegrity.MediaPackage(
             "project/media.yaml",
             "example-infographic-ja",
@@ -87,21 +95,59 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
 
           Then("the manifest attribution uses resource.source without an output path")
-          result.integrity.record.sha256 shouldBe fixture.sha256
+          result.artifactPath shouldBe fixture.destination.toRealPath()
         }
       }
 
-      "reject a v2 receipt after its accepted input changes" in {
-        Given("a valid v2 build manifest whose knowledge source later changes")
+      "reject a receipt when its declared copy source is newer than the accepted output" in {
+        Given("an actual build receipt whose declared copy source is changed after the accepted PNG output")
         _with_fixture { fixture =>
-          _write(fixture.project.resolve("knowledge/article.dox"), "changed knowledge")
+          val source = fixture.project.resolve("infographic/example.svg")
+          _write_bytes(source, _different_png_bytes)
+          Files.setLastModifiedTime(source, FileTime.fromMillis(Files.getLastModifiedTime(fixture.buildoutput).toMillis + 2000L))
 
           When("article-media projection reads the stale manifest")
           val stale = intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
 
-          Then("downstream evidence admission rejects the stale receipt before projection")
+          Then("admission identifies the real source, output, and next build operation before projection")
           stale.getMessage should include("receipt is not current")
+          stale.getMessage should include(source.toString)
+          stale.getMessage should include(fixture.buildoutput.toString)
+          stale.getMessage should include(s"next operation: cozy media build ${fixture.descriptor} --target example-infographic-ja")
         }
+      }
+
+      "preserve PNG publication when only unrelated knowledge becomes newer" in {
+        val property = Prop.forAll(Gen.choose(1L, 60000L)) { offset =>
+          Given("an independently built copy-source PNG and a positive newer timestamp for only its knowledge document")
+          _with_fixture { fixture =>
+            val source = fixture.project.resolve("infographic/example.svg")
+            val sourcebytes = Files.readAllBytes(source).toVector
+            val sourcetime = Files.getLastModifiedTime(source)
+            val outputbytes = Files.readAllBytes(fixture.buildoutput).toVector
+            val outputtime = Files.getLastModifiedTime(fixture.buildoutput)
+            val manifestbytes = Files.readAllBytes(fixture.manifest).toVector
+            val knowledge = fixture.project.resolve("knowledge/article.dox")
+            _write(knowledge, s"newer knowledge at offset $offset")
+            Files.setLastModifiedTime(knowledge, FileTime.fromMillis(outputtime.toMillis + offset))
+
+            When("real article-media projection admits the unchanged declared copy source and output")
+            val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
+
+            Then("knowledge age does not change the selected PNG publication or its accepted build evidence")
+            result.artifactPath shouldBe fixture.destination.toRealPath()
+            Files.getLastModifiedTime(knowledge).compareTo(outputtime) should be > 0
+            Files.readAllBytes(source).toVector shouldBe sourcebytes
+            Files.getLastModifiedTime(source) shouldBe sourcetime
+            Files.readAllBytes(fixture.buildoutput).toVector shouldBe outputbytes
+            Files.getLastModifiedTime(fixture.buildoutput) shouldBe outputtime
+            Files.readAllBytes(fixture.manifest).toVector shouldBe manifestbytes
+            true
+          }
+        }
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+        result.passed shouldBe true
+        result.succeeded should be >= 50
       }
 
       "accept a valid rootEnv whose declared destination remains in the fixture target" in {
@@ -196,7 +242,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
     }
 
     "prepare and complete publication evidence without exposing a role before the artifact result" in {
-      Given("a typed CozyMedia prepared publication and its exact build manifest")
+      Given("a typed CozyMedia prepared publication and the actual receipt produced by CozyMedia.build")
       _with_fixture { fixture =>
         val publication = CozyMedia.preparePublication(CozyMedia.CommandConfig(
           fixture.descriptor,
@@ -210,11 +256,10 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         ))
         val completion = CozyArticleMediaInfographicEvidence.complete(
           prepared,
-          CozyMedia.PublicationResult(publication, CozyMedia.PublicationOutcome.Reused)
+          CozyMedia.commitPublication(Vector(publication)).head
         )
 
-        Then("pre-publication evidence is completed as one strict infographic role with matching hash")
-        prepared.integrity.record.sha256 shouldBe fixture.sha256
+        Then("the local receipt completes one strict infographic role with the actual selected PNG publication result")
         completion.roleUpdate.variant.infographic.map(_.publicPath.toString) shouldBe Some("/images/development-process/example-ja.png")
         completion.result.integrity.record.publicationState shouldBe CozyArticleMediaIntegrity.PublicationState.Published
       }
@@ -235,8 +280,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
 
           Then("only the literal image/detailed-infographic/ja resource and supplied paths are used")
-          result.integrity.record.artifact.identity shouldBe "example-infographic-ja"
-          result.integrity.record.sha256 shouldBe fixture.sha256
+          result.integrity.record.artifact.map(_.identity) shouldBe Some("example-infographic-ja")
           result.artifactPath shouldBe fixture.destination.toRealPath()
         }
       }
@@ -314,7 +358,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         _with_fixture { fixture =>
           val external = fixture.root.resolveSibling(s"${fixture.root.getFileName}-external.json")
           try {
-            _write(external, _manifest(fixture.sha256))
+            _write(external, _manifest())
             val missingdescriptor = _input(fixture, descriptor = fixture.project.resolve("missing.yaml"))
             val outsidedescriptor = _input(fixture, descriptor = external)
             val wrongmanifest = _input(fixture, manifest = fixture.project.resolve("manifest.json"))
@@ -416,8 +460,8 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           When("the accepted generated selected output is projected through the safe in-root link")
           val result = CozyArticleMediaInfographicEvidence.project(_input(fixture))
 
-          Then("the generated resource retains its canonical integrity")
-          result.integrity.record.sha256 shouldBe fixture.sha256
+          Then("the generated resource retains its selected publication path")
+          result.artifactPath shouldBe fixture.destination.toRealPath()
         }
       }
 
@@ -438,8 +482,8 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           When("the prebuilt selected output follows the safe in-root link")
           val prebuilt = CozyArticleMediaInfographicEvidence.project(_input(fixture))
 
-          Then("the prebuilt resource retains its canonical integrity")
-          prebuilt.integrity.record.sha256 shouldBe fixture.sha256
+          Then("the prebuilt resource retains its selected publication path")
+          prebuilt.artifactPath shouldBe fixture.destination.toRealPath()
         }
       }
 
@@ -485,11 +529,9 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
             "{\"schema\":\"cozy.media.v1\",\"knowledge\":\"other/article\",\"resources\":[]}",
             "{\"schema\":\"cozy.media.v1\",\"knowledge\":\"development-process/example\",\"resources\":{}}",
             "{\"schema\":\"cozy.media.v1\",\"knowledge\":\"development-process/example\",\"resources\":[null]}",
-            _manifest(fixture.sha256, id = "other"),
-            _manifest(fixture.sha256, duplicate = true),
-            _manifest(fixture.sha256, path = "target/cozy-media/other.png"),
-            _manifest("A" * 64),
-            _manifest("")
+            _manifest(id = "other"),
+            _manifest(duplicate = true),
+            _manifest(path = "target/cozy-media/other.png")
           )
 
           When("each supplied exact manifest is parsed without discovery")
@@ -503,20 +545,6 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
         }
       }
 
-      "reject stale output disagreement even when the manifest matches the selected build output" in {
-        Given("a current manifest and build output that differ from the published PNG")
-        _with_fixture { fixture =>
-          _write_bytes(fixture.project.resolve("infographic/example.svg"), _different_png_bytes)
-          CozyMedia.build(CozyMedia.CommandConfig(fixture.descriptor))
-
-          When("the exact selected build output and publication destination are both verified")
-          val stale = intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
-
-          Then("the build output cannot disagree with the manifest or explicit destination bytes")
-          stale.getMessage should include("manifest, build output, and published destination")
-        }
-      }
-
       "reject malformed parser input, invalid profile root syntax, and non-PNG destination bytes" in {
         Given("descriptor parser, profile-root, and published-byte variants with otherwise matching explicit input")
         _with_fixture { fixture =>
@@ -524,8 +552,8 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
             () => _write(fixture.descriptor, "{"),
             () => _write(fixture.descriptor, _descriptor(profiledefinition = "{\"root\": \"bad\\u0000root\"}")),
             () => {
-              _write_bytes(fixture.destination, "not a PNG but manifest-matching bytes".getBytes(StandardCharsets.UTF_8))
-              _write(fixture.manifest, _manifest(_sha256(fixture.destination)))
+              _write_bytes(fixture.destination, "not a PNG".getBytes(StandardCharsets.UTF_8))
+              _write(fixture.manifest, _manifest())
             }
           )
 
@@ -533,7 +561,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
           val errors = variants.map { mutate =>
             _write(fixture.descriptor, _descriptor())
             _write_bytes(fixture.destination, _png_bytes)
-            _write(fixture.manifest, _manifest(_sha256(fixture.destination)))
+            _write(fixture.manifest, _manifest())
             mutate()
             intercept[IllegalArgumentException](CozyArticleMediaInfographicEvidence.project(_input(fixture)))
           }
@@ -576,8 +604,7 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
     val descriptor: Path,
     val manifest: Path,
     val buildoutput: Path,
-    val destination: Path,
-    val sha256: String
+    val destination: Path
   )
 
   private def _with_fixture[A](f: Fixture => A): A = {
@@ -598,10 +625,9 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
     _write_bytes(destination, _png_bytes)
     _write(project.resolve("knowledge/article.dox"), "knowledge")
     _write_bytes(project.resolve("infographic/example.svg"), _png_bytes)
-    val digest = _sha256(destination)
     _write(descriptor, _descriptor())
     CozyMedia.build(CozyMedia.CommandConfig(descriptor))
-    new Fixture(root, project, repository, descriptor, manifest, buildoutput, destination, digest)
+    new Fixture(root, project, repository, descriptor, manifest, buildoutput, destination)
   }
 
   private def _input(
@@ -675,9 +701,9 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
        |""".stripMargin
   }
 
-  private def _manifest(sha256: String, id: String = "example-infographic-ja", path: String = "target/cozy-media/example-ja.png", duplicate: Boolean = false): String = {
-    val other = if (duplicate) s""",{"id":"$id","path":"$path","sha256":"$sha256"}""" else ""
-    s"""{"schema":"cozy.media.v1","knowledge":"development-process/example","resources":[{"id":"$id","path":"$path","sha256":"$sha256"}$other]}"""
+  private def _manifest(id: String = "example-infographic-ja", path: String = "target/cozy-media/example-ja.png", duplicate: Boolean = false): String = {
+    val other = if (duplicate) s""",{"id":"$id","path":"$path"}""" else ""
+    s"""{"schema":"cozy.media.v1","knowledge":"development-process/example","resources":[{"id":"$id","path":"$path"}$other]}"""
   }
 
   private final class SymlinkInputs(
@@ -736,11 +762,6 @@ final class CozyArticleMediaInfographicEvidenceSpec extends AnyWordSpec with Mat
     if (!ImageIO.write(image, "png", output))
       throw new IllegalStateException("PNG writer unavailable")
     output.toByteArray
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.digest(Files.readAllBytes(path)).map(x => f"${x & 0xff}%02x").mkString
   }
 
   private def _delete(path: Path): Unit = {

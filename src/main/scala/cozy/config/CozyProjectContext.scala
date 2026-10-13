@@ -1,31 +1,23 @@
 package cozy.config
 
-import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path}
-import java.security.MessageDigest
 import io.circe.{Json => CJson}
 import org.goldenport.RAISE
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyProjectContext {
-  final case class DirectoryIdentity(path: Path, identity: Path, filekey: AnyRef) {
-    def fileKey: AnyRef = filekey
-  }
+  final case class DirectoryIdentity(path: Path, identity: Path)
 
   final case class FileEvidence(
     path: Path,
-    identity: Path,
-    sha256: String,
-    size: Long,
-    filekey: AnyRef
-  ) {
-    def fileKey: AnyRef = filekey
-  }
+    identity: Path
+  )
 
   final case class Layer(
     name: String,
@@ -147,15 +139,6 @@ private[cozy] object CozyProjectContext {
       }
     }
     Context(packageidentity, packagepath, userhome, project, layers, config, values, lists, profiles)
-  }
-
-  def revalidate(context: Context): Context = withUserHomeLock {
-    if (context == null)
-      _invalid("Cozy project context must be defined")
-    val recomputed = resolve(context.packagelexical)
-    if (recomputed != context)
-      _invalid("Cozy project context security/provenance snapshot has changed")
-    recomputed
   }
 
   private def _discover_project(packagepath: Path): Option[Discovery] = {
@@ -325,24 +308,15 @@ private[cozy] object CozyProjectContext {
     normalized
   }
 
-  private[config] var _file_snapshot_between_reads: () => Unit = () => ()
-
   private def _file_snapshot(path: Path, label: String): FileSnapshot = {
     val lexical = _normalized_path(path, label)
-    val before = _regular_attributes(lexical, label)
+    if (Files.isSymbolicLink(lexical) || !Files.isRegularFile(lexical, LinkOption.NOFOLLOW_LINKS))
+      _invalid(s"Cozy project context $label must be a direct regular non-symlink file: $lexical")
     val identity = _real_path(lexical, label)
     if (identity != lexical)
       _invalid(s"Cozy project context $label must not use a lexical or symlink alias: $lexical")
     val firstbytes = _read_file_bytes(lexical, label)
-    _file_snapshot_between_reads()
-    val middle = _regular_attributes(lexical, label)
-    val secondbytes = _read_file_bytes(lexical, label)
-    val after = _regular_attributes(lexical, label)
-    if (!_same_file_attributes(before, middle) || !_same_file_attributes(before, after) ||
-      firstbytes.length.toLong != before.size() || secondbytes.length.toLong != before.size() ||
-      !firstbytes.sameElements(secondbytes))
-      _invalid(s"Cozy project context $label changed while being read: $lexical")
-    FileSnapshot(FileEvidence(lexical, identity, _sha256(firstbytes), firstbytes.length.toLong, before.fileKey()), firstbytes)
+    FileSnapshot(FileEvidence(lexical, identity), firstbytes)
   }
 
   private def _read_file_bytes(path: Path, label: String): Array[Byte] =
@@ -350,41 +324,14 @@ private[cozy] object CozyProjectContext {
       case NonFatal(e) => _invalid(s"Cozy project context $label cannot be read: ${e.getMessage}")
     }
 
-  private def _same_file_attributes(before: BasicFileAttributes, after: BasicFileAttributes): Boolean =
-    before.fileKey() == after.fileKey() &&
-      before.size() == after.size() &&
-      before.lastModifiedTime() == after.lastModifiedTime()
-
   private def _direct_directory(path: Path, label: String): DirectoryIdentity = {
     val lexical = _normalized_path(path, label)
     if (Files.isSymbolicLink(lexical) || !Files.isDirectory(lexical, LinkOption.NOFOLLOW_LINKS))
       _invalid(s"Cozy project context $label must be a direct non-symlink directory: $lexical")
-    val attributes = _directory_attributes(lexical, label)
     val identity = _real_path(lexical, label)
     if (identity != lexical)
       _invalid(s"Cozy project context $label must not use a lexical or symlink alias: $lexical")
-    DirectoryIdentity(lexical, identity, attributes.fileKey())
-  }
-
-  private def _regular_attributes(path: Path, label: String): BasicFileAttributes = {
-    if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Cozy project context $label must be a direct regular non-symlink file: $path")
-    _attributes(path, label)
-  }
-
-  private def _directory_attributes(path: Path, label: String): BasicFileAttributes = {
-    if (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Cozy project context $label must be a direct non-symlink directory: $path")
-    _attributes(path, label)
-  }
-
-  private def _attributes(path: Path, label: String): BasicFileAttributes = {
-    val attributes = try Files.readAttributes(path, classOf[BasicFileAttributes], LinkOption.NOFOLLOW_LINKS) catch {
-      case NonFatal(e) => _invalid(s"Cozy project context $label attributes cannot be read: ${e.getMessage}")
-    }
-    if (attributes.fileKey() == null)
-      _invalid(s"Cozy project context $label has no stable file identity: $path")
-    attributes
+    DirectoryIdentity(lexical, identity)
   }
 
   private def _real_path(path: Path, label: String): Path =
@@ -404,12 +351,6 @@ private[cozy] object CozyProjectContext {
     }
 
   private def _exists(path: Path): Boolean = Files.exists(path, LinkOption.NOFOLLOW_LINKS)
-
-  private def _sha256(bytes: Array[Byte]): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(bytes)
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
-  }
 
   private def _invalid(message: String): Nothing = RAISE.invalidArgumentFault(message)
 }

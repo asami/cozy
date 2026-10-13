@@ -32,12 +32,46 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 
+private[cozy] object CozyBokGlossaryWorkflow {
+  import CozyBokImplementation._
+
+  private final case class WorkflowStage(
+    step: String,
+    key: String,
+    actual: Int,
+    planned: Option[Int],
+    systemerror: Boolean,
+    systemerrorfiles: Vector[String],
+    actions: Vector[(String, String)],
+    detailhtml: String
+  )
+
+  private object WorkflowStage {
+    def apply(step: String, key: String, actual: Int, planned: Option[Int], actions: Vector[(String, String)], detailhtml: String): WorkflowStage =
+      WorkflowStage(step, key, actual, planned, false, Vector.empty, actions, detailhtml)
+  }
+
+  private final case class WorkflowSourceStatus(kind: String, title: String, href: String)
+
+  private final case class WorkflowExtractionProgress(
+    actual: Int,
+    planned: Option[Int],
+    missing: Vector[WorkflowSourceStatus],
+    systemerror: Boolean,
+    systemerrorfiles: Vector[String]
+  )
+}
+
 private[cozy] trait CozyBokGlossaryWorkflow {
   self: CozyBokImplementation.type =>
+
+  import CozyBokGlossaryWorkflow.WorkflowStage
+  import CozyBokGlossaryWorkflow.WorkflowSourceStatus
+  import CozyBokGlossaryWorkflow.WorkflowExtractionProgress
   private def _term_type_summary_cards(locale: String, terms: Vector[TermEntry]): String = {
     val counts = terms.groupBy(_.termtype).mapValues(_.size).toMap
     val items = Vector("concept", "event", "actor", "role", "rule").map { termtype =>
@@ -83,32 +117,6 @@ private[cozy] trait CozyBokGlossaryWorkflow {
        |  </div>
        |</div>""".stripMargin
   }
-
-  private final case class WorkflowStage(
-    step: String,
-    key: String,
-    actual: Int,
-    planned: Option[Int],
-    systemerror: Boolean,
-    systemerrorfiles: Vector[String],
-    actions: Vector[(String, String)],
-    detailhtml: String
-  )
-
-  private object WorkflowStage {
-    def apply(step: String, key: String, actual: Int, planned: Option[Int], actions: Vector[(String, String)], detailhtml: String): WorkflowStage =
-      WorkflowStage(step, key, actual, planned, false, Vector.empty, actions, detailhtml)
-  }
-
-  private final case class WorkflowSourceStatus(kind: String, title: String, href: String)
-
-  private final case class WorkflowExtractionProgress(
-    actual: Int,
-    planned: Option[Int],
-    missing: Vector[WorkflowSourceStatus],
-    systemerror: Boolean,
-    systemerrorfiles: Vector[String]
-  )
 
   private def _glossary_candidate_extraction_progress(
     config: BuildConfig,

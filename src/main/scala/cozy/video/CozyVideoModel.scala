@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,7 +26,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Sep. 15, 2026
+ *  version Sep. 15, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 private[video] final case class VideoTiming(
@@ -52,29 +52,32 @@ private[video] object VideoTiming {
       requestedTailSilence,
       math.max(targetDuration - leadSilence - audioDuration, 0.0)
     )
+    val leadframes = math.max(0L, math.round(leadSilence * fps.toDouble))
+    val audioframes = math.max(1L, math.ceil(audioDuration * fps.toDouble).toLong)
+    val tailframes = math.max(0L, math.ceil(requestedTailSilence * fps.toDouble).toLong)
     val effectiveframecount = math.max(
-      1L,
-      math.round(effectivesceneduration * fps.toDouble)
+      math.max(1L, math.ceil(effectivesceneduration * fps.toDouble).toLong),
+      leadframes + audioframes + tailframes
     )
     VideoTiming(effectivesceneduration, effectivetrailing, effectiveframecount)
   }
 }
 
-private[cozy] trait CozyVideoModel {
-  self: CozyVideoTools with CozyVideoStoryboard =>
+private[cozy] object CozyVideoModel {
+  import CozyVideoImplementation._
+
   final case class StoryboardReviewVisualStory(
     evidenceDirectory: String,
-    inputRefs: Vector[String],
-    approvedEvidenceIdentity: Option[String]
+    inputRefs: Vector[String]
   )
+
   object StoryboardReviewVisualStory {
     implicit val decoder: Decoder[StoryboardReviewVisualStory] = (c: HCursor) =>
       for {
         _ <- _validate_keys(c, Set("evidenceDirectory", "inputRefs", "approvedEvidenceIdentity"), "visualStory")
         evidencedirectory <- c.downField("evidenceDirectory").as[String]
         inputrefs <- c.downField("inputRefs").as[Vector[String]]
-        approvedevidenceidentity <- c.downField("approvedEvidenceIdentity").as[Option[String]]
-      } yield StoryboardReviewVisualStory(evidencedirectory, inputrefs, approvedevidenceidentity)
+      } yield StoryboardReviewVisualStory(evidencedirectory, inputrefs)
 
     private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
       c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {
@@ -85,17 +88,16 @@ private[cozy] trait CozyVideoModel {
 
   final case class StoryboardReviewVisualPage(
     binding: String,
-    evidenceDirectory: String,
-    approvedEvidenceIdentity: String
+    evidenceDirectory: String
   )
+
   object StoryboardReviewVisualPage {
     implicit val decoder: Decoder[StoryboardReviewVisualPage] = (c: HCursor) =>
       for {
         _ <- _validate_keys(c, Set("binding", "evidenceDirectory", "approvedEvidenceIdentity"), "visualPage")
         binding <- c.downField("binding").as[String]
         evidencedirectory <- c.downField("evidenceDirectory").as[String]
-        approvedevidenceidentity <- c.downField("approvedEvidenceIdentity").as[String]
-      } yield StoryboardReviewVisualPage(binding, evidencedirectory, approvedevidenceidentity)
+      } yield StoryboardReviewVisualPage(binding, evidencedirectory)
 
     private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
       c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {
@@ -106,19 +108,18 @@ private[cozy] trait CozyVideoModel {
 
   final case class StoryboardReview(
     source: String,
-    approvedIdentity: String,
     visualStory: Option[StoryboardReviewVisualStory],
     visualPage: Option[StoryboardReviewVisualPage]
   )
+
   object StoryboardReview {
     implicit val decoder: Decoder[StoryboardReview] = (c: HCursor) =>
       for {
         _ <- _validate_keys(c, Set("source", "approvedIdentity", "visualStory", "visualPage"), "storyboardReview")
         source <- c.downField("source").as[String]
-        approvedidentity <- c.downField("approvedIdentity").as[String]
         visualstory <- c.downField("visualStory").as[Option[StoryboardReviewVisualStory]]
         visualpage <- c.downField("visualPage").as[Option[StoryboardReviewVisualPage]]
-      } yield StoryboardReview(source, approvedidentity, visualstory, visualpage)
+      } yield StoryboardReview(source, visualstory, visualpage)
 
     private def _validate_keys(c: HCursor, allowed: Set[String], label: String): Decoder.Result[Unit] =
       c.value.asObject.toVector.flatMap(_.keys).find(name => !allowed.contains(name)) match {
@@ -128,6 +129,7 @@ private[cozy] trait CozyVideoModel {
   }
 
   final case class ConfirmationReview(approvedIdentity: String)
+
   object ConfirmationReview {
     implicit val decoder: Decoder[ConfirmationReview] = (c: HCursor) =>
       for {
@@ -161,6 +163,7 @@ private[cozy] trait CozyVideoModel {
     storyboardReview: Option[StoryboardReview] = None,
     confirmationReview: Option[ConfirmationReview] = None
   )
+
   object VideoProject {
     implicit val decoder: Decoder[VideoProject] = (c: HCursor) =>
       for {
@@ -234,12 +237,13 @@ private[cozy] trait CozyVideoModel {
       dockerImage.getOrElse(VideoToolSettings.DEFAULT_DOCKER_IMAGE)
     def voicevoxUrlOrDefault: String =
       voicevoxUrl.getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
-    def whisperModelPath(projectroot: Path): Option[Path] =
+    def whisperModelPath(projectRoot: Path): Option[Path] =
       whisperModel.map { x =>
         val path = Path.of(x)
-        if (path.isAbsolute) path.normalize() else projectroot.resolve(path).normalize()
+        if (path.isAbsolute) path.normalize() else projectRoot.resolve(path).normalize()
       }
   }
+
   object VideoToolSettings {
     val DEFAULT_DOCKER_IMAGE = "ghcr.io/asami/textus-toolchain:latest"
     val DEFAULT_VOICEVOX_URL = "http://127.0.0.1:50021"
@@ -280,6 +284,7 @@ private[cozy] trait CozyVideoModel {
     def displayId(index: Int): String = id.getOrElse(f"part-$index%02d")
     def displayType: String = partType.getOrElse("unknown")
   }
+
   object VideoPart {
     implicit val decoder: Decoder[VideoPart] = (c: HCursor) =>
       for {
@@ -332,7 +337,9 @@ private[cozy] trait CozyVideoModel {
     height: Option[Int],
     crf: Option[Int],
     x264Preset: Option[String],
-    effectProfile: Option[String]
+    effectProfile: Option[String],
+    qualityProfile: Option[CozyVideoQuality.Profile] = None,
+    audioBitrate: Option[String] = None
   ) {
     def engineOrDefault: String = engine.getOrElse("legacy")
     def strategyOrPolicy: Option[String] = strategy
@@ -352,66 +359,20 @@ private[cozy] trait CozyVideoModel {
       xs.mkString(", ")
     }
   }
+
   object VideoRenderer {
     val DEFAULT_FPS = VideoEncodingPolicy.Lightweight.fps
     val DEFAULT_WIDTH = VideoEncodingPolicy.Lightweight.width
     val DEFAULT_HEIGHT = VideoEncodingPolicy.Lightweight.height
     val DEFAULT_CRF = VideoEncodingPolicy.Lightweight.crf
 
-    def resolveEncoding(renderer: VideoRenderer): ResolvedEncodingSettings = {
-      val selected = renderer.policy.getOrElse(VideoEncodingPolicy.Lightweight)
-      ResolvedEncodingSettings(
-        selected,
-        renderer.fps.getOrElse(selected.fps),
-        renderer.width.getOrElse(selected.width),
-        renderer.height.getOrElse(selected.height),
-        renderer.crf.getOrElse(selected.crf),
-        renderer.x264Preset.orElse(selected.x264Preset)
-      )
-    }
+    def resolveEncoding(renderer: VideoRenderer): ResolvedEncodingSettings =
+      CozyVideoQuality.resolve(renderer)
 
     def resolveEncoding(renderer: Option[VideoRenderer]): ResolvedEncodingSettings =
-      renderer.map(x => resolveEncoding(x)).getOrElse(ResolvedEncodingSettings.lightweight)
+      CozyVideoQuality.resolve(renderer)
 
-    implicit val decoder: Decoder[VideoRenderer] = (c: HCursor) =>
-      for {
-        engine <- c.downField("engine").as[Option[String]]
-        strategy <- c.downField("strategy").as[Option[String]]
-        policy <- c.downField("policy").as[Option[String]].flatMap(_decode_policy(_, c))
-        fps <- c.downField("fps").as[Option[Int]].flatMap(_validate_positive("fps", _, c))
-        width <- c.downField("width").as[Option[Int]].flatMap(_validate_positive("width", _, c))
-        height <- c.downField("height").as[Option[Int]].flatMap(_validate_positive("height", _, c))
-        crf <- c.downField("crf").as[Option[Int]].flatMap(_validate_crf(_, c))
-        x264preset <- c.downField("x264Preset").as[Option[String]].flatMap(_validate_x264_preset(_, c))
-        effectprofile <- c.downField("effectProfile").as[Option[String]]
-      } yield VideoRenderer(engine, strategy, policy, fps, width, height, crf, x264preset, effectprofile)
-
-    private def _decode_policy(value: Option[String], cursor: HCursor): Decoder.Result[Option[VideoEncodingPolicy]] =
-      value match {
-        case Some(name) => VideoEncodingPolicy.decode(name).map(Some(_)).toRight(
-          io.circe.DecodingFailure(s"Invalid renderer.policy value: '$name'", cursor.history)
-        )
-        case None => Right(None)
-      }
-
-    private def _validate_positive(field: String, value: Option[Int], cursor: HCursor): Decoder.Result[Option[Int]] =
-      value match {
-        case Some(v) if v <= 0 => Left(io.circe.DecodingFailure(s"Invalid renderer.$field value: '$v'", cursor.history))
-        case _ => Right(value)
-      }
-
-    private def _validate_crf(value: Option[Int], cursor: HCursor): Decoder.Result[Option[Int]] =
-      value match {
-        case Some(v) if v < 0 => Left(io.circe.DecodingFailure(s"Invalid renderer.crf value: '$v'", cursor.history))
-        case _ => Right(value)
-      }
-
-    private def _validate_x264_preset(value: Option[String], cursor: HCursor): Decoder.Result[Option[String]] =
-      value match {
-        case Some(v) if v.trim.isEmpty || !VideoEncodingPolicy.validX264Presets.contains(v) =>
-          Left(io.circe.DecodingFailure(s"Invalid renderer.x264Preset value: '$v'", cursor.history))
-        case _ => Right(value)
-      }
+    implicit val decoder: Decoder[VideoRenderer] = CozyVideoQuality.rendererDecoder
   }
 
   sealed trait VideoEncodingPolicy {
@@ -422,6 +383,7 @@ private[cozy] trait CozyVideoModel {
     def crf: Int
     def x264Preset: Option[String]
   }
+
   object VideoEncodingPolicy {
     case object Lightweight extends VideoEncodingPolicy {
       val name = "lightweight"
@@ -462,8 +424,15 @@ private[cozy] trait CozyVideoModel {
     width: Int,
     height: Int,
     crf: Int,
-    x264Preset: Option[String]
-  )
+    x264Preset: Option[String],
+    qualityProfile: Option[CozyVideoQuality.Profile] = None,
+    audioBitrate: String = "320k",
+    origins: Map[String, String] = Map.empty
+  ) {
+    def effectiveQualityProfile: CozyVideoQuality.Profile =
+      qualityProfile.getOrElse(CozyVideoQuality.fromLegacy(policy))
+  }
+
   object ResolvedEncodingSettings {
     val lightweight: ResolvedEncodingSettings = ResolvedEncodingSettings(
       VideoEncodingPolicy.Lightweight,
@@ -492,6 +461,7 @@ private[cozy] trait CozyVideoModel {
     }
     def estimatedDuration: Double = expandedScenes.map(_.durationSeconds).sum
   }
+
   object VideoScript {
     implicit val decoder: Decoder[VideoScript] = (c: HCursor) =>
       for {
@@ -557,6 +527,7 @@ private[cozy] trait CozyVideoModel {
           )
         }
   }
+
   object VideoScene {
     implicit lazy val decoder: Decoder[VideoScene] = (c: HCursor) =>
       for {
@@ -596,6 +567,7 @@ private[cozy] trait CozyVideoModel {
   }
 
   final case class VideoReplayViewport(width: Int, height: Int)
+
   object VideoReplayViewport {
     val default = VideoReplayViewport(1280, 720)
 
@@ -617,6 +589,7 @@ private[cozy] trait CozyVideoModel {
     note: Option[String] = None,
     manualReview: Boolean = false
   )
+
   object VideoReplayStep {
     implicit val decoder: Decoder[VideoReplayStep] = (c: HCursor) =>
       for {
@@ -656,26 +629,26 @@ private[cozy] trait CozyVideoModel {
   final case class VideoReplayScript(
     schema: Option[String],
     sourceVideo: Option[String],
-    sourceSha256: Option[String],
     manualReview: Boolean,
     sources: Json,
     viewport: VideoReplayViewport,
     steps: Vector[VideoReplayStep]
   )
+
   object VideoReplayScript {
     implicit val decoder: Decoder[VideoReplayScript] = (c: HCursor) =>
       for {
         schema <- c.downField("schema").as[Option[String]]
         sourcevideo <- c.downField("sourceVideo").as[Option[String]]
-        sourcesha256 <- c.downField("sourceSha256").as[Option[String]]
         manualreview <- c.downField("manualReview").as[Option[Boolean]]
         sources <- c.downField("sources").as[Option[Json]]
         viewport <- c.downField("viewport").as[Option[VideoReplayViewport]]
         steps <- c.downField("steps").as[Option[Vector[VideoReplayStep]]]
-      } yield VideoReplayScript(schema, sourcevideo, sourcesha256, manualreview.getOrElse(false), sources.getOrElse(Json.obj()), viewport.getOrElse(VideoReplayViewport.default), steps.getOrElse(Vector.empty))
+      } yield VideoReplayScript(schema, sourcevideo, manualreview.getOrElse(false), sources.getOrElse(Json.obj()), viewport.getOrElse(VideoReplayViewport.default), steps.getOrElse(Vector.empty))
   }
 
   sealed trait VideoArtifactStatus { def label: String }
+
   object VideoArtifactStatus {
     case object Planned extends VideoArtifactStatus { val label = "planned" }
     case object Input extends VideoArtifactStatus { val label = "input" }
@@ -757,10 +730,11 @@ private[cozy] trait CozyVideoModel {
     toolMode: VideoToolMode,
     dockerImage: String,
     modelPath: String,
-    hostWhisperModel: Option[Path]
+    hostWhisperModel: Option[Path],
+    selections: Map[String, CozyVideoOperatingConfig.ToolSelection] = Map.empty
   ) {
     def toVideoExecutionConfig: VideoExecutionConfig =
-      VideoExecutionConfig(toolMode, dockerImage, VideoToolSettings.DEFAULT_VOICEVOX_URL)
+      VideoExecutionConfig(toolMode, dockerImage, VideoToolSettings.DEFAULT_VOICEVOX_URL, selections = selections)
   }
 
   final case class VideoPartPlan(
@@ -821,6 +795,7 @@ private[cozy] trait CozyVideoModel {
     channels: Option[Int] = None,
     bitsPerSample: Option[Int] = None
   )
+
   object VideoAudioManifestEntry {
     implicit val decoder: Decoder[VideoAudioManifestEntry] = (c: HCursor) =>
       for {
@@ -911,8 +886,7 @@ private[cozy] trait CozyVideoModel {
     tripleCount: Int,
     resourceCount: Int,
     encoding: ResolvedEncodingSettings,
-    creditProfile: Option[String],
-    creditDigest: Option[String]
+    creditProfile: Option[String]
   )
 
   final case class VideoDemoScriptResult(
@@ -942,7 +916,83 @@ private[cozy] trait CozyVideoModel {
     audio: VideoAudioInput,
     combinedFile: Path
   )
+}
 
+private[cozy] trait CozyVideoModel {
+  self: CozyVideoTools with CozyVideoStoryboard =>
+
+  type StoryboardReviewVisualStory = CozyVideoModel.StoryboardReviewVisualStory
+  lazy val StoryboardReviewVisualStory = CozyVideoModel.StoryboardReviewVisualStory
+  type StoryboardReviewVisualPage = CozyVideoModel.StoryboardReviewVisualPage
+  lazy val StoryboardReviewVisualPage = CozyVideoModel.StoryboardReviewVisualPage
+  type StoryboardReview = CozyVideoModel.StoryboardReview
+  lazy val StoryboardReview = CozyVideoModel.StoryboardReview
+  type ConfirmationReview = CozyVideoModel.ConfirmationReview
+  lazy val ConfirmationReview = CozyVideoModel.ConfirmationReview
+  type VideoProject = CozyVideoModel.VideoProject
+  lazy val VideoProject = CozyVideoModel.VideoProject
+  type VideoToolSettings = CozyVideoModel.VideoToolSettings
+  lazy val VideoToolSettings = CozyVideoModel.VideoToolSettings
+  type VideoPart = CozyVideoModel.VideoPart
+  lazy val VideoPart = CozyVideoModel.VideoPart
+  type VideoRenderer = CozyVideoModel.VideoRenderer
+  lazy val VideoRenderer = CozyVideoModel.VideoRenderer
+  type VideoEncodingPolicy = CozyVideoModel.VideoEncodingPolicy
+  lazy val VideoEncodingPolicy = CozyVideoModel.VideoEncodingPolicy
+  type ResolvedEncodingSettings = CozyVideoModel.ResolvedEncodingSettings
+  lazy val ResolvedEncodingSettings = CozyVideoModel.ResolvedEncodingSettings
+  type VideoScript = CozyVideoModel.VideoScript
+  lazy val VideoScript = CozyVideoModel.VideoScript
+  type VideoScene = CozyVideoModel.VideoScene
+  lazy val VideoScene = CozyVideoModel.VideoScene
+  type VideoReplayViewport = CozyVideoModel.VideoReplayViewport
+  lazy val VideoReplayViewport = CozyVideoModel.VideoReplayViewport
+  type VideoReplayStep = CozyVideoModel.VideoReplayStep
+  lazy val VideoReplayStep = CozyVideoModel.VideoReplayStep
+  type VideoReplayScript = CozyVideoModel.VideoReplayScript
+  lazy val VideoReplayScript = CozyVideoModel.VideoReplayScript
+  type VideoArtifactStatus = CozyVideoModel.VideoArtifactStatus
+  lazy val VideoArtifactStatus = CozyVideoModel.VideoArtifactStatus
+  type VideoArtifactPlan = CozyVideoModel.VideoArtifactPlan
+  lazy val VideoArtifactPlan = CozyVideoModel.VideoArtifactPlan
+  type VideoCommandPlan = CozyVideoModel.VideoCommandPlan
+  lazy val VideoCommandPlan = CozyVideoModel.VideoCommandPlan
+  type VideoTranscriptSegment = CozyVideoModel.VideoTranscriptSegment
+  lazy val VideoTranscriptSegment = CozyVideoModel.VideoTranscriptSegment
+  type VideoTranscriptionResult = CozyVideoModel.VideoTranscriptionResult
+  lazy val VideoTranscriptionResult = CozyVideoModel.VideoTranscriptionResult
+  type VideoReviewEvidenceResult = CozyVideoModel.VideoReviewEvidenceResult
+  lazy val VideoReviewEvidenceResult = CozyVideoModel.VideoReviewEvidenceResult
+  private[video] type ReviewEvidencePart = CozyVideoModel.ReviewEvidencePart
+  private[video] lazy val ReviewEvidencePart = CozyVideoModel.ReviewEvidencePart
+  private[video] type ReviewEvidenceFrame = CozyVideoModel.ReviewEvidenceFrame
+  private[video] lazy val ReviewEvidenceFrame = CozyVideoModel.ReviewEvidenceFrame
+  type VideoTranscribeExecution = CozyVideoModel.VideoTranscribeExecution
+  lazy val VideoTranscribeExecution = CozyVideoModel.VideoTranscribeExecution
+  type VideoPartPlan = CozyVideoModel.VideoPartPlan
+  lazy val VideoPartPlan = CozyVideoModel.VideoPartPlan
+  type VideoPlan = CozyVideoModel.VideoPlan
+  lazy val VideoPlan = CozyVideoModel.VideoPlan
+  type VideoAudioManifestEntry = CozyVideoModel.VideoAudioManifestEntry
+  lazy val VideoAudioManifestEntry = CozyVideoModel.VideoAudioManifestEntry
+  type VideoSynthesisResult = CozyVideoModel.VideoSynthesisResult
+  lazy val VideoSynthesisResult = CozyVideoModel.VideoSynthesisResult
+  type VideoRenderedPart = CozyVideoModel.VideoRenderedPart
+  lazy val VideoRenderedPart = CozyVideoModel.VideoRenderedPart
+  type VideoRenderResult = CozyVideoModel.VideoRenderResult
+  lazy val VideoRenderResult = CozyVideoModel.VideoRenderResult
+  type VideoBuildResult = CozyVideoModel.VideoBuildResult
+  lazy val VideoBuildResult = CozyVideoModel.VideoBuildResult
+  type VideoRdfResult = CozyVideoModel.VideoRdfResult
+  lazy val VideoRdfResult = CozyVideoModel.VideoRdfResult
+  type VideoDemoScriptResult = CozyVideoModel.VideoDemoScriptResult
+  lazy val VideoDemoScriptResult = CozyVideoModel.VideoDemoScriptResult
+  type VideoReplayResult = CozyVideoModel.VideoReplayResult
+  lazy val VideoReplayResult = CozyVideoModel.VideoReplayResult
+  type VideoAudioInput = CozyVideoModel.VideoAudioInput
+  lazy val VideoAudioInput = CozyVideoModel.VideoAudioInput
+  type VideoSimpleJava2dInput = CozyVideoModel.VideoSimpleJava2dInput
+  lazy val VideoSimpleJava2dInput = CozyVideoModel.VideoSimpleJava2dInput
   private[video] def _normalize_replay_kind(value: String): String =
     value.trim.toLowerCase(java.util.Locale.ROOT) match {
       case "navigate" => "goto"

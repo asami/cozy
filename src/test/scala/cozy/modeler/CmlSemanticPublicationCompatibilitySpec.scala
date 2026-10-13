@@ -12,7 +12,7 @@ import CmlSemanticPublication.{Publication, PublicationDiagnostic, InvalidSuppli
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Semantic publication compatibility" should {
@@ -232,7 +232,7 @@ final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Mat
         val elementb = ElementRecord(Present(modelb), "entity", "共有", sourceb, Present(Vector(
           _literal_reference(TermTarget(TermId("terminology.b", "shared")), Local, sourceb, "b-local", _literal_derived),
           _literal_reference(TermTarget(TermId("external.terminology", "shared")), External, sourceb, "b-foreign", _literal_derived))))
-        val term = TermRecord(terma, SourceAttribution("terminology.a", "glossary/terminology.dox", "d" * 64, Some(60)))
+        val term = TermRecord(terma, SourceAttribution("terminology.a", "glossary/terminology.dox", Some(60)))
         val termprojection = CmlTerminologyMetadata.TermProjection(term, Present("event-type"), Present(CmlTerminologyMetadata.Koto),
           Present(Vector(LocalizedLabel("共有", Some("ja")), LocalizedLabel("Shared", Some("en")),
             LocalizedLabel("共有", Some("ja")), LocalizedLabel("無言語", None))), Present(LocalizedLabel("優先外", Some("ja"))))
@@ -246,9 +246,9 @@ final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Mat
         val reverse = Vector.fill(2)(CmlTerminologyNavigation.TermLink(elementa, local)) ++
           Vector.fill(4)(CmlTerminologyNavigation.TermLink(anonymouselement, anonymousreference))
         val anonymouscausal = ElementRecord(Absent(NotRepresented, "No stable causal carrier identity is represented."),
-          "causal-link", "共有", SourceAttribution("causal.example", "fixtures/causal-model.cml", "a" * 64, Some(19)), Present(Vector.empty))
+          "causal-link", "共有", SourceAttribution("causal.example", "fixtures/causal-model.cml", Some(19)), Present(Vector.empty))
         val absentbuyer = ElementRecord(Absent(NotRepresented, "No stable causal Actor identity is represented."), "actor", "共有",
-          SourceAttribution("causal.example", "fixtures/causal-model.cml", "a" * 64, Some(1)), Absent(NotDeclared, "No causal fact is declared."))
+          SourceAttribution("causal.example", "fixtures/causal-model.cml", Some(1)), Absent(NotDeclared, "No causal fact is declared."))
         val wrongelements = Vector(ModelElementId("Terminology.a", "shared"), ModelElementId("shared", "共有"),
           ModelElementId("terminology.a", "共有"))
         val wrongterms = Vector(TermId("Terminology.a", "shared"), TermId("shared", "共有"), TermId("terminology.a", "共有"))
@@ -494,7 +494,7 @@ final class CmlSemanticPublicationCompatibilitySpec extends AnyWordSpec with Mat
       "a" -> Json.obj("capability" -> true, "name" -> "共有")), "terms" -> Json.arr(JsNull))
 
   private def _terminology_source(authority: String, line: Int): SourceAttribution =
-    SourceAttribution(authority, "src/main/cml/terminology-handoff.cml", "d" * 64, Some(line))
+    SourceAttribution(authority, "src/main/cml/terminology-handoff.cml", Some(line))
 
   private def _literal_derived: Derived = Derived("rule:literal", Vector(
     _terminology_source("input.a", 70), _terminology_source("input.b", 71)))

@@ -38,6 +38,8 @@ lazy val simpleModelingModelVersion = "0.2.0"
 lazy val cncfCollaboratorApiVersion = "0.2.0"
 
 scalaVersion := "2.12.18"
+// Tests temporarily change JVM-global Locale and must not overlap.
+Test / parallelExecution := false
 // crossScalaVersions := Seq("2.10.39.2", "2.9.1")
 
 scalacOptions += "-deprecation"

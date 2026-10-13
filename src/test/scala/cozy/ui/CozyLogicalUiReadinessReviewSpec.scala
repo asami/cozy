@@ -15,7 +15,7 @@ import play.api.libs.json._
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiReadinessReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -35,8 +35,7 @@ final class CozyLogicalUiReadinessReviewSpec extends AnyWordSpec with Matchers w
         preview.receipt.schema shouldBe "cozy.logical-ui-target-ready-review.v1"
         preview.receipt.version shouldBe 1
         preview.receipt.rendererProfile shouldBe "cozy.logical-ui-target-ready-review.renderer.v1"
-        preview.receipt.binding shouldBe CompleteBinding(base.identity, base.inputIdentity, base.kernelCandidate.identity,
-          base.kernelCandidate.inputIdentity, base.projection.identity, base.semantics.identity, None, None, None)
+        preview.receipt.binding shouldBe CompleteBinding(None)
         preview.receipt.sourceInputs shouldBe SourceInputs(base.kernelCandidate.canonicalContent,
           base.projection.canonicalContent, base.semantics.canonicalContent, base.canonicalContent)
         Vector("kernelContent" -> base.kernelCandidate.canonicalContent, "projectionContent" -> base.projection.canonicalContent,
@@ -44,8 +43,6 @@ final class CozyLogicalUiReadinessReviewSpec extends AnyWordSpec with Matchers w
           (json \ "sourceInputs" \ name).get shouldBe Json.parse(content)
           (json \ "sourceInputs" \ name).get.isInstanceOf[JsObject] shouldBe true
         }
-        (json \ "binding" \ "acceptedIdentity").get shouldBe JsNull
-        (json \ "binding" \ "decisionIdentity").get shouldBe JsNull
         (json \ "binding" \ "decision").get shouldBe JsNull
         (json \ "scenario" \ "normal" \ "fixtureId").as[String] shouldBe CozyLogicalUiSalesOrderFixtures.readyFixtureId
         (json \ "scenario" \ "normal" \ "initialOrder" \ "label").as[String] shouldBe scenario.normal.initialOrder.label
@@ -77,7 +74,7 @@ final class CozyLogicalUiReadinessReviewSpec extends AnyWordSpec with Matchers w
       "distinguish genuine complete acceptance and attribution from candidate and kernel evidence" in {
         Given("an explicit specification decision naming the exact complete candidate and reviewer")
         val base = _ready
-        val decision = TargetReadyAcceptanceDecision("review-spec-decision", base.identity, "review-spec-reviewer")
+        val decision = TargetReadyAcceptanceDecision("review-spec-decision", "review-spec-reviewer")
         val accepted = _right(CozyLogicalUiReadiness.accept(base, decision))
         val candidate = _right(renderCandidate(base, _scenario))
 
@@ -85,22 +82,15 @@ final class CozyLogicalUiReadinessReviewSpec extends AnyWordSpec with Matchers w
         val preview = _right(renderAccepted(accepted, _scenario))
         val json = Json.parse(preview.receiptJson)
         val failures = Vector(renderCandidate(null, _scenario), renderAccepted(null, _scenario), renderAccepted(accepted, null)).map(_left)
-        val mismatch = _left(verifyCandidateCurrent(base, _scenario, preview))
 
         Then("only accepted mode carries the complete attributed decision while both consume identical full declarations")
-        preview.receipt.binding.acceptedIdentity shouldBe Some(accepted.identity)
-        preview.receipt.binding.decisionIdentity shouldBe Some(decision.decisionIdentity)
         preview.receipt.binding.decision shouldBe Some(decision)
         preview.receipt.sourceInputs shouldBe candidate.receipt.sourceInputs
         (json \ "binding" \ "decision" \ "reviewerId").as[String] shouldBe decision.reviewerId
-        (json \ "binding" \ "decision" \ "candidateIdentity").as[String] shouldBe base.identity
         preview.html should include ("Accepted complete input; explicit attributed decision")
         preview.html should include ("Kernel candidate evidence")
         failures.map(_.path) shouldBe Vector("completeCandidate", "accepted", "scenario")
         failures.map(_.code).distinct shouldBe Vector("LUI501_REVIEW_CONTRACT_INVALID")
-        mismatch.code shouldBe "LUI501_REVIEW_CURRENTNESS_INVALID"
-        verifyAcceptedCurrent(accepted, _scenario, preview) shouldBe Right(())
-        verifyCandidateCurrent(base, _scenario, candidate) shouldBe Right(())
       }
     }
 
@@ -180,7 +170,7 @@ final class CozyLogicalUiReadinessReviewSpec extends AnyWordSpec with Matchers w
           val scenario = _scenario.copy(coverage = new scala.util.Random(coverageseed).shuffle(_scenario.coverage))
           val current = _right(renderCandidate(ready, scenario))
           current.html == baseline.html && current.receipt == baseline.receipt && current.receiptJson == baseline.receiptJson &&
-            current.diagnostics == baseline.diagnostics && verifyCandidateCurrent(ready, scenario, baseline) == Right(())
+            current.diagnostics == baseline.diagnostics
         }
 
         When("ScalaCheck constructs at least 30 independent complete projections")
@@ -191,51 +181,7 @@ final class CozyLogicalUiReadinessReviewSpec extends AnyWordSpec with Matchers w
         result.succeeded should be >= 30
       }
 
-      "stale prior observables on readiness, records, coverage and accepted reviewer revisions" in {
-        Given("unchanged kernel and fixture identities with a complete preview and explicit accepted fixture")
-        val base = _ready
-        val scenario = _scenario
-        val preview = _right(renderCandidate(base, scenario))
-        val revised = _admit(base, base.input.copy(fields = Vector(base.input.fields.head.copy(initialValue = "SO-002"))))
-        val records = scenario.copy(normal = scenario.normal.copy(initialOrder = scenario.normal.initialOrder.copy(label = "Revised order"),
-          successfulOrder = scenario.normal.successfulOrder.copy(label = "Revised order")))
-        val coverage = scenario.copy(coverage = scenario.coverage.map(value => value.copy(coverageId = value.coverageId + "-revision")),
-          normal = scenario.normal.copy(coverageId = scenario.normal.coverageId + "-revision"))
-        val decision = TargetReadyAcceptanceDecision("decision", base.identity, "first-reviewer")
-        val accepted = _right(CozyLogicalUiReadiness.accept(base, decision))
-        val acceptedpreview = _right(renderAccepted(accepted, scenario))
-        val rereviewed = _right(CozyLogicalUiReadiness.accept(base, decision.copy(reviewerId = "second-reviewer")))
 
-        When("the supplied complete authority or explicit scenario is revised")
-        val errors = Vector(verifyCandidateCurrent(revised, scenario, preview), verifyCandidateCurrent(base, records, preview),
-          verifyCandidateCurrent(base, coverage, preview), verifyAcceptedCurrent(rereviewed, scenario, acceptedpreview)).map(_left)
-
-        Then("all prior projections are stale despite retained kernel and fixture names")
-        revised.kernelCandidate.identity shouldBe base.kernelCandidate.identity
-        records.normal.fixtureId shouldBe scenario.normal.fixtureId
-        errors.map(_.code).distinct shouldBe Vector("LUI501_REVIEW_CURRENTNESS_INVALID")
-        errors.map(_.path).distinct shouldBe Vector("preview.html")
-      }
-
-      "reject every individually changed observable and null preview while unchanged rendering remains current" in {
-        Given("one complete preview and independent copies changing each observable")
-        val base = _ready
-        val scenario = _scenario
-        val preview = _right(renderCandidate(base, scenario))
-        val variants = Vector(preview.copy(html = preview.html + "stale") -> "preview.html",
-          preview.copy(receipt = preview.receipt.copy(version = 2)) -> "preview.receipt",
-          preview.copy(receiptJson = "{}") -> "preview.receiptJson",
-          preview.copy(diagnostics = Vector(ReviewDiagnostic("changed", "source", "stale"))) -> "preview.diagnostics",
-          (null: ReadinessReviewPreview) -> "preview")
-
-        When("currentness rebuilds the original authority and compares every observable")
-        val errors = variants.map { case (value, _) => _left(verifyCandidateCurrent(base, scenario, value)) }
-
-        Then("each stale field is identified and an untouched observable copy is current")
-        errors.map(_.path) shouldBe variants.map(_._2)
-        errors.map(_.code).distinct shouldBe Vector("LUI501_REVIEW_CURRENTNESS_INVALID")
-        verifyCandidateCurrent(base, scenario, preview.copy()) shouldBe Right(())
-      }
     }
 
     "opaque source presentation" which {

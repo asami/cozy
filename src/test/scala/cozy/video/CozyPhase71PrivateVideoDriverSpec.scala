@@ -11,13 +11,33 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 30, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyPhase71PrivateVideoDriverSpec {
+  private final case class Fixture(
+    root: Path,
+    privateroot: Path,
+    storyboard: Path,
+    output: Path,
+    manifest: Path,
+    handoff: Path,
+    nativeresult: Path,
+    before: Path,
+    bin: Path
+  )
+
+  private final case class ScriptResult(exitcode: Int, output: String)
+}
+
 final class CozyPhase71PrivateVideoDriverSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
+  import CozyPhase71PrivateVideoDriverSpec.Fixture
+  import CozyPhase71PrivateVideoDriverSpec.ScriptResult
+
   "The PHASE-71 private video driver" should {
     "record confined immutable snapshots without changing private sources" in {
       _with_fixture("snapshots") { fixture =>
@@ -313,20 +333,6 @@ final class CozyPhase71PrivateVideoDriverSpec
 
   private val _script_path = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("scripts/test/phase71-private-video-driver.sh")
   private val _valid_cases = Vector("baseline", "core", "intermediate", "storyboard", "current", "missing")
-
-  private final case class Fixture(
-    root: Path,
-    privateroot: Path,
-    storyboard: Path,
-    output: Path,
-    manifest: Path,
-    handoff: Path,
-    nativeresult: Path,
-    before: Path,
-    bin: Path
-  )
-
-  private final case class ScriptResult(exitcode: Int, output: String)
 
   private def _run(fixture: Fixture, args: String*): ScriptResult = {
     val command = Vector("sh", _script_path.toString, args.head, fixture.root.toString) ++ args.drop(1)

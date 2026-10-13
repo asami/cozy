@@ -13,7 +13,7 @@ import CmlUseCaseNavigation._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlUseCaseNavigationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -251,7 +251,7 @@ final class CmlUseCaseNavigationSpec extends AnyWordSpec with Matchers with Give
     "No admitted model element has the requested qualified identity.", None))
 
   private def _source(authority: String): SourceAttribution = {
-    SourceAttribution(authority, "model/facts.cml", "0123456789abcdef" * 4, Some(7))
+    SourceAttribution(authority, "model/facts.cml", Some(7))
   }
 
   private def _record(kind: String, authority: String, component: String): ElementRecord = {

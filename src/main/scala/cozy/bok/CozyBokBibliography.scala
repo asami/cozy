@@ -20,7 +20,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.regex.Pattern
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
 import java.util.zip.{ZipEntry, ZipFile, ZipInputStream, ZipOutputStream}
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
@@ -32,56 +31,12 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
 private[cozy] trait CozyBokBibliography {
   self: CozyBokImplementation.type =>
-  private[bok] def _stash_bibliography_cache(config: BuildConfig): Option[Path] = {
-    val cache = config.project.resolve("target/cozy-bok/bibliography/cache")
-    if (!Files.isDirectory(cache))
-      None
-    else {
-      val tmp = Files.createTempDirectory("cozy-bibliography-cache")
-      _copy_directory(cache, tmp.resolve("cache"))
-      Some(tmp.resolve("cache"))
-    }
-  }
-
-  private[bok] def _restore_bibliography_cache(config: BuildConfig, cache: Option[Path]): Unit =
-    cache.foreach { source =>
-      if (Files.isDirectory(source))
-        _copy_directory(source, config.project.resolve("target/cozy-bok/bibliography/cache"))
-    }
-
-  private[bok] final case class PreservedSieHandoff(destination: Path, source: Path)
-
-  private[bok] def _stash_sie_handoffs(config: BuildConfig): Vector[PreservedSieHandoff] = {
-    val projectroot = config.project.toAbsolutePath.normalize
-    val targetroot = projectroot.resolve("target").normalize
-    val paths = _load_config(config.project).values.toVector.collect {
-      case (key, value) if key.startsWith("bok.projects.") && key.endsWith(".sie.path") =>
-        val path = Paths.get(value)
-        if (path.isAbsolute) path.normalize else projectroot.resolve(path).normalize
-    }.distinct.filter(path => path.startsWith(targetroot) && Files.isDirectory(path)).sortBy(_.toString)
-    paths.map { path =>
-      val tmp = Files.createTempDirectory("cozy-sie-handoff")
-      val source = tmp.resolve("handoff")
-      _copy_sie_handoff_directory(path, source)
-      PreservedSieHandoff(path, source)
-    }
-  }
-
-  private[bok] def _restore_sie_handoffs(handoffs: Vector[PreservedSieHandoff]): Unit =
-    handoffs.foreach { handoff =>
-      try {
-        if (Files.isDirectory(handoff.source))
-          _copy_sie_handoff_directory(handoff.source, handoff.destination)
-      } finally {
-        Option(handoff.source.getParent).foreach(_delete_directory)
-      }
-    }
 
   private[bok] def _write_effective_bibliography_metadata(config: BuildConfig): Unit =
     _bibliography_index(config).foreach { index =>

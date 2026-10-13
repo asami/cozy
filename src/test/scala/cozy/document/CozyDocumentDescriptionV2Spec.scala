@@ -2,16 +2,17 @@ package cozy.document
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -36,7 +37,6 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
           val diagram = validated.description.summary.units.head.diagram.get
           diagram.focusItem shouldBe Some(id)
           diagram.copy(focusItem = None) shouldBe original.description.summary.units.head.diagram.get
-          validated.summaryIdentity shouldBe _identity(path)
           validated.description.summary.units.tail shouldBe original.description.summary.units.tail
         }
       }
@@ -87,8 +87,6 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
         absentunit.diagram.get.items should have size (core.steps.size + core.structure.nodes.size)
         selectedunit.diagram.get.items should have size (1 + core.steps.size + core.structure.nodes.size)
         absentvalidated.description.summary.units.tail shouldBe CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary).description.summary.units
-        absentvalidated.summaryIdentity shouldBe _identity(absent)
-        selectedvalidated.summaryIdentity shouldBe _identity(selected)
       }
     }
 
@@ -135,7 +133,7 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
       }
     }
 
-    "retain repeated strict loads, raw identities, and one typed localized label for every Core Step and Node" in {
+    "retain repeated strict semantic loads and one typed localized label for every Core Step and Node" in {
       _with_temp_dir("cozy-document-description-v2-typed") { root =>
         Given("a temporary v2 Document and Summary derived from the rich Article 9 Core fixture")
         val fixture = _fixture(root)
@@ -146,16 +144,47 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
         val firstsummary = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary)
         val secondsummary = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary)
 
-        Then("typed labels, recursive prose, exact bindings, and original-byte identities remain equal")
+        Then("typed labels, recursive prose, and exact logical bindings remain equal")
         firstdocument shouldBe seconddocument
         firstsummary shouldBe secondsummary
-        firstdocument.coreIdentity shouldBe _identity(fixture.core)
-        firstdocument.documentIdentity shouldBe _identity(fixture.document)
-        firstsummary.summaryIdentity shouldBe _identity(fixture.summary)
         firstdocument.description.labels.steps.map(_.stepRef).toSet shouldBe firstdocument.core.stepsById.keySet
         firstdocument.description.labels.nodes.map(_.nodeRef).toSet shouldBe firstdocument.core.nodesById.keySet
         firstdocument.description.labels.steps.map(_.text).forall(_.nonEmpty) shouldBe true
         firstdocument.description.labels.nodes.map(_.text).forall(_.nonEmpty) shouldBe true
+      }
+    }
+
+    "admit only logical binding IDs while ignoring ordinary binding metadata of every YAML shape" in {
+      _with_temp_dir("cozy-document-description-v2-binding-metadata") { root =>
+        Given("one id-only semantic V2 fixture and scalar object array null or historical binding metadata")
+        val fixture = _fixture(root)
+        val core = CozyDocumentLogicTree.loadCore(fixture.core)
+        val metadata = Gen.oneOf(
+          Gen.const("  historical: sha256:not-a-binding"),
+          Gen.const("  historical: [legacy, metadata]"),
+          Gen.const("  historical: { source: legacy }"),
+          Gen.const("  historical: null"),
+          Gen.const("  identity: stale-looking-value"),
+          Gen.alphaNumStr.suchThat(_.nonEmpty).map(value => s"  historical: '$value'")
+        )
+        var index = 0
+
+        val property = Prop.forAll(metadata) { value =>
+          index += 1
+          val directory = root.resolve(s"metadata-$index/ja")
+          val document = _write(directory.resolve("document.yaml"), _document(core, value))
+          val summary = _write(directory.resolve("summary.yaml"), _summary(core, value, value))
+          val loaded = CozyDocumentDescriptionV2.loadSummary(fixture.core, document, summary)
+          loaded.document.description.core.id == core.core.id &&
+            loaded.description.core.id == core.core.id &&
+            loaded.description.document.id == loaded.document.description.id
+        }
+
+        When("production V2 loaders read unchanged semantic sources with each ignored binding metadata value")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+
+        Then("at least thirty admitted samples retain only the required logical bindings")
+        result.passed shouldBe true
       }
     }
 
@@ -226,7 +255,7 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
       }
     }
 
-    "reject unsafe paths, stale raw-byte bindings, incomplete labels, and unresolved typed references while preserving the v1 rejection boundary" in {
+    "admit current valid bytes while rejecting unsafe paths, incomplete labels, unresolved typed references, and the v1 schema boundary" in {
       _with_temp_dir("cozy-document-description-v2-binding") { root =>
         Given("valid v2 fixture bytes and strict v1 loader ownership")
         val fixture = _fixture(root)
@@ -241,25 +270,27 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
         val originalcore = Files.readString(fixture.core, StandardCharsets.UTF_8)
         val originaldocument = Files.readString(fixture.document, StandardCharsets.UTF_8)
 
-        When("path, label, reference, Core, Document, and v1-schema boundaries are exercised")
+        When("path, label, reference, current Core and Document bytes, and v1-schema boundaries are exercised")
         val pathfailure = _failure(CozyDocumentDescriptionV2.loadDocument(fixture.core, wrongpath))
         val labelfailure = _failure(CozyDocumentDescriptionV2.loadDocument(fixture.core, missinglabels))
         val referencefailure = _failure(CozyDocumentDescriptionV2.loadDocument(fixture.core, unresolved))
         Files.writeString(fixture.core, originalcore + "\n", StandardCharsets.UTF_8)
-        val corefailure = _failure(CozyDocumentDescriptionV2.loadDocument(fixture.core, fixture.document))
+        val currentcore = CozyDocumentDescriptionV2.loadDocument(fixture.core, fixture.document)
         Files.writeString(fixture.core, originalcore, StandardCharsets.UTF_8)
         Files.writeString(fixture.document, originaldocument + "\n", StandardCharsets.UTF_8)
-        val documentfailure = _failure(CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary))
+        val currentsummary = CozyDocumentDescriptionV2.loadSummary(fixture.core, fixture.document, fixture.summary)
         Files.writeString(fixture.document, originaldocument, StandardCharsets.UTF_8)
         val v1failure = _v1_failure(CozyDocumentDescription.loadDocument(fixture.core, fixture.document))
 
-        Then("all authority boundaries remain strict and v1 does not convert a v2 source")
+        Then("current semantic sources are read on each call while real authority boundaries remain strict and v1 does not convert a v2 source")
         pathfailure.code shouldBe "DESCRIPTION_V2_PATH"
         labelfailure.code shouldBe "DESCRIPTION_V2_LABEL_COVERAGE"
         referencefailure.code shouldBe "DESCRIPTION_V2_REFERENCE"
-        corefailure.code shouldBe "DESCRIPTION_V2_DOCUMENT_CORE"
-        documentfailure.code shouldBe "DESCRIPTION_V2_SUMMARY_DOCUMENT"
-        v1failure.code shouldBe "DESCRIPTION_FIELDS"
+        currentcore.description.core.id shouldBe currentcore.core.core.id
+        currentsummary.description.document.id shouldBe currentcore.description.id
+        v1failure.code shouldBe "DESCRIPTION_DOCUMENT_SCHEMA"
+        v1failure.path shouldBe "$.schema"
+        v1failure.reason should include("cozy.document-description.v1")
       }
     }
 
@@ -399,13 +430,13 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/core.yaml"), core)
     val validated = CozyDocumentLogicTree.loadCore(core)
     val document = locale.resolve("document.yaml")
-    _write(document, _document(validated, _identity(core)))
+    _write(document, _document(validated))
     val summary = locale.resolve("summary.yaml")
-    _write(summary, _summary(validated, _identity(core), _identity(document)))
+    _write(summary, _summary(validated))
     new Fixture(core, document, summary)
   }
 
-  private def _document(core: CozyDocumentLogicTree.ValidatedCore, coreidentity: String): String = {
+  private def _document(core: CozyDocumentLogicTree.ValidatedCore, metadata: String = ""): String = {
     val refs = _references(core)
     val steplabels = core.depthFirstSteps.map { step =>
       s"    - stepRef: ${step.id}\n      text: Step label ${step.id}"
@@ -417,7 +448,7 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
         |id: document-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
+        |$metadata
         |locale: ja
         |document:
         |  title: Article 9 v2 document
@@ -464,16 +495,16 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
         |""".stripMargin
   }
 
-  private def _summary(core: CozyDocumentLogicTree.ValidatedCore, coreidentity: String, documentidentity: String): String = {
+  private def _summary(core: CozyDocumentLogicTree.ValidatedCore, coremetadata: String = "", documentmetadata: String = ""): String = {
     val refs = _references(core)
     s"""|schema: cozy.summary-description.v2
         |id: summary-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
+        |$coremetadata
         |document:
         |  id: document-ja
-        |  identity: $documentidentity
+        |$documentmetadata
         |locale: ja
         |summary:
         |  title: Article 9 v2 summary
@@ -564,9 +595,6 @@ final class CozyDocumentDescriptionV2Spec extends AnyWordSpec with Matchers with
     require(from >= 0 && until >= 0, s"fixture boundary not found: $start / $end")
     text.substring(0, from) + replacement + text.substring(until)
   }
-
-  private def _identity(path: Path): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
 

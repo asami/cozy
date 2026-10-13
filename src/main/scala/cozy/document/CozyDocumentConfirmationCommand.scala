@@ -1,12 +1,13 @@
 package cozy.document
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentConfirmationCommand {
@@ -26,7 +27,7 @@ private[cozy] object CozyDocumentConfirmationCommand {
           val rendered = CozyDocumentConfirmationProjectionV2.render(validated, vocabulary)
           val destination = _destination(request.save)
           _publish(destination, rendered.html)
-          println(s"Cozy Document Confirmation Render\nkind: document\ncore: ${validated.core.core.id}\ncore identity: ${validated.coreIdentity}\ndocument: ${validated.description.id}\ndocument identity: ${validated.documentIdentity}\nidentity: ${rendered.identity}\noutput: $destination")
+          println(s"Cozy Document Confirmation Render\nkind: document\ncore: ${validated.core.core.id}\ndocument: ${validated.description.id}\noutput: $destination")
           true
         case "summary" =>
           val summary = request.summary.getOrElse(_fail("CONFIRMATION_CLI", "$.command", "--kind summary requires exactly --core <core.yaml> --document <document.yaml> --vocabulary <vocabulary.yaml> --summary <summary.yaml> --kind summary --save <output.html>"))
@@ -35,7 +36,7 @@ private[cozy] object CozyDocumentConfirmationCommand {
           val rendered = CozySummaryConfirmationProjectionV2.render(validated, vocabulary)
           val destination = _destination(request.save)
           _publish(destination, rendered.html)
-          println(s"Cozy Summary Confirmation Render\nkind: summary\ncore: ${validated.document.core.core.id}\ncore identity: ${validated.document.coreIdentity}\ndocument: ${validated.document.description.id}\ndocument identity: ${validated.document.documentIdentity}\nsummary: ${validated.description.id}\nsummary identity: ${validated.summaryIdentity}\nidentity: ${rendered.identity}\noutput: $destination")
+          println(s"Cozy Summary Confirmation Render\nkind: summary\ncore: ${validated.document.core.core.id}\ndocument: ${validated.document.description.id}\nsummary: ${validated.description.id}\noutput: $destination")
           true
         case _ => _fail("CONFIRMATION_CLI", "$.kind", "--kind must be document or summary")
       }
@@ -75,24 +76,10 @@ private[cozy] object CozyDocumentConfirmationCommand {
   }
 
   private def _publish(destination: Path, content: String): Unit = {
-    var temporary: Option[Path] = None
     try {
-      if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS))) _fail("CONFIRMATION_PATH", "$.save", "output destination became unsafe")
-      val temporaryfile = Files.createTempFile(destination.getParent, s".${destination.getFileName}-", ".tmp")
-      temporary = Some(temporaryfile)
-      Files.writeString(temporaryfile, content, StandardCharsets.UTF_8)
-      if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS))) _fail("CONFIRMATION_PATH", "$.save", "output destination became unsafe")
-      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      temporary = None
+      Files.writeString(destination, content, StandardCharsets.UTF_8)
     } catch {
-      case fault: CozyDocumentConfirmationVocabulary.VocabularyFault => throw fault
-      case fault: CozyDocumentDescriptionV2.DescriptionV2Fault => throw fault
-      case fault: CozyDocumentConfirmationProjectionV2.ProjectionFault => throw fault
-      case fault: CozySummaryConfirmationProjectionV2.ProjectionFault => throw fault
-      case _: AtomicMoveNotSupportedException => _fail("CONFIRMATION_PATH", "$.save", "output requires an atomic move")
-      case NonFatal(_) => _fail("CONFIRMATION_PATH", "$.save", "output cannot be published atomically")
-    } finally {
-      temporary.foreach(path => try Files.deleteIfExists(path) catch { case NonFatal(_) => () })
+      case NonFatal(_) => _fail("CONFIRMATION_PATH", "$.save", "output cannot be written")
     }
   }
 

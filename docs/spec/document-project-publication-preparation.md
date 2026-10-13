@@ -11,14 +11,17 @@ canonical skill guidance described below; they were accepted locally with
 commits Cozy `68af4c0` and development-workstation `049683f`. The single
 Phase full review passed; final closure is recorded by the
 [Phase checklist](../phase/phase-57.3-checklist.md) and distinct release commit.
-Source acceptance does not prove that the actually invoked installed Cozy
+Source acceptance does not prove that the actually invoked written Cozy
 exposes the preparation command. Clients
 check that capability through native help or command resolution; if absent,
 they report `BLOCKED: missing preparation-client capability` without a fallback.
 
-The unchanged [Phase 57.2 target specification](document-project-publication-target.md)
-owns portable admission, original media/site binding, live currentness, and
-snapshot revalidation. [Document Project](document-project.md) owns native
+The [target specification](document-project-publication-target.md) owns
+portable role/format admission and ordinary project/media/site input resolution.
+On 2026-10-13, the user explicitly approved integration with the Phase 71.5
+removal policy: no SHA/currentness or snapshot-revalidation gate, atomic
+installation, rollback or existing-generated-output refusal. The acceptance
+counts above remain historical results for their original revisions. [Document Project](document-project.md) owns native
 run, structural verification, and public export. Preparation consumes these
 authorities; it introduces no provider, evidence schema, target, registry
 semantics, or production-site authority.
@@ -26,10 +29,10 @@ semantics, or production-site authority.
 ## Native inputs and command sequence
 
 The API is exactly
-`CozyDocumentProjectPublicationPreparation.Config(registration: CurrentRegistrationConfig,
+`CozyDocumentProjectPublicationPreparation.Config(registration: ProjectRegistrationConfig,
 taskRoot: Path, destination: Path)` with `prepare(Config): Prepared`.
-`CurrentRegistrationConfig` retains the live project and `RegistrationConfig`
-containing the verified public bundle and original
+`ProjectRegistrationConfig` retains the live project and `RegistrationConfig`
+containing the admitted public bundle and original
 `CozyArticleMediaSiteBinding.Config`. The thin CLI parses into these unchanged
 producer inputs:
 
@@ -37,7 +40,7 @@ producer inputs:
 cozy document-project run <canonical.dox> --operation article.render-review
 cozy document-project verify <canonical.dox> --mode structural
 cozy document-project export <canonical.dox> --target simplemodeling-org --save <new-public-export>
-cozy media prepare-publication <media-file> --project <canonical.dox> --bundle <verified-public-export> --task-root <existing canonical task-private root> --save <absent direct child> [--target <media-resource>] [--site-root <canonical paired root> --site-config <canonical paired config>]
+cozy media prepare-publication <media-file> --project <canonical.dox> --bundle <verified-public-export> --task-root <existing canonical task-private root> --save <direct child> [--target <media-resource>] [--site-root <canonical paired root> --site-config <canonical paired config>]
 ```
 
 `CozyDocumentProjectPublicationPreparationCommand.Config.create(List[String])`
@@ -47,19 +50,19 @@ order. Missing, duplicate, empty, null and unknown inputs, extra positionals,
 `--dry-run`, `--profile` and `--publication` are rejected. Host paths normalize
 absolute; paired site paths must already be absolute. Canonical source/site
 admission remains with the unchanged producers. `execute(args)` and
-`execute(config)` call preparation and render only a completed installed result:
+`execute(config)` call preparation and render only a completed written result:
 
 ```text
 Cozy Media Prepare Publication
 status: PREPARED
-root: <installed prepared-root>
-export: <installed prepared-root>/export
+root: <written prepared-root>
+export: <written prepared-root>/export
 registry:
-  - <installed prepared-root>/<native registry bundle>.json
+  - <written prepared-root>/<native registry bundle>.json
 ```
 
 `Prepared(root: Path, exportRoot: Path, registryPaths: Vector[Path])` contains
-actual installed paths. Registry filenames come from the existing registry
+actual written paths. Registry filenames come from the existing registry
 loader's bundle names; the client adds no parser or schema. Producer failures
 escape unchanged before any successful command output; the invoking skill
 reports `BLOCKED` for a failed native command.
@@ -92,7 +95,7 @@ The caller supplies attributable authorization for the selected native
 run/verify/export and exact task-private preparation effects. The canonical
 skill source is
 `/Users/asami/src/development-workstation/common/codex/skills/smorg-publication-prep`,
-consumed by the installed `.agents` symlink. The skill preserves that invocation
+consumed by the written `.agents` symlink. The skill preserves that invocation
 and its exact paths through `cozy-command-execution` and `cozy_command_runner`.
 Neither target evidence nor a caller-declared `taskRoot` proves platform access
 or grants effects. The selected SimpleModeling.org checkout remains read-only;
@@ -101,37 +104,24 @@ separate authorization and are outside this preparation boundary.
 
 ## Required preparation call order
 
-1. After rejecting a null Config, call
-   `planCurrentRegistration(config.registration)` before any task-root or
-   destination mutation. Consume its fresh producer evidence; do not parse hashes, replace
-   descriptors, synthesize receipts, or duplicate currentness authority.
-2. Validate normalized absolute `taskRoot` as an existing direct non-symlink
-   directory whose real path equals its normalized path. Require a destination
-   absent under `NOFOLLOW_LINKS` that is its direct child. Reject containment in
-   either direction between either output boundary and producer-returned project,
-   source export bundle, media descriptor roots/identities, effective profile
-   roots/identities, configured project/profile inputs, and optional site
-   root/config/source.
-   Original paired site options remain paired and canonical; absent context
-   remains absent without invented defaults.
-3. Immediately before relying on source bytes, call
-   `revalidateCurrentRegistration` and consume the returned fresh value.
-4. Allocate one owned `Files.createTempDirectory` child of `taskRoot`. Copy exactly the
-   admitted manifest, receipt, and article-review HTML into the layout below;
-   do not copy an arbitrary tree or private source/evidence. Producer
-   `CozyDocumentProjectExport.verifyBundle` and target `admit` must accept the
-   copied bundle with evidence equal to the fresh original verified bundle.
-   Use `Files.copy` for only these three files; copy no media or site authority.
-5. Call unchanged `CozyArticleMediaSiteCommand.execute` with its `Config`, the
-   prepared root as `publicationRoot`, and original descriptor, media resource,
-   and paired site inputs. Do not create compatibility descriptors or copy
-   authority into the preparation.
-6. Immediately before success installation, revalidate the original current
-   registration again. The sole package-private specification callback runs
-   after site registration immediately before this check; production delegates
-   to the same overload with a no-op. Reject an existing destination under
-   `NOFOLLOW_LINKS` and use `Files.move` with `ATOMIC_MOVE`, without replacement
-   or fallback. Return only the complete installed export and registry paths.
+1. Resolve `planProjectRegistration(config.registration)` before output writes.
+   Retain ordinary project descriptor, export target/format/required-file,
+   media profile/resource/locale/role and paired site-context diagnostics.
+2. Validate `taskRoot` as an existing canonical direct non-symlink directory.
+   The destination is its direct child, either absent or an existing direct
+   directory. Keep output paths disjoint from authored project, source export,
+   media and site inputs. Existing generated output may be overwritten.
+3. Create the selected generated directories directly. Reject symbolic output
+   directories and file aliases. Copy only `manifest.yaml` and the declared
+   article-review HTML from the admitted export, replacing selected generated
+   files. Do not copy an arbitrary source/evidence tree or require a
+   protection-only export receipt.
+4. Execute the existing native article-media site command using the original
+   media/site configuration and the destination as its publication root.
+   Resolve the produced registry paths through the native registry bundle names.
+5. Return `Prepared` and emit `PREPARED` only after these operations finish.
+   There is no before/after source revalidation, temporary installation tree,
+   atomic move, rollback or substitute unchanged-content proof.
 
 ## Prepared layout and proven scope
 
@@ -139,7 +129,6 @@ separate authorization and are outside this preparation boundary.
 <prepared-root>/
   export/
     manifest.yaml
-    receipt.yaml
     work-products/
       article-review-html/
         article-review.html
@@ -152,25 +141,19 @@ verified public export and native registry scope. It is never a whole-site
 `READY` guarantee, site-pipeline readiness claim, or instruction to run a
 production build.
 
-## Failure, no-write policy, and execution assumption
+## Failure and execution semantics
 
-Producer/capability/currentness failures report `BLOCKED` with their exact
-diagnostics and offending facets; unsupported operations and dry-runs never
-become success. Planning and input rejection perform no destination write. A
-later failure removes only the client's owned temporary preparation without
-following symlinks, leaves no
-partial installed destination, and preserves source project, source export,
-original media/site authority, and any existing destination bytes. Propagate
-fresh producer diagnostics without synthetic attempts, receipts, currentness,
-or success claims. If cleanup fails, attach that error as suppressed on the
-original failure. Never remove a preexisting destination or original source.
-The skill performs no direct evidence editing, adoption,
-hash parsing, receipt synthesis, or copy workaround.
+Invalid selected input fails with the ordinary producer diagnostic before
+preparation writes. Native blocked operations, unavailable providers and
+unexecuted dry-runs remain unsuccessful and cannot fabricate production
+evidence. A later I/O failure propagates and may leave earlier or partial
+generated output at the requested destination; no success is returned.
+Existing generated files may be overwritten. Authored inputs, unselected
+destination files and paths outside the selected operation remain untouched.
 
-Execution assumes a single developer does not concurrently mutate source
-authority, preparation destination, or its parent directories. Use standard
-Java atomic move; add no JNA, concurrency locks, retries, or stronger concurrent
-mutation guarantee.
+Execution assumes the user's Git-managed single-developer workbench. No
+concurrency/tamper assurance, atomic installation, retry or rollback protocol
+is provided. Platform permission and build serialization remain separate.
 
 The client uses `lightweight-no-raster-review`: declared infographic deliverables
 are allowed, but PDF/slide/Web/video inspection-only rasterization, video-frame
@@ -178,42 +161,22 @@ extraction, and montage QA are excluded. Structural skill acceptance validates
 frontmatter and agent-interface YAML only; genuine native behavior proof belongs
 to P573-02/03.
 
-## Executable preparation proof
+## Executable preparation specification
 
 [CozyDocumentProjectPublicationPreparationSpec](../../src/test/scala/cozy/publication/CozyDocumentProjectPublicationPreparationSpec.scala)
-authors five bounded native scenarios: paired/absent original context with
-all/exact English selection and exact portable export/strict registry metadata;
-six ScalaCheck dispatcher permutations with split/equal-value options; existing
-destination preservation; missing/file/aliased/non-direct/source-overlapping
-output rejection; and a controlled authored source change before final
-revalidation that propagates the fresh producer diagnostic and cleans only
-owned temporary output. Fixtures scaffold a real Document Project, select
-Article review, execute its native run, and export through the unchanged
-producer. Prebuilt PNG bytes are admitted media evidence, never native receipt
-substitutes. These five scenarios and six CLI property cases retain the accepted
-P573-02 local proof recorded above.
+retains genuine scaffold/run/structural-verify/export and actual dispatcher
+scenarios, selected Article review despite unrelated blocked PDF, native
+unavailable/unknown/disabled/missing-source diagnostics, ordinary malformed or
+incomplete/private bundle rejection, CLI option rejection, paired/absent context
+and exact resource selection. Six ScalaCheck cases exercise option orders and
+split/equal-value spelling.
 
-P573-03 accepted seven additional bounded families through parent validation
-and independent review:
+Output scenarios cover overwriting selected generated files while preserving
+unselected files, safe output-root and symlink rejection, and an ordinary I/O
+failure that propagates with partial output and intact authored inputs. Retired
+stale-facet, protected-receipt and final snapshot-revalidation scenarios do not
+define the current contract. Fixtures use the actual producers and prebuilt
+media rather than manufactured native receipt or provider evidence.
 
-- A real run/structural verify/export/dispatcher preparation sequence, consuming
-  typed current Article review evidence while unrelated required PDF is blocked.
-- Native unavailable PDF provider output and typed Required/blocked Work Product
-  state, followed by no-write export and preparation rejection.
-- Structural verification with legitimate derived state, then resolved dry-run
-  and rejected export/preparation preserving the complete post-verification tree.
-- Unknown and profile-disabled operation throws, plus missing authored Article
-  `DP-PATH-001` admission, with no synthesized failed result or evidence.
-- Independently stale authored source, selection, genuine receipt identity,
-  and deleted genuine accepted attempt; portable admission still succeeds while
-  API and real CLI reproduce the fresh producer failure byte-for-byte.
-- Malformed manifest, changed HTML, missing manifest/receipt/HTML, and private
-  entry rejection through the fresh producer, API, and real CLI.
-- Actual dispatcher rejection of missing task root, duplicate save, unknown
-  profile, unsupported dry-run, and unpaired site options, matching Config.create.
-
-Negative cases compare the complete intentionally changed baseline, absent
-requested destination, absence of owned preparation temporary children, and
-absence of PREPARED output; stale/bundle and CLI matrices preserve existing
-sibling destination sentinels. This authored proof does not claim installed
-binary capability, structural skill acceptance, or Phase closure.
+These specifications do not claim complete production-site readiness,
+installed-binary capability, deployment or a new Phase closure.

@@ -15,7 +15,7 @@ import org.smartdox.generator.{Context => SmartDoxContext}
 import org.smartdox.metadata.DocumentMetaData
 import org.goldenport.i18n.I18NContext
 import java.net.URLEncoder
-import java.time.{Instant, LocalDate, LocalDateTime, YearMonth, ZoneOffset}
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.regex.Pattern
@@ -32,13 +32,13 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 28, 2026
+ *  version Aug. 28, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
-private[cozy] trait CozyBokBuildConfig {
-  self: CozyBokImplementation.type =>
-  private[bok] val _default_bok_ui_bundle = "target/cozy-bok/ui-bundle/ui-bundle.zip"
+private[cozy] object CozyBokBuildConfig {
+  import CozyBokImplementation._
 
   final case class BuildConfig(
     project: Path,
@@ -73,8 +73,11 @@ private[cozy] trait CozyBokBuildConfig {
   }
 
   final case class ArcadiaConfig(enabled: Boolean, source: String)
+
   final case class DirectAssetsConfig(enabled: Boolean, items: Vector[DirectAsset])
+
   final case class DirectAsset(source: String, destination: String)
+
   final case class PublicationSettings(
     path: String,
     warehouse: Option[String],
@@ -88,6 +91,7 @@ private[cozy] trait CozyBokBuildConfig {
     def artifactBasePath(project: Path): Path = repositoryPath(project)
     def publicationRepositoryBasePath(project: Path): Path = repositoryPath(project)
   }
+
   final case class PublicationConfig(
     project: Path,
     source: String,
@@ -95,11 +99,9 @@ private[cozy] trait CozyBokBuildConfig {
     warehouse: Option[String],
     repository: String,
     version: Option[String],
-    force: Boolean,
     videoEnabled: Boolean,
     dryRun: Boolean,
-    strategy: String,
-    mediaForce: Boolean
+    strategy: String
   ) {
     def sourcepath: Path = project.resolve(source).toAbsolutePath.normalize()
     def publicationPath: Path = project.resolve(publication).toAbsolutePath.normalize()
@@ -108,17 +110,18 @@ private[cozy] trait CozyBokBuildConfig {
     def artifactBasePath: Path = repositoryPath
     def manifestPath: Path = project.resolve("target/cozy-bok/publish/latest/manifest.json").toAbsolutePath.normalize()
   }
+
   final case class WorkflowConfig(
     project: Path,
     name: String,
     command: Vector[String],
-    env: Map[String, String],
-    backup: Option[WebsiteBackupConfig] = None
+    env: Map[String, String]
   )
-  final case class WebsiteBackupConfig(source: Path, root: Path, compressed: Boolean)
+
   private[bok] final case class PublishStep(name: String, status: String, message: String)
-  private[bok] final case class WebsiteBackupSnapshot(path: Path, yearmonth: YearMonth, order: String)
+
   private[bok] final case class BibliographyRdfAlias(aliastail: String, targettail: String, title: String)
+
   private[bok] final case class KnowledgeSourceResource(kind: String, href: String, mediatype: String) {
     def toJson: Json = Json.obj(
       "kind" -> Json.fromString(kind),
@@ -126,6 +129,7 @@ private[cozy] trait CozyBokBuildConfig {
       "mediaType" -> Json.fromString(mediatype)
     )
   }
+
   private[bok] final case class PublishPreflight(
     stage: Option[WorkflowConfig],
     upload: WorkflowConfig,
@@ -138,6 +142,7 @@ private[cozy] trait CozyBokBuildConfig {
   ) {
     def packageCount: Int = videopackages.size + infographicpackages.size + projectpackages.size
   }
+
   private[bok] final case class ParsedArgs(request: CliRequest) {
     def argument(name: String): Option[String] =
       request.arguments.find(_.name == name).map(_.asString).map(_.trim).filter(_.nonEmpty)
@@ -172,118 +177,6 @@ private[cozy] trait CozyBokBuildConfig {
     }
   }
 
-  private[bok] object BokArgs {
-    private val _p_save = spec.Parameter.propertyFileOption("save")
-    private val _p_project = spec.Parameter.argumentFile("project")
-    private val _p_project_property = spec.Parameter.propertyFileOption("project")
-    private val _p_project_dir_property = spec.Parameter.propertyFileOption("project-dir")
-
-    private val _p_no_project_files = spec.Parameter("no-project-files", spec.Parameter.SwitchKind)
-    private val _p_no_scaffold_files = spec.Parameter("no-scaffold-files", spec.Parameter.SwitchKind)
-    private val _p_overwrite_project_files = spec.Parameter("overwrite-project-files", spec.Parameter.SwitchKind)
-    private val _p_force_project_files = spec.Parameter("force-project-files", spec.Parameter.SwitchKind)
-
-    private val _p_article = spec.Parameter(
-      "article",
-      spec.Parameter.PropertyKind,
-      spec.XString,
-      spec.Multiplicity.ZeroMore
-    )
-    private val _p_term = spec.Parameter(
-      "term",
-      spec.Parameter.PropertyKind,
-      spec.XString,
-      spec.Multiplicity.ZeroMore
-    )
-    private val _p_goal = spec.Parameter(
-      "goal",
-      spec.Parameter.PropertyKind,
-      spec.XString,
-      spec.Multiplicity.ZeroMore
-    )
-    private val _p_subgoal = spec.Parameter(
-      "subgoal",
-      spec.Parameter.PropertyKind,
-      spec.XString,
-      spec.Multiplicity.ZeroMore
-    )
-
-    private val _create_request = spec.Request(
-      _p_save,
-      spec.Parameter.property("name"),
-      spec.Parameter.property("url"),
-      spec.Parameter.property("language"),
-      _p_no_project_files,
-      _p_no_scaffold_files,
-      _p_overwrite_project_files,
-      _p_force_project_files
-    )
-
-    private val _category_request = spec.Request(
-      spec.Parameter.argument("name"),
-      _p_project_property,
-      _p_project_dir_property,
-      spec.Parameter.property("title"),
-      spec.Parameter.property("description"),
-      spec.Parameter.property("vision"),
-      _p_goal,
-      _p_subgoal,
-      spec.Parameter.property("kind"),
-      spec.Parameter.propertyInt("order"),
-      _p_article,
-      _p_term,
-      _p_no_project_files,
-      _p_no_scaffold_files,
-      _p_overwrite_project_files,
-      _p_force_project_files
-    )
-
-    private val _build_request = spec.Request(
-      _p_project_property,
-      _p_project_dir_property,
-      spec.Parameter.property("strategy"),
-      spec.Parameter.property("docker-image"),
-      spec.Parameter.property("dashboard-color-group"),
-      spec.Parameter.propertyFileOption("warehouse"),
-      spec.Parameter.propertyFileOption("repository"),
-      spec.Parameter.propertyFileOption("publication"),
-      spec.Parameter.property("rdf-missing-artifact-policy"),
-      spec.Parameter("no-bib-service", spec.Parameter.SwitchKind)
-    )
-
-    private val _publication_request = spec.Request(
-      _p_project,
-      spec.Parameter.propertyFileOption("warehouse"),
-      spec.Parameter.propertyFileOption("repository"),
-      spec.Parameter.propertyFileOption("publication"),
-      spec.Parameter.property("version"),
-      spec.Parameter.property("strategy"),
-      spec.Parameter("force", spec.Parameter.SwitchKind),
-      spec.Parameter("dry-run", spec.Parameter.SwitchKind)
-    )
-
-    private val _workflow_request = spec.Request(_p_project)
-    private val _doctor_request = spec.Request(
-      spec.Parameter("fix", spec.Parameter.SwitchKind),
-      spec.Parameter("dry-run", spec.Parameter.SwitchKind)
-    )
-
-    def create(args: List[String]): ParsedArgs = _parse("bok-create", _create_request, args)
-    def category(args: List[String]): ParsedArgs = _parse("bok-create-category", _category_request, args)
-    def build(args: List[String]): ParsedArgs = _parse("bok-build", _build_request, _normalize_optional_project_argument(args))
-    def publication(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _publication_request, args)
-    def workflow(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _workflow_request, args)
-    def doctor(args: List[String]): ParsedArgs = _parse("bok-doctor", _doctor_request, args)
-
-    private def _parse(name: String, request: spec.Request, args: List[String]): ParsedArgs =
-      ParsedArgs(request.build(CliRequest(name), args))
-
-    private def _normalize_optional_project_argument(args: List[String]): List[String] =
-      args match {
-        case x :: xs if !x.startsWith("--") => "--project" :: x :: xs
-        case _ => args
-      }
-  }
   final case class SiteConfig(
     values: Map[String, String],
     lists: Map[String, Vector[String]],
@@ -298,29 +191,9 @@ private[cozy] trait CozyBokBuildConfig {
     def list(path: String): Vector[String] = lists.getOrElse(path, Vector.empty)
     def goalTree(path: String): Vector[BokGoal] = goalTrees.getOrElse(path, Vector.empty)
   }
+
   object SiteConfig {
     lazy val empty: SiteConfig = new SiteConfig(Map.empty, Map.empty, Map.empty)
-  }
-
-  private[bok] val _default_preview_port = "8980"
-
-  trait Runner {
-    def run(command: Vector[String], cwd: Path): Unit
-    def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit =
-      run(command, cwd)
-  }
-
-  object ProcessRunner extends Runner {
-    def run(command: Vector[String], cwd: Path): Unit = {
-      val exit = Process(command, cwd.toFile).!
-      if (exit != 0)
-        RAISE.invalidArgumentFault(s"Command failed with exit code ${exit}: ${command.mkString(" ")}")
-    }
-    override def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit = {
-      val exit = Process(command, cwd.toFile, env.toSeq: _*).!
-      if (exit != 0)
-        RAISE.invalidArgumentFault(s"Command failed with exit code ${exit}: ${command.mkString(" ")}")
-    }
   }
 
   object BuildConfig {
@@ -426,35 +299,12 @@ private[cozy] trait CozyBokBuildConfig {
     current
   }
 
-  private[bok] def _site_identifier(value: String): String =
-    value.trim.toLowerCase(Locale.ROOT).
-      replaceAll("[^\\p{L}\\p{N}]+", "-").
-      stripPrefix("-").
-      stripSuffix("-") match {
-        case "" => "bok-site"
-        case x => x
-      }
-
   private def _site_base_uri(value: String): Option[String] =
     Option(value).map(_.trim).filter(_.nonEmpty).map { x =>
       if (x.endsWith("/")) x else x + "/"
     }
 
   object PublicationConfig {
-    def apply(
-      project: Path,
-      source: String,
-      publication: String,
-      warehouse: Option[String],
-      repository: String,
-      version: Option[String],
-      force: Boolean,
-      videoEnabled: Boolean,
-      dryRun: Boolean,
-      strategy: String
-    ): PublicationConfig =
-      new PublicationConfig(project, source, publication, warehouse, repository, version, force, videoEnabled, dryRun, strategy, force)
-
     def create(name: String, args: List[String]): PublicationConfig = {
       val parsed = BokArgs.publication(name, args)
       val project = _project(parsed)
@@ -468,9 +318,6 @@ private[cozy] trait CozyBokBuildConfig {
         orElse(config.value("bok.publication")).
         getOrElse("src/main/publication")
       val (warehouse, repository) = _publication_artifact_roots(parsed, config)
-      val explicitforce = parsed.request.switches.exists(_.name == "force")
-      val force = explicitforce ||
-        (name != "publish-media" && _boolean(config, "bok.video.force", false))
       val videoenabled = _boolean(config, "bok.video.enabled", true)
       val dryrun = parsed.request.switches.exists(_.name == "dry-run")
       if (dryrun && name != "publish")
@@ -482,11 +329,9 @@ private[cozy] trait CozyBokBuildConfig {
         warehouse,
         repository,
         parsed.property("version"),
-        force,
         videoenabled,
         dryrun,
-        strategy,
-        explicitforce
+        strategy
       )
     }
   }
@@ -515,27 +360,190 @@ private[cozy] trait CozyBokBuildConfig {
         project,
         name,
         _workflow_command(config, name),
-        env,
-        _workflow_backup_config(project, config, name, env)
+        env
       )
     }
   }
 
-  private def _workflow_backup_config(
-    project: Path,
-    config: CozyProjectYamlConfig.Config,
-    name: String,
-    env: Map[String, String]
-  ): Option[WebsiteBackupConfig] =
-    if (name == "upload" && _boolean(config, "bok.backup.enabled", false)) {
-      val source = project.resolve(env.getOrElse("WEBSITE_SOURCE_DIR", config.value("bok.website").getOrElse("website.d"))).toAbsolutePath.normalize()
-      val root = project.resolve(
-        config.value("bok.backup.dir").
-          orElse(config.value("bok.backup.path")).
-          getOrElse("website.backup")
-      ).toAbsolutePath.normalize()
-      Some(WebsiteBackupConfig(source, root, _boolean(config, "bok.backup.compressed", true)))
-    } else {
-      None
+}
+
+private[cozy] trait CozyBokBuildConfig {
+  self: CozyBokImplementation.type =>
+
+  type BuildConfig = CozyBokBuildConfig.BuildConfig
+  lazy val BuildConfig = CozyBokBuildConfig.BuildConfig
+  type ArcadiaConfig = CozyBokBuildConfig.ArcadiaConfig
+  lazy val ArcadiaConfig = CozyBokBuildConfig.ArcadiaConfig
+  type DirectAssetsConfig = CozyBokBuildConfig.DirectAssetsConfig
+  lazy val DirectAssetsConfig = CozyBokBuildConfig.DirectAssetsConfig
+  type DirectAsset = CozyBokBuildConfig.DirectAsset
+  lazy val DirectAsset = CozyBokBuildConfig.DirectAsset
+  type PublicationSettings = CozyBokBuildConfig.PublicationSettings
+  lazy val PublicationSettings = CozyBokBuildConfig.PublicationSettings
+  type PublicationConfig = CozyBokBuildConfig.PublicationConfig
+  lazy val PublicationConfig = CozyBokBuildConfig.PublicationConfig
+  type WorkflowConfig = CozyBokBuildConfig.WorkflowConfig
+  lazy val WorkflowConfig = CozyBokBuildConfig.WorkflowConfig
+  private[bok] type PublishStep = CozyBokBuildConfig.PublishStep
+  private[bok] lazy val PublishStep = CozyBokBuildConfig.PublishStep
+  private[bok] type BibliographyRdfAlias = CozyBokBuildConfig.BibliographyRdfAlias
+  private[bok] lazy val BibliographyRdfAlias = CozyBokBuildConfig.BibliographyRdfAlias
+  private[bok] type KnowledgeSourceResource = CozyBokBuildConfig.KnowledgeSourceResource
+  private[bok] lazy val KnowledgeSourceResource = CozyBokBuildConfig.KnowledgeSourceResource
+  private[bok] type PublishPreflight = CozyBokBuildConfig.PublishPreflight
+  private[bok] lazy val PublishPreflight = CozyBokBuildConfig.PublishPreflight
+  private[bok] type ParsedArgs = CozyBokBuildConfig.ParsedArgs
+  private[bok] lazy val ParsedArgs = CozyBokBuildConfig.ParsedArgs
+  type SiteConfig = CozyBokBuildConfig.SiteConfig
+  lazy val SiteConfig = CozyBokBuildConfig.SiteConfig
+  import CozyBokBuildConfig._admit_build_config_source
+  import CozyBokBuildConfig._validate_build_config_source_parent
+  import CozyBokBuildConfig._nearest_existing_build_config_path
+  import CozyBokBuildConfig._site_base_uri
+  import CozyBokBuildConfig._workflow_command
+  import CozyBokBuildConfig._workflow_env
+  private[bok] val _default_bok_ui_bundle = "target/cozy-bok/ui-bundle/ui-bundle.zip"
+
+  private[bok] object BokArgs {
+    private val _p_save = spec.Parameter.propertyFileOption("save")
+    private val _p_project = spec.Parameter.argumentFile("project")
+    private val _p_project_property = spec.Parameter.propertyFileOption("project")
+    private val _p_project_dir_property = spec.Parameter.propertyFileOption("project-dir")
+
+    private val _p_no_project_files = spec.Parameter("no-project-files", spec.Parameter.SwitchKind)
+    private val _p_no_scaffold_files = spec.Parameter("no-scaffold-files", spec.Parameter.SwitchKind)
+    private val _p_overwrite_project_files = spec.Parameter("overwrite-project-files", spec.Parameter.SwitchKind)
+    private val _p_force_project_files = spec.Parameter("force-project-files", spec.Parameter.SwitchKind)
+
+    private val _p_article = spec.Parameter(
+      "article",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
+    private val _p_term = spec.Parameter(
+      "term",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
+    private val _p_goal = spec.Parameter(
+      "goal",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
+    private val _p_subgoal = spec.Parameter(
+      "subgoal",
+      spec.Parameter.PropertyKind,
+      spec.XString,
+      spec.Multiplicity.ZeroMore
+    )
+
+    private val _create_request = spec.Request(
+      _p_save,
+      spec.Parameter.property("name"),
+      spec.Parameter.property("url"),
+      spec.Parameter.property("language"),
+      _p_no_project_files,
+      _p_no_scaffold_files,
+      _p_overwrite_project_files,
+      _p_force_project_files
+    )
+
+    private val _category_request = spec.Request(
+      spec.Parameter.argument("name"),
+      _p_project_property,
+      _p_project_dir_property,
+      spec.Parameter.property("title"),
+      spec.Parameter.property("description"),
+      spec.Parameter.property("vision"),
+      _p_goal,
+      _p_subgoal,
+      spec.Parameter.property("kind"),
+      spec.Parameter.propertyInt("order"),
+      _p_article,
+      _p_term,
+      _p_no_project_files,
+      _p_no_scaffold_files,
+      _p_overwrite_project_files,
+      _p_force_project_files
+    )
+
+    private val _build_request = spec.Request(
+      _p_project_property,
+      _p_project_dir_property,
+      spec.Parameter.property("strategy"),
+      spec.Parameter.property("docker-image"),
+      spec.Parameter.property("dashboard-color-group"),
+      spec.Parameter.propertyFileOption("warehouse"),
+      spec.Parameter.propertyFileOption("repository"),
+      spec.Parameter.propertyFileOption("publication"),
+      spec.Parameter.property("rdf-missing-artifact-policy"),
+      spec.Parameter("no-bib-service", spec.Parameter.SwitchKind)
+    )
+
+    private val _publication_request = spec.Request(
+      _p_project,
+      spec.Parameter.propertyFileOption("warehouse"),
+      spec.Parameter.propertyFileOption("repository"),
+      spec.Parameter.propertyFileOption("publication"),
+      spec.Parameter.property("version"),
+      spec.Parameter.property("strategy"),
+      spec.Parameter("dry-run", spec.Parameter.SwitchKind)
+    )
+
+    private val _workflow_request = spec.Request(_p_project)
+    private val _doctor_request = spec.Request(
+      spec.Parameter("fix", spec.Parameter.SwitchKind),
+      spec.Parameter("dry-run", spec.Parameter.SwitchKind)
+    )
+
+    def create(args: List[String]): ParsedArgs = _parse("bok-create", _create_request, args)
+    def category(args: List[String]): ParsedArgs = _parse("bok-create-category", _category_request, args)
+    def build(args: List[String]): ParsedArgs = _parse("bok-build", _build_request, _normalize_optional_project_argument(args))
+    def publication(name: String, args: List[String]): ParsedArgs =
+      ParsedArgs(_publication_request.buildStrict(CliRequest(s"bok-${name}"), args))
+    def workflow(name: String, args: List[String]): ParsedArgs = _parse(s"bok-${name}", _workflow_request, args)
+    def doctor(args: List[String]): ParsedArgs = _parse("bok-doctor", _doctor_request, args)
+
+    private def _parse(name: String, request: spec.Request, args: List[String]): ParsedArgs =
+      ParsedArgs(request.build(CliRequest(name), args))
+
+    private def _normalize_optional_project_argument(args: List[String]): List[String] =
+      args match {
+        case x :: xs if !x.startsWith("--") => "--project" :: x :: xs
+        case _ => args
+      }
+  }
+  private[bok] val _default_preview_port = "8980"
+
+  trait Runner {
+    def run(command: Vector[String], cwd: Path): Unit
+    def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit =
+      run(command, cwd)
+  }
+
+  object ProcessRunner extends Runner {
+    def run(command: Vector[String], cwd: Path): Unit = {
+      val exit = Process(command, cwd.toFile).!
+      if (exit != 0)
+        RAISE.invalidArgumentFault(s"Command failed with exit code ${exit}: ${command.mkString(" ")}")
     }
+    override def run(command: Vector[String], cwd: Path, env: Map[String, String]): Unit = {
+      val exit = Process(command, cwd.toFile, env.toSeq: _*).!
+      if (exit != 0)
+        RAISE.invalidArgumentFault(s"Command failed with exit code ${exit}: ${command.mkString(" ")}")
+    }
+  }
+
+  private[bok] def _site_identifier(value: String): String =
+    value.trim.toLowerCase(Locale.ROOT).
+      replaceAll("[^\\p{L}\\p{N}]+", "-").
+      stripPrefix("-").
+      stripSuffix("-") match {
+        case "" => "bok-site"
+        case x => x
+      }
+
 }

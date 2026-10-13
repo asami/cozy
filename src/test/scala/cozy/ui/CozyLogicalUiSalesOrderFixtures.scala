@@ -7,7 +7,7 @@ import cozy.ui.CozyLogicalUiSelection._
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiSalesOrderFixtures {
@@ -127,7 +127,6 @@ private[cozy] object CozyLogicalUiSalesOrderFixtures {
     val usecases = candidate.input.useCases
     val uiusecase = usecases.ui
     val values = UseCaseScreenProjection(
-      candidate.identity,
       Vector(usecases),
       Vector(
         UiUseCaseStep(uiusecase, "confirm", NormalPath),
@@ -166,7 +165,6 @@ private[cozy] object CozyLogicalUiSalesOrderFixtures {
   def semanticsInput(projection: LogicalUiProjection, reversed: Boolean = false): LogicalUiSemanticsInput = {
     val usecase = projection.input.catalog.head.ui
     val values = LogicalUiSemanticsInput(
-      projection.identity,
       Vector(
         ScreenSemantics(
           "order-list",
@@ -421,7 +419,6 @@ private[cozy] object CozyLogicalUiSalesOrderFixtures {
       OutcomeBinding("operation-failed", failurestep, invoke, feedback, OperationFailedFeedback, FailedInteractionState,
         draft, workflow, retry, "operation-failed-message"))
     val values = ReadinessInput(
-      semantics.identity,
       Vector(ProfileIntent(CompactIntent, NavigateToDetail, false, _regions_(false)),
         ProfileIntent(MediumIntent, NavigateToDetail, true, _regions_(false)),
         ProfileIntent(ExpandedIntent, UpdateDetailRegion, true, _regions_(true))),

@@ -18,7 +18,7 @@ import play.api.libs.json._
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -46,12 +46,6 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
         (json \ "simulated").as[Boolean] shouldBe true
         (json \ "reviewReceipt" \ "binding" \ "decision").get shouldBe JsNull
         val binding = review.receipt.binding
-        Vector(binding.candidateIdentity, binding.consumedInputIdentity, binding.kernelCandidateIdentity,
-          binding.kernelInputIdentity, binding.projectionIdentity, binding.semanticProjectionIdentity).foreach { identity =>
-          preview.html should include (identity)
-          preview.reviewHtml should include (identity)
-          preview.receiptJson should include (identity)
-        }
         Vector("readiness-preview", "order-list-screen", "order-detail-screen", "open-detail", "order-reference",
           "confirmation-option", "confirm-order", "domain-state", "ui-state", "workflow-evidence", "feedback",
           "input-error", "observed-result", "complete-confirmation", "fixture-outcome", "reset-fixture", "replay-fixture",
@@ -73,8 +67,6 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
         "src=\"index.html\"".r.findAllIn(preview.compareHtml).size shouldBe 3
         Vector("390", "834", "1440").foreach(width => preview.compareHtml should include ("width=\"" + width + "\""))
         Vector("844", "1112", "900").foreach(height => preview.compareHtml should include ("height=\"" + height + "\""))
-        preview.compareHtml should include (base.identity)
-        preview.compareHtml should include (base.inputIdentity)
         Then("the emitted candidate comparison remains commit-clean without trailing ASCII space or tab on any line")
         preview.compareHtml.split("\n", -1).foreach { line =>
           line should not endWith (" ")
@@ -90,7 +82,7 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
       "propagate genuine accepted complete attribution through every target surface" in {
         Given("an explicit specification decision from an identified reviewer naming this exact complete candidate")
         val base = _ready
-        val decision = TargetReadyAcceptanceDecision("web-spec-decision", base.identity, "web-spec-reviewer")
+        val decision = TargetReadyAcceptanceDecision("web-spec-decision", "web-spec-reviewer")
         val accepted = _right(CozyLogicalUiReadiness.accept(base, decision))
         val candidate = _right(renderCandidate(base, _scenario))
 
@@ -98,24 +90,17 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
         val preview = _right(renderAccepted(accepted, _scenario))
         val json = _embedded(preview.html)
         val nullerrors = Vector(renderCandidate(null, _scenario), renderAccepted(null, _scenario), renderCandidate(base, null)).map(_left)
-        val mismatch = _left(verifyCandidateCurrent(base, _scenario, preview))
 
         Then("the complete accepted identity and reviewer remain exact while the input is shared with candidate mode")
-        preview.receipt.reviewReceipt.binding shouldBe CompleteBinding(base.identity, base.inputIdentity,
-          base.kernelCandidate.identity, base.kernelCandidate.inputIdentity, base.projection.identity, base.semantics.identity,
-          Some(accepted.identity), Some(decision.decisionIdentity), Some(decision))
+        preview.receipt.reviewReceipt.binding shouldBe CompleteBinding(Some(decision))
         preview.receipt.reviewReceipt.sourceInputs shouldBe candidate.receipt.reviewReceipt.sourceInputs
         (json \ "reviewReceipt" \ "binding" \ "decision" \ "reviewerId").as[String] shouldBe decision.reviewerId
         Vector(preview.html, preview.reviewHtml, preview.compareHtml, preview.receiptJson, preview.reviewReceiptJson).foreach { surface =>
-          surface should include (accepted.identity)
-          surface should include (decision.decisionIdentity)
           surface should include (decision.decisionId)
           surface should include (decision.reviewerId)
         }
         nullerrors.map(_.path) shouldBe Vector("completeCandidate", "accepted", "scenario")
         nullerrors.map(_.code).distinct shouldBe Vector("LUI501_WEB_CONTRACT_INVALID")
-        mismatch.code shouldBe "LUI501_WEB_CURRENTNESS_INVALID"
-        verifyAcceptedCurrent(accepted, _scenario, preview) shouldBe Right(())
       }
 
       "retain all seven exact source outcome and recovery declarations across all three admitted profiles" in {
@@ -246,8 +231,7 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
           val current = _right(renderCandidate(ready, scenario))
           current.html == baseline.html && current.reviewHtml == baseline.reviewHtml && current.compareHtml == baseline.compareHtml &&
             current.receipt == baseline.receipt && current.receiptJson == baseline.receiptJson &&
-            current.reviewReceiptJson == baseline.reviewReceiptJson && current.diagnostics == baseline.diagnostics &&
-            verifyCandidateCurrent(ready, scenario, baseline) == Right(())
+            current.reviewReceiptJson == baseline.reviewReceiptJson && current.diagnostics == baseline.diagnostics
         }
 
         When("ScalaCheck constructs at least 30 independent complete target permutations")
@@ -258,61 +242,7 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
         result.succeeded should be >= 30
       }
 
-      "invalidate prior targets for input, label, rule, profile, outcome, source, scenario and decision revisions" in {
-        Given("the same kernel and fixture names with a complete candidate bundle and attributed accepted bundle")
-        val base = _ready
-        val scenario = _scenario
-        val preview = _right(renderCandidate(base, scenario))
-        val variants = Vector(
-          base.input.copy(fields = Vector(base.input.fields.head.copy(initialValue = "SO-002"))),
-          base.input.copy(textSources = base.input.textSources.map(text => text.copy(defaultText = text.defaultText + " revised"))),
-          base.input.copy(fields = Vector(base.input.fields.head.copy(localRules = base.input.fields.head.localRules.map(rule =>
-            if (rule.ruleKind == AsciiIdentifierRule) rule.copy(messageTextId = "required-message") else rule)))),
-          base.input.copy(profiles = base.input.profiles.map(profile => if (profile.windowClass == MediumIntent) profile.copy(persistentNavigation = false) else profile)),
-          base.input.copy(outcomes = base.input.outcomes.map(outcome => if (outcome.feedbackState == ConflictFeedback) outcome.copy(recoveries = Vector.empty) else outcome)),
-          base.input.copy(textSources = base.input.textSources.map(text => text.copy(sourceIdentity = text.sourceIdentity + ":revision"))))
-        val revised = variants.map(input => _admit(base, input))
-        val recordscenario = scenario.copy(normal = scenario.normal.copy(initialOrder = scenario.normal.initialOrder.copy(amount = "200.00"),
-          successfulOrder = scenario.normal.successfulOrder.copy(amount = "200.00")))
-        val coveragescenario = scenario.copy(coverage = scenario.coverage.map(value => value.copy(coverageId = value.coverageId + "-revised")),
-          normal = scenario.normal.copy(coverageId = scenario.normal.coverageId + "-revised"))
-        val decision = TargetReadyAcceptanceDecision("decision", base.identity, "first-reviewer")
-        val accepted = _right(CozyLogicalUiReadiness.accept(base, decision))
-        val acceptedpreview = _right(renderAccepted(accepted, scenario))
-        val another = _right(CozyLogicalUiReadiness.accept(base, decision.copy(reviewerId = "second-reviewer")))
 
-        When("complete currentness recomposes every declared revision")
-        val errors = (revised.map(candidate => verifyCandidateCurrent(candidate, scenario, preview)) ++
-          Vector(verifyCandidateCurrent(base, recordscenario, preview), verifyCandidateCurrent(base, coveragescenario, preview),
-            verifyAcceptedCurrent(another, scenario, acceptedpreview))).map(_left)
-
-        Then("all old target observables are rejected, including driver-incompatible revisions, without relying on fixture names")
-        revised.map(_.kernelCandidate.identity).distinct shouldBe Vector(base.kernelCandidate.identity)
-        recordscenario.normal.fixtureId shouldBe scenario.normal.fixtureId
-        errors.map(_.code).distinct shouldBe Vector("LUI501_WEB_CURRENTNESS_INVALID")
-        errors(3).path shouldBe "input.profiles"
-        errors.filterNot(_.path == "input.profiles").map(_.path).distinct shouldBe Vector("preview.html")
-      }
-
-      "reject every separately changed Web observable and null preview" in {
-        Given("a complete current bundle and copies changing each observable independently")
-        val base = _ready
-        val preview = _right(renderCandidate(base, _scenario))
-        val variants = Vector(preview.copy(html = "stale") -> "preview.html",
-          preview.copy(reviewHtml = "stale") -> "preview.reviewHtml", preview.copy(compareHtml = "stale") -> "preview.compareHtml",
-          preview.copy(receipt = preview.receipt.copy(simulated = false)) -> "preview.receipt",
-          preview.copy(receiptJson = "{}") -> "preview.receiptJson", preview.copy(reviewReceiptJson = "{}") -> "preview.reviewReceiptJson",
-          preview.copy(diagnostics = Vector(ReviewDiagnostic("changed", "source", "stale"))) -> "preview.diagnostics",
-          (null: ReadinessWebPreview) -> "preview")
-
-        When("currentness rerenders the supplied complete authoritative values")
-        val errors = variants.map { case (value, _) => _left(verifyCandidateCurrent(base, _scenario, value)) }
-
-        Then("each exact stale observable is reported and the original copy remains current")
-        errors.map(_.path) shouldBe variants.map(_._2)
-        errors.map(_.code).distinct shouldBe Vector("LUI501_WEB_CURRENTNESS_INVALID")
-        verifyCandidateCurrent(base, _scenario, preview.copy()) shouldBe Right(())
-      }
 
       "round-trip script-breaking, Unicode, control and quote source text through a complete inert payload" in {
         Given("opaque source labels, attribution, field text and record text containing executable-looking markup")
@@ -398,7 +328,7 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
         }
       }
 
-      "reject null or stale previews and invalid parents before mutating any existing output" in {
+      "reject null previews and invalid parents before mutating any existing output" in {
         Given("fresh owned output sentinels and null, relative, missing, shared, traversing and symlink-crossing parents")
         _with_dirs { (site, evidence, owned) =>
           val preview = _right(renderCandidate(_ready, _scenario))
@@ -408,7 +338,6 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
           Files.createSymbolicLink(link, site)
           val variants = Vector(
             ((null: ReadinessWebPreview), site, evidence, "preview"),
-            (preview.copy(reviewReceiptJson = "{}"), site, evidence, "preview.reviewReceiptJson"),
             (preview, (null: Path), evidence, "output.siteParent"),
             (preview, site, (null: Path), "output.receiptParent"),
             (preview, Paths.get("target"), evidence, "output.siteParent"),
@@ -423,8 +352,8 @@ final class CozyLogicalUiReadinessWebSpec extends AnyWordSpec with Matchers with
 
           Then("structured errors name the failing boundary and preserve all prior destination bytes")
           errors.map(_.path) shouldBe variants.map(_._4)
-          errors.take(2).map(_.code).distinct shouldBe Vector("LUI501_WEB_CURRENTNESS_INVALID")
-          errors.drop(2).map(_.code).distinct shouldBe Vector("LUI501_WEB_OUTPUT_INVALID")
+          errors.take(1).map(_.code).distinct shouldBe Vector("LUI501_WEB_CONTRACT_INVALID")
+          errors.drop(1).map(_.code).distinct shouldBe Vector("LUI501_WEB_OUTPUT_INVALID")
           targets.map(_content).distinct shouldBe Vector("sentinel")
           _names(site) shouldBe Set("index.html", "review.html", "compare.html")
           _names(evidence) shouldBe Set("readiness-review-receipt.json", "readiness-web-receipt.json")

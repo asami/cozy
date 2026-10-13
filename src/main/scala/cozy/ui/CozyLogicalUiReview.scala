@@ -2,64 +2,30 @@ package cozy.ui
 
 import java.io.IOException
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardCopyOption, StandardOpenOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
 
 import cozy.ui.CozyLogicalUi._
 import cozy.ui.CozyLogicalUiSemantics._
 
 /*
  * @since   Sep. 1, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiReview {
   final case class ReviewDiagnostic(code: String, path: String, reason: String)
 
-  final case class ReviewReceipt(
-    schema: String,
-    version: Int,
-    rendererProfile: String,
-    acceptedIdentity: String,
-    candidateIdentity: String,
-    consumedInputIdentity: String,
-    useCaseIdentity: String,
-    catalogIdentity: String,
-    projectionIdentity: String,
-    semanticProjectionIdentity: String,
-    htmlIdentity: String,
-    identity: String
-  ) {
-    def receiptIdentity: String = identity
-    def htmlSha256: String = htmlIdentity
-  }
-
   final class LogicalUiReview private[CozyLogicalUiReview] (
     val html: String,
-    val receipt: ReviewReceipt,
-    val diagnostics: Vector[ReviewDiagnostic],
-    private[CozyLogicalUiReview] val _accepted: AcceptedLogicalUi,
-    private[CozyLogicalUiReview] val _projection: LogicalUiProjection,
-    private[CozyLogicalUiReview] val _semantics: LogicalUiSemanticProjection
+    val diagnostics: Vector[ReviewDiagnostic]
   ) {
     def htmlBytes: Vector[Byte] = html.getBytes(StandardCharsets.UTF_8).toVector
-    def htmlIdentity: String = receipt.htmlIdentity
-    def receiptIdentity: String = receipt.identity
-    def copy(
-      html: String = this.html,
-      receipt: ReviewReceipt = this.receipt,
-      diagnostics: Vector[ReviewDiagnostic] = this.diagnostics
-    ): LogicalUiReview = new LogicalUiReview(html, receipt, diagnostics, _accepted, _projection, _semantics)
   }
 
   final case class CandidateReviewReceipt(
     schema: String,
     version: Int,
-    rendererProfile: String,
-    candidateIdentity: String,
-    consumedInputIdentity: String,
-    projectionIdentity: String,
-    semanticProjectionIdentity: String
+    rendererProfile: String
   )
 
   final class LogicalUiCandidateReview private[CozyLogicalUiReview] (
@@ -93,13 +59,12 @@ private[cozy] object CozyLogicalUiReview {
     projection: LogicalUiProjection,
     semantics: LogicalUiSemanticProjection
   ): Either[LogicalUiError, LogicalUiReview] = {
-    _identity_error(accepted, projection, semantics) match {
+    _input_error(accepted, projection, semantics) match {
       case Some(error) => Left(error)
       case None =>
         val diagnostics = _diagnostics(projection, semantics)
-        val html = _html(accepted.candidate, projection, semantics, diagnostics, _overview_html(accepted, projection, semantics))
-        val receipt = _receipt(accepted, projection, semantics, _sha256_bytes(html))
-        Right(new LogicalUiReview(html, receipt, diagnostics, accepted, projection, semantics))
+        val html = _html(accepted.candidate, projection, semantics, diagnostics, _overview_html(accepted))
+        Right(new LogicalUiReview(html, diagnostics))
     }
   }
 
@@ -108,37 +73,13 @@ private[cozy] object CozyLogicalUiReview {
     projection: LogicalUiProjection,
     semantics: LogicalUiSemanticProjection
   ): Either[LogicalUiError, LogicalUiCandidateReview] = {
-    _candidate_identity_error(candidate, projection, semantics) match {
+    _candidate_input_error(candidate, projection, semantics) match {
       case Some(error) => Left(error)
       case None =>
         val diagnostics = _diagnostics(projection, semantics)
         val html = _html(candidate, projection, semantics, diagnostics, _candidate_overview_html(candidate, projection, semantics))
-        val receipt = CandidateReviewReceipt(_candidate_schema, _version, _candidate_renderer_profile,
-          candidate.identity, candidate.inputIdentity, projection.identity, semantics.identity)
+        val receipt = CandidateReviewReceipt(_candidate_schema, _version, _candidate_renderer_profile)
         Right(new LogicalUiCandidateReview(html, receipt, diagnostics, candidate, projection, semantics))
-    }
-  }
-
-  def verifyCandidateCurrent(
-    candidate: LogicalUiCandidate,
-    projection: LogicalUiProjection,
-    semantics: LogicalUiSemanticProjection,
-    reviewValue: LogicalUiCandidateReview
-  ): Either[LogicalUiError, Unit] = {
-    if (reviewValue == null)
-      Left(_candidate_currentness_error("review", "a LogicalUiCandidateReview is required"))
-    else {
-      renderCandidate(candidate, projection, semantics) match {
-        case Left(error) => Left(_candidate_currentness_error(error.path, error.reason))
-        case Right(current) =>
-          if (current.html != reviewValue.html)
-            Left(_candidate_currentness_error("review.html", "candidate review HTML bytes are stale"))
-          else if (current.receipt != reviewValue.receipt)
-            Left(_candidate_currentness_error("review.receipt", "candidate review receipt fields are stale"))
-          else if (current.diagnostics != reviewValue.diagnostics)
-            Left(_candidate_currentness_error("review.diagnostics", "candidate review diagnostics are stale"))
-          else Right(())
-      }
     }
   }
 
@@ -148,13 +89,9 @@ private[cozy] object CozyLogicalUiReview {
     target: Path
   ): Either[LogicalUiError, Unit] = {
     if (reviewValue == null)
-      Left(_candidate_currentness_error("review", "a LogicalUiCandidateReview is required"))
-    else {
-      verifyCandidateCurrent(reviewValue._candidate, reviewValue._projection, reviewValue._semantics, reviewValue) match {
-        case Left(error) => Left(error)
-        case Right(_) => _write_current(reviewValue.html, parent, target)
-      }
-    }
+      Left(_candidate_input_error_value("review", "a LogicalUiCandidateReview is required"))
+    else
+      _write_html(reviewValue.html, parent, target)
   }
 
   def review(
@@ -163,48 +100,15 @@ private[cozy] object CozyLogicalUiReview {
     semantics: LogicalUiSemanticProjection
   ): Either[LogicalUiError, LogicalUiReview] = render(accepted, projection, semantics)
 
-  def verifyCurrent(
-    accepted: AcceptedLogicalUi,
-    projection: LogicalUiProjection,
-    semantics: LogicalUiSemanticProjection,
-    reviewValue: LogicalUiReview
-  ): Either[LogicalUiError, Unit] = {
-    if (reviewValue == null)
-      Left(_currentness_error("review", "a LogicalUiReview is required"))
-    else
-      render(accepted, projection, semantics) match {
-        case Left(_) => Left(_currentness_error("review.inputs", "review input identities are no longer valid"))
-        case Right(current) =>
-          if (current.html != reviewValue.html)
-            Left(_currentness_error("review.html", "review HTML bytes are stale"))
-          else if (current.receipt != reviewValue.receipt)
-            Left(_currentness_error("review.receipt", "review receipt fields or identity are stale"))
-          else if (current.diagnostics != reviewValue.diagnostics)
-            Left(_currentness_error("review.diagnostics", "review diagnostics are stale"))
-          else Right(())
-      }
-  }
-
-  def verifyCurrent(
-    reviewValue: LogicalUiReview,
-    accepted: AcceptedLogicalUi,
-    projection: LogicalUiProjection,
-    semantics: LogicalUiSemanticProjection
-  ): Either[LogicalUiError, Unit] = verifyCurrent(accepted, projection, semantics, reviewValue)
-
   def write(
     reviewValue: LogicalUiReview,
     parent: Path,
     target: Path
   ): Either[LogicalUiError, Unit] = {
     if (reviewValue == null)
-      Left(_currentness_error("review", "a LogicalUiReview is required"))
-    else {
-      verifyCurrent(reviewValue._accepted, reviewValue._projection, reviewValue._semantics, reviewValue) match {
-        case Left(error) => Left(error)
-        case Right(_) => _write_current(reviewValue.html, parent, target)
-      }
-    }
+      Left(_input_error_value("review", "a LogicalUiReview is required"))
+    else
+      _write_html(reviewValue.html, parent, target)
   }
 
   def write(
@@ -220,7 +124,7 @@ private[cozy] object CozyLogicalUiReview {
     }
   }
 
-  private def _write_current(
+  private def _write_html(
     html: String,
     parent: Path,
     target: Path
@@ -228,29 +132,22 @@ private[cozy] object CozyLogicalUiReview {
     _output_error(parent, target) match {
       case Some(error) => Left(error)
       case None =>
-        var temporary: Option[Path] = None
         try {
-          val created = Files.createTempFile(parent, ".cozy-logical-ui-review-", ".tmp")
-          temporary = Some(created)
           Files.write(
-            created,
+            target,
             html.getBytes(StandardCharsets.UTF_8),
+            StandardOpenOption.CREATE,
             StandardOpenOption.WRITE,
             StandardOpenOption.TRUNCATE_EXISTING
           )
-          Files.move(created, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-          temporary = None
           Right(())
         } catch {
           case error: IOException =>
-            temporary.foreach(_delete_temporary)
-            Left(_output_error_value("output", s"atomic HTML write failed: ${error.getMessage}"))
-          case error: SecurityException =>
-            temporary.foreach(_delete_temporary)
-            Left(_output_error_value("output", "atomic HTML write was denied"))
+            Left(_output_error_value("output", s"HTML write failed: ${error.getMessage}"))
+          case _: SecurityException =>
+            Left(_output_error_value("output", "HTML write was denied"))
           case error: RuntimeException =>
-            temporary.foreach(_delete_temporary)
-            Left(_output_error_value("output", s"atomic HTML write failed: ${error.getMessage}"))
+            Left(_output_error_value("output", s"HTML write failed: ${error.getMessage}"))
         }
     }
   }
@@ -300,70 +197,39 @@ private[cozy] object CozyLogicalUiReview {
     false
   }
 
-  private def _delete_temporary(path: Path): Unit = {
-    try Files.deleteIfExists(path) catch {
-      case _: IOException => ()
-      case _: SecurityException => ()
-    }
-  }
-
-  private def _identity_error(
+  private def _input_error(
     accepted: AcceptedLogicalUi,
     projection: LogicalUiProjection,
     semantics: LogicalUiSemanticProjection
   ): Option[LogicalUiError] = {
     if (accepted == null)
-      Some(_identity_error_value("accepted", "accepted Logical UI authority is required"))
+      Some(_input_error_value("accepted", "accepted Logical UI is required"))
     else if (projection == null)
-      Some(_identity_error_value("projection", "Logical UI screen projection is required"))
+      Some(_input_error_value("projection", "Logical UI screen projection is required"))
     else if (semantics == null)
-      Some(_identity_error_value("semantics", "Logical UI semantic projection is required"))
-    else if (accepted.candidate == null || projection.candidate == null)
-      Some(_identity_error_value("candidate", "accepted and projected candidates are required"))
-    else if (accepted.candidate.identity != projection.candidate.identity ||
-      accepted.candidate.inputIdentity != projection.candidate.inputIdentity ||
-      accepted.candidate.canonicalContent != projection.candidate.canonicalContent)
-      Some(_identity_error_value("candidate", "accepted candidate and projection candidate identities must be exact"))
-    else if (accepted.decision == null || accepted.decision.candidateIdentity != accepted.candidate.identity)
-      Some(_identity_error_value("accepted.decision", "acceptance decision must bind the exact candidate identity"))
-    else if (_empty(accepted.identity) || _empty(accepted.candidate.identity) || _empty(accepted.candidate.inputIdentity))
-      Some(_identity_error_value("accepted.identity", "accepted, candidate, and consumed-input identities must be present"))
-    else if (semantics.projectionIdentity != projection.identity)
-      Some(_identity_error_value("semantics.projectionIdentity", "semantic projection must bind the exact screen projection identity"))
-    else if (_empty(projection.identity) || _empty(semantics.identity))
-      Some(_identity_error_value("projection.identity", "projection and semantic identities must be present"))
+      Some(_input_error_value("semantics", "Logical UI semantic projection is required"))
+    else if (accepted.candidate == null)
+      Some(_input_error_value("accepted.candidate", "accepted candidate is required"))
+    else if (projection.candidate == null)
+      Some(_input_error_value("projection.candidate", "projected candidate is required"))
+    else if (accepted.decision == null)
+      Some(_input_error_value("accepted.decision", "explicit acceptance decision is required"))
     else None
   }
 
-  private def _candidate_identity_error(
+  private def _candidate_input_error(
     candidate: LogicalUiCandidate,
     projection: LogicalUiProjection,
     semantics: LogicalUiSemanticProjection
   ): Option[LogicalUiError] = {
     if (candidate == null)
-      Some(_candidate_identity_error_value("candidate", "a Logical UI candidate is required"))
+      Some(_candidate_input_error_value("candidate", "a Logical UI candidate is required"))
     else if (projection == null)
-      Some(_candidate_identity_error_value("projection", "Logical UI screen projection is required"))
+      Some(_candidate_input_error_value("projection", "Logical UI screen projection is required"))
     else if (semantics == null)
-      Some(_candidate_identity_error_value("semantics", "Logical UI semantic projection is required"))
+      Some(_candidate_input_error_value("semantics", "Logical UI semantic projection is required"))
     else if (projection.candidate == null)
-      Some(_candidate_identity_error_value("projection.candidate", "a projected candidate is required"))
-    else if (_empty(candidate.identity))
-      Some(_candidate_identity_error_value("candidate.identity", "candidate identity must be canonical and nonempty"))
-    else if (_empty(candidate.inputIdentity))
-      Some(_candidate_identity_error_value("candidate.inputIdentity", "consumed-input identity must be canonical and nonempty"))
-    else if (candidate.identity != projection.candidate.identity)
-      Some(_candidate_identity_error_value("projection.candidate.identity", "projected candidate identity must equal the supplied candidate identity"))
-    else if (candidate.inputIdentity != projection.candidate.inputIdentity)
-      Some(_candidate_identity_error_value("projection.candidate.inputIdentity", "projected consumed-input identity must equal the supplied candidate input identity"))
-    else if (candidate.canonicalContent != projection.candidate.canonicalContent)
-      Some(_candidate_identity_error_value("projection.candidate.canonicalContent", "projected candidate canonical content must equal the supplied candidate content"))
-    else if (_empty(projection.identity))
-      Some(_candidate_identity_error_value("projection.identity", "projection identity must be canonical and nonempty"))
-    else if (_empty(semantics.identity))
-      Some(_candidate_identity_error_value("semantics.identity", "semantic identity must be canonical and nonempty"))
-    else if (semantics.projectionIdentity != projection.identity)
-      Some(_candidate_identity_error_value("semantics.projectionIdentity", "semantic projection must bind the exact screen projection identity"))
+      Some(_candidate_input_error_value("projection.candidate", "a projected candidate is required"))
     else None
   }
 
@@ -465,26 +331,12 @@ private[cozy] object CozyLogicalUiReview {
     parts.mkString
   }
 
-  private def _overview_html(
-    accepted: AcceptedLogicalUi,
-    projection: LogicalUiProjection,
-    semantics: LogicalUiSemanticProjection
-  ): String = {
-    val candidate = accepted.candidate
-    val usecaseidentity = _use_case_identity(candidate.input.useCases)
-    val catalogidentity = _catalog_identity(projection.input.catalog)
+  private def _overview_html(accepted: AcceptedLogicalUi): String =
     s"""<section aria-labelledby="overview"><h2 id="overview">Overview</h2><dl>""" +
       _definition("Schema", _schema) +
       _definition("Renderer profile", _renderer_profile) +
-      _definition("Accepted identity", _escape(accepted.identity)) +
-      _definition("Candidate identity", _escape(candidate.identity)) +
-      _definition("Consumed input identity", _escape(candidate.inputIdentity)) +
-      _definition("UseCase identity", _escape(usecaseidentity)) +
-      _definition("Catalog identity", _escape(catalogidentity)) +
-      _definition("Projection identity", _escape(projection.identity)) +
-      _definition("Semantic projection identity", _escape(semantics.identity)) +
+      _definition("Acceptance decision ID", _escape(accepted.decision.decisionId)) +
       "</dl></section>"
-  }
 
   private def _candidate_overview_html(
     candidate: LogicalUiCandidate,
@@ -495,10 +347,6 @@ private[cozy] object CozyLogicalUiReview {
       _definition("Status", _escape("candidate (not accepted)")) +
       _definition("Schema", _escape(_candidate_schema)) +
       _definition("Renderer profile", _escape(_candidate_renderer_profile)) +
-      _definition("Candidate identity", _escape(candidate.identity)) +
-      _definition("Consumed input identity", _escape(candidate.inputIdentity)) +
-      _definition("Projection identity", _escape(projection.identity)) +
-      _definition("Semantic projection identity", _escape(semantics.identity)) +
       "</dl></section>"
   }
 
@@ -592,83 +440,12 @@ private[cozy] object CozyLogicalUiReview {
     "<section aria-labelledby=\"diagnostics\"><h2 id=\"diagnostics\">Review diagnostics</h2>" + content + "</section>"
   }
 
-  private def _receipt(
-    accepted: AcceptedLogicalUi,
-    projection: LogicalUiProjection,
-    semantics: LogicalUiSemanticProjection,
-    htmlidentity: String
-  ): ReviewReceipt = {
-    val candidate = accepted.candidate
-    val usecaseidentity = _use_case_identity(candidate.input.useCases)
-    val catalogidentity = _catalog_identity(projection.input.catalog)
-    val values = ReviewReceipt(_schema, _version, _renderer_profile, accepted.identity, candidate.identity, candidate.inputIdentity, usecaseidentity, catalogidentity, projection.identity, semantics.identity, htmlidentity, "")
-    values.copy(identity = _sha256(_receipt_content(values)))
-  }
-
-  private def _receipt_content(value: ReviewReceipt): String =
-    Vector(
-      "schema=" + value.schema,
-      "version=" + value.version,
-      "rendererProfile=" + value.rendererProfile,
-      "acceptedIdentity=" + value.acceptedIdentity,
-      "candidateIdentity=" + value.candidateIdentity,
-      "consumedInputIdentity=" + value.consumedInputIdentity,
-      "useCaseIdentity=" + value.useCaseIdentity,
-      "catalogIdentity=" + value.catalogIdentity,
-      "projectionIdentity=" + value.projectionIdentity,
-      "semanticProjectionIdentity=" + value.semanticProjectionIdentity,
-      "htmlIdentity=" + value.htmlIdentity
-    ).mkString("{", ",", "}")
-
-  private def _use_case_identity(value: UseCaseLayers): String = _sha256(_use_case_json(value))
-
-  private def _catalog_identity(values: Vector[UseCaseLayers]): String = _sha256(_json_array(values.sortBy(_use_case_key).map(_use_case_json)))
-
-  private def _use_case_key(value: UseCaseLayers): (String, String, String) = (value.business.id, value.system.id, value.ui.id)
-
-  private def _use_case_json(value: UseCaseLayers): String = {
-    val realizations = value.realizations.sortBy(item => (item.source.layer.id, item.source.id, item.target.layer.id, item.target.id)).map { item =>
-      _json_object(Vector(
-        "source" -> _reference_json(item.source),
-        "target" -> _reference_json(item.target)
-      ))
-    }
-    _json_object(Vector(
-      "business" -> _reference_json(value.business),
-      "system" -> _reference_json(value.system),
-      "ui" -> _reference_json(value.ui),
-      "realizations" -> _json_array(realizations)
-    ))
-  }
-
   private def _reference_html(value: UseCaseReference): String = s"<code>${_escape(value.layer.id)}:${_escape(value.id)}</code>"
-  private def _reference_json(value: UseCaseReference): String = _json_object(Vector(
-    "layer" -> _json_string(value.layer.id),
-    "id" -> _json_string(value.id)
-  ))
-  private def _json_object(fields: Vector[(String, String)]): String = fields.map { case (name, value) => s"${_json_string(name)}:$value" }.mkString("{", ",", "}")
-  private def _json_array(values: Vector[String]): String = values.mkString("[", ",", "]")
-  private def _json_string(value: String): String = {
-    val escaped = value.flatMap {
-      case '"' => "\\\""
-      case '\\' => "\\\\"
-      case '\b' => "\\b"
-      case '\f' => "\\f"
-      case '\n' => "\\n"
-      case '\r' => "\\r"
-      case '\t' => "\\t"
-      case character if character < ' ' => f"\\u${character.toInt}%04x"
-      case character => character.toString
-    }
-    "\"" + escaped + "\""
-  }
   private def _binding_html(value: ComponentBinding): String = s"<code>${_escape(value.component.canonicalIdentity)}#${_escape(value.exportId)}</code>"
   private def _definition(name: String, value: String): String = s"<dt>${_escape(name)}</dt><dd>$value</dd>"
 
-  private def _currentness_error(path: String, reason: String): LogicalUiError = _output_error_value(path, reason, "LUI43_REVIEW_CURRENTNESS_INVALID")
-  private def _candidate_currentness_error(path: String, reason: String): LogicalUiError = _output_error_value(path, reason, "LUI50_CANDIDATE_REVIEW_CURRENTNESS_INVALID")
-  private def _candidate_identity_error_value(path: String, reason: String): LogicalUiError = _output_error_value(path, reason, "LUI50_CANDIDATE_REVIEW_IDENTITY_MISMATCH")
-  private def _identity_error_value(path: String, reason: String): LogicalUiError = _output_error_value(path, reason, "LUI43_REVIEW_IDENTITY_MISMATCH")
+  private def _input_error_value(path: String, reason: String): LogicalUiError = _output_error_value(path, reason, "LUI43_REVIEW_INPUT_INVALID")
+  private def _candidate_input_error_value(path: String, reason: String): LogicalUiError = _output_error_value(path, reason, "LUI50_CANDIDATE_REVIEW_INPUT_INVALID")
   private def _output_error_value(path: String, reason: String, code: String = "LUI43_REVIEW_OUTPUT_INVALID"): LogicalUiError = LogicalUiError(code, path, reason)
 
   private def _empty(value: String): Boolean = value == null || value.isEmpty || value != value.trim
@@ -685,8 +462,4 @@ private[cozy] object CozyLogicalUiReview {
     case character => character.toString
   }
 
-  private def _sha256(value: String): String = _sha256_bytes(value).toString
-
-  private def _sha256_bytes(value: String): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)).map(byte => f"${byte & 0xff}%02x").mkString
 }

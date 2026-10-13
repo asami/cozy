@@ -4,7 +4,7 @@ import org.goldenport.RAISE
 
 /*
  * @since   Sep. 28, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 sealed trait ModelGenerationTarget
@@ -111,7 +111,6 @@ object ModelGenerationTarget {
     Vector(
       "cncf-version",
       "cncf-runtime-descriptor",
-      "cncf-runtime-descriptor-sha256",
       "cncf-collaborator-api-version"
     ).find(name => _values(args, name).nonEmpty).foreach { name =>
       RAISE.invalidArgumentFault(

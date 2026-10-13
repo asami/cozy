@@ -4,7 +4,6 @@ import java.io.IOException
 import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch}
 import scala.collection.JavaConverters._
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
@@ -15,7 +14,8 @@ import play.api.libs.json.{JsArray, JsNull, JsObject, JsString, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -44,6 +44,7 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
           val beta = Json.obj("kind" -> "beta", "values" -> Json.arr(2, 1))
           _write_bundle(root, "zeta", Vector(_entry("metadata/z.json", beta)))
           _write_bundle(root, "alpha", Vector(_entry("metadata/a.json", alpha)))
+          _write_bundle(root, "middle", Vector.empty)
 
           When("the registry loads the exact configured root")
           val snapshot = CozyArticleMediaRegistry.load(root)
@@ -53,6 +54,7 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
             ("alpha", "metadata/a.json", "a"),
             ("zeta", "metadata/z.json", "z")
           )
+          snapshot.bundleNames shouldBe Vector("alpha", "middle", "zeta")
           snapshot.entries.head.metadata shouldBe alpha
           snapshot.entries(1).metadata shouldBe beta
         }
@@ -459,23 +461,6 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         }
       }
 
-      "reject a stale expected configured snapshot without rewriting the bundle" in {
-        Given("a configured target bundle whose bytes change after a digest snapshot")
-        _with_root { root =>
-          _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 1))))
-          val stale = CozyArticleMediaRegistry.load(root).bundleDigests("publication")
-          _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 2))))
-          val before = _bundle_bytes(root.resolve("publication.json"))
-
-          When("article media is upserted against the stale expected digest")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.upsert(root, "publication", _strict(), Vector.empty, Map("publication" -> stale)))
-
-          Then("the stale configured snapshot is rejected before mutation")
-          error.getMessage should include("stale configured snapshot")
-          _bundle_bytes(root.resolve("publication.json")) shouldBe before
-        }
-      }
-
       "reject missing or mismatched configured bundle names" in {
         Given("a configured bundle whose declaration differs from the requested name")
         _with_root { root =>
@@ -708,62 +693,6 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         propertyresult.passed shouldBe true
       }
 
-      "reject a changed non-target bundle from the complete expected snapshot without changing target bytes" in {
-        Given("target A, video provenance bundle B, and an expected complete configured snapshot")
-        _with_root { root =>
-          _write_bundle(root, "alpha", Vector.empty)
-          _write_bundle(root, "beta", Vector(_entry("metadata/video/evidence.json", Json.obj("revision" -> 1))))
-          val expected = CozyArticleMediaRegistry.load(root).bundleDigests
-          _write_bundle(root, "beta", Vector(_entry("metadata/video/evidence.json", Json.obj("revision" -> 2))))
-          val before = _bundle_bytes(root.resolve("alpha.json"))
-
-          When("the target registration retains the stale two-bundle provenance snapshot")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.upsert(root, "alpha", _strict(), Vector.empty, expected))
-
-          Then("the changed evidence bundle aborts the target mutation byte-identically")
-          error.getMessage should include("stale configured snapshot")
-          _bundle_bytes(root.resolve("alpha.json")) shouldBe before
-        }
-      }
-
-      "serialize generic metadata registrations across real-root aliases and preserve both updates" in {
-        Given("a direct bundle, a real root, and a safe symbolic-link alias to that root")
-        _with_root { root =>
-          _write_bundle(root, "publication", Vector.empty)
-          val alias = root.resolveSibling(root.getFileName.toString + "-alias")
-          try Files.createSymbolicLink(alias, root)
-          catch {
-            case _: UnsupportedOperationException | _: SecurityException | _: IOException => cancel("The platform cannot create symbolic links for this specification")
-          }
-          try {
-            val ready = new CountDownLatch(2)
-            val start = new CountDownLatch(1)
-            val failures = new ConcurrentLinkedQueue[Throwable]()
-            val first = new Thread(new Runnable {
-              override def run(): Unit = _concurrent_register(root, "metadata/concurrent/real.json", ready, start, failures)
-            })
-            val second = new Thread(new Runnable {
-              override def run(): Unit = _concurrent_register(alias, "metadata/concurrent/alias.json", ready, start, failures)
-            })
-
-            When("both generic registrations begin from distinct lexical roots at one barrier")
-            first.start()
-            second.start()
-            ready.await()
-            start.countDown()
-            first.join()
-            second.join()
-            val snapshot = CozyArticleMediaRegistry.load(root)
-
-            Then("the real-root registry lock merges both updates without failure")
-            failures.isEmpty shouldBe true
-            snapshot.entries.map(_.path) shouldBe Vector("metadata/concurrent/alias.json", "metadata/concurrent/real.json")
-          } finally {
-            Files.deleteIfExists(alias)
-          }
-        }
-      }
-
       "reject generic registration when entries are missing without mutation" in {
         Given("an existing direct bundle whose entries field is missing")
         _with_root { root =>
@@ -779,15 +708,11 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
 
           When("generic registration loads the malformed existing bundle")
           val error = intercept[IllegalArgumentException](CozyPublicationCompiler.registerMetadata(root, "publication", Vector("metadata/registered.json" -> Json.obj("registered" -> true))))
-          val temporaries = _direct_names(root).filter(name => name.startsWith("publication.json.") && name.endsWith(".tmp"))
-          val siblingnames = _direct_names(root).filterNot(name => name == "publication.json" || name == ".cozy-publication-registry.lock")
 
-          Then("missing entries are rejected before any target or temporary sibling is written")
+          Then("missing entries are rejected before the target is written")
           error.getMessage should include("Invalid publication bundle entries")
           _bundle_bytes(root.resolve("publication.json")) shouldBe before
           Files.exists(root.resolve("publication.json.json")) shouldBe false
-          temporaries shouldBe empty
-          siblingnames shouldBe empty
         }
       }
 
@@ -807,19 +732,15 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
 
           When("generic registration loads the malformed existing bundle")
           val error = intercept[IllegalArgumentException](CozyPublicationCompiler.registerMetadata(root, "publication", Vector("metadata/registered.json" -> Json.obj("registered" -> true))))
-          val temporaries = _direct_names(root).filter(name => name.startsWith("publication.json.") && name.endsWith(".tmp"))
-          val siblingnames = _direct_names(root).filterNot(name => name == "publication.json" || name == ".cozy-publication-registry.lock")
 
-          Then("non-array entries are rejected before any target or temporary sibling is written")
+          Then("non-array entries are rejected before the target is written")
           error.getMessage should include("Invalid publication bundle entries")
           _bundle_bytes(root.resolve("publication.json")) shouldBe before
           Files.exists(root.resolve("publication.json.json")) shouldBe false
-          temporaries shouldBe empty
-          siblingnames shouldBe empty
         }
       }
 
-      "reject generic traversal, declaration mismatch, and a lock symlink without mutation or temporary siblings" in {
+      "reject generic traversal and declaration mismatch before mutation" in {
         Given("a direct configured bundle, malicious generic paths, and a byte snapshot")
         _with_root { root =>
           _write_bundle(root, "publication", Vector.empty)
@@ -832,40 +753,15 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
             intercept[IllegalArgumentException](CozyPublicationCompiler.registerMetadata(root, "publication", Vector(path -> Json.obj())))
           }
           val declarationerror = intercept[IllegalArgumentException](CozyPublicationCompiler.registerMetadata(root, "stored", Vector("metadata/valid.json" -> Json.obj())))
-          val temporaries = _direct_names(root).filter(_.endsWith(".tmp"))
 
-          Then("all failures retain the locked target and create neither alternate targets nor temporary siblings")
+          Then("all failures leave the target unchanged and create no alternate target")
           patherrors.map(_.getMessage).mkString(" ") should include("Invalid publication bundle path")
           declarationerror.getMessage should include("does not match")
           _bundle_bytes(root.resolve("publication.json")) shouldBe before
           Files.exists(root.resolve("b.json")) shouldBe false
-          temporaries shouldBe empty
         }
       }
 
-      "reject a symbolic-link registry lock before generic metadata mutation" in {
-        Given("a direct configured bundle and a registry lock path substituted by a symbolic link")
-        _with_root { root =>
-          _write_bundle(root, "publication", Vector.empty)
-          val before = _bundle_bytes(root.resolve("publication.json"))
-          val external = Files.createTempFile(root.getParent, "registry-lock-", ".lock")
-          try Files.createSymbolicLink(root.resolve(".cozy-publication-registry.lock"), external)
-          catch {
-            case _: UnsupportedOperationException | _: SecurityException | _: IOException => cancel("The platform cannot create symbolic links for this specification")
-          }
-          try {
-            When("generic registration acquires the root-wide persistent lock")
-            val error = intercept[IllegalArgumentException](CozyPublicationCompiler.registerMetadata(root, "publication", Vector("metadata/valid.json" -> Json.obj())))
-
-            Then("the lock link is rejected and target bytes remain unchanged")
-            error.getMessage should include("registry lock")
-            _bundle_bytes(root.resolve("publication.json")) shouldBe before
-          } finally {
-            Files.deleteIfExists(root.resolve(".cozy-publication-registry.lock"))
-            Files.deleteIfExists(external)
-          }
-        }
-      }
     }
 
     "validate render-independent role intent" which {
@@ -914,35 +810,6 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         }
       }
 
-      "reject a changed complete snapshot through the bounded read-only callback" in {
-        Given("a configured bundle and a role intent whose owner is otherwise valid")
-        _with_root { root =>
-          val strict = _site_strict("development-process/example", "/repository/video/example.mp4")
-          val integrity = _video_integrity()
-          _write_bundle(root, "owner", Vector(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata)))
-          val changed = Json.prettyPrint(Json.obj(
-            "schema" -> "cozy.publish-project.v1",
-            "type" -> "publication-bundle",
-            "publication" -> Json.obj("name" -> "owner"),
-            "sourceRepository" -> "cozy",
-            "sourcePath" -> ".",
-            "sourceCommit" -> JsString("0123456789abcdef"),
-            "entries" -> Json.arr(_entry(strict.entryPath, strict.metadata), _entry(integrity.entryPath, integrity.metadata))
-          )).replace("\n", "\n\n").getBytes(StandardCharsets.UTF_8)
-
-          When("the configured bundle changes between snapshot reads")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateReadOnlyRoleIntents(
-            root,
-            Vector(CozyArticleMediaRegistry.RoleIntent("development-process/example", "ja", CozyArticleMediaIntegrity.Role.Video)),
-            () => Files.write(root.resolve("owner.json"), changed)
-          ))
-
-          Then("the stale snapshot is rejected and the externally changed bytes remain untouched")
-          error.getMessage should include("stale read-only snapshot")
-          _bundle_bytes(root.resolve("owner.json")) shouldBe changed.toVector
-          Files.exists(root.resolve("article-media.json")) shouldBe false
-        }
-      }
     }
 
     "merge role-local article-media registration transactions" which {
@@ -1092,7 +959,7 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
               strict.publication.articleIdentity,
               CozyArticleMediaPublication.Variant("ja", summarySlidesPdf = Some(replacement))
             )
-          ), () => ()))
+          )))
           val merged = result.snapshot.entries.find(_.path == strict.entryPath).get.metadata
 
           Then("the PDF update is canonical and no integrity record is demanded, synthesized, or removed")
@@ -1253,97 +1120,28 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         }
       }
 
-      "enforce callback lifetime, owner thread confinement, and opaque transaction construction" in {
-        Given("a captured callback transaction, one valid role update, and a worker attempting retained access")
+      "enforce callback lifetime, one merge, and opaque transaction construction" in {
+        Given("a valid role update and a transaction captured by its callback")
         _with_root { root =>
           val update = _infographic_role_update()
           var captured: CozyArticleMediaRegistry.Transaction = null
-          val activeerrors = new ConcurrentLinkedQueue[Throwable]()
-          val releasederrors = new ConcurrentLinkedQueue[Throwable]()
+
+          When("the callback merges once, requests a second merge, and then returns")
           val second = CozyArticleMediaRegistry.transaction(root) { transaction =>
             captured = transaction
-            val worker = new Thread(new Runnable {
-              override def run(): Unit = {
-                try transaction.snapshot catch { case e: Throwable => activeerrors.add(e) }
-                try transaction.merge(Vector(update)) catch { case e: Throwable => activeerrors.add(e) }
-              }
-            })
-            worker.start()
-            worker.join()
             transaction.merge(Vector(update))
             intercept[IllegalArgumentException](transaction.merge(Vector(update)))
           }
-
-          When("the callback has returned and another thread retains the transaction")
           val lifetime = intercept[IllegalArgumentException](captured.snapshot)
-          val released = new Thread(new Runnable {
-            override def run(): Unit = {
-              try captured.snapshot catch { case e: Throwable => releasederrors.add(e) }
-              try captured.merge(Vector(update)) catch { case e: Throwable => releasederrors.add(e) }
-            }
-          })
-          released.start()
-          released.join()
 
-          Then("only the callback owner may use the private-constructed transaction and worker attempts cause no mutation")
+          Then("the transaction is private-constructed, permits one merge, and expires after the callback")
           classOf[CozyArticleMediaRegistry.Transaction].getConstructors.toVector shouldBe empty
           second.getMessage should include("one merge commit")
           lifetime.getMessage should include("no longer active")
-          activeerrors.asScala.toVector.map(_.getMessage) shouldBe Vector.fill(2)("Article-media registry transaction must be used by its callback owner thread")
-          releasederrors.asScala.toVector.map(_.getMessage) shouldBe Vector.fill(2)("Article-media registry transaction must be used by its callback owner thread")
           CozyArticleMediaRegistry.load(root).entries.map(_.path) shouldBe Vector(
             "metadata/article-media-integrity/development-process/example/ja/infographic.json",
             "metadata/article-media/development-process/example.json"
           )
-        }
-      }
-
-      "reject a full digest changed during an injected callback preflight before mutation" in {
-        Given("a captured complete snapshot and an independently changed configured bundle")
-        _with_root { root =>
-          _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 1))))
-          val before = _bundle_bytes(root.resolve("evidence.json"))
-
-          When("a callback changes the configured evidence bytes before its first merge")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.transaction(root) { transaction =>
-            transaction.snapshot.bundleDigests should contain key "evidence"
-            _write_bundle(root, "evidence", Vector(_entry("metadata/evidence.json", Json.obj("revision" -> 2))))
-            transaction.merge(Vector(_infographic_role_update()))
-          })
-
-          Then("the stale complete snapshot fails before article-media bundle creation")
-          error.getMessage should include("stale configured snapshot")
-          _bundle_bytes(root.resolve("evidence.json")) should not be before
-          Files.exists(root.resolve("article-media.json")) shouldBe false
-        }
-      }
-
-      "serialize concurrent same-article role updates without losing either role" in {
-        Given("two distinct role updates started together for one previously unowned article")
-        _with_root { root =>
-          val ready = new CountDownLatch(2)
-          val start = new CountDownLatch(1)
-          val failures = new ConcurrentLinkedQueue[Throwable]()
-          val first = new Thread(new Runnable {
-            override def run(): Unit = _concurrent_role_merge(root, _infographic_role_update(), ready, start, failures)
-          })
-          val second = new Thread(new Runnable {
-            override def run(): Unit = _concurrent_role_merge(root, _video_role_update(locale = "en"), ready, start, failures)
-          })
-
-          When("both callbacks request the common real-root transaction lock")
-          first.start()
-          second.start()
-          ready.await()
-          start.countDown()
-          first.join()
-          second.join()
-          val strict = CozyArticleMediaRegistry.load(root).entries.find(_.path == "metadata/article-media/development-process/example.json").map(_.metadata).get
-
-          Then("both exact locale-role variants are retained with no transaction failure")
-          failures.asScala.toVector shouldBe empty
-          (((strict \ "variants").as[JsObject] \ "ja" \ "infographic").as[JsObject].fields) should not be empty
-          (((strict \ "variants").as[JsObject] \ "en" \ "video").as[JsObject].fields) should not be empty
         }
       }
 
@@ -1390,13 +1188,12 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
           plan.articles.map(_.strict.publication.articleIdentity) shouldBe Vector("development-process/example")
           plan.articles.head.strict.publication.variants.map(_.locale) shouldBe Vector("ja")
           plan.articles.head.integrities.map(_.record.role) shouldBe Vector(CozyArticleMediaIntegrity.Role.Video)
-          plan.videoStates((video.articleIdentity, "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.Fresh
           _direct_names(root) shouldBe before
         }
       }
 
-      "admit only an exact current WIP repeat and preserve unrelated ownership" in {
-        Given("a bundle with an exact WIP video pair and unrelated metadata")
+      "admit an existing WIP registration and preserve unrelated ownership" in {
+        Given("a bundle with a WIP video pair and unrelated metadata")
         _with_root { root =>
           val update = _wip_video_update()
           val strict = CozyArticleMediaPublication.produce(update.articleIdentity, Vector(update.variant))
@@ -1407,11 +1204,10 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
             _entry("metadata/unrelated.json", Json.obj("owner" -> "preserved"))
           ))
 
-          When("the exact WIP pair is planned again")
+          When("the same selected WIP registration is planned again")
           val plan = CozyArticleMediaRegistry.validateWipReadOnly(root, Vector(update))
 
-          Then("the repeat state is explicit and the original snapshot/owner are retained")
-          plan.videoStates((update.articleIdentity, "ja", "video")) shouldBe CozyArticleMediaRegistry.WipVideoState.ExactRepeat
+          Then("the original snapshot and configured owner are retained")
           plan.articles.head.owner shouldBe "publication"
           plan.snapshot.entries.map(_.path) should contain("metadata/unrelated.json")
         }
@@ -1433,21 +1229,6 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
         }
       }
 
-      "revalidate the complete snapshot after planning" in {
-        Given("a fresh WIP update and a callback that changes a separate bundle")
-        _with_root { root =>
-          _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 1))))
-          val update = _wip_video_update()
-
-          When("the snapshot changes before read-only revalidation")
-          val error = intercept[IllegalArgumentException](CozyArticleMediaRegistry.validateWipReadOnly(root, Vector(update), () =>
-            _write_bundle(root, "publication", Vector(_entry("metadata/unrelated.json", Json.obj("revision" -> 2))))
-          ))
-
-          Then("planning fails closed without a merge")
-          error.getMessage should include("stale read-only snapshot")
-        }
-      }
     }
   }
 
@@ -1518,18 +1299,16 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
     identity: String = "development-process/example",
     locale: String = "ja"
   ): CozyArticleMediaRegistry.WipRoleUpdate = {
-    val digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     val path = s"/$locale/development-process/videos/example.mp4"
     val variant = CozyArticleMediaPublication.Variant(locale, video = Some(_site_video(path)))
     val integrity = CozyArticleMediaIntegrity.produce(CozyArticleMediaIntegrity.Input(
       articleIdentity = identity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Video,
-      artifact = CozyArticleMediaIntegrity.Artifact(s"example-video-$locale", digest),
+      artifact = None,
       publicPath = new URI(path),
       repositoryPath = s"$locale/development-process/videos/example.mp4",
       mediaType = "video/mp4",
-      sha256 = digest,
       provenance = CozyArticleMediaIntegrity.WipSiteVideo("media/article.yaml", s"example-video-$locale", s"video/$locale/production.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))
@@ -1541,11 +1320,10 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       articleIdentity = articleidentity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Video,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0")),
       publicPath = new URI(publicpath),
       repositoryPath = "video/example.mp4",
       mediaType = "video/mp4",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example/1.0.0/manifest.json", "metadata/artifacts/repository/example.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))
@@ -1555,11 +1333,10 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
       articleIdentity = articleidentity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Infographic,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0")),
       publicPath = new URI(publicpath),
       repositoryPath = "images/development-process/example.png",
       mediaType = "image/png",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.MediaPackage("src/main/media/example.yaml", "example-infographic", "target/cozy-media/manifest.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Registered
     ))
@@ -1607,36 +1384,6 @@ final class CozyArticleMediaRegistrySpec extends AnyWordSpec with Matchers with 
     try stream.iterator.asScala.toVector.map(_.getFileName.toString).sorted
     finally stream.close()
   }
-
-  private def _concurrent_register(
-    root: Path,
-    path: String,
-    ready: CountDownLatch,
-    start: CountDownLatch,
-    failures: ConcurrentLinkedQueue[Throwable]
-  ): Unit =
-    try {
-      ready.countDown()
-      start.await()
-      CozyPublicationCompiler.registerMetadata(root, "publication", Vector(path -> Json.obj("registered" -> true)))
-    } catch {
-      case e: Throwable => failures.add(e)
-    }
-
-  private def _concurrent_role_merge(
-    root: Path,
-    update: CozyArticleMediaRegistry.RoleUpdate,
-    ready: CountDownLatch,
-    start: CountDownLatch,
-    failures: ConcurrentLinkedQueue[Throwable]
-  ): Unit =
-    try {
-      ready.countDown()
-      start.await()
-      CozyArticleMediaRegistry.transaction(root)(_.merge(Vector(update)))
-    } catch {
-      case e: Throwable => failures.add(e)
-    }
 
   private def _with_root[A](f: Path => A): A = {
     val workroot = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/cozy-article-media-registry/work")

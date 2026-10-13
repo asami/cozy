@@ -59,8 +59,11 @@ winner/origin chains and sibling inheritance against semantic counterexamples.
 The parent admitted legacy generation on native SOURCE commit
 `6c15b65cd83181fdf61aa8674c9a847f79751805` before ABI editing, with terminal success
 and released serial lock. The resulting parent-owned fixture retains all four
-fixture/route inventories and 80 complete files. The new spec reads it without
-changing expectations and compares every generated file and byte.
+fixture/route inventories and 80 complete files. The current spec reads it unchanged and compares every generated file and byte,
+with one explicit migration: only the historical `source.sha256` line in the
+expected `model-metadata.json` and `.yaml` is removed to reflect the accepted
+artifact protection removal. The baseline producer identity, inventories and
+all other expected bytes remain unchanged.
 
 Typed Scala consumers are written beside actual normal/value/mixed generated
 metadata. Mixed output retains the original single Domain component and old

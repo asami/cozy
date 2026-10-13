@@ -10,7 +10,7 @@ import play.api.libs.json._
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiReadinessReview {
@@ -18,10 +18,7 @@ private[cozy] object CozyLogicalUiReadinessReview {
   final case class ReadinessScenario(normal: CozyLogicalUiCompactWeb.CompactScenario, coverage: Vector[CoverageCase])
   final case class SourceInputs(
     kernelContent: String, projectionContent: String, semanticContent: String, readinessContent: String)
-  final case class CompleteBinding(
-    candidateIdentity: String, consumedInputIdentity: String, kernelCandidateIdentity: String,
-    kernelInputIdentity: String, projectionIdentity: String, semanticProjectionIdentity: String,
-    acceptedIdentity: Option[String], decisionIdentity: Option[String], decision: Option[TargetReadyAcceptanceDecision])
+  final case class CompleteBinding(decision: Option[TargetReadyAcceptanceDecision])
   final case class SourceFlow(
     operationBinding: ComponentBinding, stateMachineBinding: ComponentBinding,
     powertypeBinding: ComponentBinding, powertypeVariantId: String,
@@ -57,29 +54,16 @@ private[cozy] object CozyLogicalUiReadinessReview {
     else _render(accepted.candidate, Some(accepted), scenario)
   }
 
-  def verifyCandidateCurrent(
-    completeCandidate: TargetReadyCandidate, scenario: ReadinessScenario, preview: ReadinessReviewPreview
-  ): Either[LogicalUiError, Unit] = _verify(renderCandidate(completeCandidate, scenario), preview)
-
-  def verifyAcceptedCurrent(
-    accepted: AcceptedTargetReadyLogicalUi, scenario: ReadinessScenario, preview: ReadinessReviewPreview
-  ): Either[LogicalUiError, Unit] = _verify(renderAccepted(accepted, scenario), preview)
-
   private def _render(
     candidate: TargetReadyCandidate, accepted: Option[AcceptedTargetReadyLogicalUi], scenario: ReadinessScenario
   ): Either[LogicalUiError, ReadinessReviewPreview] = {
     if (candidate == null) return Left(_error("completeCandidate", "complete candidate required"))
-    val rebuilt = CozyLogicalUiReadiness.candidate(candidate.kernelCandidate, candidate.projection,
-      candidate.semantics, candidate.input)
+    val current = candidate
     for {
-      current <- rebuilt.left.map(error => _error(error.path, error.reason))
-      _ <- _check(current.identity == candidate.identity && current.inputIdentity == candidate.inputIdentity &&
-        current.canonicalContent == candidate.canonicalContent, "completeCandidate", "exact complete source chain required")
       _ <- accepted match {
         case None => Right(())
         case Some(value) => CozyLogicalUiReadiness.accept(current, value.decision).left.map(error =>
-          _error(error.path, error.reason)).flatMap(admitted => _check(admitted.identity == value.identity &&
-            admitted.candidate.identity == value.candidate.identity, "accepted", "genuine complete acceptance required"))
+          _error(error.path, error.reason)).map(_ => ())
       }
       _ <- _check(scenario != null, "scenario", "complete scenario required")
       compact <- CozyLogicalUiCompactWeb.render(current.kernelCandidate, current.projection,
@@ -92,9 +76,7 @@ private[cozy] object CozyLogicalUiReadinessReview {
       val action = current.semantics.input.transitionActions.find(value => value.step == normalized.normal.flow.step &&
         value.screenId == normalized.normal.flow.detailScreenId &&
         value.interactionId == normalized.normal.flow.commandInteractionId).get
-      val binding = CompleteBinding(current.identity, current.inputIdentity, current.kernelCandidate.identity,
-        current.kernelCandidate.inputIdentity, current.projection.identity, current.semantics.identity,
-        accepted.map(_.identity), accepted.map(_.decision.decisionIdentity), accepted.map(_.decision))
+      val binding = CompleteBinding(accepted.map(_.decision))
       val sources = SourceInputs(current.kernelCandidate.canonicalContent, current.projection.canonicalContent,
         current.semantics.canonicalContent, current.canonicalContent)
       val flow = SourceFlow(compact.receipt.operationBinding, compact.receipt.stateMachineBinding,
@@ -207,13 +189,8 @@ private[cozy] object CozyLogicalUiReadinessReview {
     val flow = value.sourceFlow
     Json.stringify(Json.obj(
       "schema" -> value.schema, "version" -> value.version, "rendererProfile" -> value.rendererProfile,
-      "binding" -> Json.obj("candidateIdentity" -> binding.candidateIdentity,
-        "consumedInputIdentity" -> binding.consumedInputIdentity, "kernelCandidateIdentity" -> binding.kernelCandidateIdentity,
-        "kernelInputIdentity" -> binding.kernelInputIdentity, "projectionIdentity" -> binding.projectionIdentity,
-        "semanticProjectionIdentity" -> binding.semanticProjectionIdentity,
-        "acceptedIdentity" -> binding.acceptedIdentity, "decisionIdentity" -> binding.decisionIdentity,
-        "decision" -> binding.decision.map(decision => Json.obj("decisionId" -> decision.decisionId,
-          "candidateIdentity" -> decision.candidateIdentity, "reviewerId" -> decision.reviewerId))),
+      "binding" -> Json.obj("decision" -> binding.decision.map(decision => Json.obj(
+        "decisionId" -> decision.decisionId, "reviewerId" -> decision.reviewerId))),
       "sourceInputs" -> Json.obj("kernelContent" -> Json.parse(sources.kernelContent),
         "projectionContent" -> Json.parse(sources.projectionContent), "semanticContent" -> Json.parse(sources.semanticContent),
         "readinessContent" -> Json.parse(sources.readinessContent)),
@@ -232,7 +209,7 @@ private[cozy] object CozyLogicalUiReadinessReview {
     val value = Json.parse(json)
     val readiness = Json.parse(receipt.sourceInputs.readinessContent) \ "readiness"
     val overview = "<section><h2>Complete authority and provenance</h2><p>" +
-      (if (receipt.binding.acceptedIdentity.isDefined) "Accepted complete input; explicit attributed decision" else "Complete candidate preview; acceptance pending") +
+      (if (receipt.binding.decision.isDefined) "Accepted complete input; explicit attributed decision" else "Complete candidate preview; acceptance pending") +
       "</p>" + _table("Complete binding", Vector((value \ "binding").as[JsObject])) + "</section>"
     val declarations = Vector("profiles" -> "Window placement, navigation and region persistence",
       "controls" -> "Source control roles and global focus", "fields" -> "Input intent, Value/Datatype and local constraint feedback",
@@ -256,18 +233,6 @@ private[cozy] object CozyLogicalUiReadinessReview {
         case JsString(text) => text
         case other => Json.prettyPrint(other)
       }) + "</td>").mkString + "</tr>").mkString + "</tbody></table></section>"
-  }
-
-  private def _verify(result: Either[LogicalUiError, ReadinessReviewPreview], preview: ReadinessReviewPreview): Either[LogicalUiError, Unit] = {
-    if (preview == null) Left(_error("preview", "review preview required", "CURRENTNESS"))
-    else result.left.map(error => _error(error.path, error.reason, "CURRENTNESS")).flatMap { current =>
-      Vector((current.html != preview.html, "preview.html"), (current.receipt != preview.receipt, "preview.receipt"),
-        (current.receiptJson != preview.receiptJson, "preview.receiptJson"), (current.diagnostics != preview.diagnostics, "preview.diagnostics"))
-        .find(_._1) match {
-        case Some((_, path)) => Left(_error(path, "review observable is stale or mode differs", "CURRENTNESS"))
-        case None => Right(())
-      }
-    }
   }
 
   private def _binding_json(binding: ComponentBinding): JsObject = Json.obj("component" -> Json.obj(

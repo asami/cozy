@@ -2,7 +2,9 @@ package cozy.media
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{FileAlreadyExistsException, Files, Path}
-import java.security.MessageDigest
+import java.nio.file.attribute.FileTime
+import io.circe.Json
+import org.scalacheck.{Gen, Prop, Test}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -10,7 +12,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 25, 2026
- * @version Aug. 25, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -53,7 +56,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
           val descriptor = _write_fixture(root)
           _write(root.resolve("slide-ir.yaml"), Files.readString(root.resolve("slide-ir.yaml")).replace("infographic", "unknown-asset"))
           var invoked = false
-          val runner = new CozyMedia.ProcessRunner { def run(command: Vector[String], workingdirectory: Path): Int = { invoked = true; 0 } }
+          val runner = new CozyMedia.ProcessRunner { def run(command: Vector[String], workingDirectory: Path): Int = { invoked = true; 0 } }
 
           When("Cozy starts the presentation build")
           val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
@@ -69,7 +72,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         _with_temp_dir("renderer-exit") { root =>
           Given("a complete presentation fixture and a renderer that exits unsuccessfully")
           val descriptor = _write_fixture(root)
-          val runner = new CozyMedia.ProcessRunner { def run(command: Vector[String], workingdirectory: Path): Int = 17 }
+          val runner = new CozyMedia.ProcessRunner { def run(command: Vector[String], workingDirectory: Path): Int = 17 }
 
           When("Cozy renders the presentation")
           val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
@@ -90,7 +93,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
           val failures = variants.map { variant =>
             Vector("target/rendered/article.pptx", "target/slides/overview.png", "target/rendered/montage.png", "target/rendered/renderer-manifest.json").foreach(path => Files.deleteIfExists(root.resolve(path)))
             val runner = new CozyMedia.ProcessRunner {
-              def run(command: Vector[String], workingdirectory: Path): Int = {
+              def run(command: Vector[String], workingDirectory: Path): Int = {
                 val pptx = Path.of(command(command.indexOf("--pptx") + 1)); val images = Path.of(command(command.indexOf("--slide-images") + 1)); val montage = Path.of(command(command.indexOf("--montage") + 1)); val manifest = Path.of(command(command.indexOf("--manifest") + 1))
                 if (variant != "pptx") _write_pptx(pptx, "Overview", root.resolve("infographic.png"))
                 if (variant != "png") _write_png(images.resolve("overview.png"))
@@ -108,25 +111,72 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         }
       }
 
-      "reject a receipt-input race after rendering" in {
-        _with_temp_dir("renderer-input-race") { root =>
-          Given("a renderer that mutates the declared semantic IR while producing valid outputs")
-          val descriptor = _write_fixture(root)
-          val runner = _successful_runner(root)
-          val racing = new CozyMedia.ProcessRunner {
-            def run(command: Vector[String], workingdirectory: Path): Int = {
-              val status = runner.run(command, workingdirectory)
-              _write(root.resolve("slide-ir.yaml"), Files.readString(root.resolve("slide-ir.yaml")).replace("Overview", "Changed"))
-              status
+      "accept arbitrary nested stored metadata through both public presentation routes" in {
+        Given("independent Slide IR and Visual Page fixtures and generated JSON metadata with no semantic authority")
+        val metadata = for {
+          token <- Gen.listOfN(8, Gen.alphaChar).map(_.mkString)
+          number <- Gen.choose(-10000, 10000)
+          extra <- Gen.oneOf(Json.Null, Json.True, Json.fromInt(number), Json.fromString(token), Json.arr(Json.fromInt(number)), Json.obj("annotation" -> Json.fromString(token)))
+        } yield ("annotation-" + token, extra)
+        val property = Prop.forAll(metadata) { case (name, extra) =>
+          Vector(false, true).foreach { visual =>
+            _with_temp_dir("arbitrary-presentation-metadata") { root =>
+              Given("current declared inputs and a real nonhash renderer for this independent trial")
+              val descriptor = if (visual) _write_visual_page_fixture(root) else _write_fixture(root)
+              val initial = if (visual) _visual_page_runner(root) else _successful_runner(root)
+              val runner = new CozyMedia.ProcessRunner {
+                def run(command: Vector[String], workingDirectory: Path): Int = {
+                  val status = initial.run(command, workingDirectory)
+                  val manifest = Path.of(command(command.indexOf("--manifest") + 1))
+                  Files.readString(manifest).toLowerCase(java.util.Locale.ROOT) should not include "sha256"
+                  _write(manifest, _add_metadata(_json(manifest), name, extra).noSpaces)
+                  status
+                }
+              }
+
+              When("public build and slide build accept renderer metadata and explicit alignment is recorded")
+              CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
+              CozyMedia._slide_build(CozyMedia.CommandConfig(descriptor, target = Some("slides")), runner)
+              val plan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor))
+              val resource = plan.resources.find(_.resource.id == "slides").get
+              CozyMediaReviewState.align(plan, resource, "article")
+              val review = root.resolve("review/manifest.json")
+              val receipt = root.resolve("target/cozy-media/manifest.json")
+              val statepath = root.resolve("review/state.yaml")
+
+              Then("Cozy emits only required nonhash records")
+              Vector(review, receipt, statepath).foreach(path => Files.readString(path).toLowerCase(java.util.Locale.ROOT) should not include "sha256")
+              CozyMediaReceipt.manifest(receipt).get.resources.find(_.id == "slides").get.artifacts.foreach { artifact =>
+                artifact.productArity shouldBe 3
+              }
+
+              When("arbitrary metadata is added recursively to review and receipt and to both timestamp snapshots")
+              Vector(review, receipt).foreach(path => _rewrite_json(path, _add_metadata(_json(path), name, extra)))
+              val state = _json(statepath).mapObject { fields =>
+                Vector("current", "last_aligned").foldLeft(fields) { (current, field) =>
+                  current.add(field, _add_metadata(current(field).get, name, extra))
+                }
+              }
+              _rewrite_json(statepath, state)
+
+              When("public current verification and slide verification read the annotated evidence")
+              val verified = CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
+              val slideverified = CozyMedia._slide_verify(CozyMedia.CommandConfig(descriptor))
+              val current = CozyMediaPresentation.currentArtifactEvidence(plan, resource, CozyMediaReceipt.manifest(receipt).get.resources.find(_.id == "slides").get)
+              CozyMediaReviewState.requireAligned(plan, resource)
+              Then("all required semantics currentness and alignment remain valid")
+              verified should include("status: valid")
+              slideverified should include("status: valid")
+              current shouldBe true
             }
           }
-
-          When("Cozy re-captures acceptance inputs")
-          val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), racing))
-
-          Then("the changed input rejects acceptance before a receipt is written")
-          failure.getMessage.toLowerCase(java.util.Locale.ROOT) should include("renderer manifest input hashes differ")
-          Files.exists(root.resolve("target/cozy-media/manifest.json")) shouldBe false
+          true
+        }
+        When("ScalaCheck exercises at least fifty independent trials of both actual producer routes")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+        Then("every metadata variation passes the public behavior assertions")
+        withClue(s"ScalaCheck status=${result.status}, succeeded=${result.succeeded}") {
+          result.passed shouldBe true
         }
       }
 
@@ -139,7 +189,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
           When("each manifest is returned after otherwise valid output files")
           val failures = variants.map { variant =>
             val runner = new CozyMedia.ProcessRunner {
-              def run(command: Vector[String], workingdirectory: Path): Int = {
+              def run(command: Vector[String], workingDirectory: Path): Int = {
                 val pptx = Path.of(command(command.indexOf("--pptx") + 1))
                 val images = Path.of(command(command.indexOf("--slide-images") + 1))
                 val montage = Path.of(command(command.indexOf("--montage") + 1))
@@ -150,15 +200,9 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
                 if (variant == "malformed") {
                   _write(manifest, "{}")
                 } else {
-                  val pptxhash = _sha256(pptx)
-                  val imagehash = _sha256(images.resolve("overview.png"))
-                  val assethash = _sha256(root.resolve("infographic.png"))
-                  val slideirhash = _sha256(root.resolve("slide-ir.yaml"))
-                  val templatehash = _sha256(root.resolve("template.pptx"))
-                  val montagehash = _sha256(montage)
-                  val slide = s"""{"id":"overview","title":"Overview","path":"target/slides/overview.png","sha256":"$imagehash","pptxSha256":"$pptxhash","assets":[{"id":"infographic","sha256":"$assethash"}]}"""
+                  val slide = """{"id":"overview","title":"Overview","path":"target/slides/overview.png","assets":[{"id":"infographic"}]}"""
                   _write(manifest,
-                    s"""{"schema":"cozy.presentation.render.v1","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"slideIrSha256":"$slideirhash","templateSha256":"$templatehash","pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[$slide,$slide],"montage":{"path":"target/rendered/montage.png","sha256":"$montagehash","pptxSha256":"$pptxhash"}}"""
+                    s"""{"schema":"cozy.presentation.render.v1","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"pptx":{"path":"target/rendered/article.pptx"},"slides":[$slide,$slide],"montage":{"path":"target/rendered/montage.png"}}"""
                   )
                 }
                 0
@@ -172,9 +216,181 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
           Files.exists(root.resolve("target/cozy-media/manifest.json")) shouldBe false
         }
       }
+
+      "require semantic renderer fields at every level while preserving prior acceptance on failure" in {
+        Vector(false, true).foreach { visual =>
+          _with_temp_dir("renderer-required-fields") { root =>
+            Given("an aligned generation from real outputs in the selected Presentation route")
+            val descriptor = if (visual) _write_visual_page_fixture(root) else _write_fixture(root)
+            val initial = if (visual) _visual_page_runner(root) else _successful_runner(root)
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor), initial)
+            val plan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor))
+            val resource = plan.resources.find(_.resource.id == "slides").get
+            CozyMediaReviewState.align(plan, resource, "article")
+            val savedpaths = Vector("target/cozy-media/manifest.json", "review/manifest.json", "review/state.yaml").map(root.resolve(_))
+            val prior = savedpaths.map(path => Files.readAllBytes(path).toVector)
+            val manifest = _add_metadata(_json(root.resolve("target/rendered/renderer-manifest.json")), "annotation", Json.arr(Json.True))
+            def _slides_with_(update: Json => Json): Json = manifest.mapObject(fields => fields.add("slides", fields("slides").get.mapArray(_.map(update))))
+            val variants = Vector(
+              manifest.mapObject(_.remove("target")),
+              manifest.mapObject(_.add("profile", Json.fromString("wrong"))),
+              manifest.mapObject(_.add("renderer", Json.obj("name" -> Json.fromString("fake"), "annotation" -> Json.True))),
+              manifest.mapObject(_.add("pptx", Json.obj("path" -> Json.True))),
+              manifest.mapObject(_.add("montage", Json.obj("path" -> Json.fromString("../escape.png")))),
+              _slides_with_(_.mapObject(_.remove("id"))),
+              _slides_with_(_.mapObject(_.add("path", Json.fromString("target/slides/wrong.png")))),
+              _slides_with_(_.mapObject(_.add("assets", Json.True)))
+            ) ++ (if (visual) Vector(
+              Json.fromFields(manifest.asObject.get.toVector.reverse),
+              _slides_with_(slide => Json.fromFields(slide.asObject.get.toVector.reverse))
+            ) else Vector(_slides_with_(_.mapObject(_.remove("title"))), _slides_with_(_.mapObject(_.add("title", Json.fromString("Wrong title"))))))
+
+            When("each successful renderer exit supplies missing wrong or reordered required semantic fields")
+            val failures = variants.map { variant =>
+              val runner = new CozyMedia.ProcessRunner {
+                def run(command: Vector[String], workingDirectory: Path): Int = {
+                  val status = initial.run(command, workingDirectory)
+                  _write(Path.of(command(command.indexOf("--manifest") + 1)), variant.noSpaces)
+                  status
+                }
+              }
+              intercept[RuntimeException](CozyMedia._slide_build(CozyMedia.CommandConfig(descriptor), runner))
+            }
+
+            Then("generic extras cannot replace required fields and renderer rejection preserves receipt review and alignment bytes")
+            failures should have size variants.size
+            failures.foreach(_.getMessage should include("Presentation"))
+            savedpaths.map(path => Files.readAllBytes(path).toVector) shouldBe prior
+          }
+        }
+      }
+    }
+
+    "required material proof IDs in both renderer versions" which {
+      "accept required IDs with historical extras and reject wrong missing duplicate or ill-typed IDs before replacing review evidence" in {
+        _with_temp_dir("renderer-material-ids") { root =>
+          Given("legacy and Visual Page descriptor fixtures with selected material IDs and historical renderer metadata")
+          val cases = Vector(false, true).map { visual =>
+            val directory = root.resolve(if (visual) "visual" else "legacy")
+            val descriptor = if (visual) _write_visual_page_fixture(directory) else _write_fixture(directory)
+            (directory, descriptor, visual)
+          }
+          val historical = """[{"id":"infographic","sha256":"malformed","ordinaryMetadata":{"old":true}}]"""
+          val invalid = Vector("""[{"id":"wrong"}]""", "[]", """[{"id":"infographic"},{"id":"infographic"}]""", """[{"id":true}]""", """[{"ordinaryMetadata":true}]""")
+
+          When("both renderer versions return ordinary historical metadata followed by each invalid required-ID proof")
+          val results = cases.map { case (directory, descriptor, visual) =>
+            val accepted = if (visual) _visual_page_runner(directory, assetproof = historical) else _successful_runner(directory, assetproof = historical)
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor), accepted)
+            val review = Files.readAllBytes(directory.resolve("review/manifest.json")).toVector
+            val receipt = Files.readAllBytes(directory.resolve("target/cozy-media/manifest.json")).toVector
+            val failures = invalid.map { proof =>
+              val runner = if (visual) _visual_page_runner(directory, assetproof = proof) else _successful_runner(directory, assetproof = proof)
+              intercept[RuntimeException](CozyMedia._slide_build(CozyMedia.CommandConfig(descriptor), runner))
+            }
+            (directory, failures, review, receipt)
+          }
+
+          Then("historical metadata is ignored and every invalid ID proof rejects with the prior deterministic review and receipt preserved")
+          results.flatMap(_._2) should have size 10
+          results.flatMap(_._2).foreach(_.getMessage should include("Presentation"))
+          results.foreach { case (directory, _, review, receipt) =>
+            Files.readAllBytes(directory.resolve("review/manifest.json")).toVector shouldBe review
+            Files.readAllBytes(directory.resolve("target/cozy-media/manifest.json")).toVector shouldBe receipt
+          }
+        }
+      }
+
     }
 
     "OOXML, artifact identity, and review lifecycle" which {
+      "reject missing or wrong required review artifact and snapshot semantics despite extra metadata" in {
+        Vector(false, true).foreach { visual =>
+          _with_temp_dir("required-evidence-semantics") { root =>
+            Given("a current aligned generation with real renderer outputs and saved nonhash evidence")
+            val descriptor = if (visual) _write_visual_page_fixture(root) else _write_fixture(root)
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor), if (visual) _visual_page_runner(root) else _successful_runner(root))
+            val plan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor))
+            val resource = plan.resources.find(_.resource.id == "slides").get
+            CozyMediaReviewState.align(plan, resource, "article")
+            val reviewpath = root.resolve("review/manifest.json")
+            val receiptpath = root.resolve("target/cozy-media/manifest.json")
+            val statepath = root.resolve("review/state.yaml")
+            val review = _add_metadata(_json(reviewpath), "annotation", Json.True)
+            val receipt = _json(receiptpath)
+            val state = _json(statepath)
+            val prior = Vector(receiptpath, statepath).map(path => Files.readAllBytes(path).toVector)
+            val slide = review.hcursor.downField("slides").focus.get.asArray.get.head
+            val asset = review.hcursor.downField("assets").focus.get.asArray.get.head
+            val variants = Vector(
+              review.mapObject(_.remove("target")),
+              review.mapObject(_.add("renderer", Json.obj("name" -> Json.fromString("wrong"), "version" -> Json.fromString("1")))),
+              review.mapObject(_.add("pptx", Json.obj("annotation" -> Json.True))),
+              review.mapObject(_.add("slides", Json.arr(slide.mapObject(_.add("id", Json.fromString("wrong-page")))))),
+              review.mapObject(_.add("slides", Json.arr(slide.mapObject(_.add("path", Json.fromString("target/slides/wrong.png")))))),
+              review.mapObject(_.add("assets", Json.arr(asset.mapObject(_.remove("id"))))),
+              review.mapObject(_.add("verification", Json.obj("status" -> Json.fromString("invalid"), "findings" -> Json.arr())))
+            ) ++ (if (visual) Vector(
+              review.mapObject(_.add("assets", Json.arr(asset.mapObject(_.add("mediaType", Json.fromString("image/svg+xml")))))),
+              review.mapObject(_.add("visualPageSet", Json.obj("path" -> Json.fromString("wrong.json"))))
+            ) else Vector(review.mapObject(_.add("slides", Json.arr(slide.mapObject(_.add("title", Json.fromString("Wrong title"))))))))
+
+            When("each wrong or missing required nested field is verified at the original generation time")
+            val failures = variants.map { variant =>
+              _rewrite_json(reviewpath, variant)
+              val failure = intercept[RuntimeException](CozyMediaPresentation.verifyStructural(plan, resource))
+              _rewrite_json(reviewpath, review)
+              failure
+            }
+
+            Then("generic metadata never supplies missing semantics and read-only failures preserve accepted state and receipt")
+            failures should have size variants.size
+            Vector(receiptpath, statepath).map(path => Files.readAllBytes(path).toVector) shouldBe prior
+
+            Given("artifact variants with missing typed fields or altered path and role")
+            val entries = receipt.hcursor.downField("resources").focus.get.asArray.get
+            val entry = entries.find(_.hcursor.get[String]("id").toOption.contains("slides")).get
+            val artifacts = entry.hcursor.downField("artifacts").focus.get.asArray.get
+            val invalidartifacts = Vector("id", "role", "path").map(name => artifacts.head.mapObject(_.remove(name)))
+            val alteredartifacts = Vector(artifacts.head.mapObject(_.add("role", Json.fromString("wrong"))), artifacts.head.mapObject(_.add("path", Json.fromString("target/slides/wrong.png"))))
+            def _receipt_with_(artifact: Json): Json = receipt.mapObject(_.add("resources", Json.fromValues(entries.map { value =>
+              if (value.hcursor.get[String]("id").toOption.contains("slides"))
+                value.mapObject(_.add("artifacts", Json.fromValues(artifact +: artifacts.tail)))
+              else value
+            })))
+
+            When("saved receipt artifacts lose a required field or change a known semantic value")
+            val malformed = invalidartifacts.map { artifact =>
+              _rewrite_json(receiptpath, _receipt_with_(artifact))
+              intercept[RuntimeException](CozyMediaReceipt.manifest(receiptpath))
+            }
+            val altered = alteredartifacts.map { artifact =>
+              _rewrite_json(receiptpath, _receipt_with_(artifact))
+              CozyMediaReceipt.evidenceCurrent(plan, resource)
+            }
+            _rewrite_json(receiptpath, receipt)
+
+            Then("all required artifact fields remain typed and complete artifact semantic vectors still govern current evidence")
+            malformed should have size 3
+            altered shouldBe Vector(false, false)
+
+            Given("timestamp snapshot variants with a missing ill-typed non-UTC or malformed acceptedAt")
+            val snapshots = Vector(Json.obj("annotation" -> Json.True), Json.obj("acceptedAt" -> Json.True), Json.obj("acceptedAt" -> Json.fromString("2026-10-01T00:00:00+01:00")), Json.obj("acceptedAt" -> Json.fromString("invalid")))
+
+            When("each invalid timestamp snapshot is loaded without any obsolete-proof parsing")
+            val snapshotfailures = snapshots.map { snapshot =>
+              _rewrite_json(statepath, state.mapObject(_.add("current", snapshot)))
+              intercept[RuntimeException](CozyMediaReviewState.load(statepath))
+            }
+            _rewrite_json(statepath, state)
+
+            Then("snapshot extras cannot weaken acceptedAt type UTC syntax or alignment validation")
+            snapshotfailures should have size snapshots.size
+            CozyMedia.verify(CozyMedia.CommandConfig(descriptor)) should include("status: valid")
+          }
+        }
+      }
+
       "accept a semantic slide named montage using a namespaced receipt artifact identity" in {
         _with_temp_dir("renderer-montage-id") { root =>
           Given("a valid semantic slide whose raw ID is montage")
@@ -196,7 +412,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
           val descriptor = _write_fixture(root)
           _write(descriptor, Files.readString(descriptor).replace("montage: target/rendered/montage.png", "montage: target/slides"))
           var invoked = false
-          val runner = new CozyMedia.ProcessRunner { def run(command: Vector[String], workingdirectory: Path): Int = { invoked = true; 0 } }
+          val runner = new CozyMedia.ProcessRunner { def run(command: Vector[String], workingDirectory: Path): Int = { invoked = true; 0 } }
 
           When("Cozy resolves the descriptor")
           val failure = intercept[RuntimeException](CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner))
@@ -209,10 +425,8 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
 
       "reject unsafe or relationship-inconsistent OOXML packages" in {
         _with_temp_dir("renderer-ooxml") { root =>
-          Given("standard renderer evidence with relationship target, orphan-part/media, extra relationship, escaping structural relationship, hostile XML, and per-slide media variants")
+          Given("standard renderer evidence with relationship target, orphan-part/media, extra relationship, escaping structural relationship, and hostile XML variants")
           val descriptor = _write_fixture(root)
-          val other = root.resolve("other.png")
-          _write(other, "not-the-infographic")
           val writers = Vector[(Path, String, Path) => Unit](
             (path, title, asset) => _write_pptx(path, title, asset, slidetarget = "slides/slide2.xml", extraslide = true),
             (path, title, asset) => _write_pptx(path, title, asset, extraslide = true),
@@ -220,8 +434,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
             (path, title, asset) => _write_pptx(path, title, asset, extrapresentationrelation = true),
             (path, title, asset) => _write_pptx(path, title, asset, extrasliderelation = true),
             (path, title, asset) => _write_pptx(path, title, asset, structuralescape = true),
-            (path, title, asset) => _write_pptx(path, title, asset, hostiledtd = true),
-            (path, title, asset) => _write_pptx(path, title, other)
+            (path, title, asset) => _write_pptx(path, title, asset, hostiledtd = true)
           )
 
           When("Cozy validates each package through presentation and per-slide relationships")
@@ -233,7 +446,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         }
       }
 
-      "reject tampered artifacts and false review-manifest claims through current reconstruction" in {
+      "reject explicitly newer artifacts and inputs and false review-manifest claims through current reconstruction" in {
         _with_temp_dir("renderer-tamper") { root =>
           Given("one accepted presentation generation")
           val descriptor = _write_fixture(root)
@@ -242,28 +455,35 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
           val resource = plan.resources.find(_.resource.id == "slides").get
           val targets = Vector("target/rendered/article.pptx", "target/slides/overview.png", "target/rendered/montage.png", "article.pdf", "infographic.png")
 
-          When("each accepted output or dependency is changed after receipt acceptance")
+          When("each accepted output or dependency is changed and assigned a time later than acceptance and the review generation")
+          val review = root.resolve("review/manifest.json")
+          val accepted = CozyMediaReceipt.manifest(root.resolve("target/cozy-media/manifest.json")).get.resources.flatMap(_.receipt).map(value => java.time.Instant.parse(value.acceptedAt))
+          val later = FileTime.from((accepted :+ Files.getLastModifiedTime(review).toInstant).max.plusSeconds(1))
           val failures = targets.map { target =>
             val path = root.resolve(target)
             val original = Files.readAllBytes(path)
+            val modified = Files.getLastModifiedTime(path)
             Files.write(path, original ++ Array[Byte](1))
+            Files.setLastModifiedTime(path, later)
             val failure = intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
             Files.write(path, original)
+            Files.setLastModifiedTime(path, modified)
             failure
           }
-          val review = root.resolve("review/manifest.json")
           val originalreview = Files.readString(review)
-          _write(review, originalreview.replace("\"name\" : \"fake\"", "\"name\" : \"false-claim\""))
+          val reviewtime = Files.getLastModifiedTime(review)
+          _rewrite_json(review, _json(review).mapObject(_.add("renderer", Json.obj("name" -> Json.fromString("false-claim"), "version" -> Json.fromString("1")))))
           val reviewfailure = intercept[RuntimeException](CozyMediaPresentation.verifyStructural(plan, resource))
 
           Then("receipt currentness rejects changed files and deterministic reconstruction rejects a nested false claim")
           failures should have size targets.size
           reviewfailure.getMessage should include("reconstruction")
           _write(review, originalreview)
+          Files.setLastModifiedTime(review, reviewtime)
         }
       }
 
-      "preserve prior receipt bytes when review-state acceptance cannot be prepared or installed" in {
+      "leave prior receipt bytes untouched when review-state preparation or the first direct write fails before receipt writing" in {
         _with_temp_dir("renderer-state-failure") { root =>
           Given("an accepted presentation and then malformed state plus an uncreatable state parent")
           val descriptor = _write_fixture(root)
@@ -297,55 +517,168 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
           val preparedstate = CozyMediaReceipt.PreparedDocument(root.resolve("blocker/state.yaml"), "{}".getBytes(StandardCharsets.UTF_8))
           val preparedreceipt = CozyMediaReceipt.PreparedDocument(receipt, originalreceipt)
 
-          When("the receipt-last acceptance transaction stages its state and receipt")
-          val installfailure = intercept[FileAlreadyExistsException](CozyMediaReceipt.commit(Vector(preparedstate), preparedreceipt))
+          When("ordered direct acceptance writes try to create the first review-state parent before writing the final receipt")
+          val writefailure = intercept[FileAlreadyExistsException](CozyMediaReceipt.commit(Vector(preparedstate), preparedreceipt))
 
-          Then("the failed install still preserves the previously accepted receipt bytes")
-          installfailure.getFile should include("blocker")
+          Then("the first-parent failure leaves the final receipt write unstarted and its previous bytes untouched")
+          writefailure.getFile should include("blocker")
           Files.readAllBytes(receipt) shouldBe originalreceipt
         }
       }
 
-      "refresh current evidence but require re-alignment after changed rendered artifacts" in {
-        _with_temp_dir("renderer-realignment") { root =>
-          Given("an explicitly aligned presentation generation")
-          val descriptor = _write_fixture(root)
-          val initial = _successful_runner(root)
-          CozyMedia.build(CozyMedia.CommandConfig(descriptor), initial)
-          val plan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor))
-          val resource = plan.resources.find(_.resource.id == "slides").get
-          CozyMediaReviewState.align(plan, resource, "slide-ir")
-          val aligned = CozyMediaReviewState.load(root.resolve("review/state.yaml"))
-          Files.write(root.resolve("target/slides/overview.png"), Files.readAllBytes(root.resolve("target/slides/overview.png")) ++ Array[Byte](2))
-          val changed = new CozyMedia.ProcessRunner {
-            def run(command: Vector[String], workingdirectory: Path): Int = {
-              initial.run(command, workingdirectory)
-              val image = Path.of(command(command.indexOf("--slide-images") + 1)).resolve("overview.png")
-              val manifest = Path.of(command(command.indexOf("--manifest") + 1))
-              val oldhash = _sha256(image)
-              Files.write(image, Files.readAllBytes(image) ++ Array[Byte](3))
-              _write(manifest, Files.readString(manifest).replace(oldhash, _sha256(image)))
-              0
+      "preserve explicit alignment on ordinary reuse and require realignment after explicit rendering" in {
+        Vector(false, true).foreach { visual =>
+          _with_temp_dir("review-production-lifecycle") { root =>
+            Given("a valid presentation source and renderer for the selected presentation route")
+            val descriptor = if (visual) _write_visual_page_fixture(root) else _write_fixture(root)
+            val runner = if (visual) _visual_page_runner(root) else _successful_runner(root)
+            val config = CozyMedia.CommandConfig(descriptor)
+
+            When("the presentation is built and explicitly aligned")
+            CozyMedia.build(config, runner)
+            val plan = CozyMedia.resolvePlan(config)
+            val resource = plan.resources.find(_.resource.id == "slides").get
+            CozyMediaReviewState.align(plan, resource, "article")
+            val statepath = root.resolve("review/state.yaml")
+            val aligned = CozyMediaReviewState.load(statepath)
+            val verified = CozyMedia.verify(config)
+
+            Then("the recorded decision authorizes ordinary verification")
+            aligned.sync shouldBe "aligned"
+            verified should include("status: valid")
+
+            Given("a current presentation and a runner that rejects unexpected rendering")
+            val reuse = new CozyMedia.ProcessRunner {
+              def run(command: Vector[String], workingDirectory: Path): Int =
+                throw new IllegalStateException("Current presentation reuse must not invoke the renderer")
             }
+
+            When("the ordinary media build reuses the current presentation")
+            val reused = CozyMedia.build(config, reuse)
+            val reusedstate = CozyMediaReviewState.load(statepath)
+            val reuseverified = CozyMedia.verify(config)
+
+            Then("reuse retains the existing explicit decision and current acceptance fact")
+            reused should include("slides: current")
+            reusedstate shouldBe aligned
+            reuseverified should include("status: valid")
+
+            When("the explicit slide build renders the presentation again")
+            CozyMedia._slide_build(config, runner)
+            val stale = CozyMediaReviewState.load(statepath)
+            val failure = intercept[RuntimeException](CozyMedia.verify(config))
+
+            Then("actual rendering requires realignment while retaining the last decision and authority")
+            stale.sync shouldBe "stale"
+            stale.current.isDefined shouldBe true
+            stale.lastAligned shouldBe aligned.lastAligned
+            stale.selectedAuthority shouldBe aligned.selectedAuthority
+            failure.getMessage should include("stale")
+
+            When("the explicit alignment decision is recorded for the rendered presentation")
+            CozyMediaReviewState.align(CozyMedia.resolvePlan(config), resource, "article")
+            val realigned = CozyMedia.verify(config)
+            val slideverified = CozyMedia._slide_verify(config)
+
+            Then("ordinary media and slide verification succeed")
+            CozyMediaReviewState.load(statepath).sync shouldBe "aligned"
+            realigned should include("status: valid")
+            slideverified should include("status: valid")
           }
+        }
+      }
 
-          When("changed rendered output is rebuilt with unchanged receipt inputs")
-          CozyMedia.build(CozyMedia.CommandConfig(descriptor), changed)
-          val refreshed = CozyMediaReviewState.load(root.resolve("review/state.yaml"))
-          val stale = intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
+      "ignore arbitrary snapshot metadata without parsing or re-emitting it" in {
+        _with_temp_dir("review-snapshot-annotations") { root =>
+          Given("aligned acceptance snapshots containing arbitrary annotation values")
+          val path = root.resolve("state.json")
+          val values = Vector(io.circe.Json.Null, io.circe.Json.True, io.circe.Json.obj("note" -> io.circe.Json.fromInt(1)), io.circe.Json.fromString("review note"))
+          values.foreach { value =>
+            val snapshot = io.circe.Json.obj(
+              "acceptedAt" -> io.circe.Json.fromString("2026-10-01T00:00:00Z"),
+              "annotation" -> value
+            )
+            _write(path, io.circe.Json.obj(
+              "schema" -> io.circe.Json.fromString("cozy.media.review-state.v1"),
+              "current" -> snapshot, "last_aligned" -> snapshot,
+              "selected_authority" -> io.circe.Json.fromString("article"), "sync" -> io.circe.Json.fromString("aligned")
+            ).spaces2)
 
-          Then("current refreshes while alignment authority is preserved and becomes stale")
-          refreshed.current should not be (aligned.current)
-          refreshed.lastAligned shouldBe aligned.lastAligned
-          refreshed.selectedAuthority shouldBe Some("slide-ir")
-          refreshed.sync shouldBe "stale"
-          stale.getMessage should include("presentation verification failed")
+            When("the state is loaded and written through the current codec")
+            val state = CozyMediaReviewState.load(path)
+            CozyMediaReviewState.write(path, state)
 
-          When("an explicit re-alignment is made for the refreshed generation")
-          CozyMediaReviewState.align(CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)), CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)).resources.find(_.resource.id == "slides").get, "slide-ir")
+            Then("required acceptance and alignment facts are retained while arbitrary annotations are not re-emitted")
+            state.current shouldBe Some(CozyMediaReviewState.Snapshot("2026-10-01T00:00:00Z"))
+            state.sync shouldBe "aligned"
+            Files.readString(path) should not include "annotation"
+          }
+        }
+      }
 
-          Then("ordinary verification again accepts the aligned current generation")
-          CozyMedia.verify(CozyMedia.CommandConfig(descriptor)) should include("status: valid")
+      "reject actual XML relationship title PNG and page-mapping disagreements" in {
+        Vector(false, true).foreach { visual =>
+          _with_temp_dir("presentation-structural-validity") { root =>
+            Given("valid inputs and a successful renderer for the selected presentation route")
+            val descriptor = if (visual) _write_visual_page_fixture(root) else _write_fixture(root)
+            val runner = if (visual) _visual_page_runner(root) else _successful_runner(root)
+
+            When("the presentation is built explicitly aligned and verified")
+            CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
+            val plan = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor))
+            val resource = plan.resources.find(_.resource.id == "slides").get
+            CozyMediaReviewState.align(plan, resource, "slide-ir")
+            val verified = CozyMedia.verify(CozyMedia.CommandConfig(descriptor))
+            val slideverified = CozyMedia._slide_verify(CozyMedia.CommandConfig(descriptor))
+
+            Then("ordinary media and slide verification accept the valid presentation")
+            verified should include("status: valid")
+            slideverified should include("status: valid")
+
+            Given("PPTX writers with hostile XML orphan relationships or a wrong legacy slide title")
+            val pptx = root.resolve("target/rendered/article.pptx")
+            val pptxbytes = Files.readAllBytes(pptx)
+            val asset = root.resolve(if (visual) "assets/infographic.png" else "infographic.png")
+            val writers = Vector[(Path, String, Path) => Unit](
+              (path, title, selected) => _write_pptx(path, title, selected, hostiledtd = true),
+              (path, title, selected) => _write_pptx(path, title, selected, extrasliderelation = true)
+            ) ++ (if (visual) Vector.empty else Vector[(Path, String, Path) => Unit]((path, title, selected) => _write_pptx(path, "Wrong title", selected)))
+
+            When("public verification checks each structurally invalid package")
+            val failures = writers.map { writer =>
+              writer(pptx, "Overview", asset)
+              val failure = intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
+              Files.write(pptx, pptxbytes)
+              failure
+            }
+
+            Then("all actual XML relationship and legacy title disagreements reject")
+            failures should have size writers.size
+            failures.foreach(_.getMessage should include("presentation verification failed"))
+
+            Given("a slide PNG with an invalid format")
+            val slidepath = root.resolve("target/slides/overview.png")
+            val slidebytes = Files.readAllBytes(slidepath)
+            Files.write(slidepath, Array[Byte](1, 2, 3))
+
+            When("public verification checks the actual slide PNG")
+            val pngfailure = intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
+
+            Then("the invalid image format rejects")
+            pngfailure.getMessage should include("presentation verification failed")
+
+            Given("the valid slide PNG is restored and renderer evidence has a wrong page mapping")
+            Files.write(slidepath, slidebytes)
+            val rendererpath = root.resolve("target/rendered/renderer-manifest.json")
+            val renderer = _json(rendererpath)
+            _write(rendererpath, renderer.mapObject(fields => fields.add("slides", fields("slides").get.mapArray(_.map(_.mapObject(_.add("id", Json.fromString("wrong-page"))))))).noSpaces)
+
+            When("public verification checks the known page mapping")
+            val pagefailure = intercept[RuntimeException](CozyMedia.verify(CozyMedia.CommandConfig(descriptor)))
+
+            Then("the wrong page linkage rejects")
+            pagefailure.getMessage should include("presentation verification failed")
+          }
         }
       }
     }
@@ -398,7 +731,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         _write(descriptor, _presentation_descriptor)
         var argv = Vector.empty[String]
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             argv = command
             val pptx = Path.of(command(command.indexOf("--pptx") + 1))
             val images = Path.of(command(command.indexOf("--slide-images") + 1))
@@ -407,9 +740,8 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
             _write_pptx(pptx, "Overview", root.resolve("infographic.png"))
             _write_png(images.resolve("overview.png"))
             _write_png(montage)
-            val pptxhash = _sha256(pptx)
             _write(manifest,
-              s"""{"schema":"cozy.presentation.render.v1","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"slideIrSha256":"${_sha256(root.resolve("slide-ir.yaml"))}","templateSha256":"${_sha256(root.resolve("template.pptx"))}","pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[{"id":"overview","title":"Overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pptxSha256":"$pptxhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("infographic.png"))}"}]}],"montage":{"path":"target/rendered/montage.png","sha256":"${_sha256(montage)}","pptxSha256":"$pptxhash"}}"""
+              """{"schema":"cozy.presentation.render.v1","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"pptx":{"path":"target/rendered/article.pptx"},"slides":[{"id":"overview","title":"Overview","path":"target/slides/overview.png","assets":[{"id":"infographic"}]}],"montage":{"path":"target/rendered/montage.png"}}"""
             )
             0
           }
@@ -449,20 +781,19 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         val descriptor = _write_visual_page_fixture(root)
         var argv = Vector.empty[String]
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             argv = command
             val pptx = Path.of(command(command.indexOf("--pptx") + 1))
             val images = Path.of(command(command.indexOf("--slide-images") + 1))
             val montage = Path.of(command(command.indexOf("--montage") + 1))
             val manifest = Path.of(command(command.indexOf("--manifest") + 1))
             val validated = CozyVisualPage.load(root.resolve("visual-pages.json"), root.resolve("catalog.json"))
-            val binding = CozyVisualPageBinding.load(root.resolve("binding.json"), validated)
+            CozyVisualPageBinding.load(root.resolve("binding.json"), validated)
             _write_pptx(pptx, "Overview", root.resolve("assets/infographic.png"))
             _write_png(images.resolve("overview.png"))
             _write_png(montage)
-            val pptxhash = _sha256(pptx)
             _write(manifest,
-              s"""{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"visualPageSetSha256":"${_semantic_sha256(validated.documentIdentity)}","catalogSha256":"${_semantic_sha256(validated.catalogIdentity)}","bindingSha256":"${_semantic_sha256(binding.bindingIdentity)}","templateSha256":"${_sha256(root.resolve("template.pptx"))}","pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[{"id":"overview","path":"target/slides/overview.png","sha256":"${_sha256(images.resolve("overview.png"))}","pptxSha256":"$pptxhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("assets/infographic.png"))}"}]}],"montage":{"path":"target/rendered/montage.png","sha256":"${_sha256(montage)}","pptxSha256":"$pptxhash"}}"""
+              """{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"pptx":{"path":"target/rendered/article.pptx"},"slides":[{"id":"overview","path":"target/slides/overview.png","assets":[{"id":"infographic"}]}],"montage":{"path":"target/rendered/montage.png"}}"""
             )
             0
           }
@@ -472,13 +803,14 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         CozyMedia.build(CozyMedia.CommandConfig(descriptor), runner)
         val review = Files.readString(root.resolve("review/manifest.json"))
 
-        Then("only the visual-page argv and v2 semantic identities are accepted while the review stays non-self-approving")
+        Then("the visual-page argv is accepted and review provenance contains only the current paths")
         argv should contain("--visual-page-set")
         argv should contain("--catalog")
         argv should contain("--binding")
         argv.contains("--slide-ir") shouldBe false
         review should include("cozy.media.presentation-review.v2")
         review should include("visualPageSet")
+        io.circe.parser.parse(review).toOption.get.hcursor.downField("binding").focus shouldBe Some(io.circe.Json.obj("path" -> io.circe.Json.fromString("binding.json")))
         Files.readString(root.resolve("target/cozy-media/manifest.json")) should include("renderer-manifest")
 
         Given("the accepted v2 renderer or review evidence is changed without changing inputs")
@@ -496,6 +828,37 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         Then("stale renderer and review claims fail closed before they can prove acceptance")
         rendererfailure.getMessage should include("presentation verification failed")
         reviewfailure.getMessage should include("review manifest")
+      }
+    }
+
+    "process current rendering when obsolete Binding proof is missing malformed or changed" in {
+      _with_temp_dir("visual-binding-proof") { root =>
+        Given("a presentation accepted from its complete normalized Binding and its prior receipt")
+        val descriptor = _write_visual_page_fixture(root)
+        CozyMedia.build(CozyMedia.CommandConfig(descriptor), _visual_page_runner(root))
+        val receipt = root.resolve("target/cozy-media/manifest.json")
+        val proofs = Vector[String => Option[String]](
+          _ => None,
+          _ => Some("\"wrong\""),
+          _ => Some("{}"),
+          value => Some(value.replace("nodes-slot", "revised-nodes-slot"))
+        ) ++ Vector("\"obsolete\"", "{}", "[]", "true", "null", "1.5", "9223372036854775808").map(raw => (_: String) => Some(raw + Vector("visualPageSetSha256", "catalogSha256", "visualPageSet", "catalog").map(name => ",\"" + name + "\":" + raw).mkString))
+
+        When("a real rebuild receives each obsolete proof shape")
+        val results = proofs.map { proof =>
+          _write(root.resolve("target/rendered/renderer-manifest.json"), "{}")
+          val action = CozyMedia.resolvePlan(CozyMedia.CommandConfig(descriptor)).resources.find(_.resource.id == "slides").get.action
+          val result = CozyMedia.build(CozyMedia.CommandConfig(descriptor), _visual_page_runner(root, bindingproof = proof))
+          (result, action)
+        }
+
+        Then("all rebuilds accept actual renderer outputs without interpreting historical proof values")
+        results should have size proofs.size
+        results.foreach { case (result, action) =>
+          action shouldBe CozyMedia.Action.Build
+          result should include("slides")
+        }
+        Files.isRegularFile(receipt) shouldBe true
       }
     }
 
@@ -555,7 +918,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         Vector("source-parent", "catalog-parent", "binding-parent").foreach(name => Files.createSymbolicLink(root.resolve(name), directinputs))
         var rendered = false
         val runner = new CozyMedia.ProcessRunner {
-          def run(command: Vector[String], workingdirectory: Path): Int = {
+          def run(command: Vector[String], workingDirectory: Path): Int = {
             rendered = true
             0
           }
@@ -590,6 +953,21 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
     Files.writeString(path, value, StandardCharsets.UTF_8)
   }
 
+  private def _json(path: Path): Json =
+    io.circe.parser.parse(Files.readString(path, StandardCharsets.UTF_8)).fold(error => throw error, identity)
+
+  private def _rewrite_json(path: Path, value: Json): Unit = {
+    val modified = Files.getLastModifiedTime(path)
+    _write(path, value.noSpaces)
+    Files.setLastModifiedTime(path, modified)
+  }
+
+  private def _add_metadata(value: Json, name: String, extra: Json): Json =
+    value.asObject match {
+      case Some(fields) => Json.fromFields(fields.toVector.map { case (field, item) => field -> _add_metadata(item, name, extra) } :+ (name -> extra))
+      case None => value.asArray.map(items => Json.fromValues(items.map(item => _add_metadata(item, name, extra)))).getOrElse(value)
+    }
+
   private def _write_png(path: Path): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.write(path, Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00))
@@ -600,9 +978,9 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
     Files.write(path, Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01))
   }
 
-  private def _successful_runner(root: Path, slideid: String = "overview", title: String = "Overview", pptxwriter: (Path, String, Path) => Unit = (path, value, asset) => _write_pptx(path, value, asset)): CozyMedia.ProcessRunner =
+  private def _successful_runner(root: Path, slideid: String = "overview", title: String = "Overview", pptxwriter: (Path, String, Path) => Unit = (path, value, asset) => _write_pptx(path, value, asset), assetproof: String = """[{"id":"infographic"}]"""): CozyMedia.ProcessRunner =
     new CozyMedia.ProcessRunner {
-      def run(command: Vector[String], workingdirectory: Path): Int = {
+      def run(command: Vector[String], workingDirectory: Path): Int = {
         val pptx = Path.of(command(command.indexOf("--pptx") + 1))
         val images = Path.of(command(command.indexOf("--slide-images") + 1))
         val montage = Path.of(command(command.indexOf("--montage") + 1))
@@ -610,9 +988,28 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         pptxwriter(pptx, title, root.resolve("infographic.png"))
         _write_slide_png(images.resolve(s"$slideid.png"))
         _write_png(montage)
-        val pptxhash = _sha256(pptx)
         _write(manifest,
-          s"""{"schema":"cozy.presentation.render.v1","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"slideIrSha256":"${_sha256(root.resolve("slide-ir.yaml"))}","templateSha256":"${_sha256(root.resolve("template.pptx"))}","pptx":{"path":"target/rendered/article.pptx","sha256":"$pptxhash"},"slides":[{"id":"$slideid","title":"$title","path":"target/slides/$slideid.png","sha256":"${_sha256(images.resolve(s"$slideid.png"))}","pptxSha256":"$pptxhash","assets":[{"id":"infographic","sha256":"${_sha256(root.resolve("infographic.png"))}"}]}],"montage":{"path":"target/rendered/montage.png","sha256":"${_sha256(montage)}","pptxSha256":"$pptxhash"}}"""
+          s"""{"schema":"cozy.presentation.render.v1","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},"pptx":{"path":"target/rendered/article.pptx"},"slides":[{"id":"$slideid","title":"$title","path":"target/slides/$slideid.png","assets":$assetproof}],"montage":{"path":"target/rendered/montage.png"}}"""
+        )
+        0
+      }
+    }
+
+  private def _visual_page_runner(root: Path, assetproof: String = """[{"id":"infographic"}]""", pptxwriter: (Path, String, Path) => Unit = (path, title, asset) => _write_pptx(path, title, asset), bindingproof: String => Option[String] = _ => None): CozyMedia.ProcessRunner =
+    new CozyMedia.ProcessRunner {
+      def run(command: Vector[String], workingDirectory: Path): Int = {
+        val pptx = Path.of(command(command.indexOf("--pptx") + 1))
+        val images = Path.of(command(command.indexOf("--slide-images") + 1))
+        val montage = Path.of(command(command.indexOf("--montage") + 1))
+        val manifest = Path.of(command(command.indexOf("--manifest") + 1))
+        val validated = CozyVisualPage.load(root.resolve("visual-pages.json"), root.resolve("catalog.json"))
+        val binding = CozyVisualPageBinding.load(root.resolve("binding.json"), validated)
+        pptxwriter(pptx, "Overview", root.resolve("assets/infographic.png"))
+        _write_png(images.resolve("overview.png"))
+        _write_png(montage)
+        val bindingfield = bindingproof(binding.canonicalJson).map(value => "\"binding\":" + value + ",").getOrElse("")
+        _write(manifest,
+          s"""{"schema":"cozy.presentation.render.v2","target":"slides","profile":"business","renderer":{"name":"fake","version":"1"},${bindingfield}"pptx":{"path":"target/rendered/article.pptx"},"slides":[{"id":"overview","path":"target/slides/overview.png","assets":$assetproof}],"montage":{"path":"target/rendered/montage.png"}}"""
         )
         0
       }
@@ -664,7 +1061,7 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
         Vector(CozyVisualPage.Relation("next", "next", "discover", "apply", Vector("research")))
       ),
       CozyVisualPage.Visual("flow-horizontal", Vector.empty),
-      Vector(CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png", _sha256(root.resolve("assets/infographic.png")))),
+      Vector(CozyVisualPage.Asset("infographic", "assets/infographic.png", "image/png")),
       Vector(CozyVisualPage.SourceBinding("research", "sources/research.txt"))
     )
     _write(root.resolve("catalog.json"), CozyVisualPage.canonicalCatalogJson(catalog))
@@ -781,11 +1178,11 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
     )
   )
 
-  private def _semantic_sha256(value: String): String = value.stripPrefix("sha256:")
 
-  private def _write_pptx(path: Path, title: String, asset: Path, slidetarget: String = "slides/slide1.xml", extraslide: Boolean = false, hostiledtd: Boolean = false, extrapresentationrelation: Boolean = false, extrasliderelation: Boolean = false, orphanmedia: Boolean = false, structuralescape: Boolean = false): Unit = {
+  private def _write_pptx(path: Path, title: String, asset: Path, slidetarget: String = "slides/slide1.xml", extraslide: Boolean = false, hostiledtd: Boolean = false, extrapresentationrelation: Boolean = false, extrasliderelation: Boolean = false, orphanmedia: Boolean = false, structuralescape: Boolean = false, media: Vector[Path] = Vector.empty): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     val output = new ZipOutputStream(Files.newOutputStream(path))
+    val selected = if (media.nonEmpty) media else Vector(asset)
     try {
       _zip(output, "[Content_Types].xml", "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"xml\" ContentType=\"application/xml\"/></Types>")
       _zip(output, "ppt/presentation.xml", "<p:presentation xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><p:sldIdLst><p:sldId id=\"256\" r:id=\"rId1\"/></p:sldIdLst></p:presentation>")
@@ -793,14 +1190,17 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
       val presentationrelations = s"""<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="$slidetarget"/>$presentationextra</Relationships>"""
       _zip(output, "ppt/_rels/presentation.xml.rels", presentationrelations)
       val xml = if (hostiledtd) s"""<!DOCTYPE p:sld [<!ENTITY injected SYSTEM "file:///never-read">]><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:spTree><a:p><a:r><a:t>&injected;</a:t></a:r></a:p><a:blip r:embed="rId1"/></p:spTree></p:cSld></p:sld>""" else s"""<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:spTree><a:p><a:r><a:t>$title</a:t></a:r></a:p><a:blip r:embed="rId1"/></p:spTree></p:cSld></p:sld>"""
-      _zip(output, "ppt/slides/slide1.xml", xml)
+      val blips = selected.indices.map(index => s"""<a:blip r:embed="rId${index + 1}"/>""").mkString
+      _zip(output, "ppt/slides/slide1.xml", xml.replace("""<a:blip r:embed="rId1"/>""", blips))
       val sliderelations = s"""<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>${if (extrasliderelation) "<Relationship Id=\"rIdExtra\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"../media/image1.png\"/>" else ""}</Relationships>"""
-      _zip(output, "ppt/slides/_rels/slide1.xml.rels", sliderelations)
+      val images = selected.indices.map(index => s"""<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${index + 1}.png"/>""").mkString
+      _zip(output, "ppt/slides/_rels/slide1.xml.rels", sliderelations.replace("""<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>""", images))
       if (extraslide) _zip(output, "ppt/slides/slide2.xml", xml)
-      val entry = new ZipEntry("ppt/media/image1.png")
-      output.putNextEntry(entry)
-      output.write(Files.readAllBytes(asset))
-      output.closeEntry()
+      selected.zipWithIndex.foreach { case (path, index) =>
+        output.putNextEntry(new ZipEntry(s"ppt/media/image${index + 1}.png"))
+        output.write(Files.readAllBytes(path))
+        output.closeEntry()
+      }
       if (orphanmedia) {
         output.putNextEntry(new ZipEntry("ppt/media/orphan.png"))
         output.write(Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x02))
@@ -814,9 +1214,6 @@ final class CozyMediaPresentationSpec extends AnyWordSpec with Matchers with Giv
     output.write(value.getBytes(StandardCharsets.UTF_8))
     output.closeEntry()
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private val _presentation_descriptor =
     """schema: cozy.media.v1

@@ -2,7 +2,7 @@ package cozy.config
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.scalatest.GivenWhenThen
@@ -11,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 12, 2026
- * @version Aug. 12, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -36,7 +37,6 @@ final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenW
           val projectmarker = context.project.map(_.marker).get
           val projectfile = context.layers.find(_.name == "project-conf").flatMap(_.files.find(_.path == marker)).get
           (projectmarker eq projectfile) shouldBe true
-          projectmarker.sha256 shouldBe projectfile.sha256
           context.publicationProfile("project-site").map(_.resolvedRoot) shouldBe Some(project.toAbsolutePath.normalize())
           context.valueProvenance("video.credits.default-profile").map(_.sourcePath) shouldBe Some(marker)
         }
@@ -224,41 +224,6 @@ final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenW
       }
     }
 
-    "retain revalidation evidence" which {
-      "accept unchanged evidence and reject configuration, marker, and user-home drift" in {
-        _with_work("revalidate") { root =>
-          Given("a marked package and a stable user home")
-          val home = _directory(root.resolve("home"))
-          _set_home(home)
-          val project = root.resolve("project")
-          val marker = _write(project.resolve("conf/cozy/config.yaml"), _project_yaml("site", ".", "smartdox"))
-          val packagepath = _directory(project.resolve("package"))
-          val context = CozyProjectContext.resolve(packagepath)
-
-          When("the unchanged snapshot is revalidated")
-          val unchanged = CozyProjectContext.revalidate(context)
-
-          Then("the exact context remains equal")
-          unchanged shouldBe context
-
-          And("configuration byte drift, atomic file replacement, marker removal, and user-home drift are rejected")
-          _write(marker, _project_yaml("site", ".", "changed"))
-          _failure(CozyProjectContext.revalidate(context)).getMessage should include("snapshot")
-          val context2 = CozyProjectContext.resolve(packagepath)
-          val replacement = _write(project.resolve("replacement.yaml"), _project_yaml("site", ".", "changed"))
-          Files.move(replacement, marker, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-          _failure(CozyProjectContext.revalidate(context2)).getMessage should include("snapshot")
-          val context3 = CozyProjectContext.resolve(packagepath)
-          Files.delete(marker)
-          _failure(CozyProjectContext.revalidate(context3)).getMessage should include("snapshot")
-          _write(marker, _project_yaml("site", ".", "changed"))
-          val context4 = CozyProjectContext.resolve(packagepath)
-          _set_home(_directory(root.resolve("other-home")))
-          _failure(CozyProjectContext.revalidate(context4)).getMessage should include("snapshot")
-        }
-      }
-    }
-
     "read the fixed supported configuration candidates" which {
       "load exact candidate names in declared order as their native formats without a broad scan" in {
         _with_work("formats") { root =>
@@ -352,28 +317,6 @@ final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenW
         errors.foreach { case (_, error) =>
           error.getMessage should include("HOCON include is not allowed")
           error.getMessage should include("config.conf")
-        }
-      }
-
-      "reject same-size in-place mutation between captured file reads" in {
-        _with_work("snapshot-race") { root =>
-          Given("a direct project marker and a deterministic mutation callback")
-          val project = root.resolve("project")
-          val initial = _project_yaml("site", ".", "before")
-          val replacement = _project_yaml("site", ".", "after!")
-          initial.getBytes(StandardCharsets.UTF_8).length shouldBe replacement.getBytes(StandardCharsets.UTF_8).length
-          val marker = _write(project.resolve("conf/cozy/config.yaml"), initial)
-          val previous = CozyProjectContext._file_snapshot_between_reads
-          CozyProjectContext._file_snapshot_between_reads = () =>
-            _write(marker, replacement)
-
-          When("project discovery captures the marker while its same-size bytes change")
-          val error = try _failure(CozyProjectContext.resolve(_directory(project.resolve("package"))))
-          finally CozyProjectContext._file_snapshot_between_reads = previous
-
-          Then("the torn snapshot is rejected rather than used as configuration evidence")
-          error.getMessage should include("project marker")
-          error.getMessage should include("changed while being read")
         }
       }
 

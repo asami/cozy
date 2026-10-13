@@ -9,7 +9,7 @@ import CmlSemanticFoundation._
 
 /*
  * @since   Sep. 28, 2026
- * @version Sep. 28, 2026
+ * @version Oct. 5, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -72,11 +72,11 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
         val targetid = ModelElementId("sales", "Order")
         val ownerid = ModelElementId("sales", "OrderService")
         val firstsource = _source("sales", "src/main/cml/order.cml", 1)
-        val secondsource = _source("sales", "models/order-definition.cml", 88, _digest_b)
-        val first = _catalog_with_reference(targetid, ownerid, "Order", "Order", firstsource)
-        val second = _catalog_with_reference(targetid, ownerid, "Purchase", "Purchase record", secondsource)
+        val secondsource = _source("sales", "models/order-definition.cml", 88)
 
         When("each admitted description is independently built and looked up by identity")
+        val first = _catalog_with_reference(targetid, ownerid, "Order", "Order", firstsource)
+        val second = _catalog_with_reference(targetid, ownerid, "Purchase", "Purchase record", secondsource)
         val firstcatalog = _catalog(first)
         val secondcatalog = _catalog(second)
 
@@ -185,7 +185,6 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
         val invalidsource = _element(ModelElementId("inventory", "Stock"), "Stock", SourceAttribution(
           "other",
           "/workspace/stock.cml",
-          "ABC",
           Some(0)
         ))
         val danglingreference = SemanticReference(
@@ -235,20 +234,18 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
         Given("in-memory records for every forbidden source form plus null identifier, provenance, and reference strings")
         val validsource = _source("sales", "src/main/cml/order.cml", 2)
         val invalidsources = Vector(
-          ("drive path", SourceAttribution("sales", "C:/order.cml", _digest_a, Some(1)), "elements[0].source.path"),
-          ("URI path", SourceAttribution("sales", "file://order.cml", _digest_a, Some(1)), "elements[0].source.path"),
-          ("backslash path", SourceAttribution("sales", "src\\order.cml", _digest_a, Some(1)), "elements[0].source.path"),
-          ("empty segment", SourceAttribution("sales", "src//order.cml", _digest_a, Some(1)), "elements[0].source.path"),
-          ("dot segment", SourceAttribution("sales", "src/./order.cml", _digest_a, Some(1)), "elements[0].source.path"),
-          ("dot-dot segment", SourceAttribution("sales", "src/../order.cml", _digest_a, Some(1)), "elements[0].source.path"),
-          ("control path", SourceAttribution("sales", "src/ord\u0001er.cml", _digest_a, Some(1)), "elements[0].source.path"),
-          ("uppercase digest", SourceAttribution("sales", "src/order.cml", "A" * 64, Some(1)), "elements[0].source.sha256"),
-          ("short digest", SourceAttribution("sales", "src/order.cml", "a" * 63, Some(1)), "elements[0].source.sha256"),
-          ("zero line", SourceAttribution("sales", "src/order.cml", _digest_a, Some(0)), "elements[0].source.line"),
-          ("authority mismatch", SourceAttribution("other", "src/order.cml", _digest_a, Some(1)), "elements[0].source.authorityId")
+          ("drive path", SourceAttribution("sales", "C:/order.cml", Some(1)), "elements[0].source.path"),
+          ("URI path", SourceAttribution("sales", "file://order.cml", Some(1)), "elements[0].source.path"),
+          ("backslash path", SourceAttribution("sales", "src\\order.cml", Some(1)), "elements[0].source.path"),
+          ("empty segment", SourceAttribution("sales", "src//order.cml", Some(1)), "elements[0].source.path"),
+          ("dot segment", SourceAttribution("sales", "src/./order.cml", Some(1)), "elements[0].source.path"),
+          ("dot-dot segment", SourceAttribution("sales", "src/../order.cml", Some(1)), "elements[0].source.path"),
+          ("control path", SourceAttribution("sales", "src/ord\u0001er.cml", Some(1)), "elements[0].source.path"),
+          ("zero line", SourceAttribution("sales", "src/order.cml", Some(0)), "elements[0].source.line"),
+          ("authority mismatch", SourceAttribution("other", "src/order.cml", Some(1)), "elements[0].source.authorityId")
         )
         val nullidentity = _element(ModelElementId(null, "Order"), "Order", validsource)
-        val nullprovenance = _element(ModelElementId("sales", "Provenance"), "Provenance", SourceAttribution(null, null, null, None))
+        val nullprovenance = _element(ModelElementId("sales", "Provenance"), "Provenance", SourceAttribution(null, null, None))
         val invalidreference = SemanticReference(
           ModelTarget(ModelElementId("external", "Order")),
           External,
@@ -290,7 +287,6 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
           "elements[0].identity.modelId",
           "elements[1].source.authorityId",
           "elements[1].source.path",
-          "elements[1].source.sha256",
           "elements[2].references.detail",
           "elements[3].references[0].relation.relationId",
           "elements[3].references[0].profile.vocabularyId",
@@ -338,7 +334,7 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
         val declared = _reference(ModelTarget(targetid), source, Declared)
         val derived = _reference(ModelTarget(targetid), source, Derived("projection-rule", Vector(input)))
         val invalidrule = _reference(ModelTarget(targetid), source, Derived("", Vector(input)))
-        val invalidsources = _reference(ModelTarget(targetid), source, Derived("projection-rule", Vector(SourceAttribution("bok", "glossary/order.md", "bad", None))))
+        val invalidsources = _reference(ModelTarget(targetid), source, Derived("projection-rule", Vector(SourceAttribution("bok", "../glossary/order.md", None))))
 
         When("complete and incomplete origin evidence is passed to build")
         val valid = CmlSemanticFoundation.build(Vector(_element(targetid, "Order", source), ElementRecord(Present(ownerid), "service", "Owner", source, Present(Vector(declared, derived)))), Vector.empty)
@@ -375,14 +371,14 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
 
     "retain identity semantics under generated admissible variations" which {
       "keep identity lookup and reference targets invariant under descriptive and provenance variation" in {
-        Given("one hundred generated valid descriptive names, labels, paths, lines, and digests")
+        Given("one hundred generated valid descriptive names, labels, paths and lines")
         val variations = Gen.chooseNum(1, 100)
 
         When("ScalaCheck builds and looks up each independently varied admitted catalog")
         val property = Prop.forAll(variations) { variation =>
           val targetid = ModelElementId("sales", "Order")
           val ownerid = ModelElementId("sales", "Owner")
-          val source = _source("sales", s"models/$variation/order.cml", variation, _digest_for(variation))
+          val source = _source("sales", s"models/$variation/order.cml", variation)
           val catalog = CmlSemanticFoundation.build(Vector(
             _element(targetid, s"Order $variation", source),
             ElementRecord(Present(ownerid), "service", s"Owner $variation", source, Present(Vector(SemanticReference(
@@ -444,11 +440,8 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
     }
   }
 
-  private val _digest_a = "a" * 64
-  private val _digest_b = "b" * 64
-
-  private def _source(authority: String, path: String, line: Int, digest: String = _digest_a): SourceAttribution =
-    SourceAttribution(authority, path, digest, Some(line))
+  private def _source(authority: String, path: String, line: Int): SourceAttribution =
+    SourceAttribution(authority, path, Some(line))
 
   private def _element(identity: ModelElementId, name: String, source: SourceAttribution): ElementRecord =
     ElementRecord(Present(identity), "entity", name, source, Present(Vector.empty))
@@ -507,6 +500,4 @@ final class CmlSemanticFoundationSpec extends AnyWordSpec with Matchers with Giv
       case Left(diagnostic) => fail(s"Expected an admitted element but received: $diagnostic")
     }
 
-  private def _digest_for(value: Int): String =
-    ("0123456789abcdef" * 4).take(63) + (value % 16).toHexString
 }

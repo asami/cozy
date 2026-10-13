@@ -57,9 +57,19 @@ The aggregate uses field-ordered JSON values constructed from normalized typed
 values. It sorts unordered transition, structure, override, policy-binding,
 and Visual parameter collections, while retaining semantic sequence where the
 source contract says order matters. The currentness identity joins the direct
-v1 Core identity, v2 identity, Composition and Plan identities, both catalog
-identities, policy identity, declared source/asset identities, and selected
-Visual results. It writes no state or receipt.
+v1 Core identity, v2 identity, Composition and Plan identities, Explanation
+catalog identity, policy identity, required source/asset declarations, and selected
+Visual results. The nested Composition serialization writes sources as `{id}`
+and assets as `{id,mediaType}`, with no material digest field or computation;
+ordinary historical material extras are consumed only by the existing Phase 37
+reader and are not retained. Safe explicit direct bindings remain required.
+DM14 deletes both presentation catalog digest fields and the interrupted
+`presentationCatalogValue`/`presentationLogicalCatalogValue` copies from the
+aggregate and consumers. Current catalog definition validation remains, with
+no historical whole-catalog equality gate. It writes no state or receipt.
+Core, semantic, Explanation catalog, Composition/Plan, policy, projection,
+renderer/output, receipt, and currentness hashes remain unfinished later
+same-Phase work; no closure or general timestamp/adoption claim is made.
 
 ## Diagnostic boundary
 

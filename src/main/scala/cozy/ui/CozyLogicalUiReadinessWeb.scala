@@ -2,7 +2,7 @@ package cozy.ui
 
 import java.io.IOException
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path}
 import cozy.ui.CozyLogicalUi._
 import cozy.ui.CozyLogicalUiReadiness._
 import cozy.ui.CozyLogicalUiReadinessReview._
@@ -11,7 +11,7 @@ import play.api.libs.json._
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiReadinessWeb {
@@ -50,21 +50,9 @@ private[cozy] object CozyLogicalUiReadinessWeb {
     _render(CozyLogicalUiReadinessReview.renderAccepted(accepted, scenario),
       if (accepted == null) null else accepted.candidate, Option(accepted), scenario)
 
-  def verifyCandidateCurrent(
-    completeCandidate: TargetReadyCandidate, scenario: ReadinessScenario, preview: ReadinessWebPreview
-  ): Either[LogicalUiError, Unit] = _verify(renderCandidate(completeCandidate, scenario), preview)
-
-  def verifyAcceptedCurrent(
-    accepted: AcceptedTargetReadyLogicalUi, scenario: ReadinessScenario, preview: ReadinessWebPreview
-  ): Either[LogicalUiError, Unit] = _verify(renderAccepted(accepted, scenario), preview)
-
   def write(preview: ReadinessWebPreview, siteParent: Path, receiptParent: Path): Either[LogicalUiError, Unit] = {
-    if (preview == null) Left(_error("preview", "Web preview required", "CURRENTNESS"))
+    if (preview == null) Left(_error("preview", "Web preview required", "CONTRACT"))
     else for {
-      _ <- preview._accepted match {
-        case Some(accepted) => verifyAcceptedCurrent(accepted, preview._scenario, preview)
-        case None => verifyCandidateCurrent(preview._candidate, preview._scenario, preview)
-      }
       _ <- _preflight(siteParent, receiptParent)
       _ <- _install(Vector(siteParent.resolve("index.html") -> preview.html,
         siteParent.resolve("review.html") -> preview.reviewHtml, siteParent.resolve("compare.html") -> preview.compareHtml,
@@ -85,20 +73,6 @@ private[cozy] object CozyLogicalUiReadinessWeb {
       "simulated" -> receipt.simulated, "outputs" -> receipt.outputs))
     new ReadinessWebPreview(_app_html(candidate, review.receipt, json), review.html,
       _compare_html(review.receipt.binding), receipt, json, review.receiptJson, review.diagnostics, candidate, accepted, scenario)
-  }
-
-  private def _verify(result: Either[LogicalUiError, ReadinessWebPreview], preview: ReadinessWebPreview): Either[LogicalUiError, Unit] = {
-    if (preview == null) Left(_error("preview", "Web preview required", "CURRENTNESS"))
-    else result.left.map(error => _error(error.path, error.reason, "CURRENTNESS")).flatMap { current =>
-      Vector((current.html != preview.html, "preview.html"), (current.reviewHtml != preview.reviewHtml, "preview.reviewHtml"),
-        (current.compareHtml != preview.compareHtml, "preview.compareHtml"), (current.receipt != preview.receipt, "preview.receipt"),
-        (current.receiptJson != preview.receiptJson, "preview.receiptJson"),
-        (current.reviewReceiptJson != preview.reviewReceiptJson, "preview.reviewReceiptJson"),
-        (current.diagnostics != preview.diagnostics, "preview.diagnostics")).find(_._1) match {
-        case Some((_, path)) => Left(_error(path, "Web observable is stale or mode differs", "CURRENTNESS"))
-        case None => Right(())
-      }
-    }
   }
 
   private def _app_html(candidate: TargetReadyCandidate, receipt: ReviewReceipt, json: String): String = {
@@ -129,16 +103,9 @@ private[cozy] object CozyLogicalUiReadinessWeb {
     val binding = receipt.binding
     "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
       "<title>Complete Logical UI simulation</title><style>" + _css + "</style></head><body>" +
-      "<main id=\"readiness-preview\" data-candidate-identity=\"" + _escape(binding.candidateIdentity) +
-      "\" data-consumed-input-identity=\"" + _escape(binding.consumedInputIdentity) +
-      "\" data-kernel-candidate-identity=\"" + _escape(binding.kernelCandidateIdentity) +
-      "\" data-kernel-input-identity=\"" + _escape(binding.kernelInputIdentity) +
-      "\" data-projection-identity=\"" + _escape(binding.projectionIdentity) +
-      "\" data-semantic-projection-identity=\"" + _escape(binding.semanticProjectionIdentity) +
-      "\" data-accepted-identity=\"" + _escape(binding.acceptedIdentity.getOrElse("")) +
-      "\" data-decision-identity=\"" + _escape(binding.decisionIdentity.getOrElse("")) + "\">" +
+      "<main id=\"readiness-preview\">" +
       "<h1>SalesOrder Logical UI simulation</h1><p id=\"assurance\">" +
-      (if (binding.acceptedIdentity.isDefined) "Explicitly accepted complete input" else "Complete candidate; acceptance pending") +
+      (if (binding.decision.isDefined) "Explicitly accepted complete input" else "Complete candidate; acceptance pending") +
       "; simulated review fixture</p><p><a href=\"review.html\">Structural review</a> · <a href=\"compare.html\">Compare window sizes</a></p>" +
       "<p>Window intent: <output id=\"window-profile\"></output></p><nav id=\"source-navigation\" aria-label=\"Source navigation\">" +
       "<button id=\"open-detail\" type=\"button\"" + _attributes_(NavigationControl) + ">" + _label_(NavigationControl) + "</button></nav>" +
@@ -387,18 +354,13 @@ p,dd,pre,output,span{overflow-wrap:anywhere;white-space:pre-wrap}pre{font-size:.
       "<section><h2>" + name + " · " + width + " × " + height + "</h2><iframe title=\"" + name +
         " complete Logical UI simulation\" src=\"index.html\" width=\"" + width + "\" height=\"" + height + "\"></iframe></section>"
     }.mkString
-    val provenance = Vector("Candidate" -> binding.candidateIdentity, "Consumed input" -> binding.consumedInputIdentity,
-      "Kernel candidate" -> binding.kernelCandidateIdentity, "Kernel input" -> binding.kernelInputIdentity,
-      "Projection" -> binding.projectionIdentity, "Semantic projection" -> binding.semanticProjectionIdentity,
-      "Accepted" -> binding.acceptedIdentity.getOrElse(""), "Decision identity" -> binding.decisionIdentity.getOrElse(""),
-      "Decision ID" -> binding.decision.map(_.decisionId).getOrElse(""),
-      "Decision candidate" -> binding.decision.map(_.candidateIdentity).getOrElse(""),
+    val provenance = Vector("Decision ID" -> binding.decision.map(_.decisionId).getOrElse(""),
       "Reviewer" -> binding.decision.map(_.reviewerId).getOrElse(""))
       .map { case (name, value) => _escape(name) + ":" + (if (value.isEmpty) "" else " " + _escape(value)) }.mkString("\n")
     "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
       "<title>Compare one complete Logical UI</title><style>body{font-family:system-ui,sans-serif;margin:1rem}#frames{display:flex;gap:1rem;overflow-x:auto}section{flex:none}iframe{border:1px solid #b8c4d0}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body>" +
       "<h1>One app at three viewport sizes</h1><p>" +
-      (if (binding.acceptedIdentity.isDefined) "Explicit accepted complete input" else "Complete candidate; acceptance pending") +
+      (if (binding.decision.isDefined) "Explicit accepted complete input" else "Complete candidate; acceptance pending") +
       "; all frames use the same declared list fixture.</p><a href=\"review.html\">Structural review</a>" +
       "<details><summary>Exact complete provenance</summary><pre>" + provenance +
       "</pre></details><div id=\"frames\">" + frames + "</div></body></html>"
@@ -435,26 +397,12 @@ p,dd,pre,output,span{overflow-wrap:anywhere;white-space:pre-wrap}pre{font-size:.
   }
 
   private def _install(values: Vector[(Path, String)]): Either[LogicalUiError, Unit] = {
-    var temporary = Vector.empty[Path]
     try {
-      val prepared = values.map { case (target, text) =>
-        val created = Files.createTempFile(target.getParent, ".cozy-readiness-", ".tmp")
-        temporary :+= created
-        Files.write(created, text.getBytes(StandardCharsets.UTF_8))
-        created -> target
-      }
-      prepared.foreach { case (created, target) =>
-        Files.move(created, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      }
+      values.foreach { case (target, text) => Files.write(target, text.getBytes(StandardCharsets.UTF_8)) }
       Right(())
     } catch {
-      case error: IOException => Left(_error("output", "atomic installation failed: " + error.getMessage, "OUTPUT"))
-      case _: SecurityException => Left(_error("output", "atomic installation denied", "OUTPUT"))
-    } finally {
-      temporary.foreach { path =>
-        try Files.deleteIfExists(path)
-        catch { case _: IOException => (); case _: SecurityException => () }
-      }
+      case error: IOException => Left(_error("output", "output write failed: " + error.getMessage, "OUTPUT"))
+      case _: SecurityException => Left(_error("output", "output write denied", "OUTPUT"))
     }
   }
 

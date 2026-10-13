@@ -14,7 +14,7 @@ import CmlUseCaseNavigation.{ExternalTarget, LocalTarget}
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -293,7 +293,6 @@ class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with Given
   private val _peer = "org.example.use-case-handoff"
   private val _peer_value = Json.obj("producer" -> "synthetic-caller",
     "declaredFlowOrder" -> Json.arr("main", "alternate", "exception"), "absence" -> JsNull)
-  private val _digest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
   private val _anonymous = Absent(NotRepresented, "No stable Use Case or Actor identity is represented.")
   private val _absences = Vector(
     Absent(NotDeclared, "No Use Case fact is declared."),
@@ -318,7 +317,7 @@ class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with Given
     DeclaredExpression(text, Present(references.toVector))
   }
   private def _source(line: Int): SourceAttribution = {
-    SourceAttribution("usecase.example", "src/main/cml/use-case-handoff.cml", _digest, Some(line))
+    SourceAttribution("usecase.example", "src/main/cml/use-case-handoff.cml", Some(line))
   }
   private def _literal(absent: Boolean): Expected = {
     // Only the accepted prefix is reader-backed; every new expected fact is authored here.
@@ -575,7 +574,7 @@ class CmlUseCaseMetadataFixtureSpec extends AnyWordSpec with Matchers with Given
   }
   private def _identity_json(value: ModelElementId): JsObject = { Json.obj("modelId" -> value.modelId, "elementId" -> value.elementId) }
   private def _source_json(value: SourceAttribution): JsObject = {
-    Json.obj("authorityId" -> value.authorityId, "path" -> value.path, "sha256" -> value.sha256, "line" -> value.line.get)
+    Json.obj("authorityId" -> value.authorityId, "path" -> value.path, "line" -> value.line.get)
   }
   private def _presence_json[A](value: Presence[A], render: A => JsValue): JsObject = {
     value match {

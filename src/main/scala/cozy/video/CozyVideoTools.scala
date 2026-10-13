@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,12 +26,14 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 11, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] trait CozyVideoTools {
-  self: CozyVideoConfig with CozyVideoModel =>
+private[cozy] object CozyVideoTools {
+  import CozyVideoImplementation._
+
   sealed trait VideoToolMode { def label: String }
+
   object VideoToolMode {
     case object Docker extends VideoToolMode { val label = "docker" }
     case object Host extends VideoToolMode { val label = "host" }
@@ -47,6 +48,7 @@ private[cozy] trait CozyVideoTools {
   }
 
   sealed trait VideoToolStatus { def label: String }
+
   object VideoToolStatus {
     case object Available extends VideoToolStatus { val label = "available" }
     case object Missing extends VideoToolStatus { val label = "missing" }
@@ -75,8 +77,28 @@ private[cozy] trait CozyVideoTools {
   final case class VideoExecutionConfig(
     toolMode: VideoToolMode,
     dockerImage: String,
-    voicevoxUrl: String
-  )
+    voicevoxUrl: String,
+    selections: Map[String, CozyVideoOperatingConfig.ToolSelection] = Map.empty,
+    encoderName: String = "libx264",
+    encoderOrigin: String = "tool-default",
+    encoderExplicit: Boolean = false,
+    encoderBitrate: Option[String] = None,
+    encoderBitrateOrigin: String = "profile-default"
+  ) {
+    def selected(tool: String): CozyVideoOperatingConfig.ToolSelection =
+      selections.getOrElse(CozyVideoOperatingConfig.identity(tool), CozyVideoOperatingConfig.defaultSelection(tool, toolMode, dockerImage))
+    def requiresDocker: Boolean =
+      if (selections.isEmpty) toolMode == VideoToolMode.Docker
+      else selections.values.exists(selection => selection.identity != "piper" && selection.mode == VideoToolMode.Docker)
+    def externalFrameEncoding: Boolean = {
+      val renderer = selected("remotion")
+      val encoder = selected("ffmpeg")
+      encoderName == "h264_videotoolbox" || encoderExplicit || encoder.origins("executable") != "tool-default" ||
+        encoder.origins("docker-image").contains("video.tools.") ||
+        renderer.mode != encoder.mode || renderer.dockerImage != encoder.dockerImage
+    }
+    def effectiveToolsJson: Json = Json.obj(selections.toVector.sortBy(_._1).map { case (id, selection) => id -> selection.toJson }: _*)
+  }
 
   private[video] final case class DockerMount(
     hostpath: Path,
@@ -120,7 +142,8 @@ private[cozy] trait CozyVideoTools {
         orElse(scripttools.voicevoxUrl).
         orElse(config.value("video.voicevox.url")).
         getOrElse(VideoToolSettings.DEFAULT_VOICEVOX_URL)
-      VideoExecutionConfig(VideoToolMode.parse(resolvedmode), resolvedimage, resolvedvoicevox)
+      CozyVideoOperatingConfig.resolve(projectroot, scripttools, toolmode, dockerimage,
+        VideoExecutionConfig(VideoToolMode.parse(resolvedmode), resolvedimage, resolvedvoicevox))
     }
   }
 
@@ -131,6 +154,7 @@ private[cozy] trait CozyVideoTools {
   final case class VideoToolRegistry(providers: Vector[VideoToolProvider]) {
     def checks(context: VideoToolContext): Vector[VideoToolCheck] = providers.map(_.check(context))
   }
+
   object VideoToolRegistry {
     val default: VideoToolRegistry = production(VideoToolProbe.default)
 
@@ -142,6 +166,7 @@ private[cozy] trait CozyVideoTools {
       MacosSayProvider(probe),
       PiperProvider(probe),
       FfmpegProvider(probe),
+      FfprobeProvider(probe),
       RemotionNodeProvider(probe),
       PlaywrightProvider(probe),
       WhisperCppProvider(probe),
@@ -181,6 +206,7 @@ private[cozy] trait CozyVideoTools {
     def httpGet(uri: URI): VideoHttpResult
     def exists(path: Path): Boolean
   }
+
   object VideoToolProbe {
     val default: VideoToolProbe = DefaultVideoToolProbe
   }
@@ -230,6 +256,7 @@ private[cozy] trait CozyVideoTools {
     def audioQuery(baseurl: String, text: String, speakerid: Int): Json
     def synthesis(baseurl: String, speakerid: Int, audioquery: Json): Array[Byte]
   }
+
   object VoicevoxClient {
     val default: VoicevoxClient = DefaultVoicevoxClient
   }
@@ -302,7 +329,7 @@ private[cozy] trait CozyVideoTools {
 
   final case class DockerToolchainProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      if (context.execution.toolMode == VideoToolMode.Host)
+      if (!context.execution.requiresDocker)
         return VideoToolCheck(
           "docker-toolchain",
           VideoToolMode.Docker,
@@ -326,7 +353,7 @@ private[cozy] trait CozyVideoTools {
   final case class DockerImageProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
       val image = context.execution.dockerImage
-      if (context.execution.toolMode == VideoToolMode.Host)
+      if (!context.execution.requiresDocker)
         return VideoToolCheck(
           "docker-image",
           VideoToolMode.Docker,
@@ -343,25 +370,32 @@ private[cozy] trait CozyVideoTools {
           Some("Start Docker, then run: docker pull " + image)
         )
       else {
-        val result = probe.command(Vector("docker", "image", "inspect", image), context.projectRoot)
-        if (result.isSuccess)
-          VideoToolCheck("docker-image", VideoToolMode.Docker, VideoToolStatus.Available, s"Docker image is available: $image.")
-        else
-          VideoToolCheck(
-            "docker-image",
-            VideoToolMode.Docker,
-            VideoToolStatus.Missing,
-            _message(s"Docker image is missing: $image.", result),
-            Some("Run: docker pull " + image)
-          )
+        val images = context.execution.selections.values.filter(selection => selection.identity != "piper" && selection.mode == VideoToolMode.Docker)
+          .map(_.dockerImage).toVector.distinct match {
+          case values if values.nonEmpty => values
+          case _ => Vector(image)
+        }
+        val results = images.map(selectedimage => selectedimage -> probe.command(Vector("docker", "image", "inspect", selectedimage), context.projectRoot))
+        results.find { case (_, result) => !result.isSuccess } match {
+          case None =>
+            VideoToolCheck("docker-image", VideoToolMode.Docker, VideoToolStatus.Available, s"Docker images are available: ${images.mkString(", ")}.")
+          case Some((selectedimage, result)) =>
+            VideoToolCheck(
+              "docker-image",
+              VideoToolMode.Docker,
+              VideoToolStatus.Missing,
+              _message(s"Docker image is missing: $selectedimage.", result),
+              Some("Run: docker pull " + selectedimage)
+            )
+        }
       }
     }
   }
 
   final case class TextusToolchainImageProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      val image = context.execution.dockerImage
-      if (context.execution.toolMode == VideoToolMode.Host)
+      val image = context.execution.selected("remotion").dockerImage
+      if (context.execution.selected("remotion").mode != VideoToolMode.Docker)
         return VideoToolCheck(
           "textus-toolchain-image",
           VideoToolMode.Docker,
@@ -450,7 +484,7 @@ private[cozy] trait CozyVideoTools {
           VideoToolStatus.Unchecked,
           "macOS say was not checked because it is not selected by this video plan."
         )
-      else if (context.execution.toolMode != VideoToolMode.Host)
+      else if (context.execution.selected("macos-say").mode != VideoToolMode.Host)
         VideoToolCheck(
           "macos-say",
           VideoToolMode.Host,
@@ -467,8 +501,8 @@ private[cozy] trait CozyVideoTools {
           Some("Select a portable Docker narration provider on this host.")
         )
       else {
-        val say = probe.command(Vector("say", "-v", "?"), context.projectRoot)
-        val ffmpeg = probe.command(Vector("ffmpeg", "-version"), context.projectRoot)
+        val say = probe.command(Vector(context.execution.selected("macos-say").executable, "-v", "?"), context.projectRoot)
+        val ffmpeg = probe.command(_execution_command(context.projectRoot, context.execution, "ffmpeg", Vector("-version")), context.projectRoot)
         if (say.isSuccess && ffmpeg.isSuccess)
           VideoToolCheck(
             "macos-say",
@@ -501,7 +535,7 @@ private[cozy] trait CozyVideoTools {
           VideoToolStatus.Unchecked,
           "Piper was not checked because it is not selected by this video plan."
         )
-      else if (context.execution.toolMode != VideoToolMode.Docker)
+      else if (context.execution.selected("piper").mode != VideoToolMode.Docker)
         VideoToolCheck(
           "piper",
           VideoToolMode.Docker,
@@ -510,7 +544,7 @@ private[cozy] trait CozyVideoTools {
           Some("Use --tool-mode=docker and a Textus toolchain image containing the Piper runtime and models.")
         )
       else {
-        val image = context.execution.dockerImage
+        val image = context.execution.selected("piper").dockerImage
         val docker = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
         if (!docker.isSuccess)
           VideoToolCheck(
@@ -532,7 +566,7 @@ private[cozy] trait CozyVideoTools {
             )
           else {
             val result = probe.command(
-              Vector("docker", "run", "--rm", "--network=none", image, "textus-toolchain", "check", "tts"),
+              Vector("docker", "run", "--rm", "--network=none", image, context.execution.selected("piper").executable, "check", "tts"),
               context.projectRoot
             )
             if (result.isSuccess)
@@ -555,40 +589,92 @@ private[cozy] trait CozyVideoTools {
       }
   }
 
+  private def _docker_probe_blocker(
+    probe: VideoToolProbe,
+    context: VideoToolContext,
+    tool: String,
+    name: String
+  ): Option[VideoToolCheck] = {
+    val selection = context.execution.selected(tool)
+    if (selection.mode != VideoToolMode.Docker)
+      None
+    else {
+      val docker = probe.command(Vector("docker", "version", "--format", "{{.Server.Version}}"), context.projectRoot)
+      if (!docker.isSuccess)
+        Some(VideoToolCheck(
+          name,
+          selection.mode,
+          VideoToolStatus.Unchecked,
+          s"Selected $name was not checked because Docker is unavailable: ${selection.dockerImage}.",
+          Some("Start Docker, then run: docker pull " + selection.dockerImage)
+        ))
+      else {
+        val inspect = probe.command(Vector("docker", "image", "inspect", selection.dockerImage), context.projectRoot)
+        if (!inspect.isSuccess)
+          Some(VideoToolCheck(
+            name,
+            selection.mode,
+            VideoToolStatus.Unchecked,
+            s"Selected $name was not checked because the image is unavailable: ${selection.dockerImage}.",
+            Some("Run: docker pull " + selection.dockerImage)
+          ))
+        else
+          None
+      }
+    }
+  }
+
   final case class FfmpegProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      if (context.execution.toolMode == VideoToolMode.Docker)
-        return _docker_managed_check("ffmpeg", "ffmpeg/ffprobe", context.execution.dockerImage)
-      val ffmpeg = probe.command(Vector("ffmpeg", "-version"), context.projectRoot)
-      val ffprobe = probe.command(Vector("ffprobe", "-version"), context.projectRoot)
-      if (ffmpeg.isSuccess && ffprobe.isSuccess)
-        VideoToolCheck("ffmpeg", VideoToolMode.Host, VideoToolStatus.Available, "ffmpeg and ffprobe are available.")
+      _docker_probe_blocker(probe, context, "ffmpeg", "ffmpeg") match {
+        case Some(check) => return check
+        case None =>
+      }
+      val selection = context.execution.selected("ffmpeg")
+      val ffmpeg = probe.command(_execution_command(context.projectRoot, context.execution, "ffmpeg", Vector("-version")), context.projectRoot)
+      if (ffmpeg.isSuccess)
+        VideoToolCheck("ffmpeg", selection.mode, VideoToolStatus.Available, s"Selected ffmpeg is available: ${selection.executable}.")
       else
         VideoToolCheck(
           "ffmpeg",
-          VideoToolMode.Host,
+          selection.mode,
           VideoToolStatus.Missing,
-          s"ffmpeg/ffprobe check failed: ffmpeg=${ffmpeg.exitCode}, ffprobe=${ffprobe.exitCode}.",
+          s"Selected ffmpeg check failed: exit=${ffmpeg.exitCode}. ${ffmpeg.text}",
           Some("Install ffmpeg and ffprobe, or use the Cozy Docker toolchain.")
         )
     }
   }
 
+  final case class FfprobeProvider(probe: VideoToolProbe) extends VideoToolProvider {
+    def check(context: VideoToolContext): VideoToolCheck = {
+      _docker_probe_blocker(probe, context, "ffprobe", "ffprobe") match {
+        case Some(check) => return check
+        case None =>
+      }
+      val selection = context.execution.selected("ffprobe")
+      val result = probe.command(_execution_command(context.projectRoot, context.execution, "ffprobe", Vector("-version")), context.projectRoot)
+      VideoToolCheck("ffprobe", selection.mode, if (result.isSuccess) VideoToolStatus.Available else VideoToolStatus.Missing,
+        s"Selected ffprobe ${selection.executable}: exit=${result.exitCode}. ${result.text}")
+    }
+  }
+
   final case class RemotionNodeProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      if (context.execution.toolMode == VideoToolMode.Docker)
-        return _docker_managed_check("remotion-node", "Node/npm and Remotion dependencies", context.execution.dockerImage)
-      val node = probe.command(Vector("node", "--version"), context.projectRoot)
-      val npm = probe.command(Vector("npm", "--version"), context.projectRoot)
-      val remotion = probe.command(Vector("node", "-e", "require.resolve('@remotion/renderer')"), context.projectRoot)
-      if (node.isSuccess && npm.isSuccess && remotion.isSuccess)
-        VideoToolCheck("remotion-node", VideoToolMode.Host, VideoToolStatus.Available, "Node, npm, and @remotion/renderer are available.")
+      _docker_probe_blocker(probe, context, "remotion", "remotion-node") match {
+        case Some(check) => return check
+        case None =>
+      }
+      val selection = context.execution.selected("remotion")
+      val node = probe.command(_execution_command(context.projectRoot, context.execution, "remotion", Vector("--version")), context.projectRoot)
+      val remotion = probe.command(_execution_command(context.projectRoot, context.execution, "remotion", Vector("-e", "require.resolve('@remotion/renderer')")), context.projectRoot)
+      if (node.isSuccess && remotion.isSuccess)
+        VideoToolCheck("remotion-node", selection.mode, VideoToolStatus.Available, "Selected Node and @remotion/renderer are available.")
       else
         VideoToolCheck(
           "remotion-node",
-          VideoToolMode.Host,
+          selection.mode,
           VideoToolStatus.Missing,
-          s"Remotion host check failed: node=${node.exitCode}, npm=${npm.exitCode}, remotion=${remotion.exitCode}.",
+          s"Selected Remotion check failed: node=${node.exitCode}, remotion=${remotion.exitCode}.",
           Some("Install Node/npm and project Remotion dependencies, or use the Cozy Docker toolchain.")
         )
     }
@@ -596,18 +682,26 @@ private[cozy] trait CozyVideoTools {
 
   final case class PlaywrightProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      if (context.execution.toolMode == VideoToolMode.Docker)
-        return _docker_managed_check("playwright", "Playwright Chromium", context.execution.dockerImage)
-      val module = probe.command(Vector("node", "-e", "require.resolve('playwright')"), context.projectRoot)
-      val executable = probe.command(Vector("node", "-e", "const { chromium } = require('playwright'); console.log(chromium.executablePath())"), context.projectRoot)
+      _docker_probe_blocker(probe, context, "playwright", "playwright") match {
+        case Some(check) => return check
+        case None =>
+      }
+      val selection = context.execution.selected("playwright")
+      val module = probe.command(_execution_command(context.projectRoot, context.execution, "playwright", Vector("-e", "require.resolve('playwright')")), context.projectRoot)
+      val script =
+        if (selection.mode == VideoToolMode.Host)
+          "const { chromium } = require('playwright'); console.log(chromium.executablePath())"
+        else
+          "const fs = require('fs'); const { chromium } = require('playwright'); const p = chromium.executablePath(); if (!fs.existsSync(p)) process.exit(1); console.log(p)"
+      val executable = probe.command(_execution_command(context.projectRoot, context.execution, "playwright", Vector("-e", script)), context.projectRoot)
       val path = executable.stdout.trim
-      val chromium = executable.isSuccess && path.nonEmpty && probe.exists(Path.of(path))
+      val chromium = executable.isSuccess && path.nonEmpty && (selection.mode == VideoToolMode.Docker || probe.exists(Path.of(path)))
       if (module.isSuccess && chromium)
-        VideoToolCheck("playwright", VideoToolMode.Host, VideoToolStatus.Available, "Playwright and Chromium are available.")
+        VideoToolCheck("playwright", selection.mode, VideoToolStatus.Available, "Selected Playwright and Chromium are available.")
       else
         VideoToolCheck(
           "playwright",
-          VideoToolMode.Host,
+          selection.mode,
           VideoToolStatus.Missing,
           s"Playwright check failed: module=${module.exitCode}, chromium=${if (chromium) "available" else "missing"}.",
           Some("Install Playwright and Chromium, or use the Cozy Docker toolchain. Hint: npx playwright install chromium")
@@ -617,9 +711,9 @@ private[cozy] trait CozyVideoTools {
 
   final case class WhisperCppProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      if (context.execution.toolMode == VideoToolMode.Docker)
-        return _docker_managed_check("whisper-cpp", "whisper.cpp binary and model data", context.execution.dockerImage)
-      val binary = _first_success(Vector("whisper-cli", "whisper.cpp").map(x => probe.command(Vector(x, "--help"), context.projectRoot)))
+      if (context.execution.selected("whisper-cpp").mode == VideoToolMode.Docker)
+        return _docker_managed_check("whisper-cpp", "whisper.cpp binary and model data", context.execution.selected("whisper-cpp").dockerImage)
+      val binary = _first_success(Vector(probe.command(Vector(context.execution.selected("whisper-cpp").executable, "--help"), context.projectRoot)))
       val model = context.settings.whisperModelPath(context.projectRoot)
       (binary, model) match {
         case (Some(_), Some(path)) if probe.exists(path) =>
@@ -654,23 +748,84 @@ private[cozy] trait CozyVideoTools {
 
   final case class PythonPillowProvider(probe: VideoToolProbe) extends VideoToolProvider {
     def check(context: VideoToolContext): VideoToolCheck = {
-      if (context.execution.toolMode == VideoToolMode.Docker)
-        return _docker_managed_check("python-pillow", "Python and Pillow helper rendering", context.execution.dockerImage)
-      val python = probe.command(Vector("python3", "--version"), context.projectRoot)
-      val pillow = probe.command(Vector("python3", "-c", "import PIL; print(PIL.__version__)"), context.projectRoot)
+      _docker_probe_blocker(probe, context, "python-pillow", "python-pillow") match {
+        case Some(check) => return check
+        case None =>
+      }
+      val selection = context.execution.selected("python-pillow")
+      val python = probe.command(_execution_command(context.projectRoot, context.execution, "python-pillow", Vector("--version")), context.projectRoot)
+      val pillow = probe.command(_execution_command(context.projectRoot, context.execution, "python-pillow", Vector("-c", "import PIL; print(PIL.__version__)")), context.projectRoot)
       if (python.isSuccess && pillow.isSuccess)
-        VideoToolCheck("python-pillow", VideoToolMode.Host, VideoToolStatus.Available, "Python and Pillow are available.")
+        VideoToolCheck("python-pillow", selection.mode, VideoToolStatus.Available, "Selected Python and Pillow are available.")
       else
         VideoToolCheck(
           "python-pillow",
-          VideoToolMode.Host,
+          selection.mode,
           VideoToolStatus.Missing,
           s"Python/Pillow check failed: python=${python.exitCode}, pillow=${pillow.exitCode}.",
           Some("Install Python 3 and Pillow, or use the Cozy Docker toolchain.")
         )
     }
   }
+}
 
+private[cozy] trait CozyVideoTools {
+  self: CozyVideoConfig with CozyVideoModel =>
+
+  type VideoToolMode = CozyVideoTools.VideoToolMode
+  lazy val VideoToolMode = CozyVideoTools.VideoToolMode
+  type VideoToolStatus = CozyVideoTools.VideoToolStatus
+  lazy val VideoToolStatus = CozyVideoTools.VideoToolStatus
+  type VideoToolCheck = CozyVideoTools.VideoToolCheck
+  lazy val VideoToolCheck = CozyVideoTools.VideoToolCheck
+  type VideoToolContext = CozyVideoTools.VideoToolContext
+  lazy val VideoToolContext = CozyVideoTools.VideoToolContext
+  type VideoExecutionConfig = CozyVideoTools.VideoExecutionConfig
+  lazy val VideoExecutionConfig = CozyVideoTools.VideoExecutionConfig
+  private[video] type DockerMount = CozyVideoTools.DockerMount
+  private[video] lazy val DockerMount = CozyVideoTools.DockerMount
+  private[video] type ReviewEvidenceDockerMounts = CozyVideoTools.ReviewEvidenceDockerMounts
+  private[video] lazy val ReviewEvidenceDockerMounts = CozyVideoTools.ReviewEvidenceDockerMounts
+  type VideoToolProvider = CozyVideoTools.VideoToolProvider
+  type VideoToolRegistry = CozyVideoTools.VideoToolRegistry
+  lazy val VideoToolRegistry = CozyVideoTools.VideoToolRegistry
+  type UncheckedToolProvider = CozyVideoTools.UncheckedToolProvider
+  lazy val UncheckedToolProvider = CozyVideoTools.UncheckedToolProvider
+  type VideoCommandResult = CozyVideoTools.VideoCommandResult
+  lazy val VideoCommandResult = CozyVideoTools.VideoCommandResult
+  type VideoHttpResult = CozyVideoTools.VideoHttpResult
+  lazy val VideoHttpResult = CozyVideoTools.VideoHttpResult
+  type VideoToolProbe = CozyVideoTools.VideoToolProbe
+  lazy val VideoToolProbe = CozyVideoTools.VideoToolProbe
+  private[video] lazy val DefaultVideoToolProbe = CozyVideoTools.DefaultVideoToolProbe
+  type VoicevoxClient = CozyVideoTools.VoicevoxClient
+  lazy val VoicevoxClient = CozyVideoTools.VoicevoxClient
+  type NarrationAudio = CozyVideoTools.NarrationAudio
+  lazy val NarrationAudio = CozyVideoTools.NarrationAudio
+  type NarrationProvider = CozyVideoTools.NarrationProvider
+  private[video] lazy val DefaultVoicevoxClient = CozyVideoTools.DefaultVoicevoxClient
+  type DockerToolchainProvider = CozyVideoTools.DockerToolchainProvider
+  lazy val DockerToolchainProvider = CozyVideoTools.DockerToolchainProvider
+  type DockerImageProvider = CozyVideoTools.DockerImageProvider
+  lazy val DockerImageProvider = CozyVideoTools.DockerImageProvider
+  type TextusToolchainImageProvider = CozyVideoTools.TextusToolchainImageProvider
+  lazy val TextusToolchainImageProvider = CozyVideoTools.TextusToolchainImageProvider
+  type VoicevoxProvider = CozyVideoTools.VoicevoxProvider
+  lazy val VoicevoxProvider = CozyVideoTools.VoicevoxProvider
+  type MacosSayProvider = CozyVideoTools.MacosSayProvider
+  lazy val MacosSayProvider = CozyVideoTools.MacosSayProvider
+  type PiperProvider = CozyVideoTools.PiperProvider
+  lazy val PiperProvider = CozyVideoTools.PiperProvider
+  type FfmpegProvider = CozyVideoTools.FfmpegProvider
+  lazy val FfmpegProvider = CozyVideoTools.FfmpegProvider
+  type RemotionNodeProvider = CozyVideoTools.RemotionNodeProvider
+  lazy val RemotionNodeProvider = CozyVideoTools.RemotionNodeProvider
+  type PlaywrightProvider = CozyVideoTools.PlaywrightProvider
+  lazy val PlaywrightProvider = CozyVideoTools.PlaywrightProvider
+  type WhisperCppProvider = CozyVideoTools.WhisperCppProvider
+  lazy val WhisperCppProvider = CozyVideoTools.WhisperCppProvider
+  type PythonPillowProvider = CozyVideoTools.PythonPillowProvider
+  lazy val PythonPillowProvider = CozyVideoTools.PythonPillowProvider
   private[video] def _first_success(results: Vector[VideoCommandResult]): Option[VideoCommandResult] =
     results.find(_.isSuccess)
 

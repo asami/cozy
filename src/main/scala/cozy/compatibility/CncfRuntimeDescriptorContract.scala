@@ -1,14 +1,14 @@
 package cozy.compatibility
 
 import java.nio.file.{Files, Path, Paths}
-import java.security.MessageDigest
 import scala.util.control.NonFatal
 import org.goldenport.RAISE
 import cozy.config.CozyProjectYamlConfig
 
 /*
  * @since   Jul. 27, 2026
- * @version Jul. 31, 2026
+ *  version Jul. 31, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CncfRuntimeDescriptorContract {
@@ -25,12 +25,6 @@ private[cozy] object CncfRuntimeDescriptorContract {
     }
     case object DescriptorUnreadable extends DiagnosticCode {
       val name = "CNCF_DESCRIPTOR_UNREADABLE"
-    }
-    case object DigestInvalid extends DiagnosticCode {
-      val name = "CNCF_DESCRIPTOR_DIGEST_INVALID"
-    }
-    case object DigestMismatch extends DiagnosticCode {
-      val name = "CNCF_DESCRIPTOR_DIGEST_MISMATCH"
     }
     case object DescriptorMalformed extends DiagnosticCode {
       val name = "CNCF_DESCRIPTOR_MALFORMED"
@@ -89,8 +83,6 @@ private[cozy] object CncfRuntimeDescriptorContract {
   final case class ValidatedDescriptor(
     path: Path,
     targetVersion: String,
-    sha256: String,
-    digestpinned: Boolean,
     config: CozyProjectYamlConfig.Config
   )
 
@@ -101,21 +93,18 @@ private[cozy] object CncfRuntimeDescriptorContract {
     else {
       val target = _option(args, "cncf-version", source)
       val descriptor = _option(args, "cncf-runtime-descriptor", source)
-      val digest = _option(args, "cncf-runtime-descriptor-sha256", source)
-      if (descriptor.isEmpty && digest.isEmpty)
+      if (descriptor.isEmpty)
         None
       else {
         val missing = Vector(
           _required_diagnostic(source, "cncf-version", target),
-          _required_diagnostic(source, "cncf-runtime-descriptor", descriptor),
-          _required_diagnostic(source, "cncf-runtime-descriptor-sha256", digest)
+          _required_diagnostic(source, "cncf-runtime-descriptor", descriptor)
         ).flatten
         if (missing.nonEmpty)
           _raise(missing)
         Some(requireValidDescriptor(
           Paths.get(descriptor.get),
           target.get,
-          Some(digest.get),
           source
         ))
       }
@@ -136,10 +125,9 @@ private[cozy] object CncfRuntimeDescriptorContract {
   def requireValidDescriptor(
     path: Path,
     targetVersion: String,
-    expectedSha256: Option[String],
     source: String
   ): ValidatedDescriptor =
-    validateDescriptor(path, targetVersion, expectedSha256, source) match {
+    validateDescriptor(path, targetVersion, source) match {
       case Right(validated) =>
         validated
       case Left(diagnostics) =>
@@ -149,7 +137,6 @@ private[cozy] object CncfRuntimeDescriptorContract {
   def validateDescriptor(
     path: Path,
     targetVersion: String,
-    expectedSha256: Option[String],
     source: String
   ): Either[Vector[Diagnostic], ValidatedDescriptor] = {
     val normalized = path.toAbsolutePath.normalize()
@@ -164,39 +151,10 @@ private[cozy] object CncfRuntimeDescriptorContract {
       )))
     else {
       _read_bytes(normalized, source).flatMap { bytes =>
-        val actualsha = _sha256_bytes(bytes)
-        val digestdiagnostics = expectedSha256.toVector.flatMap { expected =>
-          if (!expected.matches("[0-9a-f]{64}"))
-            Vector(_diagnostic(
-              DiagnosticCode.DigestInvalid,
-              source,
-              "64 lowercase hexadecimal SHA-256 characters",
-              expected,
-              s"Invalid CNCF runtime descriptor SHA-256: $expected",
-              "Pass the SHA-256 emitted by the owning build without rewriting it."
-            ))
-          else if (expected != actualsha)
-            Vector(_diagnostic(
-              DiagnosticCode.DigestMismatch,
-              source,
-              expected,
-              actualsha,
-              s"CNCF runtime descriptor SHA-256 does not match the selected descriptor: $normalized",
-              "Regenerate or re-extract the descriptor and pass its exact SHA-256."
-            ))
-          else
-            Vector.empty
-        }
-        if (digestdiagnostics.nonEmpty)
-          Left(digestdiagnostics)
-        else
-          _load_and_validate(normalized, bytes, targetVersion, actualsha, expectedSha256.nonEmpty, source)
+        _load_and_validate(normalized, bytes, targetVersion, source)
       }
     }
   }
-
-  def sha256(path: Path): String =
-    _sha256_bytes(Files.readAllBytes(path))
 
   private def _read_bytes(
     path: Path,
@@ -220,8 +178,6 @@ private[cozy] object CncfRuntimeDescriptorContract {
     path: Path,
     bytes: Array[Byte],
     targetversion: String,
-    actualsha: String,
-    digestpinned: Boolean,
     source: String
   ): Either[Vector[Diagnostic], ValidatedDescriptor] =
     try {
@@ -263,7 +219,7 @@ private[cozy] object CncfRuntimeDescriptorContract {
       if (diagnostics.nonEmpty)
         Left(diagnostics)
       else
-        Right(ValidatedDescriptor(path, targetversion, actualsha, digestpinned, config))
+        Right(ValidatedDescriptor(path, targetversion, config))
     } catch {
       case NonFatal(exception) =>
         Left(Vector(_diagnostic(
@@ -275,12 +231,6 @@ private[cozy] object CncfRuntimeDescriptorContract {
           "Regenerate the descriptor from the selected CNCF runtime."
         )))
     }
-
-  private def _sha256_bytes(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").
-      digest(bytes).
-      map(byte => f"${byte & 0xff}%02x").
-      mkString
 
   private def _field_diagnostic(
     actual: Option[String],
@@ -326,7 +276,7 @@ private[cozy] object CncfRuntimeDescriptorContract {
         s"--$option <value>",
         "missing",
         s"CNCF descriptor validation requires --$option",
-        "Pass the exact target, descriptor path, and descriptor SHA-256 together."
+        "Pass the exact target and descriptor path together."
       ))
     )(_ => None)
 

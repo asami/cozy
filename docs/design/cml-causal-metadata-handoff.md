@@ -34,7 +34,7 @@ projections. Classification remains unchanged. Five opaque namespaces survive,
 including `org.example.causal-handoff` and literal null values.
 
 All new names are `共有`. Supplied source authority/path are `causal.example`
-and `fixtures/causal-model.cml`, sha256 is sixty-four `a` characters, and line
+and `fixtures/causal-model.cml`, and line
 is the authored occurrence plus one, with both anonymous occurrences at line 19.
 These are synthetic caller facts. No corresponding source file, CML parse,
 computed digest or actual source-currentness certification is supplied.

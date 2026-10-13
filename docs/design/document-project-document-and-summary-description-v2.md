@@ -146,3 +146,12 @@ Coordinates, dimensions, CSS, HTML, fonts, pages, pagination, renderer,
 command, locale-resource, and Article 9 v2 driver work are excluded. Future
 renderers consume only the fully admitted typed v2 values. This design does
 not alter v1 behavior or make a v1 source permissive.
+
+## Phase 71.1 DM08 supersession
+
+Phase 71.1 / P710-03-DM-08 removes the raw-byte identity chain from this V2
+model. Binding objects and validated values retain only semantic logical IDs;
+ordinary extra binding metadata is intentionally ignored. The loader still
+validates every closed semantic object, YAML form, locale, path, reference,
+coverage, label, diagram, overview, and omission rule, and reads supplied
+current bytes for each admission.

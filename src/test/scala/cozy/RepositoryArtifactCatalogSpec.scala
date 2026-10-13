@@ -11,7 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   May. 20, 2026
  *  version Jul. 13, 2026
- * @version Aug.  7, 2026
+ *  version Aug.  7, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -70,14 +71,7 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
     Then("the runtime header path is reported")
     runtime.getMessage shouldBe "repository.artifact.catalog.duplicate-field source=catalog path=versions[0].runtime"
 
-    val checksum = intercept[IllegalArgumentException] {
-      When("the version checksum map header is repeated")
-      RepositoryArtifactCatalog.parse(
-        "schemaVersion: 2\nkind: car\nnamespace: org.example\nid: Sample\nartifactId: example-sample\nversions:\n  - version: 0.1.0\n    checksum:\n      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    checksum:\n      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n"
-      )
-    }
-    Then("the checksum header path is reported")
-    checksum.getMessage shouldBe "repository.artifact.catalog.duplicate-field source=catalog path=versions[0].checksum"
+
   }
 
   "reject duplicate JSON root and version catalog fields before overwrite" in {
@@ -108,18 +102,11 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
     _assert_json_type("runtime-array-element", _canonical_json("runtime", "{\"cncf\":{\"tested\":[1]}}"), "tested[0]", "string", "number")
     _assert_json_type("runtime-array-scalar", _canonical_json("runtime", "{\"cncf\":{\"tested\":\"0.4.8\"}}"), "tested", "array", "string")
     _assert_json_type("runtime-array-null", _canonical_json("runtime", "{\"cncf\":{\"tested\":null}}"), "tested", "array", "null")
-    _assert_json_type("checksum-scalar", _canonical_json("checksum", "\"digest\""), "checksum", "object", "string")
-    _assert_json_type("checksum-null", _canonical_json("checksum", "null"), "checksum", "object", "null")
-    _assert_json_type("checksum-value", _canonical_json("checksum", "{\"sha256\":7}"), "sha256", "string", "number")
-    _assert_json_type("checksum-value-null", _canonical_json("checksum", "{\"sha256\":null}"), "sha256", "string", "null")
-    _assert_json_type("integrity-map", _canonical_json("integrityKey", "{\"sha256\":\"digest\"}"), "integrityKey", "string", "object")
-    _assert_json_type("integrity-null", _canonical_json("integrityKey", "null"), "integrityKey", "string", "null")
     _assert_json_type("schema-null", _canonical_json("schemaVersion", "null"), "schemaVersion", "string", "null")
     _assert_json_type("kind-null", _canonical_json("kind", "null"), "kind", "string", "null")
     _assert_json_type("namespace-null", _canonical_json("namespace", "null"), "namespace", "string", "null")
     _assert_json_type("id-null", _canonical_json("id", "null"), "id", "string", "null")
     _assert_json_type("artifact-id-null", _canonical_json("artifactId", "null"), "artifactId", "string", "null")
-    Then("malformed fields report stable typed diagnostics instead of disappearing")
   }
   "parse and render valid CAR catalog deterministically" in {
     Given("a canonical CAR YAML catalog")
@@ -175,9 +162,6 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
         |    status: active
         |    component: org.example.Sample
         |    file: repository/car/org/example/example-sample/0.1.0/example-sample-0.1.0.car
-        |    checksum:
-        |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        |    integrityKey: org.example:example-sample:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         |""".stripMargin
     )
     Then("the aliases retain their declared order")
@@ -293,9 +277,6 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
           |    status: disabled
           |    component: org.example.Sample
           |    file: repository/car/org/example/example-sample/0.1.0/example-sample-0.1.0.car
-          |    checksum:
-          |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          |    integrityKey: org.example:example-sample:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         |""".stripMargin
       )
     }
@@ -320,9 +301,6 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
           |    status: active
           |    component: org.example.Sample
           |    file: repository/car/org/example/example-sample/0.1.0/example-sample-0.1.0.car
-          |    checksum:
-          |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          |    integrityKey: org.example:example-sample:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         |""".stripMargin
       )
     }
@@ -346,9 +324,6 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
           |    channel: snapshot
           |    component: org.example.Sample
           |    file: repository/car/org/example/example-sample/0.2.0-SNAPSHOT/example-sample-0.2.0-SNAPSHOT.car
-          |    checksum:
-          |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-          |    integrityKey: org.example:example-sample:0.2.0-SNAPSHOT@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
         |""".stripMargin
       )
     }
@@ -369,9 +344,6 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
           |    channel: stable
           |    component: org.example.Sample
           |    file: repository/car/org/example/example-sample/0.1.0/example-sample-0.1.0.car
-          |    checksum:
-          |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          |    integrityKey: org.example:example-sample:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         |""".stripMargin
       )
     }
@@ -489,7 +461,6 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
   "Repository artifact Maven metadata" should {
   "render Maven metadata from catalog selectors" in {
     Given("a CAR catalog with active, deprecated, snapshot, and disabled releases")
-    When("Maven metadata is rendered")
     val catalog = RepositoryArtifactCatalog.parse(
       """schemaVersion: 2
         |kind: car
@@ -506,36 +477,25 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
         |    component: org.example.Sample
         |    publishedAt: 2026-05-19T10:11:12Z
         |    file: repository/car/org/example/example-sample/0.0.9/example-sample-0.0.9.car
-        |    checksum:
-        |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        |    integrityKey: org.example:example-sample:0.0.9@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         |  - version: 0.1.0
         |    channel: stable
         |    component: org.example.Sample
         |    publishedAt: 2026-05-20T10:11:12Z
         |    file: repository/car/org/example/example-sample/0.1.0/example-sample-0.1.0.car
-        |    checksum:
-        |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-        |    integrityKey: org.example:example-sample:0.1.0@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
         |  - version: 0.2.0-SNAPSHOT
         |    channel: snapshot
         |    component: org.example.Sample
         |    publishedAt: 2026-05-20T12:11:12Z
         |    file: repository/car/org/example/example-sample/0.2.0-SNAPSHOT/example-sample-0.2.0-SNAPSHOT.car
-        |    checksum:
-        |      sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-        |    integrityKey: org.example:example-sample:0.2.0-SNAPSHOT@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
         |  - version: 0.3.0
         |    channel: stable
         |    status: disabled
         |    component: org.example.Sample
         |    publishedAt: 2026-05-20T13:11:12Z
         |    file: repository/car/org/example/example-sample/0.3.0/example-sample-0.3.0.car
-        |    checksum:
-        |      sha256: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-        |    integrityKey: org.example:example-sample:0.3.0@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
         |""".stripMargin
     )
+    When("Maven metadata is rendered")
     val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, "2026-05-20T00:00:00Z")
     Then("selectors, active versions, and publication timestamps are projected")
     metadata should include("<groupId>org.example</groupId>")
@@ -551,7 +511,6 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
 
   "render Maven metadata fallback latest by version order" in {
     Given("a CAR catalog without an explicit recommended selector")
-    When("Maven metadata is rendered")
     val catalog = RepositoryArtifactCatalog.parse(
       """schemaVersion: 2
         |kind: car
@@ -564,28 +523,20 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
         |    component: org.example.Sample
         |    publishedAt: 2026-05-20T02:00:00Z
         |    file: repository/car/org/example/example-sample/0.2.0/example-sample-0.2.0.car
-        |    checksum:
-        |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        |    integrityKey: org.example:example-sample:0.2.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         |  - version: 0.10.0
         |    channel: stable
         |    component: org.example.Sample
         |    publishedAt: 2026-05-20T10:00:00Z
         |    file: repository/car/org/example/example-sample/0.10.0/example-sample-0.10.0.car
-        |    checksum:
-        |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-        |    integrityKey: org.example:example-sample:0.10.0@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
         |  - version: 0.11.0
         |    channel: stable
         |    status: disabled
         |    component: org.example.Sample
         |    publishedAt: 2026-05-20T11:00:00Z
         |    file: repository/car/org/example/example-sample/0.11.0/example-sample-0.11.0.car
-        |    checksum:
-        |      sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-        |    integrityKey: org.example:example-sample:0.11.0@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
         |""".stripMargin
     )
+    When("Maven metadata is rendered")
     val metadata = RepositoryArtifactMavenMetadata.toXml(catalog, "2026-05-20T00:00:00Z")
     Then("the highest active stable version is used as latest")
     metadata should include("<latest>0.10.0</latest>")
@@ -605,7 +556,9 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
     _with_temp_dir("repository-artifact-json-type") { dir =>
       val path = dir.resolve(s"$name.json")
       _write(path, text)
+      When(s"the malformed $field field is loaded")
       val error = intercept[IllegalArgumentException](RepositoryArtifactCatalog.load(path))
+      Then("the typed diagnostic identifies the field and its expected and actual types")
       error.getMessage should include(s"field=$field")
       error.getMessage should include(s"expected=$expected")
       error.getMessage should include(s"actual=$actual")
@@ -617,10 +570,8 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
     val namespacevalue = if (field == "namespace") value else "\"org.example\""
     val idvalue = if (field == "id") value else "\"Sample\""
     val artifactidvalue = if (field == "artifactId") value else "\"example-sample\""
-    val rootfield = if (Set("schemaVersion", "kind", "namespace", "id", "artifactId", "runtime", "checksum", "integrityKey").contains(field)) "" else "\"" + field + "\":" + value + ","
-    val versionruntime = if (field == "runtime") "\"runtime\":" + value + "," else ""
-    val versionchecksum = if (field == "checksum") "\"checksum\":" + value + "," else "\"checksum\":{\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},"
-    val versionintegrity = if (field == "integrityKey") "\"integrityKey\":" + value else "\"integrityKey\":\"org.example:example-sample:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+    val rootfield = if (Set("schemaVersion", "kind", "namespace", "id", "artifactId", "runtime").contains(field)) "" else "\"" + field + "\":" + value + ","
+    val versionruntime = if (field == "runtime") ",\"runtime\":" + value else ""
     s"""{
        |  "schemaVersion": $schemavalue,
        |  "kind": $kindvalue,
@@ -630,8 +581,7 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
        |  $rootfield
        |  "versions": [{
        |    "version": "0.1.0",
-       |    "file": "repository/car/org/example/example-sample/0.1.0/example-sample-0.1.0.car",
-       |    $versionruntime$versionchecksum$versionintegrity
+       |    "file": "repository/car/org/example/example-sample/0.1.0/example-sample-0.1.0.car"$versionruntime
        |  }]
        |}""".stripMargin
   }
@@ -705,17 +655,11 @@ class RepositoryArtifactCatalogSpec extends AnyWordSpec with Matchers with Given
       |        excluded: []
       |        tested:
       |          - 0.4.8
-      |    checksum:
-      |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-      |    integrityKey: org.example.textus:textus-semantic-integration-engine:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       |  - version: 0.1.1-SNAPSHOT
       |    channel: snapshot
       |    status: active
       |    component: org.example.textus.SemanticIntegrationEngine
       |    publishedAt: 2026-05-20T01:00:00Z
       |    file: repository/car/org/example/textus/textus-semantic-integration-engine/0.1.1-SNAPSHOT/textus-semantic-integration-engine-0.1.1-SNAPSHOT.car
-      |    checksum:
-      |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-      |    integrityKey: org.example.textus:textus-semantic-integration-engine:0.1.1-SNAPSHOT@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
       |""".stripMargin
 }

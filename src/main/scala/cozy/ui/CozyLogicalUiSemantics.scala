@@ -1,13 +1,12 @@
 package cozy.ui
 
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 import cozy.ui.CozyLogicalUi._
 
 /*
  * @since   Sep. 1, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct. 9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiSemantics {
@@ -162,7 +161,6 @@ private[cozy] object CozyLogicalUiSemantics {
   )
 
   final case class LogicalUiSemanticsInput(
-    projectionIdentity: String,
     screens: Vector[ScreenSemantics],
     componentBindings: Vector[ComponentSemanticBinding],
     constraints: Vector[ConstraintDeclaration],
@@ -171,11 +169,9 @@ private[cozy] object CozyLogicalUiSemantics {
   )
 
   final class LogicalUiSemanticProjection private[CozyLogicalUiSemantics] (
-    val identity: String,
-    val projectionIdentity: String,
     val input: LogicalUiSemanticsInput
   ) {
-    def canonicalContent: String = _canonical_content(projectionIdentity, input)
+    def canonicalContent: String = _canonical_content(input)
   }
 
   private val _schema = "cozy.logical-ui-semantics.v1"
@@ -193,14 +189,11 @@ private[cozy] object CozyLogicalUiSemantics {
       Left(LogicalUiError("LUI43_SEMANTICS_PROJECTION_IDENTITY_INVALID", "projection", "an exact LogicalUiProjection is required"))
     else if (input == null)
       Left(LogicalUiError("LUI43_SEMANTICS_INPUT_INVALID", "semantics", "typed semantic input is required"))
-    else if (_text_error(input.projectionIdentity).isDefined || input.projectionIdentity != projection.identity)
-      Left(LogicalUiError("LUI43_SEMANTICS_PROJECTION_IDENTITY_INVALID", "semantics.projectionIdentity", "semantic input must bind the exact supplied LogicalUiProjection identity"))
     else {
       _normalize_input(projection, input) match {
         case Left(error) => Left(error)
         case Right(normalized) =>
-          val content = _canonical_content(projection.identity, normalized)
-          Right(new LogicalUiSemanticProjection(_identity(content), projection.identity, normalized))
+          Right(new LogicalUiSemanticProjection(normalized))
       }
     }
   }
@@ -225,7 +218,6 @@ private[cozy] object CozyLogicalUiSemantics {
                       case Left(error) => Left(error)
                       case Right(transitions) =>
                         Right(input.copy(
-                          projectionIdentity = projection.identity,
                           screens = screens,
                           componentBindings = bindings,
                           constraints = constraints,
@@ -622,12 +614,10 @@ private[cozy] object CozyLogicalUiSemantics {
     )
 
   private def _canonical_content(
-    projectionidentity: String,
     input: LogicalUiSemanticsInput
   ): String = _json_object(Vector(
     "schema" -> _json_string(_schema),
     "version" -> _version.toString,
-    "projectionIdentity" -> _json_string(projectionidentity),
     "screens" -> _json_array(input.screens.map(_screen_json)),
     "componentBindings" -> _json_array(input.componentBindings.map(_component_semantic_json)),
     "constraints" -> _json_array(input.constraints.map(_constraint_json)),
@@ -733,6 +723,4 @@ private[cozy] object CozyLogicalUiSemantics {
     "\"" + escaped + "\""
   }
 
-  private def _identity(value: String): String =
-    "sha256:" + MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)).map(byte => f"${byte & 0xff}%02x").mkString
 }

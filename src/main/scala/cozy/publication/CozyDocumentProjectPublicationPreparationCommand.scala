@@ -6,7 +6,7 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Oct.  1, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectPublicationPreparationCommand {
@@ -51,7 +51,7 @@ private[cozy] object CozyDocumentProjectPublicationPreparationCommand {
         case _ => _invalid("Media --site-root and --site-config must be supplied together")
       }
       CozyDocumentProjectPublicationPreparation.Config(
-        CozyDocumentProjectPublicationTarget.CurrentRegistrationConfig(
+        CozyDocumentProjectPublicationTarget.ProjectRegistrationConfig(
           project,
           CozyDocumentProjectPublicationTarget.RegistrationConfig(
             bundle,

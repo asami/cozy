@@ -2,6 +2,10 @@
 
 Status: normative for Phase 58.2, Step P582-03, Slice P582-03A
 
+Phase 71.1 supersedes only this contract's hash-derived presentation assertions:
+the renderer is now one-pass and digest-free. Source semantic admission and
+all non-hash presentation guarantees remain unchanged.
+
 This specification defines the implementation-facing contract for the
 package-private v2 Document confirmation projection.
 
@@ -9,7 +13,7 @@ package-private v2 Document confirmation projection.
 
 `CozyDocumentConfirmationProjectionV2.render` MUST accept only an admitted
 `CozyDocumentDescriptionV2.ValidatedDocument` and a typed caller-supplied
-`Vocabulary`, and MUST return `Rendered(html, identity)`.
+`Vocabulary`, and MUST return `Rendered(html)`.
 
 `Vocabulary` MUST contain:
 
@@ -96,18 +100,17 @@ selected Step's own ID, claims, nodes, Relations, and Flow ID. It MUST NOT be
 derived from content text, order, proximity, or parentage.
 
 The primary view MUST visibly state complete coverage, current sources,
-admitted state, and no unresolved references. Core, Document, and output
-identities MUST be secondary disclosure. The `Rendered.identity` and the
-disclosed output identity are SHA-256 values calculated from deterministic
-HTML with the self-disclosing output-identity value normalized to empty.
+admitted state, and no unresolved references. It MUST NOT disclose Core,
+Document, or output digests, compute an output identity, or emit an
+output-identity attribute.
 
 Visible ordinary prose reference chips MUST show only exact Step and Relation
 identities; all five typed membership categories remain in the exact
 `data-core-*` attributes. LogicalStructure blocks MUST be initially collapsed
 native details using the localized logical-structure reference wording and
 the exact stable identity/reference. All author-controlled text and
-attributes MUST be HTML escaped. Identical typed inputs MUST produce
-byte-identical HTML and the same identity. The desktop sample layout is the
+attributes MUST be HTML escaped. Identical semantic typed inputs MUST produce
+byte-identical HTML regardless of legacy source digest metadata. The desktop sample layout is the
 acceptance reference for this pass; keyboard focus and selection semantics
 remain mandatory.
 
@@ -146,12 +149,12 @@ never derive membership.
 ## Executable specification coverage
 
 `CozyDocumentConfirmationProjectionV2Spec` MUST use `AnyWordSpec`, adjacent
-Given/When/Then clauses, and `should` matchers to prove deterministic identity
+Given/When/Then clauses, and `should` matchers to prove deterministic digest-free output
 and escaping; recursive localized native selection controls; separation of
 containment, Flow, and Structure; identity-only Section/Block/List Item
 highlight membership; one-`ul`-per-parent containment; selected Structure
 before collapsed Flow; flat Section wrappers; collapsed LogicalStructure
-blocks; primary status with secondary identities; desktop self-contained
+blocks; primary status without digest disclosures; desktop self-contained
 accessibility markup; and rejection of a missing generic term.
 It MUST also assert the exact emitted desktop Core-panel CSS and activation-only
 inline-script reveal gates, including the visual target selector, viewport

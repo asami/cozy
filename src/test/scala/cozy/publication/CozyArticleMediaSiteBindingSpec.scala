@@ -2,8 +2,7 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, Path, Paths}
 import scala.collection.JavaConverters._
 import cozy.media.CozyMedia
 import cozy.media.CozyMediaPdfReviewState
@@ -16,7 +15,8 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReferen
 /*
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -88,31 +88,16 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           javideo.variant.video.flatMap(_.contentUrl) shouldBe empty
           envideo.variant.video.flatMap(_.contentUrl) shouldBe empty
 
-          And("descriptor, infographic, and production evidence retains normalized identities, sizes, and hashes")
+          And("descriptor, infographic, and production evidence retains normalized lexical and real path identities")
           plan.descriptorEvidence.path shouldBe fixture.descriptor.toAbsolutePath.normalize()
           plan.descriptorEvidence.identity shouldBe plan.descriptorEvidence.path
-          plan.descriptorEvidence.sha256 shouldBe _sha256(fixture.descriptor)
-          plan.descriptorEvidence.size shouldBe Files.size(fixture.descriptor)
-          plan.descriptorEvidence.fileKey should not be null
-          plan.descriptorBytes shouldBe Files.readAllBytes(fixture.descriptor).toVector
           val imageevidence = jaimage.evidence.asInstanceOf[CozyArticleMediaSiteBinding.InfographicEvidence].destination
           imageevidence.path shouldBe fixture.profileroot.resolve("images/summary-ja.png").toAbsolutePath.normalize()
           imageevidence.identity shouldBe imageevidence.path
-          imageevidence.sha256 shouldBe _sha256(imageevidence.path)
-          imageevidence.size shouldBe Files.size(imageevidence.path)
-          imageevidence.fileKey should not be null
           val videoevidence = javideo.evidence.asInstanceOf[CozyArticleMediaSiteBinding.VideoEvidence].production
           videoevidence.path shouldBe fixture.root.resolve("video/ja/production.json").toAbsolutePath.normalize()
           videoevidence.identity shouldBe videoevidence.path
-          videoevidence.sha256 shouldBe _sha256(videoevidence.path)
-          videoevidence.size shouldBe Files.size(videoevidence.path)
-          videoevidence.fileKey should not be null
 
-          When("the unchanged plan is revalidated from its original admitted paths")
-          val revalidated = CozyArticleMediaSiteBinding.revalidate(plan)
-
-          Then("the complete immutable evidence plan remains unchanged")
-          revalidated shouldBe plan
         }
       }
     }
@@ -377,68 +362,6 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
       }
     }
 
-    "revalidate the complete Part 5 snapshot" which {
-      "reject descriptor, profile, resource, infographic, and production drift" in {
-        Given("prepared plans with their original descriptor and direct-file evidence")
-
-        When("each plan is recomputed from exactly its admitted descriptor and evidence paths")
-        val descriptordrift = _part5_revalidation_failure("descriptor-drift") { fixture =>
-          _write(fixture.descriptor, _part5_yaml() + "# descriptor drift\n")
-        }
-        val profiledrift = _part5_revalidation_failure("profile-drift") { fixture =>
-          Files.createDirectories(fixture.root.resolve("publication-alt"))
-          _write(fixture.descriptor, _part5_yaml().replace("root: publication", "root: publication-alt"))
-        }
-        val configurationdrift = _part5_revalidation_failure("configuration-drift") { fixture =>
-          _write(fixture.root.resolve("conf/cozy/config.yaml"), _project_config_yaml("publication-alt"))
-        }
-        val resourcedrift = _part5_revalidation_failure("resource-drift") { fixture =>
-          _write(fixture.descriptor, _part5_yaml().replace(
-            "/ja/development-process/images/part-5/summary.png",
-            "/ja/development-process/images/part-5/changed.png"
-          ))
-        }
-        val infographicbytes = _part5_revalidation_failure("infographic-byte-drift") { fixture =>
-          _write(fixture.profileroot.resolve("images/summary-ja.png"), "changed Part 5 image")
-        }
-        val infographicidentity = _part5_revalidation_failure("infographic-identity-drift") { fixture =>
-          val destination = fixture.profileroot.resolve("images/summary-ja.png")
-          val outside = fixture.root.resolve("replacement-summary-ja.png")
-          _write(outside, Files.readString(destination))
-          Files.delete(destination)
-          Files.createSymbolicLink(destination, outside)
-        }
-          val productiondrift = _part5_revalidation_failure("production-drift") { fixture =>
-            _write(fixture.root.resolve("video/ja/production.json"), _part5_production_json(url = "https://youtu.be/ja_Changed-3"))
-          }
-          val descriptorreplacement = _part5_revalidation_failure("descriptor-atomic-replacement") { fixture =>
-            _atomic_replace(fixture.descriptor, _part5_yaml())
-          }
-          val infographicreplacement = _part5_revalidation_failure("infographic-atomic-replacement") { fixture =>
-            _atomic_replace(fixture.profileroot.resolve("images/summary-ja.png"), "Part 5 summary ja")
-          }
-          val productionreplacement = _part5_revalidation_failure("production-atomic-replacement") { fixture =>
-            _atomic_replace(fixture.root.resolve("video/ja/production.json"), _part5_production_json())
-          }
-
-        Then("any declaration, byte, identity, or production metadata change rejects revalidation")
-        Vector(
-          descriptordrift,
-          profiledrift,
-          configurationdrift,
-          resourcedrift,
-          infographicbytes,
-          infographicidentity,
-          productiondrift,
-          descriptorreplacement,
-          infographicreplacement,
-          productionreplacement
-        ).foreach {
-          _.getMessage should not be empty
-        }
-      }
-    }
-
     "admit accepted Phase 40 PDF site resources" which {
       "capture direct output evidence and map each role to its exact strict variant" in {
         _with_part5_pdf_fixture("pdf-roles") { fixture =>
@@ -481,12 +404,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           val evidence = articleja.evidence.asInstanceOf[CozyArticleMediaSiteBinding.PdfEvidence].output
           evidence.path shouldBe fixture.root.resolve("target/article-ja.pdf").toAbsolutePath.normalize()
           evidence.identity shouldBe evidence.path
-          evidence.sha256 shouldBe _sha256(evidence.path)
-          evidence.size shouldBe Files.size(evidence.path)
-          evidence.fileKey should not be null
 
-          And("the same current receipt and PDF review-state evidence revalidates unchanged")
-          CozyArticleMediaSiteBinding.revalidate(plan) shouldBe plan
         }
       }
 
@@ -503,59 +421,61 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
           )
           val retained = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
 
-          Then("site registration uses the retained receipt and byte-exact PDF review-state fallbacks")
-          CozyMediaReceipt.current(mediaplan, articlepdf) shouldBe false
-          CozyMediaReceipt.siteRegistrationCurrent(mediaplan, articlepdf) shouldBe true
-          CozyMediaPdfReviewState.current(mediaplan) shouldBe false
-          CozyMediaPdfReviewState.siteRegistrationCurrent(mediaplan) shouldBe true
+          Then("ordinary receipt and selected PDF review currentness admit unchanged prebuilt PDFs")
+          CozyMediaReceipt.current(mediaplan, articlepdf) shouldBe true
+          CozyMediaReceipt.currentnessFailure(mediaplan, articlepdf) shouldBe None
+          CozyMediaPdfReviewState.current(mediaplan) shouldBe true
           retained.candidates.filter(_.role == CozyArticleMediaSiteBinding.Role.ArticlePdf).map(_.resourceId) shouldBe
             initial.candidates.filter(_.role == CozyArticleMediaSiteBinding.Role.ArticlePdf).map(_.resourceId)
-          CozyArticleMediaSiteBinding.revalidate(retained) shouldBe retained
         }
       }
 
-      "refuse missing, stale, and role-incompatible PDF evidence before admission" in {
-        Given("PDF evidence cases with missing review state, stale output, or an incompatible resource role")
-        val missingstate = _with_part5_pdf_fixture("pdf-missing-state") { fixture =>
-          Files.delete(fixture.root.resolve("target/cozy-media/pdf-review-state.json"))
-          When("the site binding planner evaluates the missing PDF review-state evidence")
-          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+      "refuse missing, malformed, newer and role-incompatible PDF evidence before admission" in {
+        val cases = Vector[(String, SiteBindingPart5Fixture.Data => Unit, String)](
+          ("missing-state", fixture => { Files.delete(fixture.root.resolve("target/cozy-media/pdf-review-state.json")); () }, "PDF review currentness"),
+          ("newer-output", fixture => { Files.setLastModifiedTime(fixture.root.resolve("target/article-en.pdf"), java.nio.file.attribute.FileTime.fromMillis(4102444800000L)); () }, "Media receipt currentness"),
+          ("invalid-format", fixture => _write(fixture.root.resolve("target/article-en.pdf"), "malformed PDF"), "PDF header"),
+          ("altered-state", fixture => _write(fixture.root.resolve("target/cozy-media/pdf-review-state.json"), "{}"), "PDF review currentness")
+        )
+        cases.foreach { case (name, change, reason) =>
+          _with_part5_pdf_fixture("pdf-" + name) { fixture =>
+            Given("accepted site PDFs followed by one missing state, newer output, invalid format or malformed state")
+            change(fixture)
+            val receipt = fixture.root.resolve("target/cozy-media/manifest.json")
+            val before = Files.readAllBytes(receipt).toVector
+
+            When("the ordinary site binding planner evaluates the defective PDF evidence")
+            val error = _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+
+            Then("the concrete currentness reason identifies its resource, actual path, producer and next build operation")
+            error.getMessage should include(reason)
+            error.getMessage should include("part-5-article-pdf-")
+            error.getMessage should include("producer prebuilt")
+            error.getMessage should include(fixture.root.toString)
+            error.getMessage should include(s"cozy media build ${fixture.descriptor} --target part-5-article-pdf-")
+            Files.readAllBytes(receipt).toVector shouldBe before
+          }
         }
-        val staleoutput = _with_part5_pdf_fixture("pdf-stale-output") { fixture =>
-          _write(fixture.root.resolve("target/article-en.pdf"), "%PDF-1.7\nstale")
-          When("the site binding planner evaluates the stale PDF output evidence")
-          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
-        }
-        val nonarticleevidence = _with_part5_pdf_fixture("pdf-nonarticle-evidence") { fixture =>
+
+        _with_part5_pdf_fixture("pdf-unrelated-source") { fixture =>
+          Given("accepted site PDFs beside an unrelated infographic source")
           _write(fixture.root.resolve("input/summary-ja.png"), "changed non-article source")
-          When("the site binding planner evaluates retained PDFs after non-article evidence changes")
-          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
-        }
-        val alteredstate = _with_part5_pdf_fixture("pdf-altered-state") { fixture =>
-          _write(fixture.root.resolve("target/cozy-media/pdf-review-state.json"), "{}")
-          When("the site binding planner evaluates altered PDF review-state evidence")
-          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
-        }
-        val incompatible = _with_part5_fixture(
-          "pdf-role-incompatible",
-          _part5_pdf_yaml().replace(
-            "  - id: part-5-article-pdf-ja\n    kind: document",
-            "  - id: part-5-article-pdf-ja\n    kind: infographic"
-          )
-        ) { fixture =>
-          When("the site binding planner evaluates the incompatible PDF resource role")
-          _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+          When("the site binding planner evaluates unchanged PDFs after unrelated source drift")
+          val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
+          Then("the unrelated source does not veto the selected English PDF")
+          plan.candidates.exists(_.resourceId == "part-5-article-pdf-en") shouldBe true
         }
 
-        Then("each invalid Phase 40 boundary fails closed")
-        missingstate.getMessage should include("Site-registration PDF review-state preflight")
-        staleoutput.getMessage should include("Site-registration PDF preflight")
-        nonarticleevidence.getMessage should include("part-5-article-pdf-en")
-        nonarticleevidence.getMessage should include("restore")
-        alteredstate.getMessage should include("Site-registration PDF review-state preflight")
-        alteredstate.getMessage should include("rebuild")
-        incompatible.getMessage should include("requires kind document")
+        _with_part5_fixture("pdf-role-incompatible", _part5_pdf_yaml().replace(
+          "  - id: part-5-article-pdf-ja\n    kind: document", "  - id: part-5-article-pdf-ja\n    kind: infographic")) { fixture =>
+          Given("a PDF role declared on an incompatible infographic resource")
+          When("the site binding planner evaluates that resource role")
+          val error = _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
+          Then("the document-kind contract rejects admission")
+          error.getMessage should include("requires kind document")
+        }
       }
+
     }
   }
 
@@ -573,19 +493,12 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
       _failure(CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor)))
     }
 
-  private def _part5_revalidation_failure(name: String)(change: SiteBindingPart5Fixture.Data => Unit): RuntimeException =
-    _with_part5_fixture(name) { fixture =>
-      val plan = CozyArticleMediaSiteBinding.plan(CozyArticleMediaSiteBinding.Config(fixture.descriptor))
-      change(fixture)
-      _failure(CozyArticleMediaSiteBinding.revalidate(plan))
-    }
-
   private def _with_part5_pdf_fixture[A](name: String)(f: SiteBindingPart5Fixture.Data => A): A =
     _with_part5_fixture(name, _part5_pdf_yaml()) { fixture =>
       _write(fixture.root.resolve("knowledge/part-5.dox"), "Part 5 article authority")
-      _write(fixture.root.resolve("input/summary-ja.png"), "Part 5 summary ja source")
-      _write(fixture.root.resolve("input/summary-en.png"), "Part 5 summary en source")
-      _write(fixture.root.resolve("input/unbound.png"), "Part 5 unbound source")
+      _write_png(fixture.root.resolve("input/summary-ja.png"))
+      _write_png(fixture.root.resolve("input/summary-en.png"))
+      _write_png(fixture.root.resolve("input/unbound.png"))
       _write(fixture.root.resolve("target/video-ja.mp4"), "Part 5 video ja")
       _write(fixture.root.resolve("target/video-en.mp4"), "Part 5 video en")
       _write(fixture.root.resolve("target/article-ja.pdf"), "%PDF-1.7\nPart 5 article ja")
@@ -776,21 +689,15 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
        |}
        |""".stripMargin
 
+  private def _write_png(path: Path): Unit = {
+    Option(path.getParent).foreach(Files.createDirectories(_))
+    val image = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB)
+    javax.imageio.ImageIO.write(image, "png", path.toFile) shouldBe true
+  }
+
   private def _write(path: Path, value: String): Unit = {
     Option(path.getParent).foreach(Files.createDirectories(_))
     Files.writeString(path, value, StandardCharsets.UTF_8)
-  }
-
-  private def _atomic_replace(path: Path, value: String): Unit = {
-    val replacement = path.resolveSibling(path.getFileName.toString + ".replacement")
-    _write(replacement, value)
-    Files.move(replacement, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(Files.readAllBytes(path))
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
   }
 
   private def _delete(path: Path): Unit = {

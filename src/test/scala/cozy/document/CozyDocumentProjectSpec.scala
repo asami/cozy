@@ -3,10 +3,9 @@ package cozy.document
 import cozy.scaffold.CozyHelpText
 import cozy.media.{CozyExplanation, CozyMedia, CozyVisualPage}
 import java.io.{ByteArrayOutputStream, PrintStream}
-import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, StandardOpenOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path}
+import java.nio.file.attribute.FileTime
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.scalatest.GivenWhenThen
@@ -15,7 +14,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug. 31, 2026
- * @version Sep. 15, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -79,11 +79,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val semantics = first.resolve("content/presentation-semantics-en.yaml")
         val semanticstext = Files.readString(semantics, StandardCharsets.UTF_8)
 
-        Then("the strict v2 authoring skeleton binds exact Core bytes without fabricated semantics or aliases")
+        Then("the strict v2 authoring skeleton associates the Core id and language with empty authored semantics")
         semanticstext should include("schema: cozy.content-core.presentation-semantics.v2")
         semanticstext should include("id: article-nine-presentation-en")
         semanticstext should include("id: article-nine:core:en")
-        semanticstext should include(s"identity: sha256:${_sha256(core)}")
+        semanticstext should include("language: en")
         semanticstext should include("composition: {}")
         semanticstext should include("storyFlow:\n  id: article-nine-story-flow-en\n  transitions: []")
         semanticstext should include("structures: []")
@@ -114,8 +114,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
 
         Then("authoring-incomplete exposes unavailable semantic values, the strict fault, and the complete missing Work Product row")
-        inspect should include("presentationSemantics.schemaIdentity: cozy.content-core.presentation-semantics.v2")
-        inspect should include("presentationSemantics.semanticIdentity: unavailable")
+        inspect should include("presentationSemantics.schema: cozy.content-core.presentation-semantics.v2")
         inspect should include("presentationSemantics.state: authoring-incomplete")
         inspect should include("presentationSemantics.storyStepCount: unavailable")
         inspect should include("presentationSemantics.storyTransitionCount: unavailable")
@@ -124,7 +123,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _diagnostic_tokens(verification) shouldBe Vector("DP-SEM-006")
         state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked")
         Files.exists(project.resolve("target/document-project/presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("target/document-project/presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -137,32 +135,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("inspect derives the disposable work-product state")
         val inspect = _execute(List("document-project", "inspect", project.toString))
 
-        Then("the semantic Work Product is missing rather than invalid or stale")
+        Then("source absence is reported as the missing semantic Work Product")
         inspect should include("presentationSemantics.state: missing")
-        inspect should include("presentationSemantics.contentCore.currentness: unavailable")
         Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8) should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked")
-      }
-    }
-
-    "derive stale presentation-semantics state only for an exact prior Core binding" in {
-      _with_temp_dir("cozy-document-project-presentation-semantics-stale") { root =>
-        Given("a Phase 48 semantic source bound to the exact original Core identity")
-        val project = _scaffolded_project(root, "semantic-stale")
-        val core = project.resolve("content/core-en.yaml")
-        val original = Files.readString(core, StandardCharsets.UTF_8)
-        val originalidentity = _sha256(core)
-        Files.writeString(core, original.replace("accepted: []", "accepted:\n  - id: accepted\n    text: accepted"), StandardCharsets.UTF_8)
-        Files.writeString(project.resolve("content/presentation-semantics-en.yaml"), CozyDocumentProject._presentation_semantics_yaml("semantic-stale", "en", originalidentity), StandardCharsets.UTF_8)
-
-        When("inspect and strict verify read the source after the Core bytes change")
-        val inspect = _execute(List("document-project", "inspect", project.toString))
-        val verification = _failure(List("document-project", "verify", project.toString))
-
-        Then("only the direct strict Core-binding fault is represented as stale")
-        inspect should include("presentationSemantics.state: stale")
-        inspect should include("presentationSemantics.contentCore.currentness: stale")
-        _diagnostic_tokens(verification) shouldBe Vector("DP-SEM-005")
-        verification should include("path=$.contentCore")
       }
     }
 
@@ -171,13 +146,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Given("a scaffolded project with candidate sources that are not the exact admitted Core binding")
         val project = _scaffolded_project(root, "semantic-invalid")
         val semantics = project.resolve("content/presentation-semantics-en.yaml")
-        val core = project.resolve("content/core-en.yaml")
-        val identity = _sha256(core)
-        val wrongid = CozyDocumentProject._presentation_semantics_yaml("other-project", "en", identity)
-        val wronglanguage = CozyDocumentProject._presentation_semantics_yaml("semantic-invalid", "ja", identity)
-        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted\n    text: accepted"), StandardCharsets.UTF_8)
-        val staleidentity = CozyDocumentProject._presentation_semantics_yaml("semantic-invalid", "en", identity)
-        val stalewithrootorderfault = staleidentity.replace(
+        val wrongid = CozyDocumentProject._presentation_semantics_yaml("other-project", "en")
+        val wronglanguage = CozyDocumentProject._presentation_semantics_yaml("semantic-invalid", "ja")
+        val canonical = CozyDocumentProject._presentation_semantics_yaml("semantic-invalid", "en")
+        val withrootorderfault = canonical.replace(
           "schema: cozy.content-core.presentation-semantics.v2\nid: semantic-invalid-presentation-en",
           "id: semantic-invalid-presentation-en\nschema: cozy.content-core.presentation-semantics.v2"
         )
@@ -189,19 +161,16 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.writeString(semantics, wronglanguage, StandardCharsets.UTF_8)
         val wronglanguagestate = _execute(List("document-project", "inspect", project.toString))
         val wronglanguagefailure = _failure(List("document-project", "verify", project.toString))
-        Files.writeString(semantics, stalewithrootorderfault, StandardCharsets.UTF_8)
+        Files.writeString(semantics, withrootorderfault, StandardCharsets.UTF_8)
         val rootfaultstate = _execute(List("document-project", "inspect", project.toString))
         val rootfaultfailure = _failure(List("document-project", "verify", project.toString))
 
-        Then("wrong Core id or language is unavailable and invalid, while an independent root fault overrides stale state")
+        Then("wrong Core id or language and independently reordered root fields are invalid")
         wrongidstate should include("presentationSemantics.state: invalid")
-        wrongidstate should include("presentationSemantics.contentCore.currentness: unavailable")
         _diagnostic_tokens(wrongidfailure) shouldBe Vector("DP-SEM-005")
         wronglanguagestate should include("presentationSemantics.state: invalid")
-        wronglanguagestate should include("presentationSemantics.contentCore.currentness: unavailable")
         _diagnostic_tokens(wronglanguagefailure) shouldBe Vector("DP-SEM-005")
         rootfaultstate should include("presentationSemantics.state: invalid")
-        rootfaultstate should include("presentationSemantics.contentCore.currentness: stale")
         _diagnostic_tokens(rootfaultfailure) shouldBe Vector("DP-SEM-002")
       }
     }
@@ -217,10 +186,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val verify = _execute(List("document-project", "verify", project.toString))
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
 
-        Then("the reports expose the current semantic identity, fixed-catalog counts, and satisfied projection coverage")
+        Then("the reports expose admitted semantic facts, fixed-catalog counts, and satisfied projection coverage")
         inspect should include("presentationSemantics.state: current")
-        inspect should include("presentationSemantics.semanticIdentity: sha256:")
-        inspect should include("presentationSemantics.contentCore.currentness: current")
+        inspect should include("presentationSemantics.schema: cozy.content-core.presentation-semantics.v2")
+        inspect should include("presentationSemantics.contentCore.language: en")
         inspect should include("presentationSemantics.storyStepCount: 2")
         inspect should include("presentationSemantics.storyTransitionCount: 1")
         inspect should include("presentationSemantics.structureCount: 2")
@@ -230,7 +199,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         verify should include("presentationSemantics.projectionAvailability: available")
         state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
         Files.exists(project.resolve("target/document-project/presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("target/document-project/presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -247,6 +215,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
         Then("semantic validation remains current while typed projection availability fails and evidence readiness is blocked")
         inspect should include("presentationSemantics.state: current")
+        inspect should include("presentationSemantics.schema: cozy.content-core.presentation-semantics.v2")
+        inspect should include("presentationSemantics.contentCore.language: en")
         inspect should include("presentationSemantics.storyStepCount: 2")
         inspect should include("presentationSemantics.structureCount: 1")
         inspect should include("presentationSemantics.projectionAvailability: failed")
@@ -314,13 +284,13 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("the generated strict semantic authority remains direct authored scaffold output rather than a hand-written promotion artifact")
         Files.isRegularFile(semantics, LinkOption.NOFOLLOW_LINKS) shouldBe true
         Files.readAllBytes(semantics) shouldBe semanticsbytes
-        Files.readString(semantics, StandardCharsets.UTF_8) should include(s"identity: sha256:${_sha256(project.resolve("content/core-ja.yaml"))}")
+        Files.readString(semantics, StandardCharsets.UTF_8) should include("id: article-nine:core:ja\n  language: ja")
         Files.readString(descriptor, StandardCharsets.UTF_8) should include("profile: simplemodeling-org-video")
         CozyDocumentProject._load_project(project).profile shouldBe "simplemodeling-org-video"
       }
     }
 
-    "drive an Article 9-shaped hidden video profile through presentation currentness and recovery" in {
+    "drive an Article 9-shaped hidden video profile through public presentation verification and review" in {
       _with_temp_dir("cozy-document-project-phase-493-s2") { root =>
         Given("an English Article 9 standard-video scaffold in the bok workspace")
         val parent = Files.createDirectory(root.resolve("article-nine-parent"))
@@ -328,14 +298,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val project = parent.resolve("article-nine.dox")
         val descriptor = project.resolve("document-project.yaml")
         val semantics = project.resolve("content/presentation-semantics-en.yaml")
-        val core = project.resolve("content/core-en.yaml")
         val html = project.resolve("target/document-project/presentation-confirmation.html")
-        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
         Files.writeString(descriptor, Files.readString(descriptor, StandardCharsets.UTF_8).replace("profile: standard-video", "profile: simplemodeling-org-video"), StandardCharsets.UTF_8)
         _activate_optional_work_products(project, "simplemodeling-org-video", Vector("presentation-confirmation-html"))
         _write_valid_presentation_semantics(project)
-        val semanticsbytes = Files.readAllBytes(semantics)
-        val descriptorbytes = Files.readAllBytes(descriptor)
 
         When("verify, inspect, plan, Dashboard, and the default presentation review are run")
         val verify = _execute(List("document-project", "verify", project.toString))
@@ -346,13 +312,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val review = _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
         _execute(List("document-project", "inspect", project.toString))
         val initialstate = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        val oldhtmlbytes = Files.readAllBytes(html)
-        val oldreceiptbytes = Files.readAllBytes(receipt)
 
         Then("strict semantic coverage is current and the selected confirmation is planned and generated")
         verify should include("presentationSemantics.projectionAvailability: available")
         inspect should include("presentationSemantics.state: current")
-        inspect should include("presentationSemantics.contentCore.currentness: current")
+        inspect should include("presentationSemantics.schema: cozy.content-core.presentation-semantics.v2")
+        inspect should include("presentationSemantics.contentCore.language: en")
         inspect should include("presentationSemantics.coverage: satisfied")
         plan should include("active-optional: work-product presentation-confirmation-html [review-projection, optional; selected]")
         dashboardresult should include("Dashboard")
@@ -360,43 +325,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboard should include("Presentation confirmation HTML")
         review should include("Presentation Confirmation")
         Files.isRegularFile(html, LinkOption.NOFOLLOW_LINKS) shouldBe true
-        Files.isRegularFile(receipt, LinkOption.NOFOLLOW_LINKS) shouldBe true
-        Files.readString(receipt, StandardCharsets.UTF_8) should include("\"projectionIdentity\":")
         initialstate should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
 
-        When("the Content Core bytes change and read-only inspection plus public presentation review run")
-        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: article-nine-change\n    text: Article Nine Change"), StandardCharsets.UTF_8)
-        val staleinspect = _execute(List("document-project", "inspect", project.toString))
-        val stale = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        val refusal = _failure(List("document-project", "review", project.toString, "--kind", "presentation"))
-
-        Then("the Core change makes both semantic authority and confirmation stale without rewriting retained bytes")
-        staleinspect should include("presentationSemantics.contentCore.currentness: stale")
-        stale should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
-        _diagnostic_tokens(refusal) shouldBe Vector("DP-SEM-005")
-        Files.readAllBytes(semantics) shouldBe semanticsbytes
-        Files.readAllBytes(descriptor) shouldBe descriptorbytes
-        Files.readAllBytes(html) shouldBe oldhtmlbytes
-        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
-
-        Given("the stale project is explicitly reauthored through the existing strict semantic authoring helper")
-        _write_valid_presentation_semantics(project)
-        Files.readAllBytes(html) shouldBe oldhtmlbytes
-        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
-
-        When("the public presentation review runs again after reauthoring")
-        val reauthoredinspect = _execute(List("document-project", "inspect", project.toString))
-        val reauthoredstate = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
-        _execute(List("document-project", "inspect", project.toString))
-        val recovered = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-
-        Then("only the same public confirmation route replaces retained bytes and recovers ready evidence")
-        reauthoredinspect should include("presentationSemantics.state: current")
-        reauthoredstate should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
-        recovered should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
-        Files.readAllBytes(html) should not equal oldhtmlbytes
-        Files.readAllBytes(receipt) should not equal oldreceiptbytes
       }
     }
 
@@ -435,16 +365,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val descriptor = project.resolve("document-project.yaml")
         val descriptorbytes = Files.readAllBytes(descriptor)
         val coretext = Files.readString(project.resolve("content/core-en.yaml"), StandardCharsets.UTF_8)
-
-        When("inspect replaces a cache state entry hard linked to the authored descriptor")
-        Files.delete(state)
-        Files.createLink(state, descriptor)
-        _execute(List("document-project", "inspect", project.toString))
-
-        Then("the descriptor bytes remain authored evidence and the regenerated cache is independent")
-        Files.readAllBytes(descriptor) shouldBe descriptorbytes
-        Files.isSameFile(state, descriptor) shouldBe false
-        Files.readString(state, StandardCharsets.UTF_8) should include("schema: cozy.document-project-state.v2")
 
         When("the cache is deleted and inspect reconstructs it")
         Files.delete(state)
@@ -634,21 +554,22 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "show the first stale selected review change and its safe review command" in {
+    "show a missing selected review and its safe review command" in {
       _with_temp_dir("cozy-document-project-dashboard-user-first-stale") { root =>
         Given("a selected Article review with a generated review receipt")
         val project = _scaffolded_project(root, "dashboard-user-first-stale")
         _activate_optional_work_products(project, "standard", Vector("article-review-html"))
         _execute(List("document-project", "review", project.toString, "--kind", "article"))
-        Files.writeString(project.resolve("index.dox"), Files.readString(project.resolve("index.dox"), StandardCharsets.UTF_8) + "\nChanged article source.\n", StandardCharsets.UTF_8)
+        Files.delete(project.resolve("target/document-project/article-review.html"))
+        Files.delete(project.resolve("target/document-project/article-review.receipt.yaml"))
 
-        When("the selected review dashboard is generated after its source changes")
+        When("the selected review dashboard is generated after its default output is removed")
         _execute(List("document-project", "dashboard", project.toString))
         val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
 
-        Then("the latest change preserves the exact stale reason and exposes the existing review command")
+        Then("the latest change reports the missing output and exposes the existing review command")
         dashboard should include("Latest observed change / 最新に確認された変化")
-        dashboard should include("a declared dependency is stale")
+        dashboard should include("default review HTML is not generated")
         dashboard should include("cozy document-project review &lt;project&gt; --kind article")
         dashboard should include("selected-by-contract preview")
       }
@@ -762,10 +683,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "derive stale article review state through receipt-bound dependencies and failed attempts" in {
+    "derive article review state through missing inputs and failed attempts" in {
       _with_temp_dir("cozy-document-project-v2-article-review-propagation") { root =>
-        Given("a selected article-review-html product with valid source evidence and a current Content Core identity")
+        Given("a selected article-review-html product with valid source evidence and a admitted Content Core")
         val project = _scaffolded_project(root, "article-review-propagation")
+        Files.writeString(project.resolve("content/core-en.yaml"), _core_yaml("article-review-propagation", "en", "accepted article review Core"), StandardCharsets.UTF_8)
         _write_sidecar(
           project,
           evidence = Map(
@@ -775,20 +697,20 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           activeoptionalworkproducts = Vector("article-review-html")
         )
         _execute(List("document-project", "review", project.toString, "--kind", "article"))
-        Files.writeString(project.resolve("content/core-en.yaml"), _core_yaml("article-review-propagation", "en", "changed Content Core"), StandardCharsets.UTF_8)
         val attemptid = "44444444-4444-4444-8444-444444444444"
         val attempt = project.resolve(s"evidence/attempts/$attemptid.yaml")
         Files.createDirectories(attempt.getParent)
         Files.writeString(attempt, _failed_attempt_yaml(project, attemptid, "article.render-review", "cozy-review-projection", "standard"), StandardCharsets.UTF_8)
+        Files.delete(project.resolve("infographic/infographic.svg"))
 
-        When("inspect and dashboard derive state with the stale dependency and retained failed attempt")
+        When("inspect and dashboard derive state with a missing generated-review input and retained failed attempt")
         _execute(List("document-project", "inspect", project.toString))
         _execute(List("document-project", "dashboard", project.toString))
 
-        Then("the receipt-bound selected article review becomes stale and retains historical failed evidence")
+        Then("the selected article review is blocked by its missing generated-review input and retains historical failed evidence")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
         val dashboard = Files.readString(project.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        state should include("id: content-core\n    role: authority\n    disposition: required\n    selection: required\n    criterion: content-core-accepted\n    coverage: missing\n    currentness: stale")
+        state should include("id: content-core\n    role: authority\n    disposition: required\n    selection: required\n    criterion: content-core-accepted\n    coverage: satisfied\n    currentness: current")
         state should include("id: article-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: article-review-rendered\n    coverage: missing\n    currentness: stale\n    review: pending\n    readiness: blocked\n    reason: \"a declared dependency is stale\"")
         state should include(s"path: evidence/attempts/$attemptid.yaml")
         dashboard should include("failed; historical v1 attempt; no receipt/currentness authority")
@@ -1108,12 +1030,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
     "project presentation semantics blockers and the deterministic authoring action through plan" in {
       _with_temp_dir("cozy-document-project-presentation-semantics-plan") { root =>
-        Given("four projects whose Content Core is admitted while Presentation Semantics is missing, incomplete, invalid, or stale")
+        Given("three projects whose Content Core is admitted while Presentation Semantics is missing, incomplete, or invalid")
         def _admit_core_(project: Path): Unit = {
           val slug = project.getFileName.toString.stripSuffix(".dox")
           val core = project.resolve("content/core-en.yaml")
           Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-core\n    text: Accepted core"), StandardCharsets.UTF_8)
-          Files.writeString(project.resolve("content/presentation-semantics-en.yaml"), CozyDocumentProject._presentation_semantics_yaml(slug, "en", _sha256(core)), StandardCharsets.UTF_8)
+          Files.writeString(project.resolve("content/presentation-semantics-en.yaml"), CozyDocumentProject._presentation_semantics_yaml(slug, "en"), StandardCharsets.UTF_8)
         }
         val missing = _scaffolded_project(root, "plan-missing")
         _admit_core_(missing)
@@ -1123,18 +1045,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val invalid = _scaffolded_project(root, "plan-invalid")
         _admit_core_(invalid)
         Files.writeString(invalid.resolve("content/presentation-semantics-en.yaml"), "schema: [\n", StandardCharsets.UTF_8)
-        val stale = _scaffolded_project(root, "plan-stale")
-        val stalecore = stale.resolve("content/core-en.yaml")
-        val prioridentity = _sha256(stalecore)
-        Files.writeString(stalecore, Files.readString(stalecore, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-core\n    text: Accepted core"), StandardCharsets.UTF_8)
-        Files.writeString(stale.resolve("content/presentation-semantics-en.yaml"), CozyDocumentProject._presentation_semantics_yaml("plan-stale", "en", prioridentity), StandardCharsets.UTF_8)
-
         When("plan derives each project without executing an operation")
         val plans = Vector(
           "missing" -> _execute(List("document-project", "plan", missing.toString)),
           "authoring-incomplete" -> _execute(List("document-project", "plan", incomplete.toString)),
-          "invalid" -> _execute(List("document-project", "plan", invalid.toString)),
-          "stale" -> _execute(List("document-project", "plan", stale.toString))
+          "invalid" -> _execute(List("document-project", "plan", invalid.toString))
         )
 
         Then("every plan places Presentation Semantics after Content Core and before its dependent semantic Work Products")
@@ -1151,13 +1066,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           plan should not include "run <project> --operation presentation.author"
         }
 
-        And("planning creates no target, state, evidence, confirmation, receipt, or semantic output artifact")
-        Vector(missing, incomplete, invalid, stale).foreach { project =>
+        And("planning creates no target, state, evidence, confirmation, or semantic output artifact")
+        Vector(missing, incomplete, invalid).foreach { project =>
           Files.exists(project.resolve("target"), LinkOption.NOFOLLOW_LINKS) shouldBe false
           Files.exists(project.resolve("state"), LinkOption.NOFOLLOW_LINKS) shouldBe false
           Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
           Files.exists(project.resolve("presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-          Files.exists(project.resolve("presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         }
       }
     }
@@ -1190,7 +1104,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val core = project.resolve("content/core-en.yaml")
         val semantics = project.resolve("content/presentation-semantics-en.yaml")
         Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: accepted-core\n    text: Accepted core"), StandardCharsets.UTF_8)
-        Files.writeString(semantics, CozyDocumentProject._presentation_semantics_yaml("dashboard-semantics", "en", _sha256(core)), StandardCharsets.UTF_8)
+        Files.writeString(semantics, CozyDocumentProject._presentation_semantics_yaml("dashboard-semantics", "en"), StandardCharsets.UTF_8)
         val corebytes = Files.readAllBytes(core)
         val semanticsbytes = Files.readAllBytes(semantics)
         val descriptorbytes = Files.readAllBytes(project.resolve("document-project.yaml"))
@@ -1205,14 +1119,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboard should include("Author the project-local sibling content/presentation-semantics-en.yaml to the strict v2 contract (cozy.content-core.presentation-semantics.v2); after authoring, use document-project verify &lt;project&gt; only for validation.")
         dashboard should not include("run &lt;project&gt; --operation presentation.author")
         dashboard should not include("presentation-confirmation.html")
-        dashboard should not include("presentation-confirmation.receipt.yaml")
 
-        And("Dashboard does not alter semantic source, descriptor bytes, or emit semantic receipts")
+        And("Dashboard leaves the authored semantic source and descriptor unchanged")
         Files.readAllBytes(core) shouldBe corebytes
         Files.readAllBytes(semantics) shouldBe semanticsbytes
         Files.readAllBytes(project.resolve("document-project.yaml")) shouldBe descriptorbytes
         Files.exists(project.resolve("target/document-project/presentation-confirmation.html"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(project.resolve("target/document-project/presentation-confirmation.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -1351,12 +1263,12 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "dashboard", project.toString))
         val dashboard = project.resolve("target/document-project/project-dashboard.html")
 
-        Then("review-projection Work Products remain blocked and identify stale Presentation Semantics dependency propagation")
+        Then("review-projection Work Products remain blocked and identify incomplete Presentation Semantics and missing review evidence")
         val initialdashboardtext = Files.readString(dashboard, StandardCharsets.UTF_8)
         initialdashboardtext should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
         initialdashboardtext should include("Generate Core review HTML")
-        initialdashboardtext should include("presentation-semantics</th><td>missing</td><td>stale</td><td>pending</td><td>blocked")
-        initialdashboardtext should include("slide-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
+        initialdashboardtext should include("presentation-semantics</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        initialdashboardtext should include("slide-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
         initialdashboardtext should include("Generate Slide review HTML")
 
         When("the default core and slide reviews are generated before the dashboard is repeated")
@@ -1367,7 +1279,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "dashboard", project.toString))
         val secondbytes = Files.readAllBytes(dashboard)
 
-        Then("the default dashboard is self-contained, escaped, structurally accessible, byte-identical, and explicit about stale Presentation Semantics dependencies")
+        Then("the default dashboard is self-contained, escaped, structurally accessible, byte-identical, and explicit about incomplete Presentation Semantics")
         firstoutput should startWith("Cozy Document Project Dashboard")
         Files.isRegularFile(dashboard, LinkOption.NOFOLLOW_LINKS) shouldBe true
         firstbytes shouldBe secondbytes
@@ -1387,8 +1299,8 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         dashboardtext should include("Consumer operations")
         dashboardtext should include("v1 attempts remain historical only")
         dashboardtext should include("core-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
-        dashboardtext should include("presentation-semantics</th><td>missing</td><td>stale</td><td>pending</td><td>blocked")
-        dashboardtext should include("slide-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
+        dashboardtext should include("presentation-semantics</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        dashboardtext should include("slide-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
         dashboardtext should include("<a href=\"core-review.html\">core-review.html</a>")
         dashboardtext should include("<a href=\"slides-review.html\">slides-review.html</a>")
         dashboardtext should include("<a href=\"../../infographic/infographic.svg\">../../infographic/infographic.svg</a>")
@@ -1435,7 +1347,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.writeString(existing, "old projection\n", StandardCharsets.UTF_8)
         _execute(List("document-project", "dashboard", project.toString, "--save", existing.toString))
 
-        Then("the regular destination is atomically replaced with a projection linked from its parent")
+        Then("the regular destination is directly written with a projection linked from its parent")
         val existingtext = Files.readString(existing, StandardCharsets.UTF_8)
         val existinginfographichref = existing.getParent.relativize(project.resolve("infographic/infographic.svg")).toString.replace('\\', '/')
         existingtext should include("<h1>Cozy Document Project Dashboard</h1>")
@@ -1577,7 +1489,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val explicit = root.resolve("saved/article-review.html")
         _execute(List("document-project", "review", article.toString, "--kind", "article", "--save", explicit.toString))
 
-        Then("the selected review is deterministic, escaped, page-oriented, and receipt-bound without changing authored sources")
+        Then("the selected review is deterministic, escaped, page-oriented, and accompanied by input path facts without changing authored sources")
         val review = Files.readString(defaultreview, StandardCharsets.UTF_8)
         Files.readAllBytes(defaultreview) shouldBe firstbytes
         Files.readAllBytes(receipt) shouldBe firstreceiptbytes
@@ -1608,7 +1520,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         review should include("Cozy means a deterministic review boundary.")
         review should include("Place the infographic after the Flow section.")
         review should include("Phase-41 Projection selector: unavailable; the v2 descriptor declares no accepted Phase-41 selector")
-        review should include("Current verified input identities")
+        review should include("Selected input paths")
         review should include("&lt;script&gt;")
         review should include("No provider execution, renderer input")
         review should not include("Native article.render-review execution")
@@ -1768,19 +1680,11 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the standard dashboard reconstructs the generated Slide Logical Chart")
         _execute(List("document-project", "dashboard", standard.toString))
 
-        Then("the generated Slide Logical Chart remains stale because Presentation Semantics has already made Visual Page IR stale")
+        Then("the generated Slide Logical Chart is ready from its actual source and output availability")
         val standardcurrentchart = Files.readString(standard.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        standardcurrentchart should include("presentation-semantics</th><td>missing</td><td>stale</td><td>pending</td><td>blocked")
-        standardcurrentchart should include("visual-pages</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
-        standardcurrentchart should include("explanation-structure-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
-
-        When("the current standard Visual Page IR changes without regenerating the Slide Logical Chart")
-        Files.writeString(standardvisualpages, "pages: [\"changed slide visual\"]\n", StandardCharsets.UTF_8)
-        _execute(List("document-project", "dashboard", standard.toString))
-
-        Then("the retained Slide Logical Chart is stale with the deterministic mismatch reason")
-        val standardstalechart = Files.readString(standard.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        standardstalechart should include("explanation-structure-review-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>generated logical chart output does not match current project IR")
+        standardcurrentchart should include("presentation-semantics</th><td>missing</td><td>missing</td><td>pending</td><td>blocked")
+        standardcurrentchart should include("visual-pages</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
+        standardcurrentchart should include("explanation-structure-review-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
 
         val videocore = video.resolve("content/core-en.yaml")
         val videovisualpages = video.resolve("presentation/visual-pages.yaml")
@@ -1825,28 +1729,21 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the standard-video dashboard is projected")
         _execute(List("document-project", "dashboard", video.toString))
 
-        Then("the Slide Logical Chart remains missing while the Video Logical Chart is stale and blocked by a declared dependency")
+        Then("the ungenerated Slide Logical Chart remains missing while the generated Video Logical Chart is ready")
         val dashboardtext = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
         dashboardtext should include("explanation-structure-review-html<br/><span>Slide Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
         dashboardtext should include("explanation-structure-review-html</th><td>missing</td><td>missing</td><td>pending</td><td>blocked</td><td>default review HTML is not generated")
         dashboardtext should include("video-logical-chart-html<br/><span>Video Logical Chart HTML</span></th><td>active-optional</td><td>review-projection</td><td>optional</td>")
-        dashboardtext should include("video-logical-chart-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>a declared dependency is stale")
+        dashboardtext should include("video-logical-chart-html</th><td>satisfied</td><td>current</td><td>pending</td><td>ready")
         dashboardtext should include("phase-41-explanation-structure")
         dashboardtext should include("content-core")
         dashboardtext should include("slide-logical-chart")
         dashboardtext should include("slide-logical-chart-reference")
 
-        When("the current storyboard IR changes without regenerating the Video Logical Chart")
-        Files.writeString(videostoryboard, "# Storyboard\n\nchanged storyboard\n", StandardCharsets.UTF_8)
-        _execute(List("document-project", "dashboard", video.toString))
-
-        Then("the retained Video Logical Chart is stale with the deterministic mismatch reason")
-        val videostalechart = Files.readString(video.resolve("target/document-project/project-dashboard.html"), StandardCharsets.UTF_8)
-        videostalechart should include("video-logical-chart-html</th><td>missing</td><td>stale</td><td>pending</td><td>blocked</td><td>generated logical chart output does not match current project IR")
       }
     }
 
-    "reject unsafe dashboard output destinations without direct-write fallback" in {
+    "reject unsafe dashboard output destinations" in {
       _with_temp_dir("cozy-document-project-dashboard-path") { root =>
         Given("an admitted standard project, a real output parent, and a symbolic-link alias")
         val parent = Files.createDirectory(root.resolve("parent"))
@@ -2022,7 +1919,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val revisedoutput = _execute(List("document-project", "content-core", "candidate", project.toString, reviseddialogue.toString))
         val acceptanceoutput = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-revised", acceptance.toString))
 
-        Then("the immutable links lead to exactly one accepted Core replacement")
+        Then("the logical links and human decision select the accepted Core replacement")
         val revisedevidence = Files.readString(project.resolve("evidence/content-core/candidates/candidate-revised.yaml"), StandardCharsets.UTF_8)
         val acceptanceevidence = Files.readString(project.resolve("evidence/content-core/acceptances/acceptance-revised.yaml"), StandardCharsets.UTF_8)
         feedbackoutput should include("decision: changes-requested")
@@ -2039,9 +1936,9 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "resume one durable pending acceptance without duplicating evidence and keep the completed retry idempotent" in {
+    "apply the selected candidate for the same human acceptance without duplicating its record" in {
       _with_temp_dir("cozy-document-project-content-core-pending-acceptance") { root =>
-        Given("a candidate and a pre-existing direct acceptance record whose prior Core is still current")
+        Given("a candidate and a pre-existing direct record of its human acceptance")
         val project = _scaffolded_project(root, "content-core-pending-acceptance")
         val core = project.resolve("content/core-en.yaml")
         val dialogue = root.resolve("candidate.json")
@@ -2053,16 +1950,13 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.writeString(feedback, _feedback_json("feedback-pending", "candidate-pending-acceptance", "changes-requested"), StandardCharsets.UTF_8)
         Files.writeString(alternate, _acceptance_json("acceptance-alternate", "candidate-pending-acceptance"), StandardCharsets.UTF_8)
         _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-        val prior = _sha256(core)
-        val replacement = _accepted_candidate_core_yaml("content-core-pending-acceptance", "en", "accepted-candidate-pending-acceptance", "pending acceptance replacement")
         val acceptanceevidence = project.resolve("evidence/content-core/acceptances/acceptance-pending.yaml")
         Files.createDirectories(acceptanceevidence.getParent)
         Files.writeString(
           acceptanceevidence,
-          _acceptance_record_yaml(project, "acceptance-pending", "candidate-pending-acceptance", "human-reviewer", "content/core-en.yaml", prior, _sha256_string(replacement)),
+          _acceptance_record_yaml("acceptance-pending", "candidate-pending-acceptance", "human-reviewer", "content/core-en.yaml"),
           StandardCharsets.UTF_8
         )
-        val evidencebefore = Files.readAllBytes(acceptanceevidence)
 
         When("feedback and another acceptance are attempted before the exact pending acceptance is resumed")
         val feedbackfailure = _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-pending-acceptance", feedback.toString))
@@ -2070,49 +1964,16 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val resumed = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-pending-acceptance", acceptance.toString))
         val repeated = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-pending-acceptance", acceptance.toString))
 
-        Then("only the durable acceptance record authorizes the replacement and both completion calls report it")
+        Then("the same human acceptance selects the replacement and both calls report its record")
         _diagnostic_tokens(feedbackfailure) shouldBe Vector("DP-OP-001")
         _diagnostic_tokens(alternatefailure) shouldBe Vector("DP-OP-001")
         resumed should include("decision: accepted")
         repeated should include("decision: accepted")
         Files.readString(core, StandardCharsets.UTF_8) should include("text: \"pending acceptance replacement\"")
-        Files.readAllBytes(acceptanceevidence) shouldBe evidencebefore
+        Files.readString(acceptanceevidence, StandardCharsets.UTF_8) should include("id: \"acceptance-pending\"")
         _relative_files(project.resolve("evidence/content-core/acceptances")) shouldBe Set("acceptance-pending.yaml")
         Files.exists(project.resolve("evidence/content-core/feedback/feedback-pending.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(project.resolve("evidence/content-core/acceptances/acceptance-alternate.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "treat a pending acceptance as historical when the current Core no longer has either recorded identity" in {
-      _with_temp_dir("cozy-document-project-content-core-historical-acceptance") { root =>
-        Given("a candidate and a pre-existing pending acceptance with a separately changed current Core")
-        val project = _scaffolded_project(root, "content-core-historical-acceptance")
-        val core = project.resolve("content/core-en.yaml")
-        val dialogue = root.resolve("candidate.json")
-        val acceptance = root.resolve("acceptance.json")
-        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-historical", "historical replacement"), StandardCharsets.UTF_8)
-        Files.writeString(acceptance, _acceptance_json("acceptance-historical", "candidate-historical"), StandardCharsets.UTF_8)
-        _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-        val prior = _sha256(core)
-        val replacement = _accepted_candidate_core_yaml("content-core-historical-acceptance", "en", "accepted-candidate-historical", "historical replacement")
-        val acceptanceevidence = project.resolve("evidence/content-core/acceptances/acceptance-historical.yaml")
-        Files.createDirectories(acceptanceevidence.getParent)
-        Files.writeString(
-          acceptanceevidence,
-          _acceptance_record_yaml(project, "acceptance-historical", "candidate-historical", "human-reviewer", "content/core-en.yaml", prior, _sha256_string(replacement)),
-          StandardCharsets.UTF_8
-        )
-        Files.writeString(core, _core_yaml("content-core-historical-acceptance", "en", "independent current Core"), StandardCharsets.UTF_8)
-        val currentbefore = Files.readAllBytes(core)
-        val evidencebefore = Files.readAllBytes(acceptanceevidence)
-
-        When("the exact acceptance is retried after the Core has a third identity")
-        val failure = _failure(List("document-project", "content-core", "accept", project.toString, "candidate-historical", acceptance.toString))
-
-        Then("the durable record remains historical and neither Core nor evidence is changed")
-        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
-        Files.readAllBytes(core) shouldBe currentbefore
-        Files.readAllBytes(acceptanceevidence) shouldBe evidencebefore
       }
     }
 
@@ -2211,294 +2072,86 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "reject concurrently held Content Core writer locks without mutation and permit sequential retry" in {
-      _with_temp_dir("cozy-document-project-content-core-lock") { root =>
-        Given("a scaffolded project and admitted candidate, feedback, and acceptance documents")
-        val project = _scaffolded_project(root, "content-core-lock")
-        val core = project.resolve("content/core-en.yaml")
-        val dialogue = root.resolve("candidate.json")
-        val feedback = root.resolve("feedback.json")
-        val acceptance = root.resolve("acceptance.json")
-        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-lock", "locked candidate replacement"), StandardCharsets.UTF_8)
-        Files.writeString(feedback, _feedback_json("feedback-lock", "candidate-lock", "changes-requested"), StandardCharsets.UTF_8)
-        Files.writeString(acceptance, _acceptance_json("acceptance-lock", "candidate-lock"), StandardCharsets.UTF_8)
-        val corebeforecandidate = Files.readAllBytes(core)
-
-        When("candidate is requested while the project-local writer lock is held")
-        val candidatefailure = _with_content_core_lock(project) {
-          _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-        }
-
-        Then("candidate returns only retryable DP-OP-001 without evidence or Core mutation")
-        _diagnostic_tokens(candidatefailure) shouldBe Vector("DP-OP-001")
-        Files.readAllBytes(core) shouldBe corebeforecandidate
-        Files.exists(project.resolve("evidence/content-core"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-
-        When("the lock is released and the same candidate is retried")
-        val candidateoutput = _execute(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-
-        Then("the candidate is appended normally")
-        candidateoutput should include("candidate: candidate-lock")
-        Files.isRegularFile(project.resolve("evidence/content-core/candidates/candidate-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
-        val corebeforefeedback = Files.readAllBytes(core)
-
-        When("feedback is requested while the project-local writer lock is held")
-        val feedbackfailure = _with_content_core_lock(project) {
-          _failure(List("document-project", "content-core", "feedback", project.toString, "candidate-lock", feedback.toString))
-        }
-
-        Then("feedback returns only retryable DP-OP-001 without evidence or Core mutation")
-        _diagnostic_tokens(feedbackfailure) shouldBe Vector("DP-OP-001")
-        Files.readAllBytes(core) shouldBe corebeforefeedback
-        Files.exists(project.resolve("evidence/content-core/feedback/feedback-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-
-        When("the lock is released and the same feedback is retried")
-        val feedbackoutput = _execute(List("document-project", "content-core", "feedback", project.toString, "candidate-lock", feedback.toString))
-
-        Then("the feedback is appended normally")
-        feedbackoutput should include("decision: changes-requested")
-        Files.isRegularFile(project.resolve("evidence/content-core/feedback/feedback-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
-        val corebeforeacceptance = Files.readAllBytes(core)
-
-        When("accept is requested while the project-local writer lock is held")
-        val acceptancefailure = _with_content_core_lock(project) {
-          _failure(List("document-project", "content-core", "accept", project.toString, "candidate-lock", acceptance.toString))
-        }
-
-        Then("accept returns only retryable DP-OP-001 without evidence or Core mutation")
-        _diagnostic_tokens(acceptancefailure) shouldBe Vector("DP-OP-001")
-        Files.readAllBytes(core) shouldBe corebeforeacceptance
-        Files.exists(project.resolve("evidence/content-core/acceptances/acceptance-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-
-        When("the lock is released and the same acceptance is retried")
-        val acceptanceoutput = _execute(List("document-project", "content-core", "accept", project.toString, "candidate-lock", acceptance.toString))
-
-        Then("the single acceptance evidence precedes the accepted Core replacement")
-        acceptanceoutput should include("decision: accepted")
-        Files.isRegularFile(project.resolve("evidence/content-core/acceptances/acceptance-lock.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
-        Files.readString(core, StandardCharsets.UTF_8) should include("text: \"locked candidate replacement\"")
-      }
-    }
-
-    "give a held direct regular writer lock precedence over a malformed Content Core at the public candidate boundary" in {
-      _with_temp_dir("cozy-document-project-content-core-held-lock-precedence") { root =>
-        Given("a scaffolded project, admitted dialogue, malformed Core, and held direct regular writer lock")
-        val project = _scaffolded_project(root, "content-core-held-lock-precedence")
-        val core = project.resolve("content/core-en.yaml")
-        val dialogue = root.resolve("candidate.json")
-        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-held-lock-precedence", "held lock precedence candidate"), StandardCharsets.UTF_8)
-        Files.writeString(core, "malformed: [\n", StandardCharsets.UTF_8)
-        val corebefore = Files.readAllBytes(core)
-
-        When("the public Content Core candidate command is admitted while the writer lock is held")
-        val failure = _with_content_core_lock(project) {
-          _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-        }
-
-        Then("only retryable DP-OP-001 is returned without mutating the malformed Core or creating evidence")
-        _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.exists(project.resolve("evidence/content-core"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "give an unsafe writer lock precedence over a malformed Content Core at the public candidate boundary" in {
-      _with_temp_dir("cozy-document-project-content-core-unsafe-lock-precedence") { root =>
-        Given("a scaffolded project, admitted dialogue, malformed Core, and symbolic-link writer lock")
-        val project = _scaffolded_project(root, "content-core-unsafe-lock-precedence")
-        val core = project.resolve("content/core-en.yaml")
-        val dialogue = root.resolve("candidate.json")
-        val external = root.resolve("external-content-core.lock")
-        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-unsafe-lock-precedence", "unsafe lock precedence candidate"), StandardCharsets.UTF_8)
-        Files.writeString(core, "malformed: [\n", StandardCharsets.UTF_8)
-        val corebefore = Files.readAllBytes(core)
-        Files.writeString(external, "external lock\n", StandardCharsets.UTF_8)
-        Files.createSymbolicLink(project.resolve(".content-core.lock"), external)
-
-        When("the public Content Core candidate command is admitted with the unsafe writer lock")
-        val failure = _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-
-        Then("only DP-PATH-001 is returned without mutating the malformed Core or creating evidence")
-        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.exists(project.resolve("evidence/content-core"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "reject a symbolic-link Content Core writer lock before mutation" in {
-      _with_temp_dir("cozy-document-project-content-core-lock-symlink") { root =>
-        Given("a scaffolded project, a direct candidate dialogue, and a symbolic-link writer lock")
-        val project = _scaffolded_project(root, "content-core-lock-symlink")
-        val core = project.resolve("content/core-en.yaml")
-        val corebefore = Files.readAllBytes(core)
-        val dialogue = root.resolve("candidate.json")
-        val external = root.resolve("external-content-core.lock")
-        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-lock-symlink", "symbolic-link lock candidate"), StandardCharsets.UTF_8)
-        Files.writeString(external, "external lock\n", StandardCharsets.UTF_8)
-        Files.createSymbolicLink(project.resolve(".content-core.lock"), external)
-
-        When("the public Content Core candidate command receives the symbolic-link writer lock")
-        val failure = _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-
-        Then("path admission returns only DP-PATH-001 without changing Core or creating evidence")
-        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "reject a non-regular Content Core writer lock before mutation" in {
-      _with_temp_dir("cozy-document-project-content-core-lock-directory") { root =>
-        Given("a scaffolded project, a direct candidate dialogue, and a directory writer lock")
-        val project = _scaffolded_project(root, "content-core-lock-directory")
-        val core = project.resolve("content/core-en.yaml")
-        val corebefore = Files.readAllBytes(core)
-        val dialogue = root.resolve("candidate.json")
-        Files.writeString(dialogue, _succeeded_dialogue_json("candidate-lock-directory", "directory lock candidate"), StandardCharsets.UTF_8)
-        Files.createDirectory(project.resolve(".content-core.lock"))
-
-        When("the public Content Core candidate command receives the directory writer lock")
-        val failure = _failure(List("document-project", "content-core", "candidate", project.toString, dialogue.toString))
-
-        Then("path admission returns only DP-PATH-001 without changing Core or creating evidence")
-        _diagnostic_tokens(failure) shouldBe Vector("DP-PATH-001")
-        Files.readAllBytes(core) shouldBe corebefore
-        Files.exists(project.resolve("evidence"), LinkOption.NOFOLLOW_LINKS) shouldBe false
-      }
-    }
-
-    "publish deterministic presentation confirmation defaults with the canonical receipt" in {
+    "publish deterministic presentation confirmation HTML at the default destination" in {
       _with_temp_dir("cozy-document-project-presentation-confirmation") { root =>
         Given("a current Presentation Semantics project with presentation confirmation selected")
         val project = _scaffolded_project(root, "presentation-confirmation")
         _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
         _write_valid_presentation_semantics(project)
         val html = project.resolve("target/document-project/presentation-confirmation.html")
-        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
 
         When("the default presentation confirmation is run twice")
         val first = _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
         val firsthtml = Files.readAllBytes(html)
-        val firstreceipt = Files.readAllBytes(receipt)
         val second = _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
 
-        Then("the exact default HTML and canonical typed receipt are atomically replaced with deterministic bytes")
+        Then("the default HTML is directly written with deterministic bytes")
         first should include("Presentation Confirmation")
         second should include("Presentation Confirmation")
         Files.readAllBytes(html) shouldBe firsthtml
-        Files.readAllBytes(receipt) shouldBe firstreceipt
-        Files.readString(receipt, StandardCharsets.UTF_8) should include("\"projectionIdentity\":")
       }
     }
 
-    "propagate a changed Core identity to selected semantic products and retained confirmation without write-back" in {
-      _with_temp_dir("cozy-document-project-presentation-confirmation-core-stale") { root =>
-        Given("a current project with selected confirmation and logical-chart semantic products")
-        val project = _scaffolded_project(root, "presentation-confirmation-core-stale")
+    "block selected confirmation for an invalid semantic Core association without write-back" in {
+      _with_temp_dir("cozy-document-project-presentation-confirmation-invalid-binding") { root =>
+        Given("retained confirmation and logical-chart outputs followed by a wrong authored Core id")
+        val project = _scaffolded_project(root, "presentation-confirmation-invalid-binding")
         _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html", "explanation-structure-review-html"))
         _write_valid_presentation_semantics(project)
-        val core = project.resolve("content/core-en.yaml")
         val semantics = project.resolve("content/presentation-semantics-en.yaml")
         val descriptor = project.resolve("document-project.yaml")
         val html = project.resolve("target/document-project/presentation-confirmation.html")
-        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
         val chart = project.resolve("target/document-project/slide-logical-chart-review.html")
-
-        When("the confirmation and selected semantic chart are generated, then the Core identity changes")
         _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
         _execute(List("document-project", "review", project.toString, "--kind", "slide-logical-chart"))
+        Files.writeString(semantics, Files.readString(semantics, StandardCharsets.UTF_8).replace("id: presentation-confirmation-invalid-binding:core:en", "id: other:core:en"), StandardCharsets.UTF_8)
         val semanticsbytes = Files.readAllBytes(semantics)
         val descriptorbytes = Files.readAllBytes(descriptor)
         val htmlbytes = Files.readAllBytes(html)
-        val receiptbytes = Files.readAllBytes(receipt)
         val chartbytes = Files.readAllBytes(chart)
-        Files.writeString(core, Files.readString(core, StandardCharsets.UTF_8).replace("accepted: []", "accepted:\n  - id: changed-core\n    text: Changed Core"), StandardCharsets.UTF_8)
-        _execute(List("document-project", "inspect", project.toString))
+
+        When("inspection derives semantic availability and public presentation review validates the association")
+        val inspect = _execute(List("document-project", "inspect", project.toString))
+        val refusal = _failure(List("document-project", "review", project.toString, "--kind", "presentation"))
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
 
-        Then("the stale Core dependency reaches Presentation Semantics, every selected dependent semantic product, and confirmation")
-        state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: visual-pages\n    role: authority\n    disposition: required\n    selection: required\n    criterion: visual-pages-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: explanation-structure-review-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: slide-logical-chart-rendered\n    coverage: missing\n    currentness: stale")
-        state should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
+        Then("invalid semantic authority blocks confirmation with the exact association diagnostic")
+        inspect should include("presentationSemantics.state: invalid")
+        state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: failed\n    review: pending\n    readiness: failed")
+        state should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked")
+        _diagnostic_tokens(refusal) shouldBe Vector("DP-SEM-005")
 
-        And("semantic authorities, the descriptor, and retained generated bytes remain untouched by inspection")
+        And("inspection and refused review preserve the authored inputs and retained outputs")
         Files.readAllBytes(semantics) shouldBe semanticsbytes
         Files.readAllBytes(descriptor) shouldBe descriptorbytes
         Files.readAllBytes(html) shouldBe htmlbytes
-        Files.readAllBytes(receipt) shouldBe receiptbytes
         Files.readAllBytes(chart) shouldBe chartbytes
       }
     }
 
-    "stale a retained confirmation for a changed valid semantic identity until public review recovers it" in {
-      _with_temp_dir("cozy-document-project-presentation-confirmation-semantic-stale") { root =>
-        Given("a current project with selected presentation confirmation and retained default bytes")
-        val project = _scaffolded_project(root, "presentation-confirmation-semantic-stale")
-        _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
-        _write_valid_presentation_semantics(project)
-        val semantics = project.resolve("content/presentation-semantics-en.yaml")
-        val html = project.resolve("target/document-project/presentation-confirmation.html")
-        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
-        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
-        val oldhtmlbytes = Files.readAllBytes(html)
-        val oldreceiptbytes = Files.readAllBytes(receipt)
-
-        When("the authored Presentation Semantics identity changes while remaining valid")
-        Files.writeString(
-          semantics,
-          Files.readString(semantics, StandardCharsets.UTF_8).replace("The prior reader path was permissive.", "The revised reader path remains explicit."),
-          StandardCharsets.UTF_8
-        )
-        _execute(List("document-project", "inspect", project.toString))
-        val stale = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-
-        Then("the prior default confirmation HTML and receipt are stale without being rewritten")
-        stale should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: satisfied\n    currentness: current")
-        stale should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: stale")
-        Files.readAllBytes(html) shouldBe oldhtmlbytes
-        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
-
-        Given("the prior confirmation is stale while its retained HTML and receipt bytes remain unchanged")
-        When("the existing public presentation review is run")
-        _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
-        _execute(List("document-project", "inspect", project.toString))
-        val recovered = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-
-        Then("only the public review route recovers current, satisfied, and ready confirmation evidence")
-        recovered should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: satisfied\n    currentness: current\n    review: pending\n    readiness: ready")
-        Files.readAllBytes(html) should not equal oldhtmlbytes
-        Files.readAllBytes(receipt) should not equal oldreceiptbytes
-      }
-    }
-
-    "keep coverage-failed semantics blocked despite previously current confirmation receipt bytes" in {
+    "keep incomplete projection coverage blocked with retained confirmation HTML" in {
       _with_temp_dir("cozy-document-project-presentation-confirmation-coverage") { root =>
         Given("a current project with selected confirmation and retained current default bytes")
         val project = _scaffolded_project(root, "presentation-confirmation-coverage")
         _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html"))
         _write_valid_presentation_semantics(project)
         val html = project.resolve("target/document-project/presentation-confirmation.html")
-        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
         _execute(List("document-project", "review", project.toString, "--kind", "presentation"))
         val oldhtmlbytes = Files.readAllBytes(html)
-        val oldreceiptbytes = Files.readAllBytes(receipt)
 
-        When("the semantic source changes to a current but projection-coverage-failed identity")
+        When("the authored semantic source omits a required Step Structure")
         _write_valid_presentation_semantics(project, includeproblemstructure = false)
         _execute(List("document-project", "inspect", project.toString))
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
 
-        Then("retained receipt bytes do not make semantic coverage or confirmation ready")
+        Then("missing Step projection keeps semantic coverage and confirmation blocked")
         state should include("id: presentation-semantics\n    role: authority\n    disposition: required\n    selection: required\n    criterion: presentation-semantics-validated\n    coverage: missing\n    currentness: current\n    review: pending\n    readiness: blocked")
         state should include("id: presentation-confirmation-html\n    role: review-projection\n    disposition: optional\n    selection: active-optional\n    criterion: presentation-confirmation-rendered\n    coverage: missing\n    currentness: missing\n    review: pending\n    readiness: blocked")
         Files.readAllBytes(html) shouldBe oldhtmlbytes
-        Files.readAllBytes(receipt) shouldBe oldreceiptbytes
       }
     }
 
-    "publish a requested presentation confirmation without default output or receipt" in {
+    "publish presentation confirmation at the requested destination" in {
       _with_temp_dir("cozy-document-project-presentation-confirmation-custom-save") { root =>
         Given("a fresh current Presentation Semantics project with presentation confirmation selected")
         val project = _scaffolded_project(root, "presentation-confirmation-custom-save")
@@ -2506,7 +2159,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _write_valid_presentation_semantics(project)
         val custom = root.resolve("saved-confirmation.html")
         val html = project.resolve("target/document-project/presentation-confirmation.html")
-        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
 
         When("a requested presentation confirmation is saved")
         _execute(List("document-project", "review", project.toString, "--kind", "presentation", "--save", custom.toString))
@@ -2514,7 +2166,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Then("only the requested confirmation HTML exists")
         Files.isRegularFile(custom, LinkOption.NOFOLLOW_LINKS) shouldBe true
         Files.exists(html, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(receipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -2525,7 +2176,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _activate_optional_work_products(project, "standard", Vector("presentation-confirmation-html", "article-review-html"))
         _write_valid_presentation_semantics(project)
         val presentationhtml = project.resolve("target/document-project/presentation-confirmation.html")
-        val presentationreceipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
 
         When("default Article review is generated")
         _execute(List("document-project", "review", project.toString, "--kind", "article"))
@@ -2534,34 +2184,29 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.isRegularFile(project.resolve("target/document-project/article-review.html"), LinkOption.NOFOLLOW_LINKS) shouldBe true
         Files.isRegularFile(project.resolve("target/document-project/article-review.receipt.yaml"), LinkOption.NOFOLLOW_LINKS) shouldBe true
         Files.exists(presentationhtml, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(presentationreceipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
-    "refuse strict-currentness and projection-coverage presentation confirmation without files" in {
+    "refuse invalid semantics and incomplete projection coverage before presentation output" in {
       _with_temp_dir("cozy-document-project-presentation-confirmation-refusal") { root =>
         Given("selected presentation confirmation projects with incomplete semantics and incomplete projection coverage")
         val incomplete = _scaffolded_project(root, "presentation-incomplete")
         _activate_optional_work_products(incomplete, "standard", Vector("presentation-confirmation-html"))
         val incompletehtml = incomplete.resolve("target/document-project/presentation-confirmation.html")
-        val incompletereceipt = incomplete.resolve("target/document-project/presentation-confirmation.receipt.yaml")
         val coverage = _scaffolded_project(root, "presentation-coverage")
         _activate_optional_work_products(coverage, "standard", Vector("presentation-confirmation-html"))
         _write_valid_presentation_semantics(coverage, includeproblemstructure = false)
         val coveragehtml = coverage.resolve("target/document-project/presentation-confirmation.html")
-        val coveragereceipt = coverage.resolve("target/document-project/presentation-confirmation.receipt.yaml")
 
         When("presentation confirmation reaches strict validation and projection coverage refusal")
         val incompletefailure = _failure(List("document-project", "review", incomplete.toString, "--kind", "presentation"))
         val coveragefailure = _failure(List("document-project", "review", coverage.toString, "--kind", "presentation"))
 
-        Then("neither refusal publishes confirmation HTML or a typed receipt")
+        Then("neither refusal publishes confirmation HTML")
         _diagnostic_tokens(incompletefailure) shouldBe Vector("DP-SEM-006")
         _diagnostic_tokens(coveragefailure) shouldBe Vector("DP-PROJ-001")
         Files.exists(incompletehtml, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(incompletereceipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
         Files.exists(coveragehtml, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(coveragereceipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -2570,16 +2215,14 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Given("a standard project whose optional presentation confirmation Work Product is not selected")
         val project = _scaffolded_project(root, "presentation-confirmation-unselected")
         val html = project.resolve("target/document-project/presentation-confirmation.html")
-        val receipt = project.resolve("target/document-project/presentation-confirmation.receipt.yaml")
 
         When("presentation confirmation review is requested")
         val failure = _failure(List("document-project", "review", project.toString, "--kind", "presentation"))
 
-        Then("the existing not-selected operation diagnostic is returned before confirmation HTML or receipt publication")
+        Then("the existing not-selected operation diagnostic is returned before confirmation HTML publication")
         _diagnostic_tokens(failure) shouldBe Vector("DP-OP-001")
         failure should include("logical operation presentation.render-confirmation is not selected for profile standard")
         Files.exists(html, LinkOption.NOFOLLOW_LINKS) shouldBe false
-        Files.exists(receipt, LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
 
@@ -2742,7 +2385,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("the same destination is requested again")
         val failure = _failure(command)
 
-        Then("the atomic scaffold gate rejects and leaves existing authored content intact")
+        Then("the initial absent-destination gate rejects and leaves existing authored content intact")
         failure should include("DP-SCAFFOLD-001")
         Files.readString(marker, StandardCharsets.UTF_8) shouldBe "preserved authored source\n"
         Files.readAllBytes(semantics) shouldBe semanticsbefore
@@ -2806,7 +2449,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _execute(List("document-project", "inspect", project.toString))
         _execute(List("document-project", "dashboard", project.toString))
 
-        Then("state records sidecar identity, current declared evidence, and pending sidecar review")
+        Then("state records sidecar paths, available declared evidence, and pending sidecar review")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
         state should include("evidence:")
         state should include("path: evidence/document-project.yaml")
@@ -3005,10 +2648,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "propagate stale sidecar evidence from a changed infographic and artifact hash mismatch" in {
-      _with_temp_dir("cozy-document-project-sidecar-stale") { root =>
-        Given("a sidecar that records the current infographic, a missing article source, and a retained receipt-backed PDF")
-        val project = _scaffolded_project(root, "sidecar-stale")
+    "derive retained media receipt state separately from selected source evidence" in {
+      _with_temp_dir("cozy-document-project-sidecar-media-receipt") { root =>
+        Given("a sidecar with direct source evidence and a retained receipt-backed PDF")
+        val project = _scaffolded_project(root, "sidecar-media-receipt")
         _write_receipt_media_descriptor(project)
         val pdf = project.resolve("target/cozy-media/article.pdf")
         _write_sidecar(
@@ -3019,24 +2662,21 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
             "article-pdf" -> _receipt_evidence("receipt-media.json", "article-pdf")
           )
         )
-        Files.writeString(project.resolve("infographic/infographic.svg"), "<svg>changed</svg>\n", StandardCharsets.UTF_8)
-        Files.writeString(pdf, "changed PDF", StandardCharsets.UTF_8)
 
-        When("the immutable source and artifact identities no longer match current bytes")
+        When("the retained media producer source becomes newer than its output and inspect reads the existing receipt contract")
+        Files.writeString(project.resolve("media/source.txt"), "revised producer source", StandardCharsets.UTF_8)
+        Files.setLastModifiedTime(project.resolve("media/source.txt"), FileTime.fromMillis(Files.getLastModifiedTime(pdf).toMillis + 1000L))
         _execute(List("document-project", "inspect", project.toString))
 
-        Then("hash mismatch and non-current receipt are stale, and the changed infographic stales its declared article consumer")
+        Then("the independently retained media receipt requires regeneration and reports stale PDF evidence")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        state should include("id: infographic-svg\n    role: authority\n    disposition: required\n    selection: required\n    criterion: infographic-svg-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale\n    review: pending\n    readiness: blocked\n    reason: \"a declared dependency is stale\"")
         state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    selection: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
       }
     }
 
     "keep a retained failed attempt separate from later current product evidence" in {
       _with_temp_dir("cozy-document-project-sidecar-attempt") { root =>
-        Given("a retained failed article PDF attempt, a current direct artifact identity, and a later stale infographic dependency")
+        Given("a retained failed article PDF attempt, a available direct artifact, and a later stale presentation semantic dependency")
         val project = _scaffolded_project(root, "sidecar-attempt")
         val pdf = project.resolve("target/article.pdf")
         Files.createDirectories(pdf.getParent)
@@ -3046,7 +2686,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
           "infographic-svg" -> _file_evidence(project, "infographic/infographic.svg", "source"),
           "article-pdf" -> _file_evidence(project, "target/article.pdf", "artifact")
         ))
-        Files.writeString(project.resolve("infographic/infographic.svg"), "<svg>changed</svg>\n", StandardCharsets.UTF_8)
         val attemptid = "11111111-1111-4111-8111-111111111111"
         val attempt = project.resolve(s"evidence/attempts/$attemptid.yaml")
         Files.createDirectories(attempt.getParent)
@@ -3055,10 +2694,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         When("inspect derives current product evidence alongside historical failure evidence")
         _execute(List("document-project", "inspect", project.toString))
 
-        Then("the current artifact becomes stale from its changed dependency rather than becoming failed")
+        Then("the available current artifact remains distinct from retained historical failure evidence")
         val state = Files.readString(project.resolve("target/document-project/state.yaml"), StandardCharsets.UTF_8)
-        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: missing\n    currentness: stale")
-        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    selection: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: stale")
+        state should include("id: article-source\n    role: authority\n    disposition: required\n    selection: required\n    criterion: article-source-authored\n    coverage: satisfied\n    currentness: current")
+        state should include("id: article-pdf\n    role: deliverable\n    disposition: required\n    selection: required\n    criterion: article-pdf-rendered\n    coverage: satisfied\n    currentness: current")
         state should not include("id: article-pdf\n    role: deliverable\n    disposition: required\n    selection: required\n    criterion: article-pdf-rendered\n    coverage: missing\n    currentness: failed")
         state should include(s"path: evidence/attempts/$attemptid.yaml")
 
@@ -3096,20 +2735,17 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         val project = _scaffolded_project(root, "sidecar-invalid")
         _write_sidecar(project)
 
-        When("the public mapping project id, current source hash, or product path is invalid")
+        When("the public mapping project id or product path is invalid")
         val sidecar = project.resolve("evidence/document-project.yaml")
         val projectmismatch = Files.readString(sidecar, StandardCharsets.UTF_8).replace("project: sidecar-invalid", "project: another-project")
         Files.writeString(sidecar, projectmismatch, StandardCharsets.UTF_8)
         val projectfailure = _failure(List("document-project", "inspect", project.toString))
         _write_sidecar(project)
-        val hashmismatch = Files.readString(sidecar, StandardCharsets.UTF_8).replaceFirst("sha256: [0-9a-f]{64}", "sha256: " + ("0" * 64))
-        Files.writeString(sidecar, hashmismatch, StandardCharsets.UTF_8)
-        val hashfailure = _failure(List("document-project", "inspect", project.toString))
-        _write_sidecar(project, Map("article-source" -> ("kind: source\npath: ../outside.dox\nsha256: \"" + ("0" * 64) + "\"")))
+        _write_sidecar(project, Map("article-source" -> "kind: source\npath: ../outside.dox"))
         val unsafefailure = _failure(List("document-project", "inspect", project.toString))
         _write_sidecar(project, Map("article-pdf" -> _file_evidence(project, "index.dox", "artifact")))
         val authoredartifactfailure = _failure(List("document-project", "inspect", project.toString))
-        _write_sidecar(project, Map("article-pdf" -> ("kind: artifact\npath: target/document-project/state.yaml\nsha256: \"" + ("0" * 64) + "\"")))
+        _write_sidecar(project, Map("article-pdf" -> "kind: artifact\npath: target/document-project/state.yaml"))
         val cacheartifactfailure = _failure(List("document-project", "inspect", project.toString))
         val media = project.resolve("media/article-media.yaml")
         Files.writeString(media, "schema: cozy.media.v0\narticleMedia:\n  articleIdentity: public-article\n", StandardCharsets.UTF_8)
@@ -3122,7 +2758,6 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 
         Then("the closed sidecar admission rejects each condition before a state cache is written")
         projectfailure should include("DP-DESC-002")
-        hashfailure should include("DP-DESC-002")
         unsafefailure should include("DP-PATH-001")
         authoredartifactfailure should include("DP-PATH-001")
         cacheartifactfailure should include("DP-PATH-001")
@@ -3203,35 +2838,26 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
       }
     }
 
-    "derive each alignment stale reason and preserve non-acceptance decisions" in {
+    "derive changed alignment associations and preserve non-acceptance decisions" in {
       _with_temp_dir("cozy-document-project-content-alignment-stale") { root =>
-        Given("one current accepted alignment fixture for each independently changed identity")
-        val changes = Vector[(String, Path => Unit, String, Int)](
-          ("Content Core", project => Files.writeString(project.resolve("content/core-ja.yaml"), Files.readString(project.resolve("content/core-ja.yaml"), StandardCharsets.UTF_8).replace("accepted ja Core", "changed Core"), StandardCharsets.UTF_8), "Content Core SHA-256 changed", 0),
-          ("locale authority", project => Files.writeString(project.resolve("index.dox"), "# changed authority\n", StandardCharsets.UTF_8), "locale authority SHA-256 changed", 0),
-          ("shared SVG", project => Files.writeString(project.resolve("infographic/infographic.svg"), "<svg>changed</svg>\n", StandardCharsets.UTF_8), "shared infographic SHA-256 changed", -1),
-          ("output", project => Files.writeString(project.resolve("target/alignment/article-html.out"), "changed output\n", StandardCharsets.UTF_8), "output SHA-256 changed", 0),
-          ("receipt", project => Files.writeString(project.resolve("evidence/receipts/article-html.yaml"), "changed receipt\n", StandardCharsets.UTF_8), "receipt SHA-256 changed", 0),
-          ("provider", project => _replace_alignment(project, "id: cozy-site", "id: changed-provider"), "provider changed", 0),
-          ("renderer", project => _replace_alignment(project, "renderer: smartdox-site", "renderer: changed-renderer"), "renderer changed", 0),
-          ("profile", project => Files.writeString(project.resolve("document-project.yaml"), Files.readString(project.resolve("document-project.yaml"), StandardCharsets.UTF_8).replace("profile: standard-video", "profile: bok-video"), StandardCharsets.UTF_8), "profile changed", 0)
+        Given("one accepted alignment fixture for each changed provider, renderer, or profile association")
+        val changes = Vector[(String, Path => Unit, String)](
+          ("provider", project => _replace_alignment(project, "id: cozy-site", "id: changed-provider"), "provider changed"),
+          ("renderer", project => _replace_alignment(project, "renderer: smartdox-site", "renderer: changed-renderer"), "renderer changed"),
+          ("profile", project => Files.writeString(project.resolve("document-project.yaml"), Files.readString(project.resolve("document-project.yaml"), StandardCharsets.UTF_8).replace("profile: standard-video", "profile: bok-video"), StandardCharsets.UTF_8), "profile changed")
         )
 
-        changes.zipWithIndex.foreach { case ((label, change, reason, index), ordinal) =>
+        changes.zipWithIndex.foreach { case ((label, change, reason), ordinal) =>
+          Given(s"an accepted fixture with a changed $label association")
           val project = _alignment_project(root, s"alignment-stale-$ordinal", "ja", "en")
           change(project)
 
-          When(s"the $label identity changes after the human decision")
+          When(s"the changed $label association is evaluated after the human decision")
           val snapshot = _alignment_snapshot(project)
 
           Then("the affected accepted consumer is stale with its precise reason")
-          if (index < 0) {
-            snapshot.artifacts.map(_.currentness).distinct shouldBe Vector("stale")
-            snapshot.artifacts.map(_.reason).distinct shouldBe Vector(reason)
-          } else {
-            snapshot.artifacts(index).currentness shouldBe "stale"
-            snapshot.artifacts(index).reason shouldBe reason
-          }
+          snapshot.artifacts.head.currentness shouldBe "stale"
+          snapshot.artifacts.head.reason shouldBe reason
         }
 
         Given("one current accepted alignment fixture whose recorded output has been deleted")
@@ -3256,8 +2882,10 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         requested.artifacts.head.currentness shouldBe "not-accepted"
         requested.artifacts.head.reason shouldBe "human review decision is changes-requested"
 
-        When("the same review is changed to rejected")
+        Given("the same alignment record with a rejected human review")
         _replace_alignment(decisions, "decision: changes-requested", "decision: rejected")
+
+        When("the rejected review is read")
         val rejected = _alignment_snapshot(decisions)
 
         Then("rejection remains visible rather than current")
@@ -3290,28 +2918,41 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Files.writeString(articleseven, "# Article 7 remains a legacy single-file source\n", StandardCharsets.UTF_8)
         val articlesevenbefore = Files.readAllBytes(articleseven)
 
-        When("an extra field, escaped output, or symlinked evidence is admitted")
         _replace_alignment(malformed, "parity:\n", "extra: value\nparity:\n")
+
+        When("the Dashboard admits an extra alignment field")
         val extrafailure = _failure(List("document-project", "dashboard", malformed.toString))
+
+        Then("the closed alignment grammar rejects the extra field")
+        extrafailure should include("DP-DESC-002")
+
+        Given("the restored alignment ledger with an escaped output path")
         _write_alignment(malformed, "standard-video", "ja", "en")
         _replace_alignment(malformed, "path: target/alignment/article-html.out", "path: ../outside.out")
+
+        When("the Dashboard admits the escaped output reference")
         val escapefailure = _failure(List("document-project", "dashboard", malformed.toString))
+
+        Then("the reference is rejected at the path boundary")
+        escapefailure should include("DP-PATH-001")
+
+        Given("the restored ledger whose visual-review evidence is a symbolic link")
         _write_alignment(malformed, "standard-video", "ja", "en")
         val visual = malformed.resolve("evidence/visual-review/article-html.yaml")
         val visualtarget = malformed.resolve("evidence/visual-review/article-html-real.yaml")
         Files.move(visual, visualtarget)
         Files.createSymbolicLink(visual, visualtarget)
+
+        When("the Dashboard admits the linked visual-review evidence")
         val symlinkfailure = _failure(List("document-project", "dashboard", malformed.toString))
 
-        Then("invalid paths and closed grammar are rejected before they can become accepted")
-        extrafailure should include("DP-DESC-002")
-        escapefailure should include("DP-PATH-001")
+        Then("the direct reference boundary rejects the symbolic link")
         symlinkfailure should include("DP-PATH-001")
 
-        Given("a valid generated alignment ledger with canonical FileIdentity records")
+        Given("a valid generated alignment ledger with canonical FileReference records")
         val reordered = _alignment_project(root, "alignment-reordered", "ja", "en")
 
-        When("the public Dashboard admits a reordered top-level FileIdentity")
+        When("the public Dashboard admits a reordered top-level FileReference")
         _replace_alignment(
           reordered,
           "  path: content/core-ja.yaml\n  identity: alignment-reordered:core:ja",
@@ -3325,7 +2966,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         Given("the same valid generated ledger before a nested artifact identity is reordered")
         _write_alignment(reordered, "standard-video", "ja", "en")
 
-        When("the public Dashboard admits a reordered nested artifact FileIdentity")
+        When("the public Dashboard admits a reordered nested artifact FileReference")
         _replace_alignment(
           reordered,
           "      path: index.dox\n      identity: alignment-reordered:article-html:authority",
@@ -3343,7 +2984,7 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _replace_alignment(
           reordered,
           s"contentCore:\n${_indent(_alignment_identity(reordered, "content/core-ja.yaml", "alignment-reordered:core:ja"), 2)}",
-          s"contentCore: {identity: alignment-reordered:core:ja, path: content/core-ja.yaml, sha256: ${_sha256(reordered.resolve("content/core-ja.yaml"))}}"
+          s"contentCore: {identity: alignment-reordered:core:ja, path: content/core-ja.yaml}"
         )
         val flowcorefailure = _failure(List("document-project", "dashboard", reordered.toString))
 
@@ -3357,14 +2998,14 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
         _replace_alignment(
           reordered,
           s"sharedInfographic:\n${_indent(_alignment_identity(reordered, "infographic/infographic.svg", "alignment-reordered:infographic"), 2)}",
-          s"sharedInfographic: {identity: alignment-reordered:infographic, path: infographic/infographic.svg, sha256: ${_sha256(reordered.resolve("infographic/infographic.svg"))}}"
+          s"sharedInfographic: {identity: alignment-reordered:infographic, path: infographic/infographic.svg}"
         )
         val flowinfographicfailure = _failure(List("document-project", "dashboard", reordered.toString))
 
         Then("Dashboard rejects the reordered flow-mapping shared infographic identity with the established descriptor diagnostic")
         _diagnostic_tokens(flowinfographicfailure) shouldBe Vector("DP-DESC-002")
 
-        Given("the same valid generated ledger before a nested FileIdentity quotes and reorders its keys")
+        Given("the same valid generated ledger before a nested FileReference quotes and reorders its keys")
         _write_alignment(reordered, "standard-video", "ja", "en")
 
         When("the public Dashboard admits the quoted reordered nested artifact identity")
@@ -3374,13 +3015,14 @@ final class CozyDocumentProjectSpec extends AnyWordSpec with Matchers with Given
 ${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:article-html:authority"), 6)}""",
           s"""    authority:
       "identity": alignment-reordered:article-html:authority
-      "path": index.dox
-      "sha256": ${_sha256(reordered.resolve("index.dox"))}"""
+      "path": index.dox"""
         )
         val quotednestedfailure = _failure(List("document-project", "dashboard", reordered.toString))
 
         Then("Dashboard rejects the quoted reordered nested identity with the established descriptor diagnostic")
         _diagnostic_tokens(quotednestedfailure) shouldBe Vector("DP-DESC-002")
+
+        Given("the direct empty-Core Article 8-shaped package without a private alignment ledger")
 
         When("the empty-Core Article 8-shaped package is projected without a private ledger")
         val descriptor = CozyDocumentProject._load_project(articleeight)
@@ -3432,7 +3074,7 @@ ${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:artic
       }
     }
 
-    "derive missing-prerequisite, unavailable-provider, and stale accepted-output executability states" in {
+    "derive missing-prerequisite, unavailable-provider, and unavailable accepted-output executability states" in {
       _with_temp_dir("cozy-document-project-executability-blocked") { root =>
         Given("selected native Article review projects for missing prerequisite and accepted-evidence states")
         val missing = _scaffolded_project(root, "executability-missing")
@@ -3440,15 +3082,15 @@ ${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:artic
         val stale = _scaffolded_project(root, "executability-stale")
         _activate_optional_work_products(stale, "standard", Vector("article-review-html"))
 
-        When("the stale fixture accepts Article review before its direct identity changes")
+        When("the accepted-output fixture first produces Article review")
         val accepted = _execute(List("document-project", "run", stale.toString, "--operation", "article.render-review"))
 
         Then("the retained native output is initially accepted")
         accepted should include("outcome: accepted")
 
-        Given("a missing Article prerequisite and a changed accepted Article identity")
+        Given("a missing Article prerequisite and a removed accepted Article output")
         Files.delete(missing.resolve("index.dox"))
-        Files.writeString(stale.resolve("index.dox"), "changed after acceptance\n", StandardCharsets.UTF_8)
+        Files.delete(stale.resolve("target/document-project/article-review.html"))
 
         When("read-only inspect derives the declared operation states")
         _execute(List("document-project", "inspect", missing.toString))
@@ -3489,10 +3131,10 @@ ${_indent(_alignment_identity(reordered, "index.dox", "alignment-reordered:artic
       help should include("never execute providers or persist authored authority, candidates, feedback, acceptance, attempts, delivery state, or external/provider receipts")
       help should include("Slide and video logical charts default to target/document-project/slide-logical-chart-review.html")
       help should include("Slide Logical Chart visualizes current Content Core and Visual Page IR")
-      help should include("same-directory temporary file and atomic move")
+      help should include("projections directly write the selected output and report ordinary I/O failures")
       help should include("completed direct JSON/YAML dialogue bundle")
       help should include("never invokes an AI provider")
-      help should include("append-only below evidence/content-core/")
+      help should include("unique human record IDs below evidence/content-core/")
       help should not include "reflect-feedback"
     }
     }
@@ -3607,7 +3249,7 @@ parity:
   }
 
   private def _alignment_identity(project: Path, path: String, identity: String): String =
-    s"path: $path\nidentity: $identity\nsha256: ${_sha256(project.resolve(path))}"
+    s"path: $path\nidentity: $identity"
 
   private def _alignment_snapshot(project: Path): CozyDocumentProjectAlignment.Snapshot =
     CozyDocumentProjectAlignment.snapshot(project, CozyDocumentProject._load_project(project))
@@ -3625,7 +3267,6 @@ parity:
 
   private def _write_valid_presentation_semantics(project: Path, includeproblemstructure: Boolean = true): Unit = {
     val slug = project.getFileName.toString.stripSuffix(".dox")
-    val core = project.resolve("content/core-en.yaml")
     val composition = _fixed_presentation_composition()
     val problemstructure = _presentation_structure_yaml("problem-structure", "problem-step", "Problem", "The prior reader path was permissive.", "Show the reader-facing problem.")
     val solutionstructure = _presentation_structure_yaml("solution-structure", "solution-step", "Solution", "The typed path preserves declared content.", "Show the reader-facing solution.")
@@ -3639,7 +3280,6 @@ id: $slug-presentation-en
 contentCore:
   id: $slug:core:en
   language: en
-  identity: sha256:${_sha256(core)}
 composition: ${CozyExplanation.canonicalCompositionJson(composition)}
 storyFlow:
   id: $slug-story-flow-en
@@ -3688,7 +3328,7 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
     )
     CozyExplanation.Composition(
       "document-composition",
-      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision, catalog.identity),
+      CozyExplanation.CatalogSelector(catalog.catalog.id, catalog.catalog.revision),
       CozyExplanation.Subject(CozyExplanation.PatternReference("software-product", 1), facts),
       CozyExplanation.Explanation(
         CozyExplanation.PatternReference("problem-solution", 1),
@@ -3763,13 +3403,13 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
     Files.createDirectories(sidecar.getParent)
     Files.writeString(
       sidecar,
-      s"schema: cozy.document-project-evidence.v2\nproject: ${project.getFileName.toString.stripSuffix(".dox")}\npublicSource:\n  kind: smartdox\n  identity: public-article\n  path: index.dox\n  sha256: ${_sha256(project.resolve("index.dox"))}\n  mediaDescriptor: media/article-media.yaml\nproducts:\n${products.mkString("\n")}\n",
+      s"schema: cozy.document-project-evidence.v2\nproject: ${project.getFileName.toString.stripSuffix(".dox")}\npublicSource:\n  kind: smartdox\n  identity: public-article\n  path: index.dox\n  mediaDescriptor: media/article-media.yaml\nproducts:\n${products.mkString("\n")}\n",
       StandardCharsets.UTF_8
     )
   }
 
   private def _file_evidence(project: Path, path: String, kind: String): String =
-    s"kind: $kind\npath: $path\nsha256: ${_sha256(project.resolve(path))}"
+    s"kind: $kind\npath: $path"
 
   private def _receipt_evidence(media: String, resource: String): String =
     s"kind: receipt\nmediaDescriptor: $media\nresourceId: $resource"
@@ -3806,7 +3446,7 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
       CozyDocumentProject.SemanticScope(project.getFileName.toString.stripSuffix(".dox"), Vector(CozyDocumentProject.LocaleVariant(project.getFileName.toString.stripSuffix(".dox"), "en", s"${project.getFileName.toString.stripSuffix(".dox")}:core:en", Vector.empty)))
     )
     val inputs = CozyDocumentProject._state_sources(project, descriptor).map { case (path, source) =>
-      s"  - path: $path\n    sha256: ${_sha256(source)}"
+      s"  - path: $path"
     }
     (Vector(
       "schema: cozy.document-operation-attempt.v1",
@@ -3825,15 +3465,6 @@ ${bindings.map(_indent(_, 4)).mkString("\n")}
 
   private def _core_yaml(slug: String, language: String, text: String): String =
     s"schema: cozy.content-core.v1\nid: $slug:core:$language\nlanguage: $language\naccepted:\n  - id: accepted-core\n    text: $text\n"
-
-  private def _accepted_candidate_core_yaml(slug: String, language: String, entryid: String, text: String): String =
-    s"""schema: "cozy.content-core.v1"
-id: "$slug:core:$language"
-language: "$language"
-accepted:
-  - id: "$entryid"
-    text: "$text"
-"""
 
   private def _succeeded_dialogue_json(candidateid: String, text: String, supersedes: Option[String] = None): String = {
     val supersedesfield = supersedes.map(value => ",\n  \"supersedes\": \"" + value + "\"").getOrElse("")
@@ -3895,32 +3526,24 @@ diagnostics:
 """
 
   private def _acceptance_record_yaml(
-    project: Path,
     acceptanceid: String,
     candidateid: String,
     reviewer: String,
-    corepath: String,
-    prior: String,
-    resulting: String
+    corepath: String
   ): String =
     s"""schema: cozy.content-core-acceptance-record.v1
 id: \"$acceptanceid\"
 candidate:
   id: \"$candidateid\"
   path: \"evidence/content-core/candidates/$candidateid.yaml\"
-  sha256: ${_sha256(project.resolve(s"evidence/content-core/candidates/$candidateid.yaml"))}
 reviewer:
   id: \"$reviewer\"
-  sha256: ${_sha256_string(reviewer)}
 decision:
   value: accepted
-  sha256: ${_sha256_string("accepted")}
 priorCore:
   path: \"$corepath\"
-  sha256: $prior
 resultingCore:
   path: \"$corepath\"
-  sha256: $resulting
 """
 
   private def _valid_storyboard: String =
@@ -3961,12 +3584,6 @@ resultingCore:
   private def _indent(value: String, spaces: Int): String =
     value.linesIterator.map(line => (" " * spaces) + line).mkString("\n")
 
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
-
-  private def _sha256_string(value: String): String =
-    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)).map(item => f"${item & 0xff}%02x").mkString
-
   private def _resolved(profile: String, activeoptionalworkproducts: Vector[String] = Vector.empty): CozyDocumentWorkflow.ResolvedWorkflow =
     CozyDocumentWorkflow.resolve(profile, activeoptionalworkproducts) match {
       case Right(value) => value
@@ -3995,16 +3612,6 @@ resultingCore:
     intercept[RuntimeException] {
       CozyDocumentProject.execute(args)
     }.getMessage
-
-  private def _with_content_core_lock[A](project: Path)(body: => A): A = {
-    val channel = FileChannel.open(project.resolve(".content-core.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE)
-    val lock = channel.lock()
-    try body
-    finally {
-      try lock.release()
-      finally channel.close()
-    }
-  }
 
   private def _diagnostic_tokens(value: String): Vector[String] =
     """DP-[A-Z]+-\d{3}""".r.findAllIn(value).toVector

@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiCandidateReviewSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -30,14 +30,12 @@ final class CozyLogicalUiCandidateReviewSpec extends AnyWordSpec with Matchers w
 
         Then("the read-only page exposes source structure and bindings with candidate authority only")
         reviewvalue.receipt shouldBe CandidateReviewReceipt(
-          "cozy.logical-ui-candidate-review.v1", 1, "cozy.logical-ui-candidate-review.renderer.v1",
-          fixture._1.identity, fixture._1.inputIdentity, fixture._2.identity, fixture._3.identity
+          "cozy.logical-ui-candidate-review.v1", 1, "cozy.logical-ui-candidate-review.renderer.v1"
         )
         reviewvalue.htmlBytes shouldBe reviewvalue.html.getBytes(StandardCharsets.UTF_8).toVector
         reviewvalue.html should include ("Candidate preview")
         reviewvalue.html should include ("candidate (not accepted)")
-        Vector(reviewvalue.receipt.schema, reviewvalue.receipt.rendererProfile,
-          fixture._1.identity, fixture._1.inputIdentity, fixture._2.identity, fixture._3.identity).foreach { value =>
+        Vector(reviewvalue.receipt.schema, reviewvalue.receipt.rendererProfile).foreach { value =>
           reviewvalue.html should include (value)
         }
         Vector("Business -&gt; System -&gt; UI", "Catalog membership", "Step-to-screen interaction coverage",
@@ -57,100 +55,24 @@ final class CozyLogicalUiCandidateReviewSpec extends AnyWordSpec with Matchers w
         reviewvalue.diagnostics shouldBe empty
       }
 
-      "reject foreign candidate and projection pairings and missing inputs with precise identity errors" in {
-        Given("factory-admitted SalesOrder and foreign candidate tuples and a changed screen projection")
+      "reject missing candidate inputs with precise input errors" in {
+        Given("the shared SalesOrder tuple")
         val fixture = _right(CozyLogicalUiSalesOrderFixtures.candidate())
-        val foreignbusiness = businessUseCase.copy(id = "business-foreign-order")
-        val foreigncandidate = _right(CozyLogicalUi.candidate(candidateInput.copy(useCases = useCases.copy(
-          business = foreignbusiness,
-          realizations = Vector(UseCaseRealization(foreignbusiness, systemUseCase), UseCaseRealization(systemUseCase, uiUseCase))
-        ))))
-        val foreignprojection = _right(CozyLogicalUi.project(foreigncandidate, projectionInput(foreigncandidate)))
-        val foreignsemantics = _right(CozyLogicalUiSemantics.project(foreignprojection, semanticsInput(foreignprojection)))
-        val changedprojection = _changed_projection(fixture._1)
-
-        When("candidate and projection authorities are mixed or a required input is absent")
-        val failures = Vector(
-          renderCandidate(fixture._1, foreignprojection, foreignsemantics) -> "projection.candidate.identity",
-          renderCandidate(foreigncandidate, fixture._2, fixture._3) -> "projection.candidate.identity",
-          renderCandidate(fixture._1, changedprojection, fixture._3) -> "semantics.projectionIdentity",
-          renderCandidate(null, fixture._2, fixture._3) -> "candidate",
+        When("a required input is absent")
+        val failures = Vector(renderCandidate(null, fixture._2, fixture._3) -> "candidate",
           renderCandidate(fixture._1, null, fixture._3) -> "projection",
-          renderCandidate(fixture._1, fixture._2, null) -> "semantics"
-        )
-
-        Then("every pairing fails closed with a structured candidate identity diagnostic")
+          renderCandidate(fixture._1, fixture._2, null) -> "semantics")
+        Then("each missing input reports its actual path")
         failures.foreach { case (result, path) =>
           val error = _left(result)
-          error.code shouldBe "LUI50_CANDIDATE_REVIEW_IDENTITY_MISMATCH"
+          error.code shouldBe "LUI50_CANDIDATE_REVIEW_INPUT_INVALID"
           error.path shouldBe path
-          error.reason should not be empty
         }
       }
     }
 
-    "retain tuple currentness" which {
-      "distinguish screen and typed purpose changes from candidate identity" in {
-        Given("a current candidate review and separately admitted screen and semantic purpose changes")
-        val fixture = _right(CozyLogicalUiSalesOrderFixtures.candidate())
-        val prior = _right(renderCandidate(fixture._1, fixture._2, fixture._3))
-        val changedprojection = _changed_projection(fixture._1)
-        val reboundsemantics = _right(CozyLogicalUiSemantics.project(changedprojection, semanticsInput(changedprojection)))
-        val changedsemantics = _right(CozyLogicalUiSemantics.project(fixture._2, fixture._3.input.copy(
-          screens = fixture._3.input.screens.map(screen =>
-            if (screen.screenId == "order-detail") screen.copy(purpose = InspectPurpose) else screen
-          )
-        )))
+    "deterministic rendering" which {
 
-        When("the valid changed tuples are previewed and the prior result is checked against each")
-        val screenreview = _right(renderCandidate(fixture._1, changedprojection, reboundsemantics))
-        val semanticreview = _right(renderCandidate(fixture._1, fixture._2, changedsemantics))
-        val screenresult = verifyCandidateCurrent(fixture._1, changedprojection, reboundsemantics, prior)
-        val semanticresult = verifyCandidateCurrent(fixture._1, fixture._2, changedsemantics, prior)
-        val currentresult = verifyCandidateCurrent(fixture._1, fixture._2, fixture._3, prior)
-
-        Then("each extension has its own receipt binding and makes the prior preview stale while the original tuple remains current")
-        screenreview.receipt.candidateIdentity shouldBe prior.receipt.candidateIdentity
-        screenreview.receipt.consumedInputIdentity shouldBe prior.receipt.consumedInputIdentity
-        screenreview.receipt.projectionIdentity should not equal prior.receipt.projectionIdentity
-        screenreview.receipt.semanticProjectionIdentity should not equal prior.receipt.semanticProjectionIdentity
-        semanticreview.receipt.projectionIdentity shouldBe prior.receipt.projectionIdentity
-        semanticreview.receipt.semanticProjectionIdentity should not equal prior.receipt.semanticProjectionIdentity
-        semanticreview.receipt.candidateIdentity shouldBe prior.receipt.candidateIdentity
-        semanticreview.receipt.consumedInputIdentity shouldBe prior.receipt.consumedInputIdentity
-        _left(screenresult).code shouldBe "LUI50_CANDIDATE_REVIEW_CURRENTNESS_INVALID"
-        _left(semanticresult).code shouldBe "LUI50_CANDIDATE_REVIEW_CURRENTNESS_INVALID"
-        currentresult shouldBe Right(())
-      }
-
-      "reject changed HTML, receipt, diagnostics, null review, and invalid tuples" in {
-        Given("a current preview and copies retaining its declared tuple but changing one observable result field")
-        val fixture = _right(CozyLogicalUiSalesOrderFixtures.candidate())
-        val prior = _right(renderCandidate(fixture._1, fixture._2, fixture._3))
-        val changedhtml = prior.copy(html = prior.html + "stale")
-        val changedreceipt = prior.copy(receipt = prior.receipt.copy(rendererProfile = "foreign-renderer"))
-        val changeddiagnostics = prior.copy(diagnostics = Vector(ReviewDiagnostic("changed", "review", "stale diagnostics")))
-
-        When("the copies or missing values are checked against the current tuple")
-        val failures = Vector(
-          verifyCandidateCurrent(fixture._1, fixture._2, fixture._3, changedhtml) -> "review.html",
-          verifyCandidateCurrent(fixture._1, fixture._2, fixture._3, changedreceipt) -> "review.receipt",
-          verifyCandidateCurrent(fixture._1, fixture._2, fixture._3, changeddiagnostics) -> "review.diagnostics",
-          verifyCandidateCurrent(fixture._1, fixture._2, fixture._3, null) -> "review",
-          verifyCandidateCurrent(null, fixture._2, fixture._3, prior) -> "candidate",
-          verifyCandidateCurrent(fixture._1, null, fixture._3, prior) -> "projection",
-          verifyCandidateCurrent(fixture._1, fixture._2, null, prior) -> "semantics",
-          verifyCandidateCurrent(fixture._1, _changed_projection(fixture._1), fixture._3, prior) -> "semantics.projectionIdentity"
-        )
-
-        Then("currentness reports the pertinent result or tuple path without admitting stale evidence")
-        failures.foreach { case (result, path) =>
-          val error = _left(result)
-          error.code shouldBe "LUI50_CANDIDATE_REVIEW_CURRENTNESS_INVALID"
-          error.path shouldBe path
-          error.reason should not be empty
-        }
-      }
 
       "produce equal HTML, receipt, and diagnostics for at least twenty reordered constructions" in {
         Given("one canonical SalesOrder preview and equivalent permutations of candidate, screen, and semantic inputs")
@@ -208,9 +130,9 @@ final class CozyLogicalUiCandidateReviewSpec extends AnyWordSpec with Matchers w
         }
       }
 
-      "preserve prior bytes for stale results, invalid suffix, traversal, and symlinks" in {
+      "preserve prior bytes for invalid suffix, traversal, and symlinks" in {
         _with_temp_dir { root =>
-          Given("a current preview, prior output bytes, and explicit invalid path and stale result fixtures")
+          Given("a candidate preview, existing output files, and invalid path fixtures")
           val fixture = _right(CozyLogicalUiSalesOrderFixtures.candidate())
           val reviewvalue = _right(renderCandidate(fixture._1, fixture._2, fixture._3))
           val parent = Files.createDirectory(root.resolve("parent"))
@@ -225,14 +147,7 @@ final class CozyLogicalUiCandidateReviewSpec extends AnyWordSpec with Matchers w
           val traversingsentinel = root.resolve("candidate.html")
           val sentinels = Vector(target, invalidsuffix, sentinel, traversingsentinel)
           sentinels.foreach(path => Files.write(path, "preserve-me".getBytes(StandardCharsets.UTF_8)))
-          val stalevalues = Vector(
-            reviewvalue.copy(html = "stale"),
-            reviewvalue.copy(receipt = reviewvalue.receipt.copy(candidateIdentity = "stale")),
-            reviewvalue.copy(diagnostics = Vector(ReviewDiagnostic("stale", "review", "changed")))
-          )
-
-          When("a stale result or inadmissible output path is supplied to the writer")
-          val staleresults = stalevalues.map(value => writeCandidate(value, parent, target))
+          When("a required input or an output path is invalid")
           val nullresult = writeCandidate(null, parent, target)
           val pathresults = Vector(
             writeCandidate(reviewvalue, parent, invalidsuffix),
@@ -241,9 +156,9 @@ final class CozyLogicalUiCandidateReviewSpec extends AnyWordSpec with Matchers w
             writeCandidate(reviewvalue, parent, targetlink)
           )
 
-          Then("currentness and shared output diagnostics preserve all existing direct and external bytes")
-          (staleresults :+ nullresult).foreach(result =>
-            _left(result).code shouldBe "LUI50_CANDIDATE_REVIEW_CURRENTNESS_INVALID"
+          Then("input and output diagnostics preserve all existing direct and external files")
+          Vector(nullresult).foreach(result =>
+            _left(result).code shouldBe "LUI50_CANDIDATE_REVIEW_INPUT_INVALID"
           )
           pathresults.foreach(result => _left(result).code shouldBe "LUI43_REVIEW_OUTPUT_INVALID")
           sentinels.foreach(path => Files.readAllBytes(path).toVector shouldBe "preserve-me".getBytes(StandardCharsets.UTF_8).toVector)
@@ -287,8 +202,6 @@ final class CozyLogicalUiCandidateReviewSpec extends AnyWordSpec with Matchers w
           "order-list" -> "entry", "order-list" -> "to-detail", "order-detail" -> "select",
           "order-detail" -> "invoke", "order-detail" -> "observe"
         )
-        tuple._2.candidate.identity shouldBe tuple._1.identity
-        tuple._3.projectionIdentity shouldBe tuple._2.identity
       }
     }
   }

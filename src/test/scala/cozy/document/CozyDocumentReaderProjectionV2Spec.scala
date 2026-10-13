@@ -2,21 +2,22 @@ package cozy.document
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 14, 2026
- * @version Sep. 14, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Cozy Document Reader Projection v2" should {
-    "render deterministic escaped output with a disclosed sha256 identity" in {
+    "render deterministic escaped output without digest traceability" in {
       _with_temp_dir("cozy-document-reader-v2-determinism") { root =>
         Given("an admitted v2 Document with escaped title, headings, prose, labels, and a complete test vocabulary")
         val fixture = _fixture(root)
@@ -26,20 +27,104 @@ final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers
         val first = CozyDocumentReaderProjectionV2.render(fixture.validated, vocabulary)
         val second = CozyDocumentReaderProjectionV2.render(fixture.validated, vocabulary)
 
-        Then("the HTML and identity are byte-stable and every author-controlled value is escaped")
+        Then("the HTML is byte-stable, digest-free, and every author-controlled value is escaped")
         first shouldBe second
-        first.identity should startWith("sha256:")
-        first.html should include(s"""data-output-identity="${first.identity}"""")
+        _digest_free(first.html) shouldBe true
         first.html should include("<title>Document &lt;title&gt; &amp; &quot;quoted&quot;</title>")
         first.html should include("<h1>Document &lt;title&gt; &amp; &quot;quoted&quot;</h1>")
         first.html should include("Root &lt;heading&gt; &amp; &quot;quoted&quot;")
         first.html should include("Shared &lt;text&gt; &amp; &quot;quoted&quot;")
+        first.html should include("<summary>Claim ID audit</summary>")
         first.html should not include("Document <title>")
         first.html should not include("Root <heading>")
         first.html should not include("Shared <text>")
         first.html should not include("<link")
         first.html should not include("http://")
         first.html should not include("https://")
+      }
+    }
+
+    "admit ignored binding metadata through production loading while preserving the pure reader projection" in {
+      _with_temp_dir("cozy-document-reader-v2-legacy-identities") { root =>
+        Given("one admitted semantic Document and scalar object array null or historical binding metadata")
+        val fixture = _fixture(root)
+        val vocabulary = _vocabulary(fixture.validated.core)
+        val metadata = Gen.oneOf(
+          Gen.const("  historical: sha256:not-a-binding"),
+          Gen.const("  historical: [legacy, metadata]"),
+          Gen.const("  historical: { source: legacy }"),
+          Gen.const("  historical: null"),
+          Gen.const("  identity: stale-looking-value"),
+          Gen.alphaNumStr.suchThat(_.nonEmpty).map(value => s"  historical: '$value'")
+        )
+        var index = 0
+        val baseline = CozyDocumentReaderProjectionV2.render(fixture.validated, vocabulary).html
+
+        val property = Prop.forAll(metadata) { value =>
+          index += 1
+          val path = _write(root.resolve(s"metadata-$index/ja/document.yaml"), _document(fixture.validated.core, value))
+          val variant = CozyDocumentDescriptionV2.loadDocument(fixture.corepath, path)
+          val first = CozyDocumentReaderProjectionV2.render(variant, vocabulary).html
+          val second = CozyDocumentReaderProjectionV2.render(variant, vocabulary).html
+          first == baseline && first == second && _digest_free(first)
+        }
+
+        When("production V2 admission reads each unchanged semantic Document with ignored binding metadata")
+        val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+
+        Then("at least thirty admitted samples produce identical HTML without hash attributes")
+        result.passed shouldBe true
+      }
+    }
+
+    "preserve escaped authored text and semantic anchors across varying content" in {
+      _with_temp_dir("cozy-document-reader-v2-authored-property") { root =>
+        Given("one admitted semantic Document and safe varying authored text with fixed HTML metacharacters")
+        val fixture = _fixture(root)
+        val vocabulary = _vocabulary(fixture.validated.core)
+        val authoredvalues = Gen.zip(
+          Gen.alphaNumStr.suchThat(_.nonEmpty),
+          Gen.oneOf("日本語", "é", "α", "漢字")
+        ).map { case (ascii, unicode) => s"$ascii-$unicode" }
+
+        When("the title and first paragraph prose vary while Core references remain unchanged")
+        val property = Prop.forAll(authoredvalues) { value =>
+          val variant = _authored_variant(fixture.validated, value)
+          val first = CozyDocumentReaderProjectionV2.render(variant, vocabulary).html
+          val second = CozyDocumentReaderProjectionV2.render(variant, vocabulary).html
+          first == second && _digest_free(first) &&
+            first.contains(s"<title>$value &lt;title&gt; &amp; &quot;quoted&quot;</title>") &&
+            first.contains(s"<p>$value &lt; &amp; &quot;quoted&quot;</p>") &&
+            first.contains(s"""href="#core-step-${fixture.root.id}"""") &&
+            Vector("steps", "claims", "nodes", "relations", "flows").forall { kind =>
+              first.contains(s"""data-reference-kind="$kind"""")
+            }
+        }
+
+        Then("at least thirty varying samples preserve escaping, anchors, and all reference categories")
+        Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property).passed shouldBe true
+      }
+    }
+
+    "retain required reader wording validation for semantic surfaces" in {
+      _with_temp_dir("cozy-document-reader-v2-vocabulary-validation") { root =>
+        Given("a complete reader vocabulary with one actual wording field or map entry removed")
+        val fixture = _fixture(root)
+        val vocabulary = _vocabulary(fixture.validated.core)
+        val blankpage = vocabulary.copy(chrome = vocabulary.chrome.copy(pageHeading = ""))
+        val missingidentities = vocabulary.copy(chrome = vocabulary.chrome.copy(identitiesHeading = null))
+        val pattern = fixture.validated.core.depthFirstSteps.head.structure.pattern
+        val missingpattern = vocabulary.copy(logicalPatterns = vocabulary.logicalPatterns - pattern)
+
+        When("the reader validates each incomplete semantic vocabulary")
+        val pagefault = intercept[CozyDocumentReaderProjectionV2.ProjectionFault](CozyDocumentReaderProjectionV2.render(fixture.validated, blankpage))
+        val identityfault = intercept[CozyDocumentReaderProjectionV2.ProjectionFault](CozyDocumentReaderProjectionV2.render(fixture.validated, missingidentities))
+        val mapfault = intercept[CozyDocumentReaderProjectionV2.ProjectionFault](CozyDocumentReaderProjectionV2.render(fixture.validated, missingpattern))
+
+        Then("each failure remains classified as READER_V2_VOCABULARY")
+        pagefault.code shouldBe "READER_V2_VOCABULARY"
+        identityfault.code shouldBe "READER_V2_VOCABULARY"
+        mapfault.code shouldBe "READER_V2_VOCABULARY"
       }
     }
 
@@ -135,7 +220,8 @@ final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers
   private final class Fixture(
     val validated: CozyDocumentDescriptionV2.ValidatedDocument,
     val root: CozyDocumentLogicTree.Step,
-    val child: CozyDocumentLogicTree.Step
+    val child: CozyDocumentLogicTree.Step,
+    val corepath: Path
   )
 
   private def _fixture(root: Path): Fixture = {
@@ -145,13 +231,13 @@ final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers
     Files.copy(_resource("/cozy/document/phase-58/application-modeling/content/core.yaml"), core)
     val validatedcore = CozyDocumentLogicTree.loadCore(core)
     val document = locale.resolve("document.yaml")
-    _write(document, _document(validatedcore, _identity(core)))
+    _write(document, _document(validatedcore))
     val validated = CozyDocumentDescriptionV2.loadDocument(core, document)
     val corestep = validated.core.core.root
-    new Fixture(validated, corestep, corestep.steps.head)
+    new Fixture(validated, corestep, corestep.steps.head, core)
   }
 
-  private def _document(core: CozyDocumentLogicTree.ValidatedCore, coreidentity: String): String = {
+  private def _document(core: CozyDocumentLogicTree.ValidatedCore, metadata: String = ""): String = {
     val root = core.core.root
     val child = root.steps.head
     val allrefs = _references(core.depthFirstSteps, core.claimsById.keys.toVector, core.nodesById.keys.toVector, core.relationsById.keys.toVector, core.flowsById.keys.toVector)
@@ -169,7 +255,7 @@ final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers
         |id: document-ja
         |core:
         |  id: ${core.core.id}
-        |  identity: $coreidentity
+        |$metadata
         |locale: ja
         |document:
         |  title: 'Document <title> & "quoted"'
@@ -228,10 +314,7 @@ final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers
       "Relations",
       "No direct child Flow transitions",
       "Logical Structure reference",
-      "Identities",
-      "Core identity",
-      "Document identity",
-      "Output identity"
+      "Claim ID audit"
     )
     val patterns = _wording(core.depthFirstSteps.map(_.structure.pattern).toSet)
     val roles = _wording(core.depthFirstSteps.flatMap(_.structure.nodes.map(_.role)).toSet)
@@ -271,7 +354,35 @@ final class CozyDocumentReaderProjectionV2Spec extends AnyWordSpec with Matchers
   }
 
   private def _occurrences(value: String, part: String): Int = value.sliding(part.length).count(_ == part)
-  private def _identity(path: Path): String = "sha256:" + MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(byte => f"${byte & 0xff}%02x").mkString
+
+  private def _digest_free(value: String): Boolean =
+    !value.contains("data-core-identity") &&
+      !value.contains("data-document-identity") &&
+      !value.contains("data-output-identity") &&
+      !value.contains("Core identity") &&
+      !value.contains("Document identity") &&
+      !value.contains("Output identity")
+
+  private def _authored_variant(
+    validated: CozyDocumentDescriptionV2.ValidatedDocument,
+    value: String
+  ): CozyDocumentDescriptionV2.ValidatedDocument = {
+    val document = validated.description.document
+    val section = document.sections.head
+    val blocks = section.blocks.map {
+      case paragraph: CozyDocumentDescriptionV2.Paragraph =>
+        paragraph.copy(text = s"""$value < & "quoted"""")
+      case block => block
+    }
+    val description = validated.description.copy(
+      document = document.copy(
+        title = s"""$value <title> & "quoted"""",
+        sections = section.copy(blocks = blocks) +: document.sections.drop(1)
+      )
+    )
+    validated.copy(description = description)
+  }
+
   private def _resource(value: String): Path = Paths.get(getClass.getResource(value).toURI)
 
   private def _write(path: Path, value: String): Path = {

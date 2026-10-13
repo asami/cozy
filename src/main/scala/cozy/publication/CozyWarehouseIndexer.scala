@@ -6,19 +6,18 @@ import play.api.libs.json._
 import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-import java.security.MessageDigest
 import scala.util.Try
 import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
- * @version Jun.  4, 2026
+ *  version Jun.  4, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyWarehouseIndexer {
   private val _schema = "cozy.publish-project.v1"
   private val _slug_pattern = "^[a-z0-9][a-z0-9-]*$".r
-  private val _checksum_extensions = Set("sha1", "md5")
   private val _artifact_extensions = Set("jar", "pom", "car", "sar", "zip")
 
   final case class MavenCoordinate(groupId: String, artifactId: String) {
@@ -36,10 +35,7 @@ private[cozy] object CozyWarehouseIndexer {
     extension: String,
     path: String,
     name: String,
-    size: Long,
-    sha256: String,
-    sha1: Option[String],
-    md5: Option[String]
+    size: Long
   )
   final case class MavenArtifact(coordinate: MavenCoordinate, versions: Vector[String], latestRelease: Option[String], files: Vector[IndexedFile])
   final case class RepositoryArtifact(kind: String, versions: Vector[String], files: Vector[IndexedFile])
@@ -374,10 +370,7 @@ private[cozy] object CozyWarehouseIndexer {
       extension = extension,
       path = rel,
       name = path.getFileName.toString,
-      size = Files.size(path),
-      sha256 = _sha256(path),
-      sha1 = _sidecar(path, "sha1"),
-      md5 = _sidecar(path, "md5")
+      size = Files.size(path)
     )
   }
 
@@ -566,9 +559,6 @@ private[cozy] object CozyWarehouseIndexer {
       |      extension: ${_yaml_string(p.extension)}
        |      classifier: ${_yaml_string(p.classifier.getOrElse(""))}
        |      size: ${p.size}
-       |      sha256: ${_yaml_string(p.sha256)}
-       |      sha1: ${_yaml_string(p.sha1.getOrElse(""))}
-       |      md5: ${_yaml_string(p.md5.getOrElse(""))}
        |""".stripMargin
 
   private def _file_json(p: IndexedFile): JsValue =
@@ -584,10 +574,7 @@ private[cozy] object CozyWarehouseIndexer {
       "warehousePath" -> p.path,
       "publicPath" -> _public_artifact_path(p.path),
       "name" -> p.name,
-      "size" -> p.size,
-      "sha256" -> p.sha256,
-      "sha1" -> p.sha1,
-      "md5" -> p.md5
+      "size" -> p.size
     )
 
   private def _public_artifact_path(warehousepath: String): String =
@@ -662,7 +649,7 @@ private[cozy] object CozyWarehouseIndexer {
   private def _is_artifact_file(path: Path): Boolean = {
     val name = path.getFileName.toString
     val ext = name.reverse.takeWhile(_ != '.').reverse.toLowerCase(java.util.Locale.ROOT)
-    _artifact_extensions.contains(ext) && !_checksum_extensions.contains(ext)
+    _artifact_extensions.contains(ext)
   }
 
   private def _parse_maven_file(artifactid: String, version: String, name: String): (Option[String], String) = {
@@ -697,31 +684,6 @@ private[cozy] object CozyWarehouseIndexer {
 
   private def _sort_versions(xs: Vector[String]): Vector[String] =
     xs.sortBy(x => x.split("[.-]").toVector.map(part => f"${Try(part.toInt).getOrElse(0)}%08d:$part").mkString("|"))
-
-  private def _sidecar(path: Path, ext: String): Option[String] = {
-    val p = Paths.get(path.toString + "." + ext)
-    if (Files.isRegularFile(p))
-      Some(Files.readString(p, StandardCharsets.UTF_8).trim.split("\\s+").headOption.getOrElse(""))
-    else
-      None
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val in = Files.newInputStream(path)
-    val buffer = new Array[Byte](8192)
-    try {
-      var n = in.read(buffer)
-      while (n >= 0) {
-        if (n > 0)
-          digest.update(buffer, 0, n)
-        n = in.read(buffer)
-      }
-    } finally {
-      in.close()
-    }
-    digest.digest().map(b => f"${b & 0xff}%02x").mkString
-  }
 
   private def _validate_name(value: String): String = {
     val name = value.trim

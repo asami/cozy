@@ -5,19 +5,19 @@ import cozy.video.CozyVideoSpec
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.time.YearMonth
 import java.util.zip.ZipInputStream
 import scala.collection.JavaConverters._
 import io.circe.parser
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalacheck.{Gen, Prop, Test}
 
 /*
  * @since   Jun.  3, 2026
  *  version Jun. 27, 2026
  *  version Jul. 23, 2026
  *  version Aug. 28, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokSpec
@@ -130,18 +130,6 @@ class CozyBokSpec
             "website-staging"
           )
           _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "backup:"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "enabled: false"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "dir: website.backup"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
-            "compressed: true"
-          )
-          _read(dir.resolve("conf/cozy/config.yaml")) should include(
             "workflow:"
           )
           _read(dir.resolve("conf/cozy/config.yaml")) should include("stage:")
@@ -171,16 +159,37 @@ class CozyBokSpec
           stageproto should include(
             "REPOSITORY_SOURCE_DIR=${REPOSITORY_SOURCE_DIR:-repository}"
           )
-          stageproto should include("rsync -av --checksum --delete")
+          And("the staging prototype uses ordinary rsync selection and preserves its path and deletion guards")
+          stageproto should not include ("--checksum")
+          stageproto should include("set -eu")
+          stageproto should include("""PROJECT_DIR=$(cd "$(dirname "$0")/.." && pwd)""")
+          stageproto should include("""cd "$PROJECT_DIR"""")
+          stageproto should include("WEBSITE_BUILD_DIR=${WEBSITE_SOURCE_DIR:-website.d}")
+          stageproto should include("WEBSITE_STAGING_DIR=${WEBSITE_STAGING_DIR:-../")
+          stageproto should include("""if [ ! -d "$WEBSITE_BUILD_DIR" ]; then""")
+          stageproto should include("Website build directory is missing: $WEBSITE_BUILD_DIR")
+          stageproto should include("Run: cozy bok build")
+          stageproto should include("exit 2")
+          stageproto should include("""mkdir -p "$WEBSITE_STAGING_DIR"""")
+          stageproto should include(
+            """rsync -av --delete --exclude '/.git' --exclude '/repository' "$WEBSITE_BUILD_DIR"/ "$WEBSITE_STAGING_DIR"/"""
+          )
           stageproto should include("--exclude '/.git'")
           stageproto should include("--exclude '/repository'")
           stageproto should include(
-            """rsync -av --checksum "$WEBSITE_BUILD_DIR/repository"/ "$WEBSITE_STAGING_DIR/repository"/"""
+            """rsync -av "$WEBSITE_BUILD_DIR/repository"/ "$WEBSITE_STAGING_DIR/repository"/"""
           )
           stageproto should include(
-            """rsync -av --checksum "$REPOSITORY_SOURCE_DIR"/ "$WEBSITE_STAGING_DIR/repository"/"""
+            """rsync -av "$REPOSITORY_SOURCE_DIR"/ "$WEBSITE_STAGING_DIR/repository"/"""
           )
-          stageproto should not include ("""rsync -av --checksum --delete "$REPOSITORY_SOURCE_DIR"/""")
+          stageproto should not include ("""rsync -av --delete "$WEBSITE_BUILD_DIR/repository"/""")
+          stageproto should not include ("""rsync -av --delete "$REPOSITORY_SOURCE_DIR"/""")
+          stageproto should include("""if [ -d "$WEBSITE_BUILD_DIR/repository" ]; then""")
+          stageproto should include("""if [ -d "$REPOSITORY_SOURCE_DIR" ]; then""")
+          stageproto should include("""mkdir -p "$WEBSITE_STAGING_DIR/repository"""")
+          stageproto should include("Repository source directory is not present; skipping artifact repository staging: $REPOSITORY_SOURCE_DIR")
+          stageproto should include("""if [ -d "$WEBSITE_STAGING_DIR/.git" ] || [ -f "$WEBSITE_STAGING_DIR/.git" ]; then""")
+          stageproto should include("""git -C "$WEBSITE_STAGING_DIR" status --short""")
           val uploadproto = _read(dir.resolve("etc/website-upload.sh.proto"))
           uploadproto should include(
             "WEBSITE_SOURCE_DIR=${WEBSITE_SOURCE_DIR:-website.d}"
@@ -1831,37 +1840,62 @@ class CozyBokSpec
       }
 
       "pass the configured Textus toolchain image to SmartDox Kroki execution" in {
-        _with_temp_dir("cozy-bok-smartdox-kroki-toolchain") { dir =>
-          Given("a BoK build with a configured Textus toolchain image")
-          Files.createDirectories(dir.resolve("src/main/doxsite"))
-          val runner = new EnvRecordingRunner
-          val config = CozyBok.BuildConfig.create(
-            List(dir.toString, "--docker-image", "example/toolchain:dev")
-          )
+        Vector(false, true).foreach { multilocale =>
+          Given("a fresh BoK project with a configured toolchain image and " +
+            (if (multilocale) "JA/EN locale subdirectories" else "a single JA locale root"))
+          val fixture = Paths.get("target/cozy-bok-kroki-toolchain-spec")
+          Files.createDirectories(fixture)
+          val dir = Files.createTempDirectory(fixture, "project-")
+          try {
+            _write(
+              dir.resolve("src/main/doxsite/site.conf"),
+              if (multilocale)
+                "simplemodelingorg = true\nsite.metadata.in_language = [\"ja\", \"en\"]\n"
+              else
+                "site { output { locale_mode = \"single_locale_root\" } }\nsite.metadata.in_language = [\"ja\"]\n"
+            )
+            val runner = new EnvRecordingRunner
+            val config = CozyBok.BuildConfig.create(
+              List(dir.toString, "--docker-image", "example/toolchain:dev")
+            )
 
-          When("Cozy builds through SmartDox and Docker Antora")
-          CozyBok.build(config, runner)
+            When("Cozy builds the selected locale layout through SmartDox and Docker Antora")
+            CozyBok.build(config, runner)
 
-          Then(
-            "SmartDox host-side commands receive the toolchain image as Kroki Docker image"
-          )
-          val smartdoxenvs = runner.envs.filter(_.nonEmpty)
-          smartdoxenvs should have size 2
-          smartdoxenvs.foreach { env =>
-            env("SMARTDOX_KROKI_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
-            env("SMARTDOX_PDF_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
-            env(
-              "SMARTDOX_COZY_TOOLCHAIN_IMAGE"
-            ) shouldBe "example/toolchain:dev"
+            Then("the configured locale layout is retained and emits exactly its required Antora commands")
+            config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
+            val antoracommands = runner.commands.filter(command =>
+              command.take(2) == Vector("docker", "run") && command.contains("antora")
+            )
+            antoracommands should have size (if (multilocale) 2 else 1)
+
+            Then("both SmartDox host-side commands receive all three configured toolchain image settings")
+            val smartdoxenvs = runner.envs.filter(_.nonEmpty)
+            smartdoxenvs should have size 2
+            smartdoxenvs.foreach { env =>
+              Then("each host-side command retains the Kroki, PDF and Cozy toolchain image")
+              env("SMARTDOX_KROKI_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
+              env("SMARTDOX_PDF_DOCKER_IMAGE") shouldBe "example/toolchain:dev"
+              env("SMARTDOX_COZY_TOOLCHAIN_IMAGE") shouldBe "example/toolchain:dev"
+            }
+
+            antoracommands.foreach { command =>
+              Then("each Docker Antora command pairs port 8000 with the listener and configured image")
+              command.sliding(2).toVector should contain (Vector("-e", "KROKI_LISTEN=127.0.0.1:8000"))
+              command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_PORT=8000"))
+              command.exists(_.contains("9609")) shouldBe false
+              command.sliding(2).toVector should contain (Vector("-e", "SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev"))
+              command.sliding(2).toVector should contain (Vector("example/toolchain:dev", "antora"))
+            }
+
+            And("Docker Antora starts the internal Kroki server on SmartDox's Antora port")
+            runner.commands.exists(cmd =>
+              cmd.contains("SMARTDOX_KROKI_PORT=8000") &&
+                cmd.contains("SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev")
+            ) shouldBe true
+          } finally {
+            _delete(dir)
           }
-
-          And(
-            "Docker Antora starts the internal Kroki server on SmartDox's Antora port"
-          )
-          runner.commands.exists(cmd =>
-            cmd.contains("SMARTDOX_KROKI_PORT=8000") &&
-              cmd.contains("SMARTDOX_KROKI_DOCKER_IMAGE=example/toolchain:dev")
-          ) shouldBe true
         }
       }
 
@@ -2342,6 +2376,126 @@ class CozyBokSpec
     }
 
     "run optional build extensions" which {
+      "preserve Arcadia-authored homes in both locale layouts" in {
+        Given("bounded generated UTF-8 Arcadia home contents and both configured locale layouts")
+        val suffixes = Gen.listOfN(16, Gen.alphaNumChar).map(_.mkString)
+        val property = Prop.forAll(suffixes) { suffix =>
+          Vector(false, true).foreach { multilocale =>
+            _with_temp_dir("cozy-bok-arcadia-home") { dir =>
+              Given("an Arcadia-enabled BoK project with fresh source and locale-specific authored homes")
+              Files.createDirectories(dir.resolve("src/main/doxsite"))
+              _write(
+                dir.resolve(".cozy/config.yaml"),
+                """bok:
+                  |  docker-image: antora-image
+                  |  arcadia:
+                  |    enabled: true
+                  |    source: src/main/arcadiasite
+                  |""".stripMargin
+              )
+              if (multilocale)
+                _write(
+                  dir.resolve("src/main/doxsite/site.conf"),
+                  """simplemodelingorg = true
+                    |site.metadata.in_language = ["ja", "en"]
+                    |""".stripMargin
+                )
+              val config = CozyBok.BuildConfig.create(List(dir.toString))
+              val locales = if (multilocale) Vector("ja", "en") else Vector(config.defaultLocale)
+              val homes = locales.map { locale =>
+                val path = if (multilocale) s"$locale/index.html" else "index.html"
+                path -> s"""<!doctype html>
+                  |<html lang="$locale">
+                  |  <body>日本語 Arcadia $locale $suffix</body>${" "}
+                  |</html>
+                  |""".stripMargin
+              }.toMap
+              val runner = new ArcadiaHomeRecordingRunner(homes)
+
+              When("Cozy builds the configured site through the real BoK orchestration")
+              CozyBok.build(config, runner)
+              val observedhomes = homes.map { case (path, content) =>
+                val home = config.websitePath.resolve(path)
+                val specials = Vector("manual/index.html", "history/index.html", "glossary/index.html").map { special =>
+                  Files.isRegularFile(home.getParent.resolve(special))
+                }
+                (_read(home), content, specials)
+              }
+              val metadata = Vector("rdf/site.ttl", "rdf/site.jsonld", "metadata/rdf/graph.json", "metadata/cncf/knowledge-source.json").map { path =>
+                Files.isRegularFile(config.websitePath.resolve(path))
+              }
+
+              Then("every Arcadia home retains its exact UTF-8 content and required generated surfaces remain")
+              config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
+              if (multilocale)
+                config.languages shouldBe Vector("ja", "en")
+              observedhomes.foreach { case (actual, expected, specials) =>
+                actual shouldBe expected
+                specials shouldBe Vector(true, true, true)
+              }
+              runner.commands should contain(
+                Vector("arcadia", "site", "src/main/arcadiasite", "doxsite.d")
+              )
+              metadata shouldBe Vector(true, true, true, true)
+            }
+          }
+          true
+        }
+
+        When("the preservation property is checked across at least fifty generated home contents")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+
+        Then("all generated trials preserve homes in both locale layouts")
+        check.passed shouldBe true
+        check.succeeded should be >= 50
+      }
+
+      "retain normal Dashboard homes when Arcadia is disabled" in {
+        Vector(false, true).foreach { multilocale =>
+          _with_temp_dir("cozy-bok-dashboard-home") { dir =>
+            Given("an explicitly Arcadia-disabled BoK project in one of both locale layouts")
+            Files.createDirectories(dir.resolve("src/main/doxsite"))
+            _write(
+              dir.resolve(".cozy/config.yaml"),
+              """bok:
+                |  docker-image: antora-image
+                |  arcadia:
+                |    enabled: false
+                |    source: src/main/arcadiasite
+                |""".stripMargin
+            )
+            if (multilocale)
+              _write(
+                dir.resolve("src/main/doxsite/site.conf"),
+                """simplemodelingorg = true
+                  |site.metadata.in_language = ["ja", "en"]
+                  |""".stripMargin
+              )
+            val config = CozyBok.BuildConfig.create(List(dir.toString))
+            config.localeMode shouldBe (if (multilocale) CozyBok.LocaleMode.MultiLocaleSubdirs else CozyBok.LocaleMode.SingleLocaleRoot)
+            if (multilocale)
+              config.languages shouldBe Vector("ja", "en")
+            val targets = if (multilocale) config.languages.map(config.websitePath.resolve(_)) else Vector(config.websitePath)
+            val runner = new RecordingRunner
+
+            When("Cozy builds the site with Arcadia disabled")
+            CozyBok.build(config, runner)
+
+            Then("normal Dashboard homes, special pages and canonical metadata are generated without Arcadia")
+            targets.foreach { target =>
+              _read(target.resolve("index.html")) should include("bok-dashboard-shell")
+              Vector("manual/index.html", "history/index.html", "glossary/index.html").foreach { special =>
+                target.resolve(special) should be_regular_file
+              }
+            }
+            runner.commands.exists(_.take(2) == Vector("arcadia", "site")) shouldBe false
+            Vector("rdf/site.ttl", "rdf/site.jsonld", "metadata/rdf/graph.json", "metadata/cncf/knowledge-source.json").foreach { path =>
+              config.websitePath.resolve(path) should be_regular_file
+            }
+          }
+        }
+      }
+
       "include arcadia step only when enabled" in {
         _with_temp_dir("cozy-bok-arcadia") { dir =>
           Given("a BoK config with Arcadia site generation enabled")
@@ -2356,7 +2510,7 @@ class CozyBokSpec
           |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(List(dir.toString))
-          val runner = new RecordingRunner
+          val runner = new ArcadiaHomeRecordingRunner(Map("index.html" -> "Arcadia-authored home\n"))
 
           When("Cozy builds the BoK")
           CozyBok.build(config, runner)
@@ -2365,7 +2519,7 @@ class CozyBokSpec
             "the Arcadia generation step is included exactly when configured"
           )
           runner.commands should contain(
-            Vector("arcadia", "site", "src/main/arcadiasite", "arcadiasite.d")
+            Vector("arcadia", "site", "src/main/arcadiasite", "doxsite.d")
           )
         }
       }
@@ -2417,7 +2571,7 @@ class CozyBokSpec
             .toAbsolutePath
             .normalize()
           publicationpath.getParent.getParent shouldBe snapshotroot
-          publicationpath.getParent.getFileName.toString.matches("[0-9a-f]{64}") shouldBe true
+          publicationpath.getParent.getFileName.toString should startWith("snapshot-")
           publicationpath.getFileName.toString shouldBe "publication"
           Files.isDirectory(publicationpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
           Files.isSymbolicLink(publicationpath) shouldBe false
@@ -2506,7 +2660,7 @@ class CozyBokSpec
           CozyBok.build(config, runner)
 
           Then(
-            "SmartDox receives the digest-addressed production snapshot, repository, and RDF missing policy values"
+            "SmartDox receives the operation-scoped production snapshot, repository, and RDF missing policy values"
           )
           val sitecommand =
             runner.commands.find(_.take(2) == Vector("dox", "site")).get
@@ -2519,7 +2673,7 @@ class CozyBokSpec
             .toAbsolutePath
             .normalize()
           publicationpath.getParent.getParent shouldBe snapshotroot
-          publicationpath.getParent.getFileName.toString.matches("[0-9a-f]{64}") shouldBe true
+          publicationpath.getParent.getFileName.toString should startWith("snapshot-")
           publicationpath.getFileName.toString shouldBe "publication"
           Files.isDirectory(publicationpath, LinkOption.NOFOLLOW_LINKS) shouldBe true
           Files.isSymbolicLink(publicationpath) shouldBe false
@@ -3400,8 +3554,6 @@ class CozyBokSpec
         stage should include("bok.workflow.stage.command")
         upload should include("Usage: cozy bok upload [<project-dir>]")
         upload should include("bok.workflow.upload.command")
-        upload should include("bok.backup.enabled")
-        upload should include("website.backup")
         publish should not include ("Missing bok workflow command")
       }
 
@@ -3590,145 +3742,7 @@ class CozyBokSpec
         }
       }
 
-      "keep upload backup disabled by default" in {
-        _with_temp_dir("cozy-bok-upload-backup-default") { dir =>
-          Given("an upload workflow without an explicit backup setting")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>site</html>\n")
-          val runner = new RecordingRunner
 
-          When("Cozy runs the upload workflow")
-          CozyBok.runWorkflow(
-            CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-            runner
-          )
-
-          Then("the configured upload command runs")
-          runner.commands should contain(Vector("sh", "-c", "etc/website-upload.sh"))
-
-          And("no website backup directory is created by default")
-          dir.resolve("website.backup") shouldNot exist_path
-        }
-      }
-
-      "create compressed website backup before upload when enabled" in {
-        _with_temp_dir("cozy-bok-upload-backup-compressed") { dir =>
-          Given("an upload workflow with compressed website backup enabled")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  backup:
-              |    enabled: true
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>published</html>\n")
-          val runner = new RecordingRunner
-
-          When("Cozy runs the upload workflow")
-          CozyBok.runWorkflow(
-            CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-            runner
-          )
-
-          Then("the generated website is backed up as a compressed snapshot")
-          val zips = _files_under(dir.resolve("website.backup")).filter(_.getFileName.toString == "website.d.zip")
-          zips should have size 1
-          _zip_text(zips.head, "website.d/index.html") should include("published")
-
-          And("the upload workflow still runs after the backup")
-          runner.commands should contain(Vector("sh", "-c", "etc/website-upload.sh"))
-        }
-      }
-
-      "reject backup directories inside the website source before upload" in {
-        _with_temp_dir("cozy-bok-upload-backup-nested-root") { dir =>
-          Given("an upload workflow whose backup directory is nested under the website source")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  backup:
-              |    enabled: true
-              |    dir: website.d/backup
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>published</html>\n")
-          val runner = new RecordingRunner
-
-          When("Cozy runs the upload workflow")
-          val error = intercept[RuntimeException] {
-            CozyBok.runWorkflow(
-              CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-              runner
-            )
-          }
-
-          Then("the unsafe backup configuration is rejected before backup or upload side effects")
-          error.getMessage should include("Website backup directory must be outside the website source directory")
-          dir.resolve("website.d/backup") shouldNot exist_path
-          runner.commands shouldBe empty
-        }
-      }
-
-      "rotate website backups by keeping the first upload, last completed-month backup, and every current-month backup" in {
-        _with_temp_dir("cozy-bok-upload-backup-rotation") { dir =>
-          Given("an upload workflow with existing first, completed-month, and current-month backups")
-          _write(
-            dir.resolve("conf/cozy/config.yaml"),
-            """bok:
-              |  backup:
-              |    enabled: true
-              |    compressed: false
-              |  workflow:
-              |    upload:
-              |      command: "etc/website-upload.sh"
-              |""".stripMargin
-          )
-          _write(dir.resolve("website.d/index.html"), "<html>new</html>\n")
-          val root = dir.resolve("website.backup")
-          val current = YearMonth.now()
-          val firstmonth = current.minusMonths(3)
-          val previous = current.minusMonths(1)
-          val first = _backup_snapshot(root, firstmonth, "01", "010000")
-          val firstmonthlast = _backup_snapshot(root, firstmonth, "02", "020000")
-          val previousold = _backup_snapshot(root, previous, "01", "010000")
-          val previouslast = _backup_snapshot(root, previous, "02", "020000")
-          val currentold = _backup_snapshot(root, current, "01", "010000")
-          Vector(first, firstmonthlast, previousold, previouslast, currentold).foreach { path =>
-            _write(path.resolve("website.d/index.html"), path.getFileName.toString)
-          }
-
-          When("Cozy runs the upload workflow and applies backup rotation")
-          CozyBok.runWorkflow(
-            CozyBok.WorkflowConfig.create("upload", List(dir.toString)),
-            new RecordingRunner
-          )
-
-          Then("the first backup is preserved for operation history")
-          first should exist_path
-
-          And("only the last backup from completed months is preserved")
-          firstmonthlast should exist_path
-          previousold shouldNot exist_path
-          previouslast should exist_path
-
-          And("every current-month backup is preserved")
-          currentold should exist_path
-          _files_under(root).filter(_.endsWith("website.d/index.html")).map(_read) should contain("<html>new</html>\n")
-        }
-      }
     }
   }
 
@@ -3749,6 +3763,16 @@ class CozyBokSpec
       calls = calls :+ (command -> cwd)
       if (command.take(2) == Vector("dox", "site"))
         _write_smartdox_metadata(cwd)
+    }
+  }
+
+  private class ArcadiaHomeRecordingRunner(homes: Map[String, String]) extends RecordingRunner {
+    override def run(command: Vector[String], cwd: Path): Unit = {
+      super.run(command, cwd)
+      if (command.take(2) == Vector("arcadia", "site"))
+        homes.foreach { case (path, content) =>
+          _write(cwd.resolve("arcadiasite.d").resolve(path), content)
+        }
     }
   }
 
@@ -4016,13 +4040,6 @@ class CozyBokSpec
 
   private def _read(path: Path): String =
     new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
-
-  private def _backup_snapshot(root: Path, yearmonth: YearMonth, day: String, time: String): Path =
-    root.
-      resolve(f"${yearmonth.getYear}%04d").
-      resolve(f"${yearmonth.getMonthValue}%02d").
-      resolve(day).
-      resolve(time)
 
   private def _files_under(path: Path): Vector[Path] =
     if (!Files.exists(path))

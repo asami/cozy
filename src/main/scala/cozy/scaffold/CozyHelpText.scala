@@ -5,7 +5,7 @@ package cozy.scaffold
  *  version Aug. 29, 2026
  *  version Sep. 11, 2026
  *  version Sep. 29, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -42,22 +42,22 @@ private[cozy] object CozyHelpText {
       |      Slide review defaults to target/document-project/slides-review.html.
       |      Video review defaults to target/document-project/video-review.html; --save overrides it.
       |      Slide and video logical charts default to target/document-project/slide-logical-chart-review.html and video-logical-chart-review.html; --save overrides them.
-      |      Presentation confirmation defaults to target/document-project/presentation-confirmation.html and atomically writes its canonical receipt to target/document-project/presentation-confirmation.receipt.yaml; --save writes only the requested confirmation HTML.
+      |      Presentation confirmation defaults to target/document-project/presentation-confirmation.html; --save selects the requested confirmation HTML.
       |      Review is purpose-oriented and exposes no logical-operation IDs. Article review projects article/Core/Visual Page relationships without site rendering; video review projects typed semantic scenes. Video review and video logical charts are admitted only for video profiles.
-      |      Presentation confirmation validates current typed presentation semantics and complete cross-media coverage before publication; it is distinct from Article review and never uses generated-review receipts.
+      |      Presentation confirmation validates admitted typed presentation semantics and complete cross-media coverage before publication; it is distinct from Article review and never uses generated-review receipts.
       |      Slide Logical Chart visualizes current Content Core and Visual Page IR; Video Logical Chart also visualizes storyboard IR, all as read-only projections.
-      |      Verify defaults to structural validation of semantic authority, direct prerequisites, hashes, retained evidence, and lightweight text/media properties. Structural verification does not rasterize PDF, slide, video, or image material.
+      |      Verify defaults to structural validation of semantic authority, direct prerequisites, retained evidence, and lightweight text/media properties. Structural verification does not rasterize PDF, slide, video, or image material.
       |      Visual verification requires both --mode visual and one selected participating native output Work Product. It writes only target/document-project/visual-review/article-review-html.html as a bounded temporary representation of the current accepted article-review-html output; it neither invokes a provider nor changes evidence, receipts, attempts, currentness, or public image Work Products.
       |      Projections are deterministic, self-contained, and HTML-escaped. They otherwise write only the selected output; default Article and Video review also write one local disposable generated-review receipt beside the default HTML.
-      |      Output parents and destinations must be direct non-symlinks; existing regular files use a same-directory temporary file and atomic move.
+      |      Output parents and destinations must be direct non-symlinks; projections directly write the selected output and report ordinary I/O failures.
       |      Generic run resolves typed provider/output declarations before execution. Native run currently executes only article.render-review through cozy-review-projection at target/document-project/article-review.html (text/html); other declared providers report an explicit missing-capability block. --dry-run reports that typed resolution without invoking a provider or writing output, evidence, or currentness.
-      |      Native run reports typed output identity/path/media type, diagnostics, and a generated receipt value. A validated executed result appends strict accepted v2 evidence and derives currentness; blocked and dry-run results create neither an attempt nor accepted evidence.
-      |      Export requires a new direct non-symlink --save bundle directory. It atomically writes only manifest.yaml, receipt.yaml, and work-products/article-review-html/article-review.html for the selected current Article review; target remains opaque and no site, publication, deployment, upload, or target binding is performed.
+      |      Native run reports typed output identity/path/media type, diagnostics, and a generated receipt value. A validated executed result writes strict accepted v2 path evidence and derives availability; blocked and dry-run results create neither an attempt nor accepted evidence.
+      |      Export requires a new direct non-symlink --save bundle directory. It directly writes only manifest.yaml and work-products/article-review-html/article-review.html for the selected available accepted Article review; target remains opaque and no site, publication, deployment, upload, or target binding is performed.
       |      Projections never execute providers or persist authored authority, candidates, feedback, acceptance, attempts, delivery state, or external/provider receipts.
       |      Content Core candidate accepts a completed direct JSON/YAML dialogue bundle and records durable local evidence; it never invokes an AI provider or changes Content Core.
-      |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept writes immutable acceptance evidence before atomically replacing only Content Core; an exact pending retry resumes without another record.
-      |      Candidate, failed dialogue, feedback, and acceptance evidence are append-only below evidence/content-core/; no schema/version, provider, remote, or compatibility path is added.
-      |      Logic Tree render reads only the direct Core and Format authorities and atomically writes the explicitly selected HTML output. It creates no Document Project state, evidence, receipt, provider run, publication, or external mutation.
+      |      Content Core feedback records changes-requested or rejected human feedback for one candidate. Content Core accept records the human acceptance before directly writing only Content Core; the same human decision reapplies its selected candidate without another record.
+      |      Candidate, failed dialogue, feedback, and acceptance evidence use unique human record IDs below evidence/content-core/; no schema/version, provider, remote, or compatibility path is added.
+      |      Logic Tree render reads only the direct Core and Format authorities and directly writes the explicitly selected HTML output. It creates no Document Project state, evidence, receipt, provider run, publication, or external mutation.
       |      Sources validate performs read-only Core, Document, and Summary semantic admission. It calculates or prints no hashes, renders nothing, and writes no evidence, receipt, or output.
       |
       |  pdf <input> (use `cozy pdf --help` for PDF options and formats).
@@ -122,13 +122,13 @@ private[cozy] object CozyHelpText {
       |  bok guide [scenario]
       |      Show scenario-based BoK operation guides. Use bok guide to list scenarios.
       |
-      |  bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |  bok publish-video <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>]
       |      Publish all .video packages in a BoK source tree into src/main/publication and the artifact repository.
       |
-      |  bok publish-projects <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |  bok publish-projects <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>]
       |      Register all src/main/doxsite/projects/<category>/<slug> project knowledge packages into src/main/publication. Use publish-car for CAR artifacts.
       |
-      |  bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--force]
+      |  bok update-publication <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>]
       |      Update BoK publication registry metadata for .video and project knowledge packages.
       |
       |  bok search-bibliography <query> [--provider crossref|openlibrary|dblp|all] [--limit <n>] [--format text|json]
@@ -139,7 +139,7 @@ private[cozy] object CozyHelpText {
       |      Local .bib files under repository/bibliography, repository/catalog/bibliography, or src/main/doxsite/bibliography are used before external providers.
       |      With --report-only or --no-fetch, report missing bibliography cache entries without external fetches.
       |
-      |  bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--force] [--dry-run]
+      |  bok publish <project-dir> [--publication <dir>] [--repository <dir>] [--warehouse <dir>] [--version <version>] [--strategy production] [--dry-run]
       |      Run update-publication, production BoK build, and the configured bok.workflow.upload.command.
       |      With --dry-run, print the planned steps and write a target manifest without changing publication, repository, or site output.
       |
@@ -152,7 +152,6 @@ private[cozy] object CozyHelpText {
       |
       |  bok upload [<project-dir>]
       |      Run the external command registered at bok.workflow.upload.command. Cozy does not interpret upload targets or credentials.
-      |      When bok.backup.enabled is true, website.d is backed up before upload. Defaults: enabled=false, dir=website.backup, compressed=true.
       |
       |  video inspect <project-file> [--check-tools] [--tool-mode=<docker|host>] [--docker-image=<image>]
       |      Inspect a video project file and print a deterministic project, part, script, and tool-check plan.
@@ -205,7 +204,7 @@ private[cozy] object CozyHelpText {
       |      Build configured resources, including business presentations, then accept deterministic receipt evidence.
       |
       |  media verify <media-file> [--target <id>] [--profile <name>]
-      |      Verify knowledge sources, generated outputs, PNG dimensions, and optional publication equality.
+      |      Verify knowledge sources, generated outputs, PNG dimensions, and selected publication availability.
       |
       |  media publish <media-file> --profile <name> [--target <id>] [--dry-run]
       |      Publish verified outputs through a logical profile without storing machine-specific absolute paths in the package.
@@ -223,19 +222,19 @@ private[cozy] object CozyHelpText {
       |      Verify saved cross-media review proof against exact current Cozy evidence without rendering or approving content.
       |
       |  media presentation migrate <legacy-slide-ir> --semantic-map <semantic-map> --catalog <catalog> --save <visual-page-set>
-      |      Migrate legacy Slide IR only through a complete digest-bound semantic map, then atomically save the canonical Visual Page Set.
+      |      Migrate legacy Slide IR through a complete explicit semantic map, then directly write the canonical Visual Page Set.
       |
       |  media visual-page validate|inspect <input> --catalog <catalog>
       |      Strictly validate or inspect one Visual Page or ordered Visual Page Set without rendering or generating media.
       |
       |  media visual-page convert <input> --catalog <catalog> --save <output.json|output.yaml|output.yml|output.md>
-      |      Validate first, then atomically write the selected canonical lossless Visual Page serialization.
+      |      Validate first, then directly write the selected canonical lossless Visual Page serialization.
       |
       |  media visual-page preview <input> --catalog <catalog> --save <output.html> [--png <output.png>]
       |      Generate a deterministic semantic preview from one validated Visual Page or ordered Visual Page Set without selecting a presentation route.
       |
       |  media explanation preview <plan> --composition <composition> --projection-map <projection-map> --explanation-catalog <explanation-catalog> --presentation-catalog <presentation-catalog> --visual-page-set <visual-page-set> --save <review.html> [--source <id>=<file>] [--asset <id>=<file>]
-      |      Generate a deterministic self-contained HTML review of one current Explanation Plan and its explicit Step-to-Page mappings; this command does not read Storyboard or render media.
+      |      Generate a deterministic self-contained HTML review of one validated Explanation Plan and its explicit Step-to-Page mappings, then directly write the selected output; this command does not read Storyboard or render media.
       |
       |  media explanation validate|inspect <catalog>
       |  media explanation validate|inspect <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> [--source <id>=<file>] [--asset <id>=<file>]
@@ -249,26 +248,26 @@ private[cozy] object CozyHelpText {
       |  media explanation convert <plan> --composition <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
       |  media explanation convert <projection-map> --composition <composition> --plan <plan> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
       |  media explanation convert <projection> --composition <composition> --plan <plan> --projection-map <projection-map> --explanation-catalog <catalog> --presentation-catalog <catalog> --visual-page-set <set> --storyboard <storyboard> --save <output.json> [--source <id>=<file>] [--asset <id>=<file>]
-      |      Validate first, then atomically write the selected canonical JSON without inferring claims, graph structure, roles, steps, or media.
+      |      Validate first, then directly write the selected canonical JSON and report ordinary I/O failures without inferring claims, graph structure, roles, steps, or media.
       |
       |  media explanation expand <composition> --explanation-catalog <catalog> --presentation-catalog <catalog> --save <plan.json> [--source <id>=<file>] [--asset <id>=<file>]
       |      Validate explicitly authored Composition inputs and deterministically copy them into a medium-neutral Explanation Plan without projection or media generation.
       |
       |  media explanation project --projection-map <projection-map> --composition <composition> --plan <plan> --explanation-catalog <catalog> --presentation-catalog <catalog> --visual-page-set <set> --storyboard <storyboard> --save <projection.json> [--source <id>=<file>] [--asset <id>=<file>]
       |  media explanation verify-projection <projection> --composition <composition> --plan <plan> --projection-map <projection-map> --explanation-catalog <catalog> --presentation-catalog <catalog> --visual-page-set <set> --storyboard <storyboard> [--source <id>=<file>] [--asset <id>=<file>]
-      |      ProjectionMap and Projection use explicitly named files only. They verify currentness and linkage only; they do not discover, generate, render, modify media, or approve anything.
+      |      ProjectionMap and Projection use explicitly named files only. They validate authored semantics, catalog selectors, and page/scene linkage; they do not discover, generate, render, modify media, or approve anything.
       |
       |  media review align <media-file> --target <presentation-id> --authority <article|slide-ir>
       |      Record an explicit article or slide-IR semantic alignment decision after deterministic verification.
       |
       |  media scaffold article <slug> --profile business --language <tag> --save <dir>
-      |      Atomically create an article media package without fabricating a template binary or rendered PPTX.
+      |      Create the selected article media package without fabricating a template binary or rendered PPTX.
       |
       |  media register-site <media-file> --publication <dir> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]
       |      Register declared published site-media evidence as provider-neutral SmartDox article-media metadata.
       |
-      |  media prepare-publication <media-file> --project <canonical.dox> --bundle <verified-export> --task-root <existing-canonical-dir> --save <absent-direct-child> [--target <resource-id>] [--site-root <dir> --site-config <file>]
-      |      Atomically prepare only a task-private verified public export and native article-media registry. PREPARED reports installed paths and this bounded scope.
+      |  media prepare-publication <media-file> --project <canonical.dox> --bundle <verified-export> --task-root <existing-canonical-dir> --save <direct-child> [--target <resource-id>] [--site-root <dir> --site-config <file>]
+      |      Write the selected public export and native article-media registry directly to the task-private destination. Generated output may be overwritten; I/O failure may leave partial output. PREPARED reports completed paths.
       |
       |  media register-site-wip <media-file> --publication <publication-root> --website <website-root> [--target <resource-id>] [--site-root <dir> --site-config <file>] [--dry-run]
       |      Install validated local WIP video and register provider-neutral SmartDox article-media metadata.
@@ -279,8 +278,8 @@ private[cozy] object CozyHelpText {
       |  modeler-scala-value <model-file> --save <dir> [--generation-source-identity <project-relative-path>]
       |      Generate value/domain model Scala sources without a component. CNCF descriptor generation requires a stable project-relative source identity and writes target/cozy/generation-provenance.json.
       |
-      |  generation-provenance-validate <model-file> --save <generation-output-root> --cncf-version <version> --cncf-runtime-descriptor-sha256 <sha256> --cozy-generator-version <version> --generation-source-identity <project-relative-path> --generation-source-sha256 <sha256>
-      |      Validate generated Scala and target/cozy/generation-provenance.json against the owning build's exact generation inputs.
+      |  generation-provenance-validate <model-file> --save <generation-output-root> --cncf-version <version> --cozy-generator-version <version> --generation-source-identity <project-relative-path> [--simplemodeling-model-version <version>]
+      |      Validate exact generation versions, selected source readability, and generated Scala paths in target/cozy/generation-provenance.json.
       |
       |  package-car --save <file> --main-jar <file> --name <name> --version <version> --project-dir <dir> [--component <component>] [--car-dir <dir>] [--entities <spec>] [--abi-manifest <file>]
       |      Build a CAR archive with abi-manifest.json and car-runtime-manifest.json from the required project.yaml CAR contract. Explicit --abi-manifest overrides src/main/car/abi-manifest.json; versioned src/main/car/<version>/abi-manifest.json files are lint baselines only.
@@ -288,25 +287,25 @@ private[cozy] object CozyHelpText {
       |  package-sar --save <file> --source-dir <dir> --name <name> --version <version>
       |      Build a SAR archive.
       |
-      |  package-subcomponent-release --project-dir <dir> --parent-car <car> --child-car <car>... --composition <RSC-02-json> --required-child <qualified-id>... --save <car> --integrity <file> --published-at <RFC3339 instant>
-      |      Validate the project-authoritative parent and RSC-02 composition membership, then emit a deterministic parent/child release CAR, copied canonical composition metadata, and matching integrity evidence. This envelope does not update the ordinary CAR repository index.
+      |  package-subcomponent-release --project-dir <dir> --parent-car <car> --child-car <car>... --composition <RSC-02-json> --required-child <qualified-id>... --save <car> --published-at <RFC3339 instant>
+      |      Validate the project-authoritative parent and RSC-02 membership, then write a deterministic semantic parent/child release CAR directly to the selected output with copied canonical RSC-02 metadata. This envelope does not update the ordinary CAR repository index.
       |
       |  publish-car <project-dir> --warehouse <dir> --name <artifact> --version <version> [--car <file> | --main-jar <file>]
-      |      Publish a CAR archive and CAR catalog, update repository/catalog/index.json atomically, and write derived Maven metadata.
+      |      Publish a CAR archive and CAR catalog, write repository/catalog/index.json directly, and write derived Maven metadata.
       |      sbt-cozy cozyPublishLocalCar calls this command with ~/.cncf/local as the warehouse root.
       |
       |  publish-sar <project-dir> --warehouse <dir> --name <artifact> --version <version> [--sar <file> | --source-dir <dir>]
-      |      Publish a SAR archive and SAR catalog, update repository/catalog/index.json atomically, and write derived Maven metadata.
+      |      Publish a SAR archive and SAR catalog, write repository/catalog/index.json directly, and write derived Maven metadata.
       |      sbt-cozy cozyPublishLocalSar calls this command with ~/.cncf/local as the warehouse root.
       |
-      |  publish-subcomponent-release --project-dir <dir> --warehouse <dir> --release <car> --integrity <file> --published-at <RFC3339 instant>
-      |      Revalidate release and integrity evidence, then atomically admit the immutable release under its canonical parent coordinate. admission.json is the final visibility marker; this command does not alter CAR/SAR catalogs, indexes, or runtime activation.
+      |  publish-subcomponent-release --project-dir <dir> --warehouse <dir> --release <car> --published-at <RFC3339 instant>
+      |      Validate the semantic release and copied RSC-02 metadata, then replace the canonical warehouse release CAR directly. This command does not alter CAR/SAR catalogs, indexes, or runtime activation.
       |
       |  publish-project <project-dir> [--save <dir>] [--kind car|sar|sample-single|sample-multi|maven-repository] [--name <slug>] [--title <title>] [--path <path>]
       |      Generate SmartDox site BoK publication registry sources from an sbt project.
       |      Writes or replaces one publication bundle under the registry.
       |
-      |  publish-video <slug>.video --save <publication-dir> --warehouse <warehouse-dir> [--version <version>] [--force]
+      |  publish-video <slug>.video --save <publication-dir> --warehouse <warehouse-dir> [--version <version>]
       |      Build and publish a .video source package. Generated MP4/RDF sidecars go to warehouse/repository/video; only metadata is written to the publication registry.
       |
       |  publish-maven-repository <repository-dir> --save <dir> --name <slug> [--title <title>] [--path <path>] [--maven-coordinates <group:artifact,...>]

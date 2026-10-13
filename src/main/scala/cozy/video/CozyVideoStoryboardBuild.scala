@@ -13,16 +13,15 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 26, 2026
- * @version Sep. 29, 2026
+ *  version Sep. 29, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
-private[cozy] trait CozyVideoStoryboardBuild {
-  self: CozyVideoImplementation.type =>
-
+private[cozy] object CozyVideoStoryboardBuild {
   private final case class StoryboardBuildPart(
-    partplan: VideoPartPlan,
+    partplan: CozyVideoImplementation.VideoPartPlan,
     sourcepath: Path,
-    storyboard: Storyboard,
+    storyboard: CozyVideoImplementation.Storyboard,
     storyboardsection: Option[String],
     handoffpath: Path,
     handoff: Json
@@ -34,10 +33,36 @@ private[cozy] trait CozyVideoStoryboardBuild {
     outputpath: Path,
     manifestpath: Path
   )
+}
+
+private[cozy] trait CozyVideoStoryboardBuild {
+  self: CozyVideoImplementation.type =>
+
+  import CozyVideoStoryboardBuild.{StoryboardBuildPart, StoryboardBuildMode}
 
   private val _confirmation_mode = "confirmation"
   private val _final_mode = "final"
   private val _handoff_schema = "cozy.video.storyboard-build-handoff.v2"
+
+  private[video] def _media_storyboard_inputs(plan: VideoPlan): Vector[Path] = {
+    val parts = _storyboard_build_parts(plan)
+    parts.flatMap { part =>
+      Vector(part.sourcepath) ++ part.storyboard.scenes.flatMap(scene => scene.diagramRefs ++ scene.assetRefs)
+        .map(reference => _safe_storyboard_build_source(plan.projectRoot, reference, s"Storyboard part ${part.partplan.id} reference")) ++
+        _visual_page_input_paths(part)
+    }.distinct
+  }
+
+  private[video] def _media_storyboard_products(plan: VideoPlan): Vector[Path] =
+    _storyboard_generated_products(plan, _storyboard_build_mode_for(plan, _final_mode), _storyboard_build_parts(plan))
+
+  private[video] def _media_storyboard_final_valid(plan: VideoPlan): Boolean =
+    _valid_final_manifest(plan, _storyboard_build_mode_for(plan, _final_mode), _storyboard_build_parts(plan),
+      _storyboard_build_mode_for(plan, _final_mode).manifestpath)
+
+  private[video] def _media_storyboard_final_records_valid(plan: VideoPlan): Boolean =
+    _valid_final_records(plan, _storyboard_build_mode_for(plan, _final_mode), _storyboard_build_parts(plan),
+      _storyboard_build_mode_for(plan, _final_mode).manifestpath)
 
   private[video] def _build_storyboard_mode(
     config: BuildConfig,
@@ -214,14 +239,7 @@ private[cozy] trait CozyVideoStoryboardBuild {
     })
 
   private def _storyboard_encoding_json(encoding: ResolvedEncodingSettings): Json =
-    Json.obj(
-      "policy" -> Json.fromString(encoding.policy.name),
-      "fps" -> Json.fromInt(encoding.fps),
-      "width" -> Json.fromInt(encoding.width),
-      "height" -> Json.fromInt(encoding.height),
-      "crf" -> Json.fromInt(encoding.crf),
-      "x264Preset" -> encoding.x264Preset.map(Json.fromString).getOrElse(Json.Null)
-    )
+    CozyVideoQuality.encodingJson(encoding)
 
   private def _storyboard_renderers_json(plan: VideoPlan): Json =
     Json.obj(
@@ -251,7 +269,10 @@ private[cozy] trait CozyVideoStoryboardBuild {
           "crf" -> value.crf.map(Json.fromInt).getOrElse(Json.Null),
           "x264Preset" -> value.x264Preset.map(Json.fromString).getOrElse(Json.Null),
           "effectProfile" -> value.effectProfile.map(Json.fromString).getOrElse(Json.Null)
-        )
+        ).deepMerge(Json.fromFields(Vector(
+          value.qualityProfile.map(profile => "qualityProfile" -> Json.fromString(profile.name)),
+          value.audioBitrate.map(bitrate => "audioBitrate" -> Json.fromString(bitrate))
+        ).flatten))
       case None => Json.Null
     }
 
@@ -329,11 +350,11 @@ private[cozy] trait CozyVideoStoryboardBuild {
 
   private[video] def _validated_storyboard_final_manifest(
     plan: VideoPlan,
-    finalvideo: Path
+    finalVideo: Path
   ): Path = {
     val mode = _storyboard_build_mode_for(plan, _final_mode)
     val manifest = mode.manifestpath.toAbsolutePath.normalize()
-    if (mode.outputpath.toAbsolutePath.normalize() != finalvideo.toAbsolutePath.normalize())
+    if (mode.outputpath.toAbsolutePath.normalize() != finalVideo.toAbsolutePath.normalize())
       _storyboard_build_failure(s"Storyboard final manifest output does not match the planned final video: $manifest")
     _require_direct_target_subtree(plan.projectRoot, manifest.getParent, "Storyboard final manifest directory")
     _require_direct_regular_file(manifest, "Storyboard final manifest")
@@ -507,20 +528,6 @@ private[cozy] trait CozyVideoStoryboardBuild {
       }
       if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !_is_direct_regular_file(destination))
         _storyboard_build_failure(s"Storyboard ${mode.name} generated destination is not a direct regular file: $destination")
-      _require_atomic_destination_device(plan.projectRoot, destination, mode)
-    }
-  }
-
-  private def _require_atomic_destination_device(projectroot: Path, destination: Path, mode: StoryboardBuildMode): Unit = {
-    val stagingparent = _target_root(projectroot)
-    val parent = Option(destination.getParent).getOrElse(
-      _storyboard_build_failure(s"Storyboard ${mode.name} generated destination has no parent: $destination")
-    )
-    try {
-      if (Files.getFileStore(stagingparent) != Files.getFileStore(parent))
-        _storyboard_build_failure(s"Storyboard ${mode.name} generated destination is not on the staging filesystem required for atomic replacement: $destination")
-    } catch {
-      case NonFatal(error) => _storyboard_build_failure(s"Storyboard ${mode.name} cannot verify atomic destination filesystem for $destination: ${error.getMessage}")
     }
   }
 
@@ -569,13 +576,35 @@ private[cozy] trait CozyVideoStoryboardBuild {
     }
 
   private def _valid_final_manifest(plan: VideoPlan, mode: StoryboardBuildMode, parts: Vector[StoryboardBuildPart], manifest: Path): Boolean =
-    _is_direct_nonempty_file(mode.outputpath) && _is_direct_nonempty_file(manifest) &&
-      _record_contains(manifest, _storyboard_mode_record(plan, mode, parts, None, includenarration = false)) &&
+    _is_direct_nonempty_file(mode.outputpath) && _valid_final_records(plan, mode, parts, manifest)
+
+  private def _valid_final_records(plan: VideoPlan, mode: StoryboardBuildMode, parts: Vector[StoryboardBuildPart], manifest: Path): Boolean =
+    _is_direct_nonempty_file(manifest) &&
+      _storyboard_mode_record_valid(plan, mode, parts, manifest) &&
       _valid_stored_narration(plan, manifest, parts) &&
       parts.forall(part => _valid_handoff(plan.projectRoot, part)) &&
       plan.parts.filter(_.renderable).forall(part => _is_direct_nonempty_file(part.outputPath) &&
         _record_contains(_storyboard_part_artifact_path(plan.projectRoot, mode, part.id), _storyboard_part_artifact_record(plan.projectRoot, mode, part))) &&
       _stored_ffprobe_valid(manifest) && _credit_files_current(plan, mode)
+
+  private def _storyboard_mode_record_valid(
+    plan: VideoPlan,
+    mode: StoryboardBuildMode,
+    parts: Vector[StoryboardBuildPart],
+    manifest: Path
+  ): Boolean =
+    if (!_is_direct_nonempty_file(manifest)) false
+    else try {
+      val required = _storyboard_mode_record(plan, mode, parts, None, includenarration = false)
+        .mapObject(_.remove("encoding"))
+      parser.parse(Files.readString(manifest, StandardCharsets.UTF_8)).toOption.exists { actual =>
+        CozyVideoStoryboardRecordValidation.contains(actual, required) &&
+          actual.hcursor.downField("encoding").focus.filter(_.isObject).exists { encoding =>
+            _review_require_effective_encoding(encoding, "policy", plan.encoding, "Storyboard final manifest encoding")
+            true
+          }
+      }
+    } catch { case NonFatal(_) => false }
 
   private def _valid_stored_narration(plan: VideoPlan, manifest: Path, parts: Vector[StoryboardBuildPart]): Boolean =
     try parser.parse(Files.readString(manifest, StandardCharsets.UTF_8)).toOption.flatMap(_.hcursor.downField("narration").focus).flatMap(_.asArray).exists { entries =>
@@ -699,79 +728,47 @@ private[cozy] trait CozyVideoStoryboardBuild {
     _prepare_storyboard_mode_targets(plan, mode, parts)
     _validate_storyboard_part_outputs(plan)
     _preflight_storyboard_mode_destinations(plan, mode, parts, inputs)
-    val staging = _new_staging_root(plan.projectRoot, mode)
-    val stageoutput = staging.resolve("final.mp4")
+    val assemblywork = _new_assembly_work(plan.projectRoot, mode)
     try {
       val partoutputs = plan.parts.filter(_.renderable).map(_.outputPath)
-      val executionparts = _stage_execution_parts(plan, staging, partoutputs)
-      val concatlist = staging.resolve("concat.txt")
-      _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, executionparts)
-      _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, stageoutput, runner)
-      _require_direct_regular_file(stageoutput, s"Staged Storyboard ${mode.name} output")
-      val ffprobe = _ffprobe_summary(_run_build_ffprobe(plan.projectRoot, plan.execution, stageoutput, runner))
-      _require_valid_ffprobe_summary(ffprobe, s"Staged Storyboard ${mode.name} output")
-      val creditfiles = _stage_credit_files(plan, staging)
-      val handoffs = parts.map { part =>
-        val staged = staging.resolve("handoffs").resolve(s"${part.partplan.id}.json")
-        _write_storyboard_json(staged, part.handoff, staging, s"Staged Storyboard handoff ${part.partplan.id}")
-        CozyVideoStoryboardArtifacts.Artifact(staged, part.handoffpath)
+      val concatlist = assemblywork.resolve("concat.txt")
+      _write_ffmpeg_concat_list(plan.projectRoot, plan.execution, concatlist, partoutputs)
+      _run_build_ffmpeg(plan.projectRoot, plan.execution, concatlist, partoutputs, mode.outputpath, runner, plan.encoding)
+      _require_direct_regular_file(mode.outputpath, s"Storyboard ${mode.name} output")
+      val ffprobe = _ffprobe_summary(_run_build_ffprobe(plan.projectRoot, plan.execution, mode.outputpath, runner))
+      _require_valid_ffprobe_summary(ffprobe, s"Storyboard ${mode.name} output")
+      _require_final_media_presentation(ffprobe, mode.outputpath)
+      plan.credits.profile.foreach { _ =>
+        CozyVideoCredits.write(mode.outputpath.getParent.resolve("credits"), plan.credits)
       }
-      val partartifacts = plan.parts.filter(_.renderable).map { part =>
-        val staged = staging.resolve("part-artifacts").resolve(s"${part.id}.json")
-        _write_storyboard_json(staged, _storyboard_part_artifact_record(plan.projectRoot, mode, part), staging, s"Staged Storyboard ${mode.name} part artifact ${part.id}")
-        CozyVideoStoryboardArtifacts.Artifact(staged, _storyboard_part_artifact_path(plan.projectRoot, mode, part.id))
+      val targetroot = _target_root(plan.projectRoot)
+      parts.foreach { part =>
+        _write_storyboard_json(part.handoffpath, part.handoff, targetroot, s"Storyboard handoff ${part.partplan.id}")
       }
-      val stagedmanifest = staging.resolve("manifest.json")
-      _write_storyboard_json(stagedmanifest, _storyboard_mode_record(plan, mode, parts, Some(ffprobe)), staging, s"Staged Storyboard ${mode.name} manifest")
-      val artifacts = Vector(CozyVideoStoryboardArtifacts.Artifact(stageoutput, mode.outputpath), CozyVideoStoryboardArtifacts.Artifact(stagedmanifest, mode.manifestpath)) ++ handoffs ++ partartifacts ++ _credit_artifacts(creditfiles, mode)
-      CozyVideoStoryboardArtifacts.install(staging, artifacts, inputs.map(x => Path.of(x.path)).toSet)
-      _delete_staging(staging)
+      plan.parts.filter(_.renderable).foreach { part =>
+        _write_storyboard_json(_storyboard_part_artifact_path(plan.projectRoot, mode, part.id),
+          _storyboard_part_artifact_record(plan.projectRoot, mode, part), targetroot, s"Storyboard ${mode.name} part artifact ${part.id}")
+      }
+      _write_storyboard_json(mode.manifestpath, _storyboard_mode_record(plan, mode, parts, Some(ffprobe)),
+        targetroot, s"Storyboard ${mode.name} manifest")
       _render_storyboard_build_cache_miss(plan, mode, parts, checks, ffprobe)
     } catch {
       case NonFatal(error) =>
-        _storyboard_build_failure(s"Storyboard ${mode.name} assembly failed; preserved artifacts remain recoverable under $staging: ${error.getMessage}")
-    }
+        _storyboard_build_failure(s"Storyboard ${mode.name} assembly failed: ${error.getMessage}")
+    } finally _delete_assembly_work(assemblywork)
   }
 
-  private def _new_staging_root(projectroot: Path, mode: StoryboardBuildMode): Path = {
-    val root = _target_root(projectroot).resolve("staging").resolve(mode.name).resolve(s"attempt-${UUID.randomUUID().toString}").normalize()
-    _ensure_direct_directory(root, projectroot, s"Storyboard ${mode.name} staging root")
+  private def _new_assembly_work(projectroot: Path, mode: StoryboardBuildMode): Path = {
+    val root = _target_root(projectroot).resolve("assembly-work").resolve(mode.name).resolve(s"attempt-${UUID.randomUUID().toString}").normalize()
+    _ensure_direct_directory(root, projectroot, s"Storyboard ${mode.name} assembly work directory")
   }
-
-  private def _stage_execution_parts(plan: VideoPlan, staging: Path, partoutputs: Vector[Path]): Vector[Path] =
-    plan.execution.toolMode match {
-      case VideoToolMode.Docker =>
-        val directory = staging.resolve("parts")
-        _ensure_direct_directory(directory, staging, "Storyboard Docker staged parts")
-        partoutputs.zipWithIndex.map { case (source, index) =>
-          val destination = directory.resolve(f"part-${index + 1}%02d.mp4")
-          Files.copy(source, destination, StandardCopyOption.COPY_ATTRIBUTES)
-          destination
-        }
-      case _ => partoutputs
-    }
-
-  private def _stage_credit_files(plan: VideoPlan, staging: Path): Option[CozyVideoCredits.OutputFiles] =
-    plan.credits.profile.map { _ =>
-      CozyVideoCredits.write(staging.resolve("credits"), plan.credits)
-    }
-
-  private def _credit_artifacts(files: Option[CozyVideoCredits.OutputFiles], mode: StoryboardBuildMode): Vector[CozyVideoStoryboardArtifacts.Artifact] =
-    files.toVector.flatMap { value =>
-      val destinations = _credit_destination_paths(mode)
-      Vector(
-        CozyVideoStoryboardArtifacts.Artifact(value.jsonFile, destinations(0)),
-        CozyVideoStoryboardArtifacts.Artifact(value.markdownFile, destinations(1)),
-        CozyVideoStoryboardArtifacts.Artifact(value.rendererPropsFile, destinations(2))
-      )
-    }
 
   private def _credit_files_current(plan: VideoPlan, mode: StoryboardBuildMode): Boolean =
     plan.credits.profile.isEmpty || Vector("credits.json", "credits.md", "renderer-props.json").forall { name =>
       _is_direct_nonempty_file(mode.outputpath.getParent.resolve("credits").resolve(name))
     }
 
-  private def _delete_staging(path: Path): Unit = {
+  private def _delete_assembly_work(path: Path): Unit = {
     val stream = Files.walk(path)
     try stream.iterator().asScala.toVector.sortBy(_.getNameCount).reverse.foreach(Files.deleteIfExists)
     finally stream.close()

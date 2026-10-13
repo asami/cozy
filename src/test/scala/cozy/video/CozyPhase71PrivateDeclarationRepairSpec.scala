@@ -10,13 +10,22 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Sep. 29, 2026
- * @version Sep. 29, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyPhase71PrivateDeclarationRepairSpec {
+  private final case class Fixture(root: Path, destination: Path, project: Path, video: Path, storyboard: Path, assetroot: Path)
+
+  private final case class ScriptResult(exitcode: Int, output: String)
+}
+
 final class CozyPhase71PrivateDeclarationRepairSpec
     extends AnyWordSpec
     with GivenWhenThen
     with CozySpecVocabulary {
+  import CozyPhase71PrivateDeclarationRepairSpec.Fixture
+  import CozyPhase71PrivateDeclarationRepairSpec.ScriptResult
+
   "The PHASE-71 private declaration repair" should {
     "select the native nine-scene Storyboard while preserving the declared video contract" in {
       _with_fixture("native-plan") { fixture =>
@@ -251,9 +260,6 @@ final class CozyPhase71PrivateDeclarationRepairSpec
     "technology-context",
     "series-roadmap"
   )
-
-  private final case class Fixture(root: Path, destination: Path, project: Path, video: Path, storyboard: Path, assetroot: Path)
-  private final case class ScriptResult(exitcode: Int, output: String)
 
   private val _script_path = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("scripts/test/repair-phase71-private-declarations.sh")
 

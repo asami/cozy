@@ -4,7 +4,7 @@ import java.nio.file.Path
 
 /*
  * @since   Sep. 10, 2026
- * @version Sep. 10, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectExecutability {
@@ -20,7 +20,7 @@ private[cozy] object CozyDocumentProjectExecutability {
     project: Path,
     descriptor: CozyDocumentProject.Descriptor,
     resolved: CozyDocumentWorkflow.ResolvedWorkflow,
-    sources: Vector[CozyDocumentProjectEvidence.FileIdentity],
+    sources: Vector[CozyDocumentProjectEvidence.FileReference],
     products: Vector[CozyDocumentProjectEvidence.WorkProductState],
     attempts: Vector[CozyDocumentProjectEvidence.Attempt],
     presentationstate: CozyDocumentProjectPresentationSemanticsState.State
@@ -56,7 +56,7 @@ private[cozy] object CozyDocumentProjectExecutability {
       val acceptedoutputcurrentness = nativeoutput match {
         case Some(_) =>
           val acceptedattempts = attempts.filter(attempt => attempt.schema == _attempt_v2_schema && attempt.operation == operation.id && attempt.outcome == "accepted")
-          if (acceptedattempts.exists(CozyDocumentProjectNativeEvidence.nativeAttemptCurrent(project, _))) CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Current
+          if (acceptedattempts.exists(CozyDocumentProjectNativeEvidence.nativeOutputsAvailable(project, _))) CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Current
           else if (acceptedattempts.nonEmpty) CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Stale
           else CozyDocumentWorkflow.NativeAcceptedOutputCurrentness.Missing
         case None => productsbyid.get(outputworkproductid).map(_.currentness) match {
@@ -101,13 +101,12 @@ private[cozy] object CozyDocumentProjectExecutability {
     descriptor: CozyDocumentProject.Descriptor,
     value: CozyDocumentProjectEvidence.Snapshot
   ): String = {
-    val sourceyaml = value.sources.map(identity => s"  - path: ${identity.path}\n    sha256: ${identity.sha256}")
+    val sourceyaml = value.sources.map(reference => s"  - path: ${reference.path}")
     val evidenceyaml = value.sidecar match {
       case Some(sidecar) =>
         Vector(
           "  sidecar:",
           s"    path: ${sidecar.path.path}",
-          s"    sha256: ${sidecar.path.sha256}",
           "  attempts:"
         ) ++ _attempt_yaml(value.attempts)
       case None => Vector("  sidecar: none", "  attempts:") ++ _attempt_yaml(value.attempts)
@@ -173,7 +172,6 @@ private[cozy] object CozyDocumentProjectExecutability {
       attempts.flatMap { attempt =>
         Vector(
           s"    - path: ${attempt.path.path}",
-          s"      sha256: ${attempt.path.sha256}",
           s"      outcome: ${attempt.outcome}"
         )
       }

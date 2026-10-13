@@ -231,7 +231,7 @@ complete projection carriers. Totals are 42 records / three Terms; carrier array
 are exactly 1 / 5 / 5 / 1 / 2 / 1 / 2 in the seven-family order above.
 
 New model authority is `dynamic.example`, names are `共有`, source path is
-`src/main/cml/dynamic-handoff.cml`, sha256 is 64 lowercase `b` characters and
+`src/main/cml/dynamic-handoff.cml` and
 lines 23–42 correspond respectively to this exact Catalog order:
 
 | Core kind | Qualified element component / source line |

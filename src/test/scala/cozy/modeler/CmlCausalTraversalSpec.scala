@@ -12,7 +12,7 @@ import CmlCausalTraversal._
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlCausalTraversalSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Causal traversal" should {
@@ -264,7 +264,7 @@ final class CmlCausalTraversalSpec extends AnyWordSpec with Matchers with GivenW
           link.copy(semanticReference = null), link.copy(semanticReference = Some(null)), link.copy(source = Present(null)),
           link.copy(target = Present(ModelReference(null, null))), link.copy(owner = link.owner.copy(identity = Present(null))),
           link.copy(origin = Derived(null, null)), link.copy(origin = Derived("hostile\nsecret", Vector(null))),
-          link.copy(sourceAttribution = SourceAttribution(null, "../secret", null, null)), link.copy(evidenceField = "hostile\nsecret"),
+          link.copy(sourceAttribution = SourceAttribution(null, "../secret", null)), link.copy(evidenceField = "hostile\nsecret"),
           link.copy(kind = Reaction), link.copy(target = Present(_eventref)))
         When("null Graph null link and every nonnull mutation are presented to the public boundary")
         val nullgraph = CmlCausalTraversal.build(null)
@@ -588,7 +588,7 @@ final class CmlCausalTraversalSpec extends AnyWordSpec with Matchers with GivenW
         Json.obj("identity" -> _identity_json(reference.identity), "boundary" -> _boundary(reference.boundary))),
       "membership" -> _presence(boundary.membership, JsString))))
 
-  private def _source(authority: String): SourceAttribution = SourceAttribution(authority, "model/source.cml", "a" * 64, Some(7))
+  private def _source(authority: String): SourceAttribution = SourceAttribution(authority, "model/source.cml", Some(7))
   private def _record(authority: String, id: String, kind: String): ElementRecord =
     ElementRecord(Present(ModelElementId(authority, id)), kind, "display", _source(authority), Present(Vector.empty))
   private def _semantic(target: SemanticTarget, boundary: ReferenceBoundary, origin: ReferenceOrigin): SemanticReference =
@@ -599,7 +599,7 @@ final class CmlCausalTraversalSpec extends AnyWordSpec with Matchers with GivenW
     "kind" -> value.kind, "name" -> value.name, "source" -> _source_json(value.source),
     "references" -> _presence(value.references, (references: Vector[SemanticReference]) => JsArray(references.map(_semantic_json))))
   private def _source_json(value: SourceAttribution): JsObject = Json.obj("authorityId" -> value.authorityId, "path" -> value.path,
-    "sha256" -> value.sha256, "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(BigDecimal(line))))
+    "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(BigDecimal(line))))
   private def _identity_json(value: ModelElementId): JsObject = Json.obj("modelId" -> value.modelId, "elementId" -> value.elementId)
   private def _model_json(value: ModelReference): JsObject = Json.obj("identity" -> _identity_json(value.identity), "boundary" -> _boundary(value.boundary))
   private def _boundary(value: ReferenceBoundary): String = if (value == Local) "local" else "external"

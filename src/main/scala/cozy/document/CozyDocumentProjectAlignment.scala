@@ -3,26 +3,25 @@ package cozy.document
 import io.circe.Json
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, LinkOption, Path, Paths}
-import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 3, 2026
- * @version Sep.  3, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentProjectAlignment {
-  final case class FileIdentity(path: String, identity: String, sha256: String)
+  final case class FileReference(path: String, identity: String)
   final case class Provider(id: String, operation: String, profile: String)
   final case class Review(reviewer: String, decision: String, rationale: String)
-  final case class SharedInfographicUse(identity: String, consumer: String, evidence: FileIdentity)
+  final case class SharedInfographicUse(identity: String, consumer: String, evidence: FileReference)
   final case class Artifact(
     kind: String,
     locale: String,
-    authority: FileIdentity,
-    output: FileIdentity,
-    receipt: FileIdentity,
+    authority: FileReference,
+    output: FileReference,
+    receipt: FileReference,
     provider: Provider,
     renderer: String,
     review: Review,
@@ -49,8 +48,8 @@ private[cozy] object CozyDocumentProjectAlignment {
     project: String,
     semanticscope: String,
     locale: String,
-    contentcore: FileIdentity,
-    sharedinfographic: FileIdentity,
+    contentcore: FileReference,
+    sharedinfographic: FileReference,
     artifacts: Vector[Artifact],
     parity: Parity
   )
@@ -59,8 +58,8 @@ private[cozy] object CozyDocumentProjectAlignment {
   private val _schema = "cozy.content-alignment.v1"
   private val _ledger_path = "evidence/content-alignment.yaml"
   private val _top_level_keys = Vector("schema", "project", "semanticScope", "locale", "contentCore", "sharedInfographic", "artifacts", "parity")
-  private val _file_identity_keys = Vector("path", "identity", "sha256")
-  private val _file_identity_parent_counts = Map(
+  private val _file_reference_keys = Vector("path", "identity")
+  private val _file_reference_parent_counts = Map(
     "contentCore" -> 1,
     "sharedInfographic" -> 1,
     "authority" -> 5,
@@ -68,7 +67,6 @@ private[cozy] object CozyDocumentProjectAlignment {
     "receipt" -> 5,
     "evidence" -> 5
   )
-  private val _hash_pattern = "[0-9a-f]{64}".r
   private val _decisions = Set("accepted", "changes-requested", "rejected", "pending", "not-applicable")
   private val _parity_decisions = Set("accepted", "pending", "not-applicable")
   private val _requirements = Vector(
@@ -94,8 +92,8 @@ private[cozy] object CozyDocumentProjectAlignment {
     } else {
       val ledger = _ledger(project, descriptor, ledgerpath)
       val coreaccepted = CozyDocumentProject._core_has_accepted_entries(project, descriptor)
-      val corereason = _identity_reason(project, ledger.contentcore, "Content Core")
-      val sharedreason = _identity_reason(project, ledger.sharedinfographic, "shared infographic")
+      val corereason = _reference_reason(project, ledger.contentcore, "Content Core")
+      val sharedreason = _reference_reason(project, ledger.sharedinfographic, "shared infographic")
       val artifactstatuses = ledger.artifacts.zip(_requirements).map { case (artifact, requirement) =>
         _artifact_status(project, descriptor, artifact, requirement, coreaccepted, corereason, sharedreason, ledger.sharedinfographic)
       }
@@ -119,7 +117,7 @@ private[cozy] object CozyDocumentProjectAlignment {
   private def _ledger(project: Path, descriptor: CozyDocumentProject.Descriptor, path: Path): Ledger = {
     _direct_project_file(project, _ledger_path, "content alignment ledger")
     _require_top_level_order(path, _top_level_keys, "content alignment ledger")
-    _require_file_identity_order(path, "content alignment ledger")
+    _require_file_reference_order(path, "content alignment ledger")
     val fields = _object(CozyDocumentProject._load_json(path, "content alignment ledger"), "content alignment ledger")
     if (fields.keySet != _top_level_keys.toSet)
       _invalid("content alignment ledger must have exactly schema, project, semanticScope, locale, contentCore, sharedInfographic, artifacts, parity")
@@ -134,14 +132,14 @@ private[cozy] object CozyDocumentProjectAlignment {
     val locale = _nonempty(_string(fields, "locale", "content alignment ledger"), "content alignment ledger locale")
     if (locale != descriptor.language)
       _invalid("content alignment ledger locale must equal descriptor language")
-    val core = _file_identity(project, _field(fields, "contentCore", "content alignment ledger"), "content alignment Content Core")
+    val core = _file_reference(project, _field(fields, "contentCore", "content alignment ledger"), "content alignment Content Core")
     if (core.path != descriptor.contentCore)
       _invalid("content alignment Content Core path must equal descriptor contentCore")
     val ownvariant = descriptor.semanticScope.localeVariants.find(value => value.project == descriptor.id && value.language == descriptor.language)
       .getOrElse(_invalid("descriptor semanticScope has no self locale variant"))
     if (core.identity != ownvariant.contentCore)
       _invalid("content alignment Content Core identity must equal descriptor self locale identity")
-    val infographic = _file_identity(project, _field(fields, "sharedInfographic", "content alignment ledger"), "content alignment shared infographic")
+    val infographic = _file_reference(project, _field(fields, "sharedInfographic", "content alignment ledger"), "content alignment shared infographic")
     if (infographic.path != "infographic/infographic.svg")
       _invalid("content alignment shared infographic path must be infographic/infographic.svg")
     val artifactsvalue = _field(fields, "artifacts", "content alignment ledger").asArray.getOrElse(_invalid("content alignment artifacts must be an array"))
@@ -163,9 +161,9 @@ private[cozy] object CozyDocumentProjectAlignment {
     if (kind != requirement.kind)
       _invalid("content alignment artifacts must follow the closed consumer order")
     val locale = _nonempty(_string(fields, "locale", s"content alignment $kind"), s"content alignment $kind locale")
-    val authority = _file_identity(project, _field(fields, "authority", s"content alignment $kind"), s"content alignment $kind authority")
-    val output = _file_identity(project, _field(fields, "output", s"content alignment $kind"), s"content alignment $kind output")
-    val receipt = _file_identity(project, _field(fields, "receipt", s"content alignment $kind"), s"content alignment $kind receipt")
+    val authority = _file_reference(project, _field(fields, "authority", s"content alignment $kind"), s"content alignment $kind authority")
+    val output = _file_reference(project, _field(fields, "output", s"content alignment $kind"), s"content alignment $kind output")
+    val receipt = _file_reference(project, _field(fields, "receipt", s"content alignment $kind"), s"content alignment $kind receipt")
     val provider = _provider(_field(fields, "provider", s"content alignment $kind"), kind)
     val renderer = _nonempty(_string(fields, "renderer", s"content alignment $kind"), s"content alignment $kind renderer")
     val review = _review(_field(fields, "review", s"content alignment $kind"), kind)
@@ -202,7 +200,7 @@ private[cozy] object CozyDocumentProjectAlignment {
       _invalid(s"content alignment $kind sharedInfographicUse must have exactly identity, consumer, evidence")
     val identity = _nonempty(_string(fields, "identity", s"content alignment $kind sharedInfographicUse"), s"content alignment $kind sharedInfographicUse identity")
     val consumer = _nonempty(_string(fields, "consumer", s"content alignment $kind sharedInfographicUse"), s"content alignment $kind sharedInfographicUse consumer")
-    val evidence = _file_identity(project, _field(fields, "evidence", s"content alignment $kind sharedInfographicUse"), s"content alignment $kind visual review evidence")
+    val evidence = _file_reference(project, _field(fields, "evidence", s"content alignment $kind sharedInfographicUse"), s"content alignment $kind visual review evidence")
     if (!evidence.path.startsWith("evidence/visual-review/"))
       _invalid(s"content alignment $kind visual review evidence must be private evidence/visual-review content")
     SharedInfographicUse(identity, consumer, evidence)
@@ -242,10 +240,10 @@ private[cozy] object CozyDocumentProjectAlignment {
     coreaccepted: Boolean,
     corereason: Option[String],
     sharedreason: Option[String],
-    sharedinfographic: FileIdentity
+    sharedinfographic: FileReference
   ): ArtifactStatus = {
     val visual = _visual_use_status(project, artifact.sharedinfographicuse, sharedinfographic, sharedreason)
-    val outputreason = _identity_reason(project, artifact.output, "output")
+    val outputreason = _reference_reason(project, artifact.output, "output")
     val reasons = Vector(
       if (artifact.locale == descriptor.language) None else Some("locale changed"),
       if (artifact.authority.path == requirement.authoritypath) None else Some("locale authority path changed"),
@@ -255,16 +253,16 @@ private[cozy] object CozyDocumentProjectAlignment {
       if (artifact.renderer == requirement.renderer) None else Some("renderer changed"),
       corereason,
       sharedreason,
-      _identity_reason(project, artifact.authority, "locale authority"),
+      _reference_reason(project, artifact.authority, "locale authority"),
       outputreason,
-      _identity_reason(project, artifact.receipt, "receipt"),
+      _reference_reason(project, artifact.receipt, "receipt"),
       if (visual._1 == "current") None else Some(visual._2)
     ).flatten
     val (currentness, reason) = artifact.review.decision match {
       case "accepted" if !coreaccepted => "pending" -> "Content Core has no accepted entry"
       case "accepted" if outputreason.contains("output is missing") => "missing" -> "output is missing"
       case "accepted" if reasons.nonEmpty => "stale" -> reasons.head
-      case "accepted" => "current" -> "all recorded identities and human acceptance are current"
+      case "accepted" => "current" -> "admitted references are available and human acceptance is recorded"
       case "pending" => "pending" -> "human review is pending"
       case "not-applicable" => "not-applicable" -> "human review is not applicable"
       case decision => "not-accepted" -> s"human review decision is $decision"
@@ -275,15 +273,15 @@ private[cozy] object CozyDocumentProjectAlignment {
   private def _visual_use_status(
     project: Path,
     use: SharedInfographicUse,
-    shared: FileIdentity,
+    shared: FileReference,
     sharedreason: Option[String]
   ): (String, String) = {
     val reason =
       if (use.identity != shared.identity) Some("shared infographic identity changed")
-      else sharedreason.orElse(_identity_reason(project, use.evidence, "shared infographic visual-review evidence"))
+      else sharedreason.orElse(_reference_reason(project, use.evidence, "shared infographic visual-review evidence"))
     reason match {
       case Some(value) => "stale" -> value
-      case None => "current" -> "direct visual-review evidence is current"
+      case None => "current" -> "direct visual-review evidence is available"
     }
   }
 
@@ -294,25 +292,21 @@ private[cozy] object CozyDocumentProjectAlignment {
     case _ => _invalid("content alignment parity decision is invalid")
   }
 
-  private def _identity_reason(project: Path, identity: FileIdentity, label: String): Option[String] = {
+  private def _reference_reason(project: Path, identity: FileReference, label: String): Option[String] = {
     val path = project.resolve(identity.path).normalize()
     if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) Some(s"$label is missing")
     else if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) Some(s"$label is no longer a direct regular file")
-    else if (_sha256(path) != identity.sha256) Some(s"$label SHA-256 changed")
     else None
   }
 
-  private def _file_identity(project: Path, value: Json, label: String): FileIdentity = {
+  private def _file_reference(project: Path, value: Json, label: String): FileReference = {
     val fields = _object(value, label)
-    if (fields.keySet != Set("path", "identity", "sha256"))
-      _invalid(s"$label must have exactly path, identity, sha256")
+    if (fields.keySet != Set("path", "identity"))
+      _invalid(s"$label must have exactly path, identity")
     val path = _relative_path(_nonempty(_string(fields, "path", label), s"$label path"))
     val identity = _nonempty(_string(fields, "identity", label), s"$label identity")
-    val sha256 = _string(fields, "sha256", label)
-    if (!_hash_pattern.pattern.matcher(sha256).matches())
-      _invalid(s"$label SHA-256 must be lowercase hexadecimal")
-    _admit_identity_path(project, path, label)
-    FileIdentity(path, identity, sha256)
+    _admit_reference_path(project, path, label)
+    FileReference(path, identity)
   }
 
   private def _admit_absent_ledger_parent(project: Path): Unit = {
@@ -321,7 +315,7 @@ private[cozy] object CozyDocumentProjectAlignment {
       CozyDocumentProject._direct_directory(evidence, "evidence directory")
   }
 
-  private def _admit_identity_path(project: Path, relative: String, label: String): Unit = {
+  private def _admit_reference_path(project: Path, relative: String, label: String): Unit = {
     val candidate = project.resolve(relative).normalize()
     if (!candidate.startsWith(project))
       CozyDocumentProject._failure("DP-PATH-001", s"$label escapes the project")
@@ -338,7 +332,7 @@ private[cozy] object CozyDocumentProjectAlignment {
 
   private def _direct_project_file(project: Path, relative: String, label: String): Path = {
     val candidate = project.resolve(relative).normalize()
-    _admit_identity_path(project, relative, label)
+    _admit_reference_path(project, relative, label)
     if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS))
       CozyDocumentProject._failure("DP-PATH-001", s"$label must be a direct regular file")
     candidate
@@ -363,7 +357,7 @@ private[cozy] object CozyDocumentProjectAlignment {
       _invalid(s"$label top-level keys must be ordered ${expected.mkString(", ")}")
   }
 
-  private def _require_file_identity_order(path: Path, label: String): Unit = {
+  private def _require_file_reference_order(path: Path, label: String): Unit = {
     val lines = try {
       Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toVector
     } catch {
@@ -371,19 +365,19 @@ private[cozy] object CozyDocumentProjectAlignment {
     }
     val parents = lines.zipWithIndex.flatMap { case (line, index) =>
       _yaml_mapping_key(line).collect {
-        case (indentation, key, value) if _file_identity_parent_counts.contains(key) && value.trim.isEmpty =>
+        case (indentation, key, value) if _file_reference_parent_counts.contains(key) && value.trim.isEmpty =>
           (index, indentation, key)
       }
     }
     val counts = parents.groupBy(_._3).map { case (key, values) => key -> values.size }
-    val invalid = counts != _file_identity_parent_counts || parents.exists { case (index, indentation, _) =>
-      _file_identity_child_keys(lines, index, indentation) != _file_identity_keys
+    val invalid = counts != _file_reference_parent_counts || parents.exists { case (index, indentation, _) =>
+      _file_reference_child_keys(lines, index, indentation) != _file_reference_keys
     }
     if (invalid)
-      _invalid(s"$label FileIdentity keys must be ordered ${_file_identity_keys.mkString(", ")}")
+      _invalid(s"$label FileReference keys must be ordered ${_file_reference_keys.mkString(", ")}")
   }
 
-  private def _file_identity_child_keys(lines: Vector[String], parentindex: Int, parentindentation: Int): Vector[String] = {
+  private def _file_reference_child_keys(lines: Vector[String], parentindex: Int, parentindentation: Int): Vector[String] = {
     val children = lines.drop(parentindex + 1).takeWhile { line =>
       val indentation = line.takeWhile(_ == ' ').length
       val content = line.drop(indentation)
@@ -418,9 +412,6 @@ private[cozy] object CozyDocumentProjectAlignment {
       _invalid(s"$label must be a non-empty exact string")
     value
   }
-
-  private def _sha256(path: Path): String =
-    MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)).map(value => f"${value & 0xff}%02x").mkString
 
   private def _html_escape(value: String): String = {
     val builder = new StringBuilder

@@ -2,14 +2,14 @@ package cozy.media
 
 import java.nio.ByteBuffer
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import com.fasterxml.jackson.core.{JsonFactory, JsonToken}
 import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 27, 2026
- * @version Aug. 27, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyMediaPresentationMigration {
@@ -80,13 +80,12 @@ private[cozy] object CozyMediaPresentationMigration {
   private final case class Target(pageId: String, kind: String, id: String)
   private final case class SourceAddress(slideId: String, elementIndex: Int)
   private final case class Binding(source: SourceAddress, target: Target)
-  private final case class MigrationMap(legacySlideIrSha256: String, visualPageSet: MapValue, bindings: Vector[Binding])
+  private final case class MigrationMap(visualPageSet: MapValue, bindings: Vector[Binding])
   private final case class SourceElement(source: SourceAddress, element: CozyMediaSlideIr.Element)
 
   private val _map_schema = "cozy.visual-page.migration-map.v1"
   private val _set_schema = "cozy.visual-page-set.v1"
   private val _report_schema = "cozy.visual-page.migration-report.v1"
-  private val _sha256_pattern = "[0-9a-f]{64}".r
   private val _target_kinds = Set("node-label", "asset-id", "source-path")
 
   def execute(args: List[String]): String = _migrate(CommandConfig.create(args))
@@ -97,12 +96,6 @@ private[cozy] object CozyMediaPresentationMigration {
     val output = _output(config.save)
     val maptext = _read_utf8(semanticmap, "semanticMap")
     val migrationmap = _parse_map(_parse_json(maptext, "$.semanticMap"))
-    val legacybytes = try Files.readAllBytes(legacy) catch {
-      case NonFatal(e) => _fail("MIGRATION_LEGACY_READ", "legacySlideIr", Option(e.getMessage).getOrElse("cannot read raw legacy Slide IR bytes"))
-    }
-    val legacydigest = _sha256(legacybytes)
-    if (migrationmap.legacySlideIrSha256 != legacydigest)
-      _fail("MIGRATION_LEGACY_DIGEST", "$.legacySlideIrSha256", "declared digest does not match raw direct legacy Slide IR bytes")
     val legacydocument = try CozyMediaSlideIr.load(legacy) catch {
       case fault: MigrationFault => throw fault
       case NonFatal(e) => _fail("MIGRATION_LEGACY_SOURCE", "legacySlideIr", Option(e.getMessage).getOrElse("legacy Slide IR is invalid"))
@@ -116,8 +109,8 @@ private[cozy] object CozyMediaPresentationMigration {
       case _: CozyVisualPage.Page => _fail("MIGRATION_TARGET_PAGE_SET", "$.visualPageSet", "must be a complete Visual Page Set")
     }
     _validate_bindings(legacydocument, migrationmap.bindings, pages)
-    _atomic_write(output, validated.canonicalJson + "\n")
-    _report(legacydigest, migrationmap.bindings.size, validated)
+    _write(output, validated.canonicalJson + "\n")
+    _report(legacydocument.slides.map(_.elements.size).sum, migrationmap.bindings.size)
   }
 
   private def _validate_page_set(value: MapValue, catalog: Path, sourceroot: Path): CozyVisualPage.ValidatedDocument = {
@@ -198,16 +191,12 @@ private[cozy] object CozyMediaPresentationMigration {
 
   private def _parse_map(value: MapValue): MigrationMap = {
     val fields = _object(value, "$")
-    _exact_fields(fields, Vector("schema", "version", "legacySlideIrSha256", "visualPageSet", "bindings"), "$")
+    _exact_fields(fields, Vector("schema", "version", "visualPageSet", "bindings"), "$")
     if (_string(_field(fields, "schema", "$"), "$.schema") != _map_schema)
       _fail("MIGRATION_SCHEMA", "$.schema", s"must be exactly ${_map_schema}")
     if (_nonnegative_int(_field(fields, "version", "$"), "$.version") != 1)
       _fail("MIGRATION_VERSION", "$.version", "must be integer 1")
-    val digest = _string(_field(fields, "legacySlideIrSha256", "$"), "$.legacySlideIrSha256")
-    if (!_sha256_pattern.pattern.matcher(digest).matches)
-      _fail("MIGRATION_LEGACY_DIGEST", "$.legacySlideIrSha256", "must be 64 lowercase hexadecimal characters")
     MigrationMap(
-      digest,
       _field(fields, "visualPageSet", "$"),
       _array(_field(fields, "bindings", "$"), "$.bindings").zipWithIndex.map { case (item, index) => _parse_binding(item, s"$$.bindings[$index]") }
     )
@@ -234,15 +223,12 @@ private[cozy] object CozyMediaPresentationMigration {
     )
   }
 
-  private def _report(legacydigest: String, bindingcount: Int, validated: CozyVisualPage.ValidatedDocument): String =
+  private def _report(sourcecount: Int, bindingcount: Int): String =
     Vector(
       s"schema: ${_report_schema}",
       "version: 1",
-      s"legacySlideIrSha256: $legacydigest",
-      s"sourceElementCount: $bindingcount",
+      s"sourceElementCount: $sourcecount",
       s"bindingCount: $bindingcount",
-      s"catalogIdentity: ${validated.catalogIdentity}",
-      s"visualPageSetIdentity: ${validated.documentIdentity}",
       "status: migrated"
     ).mkString("\n")
 
@@ -278,28 +264,19 @@ private[cozy] object CozyMediaPresentationMigration {
     case NonFatal(e) => _fail("MIGRATION_READ", label, Option(e.getMessage).getOrElse("cannot read UTF-8 file"))
   }
 
-  private def _atomic_write(path: Path, text: String): Unit = {
+  private def _write(path: Path, text: String): Unit = {
     val output = path.toAbsolutePath.normalize()
     val parent = Option(output.getParent).getOrElse(_fail("MIGRATION_SAVE", "$save", "output parent is required"))
     if (Files.isSymbolicLink(parent) || !Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS))
       _fail("MIGRATION_SAVE", "$save", "output parent must be an existing direct directory")
     if (Files.exists(output, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(output))
       _fail("MIGRATION_SAVE", "$save", "output must not be a symbolic link")
-    var temporary = Option.empty[Path]
     try {
-      val prefix = Option(output.getFileName).map(_.toString).filter(_.length >= 3).getOrElse("vps")
-      val staged = Files.createTempFile(parent, prefix, ".tmp")
-      temporary = Some(staged)
-      Files.write(staged, text.getBytes(StandardCharsets.UTF_8))
-      try Files.move(staged, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      catch {
-        case _: AtomicMoveNotSupportedException => _fail("MIGRATION_SAVE_ATOMIC", "$save", "filesystem does not support same-directory atomic output replacement")
-      }
-      temporary = None
+      Files.write(output, text.getBytes(StandardCharsets.UTF_8))
     } catch {
       case fault: MigrationFault => throw fault
       case NonFatal(e) => _fail("MIGRATION_SAVE", "$save", Option(e.getMessage).getOrElse("cannot write output"))
-    } finally temporary.foreach(path => Files.deleteIfExists(path))
+    }
   }
 
   private def _parse_json(text: String, source: String): MapValue = {
@@ -410,9 +387,6 @@ private[cozy] object CozyMediaPresentationMigration {
     }
     "\"" + escaped + "\""
   }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _cli_path(value: String, path: String): Path = try {
     if (value == null || value.isEmpty || value != value.trim) _fail("MIGRATION_COMMAND", path, "path must be nonempty and trimmed")

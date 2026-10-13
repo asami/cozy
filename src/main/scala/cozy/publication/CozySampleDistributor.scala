@@ -5,14 +5,15 @@ import cozy.config.CozyProjectYamlConfig
 import cozy.runtime.CozyCliArgs
 import org.goldenport.cli.spec
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, Path, Paths}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 
 /*
  * @since   May. 20, 2026
  *  version Jun. 10, 2026
- * @version Jun. 18, 2026
+ *  version Jun. 18, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySampleDistributor {
@@ -62,11 +63,12 @@ private[cozy] object CozySampleDistributor {
       _print_plan(warehousedir, archives)
       return
     }
-    _zip_sample_collection(projectdir, archives.head.path, excludes)
+    val archivepaths = archives.map(_.path.toAbsolutePath.normalize()).toSet
+    _zip_sample_collection(projectdir, archives.head.path, excludes, archivepaths)
     samplepairs.foreach { case (sample, samplename) =>
       val out = archives.find(_.sampleName.contains(samplename)).map(_.path).
         getOrElse(warehousedir.resolve(CozyPublicationPaths.sampleDownloadPath(name, publicationpath, samplename, version)))
-      _zip_dir(sample, out, excludes)
+      _zip_dir(sample, out, excludes, archivepaths)
     }
   }
 
@@ -98,16 +100,16 @@ private[cozy] object CozySampleDistributor {
     }
   }
 
-  private def _zip_sample_collection(projectdir: Path, out: Path, excludes: Set[String]): Unit =
-    _zip_dir(projectdir, out, excludes)
+  private def _zip_sample_collection(projectdir: Path, out: Path, excludes: Set[String], archivepaths: Set[Path]): Unit =
+    _zip_dir(projectdir, out, excludes, archivepaths)
 
-  private def _zip_dir(sourcedir: Path, out: Path, excludes: Set[String]): Unit = {
+  private def _zip_dir(sourcedir: Path, out: Path, excludes: Set[String], archivepaths: Set[Path]): Unit = {
+    val files = _sample_files(sourcedir, excludes).filterNot(file => archivepaths.contains(file.toAbsolutePath.normalize()))
     val parent = Option(out.getParent).getOrElse(Paths.get("."))
     Files.createDirectories(parent)
-    val tmp = Files.createTempFile(parent, out.getFileName.toString, ".tmp")
-    val zip = new ZipOutputStream(Files.newOutputStream(tmp))
+    val zip = new ZipOutputStream(Files.newOutputStream(out))
     try {
-      _sample_files(sourcedir, excludes).foreach { file =>
+      files.foreach { file =>
         val rel = sourcedir.relativize(file).toString.replace('\\', '/')
         val entry = new ZipEntry(rel)
         entry.setTime(0L)
@@ -118,19 +120,7 @@ private[cozy] object CozySampleDistributor {
     } finally {
       zip.close()
     }
-    _replace_file(tmp, out)
   }
-
-  private def _replace_file(tmp: Path, out: Path): Unit =
-    try {
-      Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-    } catch {
-      case _: java.nio.file.AtomicMoveNotSupportedException =>
-        Files.move(tmp, out, StandardCopyOption.REPLACE_EXISTING)
-      case e: Throwable =>
-        Files.deleteIfExists(tmp)
-        throw e
-    }
 
   private def _sample_files(sampledir: Path, excludes: Set[String]): Vector[Path] = {
     val stream = Files.walk(sampledir)

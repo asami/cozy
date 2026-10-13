@@ -1,18 +1,16 @@
 package cozy.publication
 
 import java.io.IOException
-import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, FileAlreadyExistsException, Files, LinkOption, Path, StandardCopyOption}
-import java.security.MessageDigest
-import scala.collection.JavaConverters._
+import java.nio.file.{FileAlreadyExistsException, Files, LinkOption, Path}
 import org.goldenport.RAISE
 import org.smartdox.metadata.PublishMetadata
-import play.api.libs.json.{JsArray, JsObject, JsString, JsValue, Json}
+import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 
 /*
  * @since   Aug.  5, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArticleMediaBuildContext {
@@ -27,57 +25,37 @@ private[cozy] object CozyArticleMediaBuildContext {
 
   final case class Context(
     strategy: Strategy,
-    contextDigest: String,
     publicationPath: Path,
     repositoryPath: Path,
     omittedKeys: Vector[CozyArticleMediaAssociation.Key],
     diagnostics: Vector[CozyArticleMediaPolicy.Diagnostic]
   )
 
-  private final case class BundleFile(filename: String, source: Path, bytes: Array[Byte])
+  private final case class BundleFile(filename: String)
 
   private var _active_leases = Map.empty[Path, Int]
-  private val _no_source_revalidation_hook: () => Unit = () => ()
-
   def withContext[A](
     projectRoot: Path,
     publicationRoot: Path,
     repositoryRoot: Path,
     strategy: String
   )(consumer: Context => A): A = {
-    _with_context(projectRoot, publicationRoot, repositoryRoot, strategy, _no_source_revalidation_hook)(consumer)
-  }
-
-  /* This package-private seam makes the source-digest boundary observable
-   * without widening the build contract.  It runs while the registry lock is
-   * still held, after effective bytes exist and immediately before reloading
-   * the source snapshot. */
-  private[publication] def withContextBeforeSourceRevalidation[A](
-    projectRoot: Path,
-    publicationRoot: Path,
-    repositoryRoot: Path,
-    strategy: String
-  )(beforeSourceRevalidation: () => Unit)(consumer: Context => A): A = {
-    _with_context(projectRoot, publicationRoot, repositoryRoot, strategy, beforeSourceRevalidation)(consumer)
-  }
-
-  private def _with_context[A](
-    projectrootarg: Path,
-    publicationrootarg: Path,
-    repositoryrootarg: Path,
-    strategy: String,
-    beforesourcerevalidation: () => Unit
-  )(consumer: Context => A): A = {
     val selected = normalizeStrategy(strategy)
     if (consumer == null)
       _invalid("Article-media build-context consumer must be defined")
-    if (beforesourcerevalidation == null)
-      _invalid("Article-media build-context source-revalidation hook must be defined")
-    val projectroot = _require_direct_directory(projectrootarg, "Article-media build-context project root")
-    val publicationroot = _create_direct_directory_chain(publicationrootarg, "Article-media build-context publication root")
-    val repositoryroot = _normalize_root(repositoryrootarg, "Article-media build-context repository root")
-    val context = CozyArticleMediaRegistry.transaction(publicationroot) { transaction =>
-      _materialize(projectroot, publicationroot, repositoryroot, selected, beforesourcerevalidation, transaction)
+    val projectroot = _require_direct_directory(projectRoot, "Article-media build-context project root")
+    val publicationroot = _create_direct_directory_chain(publicationRoot, "Article-media build-context publication root")
+    val repositoryroot = _normalize_root(repositoryRoot, "Article-media build-context repository root")
+    val current = CozyArticleMediaRegistry.readCurrentSite(publicationroot.toRealPath())
+    val projection = CozyArticleMediaRegistry.canonicalProjection(CozyArticleMediaRegistry.Snapshot(current.entries))
+    val context = if (CozyArticleMediaWarehouseBuildContext.hasCanonicalReferences(projection)) {
+      val result = CozyArticleMediaWarehouseBuildContext.materialize(projectroot, publicationroot, repositoryroot, selected, current, projection)
+      result.diagnostics.foreach { diagnostic =>
+        Console.err.println(s"Article-media ${diagnostic.reason}: ${diagnostic.articleIdentity} [${diagnostic.locale}, ${diagnostic.role}] ${diagnostic.publicPath}")
+      }
+      result.context
+    } else CozyArticleMediaRegistry.transaction(publicationroot) { transaction =>
+      _materialize(projectroot, publicationroot, repositoryroot, selected, transaction.snapshot)
     }
     _lease(context)(consumer)
   }
@@ -91,12 +69,6 @@ private[cozy] object CozyArticleMediaBuildContext {
       case _ => _invalid(s"Unsupported article-media build strategy: $value")
     }
 
-  /* Producer and verifier deliberately share this one framing seam. */
-  private[publication] def contextDigest(strategy: String, publication: Path): String = {
-    val selected = normalizeStrategy(strategy)
-    _digest(selected, _direct_files(publication))
-  }
-
   private[publication] def activeLeaseCount(publication: Path): Int = synchronized {
     if (publication == null) 0 else _active_leases.getOrElse(publication.toAbsolutePath.normalize(), 0)
   }
@@ -106,38 +78,17 @@ private[cozy] object CozyArticleMediaBuildContext {
     publicationroot: Path,
     repositoryroot: Path,
     strategy: Strategy,
-    beforesourcerevalidation: () => Unit,
-    transaction: CozyArticleMediaRegistry.Transaction
+    snapshot: CozyArticleMediaRegistry.Snapshot
   ): Context = {
-    val snapshot = transaction.snapshot
     val projection = CozyArticleMediaRegistry.canonicalProjection(snapshot)
     val snapshots = _snapshots_directory(projectroot, strategy)
-    val work = Files.createTempDirectory(snapshots, ".work-")
-    var moved = false
-    try {
-      val publication = Files.createDirectory(work.resolve("publication"))
-      val bundles = _copy_snapshot_bundles(publicationroot, publication, snapshot)
-      val metadata = _load_metadata(publication, bundles)
-      val policy = CozyArticleMediaPolicy.evaluate(strategy.policy, metadata, projection.integrityResults, repositoryroot)
-      _apply_omissions(publication, bundles, projection, policy)
-      val digest = _digest(strategy, _direct_files(publication))
-      val target = snapshots.resolve(digest).normalize()
-      if (!target.startsWith(snapshots))
-        _invalid("Article-media build-context snapshot target escapes its parent")
-      _verify_digest(strategy, publication, digest, bundles.map(_.filename).toSet)
-      beforesourcerevalidation()
-      transaction.validate(Vector.empty)
-      if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-        _verify_installed(strategy, target.resolve("publication"), digest, bundles.map(_.filename).toSet)
-      } else {
-        _install(work, target, strategy, digest, bundles.map(_.filename).toSet)
-        moved = Files.notExists(work, LinkOption.NOFOLLOW_LINKS)
-      }
-      Context(strategy, digest, target.resolve("publication"), repositoryroot, policy.omittedKeys, policy.diagnostics)
-    } finally {
-      if (!moved)
-        _delete_work(work)
-    }
+    val target = Files.createTempDirectory(snapshots, "snapshot-")
+    val publication = Files.createDirectory(target.resolve("publication"))
+    val bundles = _copy_snapshot_bundles(publicationroot, publication, snapshot)
+    val metadata = _load_metadata(publication, bundles)
+    val policy = CozyArticleMediaPolicy.evaluate(strategy.policy, metadata, projection.integrityResults, repositoryroot)
+    _apply_omissions(publication, bundles, projection, policy)
+    Context(strategy, publication, repositoryroot, policy.omittedKeys, policy.diagnostics)
   }
 
   private def _copy_snapshot_bundles(
@@ -145,20 +96,17 @@ private[cozy] object CozyArticleMediaBuildContext {
     destination: Path,
     snapshot: CozyArticleMediaRegistry.Snapshot
   ): Vector[BundleFile] = {
-    if (snapshot == null || snapshot.bundleDigests == null)
+    if (snapshot == null || snapshot.bundleNames == null)
       _invalid("Article-media build-context snapshot must be defined")
-    snapshot.bundleDigests.toVector.sortBy(_._1).map { case (name, expected) =>
-      if (name == null || expected == null)
+    snapshot.bundleNames.sorted.map { name =>
+      if (name == null)
         _invalid("Article-media build-context snapshot bundle must be defined")
       val filename = s"$name.json"
       val source = root.resolve(filename).normalize()
       if (!source.startsWith(root) || Files.isSymbolicLink(source) || !Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS))
         _invalid(s"Article-media build-context bundle must be a direct regular file: $filename")
-      val bytes = Files.readAllBytes(source)
-      if (_sha256(bytes) != expected)
-        _invalid(s"Article-media build-context stale configured bundle: $filename")
-      Files.write(destination.resolve(filename), bytes)
-      BundleFile(filename, source, bytes)
+      Files.copy(source, destination.resolve(filename))
+      BundleFile(filename)
     }
   }
 
@@ -228,91 +176,12 @@ private[cozy] object CozyArticleMediaBuildContext {
     else Some(Json.stringify(bundle + ("entries" -> JsArray(rewritten))).getBytes(StandardCharsets.UTF_8))
   }
 
-  private def _install(work: Path, target: Path, strategy: Strategy, digest: String, expected: Set[String]): Unit = {
-    try {
-      Files.move(work, target, StandardCopyOption.ATOMIC_MOVE)
-    } catch {
-      case _: FileAlreadyExistsException => _verify_installed(strategy, target.resolve("publication"), digest, expected)
-      case _: AtomicMoveNotSupportedException => _invalid(s"Atomic article-media build-context installation is not supported: $target")
-      case e: IOException =>
-        if (Files.exists(target, LinkOption.NOFOLLOW_LINKS))
-          _verify_installed(strategy, target.resolve("publication"), digest, expected)
-        else _invalid(s"Atomic article-media build-context installation failed: ${e.getMessage}")
-    }
-  }
-
-  private def _verify_installed(strategy: Strategy, publication: Path, digest: String, expected: Set[String]): Unit = {
-    val snapshot = Option(publication).flatMap(x => Option(x.getParent)).getOrElse(
-      _invalid("Article-media build-context installed snapshot must be defined")
-    )
-    if (Files.isSymbolicLink(snapshot) || !Files.isDirectory(snapshot, LinkOption.NOFOLLOW_LINKS) ||
-      Files.isSymbolicLink(publication) || !Files.isDirectory(publication, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Article-media build-context installed publication must be a direct directory: $publication")
-    _verify_digest(strategy, publication, digest, expected)
-  }
-
-  private def _verify_digest(strategy: Strategy, publication: Path, digest: String, expected: Set[String]): Unit = {
-    val files = _direct_files(publication)
-    if (files.map(_._1).toSet != expected)
-      _invalid("Article-media build-context snapshot file set does not match the validated source")
-    if (_digest(strategy, files) != digest)
-      _invalid("Article-media build-context snapshot digest does not match its content")
-  }
-
   private def _snapshots_directory(projectroot: Path, strategy: Strategy): Path =
     _create_direct_directory_chain(
       projectroot.resolve("target/cozy-bok/article-media").resolve(strategy.name).resolve("snapshots"),
       "Article-media build-context snapshot parent",
       projectroot
     )
-
-  private def _direct_files(root: Path): Vector[(String, Array[Byte])] = {
-    if (root == null || Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS))
-      _invalid(s"Article-media build-context publication must be a direct directory: $root")
-    val stream = Files.list(root)
-    try stream.iterator.asScala.toVector.map { path =>
-      if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
-        _invalid(s"Article-media build-context publication file must be direct and regular: ${path.getFileName}")
-      path.getFileName.toString -> Files.readAllBytes(path)
-    }
-    finally stream.close()
-  }
-
-  private def _digest(strategy: Strategy, files: Vector[(String, Array[Byte])]): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val normalized = files.map { case (name, bytes) =>
-      if (name == null || name.isEmpty || name.contains('/') || name.contains('\\') || bytes == null)
-        _invalid("Article-media build-context digest input is invalid")
-      name -> bytes
-    }.sortWith { case ((left, _), (right, _)) => _unsigned_compare(left.getBytes(StandardCharsets.UTF_8), right.getBytes(StandardCharsets.UTF_8)) < 0 }
-    _frame(digest, strategy.name.getBytes(StandardCharsets.UTF_8))
-    _frame_length(digest, normalized.size.toLong)
-    normalized.foreach { case (name, bytes) =>
-      _frame(digest, name.getBytes(StandardCharsets.UTF_8))
-      _frame(digest, bytes)
-    }
-    digest.digest().map(x => f"${x & 0xff}%02x").mkString
-  }
-
-  private def _frame(digest: MessageDigest, bytes: Array[Byte]): Unit = {
-    _frame_length(digest, bytes.length.toLong)
-    digest.update(bytes)
-  }
-
-  private def _frame_length(digest: MessageDigest, value: Long): Unit = {
-    if (value < 0)
-      _invalid("Article-media build-context digest length must be non-negative")
-    digest.update(ByteBuffer.allocate(8).putLong(value).array())
-  }
-
-  private def _unsigned_compare(left: Array[Byte], right: Array[Byte]): Int = {
-    val limit = math.min(left.length, right.length)
-    var index = 0
-    while (index < limit && (left(index) & 0xff) == (right(index) & 0xff))
-      index += 1
-    if (index == limit) left.length.compare(right.length)
-    else (left(index) & 0xff).compare(right(index) & 0xff)
-  }
 
   private def _lease[A](context: Context)(consumer: Context => A): A = {
     val identity = context.publicationPath.toAbsolutePath.normalize()
@@ -388,18 +257,6 @@ private[cozy] object CozyArticleMediaBuildContext {
 
   private def _normalize_root(value: Path, label: String): Path =
     if (value == null) _invalid(s"$label must be defined") else value.toAbsolutePath.normalize()
-
-  private def _delete_work(path: Path): Unit = {
-    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-      val stream = Files.walk(path)
-      try stream.iterator.asScala.toVector.sortBy(x => (-x.getNameCount, x.toString)).foreach(Files.deleteIfExists)
-      catch { case _: IOException => () }
-      finally stream.close()
-    }
-  }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(x => f"${x & 0xff}%02x").mkString
 
   private def _invalid(message: String): Nothing =
     RAISE.invalidArgumentFault(message)

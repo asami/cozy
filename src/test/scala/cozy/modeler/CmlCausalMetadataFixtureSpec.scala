@@ -13,7 +13,7 @@ import CmlCausalTraversal._
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlCausalMetadataFixtureSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Fixed Causal supplier handoff" should {
@@ -265,7 +265,7 @@ final class CmlCausalMetadataFixtureSpec extends AnyWordSpec with Matchers with 
   private def _id(name: String): ModelElementId = ModelElementId("causal.example", name)
   private def _ref(name: String, boundary: ReferenceBoundary = Local): ModelReference = ModelReference(_id(name), boundary)
   private def _refs(names: String*): Presence[Vector[ModelReference]] = Present(names.toVector.map(_ref(_)))
-  private def _source(index: Int): SourceAttribution = SourceAttribution("causal.example", "fixtures/causal-model.cml", "a" * 64, Some(math.min(index + 1, 19)))
+  private def _source(index: Int): SourceAttribution = SourceAttribution("causal.example", "fixtures/causal-model.cml", Some(math.min(index + 1, 19)))
   private def _semantic(name: String, dependency: Boolean, boundary: ReferenceBoundary = Local, derived: Boolean = false): SemanticReference = {
     val index = if (dependency) 10 else 5
     SemanticReference(ModelTarget(if (dependency) ModelElementId("causal.external", name) else _id(name)), boundary,
@@ -338,7 +338,7 @@ final class CmlCausalMetadataFixtureSpec extends AnyWordSpec with Matchers with 
   }
   private def _id_json(value: ModelElementId): JsObject = Json.obj("modelId" -> value.modelId, "elementId" -> value.elementId)
   private def _source_json(value: SourceAttribution): JsObject = Json.obj("authorityId" -> value.authorityId, "path" -> value.path,
-    "sha256" -> value.sha256, "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(line)))
+    "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(line)))
   private def _ref_json(value: ModelReference): JsObject = Json.obj("identity" -> _id_json(value.identity), "boundary" -> (if (value.boundary == Local) "local" else "external"))
   private def _refs_json(value: Presence[Vector[ModelReference]]): JsObject = _presence(value, (items: Vector[ModelReference]) => JsArray(items.map(_ref_json)))
   private def _semantic_json(value: SemanticReference): JsObject = {

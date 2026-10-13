@@ -36,7 +36,7 @@ authored subject facts + selected patterns + authored explanation steps
   -> canonical Composition
   -> named-catalog deterministic Plan
   -> authored ProjectionMap
-  -> named VisualPageSet/Storyboard deterministic Projection and receipt
+  -> named VisualPageSet/Storyboard deterministic Projection
 ```
 
 The Plan is the authority for composition semantics. A Visual Page remains
@@ -69,14 +69,15 @@ logical graph, page mapping, scene mapping, or narration.
 
 Cozy owns deterministic model operations only:
 
-- direct-file parsing with closed-field and duplicate-field rejection;
+- direct-file parsing with duplicate-field rejection and closed fields outside
+  the narrowly defined source/asset material declarations;
 - exact explanation-catalog and Subject/Explanation Pattern resolution;
 - direct `--explanation-catalog <file>` and
   `--presentation-catalog <file>` companions for every Composition
   `validate`, `inspect`, and `convert` operation, including validation of each
   authored Logical Pattern/Relation graph against the named P36 catalog;
 - exact typed parameter and subject-fact validation;
-- canonical JSON normalization and UTF-8 SHA-256 semantic identities;
+- canonical JSON normalization and deterministic UTF-8 serialization;
 - deterministic normalization and copying of authored steps into an
   Explanation Plan;
 - validation of Phase-36 Logical Pattern and typed Relation structures;
@@ -95,9 +96,10 @@ publish, or approve anything.
 
 Phase 36 owns the existing `cozy.presentation-semantics.catalog.v1`, Visual
 Page, Logical Pattern, Relation, Visual Pattern, catalog/binding, and
-presentation projection semantics. Its supplied catalog has two existing
-identity results: the full presentation-catalog identity and the existing
-logical-catalog identity. P37 does not define or change that schema.
+presentation projection semantics. The supplied current catalog resolves by
+ID/revision and validates its actual graph, role, relation, and Visual
+definitions. DM14 deletes both full/logical catalog digests and selector hash
+comparisons without replacement snapshots. P37 does not redefine that schema.
 
 The existing Storyboard contract owns speaker, narration, duration, silence,
 transition, production inserts, captions, direction, and audiovisual review
@@ -114,7 +116,7 @@ narration, PPTX, MP4, or review-approval model.
 
 ## 3. Versioned contract layers
 
-The v1 contracts have separate schemas and identity results:
+The v1 contracts have separate schemas and typed responsibilities:
 
 | Layer | Schema | Responsibility |
 | --- | --- | --- |
@@ -122,22 +124,23 @@ The v1 contracts have separate schemas and identity results:
 | Composition | `cozy.explanation-composition.v1` | Authored subject selection, explanation selection, facts, steps, parameters, and references. |
 | Plan | `cozy.explanation-plan.v1` | Deterministic ordered semantic steps before visual selection. |
 | ProjectionMap | `cozy.explanation-projection-map.v1` | Authored independent page and scene step mappings plus catalog/input selectors. |
-| Projection | `cozy.explanation-projection.v1` | Copied mappings, named media identities, and a currentness receipt. |
+| Projection | `cozy.explanation-projection.v1` | Copied mappings and actual named catalog and PageSet selectors. |
 
-The explanation catalog and Composition have derived identity results and do
-not serialize an `identity` self field in their roots. Plan, ProjectionMap,
-and Projection do serialize an `identity` self field as the final root field;
-each such field is excluded from the canonical bytes hashed for that root.
-Mapping identities and the receipt identity likewise exclude only their own
-identity field. Every P37 identity result is the lowercase SHA-256 digest of
-canonical UTF-8 JSON bytes, serialized as
-`sha256:<64-lowercase-hex>`.
+Catalog `id`/`revision`, Composition `id`, pattern references, and step/page/scene/
+resource IDs identify authored semantic values. Plan contains two catalog
+selectors, two pattern references, and ordered steps. Each step's parameter
+provenance contains only ordered selected values. ProjectionMap contains the two
+catalog selectors and independent presentation/video step mappings. Projection
+contains those selectors, presentation `{visualPageSet:{id},stepMappings}`, and
+video `{stepMappings}`. There is no content identity or hash-only receipt.
 
-No filesystem path is serialized into a P37 semantic identity. Cross-document
-dependencies are supplied as explicitly named command inputs. The only
-literal path-like screen fields in scope are the existing Storyboard-v2
-`source` and `catalog` fields, which P37 validates as the named P36 pair and
-does not change.
+Cross-document dependencies are supplied as explicitly named direct files.
+Plan loading validates selectors and pattern references and compares typed steps
+with the selected Composition expansion. Projection loading compares actual
+selectors, PageSet ID, and mappings with the resolved named inputs. These checks
+retain authored meaning rather than certify unchanged source content.
+The existing Storyboard-v2 literal `source` and `catalog` screen fields resolve
+to the named P36 pair without introducing a Storyboard descriptor or derived ID.
 
 ## 4. Catalog architecture
 
@@ -197,6 +200,14 @@ explicit later catalog revision defines it.
 
 ## 5. Authored Composition and deterministic Plan
 
+Composition sources require `{id}` and assets require `{id,mediaType}`. Readers
+ignore ordinary extra material fields without parsing, retaining, validating,
+or re-emitting them; required field types, uniqueness, and duplicate-key
+rejection remain. Exact declaration IDs must have explicit safe direct regular
+file bindings, with no symlinked ancestors or leaf. Current valid material
+bytes need no declaration digest rebinding. Required IDs, media types, graph
+semantics, and direct binding resolution remain independently meaningful.
+
 The Composition is an authored value, not a generated outline. It names an
 explanation catalog selector, one Subject Pattern, one Explanation Pattern,
 typed subject facts, and `explanation.steps`. Every step is authored and has
@@ -215,19 +226,17 @@ fields. The value is checked against the explicitly supplied P36 presentation
 catalog; Cozy does not derive or repair a graph. Every reference must resolve
 exactly once. A selected Explanation Pattern's roles and authored steps must
 agree in order and identity; missing or extra steps are rejected. The P36
-catalog identity/revision binding remains in the Plan and Projection
-selectors and receipts.
+catalog ID/revision remains in Plan and Projection selectors; selectors contain only those semantic fields.
 
 The `expand` operation means deterministic validation, normalization, and
 copying of every explicitly authored step, claim, emphasis, Logical
 Pattern/Relation value, reference, and parameter selection; it does not
 generate or infer a graph, role, claim, or step. Each Plan step contains
 `parameterProvenance.values` as the ordered `{name,value}` values used for
-that step and a derived identity over those values; names alone are not
-sufficient provenance. Plan contains selectors for both named catalogs, with
-the P36 `presentationCatalog` selector exactly
-`{id,revision,identity}` where `identity` is the existing logical-catalog
-identity.
+that step; names alone are not sufficient provenance. Plan contains selectors
+for both named catalogs, exactly `{id,revision}`. Required fields, ordinary
+JSON syntax, duplicate keys, and closed fields stay strict with no selector
+proof adapter.
 The `product-overview`, `product-mechanism`, and `problem-solution` cases
 therefore preserve their authored typed roles and Relations in Plan steps;
 none generates or infers them.
@@ -235,14 +244,14 @@ none generates or infers them.
 ## 6. Authored ProjectionMap
 
 `cozy.explanation-projection-map.v1` is a distinct closed document between
-Plan and final Projection. It is authored, has its own canonical identity,
-and contains only composition/Plan/catalog selectors and independent ordered
-step mappings:
+Plan and final Projection. It is authored and contains only catalog selectors
+and independent ordered step mappings:
 
 - presentation mappings contain `stepId` and nonempty ordered `pageIds`;
-- video mappings contain `stepId` and nonempty ordered `sceneIds`; and
-- presentation and video mapping identities are independent and derived from
-  their respective mapping values.
+- video mappings contain `stepId` and nonempty ordered `sceneIds`.
+
+Each section contains only `stepMappings`; every Plan step appears once in
+Plan order. Target arrays are nonempty, ordered, unique safe IDs.
 
 ProjectionMap has no resource paths, VisualPageSet or Storyboard content,
 renderer state, review/approval state, layout, coordinates, timing,
@@ -254,7 +263,7 @@ the named VisualPageSet and Storyboard only to the later `project` operation.
 
 `project` receives a ProjectionMap, Composition, Plan, explicitly named
 explanation and P36 presentation catalogs, an explicitly named VisualPageSet,
-and an explicitly named Storyboard. It verifies selector and identity
+and an explicitly named Storyboard. It verifies catalog selector and authored semantic
 agreement and resolves every page and scene mapping. The direct-file
 `validate <composition>`, `inspect <composition>`, and
 `convert <composition>` operations likewise require both explicitly named
@@ -268,10 +277,13 @@ the Plan step's P36-compatible `logical` value exactly. The union of every
 source and asset reference carried by the Plan step, its claims, and its
 logical nodes and Relations as applicable must occur in that resolved P36
 page's `sources` and `assets` declarations. The existing P37 explicit
-`--source <id>=<file>` and `--asset <id>=<file>` bindings must verify current
-direct bytes against the P37 declarations and the resolved P36 declarations
-under their existing path/digest rules. Additional P36 page provenance remains
-owned by P36 and does not change Plan identity.
+`--source <id>=<file>` and `--asset <id>=<file>` bindings must preserve
+required declaration presence and safe direct resolution in both P37 and P36.
+Asset media types must agree. Required declarations and independently resolved
+descriptor-relative resources and explicit bindings must be safe direct files.
+Disagreement retains `EXPLANATION_PROJECTION_STALE` and field-path diagnostics
+and fails before writing output. Additional P36 page provenance remains owned by
+P36; copied-byte certification is removed.
 
 For every authored Plan step -> video `sceneId` mapping, the exact scene must
 resolve in the explicitly named Storyboard and must contain an existing
@@ -284,34 +296,32 @@ independent, with no one-to-one requirement.
 
 P37 preserves authored claims in the Plan. It does not add claim text to a
 P36 VisualPage, which has no claim field, and it does not self-approve semantic
-meaning; `project` verifies graph and provenance linkage and currentness only.
-It writes only the final Projection and receipt selected by `--save`. It does
+meaning; `project` verifies graph and provenance linkage.
+It writes only the final Projection selected by `--save`. It does
 not discover, generate, modify, render, publish, or approve VisualPageSet,
 Storyboard, or media.
 
-The final Projection copies both independent mapping sections and their
-mapping identities. Its receipt binds Composition, Plan, explanation catalog,
-P36 logical-catalog, full P36 presentation-catalog, VisualPageSet,
-Storyboard, presentation mapping, and video mapping identities. A receipt
-proves identity/currentness only; it is not semantic, visual, audiovisual,
+The final Projection copies both independent mapping sections, catalog
+ID/revision selectors, and actual PageSet ID. Named input validity, semantic
+value agreement, and operational page/scene resolution remain required. No
+receipt, whole-catalog certificate, or replacement snapshot gate is introduced.
+Storyboard narration, caption, direction, and formatting remain independent of
+valid mapping admission. Projection is not semantic, visual, audiovisual,
 publication, or consumer approval.
-
-The existing Storyboard-v2 contract exposes canonical `storyboardIdentity`,
-but no separately modeled root ID. Projection records that identity as the
-sole Storyboard descriptor and never derives an ID from a named input path,
-filename, scene, or any other substitute.
 
 Whenever an operation's validated direct-file input closure includes declared
 sources or assets, the caller supplies each declaration as a repeatable direct
 binding exactly once: `--source <id>=<file>` and `--asset <id>=<file>`. The ID
-must match the declaration, and the direct regular-file bytes must match its
-declared SHA-256. These flags are explicit call inputs; they are never
-serialized into identities and are never discovered.
+must match the declaration, and the file must be a current safe direct regular
+input; no declaration digest rebinding is required. These flags are explicit call inputs; they are never
+serialized and are never discovered.
 
 Every operation reads only its explicitly named direct-file inputs. The
 minimum command/input matrix is defined normatively in the specification.
-Atomic same-directory replacement applies to selected outputs, but no
-operation discovers an alternative input or silently repairs a mismatch.
+Selected outputs use ordinary UTF-8 direct writes with canonical newlines after
+validation. Validation errors before writing leave the previous output untouched.
+Ordinary write failures may leave partial output; regeneration is recovery.
+Operations neither discover alternative inputs nor silently repair mismatches.
 
 ## 8. Explicit non-goals
 
@@ -330,10 +340,48 @@ This contract does not:
 - record semantic, visual, audiovisual, publication, deployment, or external
   consumer approval.
 
-## 9. Decision record
+## 9. Historical decision record
 
-`P37-04/05-DEC-001` — On 2026-08-28, the developer authorized removal of
+`P37-04/05-DEC-001` (historical, superseded by the current contract) — On 2026-08-28, the developer authorized removal of
 `video.storyboard.id` from the P37 Projection contract. The affected Phase is
 37, the source tree is based on `73130f0d7111cdef3f2988ee041ad8e97fdb4362`,
 the selected option is to bind only the existing Storyboard-v2 canonical
 identity, the authorized next state is PLAN, and this decision is consumed.
+
+
+## Phase 71.5 bounded implementation status
+
+S07 implements the Explanation domain, Projection, Preview, and immediate writer
+removal described here. On 2026-10-08 its four existing focused suites completed
+with 41 successes, zero failures, canceled, ignored, or pending cases, no warnings,
+SBT/wrapper exit 0, and terminal shared serial-lock release. Independent review
+and Step/Phase acceptance remain pending. S08 implements the bounded VisualPage conversion and direct semantic Preview
+writers. On 2026-10-08 its two existing focused suites completed with 14 successes,
+zero failures, canceled, ignored, or pending cases, zero warnings/errors,
+SBT/wrapper exit 0, and terminal shared serial-lock release. S09 implements bounded
+direct Article/Summary PDF generation and immediate build-input capture removal.
+On 2026-10-08 its six existing focused suites completed with 114 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+S10 removes Presentation copied-image byte/multiset checks and shared acceptance
+staging/backup/rollback, retaining initial asset/target ownership and actual
+structural semantics with ordered direct review-state then receipt writes.
+On 2026-10-08 its six existing focused suites completed with 113 successes,
+zero failed/canceled/ignored/pending cases, zero aborted suites, zero SBT
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+Five hostile-XML/DOCTYPE diagnostics are intentional existing negative-fixture
+output, not SBT compilation or test failures.
+S11 implements direct PresentationMigration and CrossReview output writes and
+direct creation of the absent article source package. Its five-suite focused
+validation completed on 2026-10-08 with 58 successes, zero
+failed/canceled/ignored/pending cases, zero aborted suites, zero SBT
+warnings/errors, SBT/wrapper exit 0, and terminal shared serial-lock release.
+S11 emitted five intentional hostile-XML/DOCTYPE negative-fixture diagnostics,
+separate from SBT compilation or test failures. S12's current JA native route is
+planned/not-run; generation, assembly, native inspection, browser EOF and current
+listening remain OPEN ([journal](../journal/2026/10/2026-10-08-phase-71.5-ja-main-route.md)).
+Remaining Receipt publication/prepared-input
+observations and finite publication/runtime/CAR groups, independent
+review/Step/Phase acceptance, the same full 34-scene native route, and external
+E715-01..04 consumer reconciliation remain pending without an exception or
+whole-Phase closure claim.

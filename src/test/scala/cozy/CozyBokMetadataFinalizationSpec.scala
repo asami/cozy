@@ -11,7 +11,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 23, 2026
- * @version Aug. 29, 2026
+ *  version Aug. 29, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokMetadataFinalizationSpec
@@ -145,27 +146,25 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
-    "reject a declared glossary with no generated terms before changing the website" in {
+    "reject a declared glossary with no generated terms during direct finalization" in {
       _with_temp_dir("cozy-bok-metadata-finalization-missing-terms") { dir =>
-        Given("a source-declared glossary, generated RDF metadata, and existing website metadata sentinels")
+        Given("a source-declared glossary, generated RDF metadata, and project-owned rendered HTML")
         _write_site_source(dir, glossaryterm = true)
         _write_prepared_metadata(dir, includeterms = false)
         _write(dir.resolve("website.d/index.html"), "<html>project-owned-marker</html>\n")
-        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "sentinel-manifest\n")
 
-        When("metadata finalization sees the missing SmartDox glossary terms handoff")
+        When("direct metadata finalization sees the missing SmartDox glossary terms handoff")
         val error = intercept[Throwable] {
           CozyBok.finalizeMetadata(_build_config(dir))
         }
 
-        Then("it reports the existing glossary diagnostic and leaves every sentinel intact")
+        Then("it reports the existing glossary diagnostic and preserves project-owned rendered HTML")
         error.getMessage should include("SmartDox glossary metadata was not generated")
         _read(dir.resolve("website.d/index.html")) shouldBe "<html>project-owned-marker</html>\n"
-        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "sentinel-manifest\n"
       }
     }
 
-    "reject a malformed generated glossary before staging when the graph has no component references" in {
+    "reject a malformed generated glossary before copying when the graph has no component references" in {
       _with_temp_dir("cozy-bok-metadata-finalization-malformed-glossary") { dir =>
         Given("a generated glossary with a decoder-invalid term and four existing website metadata sentinels")
         _write_site_source(dir, glossaryterm = false)
@@ -194,7 +193,7 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
-    "reject a malformed generated CAR index before staging when the graph has no component references" in {
+    "reject a malformed generated CAR index before copying when the graph has no component references" in {
       _with_temp_dir("cozy-bok-metadata-finalization-malformed-car") { dir =>
         Given("a generated CAR index with invalid entries and four existing website metadata sentinels")
         _write_site_source(dir, glossaryterm = false)
@@ -316,76 +315,70 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
-    "reject an invalid declared extension path before changing website sentinels" in {
+    "reject an invalid declared extension path during direct finalization" in {
       _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-invalid-path") { dir =>
-        Given("a declared traversal path, a prepared generated graph, and existing website sentinels")
+        Given("a declared traversal path, a prepared generated graph, and project-owned rendered HTML")
         _write_site_source(dir, glossaryterm = false)
         _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
         _write_rdf_extension_config(dir, Vector("../outside.json"))
         _write(dir.resolve("website.d/index.html"), "<html>path-sentinel</html>\n")
-        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "path-manifest-sentinel\n")
 
-        When("metadata finalization admits the configured extension declaration")
+        When("direct metadata finalization admits the configured extension declaration")
         val error = intercept[Throwable] {
           CozyBok.finalizeMetadata(_build_config(dir))
         }
 
-        Then("it reports the path diagnostic using the logical extension boundary and preserves every sentinel")
+        Then("it reports the path diagnostic using the logical extension boundary and preserves project-owned rendered HTML")
         error.getMessage should include("bok.extension.path.invalid")
         error.getMessage should include("src/main/extensions/rdf")
         _read(dir.resolve("website.d/index.html")) shouldBe "<html>path-sentinel</html>\n"
-        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "path-manifest-sentinel\n"
       }
     }
 
-    "reject a schema-invalid declared extension before changing website sentinels" in {
+    "reject a schema-invalid declared extension during direct finalization" in {
       _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-invalid-schema") { dir =>
-        Given("a declared extension with an invalid v1 envelope and existing website sentinels")
+        Given("a declared extension with an invalid v1 envelope and project-owned rendered HTML")
         _write_site_source(dir, glossaryterm = false)
         _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
         _write_rdf_extension(dir, "invalid.json", "{\"schemaVersion\":\"cozy.bok.rdf-extension.v1\",\"id\":\"invalid\",\"kind\":\"ontology\",\"nodes\":{},\"edges\":[]}\n")
         _write_rdf_extension_config(dir, Vector("invalid.json"))
         _write(dir.resolve("website.d/index.html"), "<html>schema-sentinel</html>\n")
-        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "schema-manifest-sentinel\n")
 
-        When("metadata finalization validates the declared JSON v1 envelope")
+        When("direct metadata finalization validates the declared JSON v1 envelope")
         val error = intercept[Throwable] {
           CozyBok.finalizeMetadata(_build_config(dir))
         }
 
-        Then("it reports the schema diagnostic and preserves every website sentinel")
+        Then("it reports the schema diagnostic and preserves project-owned rendered HTML")
         error.getMessage should include("bok.extension.schema.invalid")
         _read(dir.resolve("website.d/index.html")) shouldBe "<html>schema-sentinel</html>\n"
-        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "schema-manifest-sentinel\n"
       }
     }
 
-    "reject extension-to-extension identity collisions before changing website sentinels" in {
+    "reject extension-to-extension identity collisions during direct finalization" in {
       _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-collision") { dir =>
-        Given("two declared JSON v1 extensions that contribute the same node identity and existing website sentinels")
+        Given("two declared JSON v1 extensions that contribute the same node identity and project-owned rendered HTML")
         _write_site_source(dir, glossaryterm = false)
         _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
         _write_rdf_extension(dir, "first.json", _rdf_extension_json("first", nodes = Vector(_rdf_extension_node("duplicate"))))
         _write_rdf_extension(dir, "second.json", _rdf_extension_json("second", nodes = Vector(_rdf_extension_node("duplicate"))))
         _write_rdf_extension_config(dir, Vector("first.json", "second.json"))
         _write(dir.resolve("website.d/index.html"), "<html>collision-sentinel</html>\n")
-        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "collision-manifest-sentinel\n")
 
-        When("metadata finalization checks extension declaration identities")
+        When("direct metadata finalization checks extension declaration identities")
         val error = intercept[Throwable] {
           CozyBok.finalizeMetadata(_build_config(dir))
         }
 
-        Then("it reports the extension collision diagnostic and preserves every website sentinel")
+        Then("it reports the extension collision diagnostic and preserves project-owned rendered HTML")
         error.getMessage should include("bok.extension.identity.collision")
         _read(dir.resolve("website.d/index.html")) shouldBe "<html>collision-sentinel</html>\n"
-        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "collision-manifest-sentinel\n"
       }
     }
 
-    "report the lexically first node collision independently of declaration order" in {
+    "report the lexically first node collision independently of declaration order during direct finalization" in {
       _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-collision-order") { dir =>
-        Given("four declared JSON v1 extensions with two duplicate node identities and existing website sentinels")
+        Given("four declared JSON v1 extensions with two duplicate node identities and project-owned rendered HTML")
         _write_site_source(dir, glossaryterm = false)
         _write_prepared_metadata(dir, includeterms = false, rdfgraph = _generated_graph("generated"))
         _write_rdf_extension(dir, "a-first.json", _rdf_extension_json("a-first", nodes = Vector(_rdf_extension_node("a-node"))))
@@ -394,9 +387,8 @@ class CozyBokMetadataFinalizationSpec
         _write_rdf_extension(dir, "z-second.json", _rdf_extension_json("z-second", nodes = Vector(_rdf_extension_node("z-node"))))
         _write_rdf_extension_config(dir, Vector("z-first.json", "a-first.json", "z-second.json", "a-second.json"))
         _write(dir.resolve("website.d/index.html"), "<html>collision-order-sentinel</html>\n")
-        _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "collision-order-manifest-sentinel\n")
 
-        When("metadata finalization checks the same collisions in two reversed declaration configurations")
+        When("direct metadata finalization checks the same collisions in two reversed declaration configurations")
         val firsterror = intercept[Throwable] {
           CozyBok.finalizeMetadata(_build_config(dir))
         }
@@ -405,19 +397,18 @@ class CozyBokMetadataFinalizationSpec
           CozyBok.finalizeMetadata(_build_config(dir))
         }
 
-        Then("both attempts report the stable lexical collision and preserve every website sentinel")
+        Then("both attempts report the stable lexical collision and preserve project-owned rendered HTML")
         firsterror.getMessage shouldBe "bok.extension.identity.collision: src/main/extensions/rdf: duplicate extension node id a-node"
         seconderror.getMessage shouldBe firsterror.getMessage
         _read(dir.resolve("website.d/index.html")) shouldBe "<html>collision-order-sentinel</html>\n"
-        _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "collision-order-manifest-sentinel\n"
       }
     }
 
-    "reject generated-authority overrides and missing generated graphs before changing website sentinels" in {
+    "reject generated-authority overrides and missing generated graphs during direct finalization" in {
       _with_temp_dir("cozy-bok-metadata-finalization-rdf-extension-override") { dir =>
         val collision = dir.resolve("collision")
         val missing = dir.resolve("missing")
-        Given("one declared extension that duplicates a generated node and one declaration with no generated graph, each with website sentinels")
+        Given("one declared extension that duplicates a generated node and one declaration with no generated graph, each with project-owned rendered HTML")
         _write_site_source(collision, glossaryterm = false)
         _write_prepared_metadata(collision, includeterms = false, rdfgraph = _generated_graph("generated"))
         _write_rdf_extension(collision, "override.json", _rdf_extension_json("override", nodes = Vector(_rdf_extension_node("generated"))))
@@ -429,21 +420,19 @@ class CozyBokMetadataFinalizationSpec
         _write_rdf_extension_config(missing, Vector("supplement.json"))
         Vector(collision, missing).foreach { project =>
           _write(project.resolve("website.d/index.html"), "<html>override-sentinel</html>\n")
-          _write(project.resolve("website.d/metadata/cncf/knowledge-source.json"), "override-manifest-sentinel\n")
         }
 
-        When("metadata finalization verifies generated graph authority before extension merge")
+        When("direct metadata finalization verifies generated graph authority before extension merge")
         val errors = Vector(collision, missing).map { project =>
           project -> intercept[Throwable] {
             CozyBok.finalizeMetadata(_build_config(project))
           }
         }.toMap
 
-        Then("both authority failures use the forbidden-override diagnostic and preserve every sentinel")
+        Then("both authority failures use the forbidden-override diagnostic and preserve project-owned rendered HTML")
         errors.values.foreach(_.getMessage should include("bok.extension.override.forbidden"))
         Vector(collision, missing).foreach { project =>
           _read(project.resolve("website.d/index.html")) shouldBe "<html>override-sentinel</html>\n"
-          _read(project.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "override-manifest-sentinel\n"
         }
       }
     }
@@ -523,7 +512,7 @@ class CozyBokMetadataFinalizationSpec
       }
     }
 
-    "reject malformed graph and unmatched component references before changing website sentinels" in {
+    "reject malformed graph and unmatched component references during direct finalization" in {
       Vector(
         "malformed graph" -> (
           "{\"nodes\":[],\"edges\":{},\"truncated\":false}\n",
@@ -546,21 +535,19 @@ class CozyBokMetadataFinalizationSpec
         )
       ).foreach { case (label, (rdfgraph, componentreferences, message)) =>
         _with_temp_dir(s"cozy-bok-metadata-finalization-invalid-${label.replace(' ', '-')}") { dir =>
-          Given(s"a configured website with a $label and existing metadata sentinels")
+          Given(s"a configured website with a $label and project-owned rendered HTML")
           _write_site_source(dir, glossaryterm = false)
           _write_prepared_metadata(dir, includeterms = false, rdfgraph = rdfgraph, componentreferences = componentreferences)
           _write(dir.resolve("website.d/index.html"), "<html>project-owned-marker</html>\n")
-          _write(dir.resolve("website.d/metadata/cncf/knowledge-source.json"), "sentinel-manifest\n")
 
-          When("metadata finalization validates the prepared handoff")
+          When("direct metadata finalization validates the prepared handoff")
           val error = intercept[Throwable] {
             CozyBok.finalizeMetadata(_build_config(dir))
           }
 
-          Then("the existing diagnostic is reported before either website sentinel changes")
+          Then("the existing diagnostic is reported and project-owned rendered HTML is preserved")
           error.getMessage should include(message)
           _read(dir.resolve("website.d/index.html")) shouldBe "<html>project-owned-marker</html>\n"
-          _read(dir.resolve("website.d/metadata/cncf/knowledge-source.json")) shouldBe "sentinel-manifest\n"
         }
       }
     }

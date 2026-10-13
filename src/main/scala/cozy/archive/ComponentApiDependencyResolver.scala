@@ -1,7 +1,7 @@
 package cozy.archive
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, StandardCopyOption}
 import java.util.zip.ZipFile
 
 import scala.collection.JavaConverters._
@@ -12,7 +12,8 @@ import play.api.libs.json._
 
 /*
  * @since   Jul. 12, 2026
- * @version Aug. 13, 2026
+ *  version Aug. 13, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object ComponentApiDependencyResolver {
@@ -36,12 +37,7 @@ private[cozy] object ComponentApiDependencyResolver {
     val providers = dependencies.flatMap(_load_provider)
     assemblydescriptor.foreach(_validate_assembly_dependencies(_, dependencies))
     val selected = consumer.required.flatMap { requirement =>
-      val apimatches = providers.filter(_.provided.apiClass == requirement.apiClass)
-      val matches = requirement.abiHash.map(hash => apimatches.filter(_.provided.abiHash == hash)).getOrElse(apimatches)
-      if (apimatches.nonEmpty && matches.isEmpty)
-        RAISE.invalidArgumentFault(
-          s"Required component API ABI is incompatible: ${requirement.apiClass}:${requirement.abiHash.getOrElse("<unspecified>")}"
-        )
+      val matches = providers.filter(_.provided.apiClass == requirement.apiClass)
       matches match {
         case Vector(provider) => Vector(provider)
         case Vector() if !requirement.required => Vector.empty
@@ -53,11 +49,12 @@ private[cozy] object ComponentApiDependencyResolver {
           )
       }
     }.foldLeft(Vector.empty[Provider]) { (z, provider) =>
-      if (z.exists(x => x.provided.apiClass == provider.provided.apiClass && x.provided.abiHash == provider.provided.abiHash)) z
+      if (z.exists(x => x.dependency.coordinate.dependencyKey == provider.dependency.coordinate.dependencyKey &&
+        x.dependency.archive.toAbsolutePath.normalize() == provider.dependency.archive.toAbsolutePath.normalize() &&
+        x.provided.artifactPath == provider.provided.artifactPath)) z
       else z :+ provider
     }
-    _replace_directory(outputdir)
-    selected.map(_extract_api_jar(_, outputdir))
+    _install_api_jars(selected, outputdir)
   }
 
   private def _load_provider(dependency: Dependency): Vector[Provider] = {
@@ -76,8 +73,6 @@ private[cozy] object ComponentApiDependencyResolver {
         source
       )
       descriptor.provided.map { provided =>
-        if (provided.abiHash.trim.isEmpty)
-          RAISE.invalidArgumentFault(s"Provided component API has no ABI hash: ${provided.apiClass}")
         CozyComponentReleaseCoordinateCodec.requireProjection(
           dependency.coordinate.version,
           provided.version.trim,
@@ -147,13 +142,25 @@ private[cozy] object ComponentApiDependencyResolver {
     }
   }
 
-  private def _replace_directory(path: Path): Unit = {
-    if (Files.exists(path)) {
+  private def _install_api_jars(selected: Vector[Provider], outputdir: Path): Vector[Path] = {
+    val destination = outputdir.toAbsolutePath.normalize()
+    _validate_output_directory(destination)
+    _delete_owned_directory(destination)
+    Files.createDirectories(destination)
+    selected.map(_extract_api_jar(_, destination))
+  }
+
+  private def _validate_output_directory(path: Path): Unit =
+    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS) &&
+      (Files.isSymbolicLink(path) || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)))
+      RAISE.invalidArgumentFault(s"Component API output must be a non-symlink directory: $path")
+
+  private def _delete_owned_directory(path: Path): Unit = {
+    if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
       val stream = Files.walk(path)
       try stream.iterator().asScala.toVector.sortBy(_.getNameCount)(Ordering[Int].reverse).foreach(Files.deleteIfExists(_))
       finally stream.close()
     }
-    Files.createDirectories(path)
   }
 
   private def _parse_dependency(value: String): Dependency =
@@ -178,9 +185,9 @@ private[cozy] object ComponentApiDependencyResolver {
 
   private final case class ComponentCoordinate(namespace: Option[String], id: Option[String], version: Option[String])
   private object ComponentCoordinate { implicit val reads: Reads[ComponentCoordinate] = Json.reads[ComponentCoordinate] }
-  private final case class RequiredApi(apiClass: String, required: Boolean, abiHash: Option[String])
+  private final case class RequiredApi(apiClass: String, required: Boolean)
   private object RequiredApi { implicit val reads: Reads[RequiredApi] = Json.reads[RequiredApi] }
-  private final case class ProvidedApi(apiClass: String, version: String, artifactPath: String, abiHash: String)
+  private final case class ProvidedApi(apiClass: String, version: String, artifactPath: String)
   private object ProvidedApi { implicit val reads: Reads[ProvidedApi] = Json.reads[ProvidedApi] }
   private final case class Descriptor(
     schemaVersion: String,

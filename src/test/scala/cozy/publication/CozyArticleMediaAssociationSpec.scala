@@ -14,7 +14,8 @@ import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Aug.  4, 2026
- * @version Aug. 30, 2026
+ *  version Aug. 30, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -470,11 +471,10 @@ final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers wi
       articleIdentity = articleidentity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Video,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-video", "1.0.0")),
       publicPath = new URI(publicpath),
       repositoryPath = "video/example.mp4",
       mediaType = "video/mp4",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.VideoPublication("metadata/video/example/1.0.0/manifest.json", "metadata/artifacts/repository/example.json"),
       publicationState = publicationstate
     ))
@@ -488,11 +488,10 @@ final class CozyArticleMediaAssociationSpec extends AnyWordSpec with Matchers wi
       articleIdentity = articleidentity,
       locale = locale,
       role = CozyArticleMediaIntegrity.Role.Infographic,
-      artifact = CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0"),
+      artifact = Some(CozyArticleMediaIntegrity.Artifact("example-infographic", "1.0.0")),
       publicPath = new URI(publicpath),
       repositoryPath = "images/example.png",
       mediaType = "image/png",
-      sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       provenance = CozyArticleMediaIntegrity.MediaPackage("src/main/media/example.yaml", "example-infographic", "target/cozy-media/manifest.json"),
       publicationState = CozyArticleMediaIntegrity.PublicationState.Published
     ))

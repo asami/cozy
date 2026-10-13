@@ -34,7 +34,8 @@ import scala.util.control.NonFatal
  *  version Jun. 30, 2026
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct.  5, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -336,38 +337,18 @@ class Cozy(
         val componentstylecatalog = validateddescriptor.
           map(modeler.ComponentStyleCatalog.fromValidatedDescriptor).
           getOrElse(modeler.ComponentStyleCatalog.EMPTY)
-        val sourcesnapshot = _generation_source_snapshot(
-          normalized,
-          validateddescriptor
-        )
-        if (validateddescriptor.nonEmpty)
-          _save_path(normalized).foreach(
-            cozy.modeler.GenerationProvenance.prepareOutput
-          )
+        val sourceinput = _generation_source_input(normalized, validateddescriptor)
         _with_component_identity(normalized) {
-          sourcesnapshot match {
-            case Some(snapshot) =>
-              cozy.modeler.GenerationProvenance.withCapturedSource(snapshot) { capturedsource =>
-                val capturedargs = _replace_first_positional_path(
-                  normalized,
-                  capturedsource
-                )
-                val repl = (Vector(command) ++ _convert_args(capturedargs)).mkString(" ")
-                _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
-                _write_model_metadata(normalized, Some(capturedsource), componentstylecatalog)
-              }
-            case None =>
-              val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
-              _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
-              _write_model_metadata(normalized, None, componentstylecatalog)
-          }
+          val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
+          _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
+          _write_model_metadata(normalized, componentstylecatalog)
         }
         if (generationtarget == modeler.ModelGenerationTarget.Cncf) {
           _write_component_api_descriptor(normalized)
           _write_generation_provenance(
             normalized,
             validateddescriptor,
-            sourcesnapshot
+            sourceinput
           )
         }
         true
@@ -409,47 +390,37 @@ class Cozy(
           _option_value(normalized, "generation-source-identity"),
           "generation-provenance-validate"
         )
-        val sourcesha = _required_option_value(
-          normalized,
-          "generation-source-sha256"
-        )
         val targetversion = _required_option_value(normalized, "cncf-version")
-        val descriptordigest = _required_option_value(
-          normalized,
-          "cncf-runtime-descriptor-sha256"
-        )
         val cozyversion = _required_option_value(
           normalized,
           "cozy-generator-version"
         )
         val modelversion = _option_value(normalized, "simplemodeling-model-version").
           getOrElse(org.simplemodeling.cozy.BuildInfo.simpleModelingModelVersion)
-        val manifest = cozy.modeler.GenerationProvenance.requireValidGeneratedOutput(
+        cozy.modeler.GenerationProvenance.requireValidGeneratedOutput(
           output,
           source,
           cozy.modeler.GenerationProvenance.Inputs(
             cncfTargetVersion = targetversion,
-            runtimeDescriptorSha256 = descriptordigest,
             cozyGeneratorVersion = cozyversion,
             simpleModelerBackendVersion =
               org.simplemodeling.cozy.BuildInfo.simpleModelerVersion,
             simpleModelingModelVersion = modelversion,
-            sourceIdentity = sourceidentity,
-            sourceSha256 = sourcesha
+            sourceIdentity = sourceidentity
           )
         )
         println(
-          s"Generation provenance valid: ${output.resolve(cozy.modeler.GenerationProvenance.METADATA_PATH)} evidence=${manifest.evidenceDigest}"
+          s"Generation provenance valid: ${output.resolve(cozy.modeler.GenerationProvenance.METADATA_PATH)}"
         )
         true
       case _ =>
         false
     }
 
-  private def _generation_source_snapshot(
+  private def _generation_source_input(
     args: List[String],
     validateddescriptor: Option[cozy.compatibility.CncfRuntimeDescriptorContract.ValidatedDescriptor]
-  ): Option[cozy.modeler.GenerationProvenance.SourceSnapshot] =
+  ): Option[cozy.modeler.GenerationProvenance.SourceInput] =
     validateddescriptor.map { _ =>
       val source = args.find(!_.startsWith("-")).
         map(Paths.get(_).toAbsolutePath.normalize()).
@@ -460,36 +431,14 @@ class Cozy(
         _option_value(args, "generation-source-identity"),
         "modeler"
       )
-      cozy.modeler.GenerationProvenance.requireSourceSnapshot(
+      cozy.modeler.GenerationProvenance.requireSourceInput(
         source,
         sourceidentity
       )
     }
 
-  private def _replace_first_positional_path(
-    args: List[String],
-    replacement: Path
-  ): List[String] = {
-    @annotation.tailrec
-    def _go_(
-      rest: List[String],
-      done: Boolean,
-      result: Vector[String]
-    ): List[String] =
-      rest match {
-        case Nil =>
-          result.toList
-        case head :: tail if !done && !head.startsWith("-") =>
-          _go_(tail, done = true, result :+ replacement.toString)
-        case head :: tail =>
-          _go_(tail, done, result :+ head)
-      }
-    _go_(args, done = false, Vector.empty)
-  }
-
   private def _write_model_metadata(
     args: List[String],
-    capturedsource: Option[Path],
     componentstylecatalog: modeler.ComponentStyleCatalog
   ): Unit = {
     val save = _save_path(args)
@@ -502,7 +451,7 @@ class Cozy(
     } {
       val metadir = savedir.resolve("target/cozy")
       cozy.modeler.CmlModelMetadata.write(
-        capturedsource.getOrElse(source),
+        source,
         metadir.resolve("model-metadata.json"),
         metadir.resolve("model-metadata.yaml"),
         source.toString,
@@ -535,26 +484,24 @@ class Cozy(
   private def _write_generation_provenance(
     args: List[String],
     validateddescriptor: Option[cozy.compatibility.CncfRuntimeDescriptorContract.ValidatedDescriptor],
-    sourcesnapshot: Option[cozy.modeler.GenerationProvenance.SourceSnapshot]
+    sourceinput: Option[cozy.modeler.GenerationProvenance.SourceInput]
   ): Unit = {
     val save = _save_path(args)
-    (validateddescriptor, save, sourcesnapshot) match {
-      case (Some(descriptor), Some(savedir), Some(snapshot))
+    (validateddescriptor, save, sourceinput) match {
+      case (Some(descriptor), Some(savedir), Some(selected))
           if Files.exists(savedir) =>
         val modelversion = _option_value(args, "simplemodeling-model-version").
           getOrElse(org.simplemodeling.cozy.BuildInfo.simpleModelingModelVersion)
         cozy.modeler.GenerationProvenance.write(
           savedir,
-          snapshot,
+          selected,
           cozy.modeler.GenerationProvenance.Inputs(
             cncfTargetVersion = descriptor.targetVersion,
-            runtimeDescriptorSha256 = descriptor.sha256,
             cozyGeneratorVersion = org.simplemodeling.cozy.BuildInfo.version,
             simpleModelerBackendVersion =
               org.simplemodeling.cozy.BuildInfo.simpleModelerVersion,
             simpleModelingModelVersion = modelversion,
-            sourceIdentity = snapshot.identity,
-            sourceSha256 = snapshot.sha256
+            sourceIdentity = selected.identity
           )
         )
       case _ =>

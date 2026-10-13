@@ -13,7 +13,8 @@ import scala.collection.JavaConverters._
 
 /*
  * @since   Aug. 26, 2026
- * @version Aug. 27, 2026
+ *  version Aug. 27, 2026
+ * @version Oct.  2, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyVideoStoryboardSpec
@@ -31,19 +32,18 @@ final class CozyVideoStoryboardSpec
       val jsonresult = CozyVideo.parseStoryboard(Paths.get("storyboard.json"), json)
       val markdownresult = CozyVideo.parseStoryboard(Paths.get("storyboard.md"), markdown)
 
-      Then("both representations preserve the same typed values canonical JSON and semantic identity")
+      Then("both representations preserve the same typed values and canonical JSON")
       jsonresult.isValid shouldBe true
       markdownresult.isValid shouldBe true
       jsonresult.storyboard shouldBe Some(storyboard)
       markdownresult.storyboard shouldBe Some(storyboard)
       CozyVideo.canonicalStoryboardJson(markdownresult.storyboard.get) shouldBe json
-      CozyVideo.storyboardIdentity(jsonresult.storyboard.get) shouldBe CozyVideo.storyboardIdentity(markdownresult.storyboard.get)
       markdown should include("caption: \"\"")
       markdown should include("production-inserts: [{\"id\":\"title-card\"")
       markdown should include("    Screen content")
     }
 
-    "round trip every permitted empty scalar and array value without changing identity" in {
+    "round trip every permitted empty scalar and array value without changing typed fields or canonical JSON" in {
       Given("a valid typed v1 Storyboard whose permitted scalar and collection values are empty")
       val storyboard = _empty_storyboard()
       val json = CozyVideo.canonicalStoryboardJson(storyboard)
@@ -53,14 +53,13 @@ final class CozyVideoStoryboardSpec
       val jsonresult = CozyVideo.parseStoryboard(Paths.get("empty-storyboard.json"), json)
       val markdownresult = CozyVideo.parseStoryboard(Paths.get("empty-storyboard.md"), markdown)
 
-      Then("both representations preserve the typed value canonical JSON and semantic identity")
+      Then("both representations preserve the typed value and canonical JSON")
       jsonresult.isValid shouldBe true
       markdownresult.isValid shouldBe true
       jsonresult.storyboard shouldBe Some(storyboard)
       markdownresult.storyboard shouldBe Some(storyboard)
       CozyVideo.canonicalStoryboardJson(jsonresult.storyboard.get) shouldBe json
       CozyVideo.canonicalStoryboardJson(markdownresult.storyboard.get) shouldBe json
-      CozyVideo.storyboardIdentity(jsonresult.storyboard.get) shouldBe CozyVideo.storyboardIdentity(markdownresult.storyboard.get)
       json should include("\"narration\":\"\"")
       json should include("\"heading\":\"\"")
       json should include("\"content\":\"\"")
@@ -237,8 +236,8 @@ final class CozyVideoStoryboardSpec
       }
     }
 
-    "make canonical conversion and semantic identity invariant across at least thirty key-order and representation variations" in {
-      Given("generated permutations of the root JSON keys and equivalent JSON or CRLF Markdown inputs")
+    "preserve typed fields and canonical JSON across at least fifty key-order and representation variations" in {
+      Given("all six root JSON key permutations and equivalent JSON or CRLF Markdown inputs")
       val rootorders = Gen.oneOf(Vector(
         Vector("schema", "version", "scenes"),
         Vector("schema", "scenes", "version"),
@@ -248,28 +247,33 @@ final class CozyVideoStoryboardSpec
         Vector("scenes", "version", "schema")
       ))
       val representations = Gen.oneOf("json", "markdown")
+      val expectedboard = _storyboard()
       val expected = _canonical_json()
-      val expectedidentity = CozyVideo.storyboardIdentity(_storyboard())
       val property = Prop.forAll(rootorders, representations) { (order, representation) =>
+        Given("the same typed Storyboard in a generated key order or CRLF Markdown representation")
         val input =
           if (representation == "json") _root_key_order(expected, order)
-          else CozyVideo.canonicalStoryboardMarkdown(_storyboard()).replace("\n", "\r\n")
+          else CozyVideo.canonicalStoryboardMarkdown(expectedboard).replace("\n", "\r\n")
         val source = if (representation == "json") Paths.get("storyboard.json") else Paths.get("storyboard.md")
-        val result = CozyVideo.parseStoryboard(source, input)
-        result.isValid &&
-          CozyVideo.canonicalStoryboardJson(result.storyboard.get) == expected &&
-          CozyVideo.storyboardIdentity(result.storyboard.get) == expectedidentity
+        When("the generated representation is parsed")
+        val parsed = CozyVideo.parseStoryboard(source, input)
+        Then("the actual typed fields and canonical JSON are preserved losslessly")
+        parsed.isValid shouldBe true
+        parsed.storyboard shouldBe Some(expectedboard)
+        CozyVideo.canonicalStoryboardJson(parsed.storyboard.get) shouldBe expected
+        true
       }
 
-      When("ScalaCheck evaluates thirty independently generated harmless variations")
-      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(30), property)
+      When("ScalaCheck evaluates at least fifty independently generated serialization variations")
+      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
 
-      Then("all presentations converge on byte-identical canonical JSON and one identity")
+      Then("every generated representation preserves the typed model and canonical bytes")
       result.passed shouldBe true
+      result.succeeded should be >= 50
     }
 
     "dispatch direct validate inspect and convert commands without producing output after a failed conversion" in {
-      Given("a direct JSON input a valid Markdown output and an invalid output destination")
+      Given("a direct JSON input a valid Markdown output and invalid source or output destinations")
       _with_temp_dir("direct-cli") { root =>
         val input = root.resolve("storyboard.json")
         val output = root.resolve("converted/storyboard.md")
@@ -279,28 +283,51 @@ final class CozyVideoStoryboardSpec
         Files.writeString(input, _canonical_json(), StandardCharsets.UTF_8)
         Files.writeString(brokeninput, "{\"schema\":\"cozy.video.storyboard.v1\"}", StandardCharsets.UTF_8)
 
-        When("the direct v1 commands validate inspect and convert the input")
+        When("the direct commands validate inspect and convert the named Storyboard")
         val validate = CozyVideo.storyboardValidate(CozyVideo.StoryboardValidateConfig(input))
         val inspect = CozyVideo.storyboardInspect(CozyVideo.StoryboardInspectConfig(input))
-        CozyVideo.execute(List("video", "storyboard", "validate", input.toString)) shouldBe true
-        CozyVideo.execute(List("video", "storyboard", "inspect", input.toString)) shouldBe true
-        CozyVideo.execute(List("video", "storyboard", "convert", input.toString, "--save", output.toString)) shouldBe true
+        val converted = CozyVideo.storyboardConvert(CozyVideo.StoryboardConvertConfig(input, output))
+
+        Then("summaries report the schema and scene count and inspection preserves ordered references without a management identity")
+        validate should include("schema: cozy.video.storyboard.v1")
+        validate should include("version: 1")
+        validate should include("scenes: 1")
+        validate should not include "scene 1:"
+        inspect should include("schema: cozy.video.storyboard.v1")
+        inspect should include("version: 1")
+        inspect should include("scenes: 1")
+        inspect should include("scene 1: id=intro")
+        inspect should include("diagramRefs: diagrams/overview.svg, diagrams/flow.svg")
+        inspect should include("assetRefs: assets/title.png")
+        converted should include(s"output: $output")
+        converted should include("format: markdown")
+        Vector(validate, inspect, converted).foreach(_ should not include "identity:")
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe CozyVideo.canonicalStoryboardMarkdown(_storyboard())
+
+        When("the CLI dispatches the same validate inspect and conversion requests")
+        val clivalidate = CozyVideo.execute(List("video", "storyboard", "validate", input.toString))
+        val cliinspect = CozyVideo.execute(List("video", "storyboard", "inspect", input.toString))
+        val cliconvert = CozyVideo.execute(List("video", "storyboard", "convert", input.toString, "--save", output.toString))
+
+        Then("each CLI request succeeds and writes the same selected canonical Markdown")
+        clivalidate shouldBe true
+        cliinspect shouldBe true
+        cliconvert shouldBe true
+        Files.readString(output, StandardCharsets.UTF_8) shouldBe CozyVideo.canonicalStoryboardMarkdown(_storyboard())
+
+        When("conversion receives an unsupported output extension")
         val failure = intercept[IllegalArgumentException] {
           CozyVideo.storyboardConvert(CozyVideo.StoryboardConvertConfig(input, invalid))
         }
+        Then("the unsupported format fails before creating its output")
+        failure.getMessage should include("INPUT_FORMAT_UNSUPPORTED")
+        Files.exists(invalid) shouldBe false
+
+        When("conversion receives a malformed Storyboard source")
         val validationfailure = intercept[IllegalArgumentException] {
           CozyVideo.storyboardConvert(CozyVideo.StoryboardConvertConfig(brokeninput, brokenoutput))
         }
-
-        Then("validate stays summary-only inspect presents ordered scenes and conversion writes only a selected valid format")
-        validate should include("schema: cozy.video.storyboard.v1")
-        validate should include("identity: sha256:")
-        validate should not include "scene 1:"
-        inspect should include("scene 1: id=intro")
-        inspect should include("assetRefs: assets/title.png")
-        Files.readString(output, StandardCharsets.UTF_8) shouldBe CozyVideo.canonicalStoryboardMarkdown(_storyboard())
-        failure.getMessage should include("INPUT_FORMAT_UNSUPPORTED")
-        Files.exists(invalid) shouldBe false
+        Then("required-field diagnostics reject the source before creating its output")
         validationfailure.getMessage should include("FIELD_MISSING")
         Files.exists(brokenoutput) shouldBe false
       }
@@ -356,7 +383,7 @@ final class CozyVideoStoryboardSpec
       }
     }
 
-    "preserve closed text and visual-page screens in canonical identity while planning only a screen reference" in {
+    "preserve closed text and visual-page screens in canonical serialization while planning only a screen reference" in {
       Given("a direct VisualPageSet and catalog beside a v2 Storyboard source")
       _with_temp_dir("v2-valid") { root =>
         val visual = _write_visual_page_fixture(root)
@@ -382,7 +409,7 @@ final class CozyVideoStoryboardSpec
         val v1screen = parser.parse(CozyVideo.canonicalStoryboardJson(_storyboard())).right.get.
           hcursor.downField("scenes").downArray.downField("screen").focus.get
 
-        Then("v2 keeps its literal reference in canonical identity and preserves every existing video semantic field")
+        Then("v2 keeps its literal source catalog and pageId reference in its typed screen and preserves every existing video semantic field")
         withClue(s"v2 text diagnostics: ${_diagnostics(textresult)}") {
           textresult.isValid shouldBe true
         }
@@ -394,7 +421,10 @@ final class CozyVideoStoryboardSpec
         planned should not be empty
         CozyVideo.canonicalStoryboardJson(textresult.storyboard.get) shouldBe text
         CozyVideo.canonicalStoryboardJson(visualresult.storyboard.get) shouldBe visualjson
-        CozyVideo.storyboardIdentity(visualresult.storyboard.get) should not be CozyVideo.storyboardIdentity(copyresult.storyboard.get)
+        textresult.storyboard.get.scenes.head.screen shouldBe CozyVideoImplementation.StoryboardTextScreen("Welcome", "Screen content\nwith an ordered literal block.")
+        visualresult.storyboard.get.scenes.head.screen shouldBe CozyVideoImplementation.StoryboardVisualPageScreen("visual-pages.json", "catalog.json", "overview")
+        copyresult.storyboard.get.scenes.head.screen shouldBe CozyVideoImplementation.StoryboardVisualPageScreen("visual-pages.json", "catalog-copy.json", "overview")
+        visualresult.storyboard.get.scenes.head.screen should not be copyresult.storyboard.get.scenes.head.screen
         CozyVideo.canonicalStoryboardJson(visualresult.storyboard.get) should include("\"catalog\":\"catalog.json\"")
         v1screen.noSpaces should not include "\"kind\""
         markdownresult.diagnostics.map(_.code) should contain("STORYBOARD_V2_JSON_ONLY")
@@ -473,12 +503,32 @@ final class CozyVideoStoryboardSpec
         val visualsource = root.resolve("visual/visual-v2.json")
         Files.writeString(visualsource, _v2_json(_visual_page_screen(visual._1, visual._2, "overview")), StandardCharsets.UTF_8)
 
-        When("the explicit migration command receives each v1 representation and a prohibited v2 downgrade")
-        CozyVideo.execute(List("video", "storyboard", "migrate", "--from", "v1", "--to", "v2", "--screen", "text", inputjson.toString, "--save", jsonoutput.toString)) shouldBe true
-        CozyVideo.execute(List("video", "storyboard", "migrate", "--from", "v1", "--to", "v2", "--screen", "text", inputmarkdown.toString, "--save", markdownoutput.toString)) shouldBe true
+        When("direct migration converts the actual v1 JSON source to the selected v2 product")
+        val summary = CozyVideoImplementation.storyboardMigrate(CozyVideoImplementation.StoryboardMigrateConfig(inputjson, "v1", "v2", "text", jsonoutput))
+        Then("the direct migration reports the selected output and v2 schema without an identity line")
+        summary should include(s"output: $jsonoutput")
+        summary should include("schema: cozy.video.storyboard.v2")
+        summary should not include "identity:"
+        val directjson = Files.readString(jsonoutput, StandardCharsets.UTF_8)
+
+        When("the explicit migration CLI converts each actual v1 representation")
+        val jsonmigrated = CozyVideo.execute(List("video", "storyboard", "migrate", "--from", "v1", "--to", "v2", "--screen", "text", inputjson.toString, "--save", jsonoutput.toString))
+        val markdownmigrated = CozyVideo.execute(List("video", "storyboard", "migrate", "--from", "v1", "--to", "v2", "--screen", "text", inputmarkdown.toString, "--save", markdownoutput.toString))
+        Then("both CLI migrations succeed and preserve the direct canonical v2 JSON")
+        jsonmigrated shouldBe true
+        markdownmigrated shouldBe true
+        Files.readString(jsonoutput, StandardCharsets.UTF_8) shouldBe directjson
+        Files.readString(markdownoutput, StandardCharsets.UTF_8) shouldBe directjson
+
+        When("migration receives a prohibited visual-page downgrade")
         val lossy = intercept[IllegalArgumentException] {
           CozyVideo.execute(List("video", "storyboard", "migrate", "--from", "v2", "--to", "v1", "--screen", "text", visualsource.toString, "--save", root.resolve("downgraded.json").toString))
         }
+        Then("a lossy visual-page downgrade is rejected without creating the output")
+        lossy.getMessage should include("VISUAL_PAGE_SCREEN_LOSSY")
+        Files.exists(root.resolve("downgraded.json"), LinkOption.NOFOLLOW_LINKS) shouldBe false
+
+        When("the migrated JSON products are loaded through the strict v2 reader")
         val migratedjson = CozyVideo.loadStoryboard(jsonoutput)
         val migratedmarkdown = CozyVideo.loadStoryboard(markdownoutput)
 
@@ -495,8 +545,6 @@ final class CozyVideoStoryboardSpec
         migratedjson.storyboard.get.scenes.head.duration shouldBe _storyboard().scenes.head.duration
         CozyVideo.canonicalStoryboardJson(migratedjson.storyboard.get) should include("\"kind\":\"text\"")
         CozyVideo.canonicalStoryboardJson(migratedmarkdown.storyboard.get) shouldBe CozyVideo.canonicalStoryboardJson(migratedjson.storyboard.get)
-        lossy.getMessage should include("VISUAL_PAGE_SCREEN_LOSSY")
-        Files.exists(root.resolve("downgraded.json"), LinkOption.NOFOLLOW_LINKS) shouldBe false
       }
     }
   }

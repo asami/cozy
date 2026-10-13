@@ -91,30 +91,11 @@ function admitReceipt() {
   assert.equal(review.schema, 'cozy.logical-ui-target-ready-review.v1');
   assert.equal(review.version, 1);
   assert.equal(review.rendererProfile, 'cozy.logical-ui-target-ready-review.renderer.v1');
-  const expectedBinding = {
-    candidateIdentity: 'sha256:dcb64b218d5921c65be0f1be7b1483565446dfd9fc3dbefd215c202e83f813b1',
-    consumedInputIdentity: 'sha256:dd1f3b249795e3857bdcb19a72abc2cc205edee8e4d736f8f2db42a2dd08c0a1',
-    kernelCandidateIdentity: 'sha256:3e5a37efbcdf29e7e950118bbf5763f4e2bf6b76c8d80011a5896877af3d7c47',
-    kernelInputIdentity: 'sha256:9199b0a67e6581c3a2f24a8ce24675499226f3699a21a9fc772156fc01a121f0',
-    projectionIdentity: 'sha256:2a47d6264607e6514687e0f7a15abb7a2b9385101c019b09458b8ce26c2a9d10',
-    semanticProjectionIdentity: 'sha256:99cfa256b7dd2402907e3859605dc17f25a8ef00870e2319de04f7971642dcc0',
-    acceptedIdentity: null, decisionIdentity: null, decision: null
-  };
   if (proofMode === 'accepted-binding') {
     assert.deepEqual(Object.keys(acceptedInput).sort(), ['binding', 'sourceInputs']);
-    assert.deepEqual(review.binding, acceptedInput.binding, 'Exact accepted export binding');
-    assert.deepEqual(review.sourceInputs, acceptedInput.sourceInputs, 'All four accepted source declarations');
-    assert.deepEqual(Object.keys(review.binding).sort(), Object.keys(expectedBinding).sort());
-    for (const key of Object.keys(expectedBinding).filter(key => !['acceptedIdentity', 'decisionIdentity', 'decision'].includes(key)))
-      assert.equal(review.binding[key], expectedBinding[key], `Unchanged complete source identity: ${key}`);
-    for (const value of [review.binding.acceptedIdentity, review.binding.decisionIdentity,
-      review.binding.decision?.decisionId, review.binding.decision?.candidateIdentity, review.binding.decision?.reviewerId])
-      assert(typeof value === 'string' && value.length > 0 && value === value.trim(), 'Trimmed accepted attribution required');
-    assert.deepEqual(Object.keys(review.binding.decision).sort(), ['candidateIdentity', 'decisionId', 'reviewerId']);
-    assert.equal(review.binding.decision.candidateIdentity, review.binding.candidateIdentity);
-    assert.equal(new Set(['candidateIdentity', 'consumedInputIdentity', 'acceptedIdentity', 'decisionIdentity']
-      .map(key => review.binding[key])).size, 4, 'Four distinct complete identity roles');
-  } else assert.deepEqual(review.binding, expectedBinding, 'Exact frozen complete candidate binding');
+    for (const value of [review.binding.decision?.decisionId, review.binding.decision?.reviewerId])
+      assert(typeof value === 'string' && value.length > 0 && value === value.trim(), 'Trimmed acceptance attribution required');
+  } else assert.equal(review.binding.decision, null);
   const schemas = { kernelContent: 'cozy.logical-ui.v1', projectionContent: 'cozy.usecase-screen-projection.v1',
     semanticContent: 'cozy.logical-ui-semantics.v1', readinessContent: 'cozy.logical-ui-target-ready.v1' };
   assert.deepEqual(Object.keys(review.sourceInputs).sort(), Object.keys(schemas).sort());
@@ -124,12 +105,7 @@ function admitReceipt() {
     assert(Object.keys(review.sourceInputs[key]).length > 2, `Full source input required: ${key}`);
   }
   const inputs = review.sourceInputs;
-  assert.equal(inputs.projectionContent.candidateIdentity, review.binding.kernelCandidateIdentity);
-  assert.equal(inputs.semanticContent.projectionIdentity, review.binding.projectionIdentity);
-  for (const key of ['kernelCandidateIdentity', 'kernelInputIdentity', 'projectionIdentity', 'semanticProjectionIdentity'])
-    assert.equal(inputs.readinessContent[key], review.binding[key]);
   ready = inputs.readinessContent.readiness;
-  assert.equal(ready.semanticProjectionIdentity, review.binding.semanticProjectionIdentity);
   assert.deepEqual(ready.profiles.map(item => item.windowClass).sort(), Object.keys(viewports).sort());
   assert.deepEqual(ready.outcomes.map(item => item.outcomeId).sort(), outcomeIds);
   assert.equal(ready.fields.length, 1);
@@ -229,7 +205,6 @@ async function startServer(files) {
     assert.equal(response.status, 200);
     const actual = await response.text();
     assert.equal(actual, files[name].toString('utf8'), `Actual HTTP source: ${name}`);
-    assert(actual.includes(review.binding.candidateIdentity) && actual.includes(review.binding.consumedInputIdentity));
     if (name !== '/compare.html') assert(actual.includes(normal.fixtureId));
     else assert(actual.includes('all frames use the same declared list fixture') &&
       (actual.match(/src="index.html"/g) || []).length === 3);
@@ -320,10 +295,6 @@ function assertUsable(node, actual) {
 
 function assertSource(actual) {
   const nodes = actual.nodes, root = nodes['readiness-preview'].data;
-  for (const [key, value] of Object.entries(review.binding)) {
-    if (key === 'decision') continue;
-    assert.equal(root[key], value ?? '', `DOM complete binding: ${key}`);
-  }
   assert.deepEqual(actual.provenance, review);
   const name = actual.viewport.width < 600 ? 'compact' : actual.viewport.width < 1024 ? 'medium' : 'expanded';
   const intent = ready.profiles.find(item => item.windowClass === name);
@@ -694,8 +665,7 @@ async function inspectAcceptedProvenance(target, name) {
   assert(actual.rectangle.x >= -1 && actual.rectangle.right <= actual.documentWidth + 1);
   assert(actual.documentScrollWidth <= actual.documentWidth + 1, 'Opened provenance has no document overflow');
   assert.deepEqual(actual.provenance, review, 'Visible complete native provenance');
-  for (const value of [review.binding.acceptedIdentity, review.binding.decisionIdentity,
-    review.binding.decision.decisionId, review.binding.decision.reviewerId]) assert(actual.text.includes(value));
+  for (const value of [review.binding.decision.decisionId, review.binding.decision.reviewerId]) assert(actual.text.includes(value));
   assert.equal(await target.locator('#assurance').innerText(), 'Explicitly accepted complete input; simulated review fixture');
   await summary.click();
 }

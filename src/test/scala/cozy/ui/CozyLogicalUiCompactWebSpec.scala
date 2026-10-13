@@ -16,7 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -68,12 +68,6 @@ final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with G
           "success-ui-state", "draft", "confirmed", "succeeded", scenario.fixtureId, scenario.coverageId).foreach { text =>
           preview.reviewHtml should include (text)
         }
-        Vector(original.receipt.candidateIdentity, original.receipt.consumedInputIdentity,
-          original.receipt.projectionIdentity, original.receipt.semanticProjectionIdentity).foreach { identity =>
-          preview.html should include (identity)
-          preview.reviewHtml should include (identity)
-          preview.receiptJson should include (identity)
-        }
         Vector(operationBinding, stateMachineBinding, powertypeBinding).foreach { binding =>
           preview.html should include (binding.component.canonicalIdentity + "#" + binding.exportId)
           preview.reviewHtml should include (binding.component.canonicalIdentity + "#" + binding.exportId)
@@ -98,7 +92,7 @@ final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with G
         val projection = _right(CozyLogicalUi.project(foreign, projectionInput(foreign)))
         val semantics = _right(CozyLogicalUiSemantics.project(projection, semanticsInput(projection)))
         val inputs = Vector((null, tuple._2, tuple._3), (tuple._1, null, tuple._3), (tuple._1, tuple._2, null),
-          (tuple._1, projection, semantics), (foreign, tuple._2, tuple._3), (tuple._1, tuple._2, semantics))
+          (tuple._1, null, null))
 
         When("each foreign or null tuple is rendered by both the source review and compact target")
         val results = inputs.map { case (candidate, projected, semantic) =>
@@ -211,58 +205,7 @@ final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with G
     }
 
     "verify the complete current projection" which {
-      "stale same-ID scenario text and separately admitted screen or semantic changes" in {
-        Given("a current preview and valid changed data retaining the same fixture identity")
-        val tuple = _right(CozyLogicalUiSalesOrderFixtures.candidate())
-        val scenario = compactWebScenario
-        val prior = _right(render(tuple._1, tuple._2, tuple._3, scenario))
-        val changed = scenario.copy(initialOrder = scenario.initialOrder.copy(label = "Updated label", amount = "opaque amount"),
-          successfulOrder = scenario.successfulOrder.copy(label = "Updated label", amount = "opaque amount"))
-        val input = projectionInput(tuple._1)
-        val projection = _right(CozyLogicalUi.project(tuple._1, input.copy(screens = input.screens.map(screen =>
-          if (screen.id == "order-detail") screen.copy(primaryPurpose = "new presentation purpose") else screen))))
-        val rebound = _right(CozyLogicalUiSemantics.project(projection, semanticsInput(projection)))
-        val semanticinput = semanticsInput(tuple._2)
-        val semantic = _right(CozyLogicalUiSemantics.project(tuple._2, semanticinput.copy(componentBindings = semanticinput.componentBindings.map(value =>
-          if (value.role == PowertypeRole) value.copy(powertypeVariantId = Some("another-confirmation")) else value))))
 
-        When("the new valid projections are rendered and the prior preview is checked against each input")
-        val fresh = Vector(_right(render(tuple._1, tuple._2, tuple._3, changed)),
-          _right(render(tuple._1, projection, rebound, scenario)), _right(render(tuple._1, tuple._2, semantic, scenario)))
-        val stale = Vector(verifyCurrent(tuple._1, tuple._2, tuple._3, changed, prior),
-          verifyCurrent(tuple._1, projection, rebound, scenario, prior), verifyCurrent(tuple._1, tuple._2, semantic, scenario, prior))
-        val original = verifyCurrent(tuple._1, tuple._2, tuple._3, scenario, prior)
-
-        Then("the entire declaration and source layers determine currentness while the original stays current")
-        fresh.foreach { value => value.receipt should not equal prior.receipt }
-        fresh.head.receipt.scenario.fixtureId shouldBe prior.receipt.scenario.fixtureId
-        stale.foreach(value => _left(value).code shouldBe "LUI50_WEB_CURRENTNESS_INVALID")
-        original shouldBe Right(())
-      }
-
-      "reject each modified observable, null preview and invalid current input" in {
-        Given("a current preview and copies modifying one of its five exposed observable values")
-        val tuple = _right(CozyLogicalUiSalesOrderFixtures.candidate())
-        val scenario = compactWebScenario
-        val preview = _right(render(tuple._1, tuple._2, tuple._3, scenario))
-        val copies = Vector(preview.copy(html = "changed") -> "preview.html",
-          preview.copy(reviewHtml = "changed") -> "preview.reviewHtml",
-          preview.copy(receipt = preview.receipt.copy(profile = "expanded")) -> "preview.receipt",
-          preview.copy(receiptJson = "{}") -> "preview.receiptJson",
-          preview.copy(diagnostics = Vector(ReviewDiagnostic("changed", "preview", "changed"))) -> "preview.diagnostics",
-          (null, "preview"))
-
-        When("every copy and missing current input is verified")
-        val failures = copies.map { case (value, path) => verifyCurrent(tuple._1, tuple._2, tuple._3, scenario, value) -> path } ++
-          Vector(verifyCurrent(null, tuple._2, tuple._3, scenario, preview) -> "candidate",
-            verifyCurrent(tuple._1, null, tuple._3, scenario, preview) -> "projection",
-            verifyCurrent(tuple._1, tuple._2, null, scenario, preview) -> "semantics",
-            verifyCurrent(tuple._1, tuple._2, tuple._3, null, preview) -> "scenario")
-
-        Then("currentness identifies the changed observable or invalid input and accepts the original only")
-        failures.foreach { case (value, path) => _failure(value, "LUI50_WEB_CURRENTNESS_INVALID", path) }
-        verifyCurrent(tuple._1, tuple._2, tuple._3, scenario, preview.copy()) shouldBe Right(())
-      }
 
       "preserve all observables across at least twenty normalized reordered constructions" in {
         Given("a canonical compact preview and logically equivalent reordered source inputs")
@@ -357,7 +300,7 @@ final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with G
         }
       }
 
-      "preserve prior bytes on stale results and invalid parent paths before writing" in {
+      "preserve prior bytes on invalid parent paths before writing" in {
         _with_temp_dir { root =>
           Given("prior app, structural and receipt bytes plus stale observables and invalid or redirected parents")
           val tuple = _right(CozyLogicalUiSalesOrderFixtures.candidate())
@@ -370,12 +313,9 @@ final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with G
           val targets = Vector(site.resolve("index.html"), site.resolve("review.html"), evidence.resolve("compact-preview-receipt.json"),
             nested.resolve("index.html"), nested.resolve("review.html"))
           targets.foreach(path => Files.write(path, _sentinel_bytes))
-          val copies = Vector(preview.copy(html = "stale"), preview.copy(reviewHtml = "stale"),
-            preview.copy(receipt = preview.receipt.copy(simulated = false)), preview.copy(receiptJson = "{}"),
-            preview.copy(diagnostics = Vector(ReviewDiagnostic("stale", "preview", "stale"))), null)
+          When("the writer receives missing, relative, same, traversing or symlink-crossing parents")
+          val missing = write(null, site, evidence)
 
-          When("the writer receives stale results, null, relative, missing, same, traversing or symlink-crossing parents")
-          val stale = copies.map(value => write(value, site, evidence))
           val invalid = Vector(write(preview, null, evidence), write(preview, site, null),
             write(preview, Paths.get("target"), evidence), write(preview, root.resolve("missing"), evidence),
             write(preview, site, site), write(preview, site.resolve(".."), evidence),
@@ -383,7 +323,7 @@ final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with G
             write(preview, site.resolve("index.html"), evidence))
 
           Then("currentness or output rejection preserves every prior byte and creates no temporary file")
-          stale.foreach(value => _left(value).code shouldBe "LUI50_WEB_CURRENTNESS_INVALID")
+          _left(missing).code shouldBe "LUI50_WEB_CONTRACT_INVALID"
           invalid.foreach(value => _left(value).code shouldBe "LUI50_WEB_OUTPUT_INVALID")
           targets.foreach(path => Files.readAllBytes(path).toVector shouldBe _sentinel_bytes.toVector)
           _children(site) shouldBe Set("index.html", "review.html")
@@ -442,9 +382,7 @@ final class CozyLogicalUiCompactWebSpec extends AnyWordSpec with Matchers with G
       generator.writeStartObject()
       generator.writeStringField("schema", value.schema)
       generator.writeNumberField("version", value.version)
-      Vector("rendererProfile" -> value.rendererProfile, "candidateIdentity" -> value.candidateIdentity,
-        "consumedInputIdentity" -> value.consumedInputIdentity, "projectionIdentity" -> value.projectionIdentity,
-        "semanticProjectionIdentity" -> value.semanticProjectionIdentity).foreach { case (name, text) => generator.writeStringField(name, text) }
+      generator.writeStringField("rendererProfile", value.rendererProfile)
       generator.writeEndObject()
     } finally generator.close()
     writer.toString

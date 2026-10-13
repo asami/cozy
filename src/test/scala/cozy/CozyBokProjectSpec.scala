@@ -9,12 +9,14 @@ import java.nio.file.{Files, Path}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.collection.JavaConverters._
 import io.circe.parser
+import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jun. 23, 2026
- * @version Aug. 14, 2026
+ *  version Aug. 14, 2026
+ * @version Oct. 12, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokProjectSpec
@@ -267,11 +269,178 @@ class CozyBokProjectSpec
           val bundle =
             _read(dir.resolve("src/main/publication/nict-knowledgehub.json"))
           bundle should include("\"status\" : \"published\"")
-          bundle should include("\"sha256\"")
+          bundle should not include ("\"sha256\"")
+          val bundlejson = parser.parse(bundle).fold(throw _, identity)
+          val entries = bundlejson.hcursor.get[Vector[io.circe.Json]]("entries").fold(throw _, identity)
+          val artifactentries = entries.filter(_.hcursor.get[String]("path").toOption.contains("metadata/artifacts/repository/nict-knowledgehub.json"))
+          artifactentries should have size 1
+          val artifactmetadata = artifactentries.head.hcursor.downField("metadata").downField("artifact")
+          artifactmetadata.get[String]("status").toOption shouldBe Some("published")
+          val files = artifactmetadata.get[Vector[io.circe.Json]]("files").fold(throw _, identity)
+          files should have size 1
+          val artifactcursor = files.head.hcursor
+          artifactcursor.get[String]("warehousePath").toOption shouldBe Some("repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car")
+          artifactcursor.get[String]("publicPath").toOption shouldBe Some("repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car")
+          artifactcursor.get[String]("name").toOption shouldBe Some("nict-knowledgehub-0.1.0.car")
+          artifactcursor.get[String]("status").toOption shouldBe Some("published")
+          artifactcursor.get[Long]("size").toOption shouldBe Some("car-body".getBytes(StandardCharsets.UTF_8).length.toLong)
+          artifactcursor.downField("sha256").focus shouldBe None
           bundle should include(
             "repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
           )
         }
+      }
+
+      "update authored project titles without source digests while preserving published CAR metadata and bytes" in {
+        Given("safe nonempty project titles and nonempty CAR payloads for isolated registration trials")
+        val titlegen = Gen.choose(1, 40).flatMap(length =>
+          Gen.listOfN(length, Gen.alphaChar).map(_.mkString)
+        )
+        val payloadgen = Gen.choose(1, 256).flatMap(length =>
+          Gen.listOfN(length, Gen.choose(0, 255)).map(_.map(_.toByte).toArray)
+        )
+        val property = Prop.forAll(titlegen, payloadgen) { (title, payload) =>
+          _with_temp_dir("cozy-bok-project-title-metadata") { dir =>
+            Given("an explicit external CAR project, source package, configuration and repository artifact")
+            val externalproject = dir.resolve("external/nict-knowledgehub")
+            _write(
+              externalproject.resolve("build.sbt"),
+              "ThisBuild / version := \"0.1.0\"\n"
+            )
+            _write(
+              dir.resolve("conf/cozy/config.yaml"),
+              s"""bok:
+                 |  repository: repository
+                 |  projects:
+                 |    nict-knowledgehub:
+                 |      path: ${externalproject.toString}
+                 |      version: 0.1.0
+                 |""".stripMargin
+            )
+            val sourcepackage = "src/main/doxsite/projects/concept/nict-knowledgehub"
+            val pkg = dir.resolve(sourcepackage)
+            val article = _write(pkg.resolve("index.dox"), "NICT KnowledgeHub\n=================\n")
+            val articlebytes = Files.readAllBytes(article).toVector
+            val artifactpath = "repository/car/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car"
+            val artifact = dir.resolve(artifactpath)
+            Files.createDirectories(artifact.getParent)
+            Files.write(artifact, payload)
+            val initialtitle = s"Initial $title"
+            val updatedtitle = s"Updated $title"
+            def _descriptor_(value: String): String =
+              s"""project:
+                 |  type: car
+                 |  name: nict-knowledgehub
+                 |  mode: external
+                 |  ref: nict-knowledgehub
+                 |car:
+                 |  module: nict-knowledgehub
+                 |title: $value
+                 |version: 0.1.0
+                 |summary: Published project
+                 |terms: [knowledge]
+                 |tags: [car]
+                 |article: index.dox
+                 |publication:
+                 |  path: projects/concept/nict-knowledgehub
+                 |""".stripMargin
+            _write(pkg.resolve("project.yaml"), _descriptor_(initialtitle))
+            val config = CozyBok.PublicationConfig.create("publish-projects", List(dir.toString))
+            val bundlepath = dir.resolve("src/main/publication/nict-knowledgehub.json")
+
+            def _expect_bundle_(expectedtitle: String): Unit = {
+              val bundletext = _read(bundlepath)
+              val bundle = parser.parse(bundletext).fold(throw _, identity)
+              val entries = bundle.hcursor.downField("entries").as[Vector[io.circe.Json]].fold(throw _, identity)
+              entries.map(_.hcursor.get[String]("path").fold(throw _, identity)).toSet shouldBe Set(
+                "metadata/catalog/projects/car/nict-knowledgehub.json",
+                "metadata/projects/car/nict-knowledgehub/metadata.json",
+                "metadata/projects/car/nict-knowledgehub/0.1.0/manifest.json",
+                "metadata/projects/car/nict-knowledgehub/latest.json",
+                "metadata/artifacts/repository/nict-knowledgehub.json"
+              )
+              def _metadata_(entrypath: String): io.circe.Json = {
+                val selected = entries.filter(_.hcursor.get[String]("path").toOption.contains(entrypath))
+                selected.size shouldBe 1
+                selected.head.hcursor.get[io.circe.Json]("metadata").fold(throw _, identity)
+              }
+              val metadata = _metadata_("metadata/projects/car/nict-knowledgehub/metadata.json")
+              val project = metadata.hcursor.downField("project")
+              project.keys.get.toSet shouldBe Set(
+                "type", "name", "title", "version", "summary", "terms", "tags",
+                "articlePath", "publicationPath", "sourcePackage", "descriptorPath",
+                "project", "car", "versionSource", "catalog", "cml", "sie", "artifact"
+              )
+              project.get[String]("type").toOption shouldBe Some("car")
+              project.get[String]("name").toOption shouldBe Some("nict-knowledgehub")
+              project.get[String]("title").toOption shouldBe Some(expectedtitle)
+              project.get[String]("version").toOption shouldBe Some("0.1.0")
+              project.get[String]("summary").toOption shouldBe Some("Published project")
+              project.get[Vector[String]]("terms").toOption shouldBe Some(Vector("knowledge"))
+              project.get[Vector[String]]("tags").toOption shouldBe Some(Vector("car"))
+              project.get[String]("articlePath").toOption shouldBe Some("index.dox")
+              project.get[String]("publicationPath").toOption shouldBe Some("projects/concept/nict-knowledgehub")
+              project.get[String]("sourcePackage").toOption shouldBe Some(sourcepackage)
+              project.get[String]("descriptorPath").toOption shouldBe Some("project.yaml")
+              project.downField("project").get[String]("mode").toOption shouldBe Some("external")
+              project.downField("project").get[String]("ref").toOption shouldBe Some("nict-knowledgehub")
+              project.downField("car").get[String]("module").toOption shouldBe Some("nict-knowledgehub")
+              project.get[String]("versionSource").toOption shouldBe Some("project-config")
+              project.downField("descriptorSha256").succeeded shouldBe false
+              bundletext should not include ("\"descriptorSha256\"")
+              bundle.hcursor.downField("publication").get[String]("name").toOption shouldBe Some("nict-knowledgehub")
+              bundle.hcursor.downField("publication").get[String]("path").toOption shouldBe Some("projects/concept/nict-knowledgehub")
+              val manifest = _metadata_("metadata/projects/car/nict-knowledgehub/0.1.0/manifest.json")
+              manifest.hcursor.downField("project").get[String]("title").toOption shouldBe Some(expectedtitle)
+              _metadata_("metadata/catalog/projects/car/nict-knowledgehub.json")
+                .hcursor.downField("project").get[String]("title").toOption shouldBe Some(expectedtitle)
+              val artifactmetadata = project.get[io.circe.Json]("artifact").fold(throw _, identity)
+              val published = _metadata_("metadata/artifacts/repository/nict-knowledgehub.json")
+              val files = published.hcursor.downField("artifact").get[Vector[io.circe.Json]]("files").fold(throw _, identity)
+              files shouldBe Vector(artifactmetadata)
+              published.hcursor.downField("artifact").get[String]("status").toOption shouldBe Some("published")
+              manifest.hcursor.get[io.circe.Json]("artifact").toOption shouldBe Some(artifactmetadata)
+              val artifactcursor = artifactmetadata.hcursor
+              artifactcursor.get[String]("warehousePath").toOption shouldBe Some(artifactpath)
+              artifactcursor.get[String]("publicPath").toOption shouldBe Some(artifactpath)
+              artifactcursor.get[String]("name").toOption shouldBe Some("nict-knowledgehub-0.1.0.car")
+              artifactcursor.get[String]("status").toOption shouldBe Some("published")
+              artifactcursor.get[Long]("size").toOption shouldBe Some(payload.length.toLong)
+              artifactcursor.downField("sha256").focus shouldBe None
+              Files.readAllBytes(artifact).toVector shouldBe payload.toVector
+              Files.readAllBytes(article).toVector shouldBe articlebytes
+            }
+
+            When("Cozy publicly registers the initial CAR project metadata")
+            val initial = CozyBok.publishProjects(config)
+
+            Then("the emitted project and manifest retain source coordinates and exact CAR metadata and bytes")
+            initial.size shouldBe 1
+            initial.head.artifact shouldBe artifact.toAbsolutePath.normalize()
+            initial.head.artifactexists shouldBe true
+            _expect_bundle_(initialtitle)
+
+            Given("the same valid source descriptor with an updated title")
+            _write(pkg.resolve("project.yaml"), _descriptor_(updatedtitle))
+
+            When("Cozy publicly registers the updated CAR project metadata")
+            val updated = CozyBok.publishProjects(config)
+
+            Then("the new title is visible without source digests and the original CAR metadata and bytes remain exact")
+            updated.size shouldBe 1
+            updated.head.artifact shouldBe artifact.toAbsolutePath.normalize()
+            updated.head.artifactexists shouldBe true
+            _expect_bundle_(updatedtitle)
+            true
+          }
+        }
+
+        When("the public registration and update contract is exercised over generated inputs")
+        val check = Test.check(Test.Parameters.default.withMinSuccessfulTests(50), property)
+
+        Then("at least fifty isolated registration and update trials satisfy the contract")
+        check.passed shouldBe true
+        check.succeeded should be >= 50
       }
 
       "record project-local repository artifact metadata when bok.repository points to a separate directory" in {
@@ -337,9 +506,6 @@ class CozyBokProjectSpec
               |    status: active
               |    component: org.nict.Knowledgehub
               |    file: repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.nict:nict-knowledgehub:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.PublicationConfig.create(
@@ -552,9 +718,6 @@ class CozyBokProjectSpec
               |    status: active
               |    component: org.nict.Knowledgehub
               |    file: repository/car/org/nict/nict-knowledgehub/0.2.0/nict-knowledgehub-0.2.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.nict:nict-knowledgehub:0.2.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val pkg = dir.resolve(
@@ -1496,9 +1659,6 @@ class CozyBokProjectSpec
               |    channel: stable
               |    component: org.example.textus.OtherComponent
               |    file: repository/car/org/example/textus/textus-other-component/0.1.0/textus-other-component-0.1.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.example.textus:textus-other-component:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
 
@@ -1859,9 +2019,6 @@ class CozyBokProjectSpec
               |    channel: stable
               |    component: org.nict.Knowledgehub
               |    file: repository/car/org/nict/nict-knowledgehub/0.1.0/nict-knowledgehub-0.1.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.nict:nict-knowledgehub:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           _write(
@@ -2366,16 +2523,10 @@ class CozyBokProjectSpec
               |        minimum: 0.5.0
               |        tested:
               |          - 0.5.0
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.nict:nict-knowledgehub:0.2.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |  - version: 0.3.0-SNAPSHOT
               |    channel: snapshot
               |    component: org.nict.Knowledgehub
               |    file: repository/car/org/nict/nict-knowledgehub/0.3.0-SNAPSHOT/nict-knowledgehub-0.3.0-SNAPSHOT.car
-              |    checksum:
-              |      sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-              |    integrityKey: org.nict:nict-knowledgehub:0.3.0-SNAPSHOT@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
               |""".stripMargin
           )
           _write(
@@ -2397,9 +2548,6 @@ class CozyBokProjectSpec
               |    channel: stable
               |    component: org.example.textus.Sie
               |    file: repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.example.textus:textus-sie:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           _write(
@@ -2547,9 +2695,6 @@ class CozyBokProjectSpec
               |    channel: stable
               |    component: org.example.other.Car
               |    file: repository/car/org/example/other/other-car/0.1.0/other-car-0.1.0.car
-              |    checksum:
-              |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-              |    integrityKey: org.example.other:other-car:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
               |""".stripMargin
           )
           val config = CozyBok.BuildConfig.create(
@@ -2879,9 +3024,6 @@ class CozyBokProjectSpec
        |    channel: stable
        |    component: org.example.textus.SemanticIntegrationEngine
        |    file: repository/car/org/example/textus/textus-semantic-integration-engine/${version}/textus-semantic-integration-engine-${version}.car
-       |    checksum:
-       |      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-       |    integrityKey: org.example.textus:textus-semantic-integration-engine:${version}@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
        |""".stripMargin
 
   private def _sie_subsystem_catalog_json(version: String): String =

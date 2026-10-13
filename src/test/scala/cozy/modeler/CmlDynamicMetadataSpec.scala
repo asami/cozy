@@ -12,7 +12,7 @@ import CmlDynamicMetadata._
 
 /*
  * @since   Oct.  4, 2026
- * @version Oct.  4, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlDynamicMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -124,7 +124,6 @@ final class CmlDynamicMetadataSpec extends AnyWordSpec with Matchers with GivenW
         val changes: Vector[ElementRecord => ElementRecord] = Vector(
           record => record.copy(identity = Present(ModelElementId("dynamic.example", "forged"))),
           record => record.copy(kind = "unrelated"), record => record.copy(name = "forged"),
-          record => record.copy(source = record.source.copy(sha256 = "b" * 64)),
           record => record.copy(references = Absent(NotDeclared, "Changed core references.")),
           _ => fixture.records.last)
         val forged = changes.flatMap(change => _projection_record_variants(fixture, change))
@@ -135,14 +134,13 @@ final class CmlDynamicMetadataSpec extends AnyWordSpec with Matchers with GivenW
           val record = _at(_child(root), Vector(array, "0", "element")).as[JsObject]
           val altered = Vector(record + ("identity" -> _present_json(Json.obj("modelId" -> "dynamic.example", "elementId" -> "forged"))),
             record + ("kind" -> JsString("unrelated")), record + ("name" -> JsString("forged")),
-            record + ("source" -> ((record \ "source").as[JsObject] + ("sha256" -> JsString("b" * 64)))),
             record + ("references" -> _absent_json(NotDeclared, "Changed core references.")),
             (root \ "elements").as[Vector[JsValue]].last)
           altered.map(value => CmlDynamicMetadata.read(_replace_child(root, Vector(array, "0", "element"), value)))
         }
         Then("identity or shared name alone never substitutes for exact core binding")
-        typedresults.map(_first(_).kind) shouldBe Vector.fill(42)(InvalidCoreBinding)
-        wireresults.map(_first(_).kind) shouldBe Vector.fill(42)(InvalidCoreBinding)
+        typedresults.map(_first(_).kind) shouldBe Vector.fill(35)(InvalidCoreBinding)
+        wireresults.map(_first(_).kind) shouldBe Vector.fill(35)(InvalidCoreBinding)
       }
     }
 
@@ -535,7 +533,7 @@ final class CmlDynamicMetadataSpec extends AnyWordSpec with Matchers with GivenW
     _reference_slots.filter(slot => slot.form == "expression" || slot.form == "expressions").map(_.path.dropRight(2))
 
   private def _source(authority: String): SourceAttribution = {
-    SourceAttribution(authority, "src/main/cml/dynamic.cml", "a" * 64, Some(7))
+    SourceAttribution(authority, "src/main/cml/dynamic.cml", Some(7))
   }
 
   private def _record(kind: String, id: String, authority: String = "dynamic.example"): ElementRecord = {

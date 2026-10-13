@@ -32,12 +32,29 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 
+private[cozy] object CozyBokProjectPages {
+  import CozyBokImplementation._
+
+  private final case class ProjectArtifactRecord(artifacttype: String, warehousepath: String, path: Path, exists: Boolean)
+
+  private final case class ProjectCmlTermRow(
+    kind: String,
+    name: String,
+    terms: Vector[TermEntry],
+    function: String,
+    summary: String
+  )
+}
+
 private[cozy] trait CozyBokProjectPages {
   self: CozyBokImplementation.type =>
+
+  import CozyBokProjectPages.ProjectArtifactRecord
+  import CozyBokProjectPages.ProjectCmlTermRow
   private[bok] def _write_project_pages(
     config: BuildConfig,
     target: Path,
@@ -283,7 +300,6 @@ private[cozy] trait CozyBokProjectPages {
         config.publication.publicationPath(config.project),
         config.publication.artifactBasePath(config.project),
         None,
-        force = false,
         config.project,
         bokconfig,
         Some(config.publication.repositoryPath(config.project))
@@ -432,8 +448,6 @@ private[cozy] trait CozyBokProjectPages {
     val relative = projects.relativize(project.packagedir.toAbsolutePath.normalize())
     if (relative.getNameCount >= 1) relative.getName(0).toString else "project"
   }
-
-  private final case class ProjectArtifactRecord(artifacttype: String, warehousepath: String, path: Path, exists: Boolean)
 
   private def _project_artifact_path(config: BuildConfig, project: CozyBokProjectPublisher.ResolvedBokProject): Path =
     _project_artifact_path(config, project.warehousePath)
@@ -705,14 +719,6 @@ private[cozy] trait CozyBokProjectPages {
        |  ${surface}
        |</section>""".stripMargin
   }
-
-  private final case class ProjectCmlTermRow(
-    kind: String,
-    name: String,
-    terms: Vector[TermEntry],
-    function: String,
-    summary: String
-  )
 
   private def _project_model_terms_html(config: BuildConfig, locale: String, project: CozyBokProjectPublisher.ResolvedBokProject, page: Path, target: Path): String =
     project.cml.map { cml =>

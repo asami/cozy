@@ -7,7 +7,7 @@ import play.api.libs.json._
 
 /*
  * @since   Oct. 8, 2026
- * @version Oct. 8, 2026
+ * @version Oct. 13, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyLogicalUiReadiness {
@@ -60,25 +60,18 @@ private[cozy] object CozyLogicalUiReadiness {
     workflowState: Option[WorkflowStateReference], recoveries: Vector[RecoveryBinding],
     messageTextId: String)
   final case class ReadinessInput(
-    semanticProjectionIdentity: String, profiles: Vector[ProfileIntent],
+    profiles: Vector[ProfileIntent],
     controls: Vector[ControlSemantics], fields: Vector[InputField],
     textSources: Vector[TextSource], outcomes: Vector[OutcomeBinding])
 
   final class TargetReadyCandidate private[CozyLogicalUiReadiness] (
-    val identity: String, val inputIdentity: String,
     val kernelCandidate: LogicalUiCandidate, val projection: LogicalUiProjection,
     val semantics: LogicalUiSemanticProjection, val input: ReadinessInput,
     val canonicalContent: String)
 
-  final case class TargetReadyAcceptanceDecision(
-    decisionId: String, candidateIdentity: String, reviewerId: String) {
-    def decisionIdentity: String = CozyLogicalUiProjection.identity(Json.stringify(_object(Vector(
-      "schema" -> JsString(schema), "version" -> JsNumber(version),
-      "kind" -> JsString("acceptance-decision"), "decisionId" -> JsString(decisionId),
-      "candidateIdentity" -> JsString(candidateIdentity), "reviewerId" -> JsString(reviewerId)))))
-  }
+  final case class TargetReadyAcceptanceDecision(decisionId: String, reviewerId: String)
   final class AcceptedTargetReadyLogicalUi private[CozyLogicalUiReadiness] (
-    val identity: String, val candidate: TargetReadyCandidate, val decision: TargetReadyAcceptanceDecision)
+    val candidate: TargetReadyCandidate, val decision: TargetReadyAcceptanceDecision)
 
   def schema: String = "cozy.logical-ui-target-ready.v1"
   def version: Int = 1
@@ -91,32 +84,12 @@ private[cozy] object CozyLogicalUiReadiness {
     _ <- _check(projection != null, "CHAIN_INVALID", "projection", "screen projection required")
     _ <- _check(semantics != null, "CHAIN_INVALID", "semantics", "semantic projection required")
     _ <- _check(input != null, "INPUT_INVALID", "input", "readiness input required")
-    _ <- _check(projection.candidate.identity == kernelCandidate.identity &&
-      projection.candidate.inputIdentity == kernelCandidate.inputIdentity &&
-      projection.candidate.canonicalContent == kernelCandidate.canonicalContent,
-      "CHAIN_INVALID", "projection.candidate", "exact kernel candidate required")
-    _ <- _check(semantics.projectionIdentity == projection.identity,
-      "CHAIN_INVALID", "semantics.projectionIdentity", "exact screen projection required")
-    _ <- _check(_id_valid(input.semanticProjectionIdentity) && input.semanticProjectionIdentity == semantics.identity,
-      "CHAIN_INVALID", "input.semanticProjectionIdentity", "exact semantic projection required")
-    rebuilt <- CozyLogicalUi.candidate(kernelCandidate.input)
-    rebuiltprojection <- CozyLogicalUi.project(rebuilt, projection.input)
-    rebuiltsemantics <- CozyLogicalUiSemantics.project(rebuiltprojection, semantics.input)
-    _ <- _check(rebuilt.identity == kernelCandidate.identity && rebuilt.inputIdentity == kernelCandidate.inputIdentity &&
-      rebuiltprojection.identity == projection.identity && rebuiltsemantics.identity == semantics.identity,
-      "CHAIN_INVALID", "kernelCandidate", "factory-produced source chain required")
     normalized <- _normalize(input, projection, semantics)
   } yield {
     val content = Json.stringify(_object(Vector(
       "schema" -> JsString(schema), "version" -> JsNumber(version),
-      "kernelCandidateIdentity" -> JsString(kernelCandidate.identity),
-      "kernelInputIdentity" -> JsString(kernelCandidate.inputIdentity),
-      "projectionIdentity" -> JsString(projection.identity),
-      "semanticProjectionIdentity" -> JsString(semantics.identity),
       "readiness" -> _input_json(normalized))))
-    val inputidentity = _role_identity("consumed-input", content)
-    new TargetReadyCandidate(_role_identity("candidate", content), inputidentity,
-      kernelCandidate, projection, semantics, normalized, content)
+    new TargetReadyCandidate(kernelCandidate, projection, semantics, normalized, content)
   }
 
   def accept(
@@ -125,28 +98,8 @@ private[cozy] object CozyLogicalUiReadiness {
     _ <- _check(completeCandidate != null, "ACCEPTANCE_INVALID", "candidate", "complete candidate required")
     _ <- _check(decision != null, "ACCEPTANCE_INVALID", "decision", "attributed decision required")
     _ <- _check(_id_valid(decision.decisionId), "ACCEPTANCE_INVALID", "decision.decisionId", "trimmed decision ID required")
-    _ <- _check(_id_valid(decision.candidateIdentity) && decision.candidateIdentity == completeCandidate.identity,
-      "ACCEPTANCE_INVALID", "decision.candidateIdentity", "exact complete candidate required")
     _ <- _check(_id_valid(decision.reviewerId), "ACCEPTANCE_INVALID", "decision.reviewerId", "trimmed reviewer ID required")
-  } yield {
-    val content = Json.stringify(_object(Vector(
-      "schema" -> JsString(schema), "version" -> JsNumber(version), "kind" -> JsString("accepted"),
-      "candidateIdentity" -> JsString(completeCandidate.identity),
-      "inputIdentity" -> JsString(completeCandidate.inputIdentity),
-      "decisionIdentity" -> JsString(decision.decisionIdentity))))
-    new AcceptedTargetReadyLogicalUi(CozyLogicalUiProjection.identity(content), completeCandidate, decision)
-  }
-
-  def verifyCurrent(
-    value: TargetReadyCandidate, kernelCandidate: LogicalUiCandidate,
-    projection: LogicalUiProjection, semantics: LogicalUiSemanticProjection, input: ReadinessInput
-  ): Either[LogicalUiError, Unit] = for {
-    _ <- _check(value != null, "CURRENTNESS_INVALID", "value", "complete candidate required")
-    rebuilt <- candidate(kernelCandidate, projection, semantics, input)
-    _ <- _check(value.identity == rebuilt.identity && value.inputIdentity == rebuilt.inputIdentity &&
-      value.canonicalContent == rebuilt.canonicalContent,
-      "CURRENTNESS_INVALID", "value", "complete authoritative input changed")
-  } yield ()
+  } yield new AcceptedTargetReadyLogicalUi(completeCandidate, decision)
 
   private def _normalize(
     input: ReadinessInput, projection: LogicalUiProjection, semantics: LogicalUiSemanticProjection
@@ -326,8 +279,6 @@ private[cozy] object CozyLogicalUiReadiness {
 
   private def _object(fields: Vector[(String, JsValue)]): JsObject = JsObject(fields)
   private def _array[A](values: Vector[A])(f: A => JsValue): JsArray = JsArray(values.map(f))
-  private def _role_identity(kind: String, content: String): String = CozyLogicalUiProjection.identity(Json.stringify(_object(Vector(
-    "schema" -> JsString(schema), "version" -> JsNumber(version), "kind" -> JsString(kind), "logicalContent" -> JsString(content)))))
   private def _ref_json(value: InteractionRef): JsValue = _object(Vector(
     "screenId" -> JsString(value.screenId), "interactionId" -> JsString(value.interactionId)))
   private def _binding_json(value: ComponentBinding): JsValue = _object(Vector(
@@ -338,7 +289,6 @@ private[cozy] object CozyLogicalUiReadiness {
     "uiUseCase" -> _object(Vector("layer" -> JsString(value.uiUseCase.layer.id), "id" -> JsString(value.uiUseCase.id))),
     "stepId" -> JsString(value.stepId), "path" -> JsString(value.path.id)))
   private def _input_json(input: ReadinessInput): JsValue = _object(Vector(
-    "semanticProjectionIdentity" -> JsString(input.semanticProjectionIdentity),
     "profiles" -> _array(input.profiles)(profile => _object(Vector(
       "windowClass" -> JsString(_window_id(profile.windowClass)),
       "detailPlacement" -> JsString(if (profile.detailPlacement == NavigateToDetail) "navigate-to-detail" else "update-detail-region"),

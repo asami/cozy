@@ -1,12 +1,13 @@
 package cozy.document
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{AtomicMoveNotSupportedException, Files, LinkOption, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, LinkOption, Path, Paths}
 import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 11, 2026
- * @version Sep. 11, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentLogicTreeCommand {
@@ -25,7 +26,7 @@ private[cozy] object CozyDocumentLogicTreeCommand {
       }
       val destination = _destination(request.save)
       _publish(destination, rendered.html)
-      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: ${validated.core.id}\nlocale: ${validated.format.locale}\nidentity: ${rendered.identity}\noutput: $destination")
+      println(s"Cozy Content Core Logic Tree Render\nkind: ${rendered.kind}\ncore: ${validated.core.id}\nlocale: ${validated.format.locale}\noutput: $destination")
       true
     case _ => false
   }
@@ -68,23 +69,10 @@ private[cozy] object CozyDocumentLogicTreeCommand {
     }
 
   private def _publish(destination: Path, content: String): Unit = {
-    var temporary: Option[Path] = None
     try {
-      if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)))
-        _fail("LOGIC_TREE_PATH", "$.save", "output destination became unsafe")
-      val temporaryfile = Files.createTempFile(destination.getParent, s".${destination.getFileName}-", ".tmp")
-      temporary = Some(temporaryfile)
-      Files.writeString(temporaryfile, content, StandardCharsets.UTF_8)
-      if (Files.isSymbolicLink(destination) || (Files.exists(destination, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)))
-        _fail("LOGIC_TREE_PATH", "$.save", "output destination became unsafe")
-      Files.move(temporaryfile, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-      temporary = None
+      Files.writeString(destination, content, StandardCharsets.UTF_8)
     } catch {
-      case fault: CozyDocumentLogicTree.LogicTreeFault => throw fault
-      case _: AtomicMoveNotSupportedException => _fail("LOGIC_TREE_PATH", "$.save", "output requires an atomic move")
-      case NonFatal(_) => _fail("LOGIC_TREE_PATH", "$.save", "output cannot be published atomically")
-    } finally {
-      temporary.foreach(path => try Files.deleteIfExists(path) catch { case NonFatal(_) => () })
+      case NonFatal(_) => _fail("LOGIC_TREE_PATH", "$.save", "output cannot be written")
     }
   }
 

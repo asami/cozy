@@ -16,7 +16,6 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{Files, LinkOption, Path, Paths, StandardCopyOption}
-import java.security.MessageDigest
 import java.time.{Duration => JDuration}
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
@@ -27,7 +26,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Aug. 14, 2026
- * @version Sep. 15, 2026
+ *  version Sep. 15, 2026
+ * @version Oct. 10, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] trait CozyVideoNarration {
@@ -63,7 +63,8 @@ private[cozy] trait CozyVideoNarration {
 
   private[video] final class MacosSayNarrationProvider(
     projectroot: Path,
-    runner: VideoProcessRunner
+    runner: VideoProcessRunner,
+    execution: VideoExecutionConfig = VideoExecutionConfig(VideoToolMode.Host, VideoToolSettings.DEFAULT_DOCKER_IMAGE, VideoToolSettings.DEFAULT_VOICEVOX_URL)
   ) extends NarrationProvider {
     val id = "macos-say"
     val executionMode = "host"
@@ -81,25 +82,24 @@ private[cozy] trait CozyVideoNarration {
       val wav = workdir.resolve("narration.wav")
       try {
         val sayresult = runner.run(
-          Vector("say", "-v", voicename, "-r", rate.toString, "-o", source.toString, text),
+          _execution_command(projectroot, execution, "say", Vector("-v", voicename, "-r", rate.toString, "-o", source.toString, text)),
           projectroot
         )
         if (!sayresult.isSuccess)
           RAISE.invalidArgumentFault(s"macOS say narration failed: ${sayresult.text}")
         val ffmpegresult = runner.run(
-          Vector(
-            "ffmpeg",
+          _execution_command(projectroot, execution, "ffmpeg", Vector(
             "-y",
             "-i",
-            source.toString,
+            _execution_path(projectroot, execution, source, "ffmpeg"),
             "-ar",
             _default_sample_rate.toString,
             "-ac",
             _default_audio_channels.toString,
             "-sample_fmt",
             "s16",
-            wav.toString
-          ),
+            _execution_path(projectroot, execution, wav, "ffmpeg")
+          ), mounts = _selected_path_mounts(projectroot, Vector(source), Vector(wav))),
           projectroot
         )
         if (!ffmpegresult.isSuccess)
@@ -148,9 +148,9 @@ private[cozy] trait CozyVideoNarration {
             "--model",
             modelid,
             "--input",
-            _execution_path(projectroot, execution, input),
+            _execution_path(projectroot, execution, input, "piper"),
             "--output",
-            _execution_path(projectroot, execution, output)
+            _execution_path(projectroot, execution, output, "piper")
           ),
           networkdisabled = true
         )

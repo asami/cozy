@@ -12,7 +12,8 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 12, 2026
- * @version Sep. 13, 2026
+ *  version Sep. 30, 2026
+ * @version Oct.  1, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyDocumentConfirmationVocabulary {
@@ -44,14 +45,12 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
     "pageHeading", "statusHeading", "coverageComplete", "currentSources", "admittedState", "noUnresolvedReferences",
     "containmentHeading", "flowHeading", "structureHeading", "proseHeading", "logicalPatternHeading",
     "nodesHeading", "nodeRoleHeading", "relationsHeading", "noDirectChildFlowTransitions",
-    "logicalStructureReference", "identitiesHeading", "coreIdentityLabel", "documentIdentityLabel",
-    "outputIdentityLabel"
+    "logicalStructureReference", "identitiesHeading"
   )
   private val _summary_chrome_keys = Set(
     "pageHeading", "statusHeading", "selectedSourcesCurrentAndAdmitted", "noUnresolvedSelectedReferences", "navigationHeading",
     "semanticPanelHeading", "emphasisHeading", "retainedPointsHeading", "diagramHeading", "diagramItemsHeading",
-    "diagramEdgesHeading", "emptyDiagramMessage", "sourcesHeading", "omissionsHeading", "rationaleHeading",
-    "identitiesHeading", "coreIdentityLabel", "documentIdentityLabel", "summaryIdentityLabel", "outputIdentityLabel"
+    "diagramEdgesHeading", "emptyDiagramMessage", "sourcesHeading", "omissionsHeading", "rationaleHeading"
   )
   private val _logical_pattern_keys = Set("sequence", "mapping", "dependency-map", "causal-chain")
   private val _node_role_keys = Set("step", "source", "target", "dependency", "dependent", "cause", "effect")
@@ -74,9 +73,7 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
         resource.documentchrome("proseHeading"), resource.documentchrome("logicalPatternHeading"),
         resource.documentchrome("nodesHeading"), resource.documentchrome("nodeRoleHeading"),
         resource.documentchrome("relationsHeading"), resource.documentchrome("noDirectChildFlowTransitions"),
-        resource.documentchrome("logicalStructureReference"), resource.documentchrome("identitiesHeading"),
-        resource.documentchrome("coreIdentityLabel"), resource.documentchrome("documentIdentityLabel"),
-        resource.documentchrome("outputIdentityLabel")
+        resource.documentchrome("logicalStructureReference"), resource.documentchrome("identitiesHeading")
       ),
       resource.logicalpatterns,
       resource.noderoles,
@@ -96,10 +93,7 @@ private[cozy] object CozyDocumentConfirmationVocabulary {
         resource.summarychrome("retainedPointsHeading"), resource.summarychrome("diagramHeading"),
         resource.summarychrome("diagramItemsHeading"), resource.summarychrome("diagramEdgesHeading"),
         resource.summarychrome("emptyDiagramMessage"), resource.summarychrome("sourcesHeading"),
-        resource.summarychrome("omissionsHeading"), resource.summarychrome("rationaleHeading"),
-        resource.summarychrome("identitiesHeading"), resource.summarychrome("coreIdentityLabel"),
-        resource.summarychrome("documentIdentityLabel"), resource.summarychrome("summaryIdentityLabel"),
-        resource.summarychrome("outputIdentityLabel")
+        resource.summarychrome("omissionsHeading"), resource.summarychrome("rationaleHeading")
       ),
       resource.sourcecategories,
       resource.diagramitemkinds,

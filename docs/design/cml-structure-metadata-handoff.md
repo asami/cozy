@@ -92,3 +92,27 @@ only; no successor implementation or authorization is included here.
 This handoff does not claim CML parsing, source-currentness, automatic export,
 file generation, CLI behavior, runtime enforcement, external consumer
 acceptance, publication, deployment, UI registration, or a new schema.
+
+## Phase 71 attribution retirement
+
+Under [file update management](../spec/file-update-management.md), Phase 71
+retires the non-integrity source digest while retaining
+`cozy.cml.semantic-metadata.v1` and `cozy.cml.structure.v1`. This is an explicit
+exception to historical all-core-changes-new-version wording: ordinary
+SourceAttribution loading projects required `authorityId`, `path`, and `line`,
+ignoring unknown source extras of any JSON type. Missing known fields remain
+invalid; explicit `line: null` means no line, and supplied lines must be positive.
+There is no legacy decoder, upgrade, alternate version, or fake value. All other
+core shapes stay closed; identity, Presence, references, opaque extensions, and
+genuine diagnostics retain their contracts. Attribution supplies authority,
+canonical project-relative POSIX path, and optional line without hash, snapshot,
+or currentness proof. Future material core semantics require independently
+designed versioning. Canonical fixtures publish the retired field set; their
+STR evidence remains synthetic supplier evidence, without external runtime or
+CML integration acceptance.
+
+Embedded Structure records are admitted by the ordinary semantic reader in the
+complete admitted Catalog context and compared as full typed ElementRecords.
+Ignored source extras never contradict a binding. Anonymous full-record
+multiplicity, unique/multiple witnesses, category, and coverage validation remain
+unchanged; raw JSON equality and identity/name/order-only selection are not used.

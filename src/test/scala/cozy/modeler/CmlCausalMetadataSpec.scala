@@ -11,7 +11,7 @@ import CmlCausalMetadata._
 
 /*
  * @since   Oct.  5, 2026
- * @version Oct.  5, 2026
+ * @version Oct. 13, 2026
  */
 final class CmlCausalMetadataSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Causal metadata" should {
@@ -203,7 +203,6 @@ final class CmlCausalMetadataSpec extends AnyWordSpec with Matchers with GivenWh
         val missing = child.fields.map { case (name, _) => child - name }.filter(_.value.contains("schemaVersion"))
         val wrong = child.fields.filter(_._1 != "schemaVersion").map { case (name, _) => child + (name -> JsNull) }
         val paths = Vector(Vector("causalLinks", "value", "0", "element", "name"),
-          Vector("causalLinks", "value", "0", "element", "source", "sha256"),
           Vector("modelReferences", "1", "references", "value", "1", "origin", "sources", "0", "path"),
           Vector("capabilityGaps", "0", "absence", "detail"),
           Vector("actorOperations", "value", "0", "operations", "value", "0", "boundary"))
@@ -474,7 +473,7 @@ final class CmlCausalMetadataSpec extends AnyWordSpec with Matchers with GivenWh
         Json.obj("identity" -> _identity_json(reference.identity), "boundary" -> _boundary(reference.boundary))),
       "membership" -> _presence(boundary.membership, JsString))))
 
-  private def _source(authority: String): SourceAttribution = SourceAttribution(authority, "model/source.cml", "a" * 64, Some(7))
+  private def _source(authority: String): SourceAttribution = SourceAttribution(authority, "model/source.cml", Some(7))
   private def _record(authority: String, id: String, kind: String): ElementRecord =
     ElementRecord(Present(ModelElementId(authority, id)), kind, "display", _source(authority), Present(Vector.empty))
   private def _semantic(target: SemanticTarget, boundary: ReferenceBoundary, origin: ReferenceOrigin): SemanticReference =
@@ -485,7 +484,7 @@ final class CmlCausalMetadataSpec extends AnyWordSpec with Matchers with GivenWh
     "kind" -> value.kind, "name" -> value.name, "source" -> _source_json(value.source),
     "references" -> _presence(value.references, (references: Vector[SemanticReference]) => JsArray(references.map(_semantic_json))))
   private def _source_json(value: SourceAttribution): JsObject = Json.obj("authorityId" -> value.authorityId, "path" -> value.path,
-    "sha256" -> value.sha256, "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(BigDecimal(line))))
+    "line" -> value.line.fold[JsValue](JsNull)(line => JsNumber(BigDecimal(line))))
   private def _identity_json(value: ModelElementId): JsObject = Json.obj("modelId" -> value.modelId, "elementId" -> value.elementId)
   private def _model_json(value: ModelReference): JsObject = Json.obj("identity" -> _identity_json(value.identity), "boundary" -> _boundary(value.boundary))
   private def _boundary(value: ReferenceBoundary): String = if (value == Local) "local" else "external"

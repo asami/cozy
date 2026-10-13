@@ -12,10 +12,23 @@ import scala.util.control.NonFatal
 
 /*
  * @since   Sep. 14, 2026
- * @version Sep. 14, 2026
+ * @version Oct.  8, 2026
  * @author  ASAMI, Tomoharu
  */
+object CozyDocumentProjectLocalBuildCommandSpec {
+  private final case class Fixture(
+    project: Path,
+    config: Path,
+    core: Path,
+    document: Path,
+    vocabulary: Path,
+    index: Path
+  )
+}
+
 final class CozyDocumentProjectLocalBuildCommandSpec extends AnyWordSpec with Matchers with GivenWhenThen {
+  import CozyDocumentProjectLocalBuildCommandSpec.Fixture
+
   "Cozy Document Project local-build command" should {
     "select the default and render each frozen target without loading a descriptor" in {
       _with_temp_dir("cozy-document-project-local-build-routes") { root =>
@@ -272,7 +285,7 @@ final class CozyDocumentProjectLocalBuildCommandSpec extends AnyWordSpec with Ma
     }
 
     "preserve a successful article output when a later SmartDox renderer fault occurs" in {
-      _with_temp_dir("cozy-document-project-local-build-atomic-failure") { root =>
+      _with_temp_dir("cozy-document-project-local-build-render-failure") { root =>
         Given("a successfully installed article output and a later parser-faulting direct article source")
         val fixture = _fixture(root)
         _execute(List("document-project", "build", fixture.project.toString, "--target", "smartdox-article-html"))
@@ -292,15 +305,6 @@ final class CozyDocumentProjectLocalBuildCommandSpec extends AnyWordSpec with Ma
       }
     }
   }
-
-  private final case class Fixture(
-    project: Path,
-    config: Path,
-    core: Path,
-    document: Path,
-    vocabulary: Path,
-    index: Path
-  )
 
   private def _fixture(root: Path, prerequisites: Map[String, Vector[String]] = Map.empty): Fixture = {
     val project = Files.createDirectories(root.resolve("local-build.dox"))

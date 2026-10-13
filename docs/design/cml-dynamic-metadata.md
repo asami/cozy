@@ -119,7 +119,7 @@ to two fixed UTF-8 declared/absence resources. Each retains the accepted
 Classification 22-record/two-Term prefix, complete predecessor children and
 opaque peers, then adds twenty independently authored Dynamic records, one
 separate Term and seventeen carriers. Synthetic caller admission supplies
-source authority/path/digest/lines; fixture evidence claims neither a real source
+source authority/path/lines; fixture evidence claims neither a real source
 file nor parser/currentness evidence.
 
 The cohesive FixtureSpec authors DF-01–09 against actual bytes, independent

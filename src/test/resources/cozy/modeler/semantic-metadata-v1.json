@@ -14,7 +14,6 @@
       "source": {
         "authorityId": "model.example",
         "path": "src/main/cozy/example.cml",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
         "line": 12
       },
       "references": {
@@ -35,7 +34,6 @@
       "source": {
         "authorityId": "model.example",
         "path": "src/main/cozy/example.cml",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
         "line": 28
       },
       "references": {
@@ -78,7 +76,6 @@
             "source": {
               "authorityId": "model.example",
               "path": "src/main/cozy/example.cml",
-              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
               "line": 30
             },
             "origin": {
@@ -88,7 +85,6 @@
                 {
                   "authorityId": "bok.example",
                   "path": "glossary/example.dox",
-                  "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
                   "line": null
                 }
               ]
@@ -126,7 +122,6 @@
             "source": {
               "authorityId": "model.example",
               "path": "src/main/cozy/example.cml",
-              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
               "line": 31
             },
             "origin": {
@@ -146,7 +141,6 @@
       "source": {
         "authorityId": "bok.example",
         "path": "glossary/example.dox",
-        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
         "line": null
       }
     }
