@@ -1,5 +1,18 @@
 # Logical UI Generated Producer Design
 
+## Current — 2026-10-13 final acceptance
+
+Phase 76 and P76-01..06 are CLOSED, with all 24 original criteria satisfied.
+All six accepted Step commits are retained. Repository full validation and
+independent recovery full review are accepted; the exact local release commit
+is the native Git commit carrying `Phase-Closure-Binding: phase76-closure-20261013@1`.
+The [final acceptance record](../journal/2026/10/2026-10-13-phase-76-final-acceptance.md) maps the closure authority.
+Earlier progress counts and pending statements below are dated historical
+Step snapshots. No criterion is deleted, relocated or deferred. CNCF Phase 96
+whole-Phase closure and Editing Studio E2E are not claimed or required here.
+
+## Historical Step acceptance snapshot — through 2026-10-04
+
 Document role: stable Phase 76 design transcribed from parent-decided contract
 `phase76-cycle-plan-001` revision 1. Status: documentary design accepted after
 retained independent Step review PASS, committed locally as
@@ -44,7 +57,8 @@ review `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
 `/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
 ledger `phase96-review-ledger-001` r23, finds both documentary criteria MET.
 The checklist has 22 checked / 2 unchecked; the own local documentary Step
-commit is PREPARED/PENDING, not executed. Phase 76 remains IN_PROGRESS;
+commit is `ddeadab9a97fda818fb2842df4873dbc7adf03e1`, executed on
+2026-10-04 and verified against native Git on 2026-10-13. Phase 76 remains IN_PROGRESS;
 whole-Phase validation/review, release and both Phase closures remain pending.
 
 The [producer specification](../spec/logical-ui-generated-producer.md) fixes
@@ -166,7 +180,7 @@ Accepted implementation and CNCF consumer proof are recorded by the
 has its own independent PASS and four accepted unchanged criteria. Its local
 Step commit is `3546755fc3f52606cfb1f209434a2a776ef9358b`;
 P76-06 is IN_PROGRESS at P76-06A accepted documentary criteria, own local Step
-commit PREPARED/PENDING and not executed; full Phase
+commit `ddeadab9a97fda818fb2842df4873dbc7adf03e1` executed; full Phase
 validation/review/release and both Phase closures remain pending.
 
 The [existing-v1 compatibility index](../spec/logical-ui-generated-producer.md#compatibility-and-evolution-navigation--existing-v1)

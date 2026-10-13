@@ -1,6 +1,6 @@
 # Phase 76: Logical UI Generated ABI Producer
 
-status=IN_PROGRESS
+status=CLOSED
 planned_at=2026-10-03
 checklist=phase-76-checklist.md
 development_branch=codex/phase-76-logical-ui-producer
@@ -10,6 +10,17 @@ acceptance_handoff=LUI-ACCEPT-01
 depends_on=Phase 74
 consumer=goldenport-cncf Phase 96
 driver=KnowledgeHubProject/nict-editing-studio-app
+
+## Current — 2026-10-13 final acceptance
+
+Phase 76 and P76-01..06 are CLOSED, with all 24 original criteria satisfied.
+All six accepted Step commits are retained. Repository full validation and
+independent recovery full review are accepted; the exact local release commit
+is the native Git commit carrying `Phase-Closure-Binding: phase76-closure-20261013@1`.
+The [final acceptance record](../journal/2026/10/2026-10-13-phase-76-final-acceptance.md) maps the closure authority.
+Earlier progress counts and pending statements below are dated historical
+Step snapshots. No criterion is deleted, relocated or deferred. CNCF Phase 96
+whole-Phase closure and Editing Studio E2E are not claimed or required here.
 
 ## Goal
 
@@ -34,7 +45,7 @@ CML / Cozy Logical UI semantic model
 - CNCF Phase 96 LUI-ABI-01: fixed consumer ABI/provider contract, hand-written expected-generated fixture and focused projection proof; this is an intermediate development handoff, not a prerequisite that Phase 96 has closed;
 - existing Cozy generated ABI/source-generation mechanisms, especially StateMachine/Workflow producer patterns.
 
-## Development ledger and handoffs
+## Historical Step progression and handoffs — through 2026-10-04
 
 The [Phase 76 checklist](phase-76-checklist.md) owns current progress.
 P76-01's documentary contract is accepted after retained independent Step
@@ -51,7 +62,8 @@ properties with at least 100 successful cases. Independent Step review
 `/root/phase96_cozy76_p76_03a_step_review_001` is PASS, attributed to Cozy
 P76-03 in original CNCF primary ledger `phase96-review-ledger-001` r14.
 P76-01..05 are CLOSED with 22/24 obligations accepted and 2 unchecked;
-P76-06 is IN_PROGRESS at P76-06A documentary acceptance, local commit prepared/pending. The local P76-03 Step acceptance commit is
+P76-06 is IN_PROGRESS after P76-06A documentary acceptance, committed as
+`ddeadab9a97fda818fb2842df4873dbc7adf03e1`. The local P76-03 Step acceptance commit is
 `8a4c1794b7ad4557af5b4260d1233acd07520c6e`. The received
 fixed LUI-ABI-01 source contract is transcribed in the
 [producer spec](../spec/logical-ui-generated-producer.md) and
@@ -98,9 +110,16 @@ The first two unchanged P76-06 criteria are MET and checked after independent
 Step review `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
 `/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
 ledger `phase96-review-ledger-001` r23. Its own local documentary Step commit
-is PREPARED/PENDING, not executed. The last two
+is `ddeadab9a97fda818fb2842df4873dbc7adf03e1`, executed on 2026-10-04
+and verified against native Git on 2026-10-13. The last two
 criteria remain later final-validation, full Phase review and release gates.
 Those two remain unchecked; no obligation is deferred or removed.
+
+The [2026-10-13 reconciliation](../journal/2026/10/2026-10-04-phase-76-compatibility-developer-handoff.md#2026-10-13--committed-documentary-step-reconciliation)
+corrects stale commit-pending projections without supplying final-validation,
+full Phase review, release or closure evidence. Continue with those remaining
+Cozy gates before integrating into `main`; CNCF Phase 96 whole-Phase closure
+and Editing Studio E2E are not prerequisites.
 
 | Handoff | Producer -> consumer | Required result |
 | --- | --- | --- |
@@ -240,8 +259,9 @@ LUI-ACCEPT-01 proof is committed as
 [reciprocal receipt](../journal/2026/10/2026-10-04-phase-76-consumer-acceptance.md).
 P76-05 is CLOSED on its four unchanged checklist criteria after its own
 independent Step review PASS recorded above; its local Step commit is
-`3546755fc3f52606cfb1f209434a2a776ef9358b`. P76-06 is IN_PROGRESS at
-P76-06A documentary acceptance, own local Step commit PREPARED/PENDING and not executed; full Phase
+`3546755fc3f52606cfb1f209434a2a776ef9358b`. P76-06 is IN_PROGRESS after
+P76-06A documentary acceptance, own local Step commit
+`ddeadab9a97fda818fb2842df4873dbc7adf03e1` executed; full Phase
 validation/review, acceptance, release and both Phase closures remain pending.
 
 ## Acceptance criteria

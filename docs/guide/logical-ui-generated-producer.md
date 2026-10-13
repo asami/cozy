@@ -1,5 +1,18 @@
 # Logical UI generated producer developer guide
 
+## Current — 2026-10-13 final acceptance
+
+Phase 76 and P76-01..06 are CLOSED, with all 24 original criteria satisfied.
+All six accepted Step commits are retained. Repository full validation and
+independent recovery full review are accepted; the exact local release commit
+is the native Git commit carrying `Phase-Closure-Binding: phase76-closure-20261013@1`.
+The [final acceptance record](../journal/2026/10/2026-10-13-phase-76-final-acceptance.md) maps the closure authority.
+Earlier progress counts and pending statements below are dated historical
+Step snapshots. No criterion is deleted, relocated or deferred. CNCF Phase 96
+whole-Phase closure and Editing Studio E2E are not claimed or required here.
+
+## Historical Step acceptance snapshot — through 2026-10-04
+
 Document role: non-normative usage and evidence navigation for the accepted
 Phase 76 producer. The [producer spec](../spec/logical-ui-generated-producer.md)
 LUI76-S01..S07 and CNCF's
@@ -10,7 +23,8 @@ has both documentary criteria MET after independent Step review
 `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
 `/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
 ledger `phase96-review-ledger-001` r23. Its own local Step commit is
-PREPARED/PENDING, not executed. P76-06 and Phase 76 remain
+`ddeadab9a97fda818fb2842df4873dbc7adf03e1`, executed on 2026-10-04
+and verified against native Git on 2026-10-13. P76-06 and Phase 76 remain
 IN_PROGRESS, 22 checked / 2 unchecked; final validation, full Phase review,
 release and both Phase closures remain pending. The
 [dated handoff](../journal/2026/10/2026-10-04-phase-76-compatibility-developer-handoff.md)

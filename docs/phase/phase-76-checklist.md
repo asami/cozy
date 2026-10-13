@@ -1,11 +1,22 @@
 # Phase 76 Checklist: Logical UI Generated ABI Producer
 
-status=IN_PROGRESS
+status=CLOSED
 phase=[Phase 76](phase-76.md)
 development_branch=codex/phase-76-logical-ui-producer
 planning_source=c6b108b8f301d4b1928e3f7f1b43d3e17f8e3739
 
-## Ledger boundary
+## Current — 2026-10-13 final acceptance
+
+Phase 76 and P76-01..06 are CLOSED, with all 24 original criteria satisfied.
+All six accepted Step commits are retained. Repository full validation and
+independent recovery full review are accepted; the exact local release commit
+is the native Git commit carrying `Phase-Closure-Binding: phase76-closure-20261013@1`.
+The [final acceptance record](../journal/2026/10/2026-10-13-phase-76-final-acceptance.md) maps the closure authority.
+Earlier progress counts and pending statements below are dated historical
+Step snapshots. No criterion is deleted, relocated or deferred. CNCF Phase 96
+whole-Phase closure and Editing Studio E2E are not claimed or required here.
+
+## Historical ledger progression — through 2026-10-04
 
 This ledger preserves the GitHub Phase 76 plan and all 24 obligations/owners.
 P76-01's four documentary obligations are accepted after retained independent
@@ -248,10 +259,12 @@ both Phase closures remain pending.
 
 Stage Status:
 
-- Current status: IN_PROGRESS
-- Current step: P76-06A-DOCS compatibility and developer documentary criteria independently accepted; own local Step commit PREPARED/PENDING, not executed
+- Current status: CLOSED
+- Current step: P76-06A commit retained; final full validation and recovery full review accepted; formal release binding phase76-closure-20261013@1
 - Owner: Cozy Phase 76 release and integration owners
 - Update rule: Advance only when this checklist and preceding stages have complete evidence or admitted dispositions; this checklist is the closure basis.
+
+Historical 2026-10-04 documentary acceptance (superseded by Current above):
 
 The [developer guide](../guide/logical-ui-generated-producer.md) and
 [dated handoff](../journal/2026/10/2026-10-04-phase-76-compatibility-developer-handoff.md)
@@ -259,7 +272,8 @@ address the first two unchanged criteria, both MET after independent documentary
 Step review `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
 `/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
 ledger `phase96-review-ledger-001` r23. The own local Step commit is
-PREPARED/PENDING, not executed. The last two remain later Phase gates: actual
+`ddeadab9a97fda818fb2842df4873dbc7adf03e1`, executed on 2026-10-04
+and verified against native Git on 2026-10-13. The last two remain later Phase gates: actual
 final-validation ownership/admission and execution, full Phase review, release
 and complete closure evidence. Only the first two boxes are checked;
 totals are 22 checked / 2 unchecked. P76-06 and Phase 76 remain IN_PROGRESS;
@@ -267,8 +281,8 @@ both Phase closures remain pending. This mapping adds or relocates no obligation
 
 - [x] Producer/consumer compatibility and future additive vocabulary evolution document ABI-version policy, supported subset, rejection behavior and definition/provenance ownership against the accepted CNCF contract.
 - [x] Developer documentation explains the ordinary CML -> generated source/provider -> CNCF admission path, reproducible fixtures and all three handoff receipts without runtime CML parsing or a shared binary runtime library.
-- [ ] Repository-required release validation and the admitted Phase review/closure evidence are recorded separately from focused intermediate handoffs; any admitted fixes have bounded closure evidence.
-- [ ] Every Phase 76 scope and acceptance criterion maps to completed ledger evidence or explicit admitted candidate/relocation records; journal, Phase status and release records agree without claiming CNCF REST/mutation or app E2E completion.
+- [x] Repository-required release validation and the admitted Phase review/closure evidence are recorded separately from focused intermediate handoffs; any admitted fixes have bounded closure evidence.
+- [x] Every Phase 76 scope and acceptance criterion maps to completed ledger evidence or explicit admitted candidate/relocation records; journal, Phase status and release records agree without claiming CNCF REST/mutation or app E2E completion.
 
 ## Phase scope coverage
 

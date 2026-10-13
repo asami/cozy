@@ -1,5 +1,18 @@
 # 2026-10-04 — Phase 76 compatibility and developer documentary handoff
 
+## Current — 2026-10-13 final acceptance
+
+Phase 76 and P76-01..06 are CLOSED, with all 24 original criteria satisfied.
+All six accepted Step commits are retained. Repository full validation and
+independent recovery full review are accepted; the exact local release commit
+is the native Git commit carrying `Phase-Closure-Binding: phase76-closure-20261013@1`.
+The [final acceptance record](2026-10-13-phase-76-final-acceptance.md) maps the closure authority.
+Earlier progress counts and pending statements below are dated historical
+Step snapshots. No criterion is deleted, relocated or deferred. CNCF Phase 96
+whole-Phase closure and Editing Studio E2E are not claimed or required here.
+
+## Historical Step acceptance snapshot — through 2026-10-04
+
 Document role: non-normative chronological P76-06A-DOCS handoff and evidence map.
 Scope: Cozy PHASE-76 / P76-06 / P76-06A, under original CNCF PHASE-96 goal.
 Frozen manifest: `phase96-cozy76-p76-06a-implementation-manifest-001@1`
@@ -8,7 +21,11 @@ Current status: own independent documentary Step review
 `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
 `/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
 ledger `phase96-review-ledger-001` r23; both documentary criteria MET.
-Own local Step commit PREPARED/PENDING, not executed.
+Own local Step commit `ddeadab9a97fda818fb2842df4873dbc7adf03e1` executed
+on 2026-10-04 and verified against native Git on 2026-10-13.
+The dated entries below preserve their original preparation-time state;
+the [2026-10-13 reconciliation](#2026-10-13--committed-documentary-step-reconciliation)
+records the later Git confirmation.
 P76-01..05 CLOSED; P76-06 IN_PROGRESS; Phase 76
 IN_PROGRESS. All 24 criterion texts remain unchanged in the
 [canonical checklist](../../../phase/phase-76-checklist.md): 22 checked /
@@ -240,3 +257,38 @@ unexecuted recipes remain unchanged. Historical FINDINGS, accepted coordinate
 M0, dated 20/4/PENDING entries, all seven Hygiene items and the separate unresolved
 Logback observation are retained. No executable-specification or regression test
 is added for documentary bookkeeping; the parent owns diff/static verification.
+
+## 2026-10-13 — Committed documentary Step reconciliation
+
+The developer requested progression of the remaining Phase 76 completion work.
+Native Git inspection in `/Users/asami/src/dev2025/cozy-phase76` confirms
+P76-06A-DOCS commit `ddeadab9a97fda818fb2842df4873dbc7adf03e1`, authored
+and committed on 2026-10-04 with subject "Accept Cozy Phase 76 compatibility
+and developer handoff". Its eight-document change set contains the reviewed
+guide, compatibility map and current acceptance projections. This corrects
+the stale commit-pending summaries; it creates no new Step acceptance or test
+result. Earlier dated PREPARED/PENDING entries above and in the other journals
+remain historical records, not current commit state.
+
+At inspection the worktree was clean on
+`codex/phase-76-logical-ui-producer`, HEAD
+`1f61b4f7001b41817c177beec877903b7067a34a`. P76-01..05 remain CLOSED;
+P76-06 and Phase 76 remain IN_PROGRESS with 22 checked / 2 unchecked.
+No criterion, generated output, ABI, executable source, dependency or existing
+validation/review result is changed by this reconciliation.
+
+The remaining sequence is repository-required final validation, full Cozy
+Phase review, bounded closure of any admitted findings, release/closure
+records and integration into `main`. Retain the existing LUI-ACCEPT-01
+consumer proof; neither CNCF Phase 96 whole-Phase closure nor later
+REST/mutation or Editing Studio E2E is required for Cozy closure.
+Native Git inspection shows the P76-06A commit is not an ancestor of the
+ordinary Cozy `main` HEAD `e2cde5418c0f3f248d21edfc2ebfee15123c4604`.
+No remote freshness or content-equivalence claim follows from that check.
+
+This side conversation prohibits child agents, while repository policy
+requires registered runners for SBT and commit execution. No SBT, runner,
+final Phase acceptance review, commit, merge, push or publication was executed
+here. Continue those gates in the main development conversation with its
+normal registered runners; do not substitute direct SBT/commit execution or
+mark the two remaining criteria complete from this documentary correction.

@@ -1,5 +1,18 @@
 # 2026-10-04 — Phase 76 reciprocal CNCF consumer receipt
 
+## Current — 2026-10-13 final acceptance
+
+Phase 76 and P76-01..06 are CLOSED, with all 24 original criteria satisfied.
+All six accepted Step commits are retained. Repository full validation and
+independent recovery full review are accepted; the exact local release commit
+is the native Git commit carrying `Phase-Closure-Binding: phase76-closure-20261013@1`.
+The [final acceptance record](2026-10-13-phase-76-final-acceptance.md) maps the closure authority.
+Earlier progress counts and pending statements below are dated historical
+Step snapshots. No criterion is deleted, relocated or deferred. CNCF Phase 96
+whole-Phase closure and Editing Studio E2E are not claimed or required here.
+
+## Historical Step acceptance snapshot — through 2026-10-04
+
 Document role: non-normative chronological LUI-ACCEPT-01 receipt.
 Scope: PHASE-76 / P76-05 / P76-05A, receiving CNCF PHASE-96 / P96-03.
 Manifest: `phase96-cozy76-p76-05a-implementation-manifest-001` revision 1.
@@ -11,7 +24,8 @@ P76-06A documentary acceptance: independent Step review
 `phase96-cozy76-p76-06a-step-review-001` r1 PASS by
 `/root/phase96_cozy76_p76_06a_step_review_001`, admitted in original CNCF
 ledger `phase96-review-ledger-001` r23, finds both documentary criteria MET.
-Its own local Step commit is PREPARED/PENDING, not executed,
+Its own local Step commit is `ddeadab9a97fda818fb2842df4873dbc7adf03e1`,
+executed on 2026-10-04 and verified against native Git on 2026-10-13,
 and Phase 76 IN_PROGRESS. Full Phase
 validation/review/release and both Phase closures remain pending.
 
