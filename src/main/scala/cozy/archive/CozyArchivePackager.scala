@@ -23,7 +23,8 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class ReleaseSourceVerification(
@@ -93,9 +94,12 @@ private[cozy] object CozyArchivePackager {
     _build_car(args, Some(evidence -> executingcozyversion))
 
   private def _build_car(
-    args: List[String],
+    incoming: List[String],
     acceptanceoverride: Option[(GenerationCompatibilityEvidence, String)]
   ): Unit = {
+    val capabilityinvocation = CozyCapabilityArchivePart.invocation(incoming)
+    val args = capabilityinvocation._1
+    val capabilityselection = capabilityinvocation._2
     val save = _required_path(args, "save")
     val mainjar = _required_path(args, "main-jar")
     val projectdir = Some(_required_path(args, "project-dir"))
@@ -122,6 +126,7 @@ private[cozy] object CozyArchivePackager {
           )
       }
     val coordinate = CozyComponentReleaseCoordinateCodec.fromProjectMetadata(projectmetadata, "package-car")
+    val capabilityentries = capabilityselection.toVector.flatMap(CozyCapabilityArchivePart.entries(_, coordinate))
     val carrier = CozyComponentKnowledgeCarrier.fromProject(projectdir.get, coordinate)
     val outputversion = _required_value(args, "version")
     CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.version, outputversion, "version", "package-car")
@@ -147,7 +152,7 @@ private[cozy] object CozyArchivePackager {
           )
       }
     }
-    _with_generation_provenance(
+    _with_validated_generation_provenance(
       projectdir,
       carcontract,
       requireprovenance = releaseoutput && generatedproject
@@ -284,10 +289,7 @@ private[cozy] object CozyArchivePackager {
             coordinate
           )
         )
-        _write_archive(
-          save,
-          projectdir,
-          Vector(
+        val composedentries = Vector(
             packagedmainjar -> "component/main.jar"
           ) ++
             _car_entries(cardir).filterNot(_._2 == CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH) ++
@@ -304,7 +306,13 @@ private[cozy] object CozyArchivePackager {
             webinfdescriptors ++
             generationprovenance.toVector.map(_ -> "generation-provenance.json") ++
             Vector(abimanifest -> "abi-manifest.json") ++
-            Vector(componentdescriptor -> "component-descriptor.json"),
+            Vector(componentdescriptor -> "component-descriptor.json")
+        if (capabilityselection.nonEmpty)
+          CozyCapabilityArchivePart.requireNoCollisions(composedentries, capabilityentries)
+        _write_archive(
+          save,
+          projectdir,
+          composedentries ++ capabilityentries,
           Vector("component", "lib", "spi", "config", "web"),
           runtimemanifest
         )
@@ -325,35 +333,28 @@ private[cozy] object CozyArchivePackager {
     }
   }
 
-  private def _with_generation_provenance[A](
+  private def _with_validated_generation_provenance[A](
     projectdir: Option[Path],
     carcontract: CarMetadataCompatibility.Contract,
     requireprovenance: Boolean
   )(body: Option[Path] => A): A = {
-    var snapshot: Option[Path] = None
-    try {
-      val provenance = projectdir.flatMap { root =>
-        val path = root.resolve(GenerationProvenance.METADATA_PATH)
-        Option(path).filter(Files.isRegularFile(_)).map { source =>
-          val copied = _snapshot_temp(projectdir, "generation-provenance", source)
-          snapshot = Some(copied)
-          GenerationProvenance.requireValidForPackaging(
-            provenancePath = copied,
-            projectRoot = root,
-            expectedCncfTargetVersion = Some(carcontract.cncfCompileTarget.version),
-            expectedCozyGeneratorVersion = Some(carcontract.cozyVersion)
-          )
-          copied
-        }
-      }
-      if (requireprovenance && provenance.isEmpty)
-        RAISE.invalidArgumentFault(
-          "Generated release CAR requires target/cozy/generation-provenance.json before archive output."
+    val provenance = projectdir.flatMap { root =>
+      val path = root.resolve(GenerationProvenance.METADATA_PATH)
+      Option(path).filter(Files.isRegularFile(_)).map { source =>
+        GenerationProvenance.requireValidForPackaging(
+          provenancePath = source,
+          projectRoot = root,
+          expectedCncfTargetVersion = Some(carcontract.cncfCompileTarget.version),
+          expectedCozyGeneratorVersion = Some(carcontract.cozyVersion)
         )
-      body(provenance)
-    } finally {
-      snapshot.foreach(Files.deleteIfExists(_))
+        source
+      }
     }
+    if (requireprovenance && provenance.isEmpty)
+      RAISE.invalidArgumentFault(
+        "Generated release CAR requires target/cozy/generation-provenance.json before archive output."
+      )
+    body(provenance)
   }
 
   private def _is_snapshot_version(version: String): Boolean =
@@ -1046,6 +1047,11 @@ private[cozy] object CozyArchivePackager {
     }
   }
 
+  private[cozy] def _capability_component_descriptor_json(
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
+  ): String =
+    _component_descriptor_json(coordinate, Map.empty, Map.empty, Vector.empty)
+
   private def _component_descriptor_json(
     coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
     extensions: Map[String, String],
@@ -1324,14 +1330,6 @@ private[cozy] object CozyArchivePackager {
     Files.createDirectories(root)
     val path = Files.createTempFile(root, s"$prefix-", ".json")
     Files.writeString(path, text, StandardCharsets.UTF_8)
-    path.toAbsolutePath.normalize()
-  }
-
-  private def _snapshot_temp(projectdir: Option[Path], prefix: String, source: Path): Path = {
-    val root = _package_work_root(projectdir)
-    Files.createDirectories(root)
-    val path = Files.createTempFile(root, s"$prefix-", ".json")
-    Files.write(path, Files.readAllBytes(source))
     path.toAbsolutePath.normalize()
   }
 

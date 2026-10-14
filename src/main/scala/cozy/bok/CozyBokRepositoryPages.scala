@@ -33,7 +33,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Aug. 14, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 
@@ -215,7 +215,6 @@ private[cozy] trait CozyBokRepositoryPages {
         )
       _require_component_knowledge_transport(
         carrier,
-        Files.readAllBytes(source),
         s"repository CAR ${catalog.artifactId} ${version.version}"
       )
       RepositoryCarComponentKnowledge(
@@ -227,30 +226,25 @@ private[cozy] trait CozyBokRepositoryPages {
 
   private def _require_component_knowledge_transport(
     carrier: Json,
-    bytes: Array[Byte],
     label: String
   ): Unit = {
     val fields = carrier.asObject.getOrElse(
       RAISE.invalidArgumentFault(s"$label componentKnowledge declaration must be an object.")
     )
-    val expected = Set("carrierSchema", "consumerContractSchema", "logicalPath", "sha256")
+    val expected = Set("carrierSchema", "consumerContractSchema", "logicalPath")
     if (fields.keys.toSet != expected)
       RAISE.invalidArgumentFault(s"$label componentKnowledge declaration must contain exactly the canonical carrier fields.")
-    def _string(name: String): String =
+    def _string_(name: String): String =
       fields(name).flatMap(_.asString).getOrElse(
         RAISE.invalidArgumentFault(s"$label componentKnowledge.$name must be a string.")
       )
-    if (_string("carrierSchema") != CozyComponentKnowledgeCarrier.CARRIER_SCHEMA)
+    if (_string_("carrierSchema") != CozyComponentKnowledgeCarrier.CARRIER_SCHEMA)
       RAISE.invalidArgumentFault(s"$label componentKnowledge carrier schema is unsupported.")
-    if (_string("consumerContractSchema") != CozyComponentKnowledgeCarrier.CONSUMER_CONTRACT_SCHEMA)
+    if (_string_("consumerContractSchema") != CozyComponentKnowledgeCarrier.CONSUMER_CONTRACT_SCHEMA)
       RAISE.invalidArgumentFault(s"$label componentKnowledge consumer-contract schema is unsupported.")
-    if (_string("logicalPath") != CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH)
+    if (_string_("logicalPath") != CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH)
       RAISE.invalidArgumentFault(s"$label componentKnowledge logical path is unsupported.")
-    val expectedsha = _string("sha256")
-    val actualsha = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
-      .map(byte => f"${byte & 0xff}%02x").mkString
-    if (!expectedsha.matches("[0-9a-f]{64}") || expectedsha != actualsha)
-      RAISE.invalidArgumentFault(s"$label componentKnowledge transport digest does not match its archive declaration.")
+
   }
 
   private def _repository_car_archive_metadata(

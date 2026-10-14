@@ -4,6 +4,11 @@ Status: in-progress
 Phase: [Phase 64](phase-64.md)
 Development item: DEV-032
 
+The earlier Step acceptance notes retain their historical facts and pending
+states. Their CAP-64-05 and CBD CAP-11-01 status statements are superseded only
+for current Step acceptance by
+[CAP-64-05 acceptance — 2026-10-15](phase-64.md#cap-64-05-acceptance--2026-10-15).
+
 ## CAP-64-01: IR and contract alignment
 
 Stage Status:
@@ -161,15 +166,55 @@ Acceptance (2026-10-14):
 ## CAP-64-05: Cross-repository acceptance
 
 Stage Status:
-- Current status: OPEN
+- Current status: DONE
 - Owner: Cozy Phase 64 with CNCF Phase 78 and CBD Support Phase 11
 - Update rule: Mark DONE only after one real fixture completes the producer,
   admission, and consumer path with reproducible evidence.
-- Closure basis: All four requirements below need actual producer, CNCF
-  admission and CBD consumer evidence with their independent revisions.
+- Closure basis: All four original requirements below are accepted against actual
+  producer, CNCF admission and CBD consumer evidence with independent revisions,
+  focused validation, independent whole-Step review and retained correction closure.
 
-- [ ] Produce a real Capability CML fixture.
-- [ ] Admit the generated projection through CNCF Phase 78.
-- [ ] Consume it through Textus CBD Support Phase 11 without CML reparsing.
-- [ ] Record exact source, Cozy, CNCF ABI, and cbd-support revisions and review
+- [x] Produce a real Capability CML fixture.
+- [x] Admit the generated projection through CNCF Phase 78.
+- [x] Consume it through Textus CBD Support Phase 11 without CML reparsing.
+- [x] Record exact source, Cozy, CNCF ABI, and cbd-support revisions and review
       evidence.
+
+Acceptance (2026-10-15): all four original criteria are accepted as recorded in
+[Phase 64](phase-64.md#cap-64-05-acceptance--2026-10-15). All five Cozy Steps are
+accepted; separate Phase full validation, full review, local release and main
+integration remain outstanding. No Step commit is claimed.
+
+Historical S01/S02/S03 authoring and compatibility notes as of 2026-10-14 follow
+unchanged. Their pending states are superseded by current Step acceptance only;
+participant Phase closure and main integration obligations remain outstanding.
+
+S01 normal producer/publication is authored against
+[R13](../spec/cml-capability-model.md#r13-normal-production-publication-and-application-handoff)
+with C64I01–16, C64B01–12 and C64A01–08. Parent focused validation and independent
+current-Step conformance review remain pending. All four original requirements
+above stay unchecked until actual CNCF native admission/discovery and CBD
+no-reparse consumption with exact independent revisions complete. S01 alone
+authorizes no Step commit or whole-Step closure. Participant Phase full
+validation/review/local release and subsequent Cozy main integration remain owed.
+
+
+Compatibility authority — 2026-10-14: S02 consumes the closed canonical Cozy
+Phase 71.5 contract (`docs/phase/phase-71.5.md`, closed 2026-10-10) as the selected
+input for SourceInput, exact known V1/V2 inputs and path inventory, direct
+Directory/CAR metadata reads and three-field ComponentKnowledge declarations.
+Readable content changes remain admissible; authoring collisions and missing
+selected paths retain their actual failure contracts. This compatibility input
+supplies no Phase 64 acceptance. All four CAP-64-05 criteria remain OPEN and
+unchecked; real producer/native/CBD proof, participant Phase closure and later
+Cozy main integration remain owed.
+
+S03 authoring — 2026-10-14: The normal selected Directory descriptor uses the
+existing CAR schema-3 serializer and exact selected Component release. Whole
+batch preflight covers its leaf/collisions and alternate canonical slots.
+[C64D01–08](../spec/cml-capability-model.md#r13-normal-production-publication-and-application-handoff)
+are authored with real CLI/prepare/publish inputs; parent validation and
+independent acceptance remain pending. The first four accepted Steps and all
+four CAP-64-05 boxes retain their status. Actual native CNCF/CBD proof and each
+independent participant full validation/review/local release remain owed before
+completed Phase 64 is integrated into Cozy main.

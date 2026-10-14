@@ -34,7 +34,8 @@ import scala.util.control.NonFatal
  *  version Jun. 30, 2026
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -311,8 +312,14 @@ class Cozy(
   private def _execute_modeler_scala(args: Array[String]): Boolean =
     _leading_command(args) match {
       case Some((command @ ("modeler-scala" | "modeler-scala-value"), rest)) =>
-        val normalized = _normalize_first_positional_path(rest)
+        val capabilityinvocation = modeler.CmlCapabilityProduction.invocation(rest).fold(
+          issues => RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(modeler.CmlCapabilityProduction.RequestOrAcquisition(issues))),
+          identity)
+        val capabilityoptions = capabilityinvocation._2
+        val normalized = _normalize_first_positional_path(capabilityinvocation._1)
         val generationtarget = modeler.ModelGenerationTarget.requireInvocation(command, normalized)
+        if (capabilityoptions.nonEmpty && (generationtarget != modeler.ModelGenerationTarget.Cncf || _save_path(normalized).isEmpty))
+          RAISE.invalidArgumentFault("Malformed location=capability detail=Capability production requires CNCF generation and explicit --save.")
         if (generationtarget == modeler.ModelGenerationTarget.Library) {
           val source = normalized.find(!_.startsWith("-")).
             map(Paths.get(_)).
@@ -336,38 +343,45 @@ class Cozy(
         val componentstylecatalog = validateddescriptor.
           map(modeler.ComponentStyleCatalog.fromValidatedDescriptor).
           getOrElse(modeler.ComponentStyleCatalog.EMPTY)
-        val sourcesnapshot = _generation_source_snapshot(
+        val capabilityrequest = capabilityoptions.map { case (requestpath, sourceroot) =>
+          if (validateddescriptor.isEmpty)
+            RAISE.invalidArgumentFault("Malformed location=capability detail=Capability production requires an actual validated CNCF descriptor and selected source input.")
+          val request = modeler.CmlCapabilityProduction.readRequest(requestpath).fold(
+            failure => RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(failure)), identity)
+          val source = normalized.find(!_.startsWith("-")).map(Paths.get(_).toAbsolutePath.normalize()).
+            getOrElse(RAISE.invalidArgumentFault("CNCF-aware generation requires a readable CML source"))
+          val sourceidentity = cozy.modeler.GenerationProvenance.requireSourceIdentity(
+            _option_value(normalized, "generation-source-identity"), "modeler")
+          modeler.CmlCapabilityProduction.preflightSource(request, sourceroot, source, sourceidentity).fold(
+            failure => RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(failure)), _ => ())
+          request -> sourceroot
+        }
+        val sourceinput = _generation_source_input(
           normalized,
           validateddescriptor
         )
-        if (validateddescriptor.nonEmpty)
-          _save_path(normalized).foreach(
-            cozy.modeler.GenerationProvenance.prepareOutput
-          )
-        _with_component_identity(normalized) {
-          sourcesnapshot match {
-            case Some(snapshot) =>
-              cozy.modeler.GenerationProvenance.withCapturedSource(snapshot) { capturedsource =>
-                val capturedargs = _replace_first_positional_path(
-                  normalized,
-                  capturedsource
-                )
-                val repl = (Vector(command) ++ _convert_args(capturedargs)).mkString(" ")
-                _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
-                _write_model_metadata(normalized, Some(capturedsource), componentstylecatalog)
-              }
-            case None =>
-              val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
-              _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
-              _write_model_metadata(normalized, None, componentstylecatalog)
+        if (capabilityoptions.nonEmpty && (validateddescriptor.isEmpty || sourceinput.isEmpty))
+          RAISE.invalidArgumentFault("Malformed location=capability detail=Capability production requires an actual validated CNCF descriptor and selected source input.")
+        val capabilityprepared = _with_component_identity(normalized) {
+          val prepared = capabilityrequest.map { case (request, sourceroot) =>
+            modeler.CmlCapabilityProduction.prepare(request, sourceroot, _save_path(normalized).get, sourceinput).fold(
+              failure => RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(failure)), identity)
           }
+          val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
+          _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
+          _write_model_metadata(normalized, componentstylecatalog)
+          prepared
         }
         if (generationtarget == modeler.ModelGenerationTarget.Cncf) {
           _write_component_api_descriptor(normalized)
+          capabilityprepared.foreach { prepared =>
+            modeler.CmlCapabilityProduction.publish(_save_path(normalized).get, prepared).fold(
+              failure => RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(failure)), _ => ())
+          }
           _write_generation_provenance(
             normalized,
             validateddescriptor,
-            sourcesnapshot
+            sourceinput
           )
         }
         true
@@ -409,47 +423,37 @@ class Cozy(
           _option_value(normalized, "generation-source-identity"),
           "generation-provenance-validate"
         )
-        val sourcesha = _required_option_value(
-          normalized,
-          "generation-source-sha256"
-        )
         val targetversion = _required_option_value(normalized, "cncf-version")
-        val descriptordigest = _required_option_value(
-          normalized,
-          "cncf-runtime-descriptor-sha256"
-        )
         val cozyversion = _required_option_value(
           normalized,
           "cozy-generator-version"
         )
         val modelversion = _option_value(normalized, "simplemodeling-model-version").
           getOrElse(org.simplemodeling.cozy.BuildInfo.simpleModelingModelVersion)
-        val manifest = cozy.modeler.GenerationProvenance.requireValidGeneratedOutput(
+        cozy.modeler.GenerationProvenance.requireValidGeneratedOutput(
           output,
           source,
           cozy.modeler.GenerationProvenance.Inputs(
             cncfTargetVersion = targetversion,
-            runtimeDescriptorSha256 = descriptordigest,
             cozyGeneratorVersion = cozyversion,
             simpleModelerBackendVersion =
               org.simplemodeling.cozy.BuildInfo.simpleModelerVersion,
             simpleModelingModelVersion = modelversion,
-            sourceIdentity = sourceidentity,
-            sourceSha256 = sourcesha
+            sourceIdentity = sourceidentity
           )
         )
         println(
-          s"Generation provenance valid: ${output.resolve(cozy.modeler.GenerationProvenance.METADATA_PATH)} evidence=${manifest.evidenceDigest}"
+          s"Generation provenance valid: ${output.resolve(cozy.modeler.GenerationProvenance.METADATA_PATH)}"
         )
         true
       case _ =>
         false
     }
 
-  private def _generation_source_snapshot(
+  private def _generation_source_input(
     args: List[String],
     validateddescriptor: Option[cozy.compatibility.CncfRuntimeDescriptorContract.ValidatedDescriptor]
-  ): Option[cozy.modeler.GenerationProvenance.SourceSnapshot] =
+  ): Option[cozy.modeler.GenerationProvenance.SourceInput] =
     validateddescriptor.map { _ =>
       val source = args.find(!_.startsWith("-")).
         map(Paths.get(_).toAbsolutePath.normalize()).
@@ -460,36 +464,14 @@ class Cozy(
         _option_value(args, "generation-source-identity"),
         "modeler"
       )
-      cozy.modeler.GenerationProvenance.requireSourceSnapshot(
+      cozy.modeler.GenerationProvenance.requireSourceInput(
         source,
         sourceidentity
       )
     }
 
-  private def _replace_first_positional_path(
-    args: List[String],
-    replacement: Path
-  ): List[String] = {
-    @annotation.tailrec
-    def _go_(
-      rest: List[String],
-      done: Boolean,
-      result: Vector[String]
-    ): List[String] =
-      rest match {
-        case Nil =>
-          result.toList
-        case head :: tail if !done && !head.startsWith("-") =>
-          _go_(tail, done = true, result :+ replacement.toString)
-        case head :: tail =>
-          _go_(tail, done, result :+ head)
-      }
-    _go_(args, done = false, Vector.empty)
-  }
-
   private def _write_model_metadata(
     args: List[String],
-    capturedsource: Option[Path],
     componentstylecatalog: modeler.ComponentStyleCatalog
   ): Unit = {
     val save = _save_path(args)
@@ -502,7 +484,7 @@ class Cozy(
     } {
       val metadir = savedir.resolve("target/cozy")
       cozy.modeler.CmlModelMetadata.write(
-        capturedsource.getOrElse(source),
+        source,
         metadir.resolve("model-metadata.json"),
         metadir.resolve("model-metadata.yaml"),
         source.toString,
@@ -535,26 +517,24 @@ class Cozy(
   private def _write_generation_provenance(
     args: List[String],
     validateddescriptor: Option[cozy.compatibility.CncfRuntimeDescriptorContract.ValidatedDescriptor],
-    sourcesnapshot: Option[cozy.modeler.GenerationProvenance.SourceSnapshot]
+    sourceinput: Option[cozy.modeler.GenerationProvenance.SourceInput]
   ): Unit = {
     val save = _save_path(args)
-    (validateddescriptor, save, sourcesnapshot) match {
-      case (Some(descriptor), Some(savedir), Some(snapshot))
+    (validateddescriptor, save, sourceinput) match {
+      case (Some(descriptor), Some(savedir), Some(input))
           if Files.exists(savedir) =>
         val modelversion = _option_value(args, "simplemodeling-model-version").
           getOrElse(org.simplemodeling.cozy.BuildInfo.simpleModelingModelVersion)
         cozy.modeler.GenerationProvenance.write(
           savedir,
-          snapshot,
+          input,
           cozy.modeler.GenerationProvenance.Inputs(
             cncfTargetVersion = descriptor.targetVersion,
-            runtimeDescriptorSha256 = descriptor.sha256,
             cozyGeneratorVersion = org.simplemodeling.cozy.BuildInfo.version,
             simpleModelerBackendVersion =
               org.simplemodeling.cozy.BuildInfo.simpleModelerVersion,
             simpleModelingModelVersion = modelversion,
-            sourceIdentity = snapshot.identity,
-            sourceSha256 = snapshot.sha256
+            sourceIdentity = input.identity
           )
         )
       case _ =>
@@ -1258,7 +1238,13 @@ object Cozy {
   private[cozy] def _car_run_server_script(): String = CozyScaffold.carRunServerScript()
   private[cozy] def _car_run_server_debug_script(): String = CozyScaffold.carRunServerDebugScript()
   private[cozy] def _car_launcher_script(): String = CozyScaffold.carLauncherScript()
-  private[cozy] val _help_text: String = CozyScaffold.helpText
+  private[cozy] val _help_text: String = CozyScaffold.helpText +
+    "\nCapability production (modeler-scala/modeler-scala-value, CNCF with explicit --save):\n" +
+    "  --capability-request <closed-request.json> --capability-source-root <source-root>\n" +
+    "  Both options require one literal value and exactly one selected positional CML source.\n" +
+    "Capability CAR input (package-car):\n" +
+    "  --capability-dir <bundle> --capability-package-coordinate <coordinate> --capability-package-version <version>\n" +
+    "  All three options select the canonical index and listed projection resources.\n"
   private[cozy] val _pdf_help_text: String = cozy.scaffold.CozyHelpText._pdf_text
 
   val cozyServiceClass: CozyRuntime.CozyServiceClass.type = CozyRuntime.CozyServiceClass

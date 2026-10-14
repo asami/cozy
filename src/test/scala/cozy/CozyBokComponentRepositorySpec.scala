@@ -12,7 +12,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Jul. 13, 2026
- * @version Aug. 11, 2026
+ *  version Aug. 11, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokComponentRepositorySpec
@@ -153,9 +154,8 @@ class CozyBokComponentRepositorySpec
             """{"schema":"cncf.component-knowledge-consumer.v1","componentId":"org.example.textus.Sie","logicalRelease":"0.1.0","resources":[]}"""
           val sidecar = warehouse.resolve("repository/catalog/car/org/example/textus/textus-sie/0.1.0/component-knowledge.json")
           _write(sidecar, contract)
-          val digest = RepositoryArtifactPublisher.sha256(sidecar)
           val descriptor =
-            s"""{"schemaVersion":3,"component":{"namespace":"org.example.textus","id":"Sie","version":"0.1.0"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json","sha256":"$digest"}}"""
+            s"""{"schemaVersion":3,"component":{"namespace":"org.example.textus","id":"Sie","version":"0.1.0"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json"}}"""
           val archivepath = warehouse.resolve("repository/car/org/example/textus/textus-sie/0.1.0/textus-sie-0.1.0.car")
           _write_car_archive_entries(archivepath, Some(descriptor), None, Vector("component-knowledge.json" -> contract))
           val archivedigest = RepositoryArtifactPublisher.sha256(archivepath)
@@ -184,15 +184,16 @@ class CozyBokComponentRepositorySpec
           When("Cozy publishes BOK repository metadata and public repository assets")
           CozyBok.build(config, new RepositoryCarBuildRunner)
 
-          Then("metadata declares only the canonical carrier and the public contract retains the declared digest")
+          Then("metadata declares the independently expected carrier schemas and path and publishes the full consumer contract")
           val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
           metadata should include("\"component_knowledge\" : {")
           metadata should include("\"consumer_contract\" : \"repository/car/textus-sie/0.1.0/component-knowledge.json\"")
-          metadata should include("\"sha256\" : \"" + digest + "\"")
+          metadata should include("\"carrierSchema\" : \"cncf.component-knowledge-carrier.v1\"")
+          metadata should include("\"consumerContractSchema\" : \"cncf.component-knowledge-consumer.v1\"")
+          metadata should include("\"logicalPath\" : \"component-knowledge.json\"")
           val publiccontract = dir.resolve("website.d/repository/car/textus-sie/0.1.0/component-knowledge.json")
           publiccontract should be_regular_file
           _read(publiccontract) shouldBe contract
-          RepositoryArtifactPublisher.sha256(publiccontract) shouldBe digest
         }
       }
 

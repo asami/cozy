@@ -2,7 +2,6 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import java.util.Comparator
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
 import scala.collection.JavaConverters._
@@ -25,7 +24,8 @@ import play.api.libs.json.Json
 /*
  * @since   Jul. 28, 2026
  *  version Aug. 21, 2026
- * @version Sep. 27, 2026
+ *  version Sep. 27, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArchivePackagerCv06Spec
@@ -68,7 +68,6 @@ final class CozyArchivePackagerCv06Spec
           Some("0.5.17")
         )
         val archive = dir.resolve("target/sample.car")
-        val snapshotsbefore = _generation_provenance_snapshots
 
         When("Cozy packages against the resolved CNCF artifact")
         _build_car(dir, mainjar, cncfjar, archive)
@@ -102,20 +101,22 @@ final class CozyArchivePackagerCv06Spec
           Vector.empty
         (runtimemanifest \ "runtime" \ "cncf" \ "tested").as[Vector[String]] shouldBe
           Vector("0.5.17")
-        val integrityentries =
-          (runtimemanifest \ "integrity" \ "entries")
-            .as[Vector[play.api.libs.json.JsObject]]
-            .map { entry =>
-              (entry \ "path").as[String] -> (entry \ "sha256").as[String]
-            }
-            .toMap
-        integrityentries.keySet shouldBe
-          (_zip_entries(archive).toSet - CozyCarRuntimeManifest.FILE_NAME)
-        integrityentries("component/main.jar") shouldBe
-          _sha256(_zip_bytes(archive, "component/main.jar"))
-        integrityentries("generation-provenance.json") shouldBe
-          _sha256(_zip_bytes(archive, "generation-provenance.json"))
-        (_generation_provenance_snapshots -- snapshotsbefore) shouldBe empty
+        val provenance = Json.parse(_zip_text(archive, "generation-provenance.json"))
+        provenance shouldBe Json.obj(
+          "schemaVersion" -> "cozy.generation-provenance.v1",
+          "target" -> Json.obj("cncfVersion" -> "0.5.17"),
+          "generator" -> Json.obj(
+            "cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
+            "simpleModelerBackendVersion" -> "0.2.0",
+            "simpleModelingModelVersion" -> "0.2.0"
+          ),
+          "source" -> Json.obj("identity" -> "src/main/cozy/sample.cml"),
+          "output" -> Json.obj("artifacts" -> Json.arr(
+            Json.obj("path" -> "target/scala-3.3.8/src_managed/main/domain/Sample.scala")
+          ))
+        )
+        _zip_text(archive, "component/main.jar") shouldBe "sample"
+        Files.isRegularFile(archive) shouldBe true
       }
     }
 
@@ -245,7 +246,6 @@ final class CozyArchivePackagerCv06Spec
         )
         _write_generation_provenance(dir, "0.5.16")
         val archive = dir.resolve("target/sample.car")
-        val snapshotsbefore = _generation_provenance_snapshots
 
         When("Cozy attempts to package the contradictory evidence")
         val error = intercept[Throwable] {
@@ -255,7 +255,6 @@ final class CozyArchivePackagerCv06Spec
         Then("the provenance gate fails before writing the CAR")
         error.getMessage should include("GENERATION_PROVENANCE_INPUT_MISMATCH")
         Files.exists(archive) shouldBe false
-        (_generation_provenance_snapshots -- snapshotsbefore) shouldBe empty
       }
     }
 
@@ -633,22 +632,20 @@ final class CozyArchivePackagerCv06Spec
       dir.resolve("target/scala-3.3.8/src_managed/main/domain/Sample.scala"),
       "package domain\nfinal class Sample\n"
     )
-    val snapshot =
-      GenerationProvenance.requireSourceSnapshot(
+    val sourceinput =
+      GenerationProvenance.requireSourceInput(
         sourcePath = source,
         sourceIdentity = "src/main/cozy/sample.cml"
       )
     GenerationProvenance.write(
       outputRoot = dir,
-      sourceSnapshot = snapshot,
+      sourceInput = sourceinput,
       inputs = GenerationProvenance.Inputs(
         cncfTargetVersion = cncfversion,
-        runtimeDescriptorSha256 = "a" * 64,
         cozyGeneratorVersion = cozyversion,
         simpleModelerBackendVersion = "0.2.0",
         simpleModelingModelVersion = "0.2.0",
-        sourceIdentity = snapshot.identity,
-        sourceSha256 = snapshot.sha256
+        sourceIdentity = sourceinput.identity
       )
     )
     dir.resolve(GenerationProvenance.METADATA_PATH)
@@ -675,25 +672,6 @@ final class CozyArchivePackagerCv06Spec
       finally input.close()
     } finally {
       zip.close()
-    }
-  }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).
-      map(byte => f"${byte & 0xff}%02x").mkString
-
-  private def _generation_provenance_snapshots: Set[Path] = {
-    val temporary = Path.of(System.getProperty("java.io.tmpdir"))
-    val stream = Files.list(temporary)
-    try {
-      stream.iterator().asScala.
-        filter(path =>
-          path.getFileName.toString.startsWith("generation-provenance") &&
-            path.getFileName.toString.endsWith(".json")
-        ).
-        toSet
-    } finally {
-      stream.close()
     }
   }
 

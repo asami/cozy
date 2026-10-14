@@ -21,7 +21,8 @@ import java.nio.file.{Files, Path, Paths}
  *  version Jun. 27, 2026
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
- * @version Sep. 28, 2026
+ *  version Sep. 28, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozySbtBridge {
@@ -324,8 +325,7 @@ private[cozy] object CozySbtBridge {
       "generation.versions.cncf",
       "generation.versions.cozy",
       "generation.target",
-      "runtime.cncf.descriptor",
-      "runtime.cncf.descriptor.sha256"
+      "runtime.cncf.descriptor"
     ).foreach { key =>
       CncfRuntimeDescriptorContract.requireConsistentSourceValues(
         "sbt-bridge",
@@ -348,10 +348,7 @@ private[cozy] object CozySbtBridge {
       "--cncf-collaborator-api-version", versions.cncfCollaboratorApiVersion
     )
     config.value("runtime.cncf.descriptor").map { path =>
-      val descriptorargs = base ++ List("--cncf-runtime-descriptor", path)
-      config.value("runtime.cncf.descriptor.sha256").
-        map(digest => descriptorargs ++ List("--cncf-runtime-descriptor-sha256", digest)).
-        getOrElse(descriptorargs)
+      base ++ List("--cncf-runtime-descriptor", path)
     }.getOrElse(base)
   }
 
@@ -424,8 +421,7 @@ private[cozy] object CozySbtBridge {
     }
     Vector(
       "generation.versions.cncf",
-      "runtime.cncf.descriptor",
-      "runtime.cncf.descriptor.sha256"
+      "runtime.cncf.descriptor"
     ).find(config.values.contains).foreach { key =>
       RAISE.invalidArgumentFault(
         s"LIBRARY_GENERATION_RUNTIME_CONTRADICTION: $key is not permitted when generation.target=library."
@@ -450,8 +446,7 @@ private[cozy] object CozySbtBridge {
       Nil
     else {
       val selected =
-        _option(args, "cncf-runtime-descriptor").nonEmpty ||
-          _option(args, "cncf-runtime-descriptor-sha256").nonEmpty
+        _option(args, "cncf-runtime-descriptor").nonEmpty
       if (!selected)
         Nil
       else {

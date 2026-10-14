@@ -5,7 +5,7 @@ package cozy.scaffold
  *  version Aug. 29, 2026
  *  version Sep. 11, 2026
  *  version Sep. 29, 2026
- * @version Oct.  1, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyHelpText {
@@ -279,8 +279,8 @@ private[cozy] object CozyHelpText {
       |  modeler-scala-value <model-file> --save <dir> [--generation-source-identity <project-relative-path>]
       |      Generate value/domain model Scala sources without a component. CNCF descriptor generation requires a stable project-relative source identity and writes target/cozy/generation-provenance.json.
       |
-      |  generation-provenance-validate <model-file> --save <generation-output-root> --cncf-version <version> --cncf-runtime-descriptor-sha256 <sha256> --cozy-generator-version <version> --generation-source-identity <project-relative-path> --generation-source-sha256 <sha256>
-      |      Validate generated Scala and target/cozy/generation-provenance.json against the owning build's exact generation inputs.
+      |  generation-provenance-validate <model-file> --save <generation-output-root> --cncf-version <version> --cozy-generator-version <version> --generation-source-identity <project-relative-path>
+      |      Validate generated Scala and target/cozy/generation-provenance.json against the owning build's exact known generation inputs and selected Scala path inventory.
       |
       |  package-car --save <file> --main-jar <file> --name <name> --version <version> --project-dir <dir> [--component <component>] [--car-dir <dir>] [--entities <spec>] [--abi-manifest <file>]
       |      Build a CAR archive with abi-manifest.json and car-runtime-manifest.json from the required project.yaml CAR contract. Explicit --abi-manifest overrides src/main/car/abi-manifest.json; versioned src/main/car/<version>/abi-manifest.json files are lint baselines only.

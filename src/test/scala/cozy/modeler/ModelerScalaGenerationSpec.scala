@@ -17,7 +17,8 @@ import play.api.libs.json.Json
 /*
  * @since   Jun. 23, 2026
  *  version Aug. 14, 2026
- * @version Sep. 19, 2026
+ *  version Sep. 19, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -535,7 +536,12 @@ final class ModelerScalaGenerationSpec extends AnyWordSpec with Matchers with Gi
         content should include ("INPUT_KEYS_DISPLAY_NAME")
         content should include ("\"display_name_ext\"")
         content should include ("\"displayName\"")
-        content should not include ("\"display_name\"")
+        content should include (
+          """final val INPUT_KEYS_DISPLAY_NAME: List[String] = List("display_name_ext", "displayName", "display_name").distinct"""
+        )
+        content should not include (
+          """"display_name" -> _to_external_value(displayName)"""
+        )
         content should include ("def schema(): Schema")
         content should include ("val schema: org.goldenport.schema.Schema = org.goldenport.schema.Schema(")
         content should include ("org.simplemodeling.model.value.BaseContent.simple(\"displayName\")")

@@ -1,12 +1,12 @@
 # CML Capability Model Specification
 
-Status: normative semantic IR, private normalization, finite validation and generation contract
+Status: normative semantic IR, private normalization, finite validation, generation and normal production contract
 
 ## Authority and scope
 
 This specification defines the conceptual Application Capability and Component
 Capability IR, its qualified identities, declarations, relationships, versions,
-provenance, grounding, and validation boundaries. R1 through R12 are normative.
+provenance, grounding, and validation boundaries. R1 through R13 are normative.
 The R3 tables describe semantic data. The private Scala IR and initial authored
 CML syntax are specified below for CAP-64-02. Parsed documents are not admitted
 Graphs or CNCF projections. E1 through E12 remain expected semantic examples;
@@ -29,6 +29,12 @@ specification does not redefine either CNCF authority.
 
 [Phase 64](../phase/phase-64.md) and its
 [checklist](../phase/phase-64-checklist.md) track work and acceptance separately.
+
+All four original CAP-64-05 criteria are accepted as recorded in
+[Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15). Separate full
+Phase closure remains outstanding. The unsupported ForwardUseCase positive
+production path remains not yet admitted and unexercised; Application links
+do not establish inverse demand.
 
 ## Rules
 
@@ -296,6 +302,185 @@ R10; failed source acquisition cannot establish nonexistence.
 Textus CBD Support CAP-11-01 remains incomplete until actual Cozy-generated
 input and CNCF executable admission exist. A semantic documentation contract
 does not supply producer, admission, or consumer acceptance evidence.
+
+### R13 Normal production, publication and Application handoff
+
+This rule governs the opt-in normal Cozy producer and package-car input. It adds
+no CML grammar, semantic acquisition, native admission or provenance policy.
+All selections are explicit immutable values; R1–R12 remain unchanged.
+
+#### Normal production opt-in and legacy compatibility
+
+Hook only existing Cozy._execute_modeler_scala for modeler-scala and modeler-scala-value. Parse and remove exactly --capability-request and --capability-source-root before existing first-positional normalization/interpreter arguments. Each accepts one --name=value or --name value spelling; reject duplicates, missing value, edge-padded/control text or only one flag. Both absent take original path unchanged. Both present require CNCF generation, existing explicit --save, actual validated CNCF runtime descriptor/SourceInput and positional CML source; Library opt-in fails before output. Retain existing component identity/catalog/style/provenance behavior and constructor signatures. Document/help these flags within owned Cozy.scala; no global mutable request/scope and no new command, default or parser grammar.
+
+#### Closed production request and separate fact authority
+
+ProductionRequest is private[cozy] immutable and contains producer, ordered sources:Vector[CapabilitySource], ScopeInput, contexts:Vector[GenerationContext], packages:Vector[PackageOutput], scalaoutputs:Vector[ScalaOutput], applicationoutput:String. JSON root has exactly schemaVersion,producer,sources,scope,contexts,packages,scalaOutputs,applicationOutput; schemaVersion is integer1, producer exactly {id,version} and must equal cozy/actual BuildInfo.version even for app-only documents. JSON scope is the exact Ready Scope record, not a claim of extracted native facts; typed Request retains ScopeInput including original Rejected diagnostics unchanged. Context fields are exactly projectionGeneration,schemaVersion,generatedAbiVersion,producer,component,package,source; semantic1/wire1/ABI cncf.component-capability.v1 and original accepted generator guards remain unchanged. Source selected headers use the original complete CapabilitySource record. Reject null, duplicate/unknown/missing keys, wrong kind, noninteger version, bad exact text or unknown closed tag; no trim, aliases, inferred sources/versions or model labels. Reuse existing CmlCapabilityJsonPart strict duplicate/trailing-token grammar and typed reference decoders. Codec diagnostics use the actual request file location as diagnostic context only; its diagnostic authority cozy.capability.production.request is never a product/model identity.
+
+#### Exact Scope serialization
+
+scope has exactly scopeId,source,modelFacts,termFacts,relationFacts,profileFacts,applicationContracts,componentContracts,targetContracts. modelFacts items exactly identity:{modelId,elementId},kind:<the thirteen original ModelKind tags>,source. term/relation/profile facts exactly identity:{vocabularyId,termId|relationId|profileId},source. applicationContracts/componentContracts exactly identity:{modelId,elementId},contractVersion,source. targetContracts exactly kind:<OPERATION|WORKFLOW|STATE_MACHINE>,identity:{modelId,elementId},component:{namespace,id},contractVersion,generatedAbiVersion,source. Keep all ordered supplied vectors and original per-field/source domains; use original foreign-source decoder for independent facts and canonical Java/Cozy Component identity validation. No new semantic/target acquisition policy, inference from parsed CML, current artifact/filename/version or empty missing facts. Original finite validator owns duplicates, kind/Local/External/version/ABI/reference/cycle decisions; its original diagnostic vector is preserved.
+
+#### Actual source acquisition and one source per normal invocation
+
+Normal CLI request.sources must contain exactly one explicitly selected source whose path equals the existing generation-source-identity and whose sourceRoot.resolve(path) is the actual normalized positional source. Before ordinary writes, preflightSource validates the exact selected primary path, logical identity and literal source header. GenerationProvenance.SourceInput(path,identity) identifies that selected original file; bounded Capability acquisition reads it through the existing reader and parses it with actual unchanged KaleidoxModel.parse(KaleidoxConfig.default, text). Ordinary Modeler generation may read the same original source separately; no captured bytes or replacement source copy is retained. SourceRoot and selected parent/leaf must have regular directory/file kinds without symlinks; reject traversal/noncanonical project-relative POSIX paths, missing/unreadable input, malformed UTF8 and unsupported extension other than .cml/.dox. Request acquisition and each source bounded16MiB, at most256 selected sources and total64MiB in typed API; request JSON bounded1MiB. The typed prepare API may take explicitly selected multiple source files under one sourceRoot and returns original order, but it makes no multi-source V1 provenance claim. Normal multi-CML production uses separate normal invocations/output roots and the current accepted V1/V2 aggregate/rebind bridge. Source headers/revisions are supplied semantic facts, never physical digest aliases. Parsing errors become typed acquisition issues; actual normalizer SyntaxFailure and semantic ScopeInput.Rejected vectors pass unchanged.
+
+#### Successful private production facade
+
+CmlCapabilityProduction.prepare(request:ProductionRequest, sourceRoot:Path, outputRoot:Path, selectedSource:Option[GenerationProvenance.SourceInput]) acquires actual sources and calls unchanged CmlCapabilityGeneration.generate. For selectedSource Some require exactly one literal selected source header and exact normalized physical path/logical identity correspondence. Null or mismatched selections fail without fallback. Some and None both acquire bounded actual selected file contents through the existing reader; None permits explicit typed multi-source local acquisition. Production Failure is closed Core(original CmlCapabilityGenerationContext.Failure), RequestOrAcquisition(Vector[Issue]), Publication(original PublicationFailure). Prepared sole private successful constructor retains exact Request, Generated/Validated, source selection, rendered Scala batch and publication batch. No raw CapabilityModel or caller-constructible successful output bypass. prepare validates all request/generation/output selections and current filesystem preflight without writing anything. publish(outputRoot,prepared) repeats ordinary filesystem contract checks and returns actual written/selected paths or truthful typed partial failure. CLI raises its existing structured invalid-argument fault with finite diagnostic kind/location/detail; never silently produces empty success.
+
+#### Complete independent publication selection
+
+PackageOutput is component:ComponentCoordinate, packagecoordinate:PackageCoordinate, path:String, resources:Vector[ResourceOutput(key:SnapshotKey,filename:String)]. JSON fields exactly component,package,path,resources; resource exactly snapshot,filename; snapshot exactly source:{modelAuthority,path},component:{namespace,id}. Component JSON exactly namespace,id,version; package exactly coordinate,version. Every generated SnapshotKey occurs exactly once among resources, no extra/missing/repeated snapshot or filename; every resource context has the exact selected Component release/package coordinate/version. Multiple same Component snapshots may share one bundle only with those full identical packaging domains. Reject repeated bundle paths, cross-bundle path ancestor overlap and any file collision with Scala/Application outputs. Paths are canonical project-relative POSIX beneath target/, package path is a directory, applicationOutput ends .json outside every component bundle, Scala paths/ASCII symbols retain original CmlCapabilityGenerationScala.render complete coverage guards. No filename/provider/label winner or grouping inferred from identity, source path or declaration name. Package list can be empty only with zero generated projections; application output still explicit.
+
+#### Canonical accepted Component package image
+
+Each explicitly selected Directory bundle MUST contain exactly one root
+`component-descriptor.json`, `meta/component-capability/index.json` and exactly
+the selected flat sibling projection JSON resources. The descriptor MUST reuse
+the existing CAR schema-3 serializer through its pure internal Capability
+wrapper and existing release-coordinate codec. Its `component` is exactly the
+selected Component namespace, local ID and release version; package coordinate,
+opaque package version, producer version, source path and labels MUST NOT
+supply that identity. The minimal descriptor has `schemaVersion:3`,
+`component:{namespace,id,version}`, `entities:[]`, `extensions:{}` and `config:{}`.
+It MUST NOT infer native entities, knowledge, style or target evidence. Coordinate
+or rendering exceptions MUST become typed Malformed issues at
+`packages[i].component/descriptor`; no thrown exception or empty-success fallback.
+Descriptor UTF8 is bounded separately to 16MiB, outside the Capability metadata
+counts and total. App-only or zero-bundle products emit no descriptor.
+
+Index exactly {schemaVersion:1,projections:[filenames in explicit resource order]}; each name matches [A-Za-z0-9][A-Za-z0-9._-]*\.json, excludes index.json, count<=256 and unique. Projection content is unchanged Generated.projectionJson plus terminal newline, never reconstructing wire/records. Index<=1MiB, individual resource<=16MiB and bundle total selected metadata<=64MiB, matching actual CNCF R14 limits. Preserve authored vector order and independent source/contract/ABI/domain values; sort output artifact paths only to give deterministic publication traversal. Cozy owns this generated canonical Directory image and the normal CAR index/resource selection. The existing CAR builder retains its descriptor semantics. Actual Directory/CAR admission, native target binding and discovery remain the existing public CNCF Factory's responsibility; generated descriptors alone supply no admission-success claim.
+
+#### Lossless Application product input without inverse edges
+
+CmlCapabilityApplicationProjection.encode consumes only Generated.validated and the same explicit ordered selected source headers; returns closed {schemaVersion:1,generatedAbiVersion:"cozy.application-capability.v1",producer:{id,version},documents:[{source:<full selected header>,applicationCapabilities:[<original definitions>]}]}. Documents retain original Validated input order, every original app-only/empty document and source header selected exactly once by SourceScope. Each Application definition exactly kind:"APPLICATION",identity,contractVersion,name,summary,description,source,demandReferences,discoveryReferences,componentMappings,dependencies,grounding,traceability; source/origin/Presence/qualified IDs/reference roles encoded with existing projection helpers. Mapping exactly target:{kind:"COMPONENT",identity,contractVersion},boundary,source,origin. Dependency same record but target.kind APPLICATION. Full original definitions/relationships and independent revisions retained. App demand/discovery edges point as originally authored; R4 prohibits inventing inverse UseCase->requiredApplication edges. No UseCase demand projection emitted. Upstream absence remains UnavailableUpstreamProjection for CBD, never Present(empty), NoProvider or inferred UseCase quality. This v1 artifact is a genuine downstream product input, no evidence package or executable procedure.
+
+#### One bounded full publication batch
+
+CmlCapabilityPackagePublication.prepare combines each selected canonical Component descriptor/index/resources, Application artifact and original CmlCapabilityGenerationScala.render artifacts in one immutable private accepted batch. Preflight every path and full existing metadata inventory before any write: regular root/ancestors/leaf, no symlink, no output escaping target/, no traversal/case alias selection, no nonregular or different-content target, no unlisted/nested metadata JSON. Unrelated nonJSON assets stay untouched. Existing identical regular files are idempotent; reject conflict rather than overwrite/delete/clean. Write new files by own same-directory temporary file and atomic move where supported, clean own temp, preserve exact already-written paths on IO failure. No whole-filesystem transaction/rollback or multiwriter interference contract. Filesystem content comparisons implement idempotence/collision behavior only, not management immutability seals; add no hashes, copied source/index proof or retained byte equality ledger.
+
+Root `component-descriptor.json` MUST be the sole canonical descriptor slot.
+Reject all root `descriptor.{json,yaml,yml,conf,hocon,xml}`, root
+`component-descriptor.{yaml,yml,conf,hocon,xml}` and
+`meta/component-descriptor.{json,yaml,yml,conf,hocon,xml}` alternatives, including
+case aliases and equal-content alternatives. Inspect only bundle root and
+immediate meta entries with no-follow kind checks. Preserve alternatives and
+unrelated root/meta assets; never choose a first descriptor, follow a symlink,
+overwrite or delete. Selected descriptor symlink/nonregular/case-alias leaves
+remain UnsafeOutput; different content and regular alternative slots remain
+OutputConflict with actual locations. Descriptor artifacts participate in the
+same sorted collision checks and repeated publish preflight as every sibling.
+
+#### Normal generator ordering and existing provenance
+
+Within the existing component-identity context, prepare the complete Capability candidate from the selected SourceInput before the interpreter or ordinary Modeler generation can mutate outputs. With valid prepared opt-in, execute the ordinary normalized source arguments, write ordinary model metadata from the original positional source, write the component API descriptor, publish prepared Capability files and selected Scala carriers, then write current generation provenance so those real Scala paths participate. Request, semantic, selection and reserved normal provenance/Modeler metadata failures precede ordinary writes. Actual later ordinary generation/IO failures preserve honest existing failure semantics without rollback promises. Current V1/V2 metadata validates exact known inputs, literal source identities and selected Scala path inventory; readable content changes remain admissible. No digest options, retained source bytes, output preparation protection, copied provenance or source-replacement facade is used. Metadata JSON remains outside the Scala-artifact vocabulary. The selected primary source owns normal V1 metadata; separate typed multi-source publication invents no aggregate authority. If the original positional Capability-only CML produces no ordinary entities, it still uses the ordinary transformer and actual Capability output without a fake DomainComponent fixture.
+
+#### Explicit normal CAR hook and strict selected archive inventory
+
+Extend normal package-car with all-or-none --capability-dir, --capability-package-coordinate and --capability-package-version, each one literal value with duplicate/missing-value rejection. No flags keep old behavior. New CozyCapabilityArchivePart selects only canonical index and its bounded regular sibling files under that explicit dir, using strict duplicate-key index/inventory/UTF8/kind/symlink/limits and the same 256/1MiB/16MiB/64MiB contracts. Reject unexpected/nested/unlisted metadata JSON, unsafe filenames and duplicate archive names. Compare each projection envelope exact R11 root keys/schema1/ABI cncf.component-capability.v1 and canonical Component release to actual existing CozyComponentReleaseCoordinateCodec coordinate; package coordinate/version exactly the independent explicit new args. Producer is cozy with valid literal version, not inferred as executing builder version; body bytes are copied unchanged and actual full R11/R12 native semantic admission remains CNCF. Do not implement a second Capability semantic parser. Before _write_archive creates destination ZIP, detect any canonical-prefix JSON/name collision with existing _car_entries and all other composed entries, even identical content; fail rather than discard/userasset winner. Include selected original files under their canonical archive paths alongside unchanged descriptor/ABI/provenance/runtime resources, without broad directory copy or scanning other packages.
+
+#### Executable behavior and genuine local product inputs
+
+Author exactly C64I01-16/C64B01-12/C64A01-08 in four owned semantic AnyWordSpec suites with actual adjacent Given/When/Then and should matchers, all spec:R13 normative bindings. New normative R13 is Cozy normal production/publication/Application handoff only; preserve all original R1-R12 and existing accepted grammar/core/provenance/wire rules. New cases actually invoke prepare/publish, actual Cozy.main normal Modeler/package-car and read real output/CAR entries; no source-shape/doc/status/header-only tests. Reuse two unchanged real CML fixture files by copying intentional fixture content into test-private canonical model/... source paths and use original explicit finite facts/contexts independently supplied. Do not import private helpers from unowned test companions or extend unowned tests. Test requests use actual BuildInfo.version dynamically, not hard-coded tracked producer version. Tests clean only their own temporary roots; never write canonical repositories/fixtures, invoke remote/warehouse publication, reflectively execute targets or start SBT from a test. Three active ScalaCheck properties min100 successful and zero discarded with checked passed/succeeded/discarded results.
+
+#### Closed request record
+
+The JSON root is exactly the following record. The type names denote the full
+closed records specified above and the existing R3 reference domains.
+
+```text
+{
+  "schemaVersion": "integer1",
+  "producer": "{id,version}",
+  "sources": "ordered full CapabilitySource[]",
+  "scope": "exact explicit Ready Scope (D03)",
+  "contexts": "D02 closed GenerationContext[]",
+  "packages": "D06 closed PackageOutput[]",
+  "scalaOutputs": "[{snapshot:{source:{modelAuthority,path},component:{namespace,id}},path,packageName:[ASCII segments],objectName}]",
+  "applicationOutput": "explicit canonical target/*.json"
+}
+```
+
+#### Authored normal production cases
+
+Historical authoring note as of 2026-10-14: the following pending-validation
+statement is superseded only for current CAP-64-05 Step acceptance recorded in
+[Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15).
+
+Each case binds to `spec:R13` and has adjacent Given/When/Then clauses in its
+owned semantic suite. Authored cases are pending parent validation and review.
+
+| Case | Observable contract | Executable specification |
+| --- | --- | --- |
+| C64I01 | Actual normal modeler-scala reads primary original CML and produces canonical Component bundles, full Application JSON and real selected Scala artifacts before original provenance writes. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I02 | Actual normal modeler-scala-value uses the same opt-in route with exact independent header/definition/edge revisions retained. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I03 | No flags preserves ordinary generation; partial/duplicate/new malformed option rejects before output; Library rejects opt-in without mutation. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I04 | Strict request rejects duplicate/unknown/missing JSON fields, trailing tokens, Boolean/noninteger/unsupported versions and unknown tags without output. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I05 | Producer id/version disagreement rejects including empty/app-only generation; actual dynamic BuildInfo.version is retained. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I06 | All explicit finite fact/contract domains decode as supplied, including independent vocabulary/source/version/target ABI; no implicit alias or missing facts. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I07 | Actual selected primary SourceInput identity/path mismatch, repeated/multiple CLI selected source or root mismatch rejects before ordinary generation. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I08 | Missing/nonregular/unreadable selected source or symlink root/ancestor/leaf rejects; no outside source acquisition. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I09 | Malformed UTF8, traversal/noncanonical path, unsupported extension and source/request size/count bounds reject honestly. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I10 | Actual normalizer syntax diagnostics and original semantic dangling/cyclic/version/ABI diagnostics are retained with no published partial success. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I11 | Typed explicitly Rejected Scope preserves original ordered source-correlated diagnostics exactly; no empty successful result. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I12 | Complete snapshot/package/Scala selection validates unknown/duplicate/missing coverage; every context independent domains match supplied package. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I13 | Preparation touches no output; request/selection failure preserves ordinary existing sentinel outputs before output preparation. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I14 | Typed multi-source actual parser acquisition preserves original document order and source selection without inventing multi-source V1 provenance. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I15 | Repeated independent normal invocations do not leak scope/request through global Modeler state; actual original provenance contains the produced Scala artifacts. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I16 | Active property varies literal independent valid source/identity/revision/producer-context fields and proves request decoding preserves their values without aliases. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64B01 | Canonical selected package index order/resource contents exactly match Generated projections and original inner order. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B02 | Separate Component releases and independent packages remain separate selected bundles; no filename-derived grouping. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B03 | Unknown/repeated/missing snapshot/resource keys, duplicate/reserved/unsafe filenames, count overflow and overlapping output paths reject whole batch. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B04 | Unlisted/nested JSON and symlink/nonregular existing metadata reject; unrelated nonJSON remains untouched. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B05 | Root/ancestor traversal or symlink and cross-bundle/Application/Scala path conflicts fail full preflight before any write. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B06 | Repeat publication is idempotent for identical regular output; different existing sentinel bytes are never overwritten or removed. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B07 | Typed deterministic IO failure reports actual previously written paths and preserves already written files without claiming rollback. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B08 | Active property permutes package traversal selections while preserving each explicit index order and proves identical semantic selected image mapping. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B09 | Actual normal package-car includes exactly produced canonical index/resources with unchanged bytes and original canonical descriptor/ABI/resources. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
+| C64B10 | Actual package-car existing source-CAR canonical-prefix/index/resource collision rejects including equal content before destination ZIP creation. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
+| C64B11 | Actual package-car Component release/independent package version or coordinate/schema/ABI mismatches and malformed selected inventory fail. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
+| C64B12 | All three CAR flags required together with duplicate rejection; absent flags preserve existing normal package behavior and omit added resources. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
+| C64A01 | Whole original ordered Validated Application definitions and all document source headers survive portable export alongside independent Component metadata. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A02 | Literal model/vocabulary/source identities, revisions, optional positive/null line and actual producer are preserved separately. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A03 | Authored Application demand/discovery edges and ordering survive; no reverse UseCase-requiredApplication edge is synthesized. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A04 | Every mapping and dependency has the exact versioned COMPONENT/APPLICATION target, boundary, source and origin. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A05 | Present(empty), all four Absent reasons/details and explicit nulls remain distinguishable, without omission/inference. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A06 | MODEL/TERM grounding, independent relation/profile/preferred label and ordered derived/trace evidence sources survive. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A07 | App-only and genuinely empty documents retain exact per-document selection; missing/repeated source-header coverage cannot be fabricated. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A08 | Active property varies independent Unicode literal identities/revisions/Presence and proves semantic exported JSON values equal original IR without inferred aliases. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+
+Historical S03 authoring note as of 2026-10-14: the following parent-acceptance
+statement is superseded only for current CAP-64-05 Step acceptance recorded in
+[Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15).
+
+[CmlCapabilityDirectoryDescriptorSpec](../../src/test/scala/cozy/modeler/CmlCapabilityDirectoryDescriptorSpec.scala)
+authors the S03 Directory cases with complete real CML, actual BuildInfo producer,
+adjacent Given/When/Then and should expectations. These are authoring records;
+parent validation and cross-repository acceptance remain separate.
+
+| Case | Observable authored Directory behavior |
+| --- | --- |
+| C64D01 | Real normal Cozy.main produces Store/Archive schema-3 literal releases and original index/projection/Scala/full Application products. |
+| C64D02 | Typed real two-source publication preserves Store/Archive/Remote independent Component releases and opaque package domains. |
+| C64D03 | Two original sources sharing one release/package publish one descriptor and complete resources in explicit second.json, first.json index order. |
+| C64D04 | Different selected descriptor sentinel yields typed OutputConflict before sibling writes and remains unchanged. |
+| C64D05 | Selected symlink, directory and case-aliased leaves yield UnsafeOutput while target, kinds and unrelated assets remain unchanged. |
+| C64D06 | Repeated publication restores an own missing generated descriptor, returns all selected paths and retains accepted images idempotently. |
+| C64D07 | Real Generated/rendered input with null ComponentId or invalid release yields typed component/descriptor Malformed without exception/default/partial output. |
+| C64D08 | All seventeen alternative six-format root/meta slots and case aliases reject before writes, even equal generated content; unrelated assets survive clean publication. |
+
+Historical S01/S03 status as of 2026-10-14: the following pending Step/native-proof
+statements are superseded only for current CAP-64-05 Step acceptance recorded in
+[Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15). Separate Phase
+closure and unsupported ForwardUseCase positive production remain outstanding.
+
+S01 and S03 are producer/publication prerequisites. CAP-64-05 remains IN_PROGRESS with
+all four criteria unchecked. Actual Scala 3 CNCF decode, native target binding,
+package/Factory discovery and CBD consumption without CML reparsing remain owed.
+Upstream UseCase inverse-demand projection is unavailable under R4; consumers
+must retain UnavailableUpstreamProjection. Separate participant Phase closure,
+full validation, independent review and local release precede Cozy main integration.
 
 ## Private Scala IR and per-document input
 
@@ -850,11 +1035,20 @@ is no filesystem-wide rollback or multiwriter guarantee.
 
 ### Existing provenance and outstanding consumer proof
 
-Actual generated regular `.scala` files participate in the unchanged Phase 63.1
-V1 capture, V2 artifact union, legacy rebind and package validation. These existing
-physical-content fields remain that product provenance contract; header/source
-revisions MUST NOT be treated as content digests. The generator adds no evidence
-seal, provenance schema, artifact vocabulary, bridge rule or control hash.
+Actual generated regular `.scala` files participate in the current canonical
+V1/V2 metadata, deterministic path union, legacy rebind and package validation.
+`SourceInput(path,identity)` selects the original source. V1 retains the exact
+CNCF target, Cozy generator, SimpleModeler backend, SimpleModeling model and
+source identity inputs; V2 retains their exact shared version tuple, sorted
+literal source identities and the complete `Artifact(path)` union. Readers
+validate schemas, known inputs and readable selected paths. Different readable
+contents at a shared path remain admissible; missing selected source, metadata
+or output paths fail. Header/source revisions remain independent supplied
+semantic facts. Authoring path/symbol/content collision and idempotence checks
+remain required; no transit checksum, byte protection or alternate source copy
+is introduced. Ordinary CLI/bridge descriptor forwarding carries the real
+path, target and source identity without digest flags. Directory/CAR metadata
+and required generated-release provenance use these same current contracts.
 
 CAP-64-05 retains normal producer composition, actual source/target acquisition,
 Scala 3 CNCF decoder/admission/binding/package/discovery and CBD no-reparse proof,
@@ -904,13 +1098,13 @@ protected Step review and independent focused closure, recorded in
 | C64G23 | Complete explicit output selection and lexical/path/keyword rejection. |
 | C64G24 | Path and symbol conflicts with both explicit snapshot sources. |
 | C64G25 | Safe publication/idempotence; different/nonregular/symlink rejection preserves sentinels. |
-| C64G26 | Actual two-source V1 captures to package-valid V2 generated artifact union. |
-| C64G27 | Actual aggregation is identical in both delegated orders. |
+| C64G26 | Actual two-source V1 metadata to package-valid V2 sorted literal identities and complete Artifact(path) union. |
+| C64G27 | Complete Manifest and serialized V2 JSON are identical in both delegated orders. |
 | C64G28 | Direct V1 admission and accepted legacy one-source V2 rebind. |
 | C64G29 | Actual duplicate source produces SourceAmbiguous without a winner. |
 | C64G30 | Actual generator/target/backend input disagreement produces InputMismatch. |
-| C64G31 | Real different generated bytes at one path produce OutputConflict. |
-| C64G32 | Actual missing output/manifest or mismatched installed artifact failure without reconstructed evidence. |
+| C64G31 | Shared path claims with different readable contents produce one deterministic path union in both orders. |
+| C64G32 | Missing delegated manifest, delegated output or installed selected artifact fails; changed readable installed contents at the same path remain package-admissible. |
 | C64G33 | Repeated compatibility tuple rejection before any snapshot, ordered repeated/first source attribution for exact and distinct-origin repetitions, and original Validated retention. |
 
 ## Semantic acceptance matrix

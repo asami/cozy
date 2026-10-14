@@ -67,7 +67,11 @@ term identity model.
 | CAP-64-02 | Admit CML syntax and parser/metamodel support for Application and Component Capability without Use Case Group containment semantics. | closed |
 | CAP-64-03 | Implement semantic validation and source-correlated diagnostics, including Goal/Use Case, Capability, realization, and admitted Glossary/BoK references. | closed |
 | CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Application Capability as the application-management IR. | closed |
-| CAP-64-05 | Prove CNCF admission and cbd-support consumption with a real fixture covering Use Case-to-Capability discovery evidence and terminology grounding. | planned |
+| CAP-64-05 | Prove CNCF admission and cbd-support consumption with a real fixture covering Use Case-to-Capability discovery evidence and terminology grounding. | closed |
+
+The earlier Step acceptance notes below retain their historical pending states.
+Their CAP-64-05 and CBD CAP-11-01 status statements are superseded only for
+current acceptance by [CAP-64-05 acceptance — 2026-10-15](#cap-64-05-acceptance--2026-10-15).
 
 ## CAP-64-01 acceptance
 
@@ -198,6 +202,25 @@ follows that participant closure with current main conflict and combined
 validation handling. These authored core specifications supply no CLI hookup,
 target activation, canonical CAR resource or downstream acceptance claim.
 
+## CAP-64-05 acceptance — 2026-10-15
+
+All four original CAP-64-05 criteria are accepted after focused validation,
+independent whole-Step review and retained correction closure. Four normal real
+selected CML products establish generated Scala 3 pure accessors, public CNCF
+canonical Directory admission and ordinary CAR discovery, complete independent
+Application, provided/required and native Operation/Workflow/StateMachine
+objects, and source-free CBD intake without CML reparsing. Current/history
+distinctions and typed failures remain retained.
+
+Exact independent source, Cozy, CNCF ABI and CBD revision records and review
+evidence are retained locally, without attachment here. This Step is accepted;
+no Step commit is claimed. All five Cozy Steps are now accepted. Separate
+Phase 64 full validation, full review, local release and main integration remain
+owed. CNCF Phase 78 CAP-78-05 and its own Phase closure, and primary CBD
+CAP-11-02/03, remain separate obligations. ForwardUseCase positive production
+remains not yet admitted and unexercised; Application links do not establish
+inverse UseCase demand.
+
 ## Required behavior
 
 - Application Capability can be discovered/derived from multiple Use Cases and
@@ -269,3 +292,55 @@ not reasons to introduce competing containment models.
 - [Phase 54](phase-54.md)
 - [Phase 54.5](phase-54.5.md)
 - [Phase 64 Checklist](phase-64-checklist.md)
+
+## CAP-64-05 normal production prerequisite
+
+Historical authoring and compatibility notes as of 2026-10-14 follow unchanged.
+Their pending CAP-64-05 and CBD CAP-11-01 states are superseded only for current
+Step acceptance by [CAP-64-05 acceptance — 2026-10-15](#cap-64-05-acceptance--2026-10-15);
+participant Phase closure and main integration obligations remain outstanding.
+
+Stage Status:
+- Current status: IN_PROGRESS
+- Owner: Cozy Phase 64 with CNCF Phase 78 and CBD Support Phase 11
+- Update rule: S01 authors the normal producer/publication prerequisite; all four
+  original criteria remain unchecked until actual producer/admission/consumer
+  proof and independent whole-Step acceptance.
+
+The [R13 normal production contract](../spec/cml-capability-model.md#r13-normal-production-publication-and-application-handoff)
+and [module responsibilities](../design/cml-capability-model.md#normal-source-production-and-complete-publication-responsibilities)
+specify strict opt-in CLI acquisition, original core composition, canonical
+Component index/resources, full lossless Application JSON and explicit normal
+package-car selection. C64I01–16, C64B01–12 and C64A01–08 are authored in four
+semantic suites; selected parent validation and independent review are pending.
+
+This prerequisite supplies no whole CAP-64-05 acceptance. Actual CNCF Scala 3
+decoding, native target binding, package/Factory discovery and CBD ingestion
+without CML reparsing remain separately owned proof. R4 forbids inverse UseCase
+demand inference; its missing upstream projection remains explicitly unavailable.
+All prior Step acceptance, failures and repair history remain retained. Separate
+Cozy/CNCF/CBD Phase full validation, independent Phase review and local releases
+remain owed. Cozy main integration follows completed Phase 64 on its dedicated
+branch and fresh combined validation; no push or remote publication is implied.
+
+
+Compatibility authority — 2026-10-14: S02 consumes the closed canonical Cozy
+Phase 71.5 contract (`docs/phase/phase-71.5.md`, closed 2026-10-10) as the selected
+input for SourceInput, exact known V1/V2 inputs and path inventory, direct
+Directory/CAR metadata reads and three-field ComponentKnowledge declarations.
+Readable content changes remain admissible; authoring collisions and missing
+selected paths retain their actual failure contracts. This compatibility input
+supplies no Phase 64 acceptance. All four CAP-64-05 criteria remain OPEN and
+unchecked; real producer/native/CBD proof, participant Phase closure and later
+Cozy main integration remain owed.
+
+S03 authoring — 2026-10-14: Normal Directory publication adds one canonical
+schema-3 root descriptor per explicitly selected bundle through the existing CAR
+serializer and exact Component release codec. Complete batch preflight rejects
+unsafe/different selected leaves and every alternative canonical descriptor slot.
+[C64D01–08](../spec/cml-capability-model.md#r13-normal-production-publication-and-application-handoff)
+are authored real CLI/prepare/publish specifications; parent validation and
+independent acceptance remain pending. The first four accepted Steps and all
+four unchecked CAP-64-05 criteria remain unchanged. Actual CNCF/CBD proof,
+independent participant full validation/review/local releases and completed
+Phase 64 before eventual Cozy main integration remain owed.

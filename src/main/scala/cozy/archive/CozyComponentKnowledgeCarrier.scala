@@ -2,18 +2,17 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, StandardCopyOption}
-import java.security.MessageDigest
 
 import org.goldenport.RAISE
 import play.api.libs.json.{JsObject, JsValue, Json}
 
 /*
  * Producer-side Component knowledge carrier handling. This boundary validates
- * declaration identity and raw-byte integrity without returning or projecting
+ * declaration identity and selected resource presence without returning or projecting
  * consumer-contract content.
  *
  * @since   Aug. 26, 2026
- * @version Aug. 26, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class CozyComponentKnowledgeCarrier(
@@ -32,7 +31,7 @@ private[cozy] object CozyComponentKnowledgeCarrier {
   val DEVELOPMENT_IDENTITY = "target/cncf.d/component-knowledge.json"
   val CARRIER_SCHEMA = "cncf.component-knowledge-carrier.v1"
   val CONSUMER_CONTRACT_SCHEMA = "cncf.component-knowledge-consumer.v1"
-  private val _declaration_fields = Set("carrierSchema", "consumerContractSchema", "logicalPath", "sha256")
+  private val _declaration_fields = Set("carrierSchema", "consumerContractSchema", "logicalPath")
 
   def fromProject(
     projectRoot: Path,
@@ -53,8 +52,7 @@ private[cozy] object CozyComponentKnowledgeCarrier {
           Json.obj(
             "carrierSchema" -> CARRIER_SCHEMA,
             "consumerContractSchema" -> CONSUMER_CONTRACT_SCHEMA,
-            "logicalPath" -> ARCHIVE_LOGICAL_PATH,
-            "sha256" -> _sha256(bytes)
+            "logicalPath" -> ARCHIVE_LOGICAL_PATH
           )
         )
       )
@@ -92,18 +90,12 @@ private[cozy] object CozyComponentKnowledgeCarrier {
       case Some(value) =>
         val declaration = _object(value, s"$label.componentKnowledge")
         if (declaration.keys != _declaration_fields)
-          RAISE.invalidArgumentFault(s"$label.componentKnowledge must contain exactly carrierSchema, consumerContractSchema, logicalPath, and sha256.")
+          RAISE.invalidArgumentFault(s"$label.componentKnowledge must contain exactly carrierSchema, consumerContractSchema, and logicalPath.")
         _require_string(declaration, "carrierSchema", CARRIER_SCHEMA, s"$label.componentKnowledge")
         _require_string(declaration, "consumerContractSchema", CONSUMER_CONTRACT_SCHEMA, s"$label.componentKnowledge")
         _require_string(declaration, "logicalPath", ARCHIVE_LOGICAL_PATH, s"$label.componentKnowledge")
-        val digest = _string(declaration, "sha256", s"$label.componentKnowledge")
-        if (!digest.matches("[0-9a-f]{64}"))
-          RAISE.invalidArgumentFault(s"$label.componentKnowledge.sha256 must be lowercase 64-hex SHA-256.")
-        val bytes = archiveBytes.getOrElse(
+        if (archiveBytes.isEmpty)
           RAISE.invalidArgumentFault(s"$label declares Component knowledge but archive entry $ARCHIVE_LOGICAL_PATH is missing.")
-        )
-        if (digest != _sha256(bytes))
-          RAISE.invalidArgumentFault(s"$label.componentKnowledge.sha256 does not match archive entry $ARCHIVE_LOGICAL_PATH.")
     }
   }
 
@@ -141,6 +133,4 @@ private[cozy] object CozyComponentKnowledgeCarrier {
       RAISE.invalidArgumentFault(s"$source.$field must be a string.")
     )
 
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 }

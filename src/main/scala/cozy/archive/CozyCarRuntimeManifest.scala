@@ -2,7 +2,6 @@ package cozy.archive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.security.MessageDigest
 import java.util.zip.ZipFile
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -10,18 +9,20 @@ import scala.util.control.NonFatal
 import cozy.compatibility.CarMetadataCompatibility
 import cozy.modeler.GenerationProvenance
 import org.goldenport.RAISE
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
+import play.api.libs.json.{JsObject, JsValue, Json}
 
 /*
  * CNCF-owned runtime admission evidence packaged by Cozy.
  *
  * Generation compatibility and provenance are intentionally absent from this
  * runtime document. Runtime activation consumes only the CNCF range, ABI
- * sidecar, and archive digests. Cozy publication separately verifies packaged
- * release provenance before accepting a prebuilt CAR.
+ * sidecar, and canonical coordinate. Cozy publication separately validates required
+ * packaged release provenance schema, versions and logical paths before
+ * accepting a prebuilt CAR.
  *
  * @since   Jul. 28, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCarRuntimeManifest {
@@ -38,12 +39,6 @@ private[cozy] object CozyCarRuntimeManifest {
   ): Unit = {
     coordinate.foreach(_require_canonical_archive_coordinates(root, _))
     val runtime = contract.runtimeCompatibility
-    val entries = _files(root).filterNot(_._2 == FILE_NAME).map { case (path, relative) =>
-      Json.obj(
-        "path" -> relative,
-        "sha256" -> _sha256(path)
-      )
-    }
     val cncf = Json.obj(
       "minimum" -> runtime.minimum,
       "maximum" -> runtime.maximum,
@@ -57,11 +52,7 @@ private[cozy] object CozyCarRuntimeManifest {
         "version" -> version,
         "component" -> component
       ),
-      "runtime" -> Json.obj("cncf" -> cncf),
-      "integrity" -> Json.obj(
-        "algorithm" -> "SHA-256",
-        "entries" -> JsArray(entries)
-      )
+      "runtime" -> Json.obj("cncf" -> cncf)
     )
     Files.writeString(
       root.resolve(FILE_NAME),
@@ -104,7 +95,7 @@ private[cozy] object CozyCarRuntimeManifest {
     archive: Path,
     contract: CarMetadataCompatibility.Contract,
     coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
-    expectedGenerationProvenance: Option[Path]
+    requireGenerationProvenance: Boolean
   ): Unit = {
     val path = archive.toAbsolutePath.normalize()
     if (!Files.isRegularFile(path))
@@ -147,7 +138,6 @@ private[cozy] object CozyCarRuntimeManifest {
       _require_string(car, "name", coordinate.mavenArtifactId, s"$FILE_NAME car")
       _require_string(car, "version", coordinate.version, s"$FILE_NAME car")
       _require_runtime(manifest, contract)
-      _require_integrity(zip, byname, manifest)
       val descriptorentry = byname.getOrElse(
         "component-descriptor.json",
         RAISE.invalidArgumentFault(
@@ -161,9 +151,8 @@ private[cozy] object CozyCarRuntimeManifest {
       val abientry = byname.getOrElse("abi-manifest.json", RAISE.invalidArgumentFault("Prebuilt CAR requires abi-manifest.json."))
       _require_canonical_archive_coordinates(descriptor, _json(_bytes(zip, abientry), "abi-manifest.json"), coordinate)
       _require_declared_component_knowledge_carrier(zip, byname, descriptor)
-      expectedGenerationProvenance.foreach(
-        _require_generation_provenance(zip, byname, contract, _)
-      )
+      if (requireGenerationProvenance)
+        _require_generation_provenance(zip, byname, contract)
     } finally {
       zip.close()
     }
@@ -277,64 +266,10 @@ private[cozy] object CozyCarRuntimeManifest {
       "component-descriptor.json"
     )
 
-  private def _require_integrity(
-    zip: ZipFile,
-    byname: Map[String, java.util.zip.ZipEntry],
-    manifest: JsValue
-  ): Unit = {
-    val integrity = (manifest \ "integrity").asOpt[JsObject].getOrElse(
-      RAISE.invalidArgumentFault(s"$FILE_NAME must contain integrity metadata.")
-    )
-    _require_string(integrity, "algorithm", "SHA-256", s"$FILE_NAME integrity")
-    val recorded =
-      (integrity \ "entries").asOpt[Vector[JsObject]].getOrElse(
-        RAISE.invalidArgumentFault(
-          s"$FILE_NAME integrity.entries must be an array."
-        )
-      ).map { entry =>
-        val path = (entry \ "path").asOpt[String].getOrElse(
-          RAISE.invalidArgumentFault(
-            s"$FILE_NAME integrity entry requires path."
-          )
-        )
-        val digest = (entry \ "sha256").asOpt[String].getOrElse(
-          RAISE.invalidArgumentFault(
-            s"$FILE_NAME integrity entry requires sha256."
-          )
-        )
-        if (!digest.matches("[0-9a-f]{64}"))
-          RAISE.invalidArgumentFault(
-            s"$FILE_NAME integrity digest is malformed for $path."
-          )
-        path -> digest
-      }
-    val recordedduplicates = recorded.groupBy(_._1).collect {
-      case (path, xs) if xs.size > 1 => path
-    }.toVector.sorted
-    if (recordedduplicates.nonEmpty)
-      RAISE.invalidArgumentFault(
-        s"$FILE_NAME repeats integrity paths: ${recordedduplicates.mkString(", ")}"
-      )
-    val actualentries = byname - FILE_NAME
-    val recordedmap = recorded.toMap
-    if (recordedmap.keySet != actualentries.keySet)
-      RAISE.invalidArgumentFault(
-        s"$FILE_NAME archive path set mismatch: expected=${recordedmap.keySet.toVector.sorted.mkString(",")} actual=${actualentries.keySet.toVector.sorted.mkString(",")}"
-      )
-    actualentries.foreach { case (path, entry) =>
-      val actual = _sha256(_bytes(zip, entry))
-      if (recordedmap(path) != actual)
-        RAISE.invalidArgumentFault(
-          s"$FILE_NAME digest mismatch for $path."
-        )
-    }
-  }
-
   private def _require_generation_provenance(
     zip: ZipFile,
     byname: Map[String, java.util.zip.ZipEntry],
-    contract: CarMetadataCompatibility.Contract,
-    expectedprovenance: Path
+    contract: CarMetadataCompatibility.Contract
   ): Unit = {
     val entry = byname.getOrElse(
       "generation-provenance.json",
@@ -343,20 +278,10 @@ private[cozy] object CozyCarRuntimeManifest {
       )
     )
     val packagedbytes = _bytes(zip, entry)
-    val expectedbytes = Files.readAllBytes(expectedprovenance)
-    if (!MessageDigest.isEqual(packagedbytes, expectedbytes))
-      RAISE.invalidArgumentFault(
-        "Packaged generation-provenance.json differs from the owning project's validated generation provenance."
-      )
-    val projectroot = Option(expectedprovenance.getParent).flatMap(parent => Option(parent.getParent)).flatMap(parent => Option(parent.getParent)).getOrElse(
-      expectedprovenance.toAbsolutePath.normalize().getParent
-    )
-    val workroot = projectroot.resolve("target/cozy/work/runtime-manifest")
-    Files.createDirectories(workroot)
-    val temporary = Files.createTempFile(workroot, "provenance-", ".json")
+    val temporary = Files.createTempFile("cozy-car-provenance-", ".json")
     try {
       Files.write(temporary, packagedbytes)
-      GenerationProvenance.requireValidPackagedEvidence(
+      GenerationProvenance.requireValidPackagedMetadata(
         temporary,
         contract.cncfCompileTarget.version,
         contract.cozyVersion
@@ -365,50 +290,6 @@ private[cozy] object CozyCarRuntimeManifest {
       Files.deleteIfExists(temporary)
     }
   }
-
-  private def _files(root: Path): Vector[(Path, String)] = {
-    val stream = Files.walk(root)
-    try {
-      val files = stream.iterator().asScala.toVector.collect {
-        case path if Files.isRegularFile(path) =>
-          val relative = root.relativize(path).toString.replace('\\', '/')
-          path -> relative
-      }.sortBy(_._2)
-      val duplicates = files.groupBy(_._2).collect {
-        case (relative, xs) if xs.size > 1 => relative
-      }.toVector.sorted
-      if (duplicates.nonEmpty)
-        RAISE.invalidArgumentFault(
-          s"CAR runtime manifest cannot represent duplicate archive paths: ${duplicates.mkString(", ")}"
-        )
-      files
-    } finally {
-      stream.close()
-    }
-  }
-
-  private def _sha256(path: Path): String = {
-    val digest = MessageDigest.getInstance("SHA-256")
-    val input = Files.newInputStream(path)
-    try {
-      val buffer = new Array[Byte](8192)
-      var count = input.read(buffer)
-      while (count >= 0) {
-        if (count > 0)
-          digest.update(buffer, 0, count)
-        count = input.read(buffer)
-      }
-    } finally {
-      input.close()
-    }
-    digest.digest().map(byte => f"${byte & 0xff}%02x").mkString
-  }
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").
-      digest(bytes).
-      map(byte => f"${byte & 0xff}%02x").
-      mkString
 
   private def _bytes(
     zip: ZipFile,

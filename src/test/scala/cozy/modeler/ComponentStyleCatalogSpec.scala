@@ -2,7 +2,6 @@ package cozy.modeler
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
-import java.security.MessageDigest
 import java.util.Base64
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
@@ -13,7 +12,7 @@ import play.api.libs.json.{JsObject, Json}
 
 /*
  * @since   Jul. 31, 2026
- * @version Jul. 31, 2026
+ * @version Oct.  9, 2026
  * @author  ASAMI, Tomoharu
  */
 final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with GivenWhenThen with ModelerSpecSupport {
@@ -28,7 +27,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
       val descriptor = test_cncf_runtime_descriptor
 
       When("Cozy validates the descriptor and reads its catalog carrier")
-      val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(descriptor)), "component-style-spec")
+      val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", "component-style-spec")
       val catalog = ComponentStyleCatalog.fromValidatedDescriptor(validated)
       val style = catalog.requireSelection("full-fledged-with-standalone")
 
@@ -40,7 +39,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
     "E2 reject an explicit style that is unavailable from the selected catalog" must _metadata("E2", "CS02A-R1") {
       "when Cozy resolves an unavailable CML selection" in {
       Given("Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R1; Example: E2; the selected framework catalog and an authored domain-only selection")
-      val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(test_cncf_runtime_descriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(test_cncf_runtime_descriptor)), "component-style-spec")
+      val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(test_cncf_runtime_descriptor, "0.5.2-SNAPSHOT", "component-style-spec")
       val catalog = ComponentStyleCatalog.fromValidatedDescriptor(validated)
 
       When("Cozy resolves the explicit unavailable selection")
@@ -54,7 +53,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
     }
 
     "E5 reject an explicit style with an older descriptor lacking a catalog" must _metadata("E5", "CS02A-R1,CS02A-R3") {
-      "when explicit CML uses a digest-pinned descriptor without a catalog carrier" in {
+      "when explicit CML uses a descriptor without a catalog carrier" in {
       Given("Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R1, CS02A-R3; Example: E5; explicit-component CML and a valid descriptor without a catalog carrier")
       val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       val input = base.resolve("target/test-generated/component-style-catalog-legacy-explicit.dox")
@@ -98,7 +97,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
     }
 
     "E4 keep style-less generation compatible with an older descriptor" must _metadata("E4", "CS02A-R3") {
-      "when style-less CML uses a digest-pinned descriptor without a catalog carrier" in {
+      "when style-less CML uses a descriptor without a catalog carrier" in {
       Given("Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R3; Example: E4; style-less explicit-component CML and a valid descriptor without a catalog carrier")
       val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       val input = base.resolve("target/test-generated/component-style-catalog-legacy.dox")
@@ -130,7 +129,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
         val input = base.resolve("src/test/resources/modeler/component-style-selection.dox")
         val output = base.resolve("target/test-generated/component-style-catalog-component-only-out")
         delete_recursively(output)
-        val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(test_cncf_runtime_descriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(test_cncf_runtime_descriptor)), "component-style-component-only")
+        val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(test_cncf_runtime_descriptor, "0.5.2-SNAPSHOT", "component-style-component-only")
         val catalog = ComponentStyleCatalog.fromValidatedDescriptor(validated)
 
         When("Cozy generates the explicit component and emits model metadata")
@@ -157,10 +156,10 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
       }
     }
 
-    "enforce carrier integrity" which {
+    "enforce carrier format and catalog semantics" which {
       _carrier_variants(Files.readString(test_cncf_runtime_descriptor)).zipWithIndex.foreach { case ((label, content, expected), index) =>
         s"E${index + 6} reject a $label carrier violation" must _metadata(s"E${index + 6}", "CS02A-R1,CS02D-R2") {
-          "when Cozy reads the digest-pinned altered carrier" in {
+          "when Cozy reads the altered carrier" in {
           Given(s"Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R1, CS02D-R2; Example: E${index + 6}; a $label catalog carrier")
           val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
           val descriptor = base.resolve(s"target/test-generated/component-style-catalog-carrier-$index.yaml")
@@ -168,7 +167,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
           Files.writeString(descriptor, content)
 
           When("the selected descriptor is validated and its catalog is admitted")
-          val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(descriptor)), label)
+          val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", label)
           val error = intercept[RuntimeException] { ComponentStyleCatalog.fromValidatedDescriptor(validated) }
 
           Then("the carrier violation has its stable diagnostic")
@@ -179,7 +178,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
 
       _graph_variants(_catalog_text(Files.readString(test_cncf_runtime_descriptor))).zipWithIndex.foreach { case ((label, catalog, expected), index) =>
         s"E${index + 14} reject a $label capability graph" must _metadata(s"E${index + 14}", "CS02D-R1,CS02D-R2") {
-          "when Cozy admits the altered graph through the digest-pinned carrier" in {
+          "when Cozy admits the altered graph through the carrier" in {
           Given(s"Spec: ../cloud-native-component-framework/docs/journal/2026/07/2026-07-31-phase-53-cs02d-capability-graph-validation.md; Rules: CS02D-R1, CS02D-R2; Example: E${index + 14}; a catalog with a $label violation")
       val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       val runtime = Files.readString(test_cncf_runtime_descriptor)
@@ -188,7 +187,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
           Files.writeString(descriptor, _runtime_with_catalog(runtime, catalog))
 
           When("the selected descriptor is validated and its catalog is admitted")
-          val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(descriptor)), label)
+          val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", label)
           val error = intercept[RuntimeException] { ComponentStyleCatalog.fromValidatedDescriptor(validated) }
 
           Then("the graph violation has its stable diagnostic")
@@ -198,7 +197,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
       }
 
     "E20 admit a family-qualified ASCII catalog style at Int.MaxValue" must _metadata("E20", "CS02A-R2") {
-      "when Cozy admits a qualified style through the digest-pinned carrier" in {
+      "when Cozy admits a qualified style through the carrier" in {
       Given("Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R2; Example: E20; a family-qualified ASCII style at Int.MaxValue")
       val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       val runtime = Files.readString(test_cncf_runtime_descriptor)
@@ -211,7 +210,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
       val qualifieddescriptor = base.resolve("target/test-generated/component-style-catalog-qualified.yaml")
       Files.createDirectories(qualifieddescriptor.getParent)
       Files.writeString(qualifieddescriptor, _runtime_with_catalog(runtime, qualifiedcatalog))
-      val qualifiedvalidated = CncfRuntimeDescriptorContract.requireValidDescriptor(qualifieddescriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(qualifieddescriptor)), "qualified-style")
+      val qualifiedvalidated = CncfRuntimeDescriptorContract.requireValidDescriptor(qualifieddescriptor, "0.5.2-SNAPSHOT", "qualified-style")
       val qualified = ComponentStyleCatalog.fromValidatedDescriptor(qualifiedvalidated)
 
       Then("the consumer exposes the qualified unversioned CML selection")
@@ -221,7 +220,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
 
     _identity_variants(_catalog_text(Files.readString(test_cncf_runtime_descriptor))).zipWithIndex.foreach { case ((label, catalog), index) =>
       s"E${index + 21} reject a $label catalog identity" must _metadata(s"E${index + 21}", "CS02A-R2") {
-        "when Cozy admits the noncanonical identity through the digest-pinned carrier" in {
+        "when Cozy admits the noncanonical identity through the carrier" in {
         Given(s"Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R2; Example: E${index + 21}; a catalog with a $label identity")
         val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
         val runtime = Files.readString(test_cncf_runtime_descriptor)
@@ -230,7 +229,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
         Files.writeString(descriptor, _runtime_with_catalog(runtime, catalog))
 
         When("the selected descriptor is validated and its catalog is admitted")
-        val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(descriptor)), label)
+        val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", label)
         val error = intercept[RuntimeException] { ComponentStyleCatalog.fromValidatedDescriptor(validated) }
 
         Then("the noncanonical identity is rejected")
@@ -241,7 +240,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
 
     "E25 reject generated catalog identity major overflows" must _metadata("E25", "CS02A-R2") {
       "when Cozy validates generated overflowing catalog carriers" in {
-      Given("Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R2; Example: E25; digest-pinned catalogs whose style major exceeds Int.MaxValue")
+      Given("Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R2; Example: E25; catalogs whose style major exceeds Int.MaxValue")
       val base = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize()
       val runtime = Files.readString(test_cncf_runtime_descriptor)
       val catalogtext = _catalog_text(runtime)
@@ -253,7 +252,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
         val descriptor = base.resolve(s"target/test-generated/component-style-catalog-overflow-$suffix.yaml")
         Files.createDirectories(descriptor.getParent)
         Files.writeString(descriptor, _runtime_with_catalog(runtime, catalog))
-        val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", Some(CncfRuntimeDescriptorContract.sha256(descriptor)), "overflow-major")
+        val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", "overflow-major")
         try {
           ComponentStyleCatalog.fromValidatedDescriptor(validated)
           false
@@ -270,21 +269,6 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
     }
     }
 
-    "E26 reject an unpinned carrier descriptor even when its bytes are internally valid" must _metadata("E26", "CS02A-R1") {
-      "when Cozy receives a valid catalog carrier without the selected descriptor digest" in {
-      Given("Spec: ../cloud-native-component-framework/docs/notes/phase-53-cs02a-versioned-component-style-contract.md; Rules: CS02A-R1; Example: E26; a valid catalog carrier validated without an external descriptor digest")
-      val descriptor = test_cncf_runtime_descriptor
-      val validated = CncfRuntimeDescriptorContract.requireValidDescriptor(descriptor, "0.5.2-SNAPSHOT", None, "component-style-unpinned")
-
-      When("the catalog consumer admits the validated descriptor")
-      val error = intercept[RuntimeException] {
-        ComponentStyleCatalog.fromValidatedDescriptor(validated)
-      }
-
-      Then("the consumer requires digest-pinned validation structurally")
-      error.getMessage should include("CNCF component style catalog requires a digest-pinned runtime descriptor")
-    }
-    }
     }
   }
 
@@ -333,7 +317,6 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
   private def _runtime_with_catalog(runtime: String, catalog: String): String = {
     val bytes = catalog.getBytes(StandardCharsets.UTF_8)
     runtime
-      .replaceFirst("(?m)^  sha256:.*$", s"  sha256: ${_sha256(bytes)}")
       .replaceFirst("(?m)^  bytes:.*$", "  bytes: \"" + Base64.getEncoder.encodeToString(bytes) + "\"")
   }
 
@@ -345,8 +328,7 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
       "unsupported carrier schema" -> runtime.replace("cncf.component-style-catalog-carrier.v1", "cncf.component-style-catalog-carrier.v2") -> "Unsupported CNCF component style catalog carrier schema",
       "unsupported encoding" -> runtime.replace("encoding: base64", "encoding: hex") -> "Unsupported CNCF component style catalog encoding",
       "unsupported resource" -> runtime.replace("META-INF/cncf/component-style-catalog.json", "META-INF/other.json") -> "Unsupported CNCF component style catalog resource",
-      "invalid base64 payload" -> runtime.replaceFirst("(?m)^  bytes:.*$", "  bytes: \"%%%\"") -> "Invalid CNCF component style catalog base64 payload",
-      "catalog digest mismatch" -> runtime.replace("sha256: 58ae649f9331af5ec789ac7b6fc60a857223598a1a1d46ca481af2d2e9cf5339", "sha256: \"" + ("0" * 64) + "\"") -> "CNCF component style catalog SHA-256 mismatch"
+      "invalid base64 payload" -> runtime.replaceFirst("(?m)^  bytes:.*$", "  bytes: \"%%%\"") -> "Invalid CNCF component style catalog base64 payload"
     ).map { case ((label, content), expected) => (label, content, expected) }
 
   private def _graph_variants(catalogtext: String): Vector[(String, String, String)] =
@@ -368,9 +350,6 @@ final class ComponentStyleCatalogSpec extends AnyWordSpec with Matchers with Giv
       "overflow style major" -> catalogtext.replace("\"id\" : \"full-fledged-with-standalone@1\"", "\"id\" : \"vendor.full-fledged-with-standalone@2147483648\""),
       "Unicode capability" -> catalogtext.replace("\"domain.entity@1\"", "\"domain.é@1\"")
     )
-
-  private def _sha256(bytes: Array[Byte]): String =
-    MessageDigest.getInstance("SHA-256").digest(bytes).map(byte => f"${byte & 0xff}%02x").mkString
 
   private def _catalog_with_unreferenced_diamond(catalogtext: String, suffix: String): String =
     catalogtext.replace(

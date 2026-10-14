@@ -7,6 +7,10 @@ The [Capability Model specification](../spec/cml-capability-model.md)
 owns normative semantics, carriers and authored grammar. [Phase 64](../phase/phase-64.md)
 and its [checklist](../phase/phase-64-checklist.md) own progress and acceptance.
 
+Current CAP-64-05 interoperability Step acceptance is recorded in
+[Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15).
+Separate Phase full closure and main integration remain owed.
+
 ## Application and Component kinds with common Foundation identities
 
 Application Capability provides the application structure and management axis.
@@ -193,8 +197,10 @@ consumer evidence remain separate. CAP-64-03 validation and independent acceptan
 are recorded in [Phase 64](../phase/phase-64.md#cap-64-03-acceptance).
 CAP-64-04 generation acceptance is recorded in
 [Phase 64](../phase/phase-64.md#cap-64-04-acceptance);
-CAP-64-05 interoperability and the separately tracked upstream parser candidate
-remain with their existing owners.
+CAP-64-05 interoperability Step acceptance is recorded in
+[Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15);
+the separately tracked upstream parser candidate retains its existing separate
+owner. Separate Phase full closure and main integration remain owed.
 
 ## Deterministic generation and existing provenance responsibilities
 
@@ -227,8 +233,12 @@ external certificate. Canonical outer order leaves original authored inner
 vectors and compatibility states intact.
 
 Real selected carriers remain ordinary generated `.scala` artifacts beneath
-`target/`. Existing GenerationProvenance captures V1 and aggregates/rebinds V2
-through its unchanged package boundary. The new specifications use actual
+`target/`. Current GenerationProvenance records V1 known inputs and Scala paths,
+then aggregates/rebinds V2 with sorted literal identities and the complete
+`Artifact(path)` union. The package boundary validates schemas, exact versions,
+identities and readable selected paths; readable content changes remain
+admissible. Direct authoring path/symbol/content collisions still reject before
+publication. The specifications use actual
 original CML files, core generation, selected output publication and accepted
 provenance APIs. The compiler and temporary child loader exist only in the
 specification of the pure metadata accessor; production generation has no
@@ -243,3 +253,57 @@ decoder/admission/binding/package/discovery and CBD consumption remain
 CAP-64-05 and the CNCF/CBD owners. Resource placement and runtime activation are
 not selected by this core. Separate Phase closure/local release and main
 integration remain outstanding obligations.
+
+## Normal source production and complete publication responsibilities
+
+[R13](../spec/cml-capability-model.md#r13-normal-production-publication-and-application-handoff)
+owns the opt-in caller, closed request, explicit finite facts, selected outputs
+and canonical Component/Application product inputs. The normal Modeler hook
+preflights the literal primary source path and identity, then prepares the full
+Capability candidate inside the existing component-identity context before any
+ordinary writes. It executes normalized ordinary source arguments, writes model
+metadata from the original positional source and the component API descriptor,
+publishes the accepted full batch, and writes current Scala path provenance. Typed multi-source acquisition
+retains source order and makes no aggregate V1 provenance claim.
+
+| Module | Responsibility |
+| --- | --- |
+| [Cozy](../../src/main/scala/cozy/Cozy.scala) | Existing normal CLI strict opt-in integration/selected source/output ordering and help only; retain original public constructor/other dispatch. |
+| [CozyArchivePackager](../../src/main/scala/cozy/archive/CozyArchivePackager.scala) | Existing normal CAR strict three-flag selection/collision check and sole schema-3 serializer; a pure internal wrapper renders the selected Capability Directory release with empty entities/extensions/config. |
+| [CozyCapabilityArchivePart](../../src/main/scala/cozy/archive/CozyCapabilityArchivePart.scala) | New bounded canonical index/resource archive-entry selection and envelope/actual-coordinate checks; no second semantic parser. |
+| [CmlCapabilityProduction](../../src/main/scala/cozy/modeler/CmlCapabilityProduction.scala) | New private successful prepare/publish facade/original failure wrappers; selected input acquisition/core composition/complete batch. |
+| [CmlCapabilityProductionRequest](../../src/main/scala/cozy/modeler/CmlCapabilityProductionRequest.scala) | New immutable ProductionRequest/PackageOutput/ResourceOutput and closed constants/types; no defaults or successful Prepared constructor. |
+| [CmlCapabilityProductionRequestJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityProductionRequestJsonPart.scala) | New closed strict request+scope/context/selection JSON codec using unchanged original field/reference helpers. |
+| [CmlCapabilityProductionSourcePart](../../src/main/scala/cozy/modeler/CmlCapabilityProductionSourcePart.scala) | New bounded source-root/selected original local Kaleidox parsing and honest typed failures. |
+| [CmlCapabilityPackagePublication](../../src/main/scala/cozy/modeler/CmlCapabilityPackagePublication.scala) | Sole complete descriptor/index/resource/Scala/full Application batch; exact selected Component release admitted through the existing coordinate codec and serializer, with typed descriptor failure and separate 16MiB bound. |
+| [CmlCapabilityPackagePublicationPart](../../src/main/scala/cozy/modeler/CmlCapabilityPackagePublicationPart.scala) | Bounded filesystem/selection/inventory/atomic publication; no-follow root/immediate-meta alternative descriptor preflight and unchanged selected-leaf/idempotency checks. |
+| [CmlCapabilityApplicationProjection](../../src/main/scala/cozy/modeler/CmlCapabilityApplicationProjection.scala) | New lossless full original Application product serialization, source coverage and explicit no-inverse-edge contract. |
+
+Successful Prepared and publication Batch values have sole private constructors.
+The source helper consumes `GenerationProvenance.SourceInput(path,identity)` or
+explicitly selected local files. A supplied SourceInput requires one exact
+literal source header with the same normalized physical path and logical
+identity; null or mismatched input fails without fallback. Both routes read
+bounded actual file contents through the existing strict UTF8 reader. The
+ordinary modeler and bounded Capability parser may each read that original
+selected file; no capture, retained source bytes or protection copy is used.
+Original normalization, finite validation, R11 projection
+and Scala rendering own their existing diagnostics and coverage checks.
+Application serialization consumes the same Generated.validated and ordered
+source headers, preserving every original definition, source and Presence value.
+
+Each selected Directory bundle includes one root `component-descriptor.json`
+from the existing CAR serializer, using only its selected namespace/local ID and
+Component release. Its empty entities/extensions/config introduce no native,
+knowledge or style evidence; package/producer/source domains remain independent.
+Publication preflights that descriptor in the complete batch and existing
+metadata inventory before writing. Root descriptor alternatives in all six
+canonical formats and immediate meta/component-descriptor alternatives, including
+case aliases and equal contents, reject without following links or selecting a
+winner. Unrelated root/meta assets remain preserved. Same-directory temporary files and atomic move provide bounded file
+publication; failures report actual written paths without rollback claims. CAR
+selection copies only the canonical index and listed siblings, checks actual
+Component and independent package coordinates, and rejects collisions across
+all composed archive entries before the destination ZIP is created. The existing
+public CNCF Factory owns actual Directory/CAR admission, native target binding
+and discovery; CBD owns subsequent consumption without CML reparsing.

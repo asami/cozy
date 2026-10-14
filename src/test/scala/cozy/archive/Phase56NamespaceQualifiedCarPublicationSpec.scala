@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 /*
  * @since   Aug.  7, 2026
- * @version Aug.  7, 2026
+ * @version Oct. 14, 2026
  * @author  ASAMI, Tomoharu
  */
 /** Focused CID-04C repository-coordinate and integrity publication contract. */
@@ -110,7 +110,7 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
     "in spec:phase-59.6-catalog-carrier, example:E1A, rules:R1,R9, phase:59.6"
   ) {
     "copy only the declared raw consumer contract beside its exact release catalog" in {
-      Given("a CAR whose archive declaration and project source share one digest-bound consumer contract")
+      Given("a CAR whose archive declaration and project source share one declared consumer contract")
       _with_temp_dir { root =>
         val warehouse = root.resolve("warehouse")
         val coordinate = _coordinate("org.alpha.textus", "Shared")
@@ -118,9 +118,8 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
         val contract =
           s"""{"schema":"cncf.component-knowledge-consumer.v1","componentId":"${coordinate.qualifiedId}","logicalRelease":"${coordinate.version}","resources":[]}"""
         val source = _write(project.resolve("src/main/car/component-knowledge.json"), contract)
-        val digest = RepositoryArtifactPublisher.sha256(source)
         val descriptor =
-          s"""{"schemaVersion":3,"component":{"namespace":"${coordinate.namespace}","id":"${coordinate.id}","version":"${coordinate.version}"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json","sha256":"$digest"}}"""
+          s"""{"schemaVersion":3,"component":{"namespace":"${coordinate.namespace}","id":"${coordinate.id}","version":"${coordinate.version}"},"componentKnowledge":{"carrierSchema":"cncf.component-knowledge-carrier.v1","consumerContractSchema":"cncf.component-knowledge-consumer.v1","logicalPath":"component-knowledge.json"}}"""
         val archive = _archive(root.resolve("carrier.car"), Vector(
           "component-descriptor.json" -> descriptor,
           "abi-manifest.json" -> _abi(coordinate),
@@ -135,7 +134,6 @@ final class Phase56NamespaceQualifiedCarPublicationSpec
         val sidecar = warehouse.resolve("repository/catalog/car").resolve(coordinate.groupPath).
           resolve(coordinate.mavenArtifactId).resolve(coordinate.version).resolve("component-knowledge.json")
         Files.readAllBytes(sidecar).toVector shouldBe Files.readAllBytes(source).toVector
-        RepositoryArtifactPublisher.sha256(sidecar) shouldBe digest
       }
     }
   }
