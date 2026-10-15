@@ -8,7 +8,7 @@ import CmlSemanticFoundation.{ModelElementId, Present, Absent}
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityGenerationValidationPart {

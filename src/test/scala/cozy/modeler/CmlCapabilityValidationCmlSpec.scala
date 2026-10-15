@@ -15,7 +15,7 @@ import CmlCapabilityValidationSpec._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityValidationCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -45,7 +45,7 @@ final class CmlCapabilityValidationCmlSpec extends AnyWordSpec with Matchers wit
       }
 
       "C64V02 retain all four Local Use Case demand links independently of discovery and providers" in {
-        Given("real CML with two Applications demanding two qualified Use Cases, Local Scenario discovery and a standalone Application")
+        Given("real CML with two Usage definitions demanding two qualified Use Cases, Local Scenario discovery and a standalone Usage")
         val source = _primary.replace("\"role\":\"GOAL\"", "\"role\":\"USE_CASE\"")
           .replace("goal:two", "usecase:two").replace("\"elementId\":\"scenario:one\"},\"boundary\":\"EXTERNAL\"",
             "\"elementId\":\"scenario:one\"},\"boundary\":\"LOCAL\"")
@@ -54,16 +54,16 @@ final class CmlCapabilityValidationCmlSpec extends AnyWordSpec with Matchers wit
         When("the actual authored CML is parsed, normalized and validated")
         val documents = _parse(source, _primary_scope)
         val validated = _admitted(CmlCapabilityValidation.validate(documents, ScopeInput.Ready(scope)))
-        val applications = validated.documents.head.model.applicationCapabilities
+        val usages = validated.documents.head.model.componentUsageCapabilities
         Then("all four exact demand links remain in their supplied order without grouping or inverse edges")
         validated.documents shouldBe documents
-        _items(applications.head.demandReferences) shouldBe Vector.empty
-        applications.tail.map(x => _items(x.demandReferences).map(_.target.identity)) shouldBe
+        _items(usages.head.demandReferences) shouldBe Vector.empty
+        usages.tail.map(x => _items(x.demandReferences).map(_.target.identity)) shouldBe
           Vector.fill(2)(Vector(_real_id("usecase:one"), _real_id("usecase:two")))
-        applications.tail.flatMap(x => _items(x.demandReferences)).map(_.role) shouldBe Vector.fill(4)(UseCase)
-        applications.map(_.name).distinct shouldBe Vector("Same presentation")
-        _items(applications(1).discoveryReferences).head.role shouldBe Scenario
-        _items(applications(1).componentMappings).head.target.identity shouldBe _real_id("Component:Store|α")
+        usages.tail.flatMap(x => _items(x.demandReferences)).map(_.role) shouldBe Vector.fill(4)(UseCase)
+        usages.map(_.name).distinct shouldBe Vector("Same presentation")
+        _items(usages(1).discoveryReferences).head.role shouldBe Scenario
+        _items(usages(1).componentMappings).head.target.identity shouldBe _real_id("Component:Store|α")
         validated.documents.head.model.componentDeclarations.map(x => (x.component, x.direction)).distinct.size shouldBe 3
       }
 
@@ -92,14 +92,14 @@ final class CmlCapabilityValidationCmlSpec extends AnyWordSpec with Matchers wit
         results.foreach { case (reason, boundaries, documents, result) =>
           val validated = _admitted(result)
           validated.documents shouldBe documents
-          validated.documents.head.model.applicationCapabilities.foreach(_.description shouldBe Absent(reason, "Explicit authored gap."))
-          val application = validated.documents.head.model.applicationCapabilities(1)
-          val groundings = _items(application.grounding)
+          validated.documents.head.model.componentUsageCapabilities.foreach(_.description shouldBe Absent(reason, "Explicit authored gap."))
+          val usage = validated.documents.head.model.componentUsageCapabilities(1)
+          val groundings = _items(usage.grounding)
           groundings.map(_.boundary) shouldBe boundaries
           groundings.head.relation shouldBe Present(RelationId("vocab:关系", "rel:uses|α"))
           groundings.head.profile shouldBe Present(ProfileId("profile:scope", "profile:one"))
-          _items(application.discoveryReferences).last.target.boundary shouldBe External
-          _items(application.componentMappings).last.boundary shouldBe External
+          _items(usage.discoveryReferences).last.target.boundary shouldBe External
+          _items(usage.componentMappings).last.boundary shouldBe External
           groundings.last.origin shouldBe Derived("rule:discovery|α", Vector(
             CapabilitySource("Other:能力/B", "model/capability-model-secondary.cml", "foreign-edge-r9", Some(8)),
             _real_source("evidence-r2", Some(91))))

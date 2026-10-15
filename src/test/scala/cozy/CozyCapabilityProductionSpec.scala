@@ -12,6 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json._
 import cozy.modeler._
 import CmlCapabilitySource._
+import CmlCapabilityModel.VersionedComponentUsageCapabilityReference
 import CmlCapabilityGenerationContext._
 import CmlCapabilityProductionRequest._
 import CmlCapabilityValidationScope._
@@ -19,14 +20,14 @@ import CmlSemanticFoundation._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   import CozyCapabilityProductionSpec._
   "Normal Capability production (spec:R13)" should {
     "compose actual selected-source generation" which {
-      "C64I01 produce Component, Application and real Scala products through modeler-scala" in {
+      "C64I01 produce Component, Usage and real Scala products through modeler-scala" in {
         _with_root { root =>
           Given("the unchanged primary CML copied to its canonical model path, a closed request and actual runtime descriptor")
           _copy_sources(root)
@@ -36,11 +37,11 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           Cozy.main(args)
           val output = root.resolve("output")
           val index = _json(output.resolve(request.packages.head.path + "/meta/component-capability/index.json"))
-          val application = _json(output.resolve(request.applicationoutput))
+          val usage = _json(output.resolve(_usage_path(request.packages.head)))
           val provenance = _json(output.resolve(GenerationProvenance.METADATA_PATH))
           Then("real canonical metadata and selected Scala files exist before provenance records its Scala path inventory")
           (index \ "projections").as[Vector[String]] shouldBe Vector("Store.json")
-          (application \ "documents").as[Vector[JsObject]].head.keys shouldBe Set("source", "applicationCapabilities")
+          (usage \ "documents").as[Vector[JsObject]].head.keys shouldBe Set("source", "componentUsageCapabilities")
           request.scalaoutputs.foreach(x => Files.readString(output.resolve(x.path)) should include("def projectionJson"))
           (provenance \ "output" \ "artifacts").as[Vector[JsObject]].map(x => (x \ "path").as[String]) should contain allElementsOf request.scalaoutputs.map(_.path)
           (provenance \ "source" \ "identity").as[String] shouldBe request.sources.head.path
@@ -53,9 +54,9 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           val request = _request()
           When("the normal value-generation command produces the selected product")
           Cozy.main(_normal_args(root, request, "modeler-scala-value"))
-          val application = _json(root.resolve("output/" + request.applicationoutput))
-          val document = (application \ "documents").as[Vector[JsObject]].head
-          val definitions = (document \ "applicationCapabilities").as[Vector[JsObject]]
+          val usage = _json(root.resolve("output/" + _usage_path(request.packages.head)))
+          val document = (usage \ "documents").as[Vector[JsObject]].head
+          val definitions = (document \ "componentUsageCapabilities").as[Vector[JsObject]]
           Then("the original revisions remain independent semantic facts")
           (document \ "source" \ "sourceRevision").as[String] shouldBe "header:primary-r42"
           definitions.map(x => (x \ "source" \ "sourceRevision").as[String]).distinct shouldBe Vector("definition-r1")
@@ -91,11 +92,11 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           Given("a complete request and duplicate, missing, unknown, trailing, version and tag variants")
           val json = _request_json(_request())
           val text = Json.stringify(json)
-          val variants = Vector(text.replace("\"schemaVersion\":1", "\"schemaVersion\":1,\"schemaVersion\":1"),
+          val variants = Vector(text.replaceFirst("\"schemaVersion\":2", "\"schemaVersion\":2,\"schemaVersion\":2"),
             Json.stringify(json - "scope"), Json.stringify(json + ("unknown" -> JsNull)), text + " {}",
             Json.stringify(json + ("schemaVersion" -> JsBoolean(true))), Json.stringify(json + ("schemaVersion" -> JsNumber(BigDecimal("1.5")))),
-            text.replace("\"schemaVersion\":1", "\"schemaVersion\":1.0"),
-            Json.stringify(json + ("schemaVersion" -> JsNumber(2))), text.replace("USE_CASE", "UNKNOWN_KIND"),
+            text.replaceFirst("\"schemaVersion\":2", "\"schemaVersion\":2.0"),
+            Json.stringify(json + ("schemaVersion" -> JsNumber(1))), text.replace("USE_CASE", "UNKNOWN_KIND"),
             Json.stringify(json + ("producer" -> JsNull)))
           When("each actual strict request decoder receives the invalid representation")
           val results = variants.map(CmlCapabilityProductionRequestJsonPart.decode(_, root.resolve("request.json")))
@@ -104,12 +105,12 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           Files.exists(root.resolve("output")) shouldBe false
         }
       }
-      "C64I05 reject producer disagreement even for empty and app-only sources" in {
+      "C64I05 reject producer disagreement even for empty and Usage-only sources" in {
         _with_root { root =>
-          Given("actual empty and app-only local sources and requests with disagreeing producers")
+          Given("actual empty and Usage-only local sources and requests with disagreeing producers")
           _copy_sources(root)
           val empty = _write(root.resolve("model/empty.cml"), "# CAPABILITY-MODEL\ncompatibility = {\"state\":\"PRESENT\",\"value\":[]}\n")
-          val apponly = _write(root.resolve(_secondary_source.path), _secondary_text.split("## COMPONENT-CAPABILITY")(0))
+          val usageonly = _write(root.resolve(_secondary_source.path), _secondary_text.split("## COMPONENT-CAPABILITY")(0))
           val requests = Vector(_empty_request("model/empty.cml", "Empty"), _request(multiple = true).copy(sources = Vector(_secondary_source), contexts = Vector.empty,
             packages = Vector.empty, scalaoutputs = Vector.empty))
           When("production prepares each actual source with a false id or version")
@@ -117,10 +118,10 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
             .map(CmlCapabilityProduction.prepare(_, root, root.resolve("output"), None))
           Then("all producer mismatches reject before publication while the authored requests use the actual build version")
           results.foreach(_ shouldBe Left(CmlCapabilityProduction.RequestOrAcquisition(Vector(Issue(IssueKind.ProducerMismatch, "producer", None, Vector.empty,
-            "Producer must equal cozy and the actual executing BuildInfo.version, including app-only input.")))))
+            "Producer must equal cozy and the actual executing BuildInfo.version, including Usage-only input.")))))
           _request().producer.version shouldBe org.simplemodeling.cozy.BuildInfo.version
           Files.exists(empty) shouldBe true
-          Files.exists(apponly) shouldBe true
+          Files.exists(usageonly) shouldBe true
         }
       }
       "C64I06 decode every independent finite scope domain as supplied" in {
@@ -128,11 +129,11 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
         val request = _request()
         val base = request.scope.asInstanceOf[ScopeInput.Ready].scope
         val kinds = Vector(ModelKind.DomainConcept, ModelKind.Goal, ModelKind.UseCase, ModelKind.Scenario, ModelKind.UseCaseSlice,
-          ModelKind.Component, ModelKind.ComponentCapability, ModelKind.ApplicationCapability, ModelKind.Specification, ModelKind.Evidence,
+          ModelKind.Component, ModelKind.ComponentCapability, ModelKind.ComponentUsageCapability, ModelKind.Specification, ModelKind.Evidence,
           ModelKind.Operation, ModelKind.Workflow, ModelKind.StateMachine)
         val scope = base.copy(modelfacts = kinds.map(x => ModelFact(ModelElementId("Fact:" + x.tag, "element:" + x.tag), x,
           CapabilitySource("Fact:" + x.tag, "facts/all.cml", "fact:" + x.tag, Some(4)))),
-          applicationcontracts = Vector(ApplicationContract(ModelElementId("App:history", "a"), "app:old", CapabilitySource("App:history", "facts/app.cml", "app:fact", None))))
+          usagecontracts = Vector(ComponentUsageContract(ModelElementId("App:history", "a"), "app:old", CapabilitySource("App:history", "facts/app.cml", "app:fact", None))))
         val variant = request.copy(scope = ScopeInput.Ready(scope))
         When("the closed production request is decoded")
         val decoded = _right(CmlCapabilityProductionRequestJsonPart.decode(Json.stringify(_request_json(variant)), Paths.get("selected-request.json")))
@@ -177,7 +178,7 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
             failure.getMessage should include("exact selected identity and physical path before acquisition")
           }
           Files.readString(sentinel) shouldBe "ordinary sentinel"
-          Files.exists(root.resolve("rejected/" + request.applicationoutput)) shouldBe false
+          Files.exists(root.resolve("rejected/" + _usage_path(request.packages.head))) shouldBe false
           request.packages.foreach(x => Files.exists(root.resolve("rejected/" + x.path)) shouldBe false)
         }
       }
@@ -224,7 +225,7 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
             failure.getMessage should include("without symlinks")
           }
           Files.readString(sentinel) shouldBe "ordinary sentinel"
-          Files.exists(root.resolve("rejected/" + request.applicationoutput)) shouldBe false
+          Files.exists(root.resolve("rejected/" + _usage_path(request.packages.head))) shouldBe false
           request.packages.foreach(x => Files.exists(root.resolve("rejected/" + x.path)) shouldBe false)
         }
       }
@@ -262,7 +263,7 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           error.getMessage should include("Malformed location=sources")
           error.getMessage should include("exceeds 16MiB before acquisition")
           Files.readString(sentinel) shouldBe "ordinary sentinel"
-          Files.exists(root.resolve("rejected/" + request.applicationoutput)) shouldBe false
+          Files.exists(root.resolve("rejected/" + _usage_path(request.packages.head))) shouldBe false
           request.packages.foreach(x => Files.exists(root.resolve("rejected/" + x.path)) shouldBe false)
         }
       }
@@ -322,51 +323,6 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           results.foreach(_.isLeft shouldBe true)
           Files.exists(root.resolve("output")) shouldBe false
 
-          Given("normal Application selections at, case-aliasing and beneath the reserved provenance destination")
-          val sentinel = _write(root.resolve("rejected/target/ordinary.scala"), "ordinary sentinel")
-          val provenance = _write(root.resolve("rejected/" + GenerationProvenance.METADATA_PATH), "provenance sentinel")
-          val reservedpaths = Vector(GenerationProvenance.METADATA_PATH, "target/cozy/Generation-Provenance.json",
-            GenerationProvenance.METADATA_PATH + "/application.json")
-          reservedpaths.foreach { path =>
-            Given("the explicit Application selection " + path)
-            val args = _normal_args(root, request.copy(applicationoutput = path), "modeler-scala", "rejected")
-            When("the real normal CLI receives this reserved Application selection")
-            val failure = intercept[Throwable](Cozy.main(args))
-            Then("the reserved normal provenance conflict rejects without replacing existing output or creating selected resources")
-            failure.getMessage should include("OutputConflict location=applicationOutput")
-            failure.getMessage should include("reserved normal provenance destination " + GenerationProvenance.METADATA_PATH)
-            Files.readString(sentinel) shouldBe "ordinary sentinel"
-            Files.readString(provenance) shouldBe "provenance sentinel"
-            request.packages.foreach(x => Files.exists(root.resolve("rejected/" + x.path + "/" + METADATA_PREFIX + "index.json")) shouldBe false)
-            request.scalaoutputs.foreach(x => Files.exists(root.resolve("rejected/" + x.path)) shouldBe false)
-          }
-
-          Given("an otherwise valid normal request and initially absent Modeler metadata destinations")
-          val metadata = "target/cozy/model-metadata.json"
-          val metadatapaths = Vector(metadata, "target/cozy/Model-Metadata.json", metadata + "/application.json")
-          metadatapaths.foreach { path =>
-            Given("the explicit Application selection " + path + " with ordinary and provenance sentinels intact")
-            Files.exists(root.resolve("rejected/" + metadata)) shouldBe false
-            Files.exists(root.resolve("rejected/target/cozy/model-metadata.yaml")) shouldBe false
-            Files.exists(root.resolve("rejected/" + path)) shouldBe false
-            val args = _normal_args(root, request.copy(applicationoutput = path), "modeler-scala", "rejected")
-            When("the real normal CLI receives this exact, case-aliased or descendant Modeler metadata selection")
-            val failure = intercept[Throwable](Cozy.main(args))
-            Then("the Application OutputConflict names the reserved Modeler metadata path before any output mutation")
-            failure.getMessage should include("OutputConflict location=applicationOutput")
-            failure.getMessage should include("reserved normal Modeler metadata destination " + metadata)
-            Files.readString(sentinel) shouldBe "ordinary sentinel"
-            Files.readString(provenance) shouldBe "provenance sentinel"
-            Files.exists(root.resolve("rejected/" + metadata)) shouldBe false
-            Files.exists(root.resolve("rejected/target/cozy/model-metadata.yaml")) shouldBe false
-            Files.exists(root.resolve("rejected/" + path)) shouldBe false
-            Files.exists(root.resolve("rejected/" + request.applicationoutput)) shouldBe false
-            request.packages.foreach { bundle =>
-              Files.exists(root.resolve("rejected/" + bundle.path + "/" + METADATA_PREFIX + "index.json")) shouldBe false
-              bundle.resources.foreach(x => Files.exists(root.resolve("rejected/" + bundle.path + "/" + METADATA_PREFIX + x.filename)) shouldBe false)
-            }
-            request.scalaoutputs.foreach(x => Files.exists(root.resolve("rejected/" + x.path)) shouldBe false)
-          }
         }
       }
       "C64I13 leave output untouched during preparation and rejected normal production" in {
@@ -377,12 +333,14 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           val sentinel = _write(root.resolve("output/target/ordinary.scala"), "ordinary sentinel")
           When("a valid batch prepares and a missing-coverage request reaches the normal CLI")
           val prepared = CmlCapabilityProduction.prepare(request, root, root.resolve("output"), None)
-          val error = intercept[Throwable](Cozy.main(_normal_args(root, request.copy(packages = Vector.empty), "modeler-scala")))
+          val args = _normal_args(root, request, "modeler-scala")
+          _write(root.resolve("request.json"), Json.stringify(_request_json(request.copy(packages = Vector.empty))))
+          val error = intercept[Throwable](Cozy.main(args))
           Then("preparation succeeds without writes and rejection precedes ordinary output cleanup")
           prepared.isRight shouldBe true
           error.getMessage should include("MissingCoverage")
           Files.readString(sentinel) shouldBe "ordinary sentinel"
-          Files.exists(root.resolve("output/" + request.applicationoutput)) shouldBe false
+          Files.exists(root.resolve("output/" + _usage_path(request.packages.head))) shouldBe false
 
           Given("existing ordinary and provenance sentinels with bundle ancestors and a Scala descendant of the reserved destination")
           val provenance = _write(root.resolve("output/" + GenerationProvenance.METADATA_PATH), "provenance sentinel")
@@ -401,7 +359,7 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
             failure.getMessage should include("reserved normal provenance destination " + GenerationProvenance.METADATA_PATH)
             Files.readString(sentinel) shouldBe "ordinary sentinel"
             Files.readString(provenance) shouldBe "provenance sentinel"
-            Files.exists(root.resolve("output/" + request.applicationoutput)) shouldBe false
+            Files.exists(root.resolve("output/" + _usage_path(request.packages.head))) shouldBe false
             selected.packages.foreach(x => Files.exists(root.resolve("output/" + x.path + "/" + METADATA_PREFIX + "index.json")) shouldBe false)
             selected.scalaoutputs.foreach(x => Files.exists(root.resolve("output/" + x.path)) shouldBe false)
           }
@@ -426,12 +384,86 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
               Files.readString(sentinel) shouldBe "ordinary sentinel"
               Files.readString(provenance) shouldBe "provenance sentinel"
               metadatapaths.foreach(x => Files.exists(root.resolve("output/" + x)) shouldBe false)
-              Files.exists(root.resolve("output/" + request.applicationoutput)) shouldBe false
+              Files.exists(root.resolve("output/" + _usage_path(request.packages.head))) shouldBe false
               selected.packages.foreach { bundle =>
                 Files.exists(root.resolve("output/" + bundle.path + "/" + METADATA_PREFIX + "index.json")) shouldBe false
                 bundle.resources.foreach(x => Files.exists(root.resolve("output/" + bundle.path + "/" + METADATA_PREFIX + x.filename)) shouldBe false)
               }
               selected.scalaoutputs.foreach(x => Files.exists(root.resolve("output/" + x.path)) shouldBe false)
+            }
+          }
+        }
+      }
+      "C64I20 reject absent actual normal metadata collisions through both commands without output mutation" in {
+        _with_root { root =>
+          Given("one private selected source combining the ordinary Entity fixture with unchanged rich primary Capability JSON content")
+          _copy_sources(root)
+          val text = Files.readString(Paths.get("src/test/resources/modeler/test.dox"), StandardCharsets.UTF_8) + "\n\n" + _primary_text
+          _write(root.resolve(_primary_source.path), text)
+          Given("the exact same selected text parsed as ordinary Modeler input with an opaque CAPABILITY-MODEL root and no parser errors")
+          val parsed = org.goldenport.kaleidox.Model.parse(org.goldenport.kaleidox.Config.default, text)
+          parsed.errors shouldBe empty
+          When("the actual ordinary ModelBuilder constructs its model while unrelated Workflow/CSM ownership parsing leaves Capability JSON opaque")
+          val ordinarymodel = Modeler.ModelBuilder(parsed).build()
+          Then("the ordinary model contains actual elements before either CLI baseline runs")
+          ordinarymodel.elements should not be empty
+          val original = _request()
+          val normalpath = "target/cozy/composite-statemachine-projection.json"
+          val commands = Vector("modeler-scala", "modeler-scala-value")
+          commands.foreach { command =>
+            Given("the same selected Entity-plus-Capability source and unchanged complete request with an independent baseline root for " + command)
+            val outputname = "baseline-" + command
+            val output = root.resolve(outputname)
+            val args = _normal_args(root, original, command, outputname)
+            When("the real normal command generates the non-overlapping baseline products")
+            Cozy.main(args)
+            Then("actual normal composite metadata and the original selected Capability products are readable in that baseline root")
+            Files.isRegularFile(output.resolve(normalpath)) shouldBe true
+            Files.isReadable(output.resolve(normalpath)) shouldBe true
+            _json(output.resolve(normalpath)) shouldBe Json.obj(
+              "schemaVersion" -> "cozy.cml.composite-statemachine-projection.v1", "definitions" -> Json.arr())
+            if (command == "modeler-scala")
+              Files.isRegularFile(output.resolve("target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala")) shouldBe true
+            original.scalaoutputs.foreach { selection =>
+              Files.isRegularFile(output.resolve(selection.path)) shouldBe true
+              Files.readString(output.resolve(selection.path), StandardCharsets.UTF_8) should include("def projectionJson")
+            }
+            original.packages.foreach { bundle =>
+              Files.isRegularFile(output.resolve(bundle.path + "/component-descriptor.json")) shouldBe true
+              _json(output.resolve(bundle.path + "/" + METADATA_PREFIX + "index.json")) shouldBe
+                Json.obj("schemaVersion" -> 1, "projections" -> bundle.resources.map(_.filename))
+              bundle.resources.foreach { resource =>
+                Files.isRegularFile(output.resolve(bundle.path + "/" + METADATA_PREFIX + resource.filename)) shouldBe true
+              }
+              (_json(output.resolve(_usage_path(bundle))) \ "documents").as[Vector[JsObject]] should not be empty
+            }
+          }
+          val variants = Vector(
+            original.copy(packages = original.packages.updated(0, original.packages.head.copy(path = normalpath))) -> "packages[0].path",
+            original.copy(scalaoutputs = original.scalaoutputs.updated(0, original.scalaoutputs.head.copy(
+              path = normalpath + "/metadata.scala"))) -> "scalaOutputs[0].path")
+          commands.foreach { command =>
+            variants.zipWithIndex.foreach { case ((request, field), index) =>
+              Given("an independent output root containing only an unrelated Scala sentinel for " + command + " and " + field)
+              val outputname = "collision-" + command + "-" + index
+              val output = root.resolve(outputname)
+              val sentinel = _write(output.resolve("target/ordinary.scala"), "ordinary sentinel\n")
+              Files.exists(output.resolve("target/cozy")) shouldBe false
+              Files.exists(output.resolve(normalpath)) shouldBe false
+              val args = _normal_args(root, request, command, outputname)
+              When("the real normal command generates its tree before saving the selected conflicting product")
+              val failure = intercept[Throwable](Cozy.main(args))
+              Then("the exact field and real normal destination are diagnosed and the complete regular-file inventory remains the sentinel")
+              failure.getMessage should include("OutputConflict location=" + field)
+              failure.getMessage should include("actual normal destination " + normalpath)
+              val stream = Files.walk(output)
+              val files = try stream.iterator.asScala.filter(path => Files.isRegularFile(path)).toVector finally stream.close()
+              files shouldBe Vector(sentinel)
+              Files.readString(sentinel, StandardCharsets.UTF_8) shouldBe "ordinary sentinel\n"
+              Files.exists(output.resolve("target/cozy")) shouldBe false
+              Files.exists(output.resolve(GenerationProvenance.METADATA_PATH)) shouldBe false
+              request.packages.foreach(bundle => Files.exists(output.resolve(bundle.path + "/component-descriptor.json")) shouldBe false)
+              request.scalaoutputs.foreach(selection => Files.exists(output.resolve(selection.path)) shouldBe false)
             }
           }
         }
@@ -446,8 +478,13 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           val paths = _right(CmlCapabilityProduction.publish(root.resolve("output"), prepared))
           Then("actual original document order and headers survive without a fabricated V1 provenance file")
           prepared.generated.validated.documents.map(_.scope) shouldBe request.sources.map(x => SourceScope(x.modelAuthority, x.path))
-          (prepared.batch.application \ "documents").as[Vector[JsObject]].map(x => (x \ "source" \ "path").as[String]) shouldBe request.sources.map(_.path)
-          paths should contain(root.resolve("output/" + request.applicationoutput))
+          request.packages.foreach { bundle =>
+            val usage = _json(root.resolve("output/" + _usage_path(bundle)))
+            val expected = request.sources.filter(source => prepared.generated.validated.documents.find(_.scope == SourceScope(source.modelAuthority, source.path))
+              .get.model.componentUsageCapabilities.exists(record => bundle.usagecapabilities.contains(VersionedComponentUsageCapabilityReference(record.identity, record.contractVersion))))
+            (usage \ "documents").as[Vector[JsObject]].map(x => (x \ "source").as[JsObject]) shouldBe expected.map(_source_json)
+            paths should contain(root.resolve("output/" + _usage_path(bundle)))
+          }
           Files.exists(root.resolve("output/" + GenerationProvenance.METADATA_PATH)) shouldBe false
         }
       }
@@ -456,17 +493,100 @@ final class CozyCapabilityProductionSpec extends AnyWordSpec with Matchers with 
           Given("two independent requests with separate normal invocation output roots")
           _copy_sources(root)
           val first = _request()
-          val second = first.copy(applicationoutput = "target/products/second.json", scalaoutputs = first.scalaoutputs.map(x =>
+          val second = first.copy(packages = first.packages.map(x => x.copy(path = x.path.replace("bundles/", "bundles2/"))), scalaoutputs = first.scalaoutputs.map(x =>
             x.copy(path = x.path.replace("generated/", "generated2/"), objectname = x.objectname + "Second")))
           When("two real normal commands run sequentially with independently selected requests")
           Cozy.main(_normal_args(root, first, "modeler-scala", "first"))
           Cozy.main(_normal_args(root, second, "modeler-scala", "second"))
           val provenance = _json(root.resolve("second/" + GenerationProvenance.METADATA_PATH))
           Then("the second request has its own products and original provenance vocabulary without leaked selections")
-          Files.exists(root.resolve("second/" + first.applicationoutput)) shouldBe false
-          Files.exists(root.resolve("second/" + second.applicationoutput)) shouldBe true
+          Files.exists(root.resolve("second/" + _usage_path(first.packages.head))) shouldBe false
+          Files.exists(root.resolve("second/" + _usage_path(second.packages.head))) shouldBe true
           (provenance \ "output" \ "artifacts").as[Vector[JsObject]].map(x => (x \ "path").as[String]) should contain allElementsOf second.scalaoutputs.map(_.path)
           (provenance \ "output" \ "artifacts").as[Vector[JsObject]].map(x => (x \ "path").as[String]) should not contain first.scalaoutputs.head.path
+        }
+      }
+      "C64I17 produce Usage-only Component Directories through both normal Modeler commands" in {
+        _with_root { root =>
+          Given("an actual multi-owner Usage-only source and explicit Component packages with empty resources and no generation contexts")
+          _copy_sources(root)
+          _write(root.resolve(_primary_source.path), _primary_text.split("## COMPONENT-CAPABILITY")(0))
+          val request = _usage_only_request
+          request.scalaoutputs shouldBe empty
+          request.contexts shouldBe empty
+          Vector("modeler-scala", "modeler-scala-value").foreach { command =>
+            Given("the same metadata-only Capability selection with an independent actual output root for " + command)
+            val output = root.resolve(command)
+            When("the normal " + command + " command publishes the Usage-only packages")
+            Cozy.main(_normal_args(root, request, command, command))
+            val stream = Files.walk(output.resolve("target"))
+            val scalapaths = try {
+              stream.iterator.asScala.filter(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala")).
+                map(path => output.relativize(path).normalize().iterator.asScala.map(_.toString).mkString("/")).toVector.sorted
+            } finally stream.close()
+            Then("each real Component has fixed Usage metadata and an empty Component index without synthetic contracts or a loose product")
+            request.packages.foreach { bundle =>
+              val directory = output.resolve(bundle.path)
+              _json(directory.resolve(METADATA_PREFIX + "index.json")) shouldBe Json.obj("schemaVersion" -> 1, "projections" -> Json.arr())
+              _json(directory.resolve(USAGE_METADATA_PREFIX + "index.json")) shouldBe Json.obj("schemaVersion" -> 1, "projections" -> Vector("usage.json"))
+              val usage = _json(directory.resolve(USAGE_METADATA_PREFIX + "usage.json"))
+              (usage \ "component").as[JsObject] shouldBe _coordinate_json(bundle.component)
+              (usage \ "documents").as[Vector[JsObject]].flatMap(x => (x \ "componentUsageCapabilities").as[Vector[JsObject]])
+                .map(x => (x \ "component").as[JsObject]).distinct shouldBe Vector(_component_json(bundle.component.component))
+              (_json(directory.resolve("component-descriptor.json")) \ "entities").as[Vector[JsObject]] shouldBe empty
+              Files.exists(directory.resolve(METADATA_PREFIX + bundle.component.component.localId().value() + ".json")) shouldBe false
+            }
+            Files.exists(output.resolve("target/products")) shouldBe false
+            Then("standard provenance exactly describes actual ordinary Scala when present and is absent only for an empty Scala inventory")
+            val provenancepath = output.resolve(GenerationProvenance.METADATA_PATH)
+            if (scalapaths.nonEmpty) {
+              Files.isRegularFile(provenancepath) shouldBe true
+              val provenance = _json(provenancepath)
+              (provenance \ "output" \ "artifacts").as[Vector[JsObject]].map(x => (x \ "path").as[String]) shouldBe scalapaths
+              (provenance \ "source" \ "identity").as[String] shouldBe request.sources.head.path
+            } else Files.exists(provenancepath) shouldBe false
+          }
+        }
+      }
+      "C64I19 omit the optional Usage family for an empty explicit selection" in {
+        _with_root { root =>
+          Given("the actual normal source and packages that explicitly select no Usage records")
+          _copy_sources(root)
+          val request = _request().copy(packages = _request().packages.map(_.copy(usagecapabilities = Vector.empty)))
+          When("the real normal Modeler command publishes the selected Component products")
+          Cozy.main(_normal_args(root, request, "modeler-scala"))
+          Then("the original Component metadata remains available and the optional Usage family is absent")
+          request.packages.foreach { bundle =>
+            Files.exists(root.resolve("output/" + bundle.path + "/" + USAGE_METADATA_PREFIX)) shouldBe false
+            _json(root.resolve("output/" + bundle.path + "/" + METADATA_PREFIX + "index.json")) shouldBe
+              Json.obj("schemaVersion" -> 1, "projections" -> bundle.resources.map(_.filename))
+          }
+        }
+      }
+      "C64I18 reject unknown, repeated and wrong-owner Usage selections before normal writes" in {
+        _with_root { root =>
+          Given("real original sources, an ordinary sentinel and explicit versioned Usage selection contradictions")
+          _copy_sources(root)
+          val request = _request()
+          val bundle = request.packages.head
+          val reference = bundle.usagecapabilities.head
+          val selections = Vector(Vector(reference.copy(contractVersion = "unknown:contract")),
+            Vector(reference.copy(identity = reference.identity.copy(elementId = "unknown:usage"))),
+            Vector(reference, reference), request.packages(1).usagecapabilities)
+          val sentinel = _write(root.resolve("rejected/target/ordinary.scala"), "ordinary sentinel")
+          When("each current request reaches the actual normal preparation path")
+          val failures = selections.map { selected =>
+            val variant = request.copy(packages = request.packages.updated(0, bundle.copy(usagecapabilities = selected)))
+            intercept[Throwable](Cozy.main(_normal_args(root, variant, "modeler-scala", "rejected")))
+          }
+          Then("the actual selection diagnostic names the package field and ordinary output remains untouched")
+          failures.map(_.getMessage).foreach(_ should include("packages[0].usageCapabilities"))
+          failures(0).getMessage should include("UnknownSnapshot")
+          failures(1).getMessage should include("UnknownSnapshot")
+          failures(2).getMessage should include("DuplicateSnapshot")
+          failures(3).getMessage should include("OutputConflict")
+          Files.readString(sentinel) shouldBe "ordinary sentinel"
+          request.packages.foreach(x => Files.exists(root.resolve("rejected/" + x.path)) shouldBe false)
         }
       }
       "C64I16 preserve independent literal request values in one hundred active samples" in {
@@ -543,14 +663,28 @@ private[cozy] object CozyCapabilityProductionSpec {
     val contexts = domains.map { case (source, id) => GenerationContext(1, 1, "cncf.component-capability.v1", producer,
       ComponentCoordinate(_component(id), "1.2.3-SNAPSHOT"), PackageCoordinate("pkg:" + id + "|日本語", "package:r9"), source) }
     val packages = contexts.map(x => PackageOutput(x.component, x.packagecoordinate, "target/bundles/" + x.component.component.localId().value(),
-      Vector(ResourceOutput(x.snapshotKey, x.component.component.localId().value() + ".json"))))
+      Vector(ResourceOutput(x.snapshotKey, x.component.component.localId().value() + ".json")),
+      x.component.component.localId().value() match {
+        case "Store" => Vector("Application:Independent", "Application:One").map(id => VersionedComponentUsageCapabilityReference(ModelElementId(_primary_source.modelAuthority, id), "app:v1"))
+        case "Archive" => Vector(VersionedComponentUsageCapabilityReference(ModelElementId(_primary_source.modelAuthority, "Application:Two"), "app:v1"))
+        case "Remote" => Vector(VersionedComponentUsageCapabilityReference(ModelElementId(_secondary_source.modelAuthority, "Application:Remote"), "app:v1"))
+      }))
     val scalaoutputs = contexts.map(x => ScalaOutput(x.snapshotKey, "target/generated/" + x.component.component.localId().value() + ".scala",
       Vector("generated", "capability"), x.component.component.localId().value() + "Metadata"))
-    ProductionRequest(producer, sources, ScopeInput.Ready(_scope), contexts, packages, scalaoutputs, "target/products/application.json")
+    ProductionRequest(producer, sources, ScopeInput.Ready(_scope), contexts, packages, scalaoutputs)
+  }
+  private[cozy] def _usage_only_request: ProductionRequest = {
+    val original = _request()
+    val scope = original.scope.asInstanceOf[ScopeInput.Ready].scope
+    val usageonlyscope = scope.copy(componentcontracts = scope.componentcontracts :+
+      ComponentContract(ModelElementId(_primary_source.modelAuthority, "Component:Store|α"), "contract:二", _fact_source("usage-only-component-contract:r1")))
+    original.copy(scope = ScopeInput.Ready(usageonlyscope), contexts = Vector.empty, scalaoutputs = Vector.empty,
+      packages = original.packages.map(_.copy(resources = Vector.empty)))
   }
   private[cozy] def _empty_request(path: String, authority: String): ProductionRequest = _request().copy(
     sources = Vector(CapabilitySource(authority, path, "empty:header", None)), contexts = Vector.empty,
     packages = Vector.empty, scalaoutputs = Vector.empty)
+  private[cozy] def _usage_path(bundle: PackageOutput): String = bundle.path + "/" + USAGE_METADATA_PREFIX + "usage.json"
   private[cozy] def _prepare(root: Path, request: ProductionRequest): CmlCapabilityProduction.Prepared =
     _right(CmlCapabilityProduction.prepare(request, root, root.resolve("output"), None))
   private[cozy] def _source_json(source: CapabilitySource): JsObject = Json.obj("modelAuthority" -> source.modelAuthority,
@@ -570,29 +704,30 @@ private[cozy] object CozyCapabilityProductionSpec {
       "termFacts" -> JsArray(scope.termfacts.map(x => Json.obj("identity" -> Json.obj("vocabularyId" -> x.identity.vocabularyId, "termId" -> x.identity.termId), "source" -> _source_json(x.source)))),
       "relationFacts" -> JsArray(scope.relationfacts.map(x => Json.obj("identity" -> Json.obj("vocabularyId" -> x.identity.vocabularyId, "relationId" -> x.identity.relationId), "source" -> _source_json(x.source)))),
       "profileFacts" -> JsArray(scope.profilefacts.map(x => Json.obj("identity" -> Json.obj("vocabularyId" -> x.identity.vocabularyId, "profileId" -> x.identity.profileId), "source" -> _source_json(x.source)))),
-      "applicationContracts" -> JsArray(scope.applicationcontracts.map(x => Json.obj("identity" -> _id_json(x.identity), "contractVersion" -> x.contractversion, "source" -> _source_json(x.source)))),
+      "usageContracts" -> JsArray(scope.usagecontracts.map(x => Json.obj("identity" -> _id_json(x.identity), "contractVersion" -> x.contractversion, "source" -> _source_json(x.source)))),
       "componentContracts" -> JsArray(scope.componentcontracts.map(x => Json.obj("identity" -> _id_json(x.identity), "contractVersion" -> x.contractversion, "source" -> _source_json(x.source)))),
       "targetContracts" -> JsArray(scope.targetcontracts.map { x =>
         val kind = x.kind match { case CmlCapabilityModel.Operation => "OPERATION"; case CmlCapabilityModel.Workflow => "WORKFLOW"; case CmlCapabilityModel.StateMachine => "STATE_MACHINE" }
         Json.obj("kind" -> kind, "identity" -> _id_json(x.identity), "component" -> _component_json(x.component), "contractVersion" -> x.contractversion,
           "generatedAbiVersion" -> x.generatedabiversion, "source" -> _source_json(x.source))
       }))
-    Json.obj("schemaVersion" -> 1, "producer" -> producer, "sources" -> JsArray(request.sources.map(_source_json)), "scope" -> scopejson,
+    Json.obj("schemaVersion" -> 2, "producer" -> producer, "sources" -> JsArray(request.sources.map(_source_json)), "scope" -> scopejson,
       "contexts" -> JsArray(request.contexts.map(x => Json.obj("projectionGeneration" -> x.projectiongeneration, "schemaVersion" -> x.schemaversion,
         "generatedAbiVersion" -> x.generatedabiversion, "producer" -> producer, "component" -> _coordinate_json(x.component), "package" -> _package_json(x.packagecoordinate), "source" -> _source_json(x.source)))),
       "packages" -> JsArray(request.packages.map(x => Json.obj("component" -> _coordinate_json(x.component), "package" -> _package_json(x.packagecoordinate), "path" -> x.path,
-        "resources" -> JsArray(x.resources.map(r => Json.obj("snapshot" -> _snapshot_json(r.key), "filename" -> r.filename)))))),
+        "resources" -> JsArray(x.resources.map(r => Json.obj("snapshot" -> _snapshot_json(r.key), "filename" -> r.filename))),
+        "usageCapabilities" -> JsArray(x.usagecapabilities.map(r => Json.obj("kind" -> "COMPONENT_USAGE", "identity" -> _id_json(r.identity), "contractVersion" -> r.contractVersion)))))),
       "scalaOutputs" -> JsArray(request.scalaoutputs.map(x => Json.obj("snapshot" -> _snapshot_json(x.key), "path" -> x.path,
-        "packageName" -> x.packagename, "objectName" -> x.objectname))), "applicationOutput" -> request.applicationoutput)
+        "packageName" -> x.packagename, "objectName" -> x.objectname))))
   }
   private[cozy] def _normal_args(root: Path, request: ProductionRequest, command: String, output: String = "output"): Array[String] = {
     val requestpath = _write(root.resolve("request.json"), Json.stringify(_request_json(request)))
     val descriptor = _write(root.resolve("runtime.yaml"), "schemaVersion: 1\nruntime: cncf\nversion: 0.5.2-SNAPSHOT\npredefinedResults:\n  schemaVersion: cncf.predefined-result.v1\n  resultNames: []\n")
-    Array(command, root.resolve(_primary_source.path).toString, "--capability-request", requestpath.toString, "--capability-source-root", root.toString,
+    Array(command, root.resolve(request.sources.head.path).toString, "--capability-request", requestpath.toString, "--capability-source-root", root.toString,
       "--cncf-version", "0.5.2-SNAPSHOT", "--cozy-generator-version", org.simplemodeling.cozy.BuildInfo.version,
-      "--component-version", request.contexts.head.component.version,
+      "--component-version", request.packages.head.component.version,
       "--cncf-runtime-descriptor", descriptor.toString,
       "--simplemodeling-model-version", org.simplemodeling.cozy.BuildInfo.simpleModelingModelVersion,
-      "--generation-source-identity", _primary_source.path, "--save", root.resolve(output).toString)
+      "--generation-source-identity", request.sources.head.path, "--save", root.resolve(output).toString)
   }
 }

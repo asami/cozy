@@ -13,7 +13,7 @@ import cozy.modeler.CmlCapabilityProductionRequest._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyCapabilityArchivePart {
@@ -44,13 +44,24 @@ private[cozy] object CozyCapabilityArchivePart {
   }
 
   def entries(selection: Selection, coordinate: CozyComponentReleaseCoordinateCodec.Coordinate): Vector[(Path, String)] = {
-    val metadata = selection.directory.toAbsolutePath.normalize().resolve(METADATA_PREFIX)
+    val component = _family(selection, coordinate, false)
+    val usagepath = selection.directory.toAbsolutePath.normalize().resolve(USAGE_METADATA_PREFIX)
+    val usage = if (Files.exists(usagepath, LinkOption.NOFOLLOW_LINKS)) _family(selection, coordinate, true) else Vector.empty
+    component ++ usage
+  }
+
+  private def _family(selection: Selection, coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
+    usage: Boolean): Vector[(Path, String)] = {
+    val prefix = if (usage) USAGE_METADATA_PREFIX else METADATA_PREFIX
+    val metadata = selection.directory.toAbsolutePath.normalize().resolve(prefix)
     _directories(metadata)
     val indexpath = metadata.resolve("index.json")
     val indexbytes = _bytes(indexpath, REQUEST_LIMIT)
     val index = _object(_json(_utf8(indexbytes, indexpath), indexpath), Set("schemaVersion", "projections"), indexpath)
     _one(index, "schemaVersion", indexpath)
     val names = (index \ "projections").asOpt[Vector[String]].getOrElse(_reject(indexpath.toString, "Ordered projection filenames are required."))
+    if (usage && names != Vector("usage.json"))
+      _reject(indexpath.toString, "Usage index requires exactly the fixed usage.json projection.")
     if (names.size > SOURCE_COUNT || names.distinct.size != names.size || !names.forall(validFilename))
       _reject(indexpath.toString, "At most 256 unique safe flat projection filenames are required.")
     val stream = Files.walk(metadata)
@@ -67,10 +78,12 @@ private[cozy] object CozyCapabilityArchivePart {
       val bytes = _bytes(path, SOURCE_LIMIT)
       total += bytes.length
       if (total > TOTAL_LIMIT) _reject(metadata.toString, "Selected metadata exceeds 64MiB.")
-      val root = _object(_json(_utf8(bytes, path), path), Set("schemaVersion", "generatedAbiVersion", "producer", "component", "package",
-        "source", "capabilities", "declarations", "compatibility"), path)
+      val fields = if (usage) Set("schemaVersion", "generatedAbiVersion", "producer", "component", "package", "documents")
+        else Set("schemaVersion", "generatedAbiVersion", "producer", "component", "package", "source", "capabilities", "declarations", "compatibility")
+      val root = _object(_json(_utf8(bytes, path), path), fields, path)
       _one(root, "schemaVersion", path)
-      if (_text(root, "generatedAbiVersion", path) != "cncf.component-capability.v1") _reject(path.toString, "Unsupported Component projection ABI.")
+      val abi = if (usage) "cozy.component-usage-capability.v1" else "cncf.component-capability.v1"
+      if (_text(root, "generatedAbiVersion", path) != abi) _reject(path.toString, "Unsupported Capability projection ABI.")
       val producer = _object((root \ "producer").get, Set("id", "version"), path)
       if (_text(producer, "id", path) != "cozy") _reject(path.toString, "Projection producer must be cozy.")
       _text(producer, "version", path)
@@ -81,18 +94,22 @@ private[cozy] object CozyCapabilityArchivePart {
       val pkg = _object((root \ "package").get, Set("coordinate", "version"), path)
       if (_text(pkg, "coordinate", path) != selection.packageCoordinate || _text(pkg, "version", path) != selection.packageVersion)
         _reject(path.toString, "Independent package coordinate/version disagree with the explicit selection.")
-      path -> (METADATA_PREFIX + name)
+      path -> (prefix + name)
     }
-    (indexpath -> (METADATA_PREFIX + "index.json")) +: resources
+    (indexpath -> (prefix + "index.json")) +: resources
   }
 
   def requireNoCollisions(entries: Vector[(Path, String)], selected: Vector[(Path, String)]): Unit = {
     val all = entries ++ selected
-    val canonical = all.filter(x => x._2.toLowerCase(Locale.ROOT).startsWith(METADATA_PREFIX))
+    def _canonical_(name: String): Boolean = {
+      val lower = name.toLowerCase(Locale.ROOT)
+      lower.startsWith(METADATA_PREFIX) || lower.startsWith(USAGE_METADATA_PREFIX)
+    }
+    val canonical = all.filter(x => _canonical_(x._2))
     if (canonical.map(_._2).map(_.toLowerCase(Locale.ROOT)).distinct.size != canonical.size)
       _reject("archive", "Duplicate canonical Capability archive name, including identical content.")
     entries.foreach { case (_, name) =>
-      if (name.toLowerCase(Locale.ROOT).startsWith(METADATA_PREFIX) && name.toLowerCase(Locale.ROOT).endsWith(".json"))
+      if (_canonical_(name) && name.toLowerCase(Locale.ROOT).endsWith(".json"))
         _reject(name, "Existing canonical-prefix JSON collides with the explicit Capability inventory.")
     }
     val selectednames = selected.map(_._2.toLowerCase(Locale.ROOT)).toSet

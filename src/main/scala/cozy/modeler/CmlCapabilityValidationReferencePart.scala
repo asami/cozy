@@ -11,7 +11,7 @@ import CmlCapabilityValidationScopePart._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityValidationReferencePart {
@@ -89,8 +89,8 @@ private[modeler] object CmlCapabilityValidationReferencePart {
   private[modeler] def _document_references(document: CapabilityDocument, index: Int, scope: Scope,
     contracts: Vector[Contract]): Vector[Diagnostic] = {
     val path = s"documents[$index].model"
-    val applications = document.model.applicationCapabilities.zipWithIndex.flatMap { case (value, offset) =>
-      val location = s"$path.applicationCapabilities[$offset]"
+    val usages = document.model.componentUsageCapabilities.zipWithIndex.flatMap { case (value, offset) =>
+      val location = s"$path.componentUsageCapabilities[$offset]"
       _links(value.demandReferences, scope, contracts, s"$location.demandReferences", document.scope) ++
         _links(value.discoveryReferences, scope, contracts, s"$location.discoveryReferences", document.scope) ++
         _items(value.componentMappings).zipWithIndex.flatMap { case (edge, edgeindex) =>
@@ -99,7 +99,7 @@ private[modeler] object CmlCapabilityValidationReferencePart {
             s"$location.componentMappings.value[$edgeindex].target", _document(document.scope, edge.source))
         } ++ _items(value.dependencies).zipWithIndex.flatMap { case (edge, edgeindex) =>
           if (edge.boundary == External) Vector.empty
-          else _resolve(edge.target.identity, edge.target.contractVersion, ApplicationKind, contracts,
+          else _resolve(edge.target.identity, edge.target.contractVersion, ComponentUsageKind, contracts,
             s"$location.dependencies.value[$edgeindex].target", _document(document.scope, edge.source))
         } ++ _grounding(value.grounding, scope, contracts, s"$location.grounding", document.scope) ++
         _traceability(value.traceability, scope, contracts, s"$location.traceability", document.scope)
@@ -110,6 +110,6 @@ private[modeler] object CmlCapabilityValidationReferencePart {
         _grounding(value.grounding, scope, contracts, s"$location.grounding", document.scope) ++
         _traceability(value.traceability, scope, contracts, s"$location.traceability", document.scope)
     }
-    applications ++ components
+    usages ++ components
   }
 }

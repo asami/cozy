@@ -14,7 +14,7 @@ import cozy.modeler.CmlCapabilityProductionRequest._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyCapabilityArchiveSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -25,13 +25,17 @@ final class CozyCapabilityArchiveSpec extends AnyWordSpec with Matchers with Giv
           Given("actual normal Modeler products and a private CAR project with the existing canonical identity/runtime contract")
           val fixture = _fixture(root)
           val archive = root.resolve("selected.car")
-          val sourceentries = Vector("index.json", "Store.json").map(name => name -> Files.readAllBytes(fixture.metadata.resolve(name)).toVector).toMap
+          val sourceentries = Vector(METADATA_PREFIX + "index.json", METADATA_PREFIX + "Store.json",
+            USAGE_METADATA_PREFIX + "index.json", USAGE_METADATA_PREFIX + "usage.json").map(name =>
+              name -> Files.readAllBytes(fixture.project.resolve(fixture.bundle.path).resolve(name)).toVector).toMap
           When("actual Cozy.main package-car selects the explicit Capability bundle and independent package domain")
           Cozy.main((_args(fixture, archive) ++ _flags(fixture)).toArray)
           val entries = _entries(archive)
-          Then("only the produced canonical index and resource bytes join unchanged descriptor/ABI/provenance/runtime entries")
+          Then("both produced metadata families retain exact bytes beside unchanged descriptor, config, ABI, provenance and runtime entries")
           entries.filter(_.startsWith(METADATA_PREFIX)).sorted shouldBe Vector(METADATA_PREFIX + "Store.json", METADATA_PREFIX + "index.json").sorted
-          sourceentries.foreach { case (name, bytes) => _bytes(archive, METADATA_PREFIX + name) shouldBe bytes }
+          entries.filter(_.startsWith(USAGE_METADATA_PREFIX)).sorted shouldBe Vector(USAGE_METADATA_PREFIX + "index.json", USAGE_METADATA_PREFIX + "usage.json").sorted
+          sourceentries.foreach { case (name, bytes) => _bytes(archive, name) shouldBe bytes }
+          new String(_bytes(archive, "config/capability.conf").toArray, StandardCharsets.UTF_8) shouldBe "ordinary.config = retained\n"
           entries should contain allOf("component/main.jar", "component-descriptor.json", "abi-manifest.json", "generation-provenance.json", CozyCarRuntimeManifest.FILE_NAME)
           (Json.parse(_bytes(archive, "component-descriptor.json").toArray) \ "schemaVersion").as[Int] shouldBe 3
           (Json.parse(_bytes(archive, "abi-manifest.json").toArray) \ "component").as[JsObject] shouldBe fixture.coordinate.componentJson
@@ -41,11 +45,13 @@ final class CozyCapabilityArchiveSpec extends AnyWordSpec with Matchers with Giv
         _with_root { root =>
           Given("actual produced metadata and source-CAR index, selected resource and unlisted canonical JSON collisions")
           val fixture = _fixture(root)
-          val collisions = Vector("index.json", "Store.json", "unexpected.json", "nested/extra.json")
+          val collisions = Vector(METADATA_PREFIX + "index.json", METADATA_PREFIX + "Store.json", METADATA_PREFIX + "unexpected.json",
+            METADATA_PREFIX + "nested/extra.json", USAGE_METADATA_PREFIX + "index.json", USAGE_METADATA_PREFIX + "usage.json")
           val cardirs = collisions.zipWithIndex.map { case (name, index) =>
             val directory = root.resolve("car" + index)
-            val text = if (name == "index.json" || name == "Store.json") Files.readString(fixture.metadata.resolve(name)) else "{}"
-            _write(directory.resolve(METADATA_PREFIX + name), text)
+            val selected = fixture.project.resolve(fixture.bundle.path).resolve(name)
+            val text = if (Files.isRegularFile(selected)) Files.readString(selected) else "{}"
+            _write(directory.resolve(name), text)
             directory
           }
           When("actual normal package-car composes each source inventory with the selected canonical entries")
@@ -97,6 +103,49 @@ final class CozyCapabilityArchiveSpec extends AnyWordSpec with Matchers with Giv
           }
         }
       }
+      "C64B13 package ordinary Component metadata when the optional Usage family is absent" in {
+        _with_root { root =>
+          Given("actual normal products with an empty Usage selection and unchanged ordinary CAR config")
+          val fixture = _fixture(root, usage = false)
+          val archive = root.resolve("without-usage.car")
+          When("normal package-car selects that same Component Directory")
+          Cozy.main((_args(fixture, archive) ++ _flags(fixture)).toArray)
+          val entries = _entries(archive)
+          Then("Component metadata and ordinary config coexist while optional Usage remains absent")
+          entries.filter(_.startsWith(USAGE_METADATA_PREFIX)) shouldBe empty
+          entries should contain allOf(METADATA_PREFIX + "index.json", METADATA_PREFIX + "Store.json", "config/capability.conf")
+        }
+      }
+      "C64B14 package a Usage-only Component from its normal Directory" in {
+        _with_root { root =>
+          Given("a real normal Usage-only Component Directory with an empty Component index")
+          val fixture = _fixture(root, usageonly = true)
+          val archive = root.resolve("usage-only.car")
+          val usagebytes = Files.readAllBytes(fixture.project.resolve(fixture.bundle.path).resolve(USAGE_METADATA_PREFIX + "usage.json")).toVector
+          When("normal package-car selects the Component and its independent package coordinate")
+          Cozy.main((_args(fixture, archive) ++ _flags(fixture)).toArray)
+          val entries = _entries(archive)
+          Then("fixed Usage bytes accompany the empty Component index without a fabricated Component resource")
+          entries.filter(_.startsWith(METADATA_PREFIX)) shouldBe Vector(METADATA_PREFIX + "index.json")
+          _bytes(archive, USAGE_METADATA_PREFIX + "usage.json") shouldBe usagebytes
+          Json.parse(_bytes(archive, METADATA_PREFIX + "index.json").toArray) shouldBe Json.obj("schemaVersion" -> 1, "projections" -> Json.arr())
+        }
+      }
+      "C64B15 reject a Usage envelope that disagrees with the selected package" in {
+        _with_root { root =>
+          Given("actual normal Usage bytes with an independently malformed selected package version")
+          val fixture = _fixture(root)
+          val resource = fixture.project.resolve(fixture.bundle.path).resolve(USAGE_METADATA_PREFIX + "usage.json")
+          val original = _json(resource)
+          _write(resource, Json.stringify(original + ("package" -> Json.obj("coordinate" -> fixture.bundle.packagecoordinate.coordinate, "version" -> "other:release"))))
+          val archive = root.resolve("wrong-usage-package.car")
+          When("normal package-car checks the current Usage envelope context")
+          val error = intercept[Throwable](Cozy.main((_args(fixture, archive) ++ _flags(fixture)).toArray))
+          Then("the existing selected-package diagnostic rejects before archive creation")
+          error.getMessage should include("Independent package coordinate/version")
+          Files.exists(archive) shouldBe false
+        }
+      }
       "C64B12 require three literal flags together and preserve absent-flag normal packaging" in {
         _with_root { root =>
           Given("actual ordinary CAR inputs and partial, duplicate or missing Capability option values")
@@ -123,9 +172,14 @@ final class CozyCapabilityArchiveSpec extends AnyWordSpec with Matchers with Giv
 
   private final case class Fixture(project: Path, bundle: PackageOutput, coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,
     metadata: Path, mainjar: Path, runtimejar: Path)
-  private def _fixture(root: Path): Fixture = {
+  private def _fixture(root: Path, usageonly: Boolean = false, usage: Boolean = true): Fixture = {
     _copy_sources(root)
-    val request = _request()
+    if (usageonly) _write(root.resolve(_primary_source.path), _primary_text.split("## COMPONENT-CAPABILITY")(0))
+    val original = if (usageonly) _usage_only_request else _request()
+    val request = original.copy(contexts = if (usageonly) Vector.empty else original.contexts,
+      scalaoutputs = if (usageonly) Vector.empty else original.scalaoutputs,
+      packages = original.packages.map(x => x.copy(resources = if (usageonly) Vector.empty else x.resources,
+        usagecapabilities = if (usage) x.usagecapabilities else Vector.empty)))
     Cozy.main(_normal_args(root, request, "modeler-scala", "project"))
     val project = root.resolve("project")
     _write(project.resolve(_primary_source.path), _primary_text)
@@ -157,6 +211,7 @@ final class CozyCapabilityArchiveSpec extends AnyWordSpec with Matchers with Giv
       "abi" -> Json.obj("version" -> 1, "exports" -> Json.obj("components" -> JsArray(Vector(Json.obj("namespace" -> coordinate.namespace, "id" -> coordinate.id))),
         "operations" -> JsArray(), "entities" -> JsArray()), "dependencies" -> JsArray()))
     _write(project.resolve("src/main/car/abi-manifest.json"), Json.stringify(abi))
+    _write(project.resolve("src/main/car/config/capability.conf"), "ordinary.config = retained\n")
     val mainjar = _jar(root.resolve("artifacts/main.jar"), "fixture.txt", "actual CAR input")
     val runtimejar = _jar(root.resolve("artifacts/goldenport-cncf_3.jar"), "META-INF/cncf/runtime.yaml",
       "schemaVersion: 1\nruntime: cncf\nversion: 0.5.2-SNAPSHOT\nmodule: org.goldenport:goldenport-cncf_3:0.5.2-SNAPSHOT\n")

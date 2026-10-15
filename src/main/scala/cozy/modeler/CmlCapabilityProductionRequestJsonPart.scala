@@ -6,6 +6,8 @@ import play.api.libs.json._
 import CmlCapabilityJsonPart._
 import CmlCapabilityReferenceJsonPart._
 import CmlCapabilityDeclarationJsonPart._component_id
+import CmlCapabilityDefinitionJsonPart._usage_reference
+import CmlCapabilityModel.VersionedComponentUsageCapabilityReference
 import CmlCapabilitySource._
 import CmlCapabilityGenerationContext._
 import CmlCapabilityValidationScope._
@@ -15,7 +17,7 @@ import org.goldenport.cncf.component.identity.ComponentId
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlCapabilityProductionRequestJsonPart {
@@ -31,6 +33,10 @@ private[cozy] object CmlCapabilityProductionRequestJsonPart {
   private def _one(value: JsValue, context: Context): Result[Int] = value match {
     case JsNumber(number) if number == 1 && number.bigDecimal.scale() == 0 => Right(1)
     case _ => _failure(context, "Exactly integer schema version 1 is required.")
+  }
+  private def _two(value: JsValue, context: Context): Result[Int] = value match {
+    case JsNumber(number) if number == 2 && number.bigDecimal.scale() == 0 => Right(2)
+    case _ => _failure(context, "Exactly integer schema version 2 is required.")
   }
   private def _producer(value: JsValue, context: Context): Result[Producer] =
     _record(value, context, Vector(_entry("id", _text), _entry("version", _text)))
@@ -63,9 +69,10 @@ private[cozy] object CmlCapabilityProductionRequestJsonPart {
       .map(x => ResourceOutput(x._get[SnapshotKey]("snapshot"), x._get[String]("filename")))
   private def _output(value: JsValue, context: Context): Result[PackageOutput] =
     _record(value, context, Vector(_entry("component", _component), _entry("package", _package),
-      _entry("path", _text), _entry("resources", _array(_resource)))).map(x =>
+      _entry("path", _text), _entry("resources", _array(_resource)), _entry("usageCapabilities", _array(_usage_reference)))).map(x =>
       PackageOutput(x._get[ComponentCoordinate]("component"), x._get[PackageCoordinate]("package"),
-        x._get[String]("path"), x._get[Vector[ResourceOutput]]("resources")))
+        x._get[String]("path"), x._get[Vector[ResourceOutput]]("resources"),
+        x._get[Vector[VersionedComponentUsageCapabilityReference]]("usageCapabilities")))
   private def _scala_output(value: JsValue, context: Context): Result[ScalaOutput] =
     _record(value, context, Vector(_entry("snapshot", _snapshot), _entry("path", _text),
       _entry("packageName", _array(_text)), _entry("objectName", _text))).map(x =>
@@ -73,7 +80,7 @@ private[cozy] object CmlCapabilityProductionRequestJsonPart {
 
   private val _model_kinds: Vector[(String, ModelKind)] = Vector(ModelKind.DomainConcept, ModelKind.Goal,
     ModelKind.UseCase, ModelKind.Scenario, ModelKind.UseCaseSlice, ModelKind.Component, ModelKind.ComponentCapability,
-    ModelKind.ApplicationCapability, ModelKind.Specification, ModelKind.Evidence, ModelKind.Operation,
+    ModelKind.ComponentUsageCapability, ModelKind.Specification, ModelKind.Evidence, ModelKind.Operation,
     ModelKind.Workflow, ModelKind.StateMachine).map(x => x.tag -> x)
   private def _model_fact(value: JsValue, context: Context): Result[ModelFact] =
     _record(value, context, Vector(_entry("identity", _model_id), _entry("kind", _tag(_, _, _model_kinds)),
@@ -87,9 +94,9 @@ private[cozy] object CmlCapabilityProductionRequestJsonPart {
   private def _profile_fact(value: JsValue, context: Context): Result[ProfileFact] =
     _record(value, context, Vector(_entry("identity", _profile_id), _entry("source", _foreign_source)))
       .map(x => ProfileFact(x._get[ProfileId]("identity"), x._get[CapabilitySource]("source")))
-  private def _application_contract(value: JsValue, context: Context): Result[ApplicationContract] =
+  private def _usage_contract(value: JsValue, context: Context): Result[ComponentUsageContract] =
     _record(value, context, Vector(_entry("identity", _model_id), _entry("contractVersion", _text), _entry("source", _foreign_source)))
-      .map(x => ApplicationContract(x._get[ModelElementId]("identity"), x._get[String]("contractVersion"), x._get[CapabilitySource]("source")))
+      .map(x => ComponentUsageContract(x._get[ModelElementId]("identity"), x._get[String]("contractVersion"), x._get[CapabilitySource]("source")))
   private def _component_contract(value: JsValue, context: Context): Result[ComponentContract] =
     _record(value, context, Vector(_entry("identity", _model_id), _entry("contractVersion", _text), _entry("source", _foreign_source)))
       .map(x => ComponentContract(x._get[ModelElementId]("identity"), x._get[String]("contractVersion"), x._get[CapabilitySource]("source")))
@@ -106,17 +113,16 @@ private[cozy] object CmlCapabilityProductionRequestJsonPart {
     _record(value, context, Vector(_entry("scopeId", _text), _entry("source", _foreign_source),
       _entry("modelFacts", _array(_model_fact)), _entry("termFacts", _array(_term_fact)),
       _entry("relationFacts", _array(_relation_fact)), _entry("profileFacts", _array(_profile_fact)),
-      _entry("applicationContracts", _array(_application_contract)), _entry("componentContracts", _array(_component_contract)),
+      _entry("usageContracts", _array(_usage_contract)), _entry("componentContracts", _array(_component_contract)),
       _entry("targetContracts", _array(_target_contract)))).map(x => ScopeInput.Ready(Scope(x._get[String]("scopeId"),
       x._get[CapabilitySource]("source"), x._get[Vector[ModelFact]]("modelFacts"), x._get[Vector[TermFact]]("termFacts"),
       x._get[Vector[RelationFact]]("relationFacts"), x._get[Vector[ProfileFact]]("profileFacts"),
-      x._get[Vector[ApplicationContract]]("applicationContracts"), x._get[Vector[ComponentContract]]("componentContracts"),
+      x._get[Vector[ComponentUsageContract]]("usageContracts"), x._get[Vector[ComponentContract]]("componentContracts"),
       x._get[Vector[TargetContract]]("targetContracts"))))
   private def _request(value: JsValue, context: Context): Result[ProductionRequest] =
-    _record(value, context, Vector(_entry("schemaVersion", _one), _entry("producer", _producer),
+    _record(value, context, Vector(_entry("schemaVersion", _two), _entry("producer", _producer),
       _entry("sources", _array(_foreign_source)), _entry("scope", _scope), _entry("contexts", _array(_context)),
-      _entry("packages", _array(_output)), _entry("scalaOutputs", _array(_scala_output)),
-      _entry("applicationOutput", _text))).map(x => ProductionRequest(x._get[Producer]("producer"),
+      _entry("packages", _array(_output)), _entry("scalaOutputs", _array(_scala_output)))).map(x => ProductionRequest(x._get[Producer]("producer"),
       x._get[Vector[CapabilitySource]]("sources"), x._get[ScopeInput]("scope"), x._get[Vector[GenerationContext]]("contexts"),
-      x._get[Vector[PackageOutput]]("packages"), x._get[Vector[ScalaOutput]]("scalaOutputs"), x._get[String]("applicationOutput")))
+      x._get[Vector[PackageOutput]]("packages"), x._get[Vector[ScalaOutput]]("scalaOutputs")))
 }

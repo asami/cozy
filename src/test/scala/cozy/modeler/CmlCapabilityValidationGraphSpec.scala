@@ -15,14 +15,14 @@ import CmlCapabilityValidationSpec._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Finite Capability dependency and compatibility semantics" should {
-    "check only the authored Local Application dependency graph" which {
+    "check only the authored Local Usage dependency graph" which {
       "C64V25 reject every edge of self, two-node and longer cross-file cycles while admitting a chain" in {
-        Given("explicit Application graphs distribute one source-bearing Local dependency per file")
+        Given("explicit Usage graphs distribute one source-bearing Local dependency per file")
         val self = _graph(1, cyclic = true)
         val pair = _graph(2, cyclic = true)
         val longer = _graph(5, cyclic = true)
@@ -34,10 +34,10 @@ final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers w
         failures.zip(Vector(self, pair, longer)).foreach { case (result, documents) =>
           val issues = _issues(result)
           issues.map(_.kind) shouldBe Vector.fill(documents.size)(CyclicDependency)
-          issues.map(_.source) shouldBe documents.map(document => Some(_items(document.model.applicationCapabilities.head.dependencies).head.source))
+          issues.map(_.source) shouldBe documents.map(document => Some(_items(document.model.componentUsageCapabilities.head.dependencies).head.source))
           issues.map(_.scope) shouldBe documents.map(document => Some(document.scope))
           issues.map(_.fieldpath) shouldBe documents.indices.map(index =>
-            s"documents[$index].model.applicationCapabilities[0].dependencies.value[0]").toVector
+            s"documents[$index].model.componentUsageCapabilities[0].dependencies.value[0]").toVector
         }
         _admitted(valid).documents shouldBe chain
       }
@@ -45,35 +45,35 @@ final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers w
       "C64V26 retain External dependencies and ordinary demand, grounding and traceability relationships" in {
         Given("a two-file dependency cycle has one explicitly External edge and independent model relationships point in both directions")
         val graph = _graph(2, cyclic = true)
-        val first = graph.head.model.applicationCapabilities.head
-        val second = graph.last.model.applicationCapabilities.head
+        val first = graph.head.model.componentUsageCapabilities.head
+        val second = graph.last.model.componentUsageCapabilities.head
         val external = _items(first.dependencies).head.copy(boundary = External)
         val firstground = _ground(ModelTarget(second.identity)).copy(source = _source("ground-first", path = graph.head.scope.path))
         val secondground = _ground(ModelTarget(first.identity)).copy(source = _source("ground-second", path = graph.last.scope.path))
         val demand = _link(UseCase, "usecase", Local).copy(source = _source("demand", path = graph.head.scope.path))
         val trace = _trace(EvidenceTrace, "evidence", Local).copy(source = _source("trace", path = graph.last.scope.path))
         val documents = Vector(
-          graph.head.copy(model = graph.head.model.copy(applicationCapabilities = Vector(first.copy(dependencies = Present(Vector(external)), grounding = Present(Vector(firstground)), demandReferences = Present(Vector(demand)))))),
-          graph.last.copy(model = graph.last.model.copy(applicationCapabilities = Vector(second.copy(grounding = Present(Vector(secondground)), traceability = Present(Vector(trace)))))))
+          graph.head.copy(model = graph.head.model.copy(componentUsageCapabilities = Vector(first.copy(dependencies = Present(Vector(external)), grounding = Present(Vector(firstground)), demandReferences = Present(Vector(demand)))))),
+          graph.last.copy(model = graph.last.model.copy(componentUsageCapabilities = Vector(second.copy(grounding = Present(Vector(secondground)), traceability = Present(Vector(trace)))))))
         val scope = _scope.copy(modelfacts = Vector(ModelFact(_id("usecase"), ModelKind.UseCase, _source("usecase-fact")),
           ModelFact(_id("evidence"), ModelKind.Evidence, _source("evidence-fact"))))
         When("the supplied graph and all independent model relationships are validated")
         val result = _validate(documents, scope)
         Then("External remains External despite a current target, and ordinary relationships do not create dependency cycles")
         _admitted(result).documents shouldBe documents
-        _items(_admitted(result).documents.head.model.applicationCapabilities.head.dependencies).head.boundary shouldBe External
-        _admitted(result).documents.flatMap(_.model.applicationCapabilities).flatMap(x => _items(x.grounding)).size shouldBe 2
+        _items(_admitted(result).documents.head.model.componentUsageCapabilities.head.dependencies).head.boundary shouldBe External
+        _admitted(result).documents.flatMap(_.model.componentUsageCapabilities).flatMap(x => _items(x.grounding)).size shouldBe 2
       }
 
       "C64V27 retain typed dependency resolution failures instead of certifying an empty graph" in {
         Given("one Local dependency requests a missing, opposite-family, version-mismatched or ambiguous target")
-        val dependency = ApplicationDependency(VersionedApplicationCapabilityReference(_id("target-app"), "v1"), Local, _source("dependency-edge"), Declared)
-        val application = _application().copy(dependencies = Present(Vector(dependency)))
-        val missing = _document(applications = Vector(application))
-        val wrong = _document(applications = Vector(application), components = Vector(_definition("target-app")))
-        val version = _document(applications = Vector(application, _application("target-app", "v2")))
-        val fact = ApplicationContract(_id("target-app"), "v1", _source("catalog-target"))
-        val scope = _scope.copy(applicationcontracts = Vector(fact, fact))
+        val dependency = ComponentUsageCapabilityDependency(VersionedComponentUsageCapabilityReference(_id("target-app"), "v1"), Local, _source("dependency-edge"), Declared)
+        val usage = _usage().copy(dependencies = Present(Vector(dependency)))
+        val missing = _document(usages = Vector(usage))
+        val wrong = _document(usages = Vector(usage), components = Vector(_definition("target-app")))
+        val version = _document(usages = Vector(usage, _usage("target-app", "v2")))
+        val fact = ComponentUsageContract(_id("target-app"), "v1", _source("catalog-target"))
+        val scope = _scope.copy(usagecontracts = Vector(fact, fact))
         When("each dependency target alternative is validated")
         val results = Vector(_validate(Vector(missing)), _validate(Vector(wrong)), _validate(Vector(version)), _validate(Vector(missing), scope))
         Then("every failed dependency remains an observable typed rejection and cannot be an admitted empty dependency graph")
@@ -136,7 +136,7 @@ final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers w
       "C64V30 reject every unavailable compatibility identity, family, version or candidate set" in {
         Given("independently sourced compatibility edges require absent identity, opposite family, absent required or provided version, or duplicated exact catalog candidates")
         val missing = _document(compatibility = Present(Vector(_compatibility("a", "b"))))
-        val wrong = _document(applications = Vector(_application("component", "b")), compatibility = Present(Vector(_compatibility("a", "b"))))
+        val wrong = _document(usages = Vector(_usage("component", "b")), compatibility = Present(Vector(_compatibility("a", "b"))))
         val required = _document(components = Vector(_definition(version = "b")), compatibility = Present(Vector(_compatibility("a", "b"))))
         val provided = _document(components = Vector(_definition(version = "a")), compatibility = Present(Vector(_compatibility("a", "b"))))
         val fact = ComponentContract(_id("component"), "a", _source("history-a"))
@@ -178,24 +178,24 @@ final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers w
               val target = ModelElementId("Target:literal", literal + ":target")
               val factsource = CapabilitySource("Target:literal", "catalog/target.cml", s"fact:$version", Some(3))
               val supplied = _scope.copy(modelfacts = Vector(ModelFact(target, ModelKind.UseCase, factsource)))
-              val other = _document(applications = Vector(_application("other", s"v:$version", "model/other.cml")), path = "model/other.cml")
+              val other = _document(usages = Vector(_usage("other", s"v:$version", "model/other.cml")), path = "model/other.cml")
               val documents = if (reverse) Vector(other) ++ parsed else parsed :+ other
               val result = _validate(documents, supplied)
-              val broken = parsed.head.model.applicationCapabilities.head.copy(demandReferences = Present(Vector(
+              val broken = parsed.head.model.componentUsageCapabilities.head.copy(demandReferences = Present(Vector(
                 ModelLink(UseCase, ModelReference(target.copy(elementId = literal + ":missing"), Local),
                   CapabilitySource(scope.modelAuthority, scope.path, s"failed:$revision", None), Declared))))
-              val invaliddocuments = Vector(parsed.head.copy(model = parsed.head.model.copy(applicationCapabilities = Vector(broken))))
+              val invaliddocuments = Vector(parsed.head.copy(model = parsed.head.model.copy(componentUsageCapabilities = Vector(broken))))
               val invalid = _validate(invaliddocuments, supplied)
               result match {
                 case Left(_) => false
                 case Right(validated) =>
-                  val application = parsed.head.model.applicationCapabilities.head
+                  val usage = parsed.head.model.componentUsageCapabilities.head
                   val expectedsummary = _summary(branch)
                   val expectedorigin = _literal_origin(scope, derived)
-                  val links = _items(application.demandReferences)
-                  validated.documents == documents && validated.scope == supplied && application.identity == identity &&
-                    application.contractVersion == s"version:$version" && application.source.sourceRevision == s"revision:$revision" &&
-                    application.summary == expectedsummary && links.map(_.origin) == Vector(expectedorigin) &&
+                  val links = _items(usage.demandReferences)
+                  validated.documents == documents && validated.scope == supplied && usage.identity == identity &&
+                    usage.contractVersion == s"version:$version" && usage.source.sourceRevision == s"revision:$revision" &&
+                    usage.summary == expectedsummary && links.map(_.origin) == Vector(expectedorigin) &&
                     links.map(_.target) == Vector(ModelReference(target, Local)) && links.head.source.sourceRevision == "edge:independent" &&
                     invalid.isLeft && invalid == _validate(invaliddocuments, supplied) && invalid.left.get.exists(issue =>
                       issue.kind == DanglingReference && issue.source.contains(CapabilitySource(scope.modelAuthority, scope.path, s"failed:$revision", None)))
@@ -222,9 +222,9 @@ final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers w
           val graph = _graph(count, cyclic)
           val documents = if (!external || !cyclic) graph else {
             val last = graph.last
-            val application = last.model.applicationCapabilities.head
-            val changed = application.copy(dependencies = Present(_items(application.dependencies).map(_.copy(boundary = External))))
-            graph.init :+ last.copy(model = last.model.copy(applicationCapabilities = Vector(changed)))
+            val usage = last.model.componentUsageCapabilities.head
+            val changed = usage.copy(dependencies = Present(_items(usage.dependencies).map(_.copy(boundary = External))))
+            graph.init :+ last.copy(model = last.model.copy(componentUsageCapabilities = Vector(changed)))
           }
           val graphresult = _validate(documents)
           val graphright = if (cyclic && !external) graphresult.isLeft && graphresult.left.get.count(_.kind == CyclicDependency) == count
@@ -260,10 +260,10 @@ final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers w
   private def _graph(count: Int, cyclic: Boolean): Vector[CapabilityDocument] =
     (0 until count).map { index =>
       val path = s"model/graph-$index.cml"
-      val edges = if (index + 1 < count || cyclic) Vector(ApplicationDependency(
-        VersionedApplicationCapabilityReference(_id(s"node:${(index + 1) % count}"), "v1"), Local,
+      val edges = if (index + 1 < count || cyclic) Vector(ComponentUsageCapabilityDependency(
+        VersionedComponentUsageCapabilityReference(_id(s"node:${(index + 1) % count}"), "v1"), Local,
         _source(s"dependency:$index", path = path, line = Some(index + 11)), Declared)) else Vector.empty
-      _document(applications = Vector(_application(s"node:$index", path = path).copy(dependencies = Present(edges))), path = path)
+      _document(usages = Vector(_usage(s"node:$index", path = path).copy(dependencies = Present(edges))), path = path)
     }.toVector
   private def _summary(branch: Int): Presence[String] = branch match {
     case 0 => Present("Literal summary")
@@ -299,11 +299,11 @@ final class CmlCapabilityValidationGraphSpec extends AnyWordSpec with Matchers w
     val demand = Json.obj("state" -> "PRESENT", "value" -> Json.arr(Json.obj("role" -> "USE_CASE", "target" -> Json.obj(
       "identity" -> Json.obj("modelId" -> "Target:literal", "elementId" -> (literal + ":target")), "boundary" -> "LOCAL"),
       "source" -> _source_(scope.modelAuthority, scope.path, "edge:independent", JsNull), "origin" -> origin)))
-    val fields = Vector("identity" -> Json.obj("modelId" -> scope.modelAuthority, "elementId" -> literal), "contractVersion" -> JsString(version),
+    val fields = Vector("component" -> Json.obj("namespace" -> "org.simplemodeling.textus", "id" -> "Store"), "identity" -> Json.obj("modelId" -> scope.modelAuthority, "elementId" -> literal), "contractVersion" -> JsString(version),
       "name" -> JsString("Same presentation"), "summary" -> summary, "description" -> summary, "source" -> source,
       "demandReferences" -> demand, "discoveryReferences" -> empty, "componentMappings" -> empty, "dependencies" -> empty,
       "grounding" -> empty, "traceability" -> empty)
-    "# CAPABILITY-MODEL\ncompatibility = {\"state\":\"PRESENT\",\"value\":[]}\n\n## APPLICATION-CAPABILITY\n### Literal\n" +
+    "# CAPABILITY-MODEL\ncompatibility = {\"state\":\"PRESENT\",\"value\":[]}\n\n## COMPONENT-USAGE-CAPABILITY\n### Literal\n" +
       fields.map { case (key, value) => s"$key = ${_json_(value)}" }.mkString("\n") + "\n"
   }
 }

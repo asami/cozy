@@ -10,7 +10,7 @@ import CmlCapabilityValidationShapePart._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityValidationScopePart {
@@ -55,14 +55,14 @@ private[modeler] object CmlCapabilityValidationScopePart {
       _profile_id(fact.identity, s"$path.identity", ctx) ++ _source(fact.source, s"$path.source", ctx) ++
         (if (fact.identity == null) Vector.empty else _authority(fact.source, fact.identity.vocabularyId, s"$path.source.modelAuthority", ctx))
     } ++ _duplicates(scope.profilefacts, "scope.profilefacts")(_.identity, _.source)
-    val applications = scope.applicationcontracts.zipWithIndex.flatMap { case (fact, index) =>
-      val path = s"scope.applicationcontracts[$index]"
+    val usages = scope.usagecontracts.zipWithIndex.flatMap { case (fact, index) =>
+      val path = s"scope.usagecontracts[$index]"
       _fact(fact.identity, fact.source, path) ++ _text(fact.contractversion, s"$path.contractversion", Context(None, Option(fact.source)))
-    } ++ _duplicates(scope.applicationcontracts, "scope.applicationcontracts")(x => (x.identity, x.contractversion), _.source)
+    } ++ _duplicates(scope.usagecontracts, "scope.usagecontracts")(x => (x.identity, x.contractversion), _.source)
     val components = scope.componentcontracts.zipWithIndex.flatMap { case (fact, index) =>
       val path = s"scope.componentcontracts[$index]"
       _fact(fact.identity, fact.source, path) ++ _text(fact.contractversion, s"$path.contractversion", Context(None, Option(fact.source))) ++
-        scope.applicationcontracts.find(_.identity == fact.identity).toVector.map { previous =>
+        scope.usagecontracts.find(_.identity == fact.identity).toVector.map { previous =>
           Context(None, Option(fact.source))._issue(WrongKind, s"$path.identity", "A catalog Capability identity has one fixed family.", Option(previous.source).toVector)
         }
     } ++ _duplicates(scope.componentcontracts, "scope.componentcontracts")(x => (x.identity, x.contractversion), _.source)
@@ -75,15 +75,15 @@ private[modeler] object CmlCapabilityValidationScopePart {
     } ++ _duplicates(scope.targetcontracts, "scope.targetcontracts")(x =>
       (x.identity, x.component, x.kind, x.contractversion, x.generatedabiversion), _.source)
     _text(scope.scopeid, "scope.scopeid", context) ++ _source(scope.source, "scope.source", context) ++
-      models ++ terms ++ relations ++ profiles ++ applications ++ components ++ targets
+      models ++ terms ++ relations ++ profiles ++ usages ++ components ++ targets
   }
 
   private[modeler] def _current(documents: Vector[CapabilityDocument]): Vector[Contract] =
     documents.zipWithIndex.flatMap { case (document, index) =>
       val path = s"documents[$index].model"
-      document.model.applicationCapabilities.zipWithIndex.map { case (value, offset) =>
-        Contract(value.identity, ApplicationKind, value.contractVersion, value.source,
-          _document(document.scope, value.source), s"$path.applicationCapabilities[$offset]")
+      document.model.componentUsageCapabilities.zipWithIndex.map { case (value, offset) =>
+        Contract(value.identity, ComponentUsageKind, value.contractVersion, value.source,
+          _document(document.scope, value.source), s"$path.componentUsageCapabilities[$offset]")
       } ++ document.model.componentCapabilities.zipWithIndex.map { case (value, offset) =>
         Contract(value.identity, ComponentKind, value.contractVersion, value.source,
           _document(document.scope, value.source), s"$path.componentCapabilities[$offset]")
@@ -91,9 +91,9 @@ private[modeler] object CmlCapabilityValidationScopePart {
     }
 
   private[modeler] def _catalog(scope: Scope): Vector[Contract] =
-    scope.applicationcontracts.zipWithIndex.map { case (value, index) =>
-      Contract(value.identity, ApplicationKind, value.contractversion, value.source,
-        Context(None, Option(value.source)), s"scope.applicationcontracts[$index]")
+    scope.usagecontracts.zipWithIndex.map { case (value, index) =>
+      Contract(value.identity, ComponentUsageKind, value.contractversion, value.source,
+        Context(None, Option(value.source)), s"scope.usagecontracts[$index]")
     } ++ scope.componentcontracts.zipWithIndex.map { case (value, index) =>
       Contract(value.identity, ComponentKind, value.contractversion, value.source,
         Context(None, Option(value.source)), s"scope.componentcontracts[$index]")
@@ -122,10 +122,10 @@ private[modeler] object CmlCapabilityValidationScopePart {
   private[modeler] def _model_candidates(identity: ModelElementId, scope: Scope,
     contracts: Vector[Contract]): Vector[(ModelKind, Vector[CapabilitySource])] = {
     val explicit = scope.modelfacts.filter(_.identity == identity).map(x => x.kind -> Vector(x.source))
-    val families = Vector(ApplicationKind, ComponentKind).flatMap { family =>
+    val families = Vector(ComponentUsageKind, ComponentKind).flatMap { family =>
       val matches = contracts.filter(x => x.identity == identity && x.kind == family)
       if (matches.isEmpty) Vector.empty
-      else Vector((if (family == ApplicationKind) ModelKind.ApplicationCapability else ModelKind.ComponentCapability) -> matches.map(_.source))
+      else Vector((if (family == ComponentUsageKind) ModelKind.ComponentUsageCapability else ModelKind.ComponentCapability) -> matches.map(_.source))
     }
     explicit ++ families
   }

@@ -20,7 +20,7 @@ import CmlSemanticFoundation.Present
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityGenerationProvenanceSpec extends AnyWordSpec with Matchers with GivenWhenThen {

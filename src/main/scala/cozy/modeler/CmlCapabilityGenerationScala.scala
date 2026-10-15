@@ -8,7 +8,7 @@ import CmlCapabilityGenerationContext._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlCapabilityGenerationScala {

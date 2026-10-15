@@ -6,7 +6,7 @@ import CmlCapabilityGenerationContext.{Issue, IssueKind, PublicationFailure}
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlCapabilityProduction {
@@ -84,7 +84,7 @@ private[cozy] object CmlCapabilityProduction {
       Vector(_issue("request", "The complete explicit request is required."))
     else if (request.producer != CmlCapabilityGenerationContext.Producer("cozy", org.simplemodeling.cozy.BuildInfo.version))
       Vector(Issue(IssueKind.ProducerMismatch, "producer", None, Vector.empty,
-        "Producer must equal cozy and the actual executing BuildInfo.version, including app-only input."))
+        "Producer must equal cozy and the actual executing BuildInfo.version, including Usage-only input."))
     else Vector.empty
   private def _issue(field: String, detail: String): Issue = Issue(IssueKind.Malformed, field, None, Vector.empty, detail)
 }

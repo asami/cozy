@@ -6,12 +6,12 @@ import CmlCapabilitySource.{CapabilitySource, CapabilityOrigin}
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlCapabilityModel {
   sealed abstract class CapabilityKind
-  case object ApplicationKind extends CapabilityKind
+  case object ComponentUsageKind extends CapabilityKind
   case object ComponentKind extends CapabilityKind
   sealed abstract class Direction
   case object Provided extends Direction
@@ -33,8 +33,8 @@ private[cozy] object CmlCapabilityModel {
   case object EvidenceTrace extends TraceabilityRole
 
   final case class ModelReference(identity: ModelElementId, boundary: ReferenceBoundary)
-  final case class VersionedApplicationCapabilityReference(identity: ModelElementId, contractVersion: String) {
-    val kind: CapabilityKind = ApplicationKind
+  final case class VersionedComponentUsageCapabilityReference(identity: ModelElementId, contractVersion: String) {
+    val kind: CapabilityKind = ComponentUsageKind
   }
   final case class VersionedComponentCapabilityReference(identity: ModelElementId, contractVersion: String) {
     val kind: CapabilityKind = ComponentKind
@@ -51,9 +51,10 @@ private[cozy] object CmlCapabilityModel {
     source: CapabilitySource,
     origin: CapabilityOrigin
   )
-  final case class ApplicationComponentMapping(target: VersionedComponentCapabilityReference, boundary: ReferenceBoundary, source: CapabilitySource, origin: CapabilityOrigin)
-  final case class ApplicationDependency(target: VersionedApplicationCapabilityReference, boundary: ReferenceBoundary, source: CapabilitySource, origin: CapabilityOrigin)
-  final case class ApplicationCapability(
+  final case class ComponentUsageCapabilityMapping(target: VersionedComponentCapabilityReference, boundary: ReferenceBoundary, source: CapabilitySource, origin: CapabilityOrigin)
+  final case class ComponentUsageCapabilityDependency(target: VersionedComponentUsageCapabilityReference, boundary: ReferenceBoundary, source: CapabilitySource, origin: CapabilityOrigin)
+  final case class ComponentUsageCapability(
+    component: ComponentId,
     identity: ModelElementId,
     contractVersion: String,
     name: String,
@@ -62,12 +63,12 @@ private[cozy] object CmlCapabilityModel {
     source: CapabilitySource,
     demandReferences: Presence[Vector[ModelLink]],
     discoveryReferences: Presence[Vector[ModelLink]],
-    componentMappings: Presence[Vector[ApplicationComponentMapping]],
-    dependencies: Presence[Vector[ApplicationDependency]],
+    componentMappings: Presence[Vector[ComponentUsageCapabilityMapping]],
+    dependencies: Presence[Vector[ComponentUsageCapabilityDependency]],
     grounding: Presence[Vector[GroundingReference]],
     traceability: Presence[Vector[TraceabilityReference]]
   ) {
-    val kind: CapabilityKind = ApplicationKind
+    val kind: CapabilityKind = ComponentUsageKind
   }
   final case class ComponentCapability(
     identity: ModelElementId,
@@ -103,7 +104,7 @@ private[cozy] object CmlCapabilityModel {
   )
   final case class CompatibilityEdge(identity: ModelElementId, requiredVersion: String, providedVersion: String, source: CapabilitySource, origin: CapabilityOrigin)
   final case class CapabilityModel(
-    applicationCapabilities: Vector[ApplicationCapability],
+    componentUsageCapabilities: Vector[ComponentUsageCapability],
     componentCapabilities: Vector[ComponentCapability],
     componentDeclarations: Vector[ComponentDeclaration],
     compatibility: Presence[Vector[CompatibilityEdge]]

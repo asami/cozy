@@ -10,6 +10,38 @@ Semantic foundation: Phase 54 / 54.5
 Upstream contract: CNCF Phase 78
 Downstream consumer: Textus CBD Support Phase 11
 
+## Package metadata amendment — 2026-10-15
+
+Current corrected work: **CAP-64-PKG01**. This replaces the earlier
+Application-owned package assumption; it does not create another parallel item.
+
+The [Component Usage contract](../spec/component-usage-capability.md) replaces
+ApplicationCapability with the separate inductive ComponentUsageCapability model.
+Add explicit Component ownership and partition generated records by that owner.
+Remove Application source/IR/wire names, `applicationOutput` and the withdrawn
+`applicationPackage` proposal. Extend the existing per-Component package selection
+with Usage references; generate fixed Usage paths beside Component Capability.
+Update source grammar, private request, generated APIs, codecs and fixtures.
+
+Execution order: settle the corrected typed model and owner/source mapping ->
+Cozy source/IR/request and CNCF Directory acquisition -> CBD ingestion/catalog/query
+through one real Directory path -> normal CAR and parity -> Phase 11.1 Web/MCP.
+Migrate affected producer/consumer call sites together. Delete old symbols and
+use compilation to expose missed callers; do not retain aliases, deprecated
+forwarders, dual readers or automatic old-format conversion. This is pre-release
+work, so update CML/JSON fixtures and regenerate outputs instead of maintaining
+compatibility. Existing Component provided/required compatibility semantics are
+unchanged; they are not compatibility with the removed Application model.
+
+Earlier accepted Steps keep their historical evidence. The current amendment
+is accepted at the Step boundary: implementation, Step validation and independent
+protected Step review are complete. The local Step commit is being prepared.
+It is required before the owning Phase closes. The coordinated plan covers
+the revised semantic/ownership/wire scope; the earlier transport-only estimate
+does not establish its acceptance. Each owner retains its existing
+review/full-validation duties; CBD aggregate full validation remains Phase 11.1.
+Phase full review, full validation, local release and main integration remain pending.
+
 ## Purpose
 
 Add first-class Capability Model IR support to Cozy and generate the admitted
@@ -22,18 +54,19 @@ complementary models with different responsibilities:
 
 ```text
 Use Case              = discovery / understanding model
-Application Capability = application structure / development-management model
+Component Usage Capability = inductive Component usage model
 Component Capability   = architectural capability model
 ```
 
-Application Capability is discovered inductively from concrete Use Cases and
-other requirement evidence, then becomes a stable axis for application
-structure, planning, architecture, verification, and development status. It is
+Component Usage Capability is discovered inductively from concrete Use Cases and
+other requirement evidence, then provides an axis for Component usage
+understanding and evidence-backed mapping to explicit Component contracts. It is
 not a renamed Use Case Group and is not contained by a Use Case hierarchy.
 
 ## Capability / Glossary semantic axis
 
-Capability describes what the Application or Component can do. Glossary / BoK
+Usage Capability describes Component use; Component Capability describes its
+provided/required contracts. Glossary / BoK
 references ground what the terms used by that Capability mean.
 
 ```text
@@ -41,7 +74,7 @@ Use Cases / Goals
       |
       | discovery / induction
       v
-Application Capability ---- uses concepts ----> Glossary / BoK
+Component Usage Capability ---- uses concepts ----> Glossary / BoK
       |
       v
 Component Capability
@@ -63,10 +96,11 @@ term identity model.
 
 | ID | Outcome | Status |
 | --- | --- | --- |
+| CAP-64-PKG01 | Generate Component-owned Usage metadata with the corrected model/source/wire contract. | closed |
 | CAP-64-01 | Freeze the Application/Component Capability IR, identity/reference model, and semantic-reference boundary against Phase 54 and CNCF Phase 78. | closed |
 | CAP-64-02 | Admit CML syntax and parser/metamodel support for Application and Component Capability without Use Case Group containment semantics. | closed |
 | CAP-64-03 | Implement semantic validation and source-correlated diagnostics, including Goal/Use Case, Capability, realization, and admitted Glossary/BoK references. | closed |
-| CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Application Capability as the application-management IR. | closed |
+| CAP-64-04 | Generate the versioned CNCF Component Capability projection with deterministic provenance while retaining Component Usage Capability as the Component usage IR. | closed |
 | CAP-64-05 | Prove CNCF admission and cbd-support consumption with a real fixture covering Use Case-to-Capability discovery evidence and terminology grounding. | closed |
 
 The earlier Step acceptance notes below retain their historical pending states.

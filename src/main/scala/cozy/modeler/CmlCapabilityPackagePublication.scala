@@ -1,9 +1,11 @@
 package cozy.modeler
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 import java.util.Locale
 import scala.util.control.NonFatal
+import org.goldenport.realm.Realm
+import org.goldenport.tree.TreeNode
 import play.api.libs.json.{JsArray, JsString, Json}
 import cozy.archive.{CozyArchivePackager, CozyComponentReleaseCoordinateCodec}
 import CmlCapabilityGeneration.Generated
@@ -14,14 +16,14 @@ import CmlCapabilitySource.{CapabilitySource, _valid_path}
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlCapabilityPackagePublication {
   final case class Artifact(path: String, content: String, source: Option[CapabilitySource])
   final class Batch private[CmlCapabilityPackagePublication] (
     val generated: Generated, val rendered: RenderedBatch, val packages: Vector[PackageOutput],
-    val application: play.api.libs.json.JsObject, val artifacts: Vector[Artifact]
+    val artifacts: Vector[Artifact]
   )
 
   private[cozy] def preflightNormalDestinations(request: ProductionRequest): Either[Vector[Issue], Unit] = {
@@ -36,12 +38,9 @@ private[cozy] object CmlCapabilityPackagePublication {
         Issue(IssueKind.OutputConflict, field, None, Vector.empty,
           "Selected output conflicts with reserved normal " + kind + " destination " + reservedpath + ".")
       }
-    val applicationissues = _reserved_(request.applicationoutput, "applicationOutput") ++
-      (if (_valid_target_path(request.applicationoutput) && request.applicationoutput.endsWith(".json")) Vector.empty
-        else Vector(_issue("applicationOutput", "An explicit canonical target/*.json path is required.")))
     val packageissues = request.packages.zipWithIndex.flatMap { case (bundle, index) =>
       val field = s"packages[$index]"
-      if (bundle == null || bundle.resources == null || bundle.component == null || bundle.packagecoordinate == null)
+      if (bundle == null || bundle.resources == null || bundle.usagecapabilities == null || bundle.component == null || bundle.packagecoordinate == null)
         Vector(_issue(field, "Every package requires complete coordinates and explicit resources."))
       else _reserved_(bundle.path, field + ".path") ++
         (if (_valid_target_path(bundle.path)) Vector.empty else Vector(_issue(field + ".path", "Canonical target/ package directory path is required.")))
@@ -53,9 +52,37 @@ private[cozy] object CmlCapabilityPackagePublication {
         (if (_valid_target_path(selection.path) && selection.path.endsWith(".scala")) Vector.empty
           else Vector(_issue(field + ".path", "Select a canonical project-relative POSIX target/*.scala path.")))
     }
-    val issues = applicationissues ++ packageissues ++ scalaissues
+    val issues = packageissues ++ scalaissues
     if (issues.nonEmpty) Left(issues) else Right(())
   }
+
+  private[cozy] def preflightNormalTree(request: ProductionRequest, tree: Realm,
+    outputRoot: Path): Either[Vector[Issue], Unit] =
+    preflightNormalDestinations(request).flatMap { _ =>
+      def _files_(node: TreeNode[Realm.Data], parent: String): Vector[String] =
+        node.children.toVector.flatMap { child =>
+          val path = if (parent.isEmpty) child.name else parent + "/" + child.name
+          if (child.isLeaf) {
+            if (child.content == Realm.EmptyData) Vector.empty else Vector(path)
+          } else _files_(child, path)
+        }
+      val generatedpaths = _files_(tree.backendRoot, "")
+      val modelpath = "target/cozy/component-api-model.json"
+      val normalpaths = generatedpaths ++
+        (if (generatedpaths.contains(modelpath) || Files.isRegularFile(outputRoot.resolve(modelpath)))
+          Vector("target/cozy/component-api-descriptor.json") else Vector.empty)
+      def _conflicts_(path: String, field: String): Vector[Issue] =
+        normalpaths.collect { case normalpath if _overlap(path, normalpath) =>
+          Issue(IssueKind.OutputConflict, field, None, Vector.empty,
+            "Selected output conflicts with actual normal destination " + normalpath + ".")
+        }
+      val issues = request.packages.zipWithIndex.flatMap { case (bundle, index) =>
+        _conflicts_(bundle.path, s"packages[$index].path")
+      } ++ request.scalaoutputs.zipWithIndex.flatMap { case (selection, index) =>
+        _conflicts_(selection.path, s"scalaOutputs[$index].path")
+      }
+      if (issues.nonEmpty) Left(issues) else Right(())
+    }
 
   def prepare(outputRoot: Path, generated: Generated, request: ProductionRequest,
     rendered: RenderedBatch): Either[Vector[Issue], Batch] = {
@@ -66,7 +93,7 @@ private[cozy] object CmlCapabilityPackagePublication {
     val artifacts = scala.collection.mutable.ArrayBuffer.empty[Artifact]
     val issues = request.packages.zipWithIndex.flatMap { case (bundle, index) =>
       val field = s"packages[$index]"
-      if (bundle == null || bundle.resources == null || bundle.component == null || bundle.packagecoordinate == null)
+      if (bundle == null || bundle.resources == null || bundle.usagecapabilities == null || bundle.component == null || bundle.packagecoordinate == null)
         Vector(_issue(field, "Every package requires complete coordinates and explicit resources."))
       else {
         val paths = if (_valid_target_path(bundle.path)) Vector.empty else Vector(_issue(field + ".path", "Canonical target/ package directory path is required."))
@@ -97,12 +124,26 @@ private[cozy] object CmlCapabilityPackagePublication {
             artifacts += Artifact(bundle.path + "/component-descriptor.json", content, None)
             Vector.empty
         }
-        val inventoryissues = if (names.size <= SOURCE_COUNT && names.distinct.size == names.size && names.nonEmpty) Vector.empty
-          else Vector(_issue(field + ".resources", "Each bundle requires 1..256 unique selected resources."))
+        val usageissues = CmlCapabilityComponentUsageProjection.encode(generated, request.sources, request.producer, bundle) match {
+          case Left(items) => items.map(x => x.copy(fieldpath = field + "." + x.fieldpath))
+          case Right(json) if bundle.usagecapabilities.nonEmpty =>
+            val content = Json.stringify(json) + "\n"
+            val usageindex = Json.stringify(Json.obj("schemaVersion" -> 1, "projections" -> Vector("usage.json"))) + "\n"
+            artifacts += Artifact(bundle.path + "/" + USAGE_METADATA_PREFIX + "index.json", usageindex, None)
+            artifacts += Artifact(bundle.path + "/" + USAGE_METADATA_PREFIX + "usage.json", content, None)
+            if (content.getBytes(StandardCharsets.UTF_8).length <= SOURCE_LIMIT) Vector.empty
+            else Vector(_issue(field + ".usageCapabilities", "Usage projection exceeds 16MiB."))
+          case Right(_) => Vector.empty
+        }
+        val packagedomainissues = if (CmlCapabilitySource._valid_text(bundle.packagecoordinate.coordinate) &&
+          CmlCapabilitySource._valid_text(bundle.packagecoordinate.version)) Vector.empty
+          else Vector(_issue(field + ".package", "Explicit valid independent package coordinate and version are required."))
+        val inventoryissues = if (names.size <= SOURCE_COUNT && names.distinct.size == names.size) Vector.empty
+          else Vector(_issue(field + ".resources", "Each bundle requires 0..256 unique selected resources."))
         val size = artifacts.filter(_.path.startsWith(bundle.path + "/" + METADATA_PREFIX)).map(_.content.getBytes(StandardCharsets.UTF_8).length.toLong).sum
         val sizeissues = if (indexcontent.getBytes(StandardCharsets.UTF_8).length <= REQUEST_LIMIT && size <= TOTAL_LIMIT) Vector.empty
           else Vector(_issue(field, "Bundle metadata exceeds index 1MiB or total 64MiB bounds."))
-        paths ++ resourceissues ++ descriptorissues ++ inventoryissues ++ sizeissues
+        paths ++ resourceissues ++ descriptorissues ++ usageissues ++ packagedomainissues ++ inventoryissues ++ sizeissues
       }
     }
     val duplicate = selected.groupBy(identity).toVector.filter(_._2.size > 1).map { case (key, _) =>
@@ -113,18 +154,13 @@ private[cozy] object CmlCapabilityPackagePublication {
     val overlaps = bundlepaths.zipWithIndex.flatMap { case (path, index) => bundlepaths.drop(index + 1).collect {
       case other if _overlap(path, other) => _issue("packages.path", "Repeated, case-aliased or overlapping bundle directories are forbidden.")
     }}
-    val applicationresult = CmlCapabilityApplicationProjection.encode(generated, request.sources, request.producer)
-    val applicationissues = if (_valid_target_path(request.applicationoutput) && request.applicationoutput.endsWith(".json")) Vector.empty
-      else Vector(_issue("applicationOutput", "An explicit canonical target/*.json path is required."))
-    val externalpaths = rendered.artifacts.map(_.selection.path) :+ request.applicationoutput
+    val externalpaths = rendered.artifacts.map(_.selection.path)
     val externaloverlaps = externalpaths.flatMap(path => bundlepaths.collect {
-      case bundle if _overlap(bundle, path) => _issue(path, "Application and Scala outputs must be outside every selected bundle.")
+      case bundle if _overlap(bundle, path) => _issue(path, "Scala outputs must be outside every selected bundle.")
     })
-    val allissues = issues ++ duplicate ++ missing ++ overlaps ++ applicationissues ++ externaloverlaps ++ applicationresult.left.toOption.toVector.flatten
+    val allissues = issues ++ duplicate ++ missing ++ overlaps ++ externaloverlaps
     if (allissues.nonEmpty) Left(allissues)
     else {
-      val application = applicationresult.right.get
-      artifacts += Artifact(request.applicationoutput, Json.stringify(application) + "\n", None)
       artifacts ++= rendered.artifacts.map(x => Artifact(x.selection.path, x.content,
         projections.get(x.selection.key).map(_.context.source)))
       val ordered = artifacts.toVector.sortBy(_.path)
@@ -133,7 +169,7 @@ private[cozy] object CmlCapabilityPackagePublication {
       }}
       if (fileconflicts.nonEmpty) Left(fileconflicts)
       else {
-        val batch = new Batch(generated, rendered, request.packages, application, ordered)
+        val batch = new Batch(generated, rendered, request.packages, ordered)
         CmlCapabilityPackagePublicationPart._preflight(outputRoot, batch).map(_ => batch)
       }
     }

@@ -12,18 +12,18 @@ import CmlCapabilitySource._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenWhenThen {
   "Immutable parsed Capability carriers" should {
     "retain distinct qualified domains and explicit facts" which {
       "keep source revision, name, contract and edge facts independent when copied" in {
-        Given("a complete parsed Application with an explicit gap and a distinct equal-component Term identity")
+        Given("a complete parsed Usage with an explicit gap and a distinct equal-component Term identity")
         val identity = ModelElementId("Model:α/A", "Capability:β|B")
         val term = TermId(identity.modelId, identity.elementId)
         val source = CapabilitySource(identity.modelId, "model/input.cml", "revision:一", None)
-        val original = ApplicationCapability(identity, "contract:v1", "Name", Present("Summary"), Absent(NotDeclared, "No description."), source,
+        val original = ComponentUsageCapability(cozy.CozyCapabilityProductionSpec._component("Store"), identity, "contract:v1", "Name", Present("Summary"), Absent(NotDeclared, "No description."), source,
           Present(Vector.empty), Present(Vector.empty), Present(Vector.empty), Present(Vector.empty), Present(Vector.empty), Present(Vector.empty))
         When("a consumer copies presentation and independent revision domains")
         val changed = original.copy(name = "Changed", source = source.copy(sourceRevision = "revision:二"))
@@ -36,7 +36,7 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
         original.demandReferences shouldBe Present(Vector.empty)
         original.description shouldBe Absent(NotDeclared, "No description.")
         identity should not equal (term)
-        original.kind shouldBe ApplicationKind
+        original.kind shouldBe ComponentUsageKind
         reference.kind shouldBe ComponentKind
       }
 
@@ -50,7 +50,6 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
           order <- Gen.pick(3, Vector("target:一", "target:二", "target:三")).map(_.toVector)
           reverse <- Gen.oneOf(true, false)
         } yield (suffix, literal, revision, name, order, reverse)
-        When("ScalaCheck parses actual generated CML and normalizes both input orders repeatedly")
         // Unconstrained tuple shrinking leaves this positive generator domain.
         val property = Prop.forAllNoShrink(samples) { case (suffix, literal, revision, name, order, reverse) =>
           val scope = SourceScope(s"Model:$suffix|α", s"model/source$suffix.cml")
@@ -65,8 +64,8 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
             _cml(scope, literal, s"new-revision:$revision", "Changed name", _present_json(JsString("Summary")), _declared_json, order)))))
           (result, changed) match {
             case (Right(documents), Right(Vector(updated))) =>
-              val first = documents.find(_.scope == scope).get.model.applicationCapabilities.head
-              val second = updated.model.applicationCapabilities.head
+              val first = documents.find(_.scope == scope).get.model.componentUsageCapabilities.head
+              val second = updated.model.componentUsageCapabilities.head
               Prop(documents.map(_.scope) == inputs.map(_.scope) && CmlCapabilityCml.normalize(inputs) == result &&
                 CmlCapabilityCml.normalize(inputs.reverse) == Right(documents.reverse) &&
                 first.identity == ModelElementId(scope.modelAuthority, literal) &&
@@ -79,6 +78,7 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
             case _ => Prop.falsified.label(s"normalized=$result, changed=$changed, parserErrors=${inputs.map(input => input.scope -> input.model.errors)}")
           }
         }
+        When("ScalaCheck parses actual generated CML and normalizes both input orders repeatedly")
         val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
         Then("at least one hundred active samples preserve literal domains, determinism, independence and exact ordered facts")
         withClue(result.toString) { result.passed shouldBe true }
@@ -94,7 +94,6 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
           invalidtext <- Gen.oneOf("", " leading", "trailing\u00a0", "bad\u0001control")
           invalidpath <- Gen.oneOf("/absolute", "C:/drive", "uri:scheme", "a//b", "a/./b", "a/../b", "a\\b")
         } yield (reason, derived, invalidtext, invalidpath)
-        When("ScalaCheck normalizes real CML with explicit branches and one invalid boundary at a time")
         val property = Prop.forAll(samples) { case (reason, derived, invalidtext, invalidpath) =>
           val scope = SourceScope("Model:valid", "model/valid.cml")
           val gap = Json.obj("state" -> "ABSENT", "reason" -> reason, "detail" -> s"Explicit $reason.")
@@ -115,7 +114,7 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
           )
           (valid, empty) match {
             case (Right(Vector(document)), Right(Vector(emptydocument))) =>
-              val application = document.model.applicationCapabilities.head
+              val usage = document.model.componentUsageCapabilities.head
               val expectedreason = reason match {
                 case "NotDeclared" => NotDeclared
                 case "NotRepresented" => NotRepresented
@@ -125,14 +124,15 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
               val expectedorigin: CapabilityOrigin = if (derived)
                 Derived("rule:literal", Vector(CapabilitySource("Foreign:authority", "foreign/input.cml", "foreign:r9", None),
                   CapabilitySource("Model:valid", "model/valid.cml", "evidence:r2", Some(7)))) else Declared
-              application.summary == Absent(expectedreason, s"Explicit $reason.") &&
-                _links(application.demandReferences).head.origin == expectedorigin &&
-                _links(application.demandReferences).head.target.boundary == External &&
-                emptydocument.model.applicationCapabilities.head.demandReferences == Present(Vector.empty) &&
+              usage.summary == Absent(expectedreason, s"Explicit $reason.") &&
+                _links(usage.demandReferences).head.origin == expectedorigin &&
+                _links(usage.demandReferences).head.target.boundary == External &&
+                emptydocument.model.componentUsageCapabilities.head.demandReferences == Present(Vector.empty) &&
                 invalids.forall(_.isLeft)
             case _ => false
           }
         }
+        When("ScalaCheck normalizes real CML with explicit branches and one invalid boundary at a time")
         val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100), property)
         Then("at least one hundred active samples retain exact gap/origin facts and every malformed source remains Left")
         withClue(result.toString) { result.passed shouldBe true }
@@ -157,11 +157,11 @@ final class CmlCapabilityModelSpec extends AnyWordSpec with Matchers with GivenW
     val links = targets.zipWithIndex.map { case (target, index) => Json.obj("role" -> "USE_CASE", "target" -> Json.obj(
       "identity" -> Json.obj("modelId" -> "Target:scope", "elementId" -> target), "boundary" -> "EXTERNAL"), "source" -> _source_(s"edge:r$index"), "origin" -> origin) }
     val empty = _present_json(Json.arr())
-    val fields = Vector("identity" -> Json.obj("modelId" -> scope.modelAuthority, "elementId" -> element),
+    val fields = Vector("component" -> Json.obj("namespace" -> "org.simplemodeling.textus", "id" -> "Store"), "identity" -> Json.obj("modelId" -> scope.modelAuthority, "elementId" -> element),
       "contractVersion" -> JsString("contract:opaque"), "name" -> JsString(name), "summary" -> summary,
       "description" -> _present_json(JsString("Description")), "source" -> _source_(revision), "demandReferences" -> _present_json(JsArray(links)),
       "discoveryReferences" -> empty, "componentMappings" -> empty, "dependencies" -> empty, "grounding" -> empty, "traceability" -> empty)
-    "# CAPABILITY-MODEL\ncompatibility = {\"state\":\"PRESENT\",\"value\":[]}\n\n## APPLICATION-CAPABILITY\n### Label\n" +
+    "# CAPABILITY-MODEL\ncompatibility = {\"state\":\"PRESENT\",\"value\":[]}\n\n## COMPONENT-USAGE-CAPABILITY\n### Label\n" +
       fields.map { case (key, value) => s"$key = ${_json_(value)}" }.mkString("\n") + "\n"
   }
   private def _normalize(scope: SourceScope, source: String): Either[Vector[SyntaxIssue], Vector[CapabilityDocument]] =

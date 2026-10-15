@@ -6,7 +6,7 @@ import CmlCapabilitySource.{CapabilitySource, SourceScope}
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CmlCapabilityValidationScope {
@@ -19,7 +19,7 @@ private[cozy] object CmlCapabilityValidationScope {
     case object UseCaseSlice extends ModelKind("USE_CASE_SLICE")
     case object Component extends ModelKind("COMPONENT")
     case object ComponentCapability extends ModelKind("COMPONENT_CAPABILITY")
-    case object ApplicationCapability extends ModelKind("APPLICATION_CAPABILITY")
+    case object ComponentUsageCapability extends ModelKind("COMPONENT_USAGE_CAPABILITY")
     case object Specification extends ModelKind("SPECIFICATION")
     case object Evidence extends ModelKind("EVIDENCE")
     case object Operation extends ModelKind("OPERATION")
@@ -65,7 +65,7 @@ private[cozy] object CmlCapabilityValidationScope {
     termfacts: Vector[TermFact],
     relationfacts: Vector[RelationFact],
     profilefacts: Vector[ProfileFact],
-    applicationcontracts: Vector[ApplicationContract],
+    usagecontracts: Vector[ComponentUsageContract],
     componentcontracts: Vector[ComponentContract],
     targetcontracts: Vector[TargetContract]
   )
@@ -73,7 +73,7 @@ private[cozy] object CmlCapabilityValidationScope {
   final case class TermFact(identity: TermId, source: CapabilitySource)
   final case class RelationFact(identity: RelationId, source: CapabilitySource)
   final case class ProfileFact(identity: ProfileId, source: CapabilitySource)
-  final case class ApplicationContract(identity: ModelElementId, contractversion: String, source: CapabilitySource)
+  final case class ComponentUsageContract(identity: ModelElementId, contractversion: String, source: CapabilitySource)
   final case class ComponentContract(identity: ModelElementId, contractversion: String, source: CapabilitySource)
   final case class TargetContract(
     kind: CmlCapabilityModel.TargetKind,

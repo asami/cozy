@@ -2,11 +2,24 @@
 
 Status: normative semantic IR, private normalization, finite validation, generation and normal production contract
 
+## Current terminology and implementation boundary — 2026-10-15
+
+The [Component Usage Capability contract](component-usage-capability.md) defines
+`ComponentUsageCapability` as an inductive Component-owned usage model, separate
+from the deductive `ComponentCapability` contract. It owns the current naming,
+source/wire changes, Component ownership and no-compatibility migration.
+The Scala, CML, request revision 2 and per-Component publication contracts below
+use the current Usage terminology. Clearly dated prior acceptance and the
+revision-1 request example remain historical. CAP-64-PKG01 authoring does not
+claim new executed validation or acceptance.
+
 ## Authority and scope
 
-This specification defines the conceptual Application Capability and Component
+This specification defines the conceptual Component Usage Capability and Component
 Capability IR, its qualified identities, declarations, relationships, versions,
-provenance, grounding, and validation boundaries. R1 through R13 are normative.
+provenance, grounding, and validation boundaries. The current Usage contract
+governs the current source/IR and R13 package route. Unchanged semantic and
+Component projection guarantees remain normative; prior acceptance stays historical.
 The R3 tables describe semantic data. The private Scala IR and initial authored
 CML syntax are specified below for CAP-64-02. Parsed documents are not admitted
 Graphs or CNCF projections. E1 through E12 remain expected semantic examples;
@@ -33,7 +46,7 @@ specification does not redefine either CNCF authority.
 All four original CAP-64-05 criteria are accepted as recorded in
 [Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15). Separate full
 Phase closure remains outstanding. The unsupported ForwardUseCase positive
-production path remains not yet admitted and unexercised; Application links
+production path remains not yet admitted and unexercised; Usage links
 do not establish inverse demand.
 
 ## Rules
@@ -41,9 +54,11 @@ do not establish inverse demand.
 ### R1 Capability kinds and non-instantiated meaning
 
 Capability MUST be a non-instantiated declarative model. The IR MUST retain two
-distinct record families, `ApplicationCapability` and `ComponentCapability`.
-Application Capability supplies a stable application structure and management
-axis and MAY exist independently of Use Cases. Component Capability expresses
+distinct record families, `ComponentUsageCapability` and `ComponentCapability`.
+Component Usage Capability inductively describes what its explicitly owned
+Component can be used for, retaining usage/discovery evidence; it MAY exist
+without a direct Use Case link. Application/Domain tier terminology is unrelated
+to the family name. Component Capability expresses
 the CNCF architectural contract independently of executable realization.
 
 Both families MUST NOT hold execution, scheduling, retry, compensation,
@@ -57,7 +72,7 @@ Both record families MUST use the exact existing Foundation
 `ModelElementId(modelId, elementId)`. The kind MUST be fixed for that qualified
 identity within its declaring model snapshot. An identity MUST NOT occur twice
 in that snapshot, including occurrences with different labels or versions, or
-be declared as both Application Capability and Component Capability.
+be declared as both Component Usage Capability and Component Capability.
 
 Every definition MUST have an explicitly supplied opaque `contractVersion`,
 independent of source revision. A version change MUST NOT change stable
@@ -74,7 +89,7 @@ be normalized, split by delimiters, issued through a parallel ID model or runtim
 The following tables are the required semantic shapes. Every listed field MUST
 be explicitly supplied. Identity, kind, `contractVersion`, and definition source
 are mandatory and MUST NOT have a default or absence. Kind is the fixed
-Application or Component family tag; the tables do not choose a serialized kind
+Component Usage or Component family tag; the tables do not choose a serialized kind
 field. `name` is presentation text. Supplemental data MUST retain the existing
 Presence meaning in R9. Definitions, declarations, and every edge MUST retain
 their explicit owning source; the envelope MUST keep distinct declaration
@@ -87,18 +102,18 @@ and existing Foundation meanings, not new public implementation signatures.
 
 | Carrier | Required fields | Binding |
 | --- | --- | --- |
-| `ApplicationCapability` | `identity: ModelElementId`<br>`contractVersion: opaque value`<br>`name: presentation text`<br>`summary: Presence[String]`<br>`description: Presence[String]`<br>`source: CapabilitySource`<br>`demandReferences: Presence[Vector[ModelLink]]`<br>`discoveryReferences: Presence[Vector[ModelLink]]`<br>`componentMappings: Presence[Vector[ApplicationComponentMapping]]`<br>`dependencies: Presence[Vector[ApplicationDependency]]`<br>`grounding: Presence[Vector[GroundingReference]]`<br>`traceability: Presence[Vector[TraceabilityReference]]` | Fixed Application kind; the exact enclosing identity and version own its mappings and dependencies. |
+| `ComponentUsageCapability` | `component: existing CNCF Component identity`<br>`identity: ModelElementId`<br>`contractVersion: opaque value`<br>`name: presentation text`<br>`summary: Presence[String]`<br>`description: Presence[String]`<br>`source: CapabilitySource`<br>`demandReferences: Presence[Vector[ModelLink]]`<br>`discoveryReferences: Presence[Vector[ModelLink]]`<br>`componentMappings: Presence[Vector[ComponentUsageCapabilityMapping]]`<br>`dependencies: Presence[Vector[ComponentUsageCapabilityDependency]]`<br>`grounding: Presence[Vector[GroundingReference]]`<br>`traceability: Presence[Vector[TraceabilityReference]]` | Fixed Component Usage kind; the exact enclosing identity and version own its mappings and dependencies. |
 | `ComponentCapability` | `identity: ModelElementId`<br>`contractVersion: opaque value`<br>`name: presentation text`<br>`summary: Presence[String]`<br>`description: Presence[String]`<br>`source: CapabilitySource`<br>`discoveryReferences: Presence[Vector[ModelLink]]`<br>`grounding: Presence[Vector[GroundingReference]]`<br>`traceability: Presence[Vector[TraceabilityReference]]` | Fixed Component kind; its meaning is independent of provider declarations. |
 
 #### Reference, declaration, and edge carriers
 
 | Carrier | Required fields | Binding |
 | --- | --- | --- |
-| `VersionedApplicationCapabilityReference` / `VersionedComponentCapabilityReference` | `identity: ModelElementId`<br>`contractVersion: opaque value` | Distinct kind-specific domains; no cross-kind substitution. |
+| `VersionedComponentUsageCapabilityReference` / `VersionedComponentCapabilityReference` | `identity: ModelElementId`<br>`contractVersion: opaque value` | Distinct kind-specific domains; no cross-kind substitution. |
 | CNCF Component reference | `namespace`<br>`localId` | Existing Phase 56 runtime Component identity; release version is separate. These semantic fields introduce no new public Scala type. |
 | `ComponentDeclaration` | `component: exact CNCF Component reference`<br>`direction: PROVIDED \| REQUIRED`<br>`capability: VersionedComponentCapabilityReference`<br>`source: CapabilitySource`<br>`realizations: Presence[Vector[RealizationEdge]]`<br>`traceability: Presence[Vector[TraceabilityReference]]` | Complete key is Component identity, direction, qualified Capability identity, and contract version. |
-| `ApplicationComponentMapping` | `target: VersionedComponentCapabilityReference`<br>`boundary: ReferenceBoundary`<br>`source: CapabilitySource`<br>`origin: CapabilityOrigin` | The logical source endpoint is the exact enclosing versioned Application Capability; `source` is edge provenance. |
-| `ApplicationDependency` | `target: VersionedApplicationCapabilityReference`<br>`boundary: ReferenceBoundary`<br>`source: CapabilitySource`<br>`origin: CapabilityOrigin` | The logical source endpoint is the enclosing Application Capability. This is an explicit logical requirement, not execution order or containment. |
+| `ComponentUsageCapabilityMapping` | `target: VersionedComponentCapabilityReference`<br>`boundary: ReferenceBoundary`<br>`source: CapabilitySource`<br>`origin: CapabilityOrigin` | The logical source endpoint is the exact enclosing versioned Component Usage Capability; `source` is edge provenance. |
+| `ComponentUsageCapabilityDependency` | `target: VersionedComponentUsageCapabilityReference`<br>`boundary: ReferenceBoundary`<br>`source: CapabilitySource`<br>`origin: CapabilityOrigin` | The logical source endpoint is the enclosing Component Usage Capability. This is an explicit logical requirement, not execution order or containment. |
 | `ModelLink` | `role: GOAL \| USE_CASE \| SCENARIO \| USE_CASE_SLICE \| COMPONENT \| SPECIFICATION \| EVIDENCE`<br>`target: existing qualified ModelReference(identity, boundary)`<br>`source: CapabilitySource`<br>`origin: CapabilityOrigin` | Demand permits only the first four roles; discovery retains all supplied allowed roles. The full role binds the admitted target kind. |
 | `TraceabilityReference` | `role: SPECIFICATION \| EVIDENCE`<br>`target: existing qualified ModelReference(identity, boundary)`<br>`source: CapabilitySource`<br>`origin: CapabilityOrigin` | Independent qualified Specification or Evidence edge. |
 | `GroundingReference` | `target: existing SemanticTarget`<br>`boundary: existing ReferenceBoundary`<br>`relation: Presence[RelationId]`<br>`profile: Presence[ProfileId]`<br>`context: Presence[String]`<br>`preferredLabel: Presence[LocalizedLabel]`<br>`source: CapabilitySource`<br>`origin: CapabilityOrigin` | Exact Foundation target and vocabulary domains; edge-specific revision-bearing source and origin. |
@@ -111,19 +126,19 @@ and existing Foundation meanings, not new public implementation signatures.
 | --- | --- | --- |
 | `CapabilitySource` | `modelAuthority: supplied exact authority`<br>`path: canonical project-relative POSIX path`<br>`sourceRevision: upstream-authored explicit value`<br>`line: explicit None \| Some(positive line)` | Location and revision remain independent of identity and contract version. |
 | `CapabilityOrigin` | `Declared \| Derived(ruleId, nonempty ordered Vector[CapabilitySource])` | Declared and derived facts remain distinct; derived inputs preserve supplied evidence and order. |
-| `CapabilityModel` | `applicationCapabilities: Vector[ApplicationCapability]`<br>`componentCapabilities: Vector[ComponentCapability]`<br>`componentDeclarations: Vector[ComponentDeclaration]`<br>`compatibility: Presence[Vector[CompatibilityEdge]]` | Retain supplied order and source ownership. Zero definitions or declarations differ from source acquisition failure. |
+| `CapabilityModel` | `componentUsageCapabilities: Vector[ComponentUsageCapability]`<br>`componentCapabilities: Vector[ComponentCapability]`<br>`componentDeclarations: Vector[ComponentDeclaration]`<br>`compatibility: Presence[Vector[CompatibilityEdge]]` | Retain supplied order and source ownership. Zero definitions or declarations differ from source acquisition failure. |
 | `GenerationContext` | `projectiongeneration: Int`<br>`schemaversion: Int`<br>`generatedabiversion: String`<br>`producer: Producer`<br>`component: ComponentCoordinate`<br>`packagecoordinate: PackageCoordinate`<br>`source: CapabilitySource` | Separate supplied generation inputs; the private generation contract below consumes accepted CNCF R11 without inventing a wire or resource name. |
 
 ### R4 Demand and discovery model links
 
-Application demand and discovery MUST be separate edge sets to qualified Goal,
+Component Usage demand and discovery MUST be separate edge sets to qualified Goal,
 UseCase, Scenario, or UseCaseSlice records. Discovery MAY additionally reference
 Component, Specification, or Evidence records. Component Capability discovery
 uses the supplied permitted discovery roles. Each edge MUST retain its full
 role, explicit boundary, owning source, and declared or derived origin.
 
-Several Use Cases MAY require one Application Capability, and one Use Case MAY
-require several Application Capabilities. These associations MUST NOT infer
+Several Use Cases MAY require one Component Usage Capability, and one Use Case MAY
+require several Component Usage Capabilities. These associations MUST NOT infer
 inverse edges, containment, Use Case Group parentage, or one-to-one induction.
 
 The narrative `UseCaseProjection.goal` string, local `declaredId`, display name,
@@ -148,10 +163,10 @@ first-wins or last-wins behavior MUST NOT resolve them.
 Component model-element references and runtime Component identity MUST remain
 distinct domains. A model label MUST NOT select a runtime Component.
 
-### R6 Application mappings and realization edges
+### R6 Component Usage mappings and realization edges
 
-An `ApplicationComponentMapping` MUST link one exact enclosing versioned
-Application Capability to one versioned Component Capability per edge and retain
+An `ComponentUsageCapabilityMapping` MUST link one exact enclosing versioned
+Component Usage Capability to one versioned Component Capability per edge and retain
 boundary, edge source, and origin. It MUST NOT select providers or establish
 execution.
 
@@ -236,9 +251,9 @@ versions, and sources; duplicate definitions or complete declarations; missing
 or ambiguous Local targets; wrong-kind realization or mapping targets; and
 incompatible versioned references.
 
-`ApplicationDependency` MUST represent an explicitly supplied non-executable
-requirement from its enclosing Application Capability to an exact versioned
-Application Capability. Local dependency self-loops and directed cycles MUST
+`ComponentUsageCapabilityDependency` MUST represent an explicitly supplied non-executable
+requirement from its enclosing Component Usage Capability to an exact versioned
+Component Usage Capability. Local dependency self-loops and directed cycles MUST
 fail. External dependencies MUST retain an explicit unresolved boundary and
 MUST NOT certify global acyclicity. Many-to-many demand associations, general
 traceability, and grounding are not dependency edges and MUST NOT be rejected
@@ -253,9 +268,9 @@ or name matching. Compatibility does not waive realization target/ABI checks.
 
 External generation MUST retain only Component definitions/declarations,
 grounding, realization, and traceability required by CNCF Component Capability
-R1-R10. Application definitions, demand, discovery, dependency links, and
+R1-R10. Component Usage definitions, demand, discovery, dependency links, and
 management information MUST remain Cozy-owned upstream data. A generated
-external projection MUST NOT include Application Capability lifecycle state.
+external projection MUST NOT include Component Usage Capability lifecycle state.
 
 `GenerationContext` MUST distinguish projection semantic generation 1, producer
 identity/version, generated CNCF ABI version, Component identity, package
@@ -303,7 +318,37 @@ Textus CBD Support CAP-11-01 remains incomplete until actual Cozy-generated
 input and CNCF executable admission exist. A semantic documentation contract
 does not supply producer, admission, or consumer acceptance evidence.
 
-### R13 Normal production, publication and Application handoff
+### Package publication amendment — 2026-10-15
+
+Status: current normative contract; CAP-64-PKG01 executable authoring awaits parent validation and review.
+The [Component Usage Capability specification](component-usage-capability.md)
+owns the inductive model and coordinated breaking change. CNCF
+`docs/spec/component-usage-capability-package.md` owns common Directory/CAR layout.
+Generate `meta/component-usage-capability/index.json` and `usage.json` for the
+reviewed Component alongside its existing `meta/component-capability/` family.
+The payload ABI is `cozy.component-usage-capability.v1`; Component ABI remains
+`cncf.component-capability.v1`. Do not treat usage evidence as provided contracts.
+
+The private request revision 2 extends each existing `packages` entry with
+explicit `usageCapabilities` references. Remove `applicationOutput`; withdraw
+`applicationPackage` entirely. The selected Component/root and record ownership
+must agree. Normal generation partitions records by their declared Component;
+only external references cross package boundaries. No Application-only owner or
+whole-application metadata package is introduced. Fixed filenames belong to the
+producer; no nine-file output blacklist is needed.
+
+Directory is consumed directly during development. Normal CAR packaging carries
+the same canonical paths and records. Reuse existing resource safeguards and
+actual archive entry collision handling. The revised source/IR, request decoder,
+CLI, producer/native bridge, CBD consumer and fixtures switch together, without
+old aliases, readers or conversion. Old typed call sites should fail compilation;
+old serialized inputs fail ordinary grammar/schema validation.
+
+R13 and the current executable case tables describe the revision-2 route.
+Recorded prior Step acceptance remains evidence of its original inputs only;
+no old result accepts the changed owner, request or package inputs.
+
+### R13 Normal production, publication and Component Usage handoff
 
 This rule governs the opt-in normal Cozy producer and package-car input. It adds
 no CML grammar, semantic acquisition, native admission or provenance policy.
@@ -315,11 +360,23 @@ Hook only existing Cozy._execute_modeler_scala for modeler-scala and modeler-sca
 
 #### Closed production request and separate fact authority
 
-ProductionRequest is private[cozy] immutable and contains producer, ordered sources:Vector[CapabilitySource], ScopeInput, contexts:Vector[GenerationContext], packages:Vector[PackageOutput], scalaoutputs:Vector[ScalaOutput], applicationoutput:String. JSON root has exactly schemaVersion,producer,sources,scope,contexts,packages,scalaOutputs,applicationOutput; schemaVersion is integer1, producer exactly {id,version} and must equal cozy/actual BuildInfo.version even for app-only documents. JSON scope is the exact Ready Scope record, not a claim of extracted native facts; typed Request retains ScopeInput including original Rejected diagnostics unchanged. Context fields are exactly projectionGeneration,schemaVersion,generatedAbiVersion,producer,component,package,source; semantic1/wire1/ABI cncf.component-capability.v1 and original accepted generator guards remain unchanged. Source selected headers use the original complete CapabilitySource record. Reject null, duplicate/unknown/missing keys, wrong kind, noninteger version, bad exact text or unknown closed tag; no trim, aliases, inferred sources/versions or model labels. Reuse existing CmlCapabilityJsonPart strict duplicate/trailing-token grammar and typed reference decoders. Codec diagnostics use the actual request file location as diagnostic context only; its diagnostic authority cozy.capability.production.request is never a product/model identity.
+`ProductionRequest` is private[cozy] and immutable: producer, ordered
+`sources: Vector[CapabilitySource]`, `ScopeInput`, contexts, packages and
+scalaoutputs. The JSON root has exactly `schemaVersion`, `producer`, `sources`,
+`scope`, `contexts`, `packages`, `scalaOutputs`; `schemaVersion` is exactly integer
+2. No loose product output or caller-selected Usage filename exists. Producer is
+exactly `{id,version}` and equals `cozy`/actual `BuildInfo.version`, including
+Usage-only input. Scope is the explicit Ready record; typed Rejected diagnostics
+remain unchanged. Context retains exactly `projectionGeneration`, `schemaVersion`,
+`generatedAbiVersion`, `producer`, `component`, `package`, `source`, with semantic
+1/wire 1/ABI `cncf.component-capability.v1`. Source headers retain the complete
+original record. The existing closed duplicate/trailing-token grammar rejects
+null, missing, duplicate, unknown keys, wrong types or tags and noninteger schema
+versions. Diagnostic request-file location never becomes product identity.
 
 #### Exact Scope serialization
 
-scope has exactly scopeId,source,modelFacts,termFacts,relationFacts,profileFacts,applicationContracts,componentContracts,targetContracts. modelFacts items exactly identity:{modelId,elementId},kind:<the thirteen original ModelKind tags>,source. term/relation/profile facts exactly identity:{vocabularyId,termId|relationId|profileId},source. applicationContracts/componentContracts exactly identity:{modelId,elementId},contractVersion,source. targetContracts exactly kind:<OPERATION|WORKFLOW|STATE_MACHINE>,identity:{modelId,elementId},component:{namespace,id},contractVersion,generatedAbiVersion,source. Keep all ordered supplied vectors and original per-field/source domains; use original foreign-source decoder for independent facts and canonical Java/Cozy Component identity validation. No new semantic/target acquisition policy, inference from parsed CML, current artifact/filename/version or empty missing facts. Original finite validator owns duplicates, kind/Local/External/version/ABI/reference/cycle decisions; its original diagnostic vector is preserved.
+scope has exactly scopeId,source,modelFacts,termFacts,relationFacts,profileFacts,usageContracts,componentContracts,targetContracts. modelFacts items exactly identity:{modelId,elementId},kind:<the thirteen original ModelKind tags>,source. term/relation/profile facts exactly identity:{vocabularyId,termId|relationId|profileId},source. usageContracts/componentContracts exactly identity:{modelId,elementId},contractVersion,source. targetContracts exactly kind:<OPERATION|WORKFLOW|STATE_MACHINE>,identity:{modelId,elementId},component:{namespace,id},contractVersion,generatedAbiVersion,source. Keep all ordered supplied vectors and original per-field/source domains; use original foreign-source decoder for independent facts and canonical Java/Cozy Component identity validation. No new semantic/target acquisition policy, inference from parsed CML, current artifact/filename/version or empty missing facts. Original finite validator owns duplicates, kind/Local/External/version/ABI/reference/cycle decisions; its original diagnostic vector is preserved.
 
 #### Actual source acquisition and one source per normal invocation
 
@@ -331,7 +388,41 @@ CmlCapabilityProduction.prepare(request:ProductionRequest, sourceRoot:Path, outp
 
 #### Complete independent publication selection
 
-PackageOutput is component:ComponentCoordinate, packagecoordinate:PackageCoordinate, path:String, resources:Vector[ResourceOutput(key:SnapshotKey,filename:String)]. JSON fields exactly component,package,path,resources; resource exactly snapshot,filename; snapshot exactly source:{modelAuthority,path},component:{namespace,id}. Component JSON exactly namespace,id,version; package exactly coordinate,version. Every generated SnapshotKey occurs exactly once among resources, no extra/missing/repeated snapshot or filename; every resource context has the exact selected Component release/package coordinate/version. Multiple same Component snapshots may share one bundle only with those full identical packaging domains. Reject repeated bundle paths, cross-bundle path ancestor overlap and any file collision with Scala/Application outputs. Paths are canonical project-relative POSIX beneath target/, package path is a directory, applicationOutput ends .json outside every component bundle, Scala paths/ASCII symbols retain original CmlCapabilityGenerationScala.render complete coverage guards. No filename/provider/label winner or grouping inferred from identity, source path or declaration name. Package list can be empty only with zero generated projections; application output still explicit.
+`PackageOutput` contains `component: ComponentCoordinate`,
+`packagecoordinate: PackageCoordinate`, `path: String`, `resources: Vector[ResourceOutput]`
+and `usagecapabilities: Vector[VersionedComponentUsageCapabilityReference]`.
+Its exact JSON keys are `component`, `package`, `path`, `resources`,
+`usageCapabilities`. Each Usage reference is the closed
+`{kind:"COMPONENT_USAGE",identity:{modelId,elementId},contractVersion}` record.
+Resource is exactly `{snapshot,filename}`; Snapshot is exactly
+`{source:{modelAuthority,path},component:{namespace,id}}`. Component coordinate is
+`{namespace,id,version}`; independent package is `{coordinate,version}`.
+
+Every generated Component SnapshotKey occurs exactly once among resources;
+its complete Component release and package domains match the selected bundle.
+Zero resources are allowed and create an empty Component index with no synthetic
+projection, context, declaration or native target. Usage selection resolves exact
+identity/contract-version pairs in validated original documents and requires the
+explicit definition owner to equal the selected Component. Unknown, ambiguous,
+repeated or mismatched-owner selections retain typed selection diagnostics.
+Unselected records need not be published. Empty Usage selection omits that optional
+family. Bundle directories and Scala files retain existing canonical target-path,
+three reserved normal destinations, collision and complete Scala coverage guards.
+There is no expanded normal-output reservation list.
+
+For prepared normal opt-in, inspect the actual generated in-memory Realm before
+the interpreter saves it. Recursively collect exportable leaf file paths, excluding
+EmptyData leaves and traversal-only directories. Compare each actual normal path
+with every selected package directory and Scala file using the existing
+case-insensitive equal/ancestor/descendant overlap rule, including destinations
+that do not yet exist. Report OutputConflict at the exact packages[i].path or
+scalaOutputs[i].path and name the actual conflicting normal path. Valid siblings
+under target/cozy remain allowed; generated filenames are not a second reservation
+catalog. Include target/cozy/component-api-descriptor.json only when the actual
+tree exports target/cozy/component-api-model.json or that model is already a
+regular file under the selected output root, matching the existing post-writer.
+This check reads only the tree and filesystem kinds and does not mutate or export
+the tree.
 
 #### Canonical accepted Component package image
 
@@ -348,17 +439,45 @@ It MUST NOT infer native entities, knowledge, style or target evidence. Coordina
 or rendering exceptions MUST become typed Malformed issues at
 `packages[i].component/descriptor`; no thrown exception or empty-success fallback.
 Descriptor UTF8 is bounded separately to 16MiB, outside the Capability metadata
-counts and total. App-only or zero-bundle products emit no descriptor.
+counts and total. Each Usage-only selected Component also has its real descriptor;
+zero-bundle products emit no descriptor.
 
 Index exactly {schemaVersion:1,projections:[filenames in explicit resource order]}; each name matches [A-Za-z0-9][A-Za-z0-9._-]*\.json, excludes index.json, count<=256 and unique. Projection content is unchanged Generated.projectionJson plus terminal newline, never reconstructing wire/records. Index<=1MiB, individual resource<=16MiB and bundle total selected metadata<=64MiB, matching actual CNCF R14 limits. Preserve authored vector order and independent source/contract/ABI/domain values; sort output artifact paths only to give deterministic publication traversal. Cozy owns this generated canonical Directory image and the normal CAR index/resource selection. The existing CAR builder retains its descriptor semantics. Actual Directory/CAR admission, native target binding and discovery remain the existing public CNCF Factory's responsibility; generated descriptors alone supply no admission-success claim.
 
-#### Lossless Application product input without inverse edges
+#### Component-owned Usage projection without inverse edges
 
-CmlCapabilityApplicationProjection.encode consumes only Generated.validated and the same explicit ordered selected source headers; returns closed {schemaVersion:1,generatedAbiVersion:"cozy.application-capability.v1",producer:{id,version},documents:[{source:<full selected header>,applicationCapabilities:[<original definitions>]}]}. Documents retain original Validated input order, every original app-only/empty document and source header selected exactly once by SourceScope. Each Application definition exactly kind:"APPLICATION",identity,contractVersion,name,summary,description,source,demandReferences,discoveryReferences,componentMappings,dependencies,grounding,traceability; source/origin/Presence/qualified IDs/reference roles encoded with existing projection helpers. Mapping exactly target:{kind:"COMPONENT",identity,contractVersion},boundary,source,origin. Dependency same record but target.kind APPLICATION. Full original definitions/relationships and independent revisions retained. App demand/discovery edges point as originally authored; R4 prohibits inventing inverse UseCase->requiredApplication edges. No UseCase demand projection emitted. Upstream absence remains UnavailableUpstreamProjection for CBD, never Present(empty), NoProvider or inferred UseCase quality. This v1 artifact is a genuine downstream product input, no evidence package or executable procedure.
+`CmlCapabilityComponentUsageProjection.encode(generated, sources, producer, output)`
+consumes the original Generated/Validated, ordered selected source headers, actual
+producer and explicit PackageOutput. It emits the exact closed envelope:
+
+```text
+{schemaVersion:1, generatedAbiVersion:"cozy.component-usage-capability.v1",
+ producer:{id,version}, component:{namespace,id,version},
+ package:{coordinate,version},
+ documents:[{source:<full original header>, componentUsageCapabilities:[<selected records>]}]}
+```
+
+Only contributing documents appear, in original request source order. Each record
+is explicitly selected by its exact versioned reference and owned by that package
+Component; another owner's records are not copied. All source headers and full
+selected definition/source/origin/Presence/edge fields remain exact and ordered.
+Each definition has `kind:"COMPONENT_USAGE"`, canonical `component:{namespace,id}`,
+identity, contractVersion, name, summary, description, source, demandReferences,
+discoveryReferences, componentMappings, dependencies, grounding and traceability.
+Mapping target is `{kind:"COMPONENT",identity,contractVersion}`; dependency target
+is `{kind:"COMPONENT_USAGE",identity,contractVersion}`; both retain boundary, source
+and origin. External references remain external across owners. No inverse UseCase
+demand projection is inferred. Empty acquired envelopes differ from optional
+family absence, although production omits the family for an empty selection.
+
+The fixed Usage index is exactly `{schemaVersion:1,projections:["usage.json"]}`
+at `meta/component-usage-capability/index.json`; the resource is the sibling
+`usage.json`. It is bounded by the existing UTF8/index/resource limits and joins
+the existing Component metadata family in the same selected Directory.
 
 #### One bounded full publication batch
 
-CmlCapabilityPackagePublication.prepare combines each selected canonical Component descriptor/index/resources, Application artifact and original CmlCapabilityGenerationScala.render artifacts in one immutable private accepted batch. Preflight every path and full existing metadata inventory before any write: regular root/ancestors/leaf, no symlink, no output escaping target/, no traversal/case alias selection, no nonregular or different-content target, no unlisted/nested metadata JSON. Unrelated nonJSON assets stay untouched. Existing identical regular files are idempotent; reject conflict rather than overwrite/delete/clean. Write new files by own same-directory temporary file and atomic move where supported, clean own temp, preserve exact already-written paths on IO failure. No whole-filesystem transaction/rollback or multiwriter interference contract. Filesystem content comparisons implement idempotence/collision behavior only, not management immutability seals; add no hashes, copied source/index proof or retained byte equality ledger.
+CmlCapabilityPackagePublication.prepare combines each selected canonical Component descriptor/index/resources, optional fixed Usage index/resource and original CmlCapabilityGenerationScala.render artifacts in one immutable private accepted batch. Preflight every path and full existing metadata inventory before any write: regular root/ancestors/leaf, no symlink, no output escaping target/, no traversal/case alias selection, no nonregular or different-content target, no unlisted/nested metadata JSON. Unrelated nonJSON assets stay untouched. Existing identical regular files are idempotent; reject conflict rather than overwrite/delete/clean. Write new files by own same-directory temporary file and atomic move where supported, clean own temp, preserve exact already-written paths on IO failure. No whole-filesystem transaction/rollback or multiwriter interference contract. Filesystem content comparisons implement idempotence/collision behavior only, not management immutability seals; add no hashes, copied source/index proof or retained byte equality ledger.
 
 Root `component-descriptor.json` MUST be the sole canonical descriptor slot.
 Reject all root `descriptor.{json,yaml,yml,conf,hocon,xml}`, root
@@ -374,17 +493,29 @@ same sorted collision checks and repeated publish preflight as every sibling.
 
 #### Normal generator ordering and existing provenance
 
-Within the existing component-identity context, prepare the complete Capability candidate from the selected SourceInput before the interpreter or ordinary Modeler generation can mutate outputs. With valid prepared opt-in, execute the ordinary normalized source arguments, write ordinary model metadata from the original positional source, write the component API descriptor, publish prepared Capability files and selected Scala carriers, then write current generation provenance so those real Scala paths participate. Request, semantic, selection and reserved normal provenance/Modeler metadata failures precede ordinary writes. Actual later ordinary generation/IO failures preserve honest existing failure semantics without rollback promises. Current V1/V2 metadata validates exact known inputs, literal source identities and selected Scala path inventory; readable content changes remain admissible. No digest options, retained source bytes, output preparation protection, copied provenance or source-replacement facade is used. Metadata JSON remains outside the Scala-artifact vocabulary. The selected primary source owns normal V1 metadata; separate typed multi-source publication invents no aggregate authority. If the original positional Capability-only CML produces no ordinary entities, it still uses the ordinary transformer and actual Capability output without a fake DomainComponent fixture.
+Within the existing component-identity context, prepare the complete Capability candidate from the selected SourceInput before the interpreter or ordinary Modeler generation can mutate outputs. With valid prepared opt-in, execute the ordinary normalized source arguments and check the actual returned STree before uri_save, then write ordinary model metadata from the original positional source, write the component API descriptor, publish prepared Capability files and selected Scala carriers, then write current generation provenance so those real Scala paths participate. Request, semantic, selection, reserved normal provenance/Modeler metadata and actual normal-tree collision failures precede ordinary writes. The invocation-local check raises the existing typed diagnostic before returning a conflicting tree and retains its original issues; if the interpreter converts that error, raise the same diagnostic immediately after execute and before later model metadata, publication or provenance writers. Successful generation returns the same tree without a second generation or output copy. Actual later ordinary generation/IO failures preserve honest existing failure semantics without rollback promises. Current V1/V2 metadata validates exact known inputs, literal source identities and selected Scala path inventory; readable content changes remain admissible. No digest options, retained source bytes, output preparation protection, copied provenance or source-replacement facade is used. Metadata JSON remains outside the Scala-artifact vocabulary. A metadata-only Capability selection does not imply that the ordinary transformer emits no Scala: actual normal Scala artifacts require standard provenance describing their complete observed inventory, while actual no-Scala output emits no Scala-generation provenance. The selected primary source owns normal V1 metadata; separate typed multi-source publication invents no aggregate authority. If the original positional Capability-only CML produces no ordinary entities, it still uses the ordinary transformer and actual Capability output without a fake DomainComponent fixture.
 
 #### Explicit normal CAR hook and strict selected archive inventory
 
-Extend normal package-car with all-or-none --capability-dir, --capability-package-coordinate and --capability-package-version, each one literal value with duplicate/missing-value rejection. No flags keep old behavior. New CozyCapabilityArchivePart selects only canonical index and its bounded regular sibling files under that explicit dir, using strict duplicate-key index/inventory/UTF8/kind/symlink/limits and the same 256/1MiB/16MiB/64MiB contracts. Reject unexpected/nested/unlisted metadata JSON, unsafe filenames and duplicate archive names. Compare each projection envelope exact R11 root keys/schema1/ABI cncf.component-capability.v1 and canonical Component release to actual existing CozyComponentReleaseCoordinateCodec coordinate; package coordinate/version exactly the independent explicit new args. Producer is cozy with valid literal version, not inferred as executing builder version; body bytes are copied unchanged and actual full R11/R12 native semantic admission remains CNCF. Do not implement a second Capability semantic parser. Before _write_archive creates destination ZIP, detect any canonical-prefix JSON/name collision with existing _car_entries and all other composed entries, even identical content; fail rather than discard/userasset winner. Include selected original files under their canonical archive paths alongside unchanged descriptor/ABI/provenance/runtime resources, without broad directory copy or scanning other packages.
+Extend normal package-car with all-or-none --capability-dir, --capability-package-coordinate and --capability-package-version, each one literal value with duplicate/missing-value rejection. No flags keep old behavior. CozyCapabilityArchivePart selects the existing Component family and, when present, the fixed Usage index/usage.json from that same selected Directory, using strict duplicate-key index/inventory/UTF8/kind/symlink/limits and the same 256/1MiB/16MiB/64MiB contracts. Reject unexpected/nested/unlisted metadata JSON, unsafe filenames and duplicate archive names. Compare each projection envelope exact R11 root keys/schema1/ABI cncf.component-capability.v1 and canonical Component release to actual existing CozyComponentReleaseCoordinateCodec coordinate; package coordinate/version exactly the independent explicit new args. Producer is cozy with valid literal version, not inferred as executing builder version; body bytes are copied unchanged and actual full R11/R12 native semantic admission remains CNCF. The Usage envelope has exactly schemaVersion/generatedAbiVersion/producer/component/package/documents, schema 1 and ABI cozy.component-usage-capability.v1; its selected Component release and independent package agree through the same coordinate codec. Do not parse Usage record semantics in the packager. Before _write_archive creates destination ZIP, detect any canonical-prefix JSON/name collision with existing _car_entries and all other composed entries, even identical content; fail rather than discard/userasset winner. Include selected original files under their canonical archive paths alongside unchanged descriptor/ABI/provenance/runtime resources, without broad directory copy or scanning other packages.
 
 #### Executable behavior and genuine local product inputs
 
-Author exactly C64I01-16/C64B01-12/C64A01-08 in four owned semantic AnyWordSpec suites with actual adjacent Given/When/Then and should matchers, all spec:R13 normative bindings. New normative R13 is Cozy normal production/publication/Application handoff only; preserve all original R1-R12 and existing accepted grammar/core/provenance/wire rules. New cases actually invoke prepare/publish, actual Cozy.main normal Modeler/package-car and read real output/CAR entries; no source-shape/doc/status/header-only tests. Reuse two unchanged real CML fixture files by copying intentional fixture content into test-private canonical model/... source paths and use original explicit finite facts/contexts independently supplied. Do not import private helpers from unowned test companions or extend unowned tests. Test requests use actual BuildInfo.version dynamically, not hard-coded tracked producer version. Tests clean only their own temporary roots; never write canonical repositories/fixtures, invoke remote/warehouse publication, reflectively execute targets or start SBT from a test. Three active ScalaCheck properties min100 successful and zero discarded with checked passed/succeeded/discarded results.
+Author C64I01-19/C64B01-15/C64A01-08 in four owned semantic AnyWordSpec suites with actual adjacent Given/When/Then and should matchers, all spec:R13 normative bindings. New normative R13 is Cozy normal production/publication/Component Usage handoff only; preserve all original R1-R12 and existing accepted grammar/core/provenance/wire rules. New cases actually invoke prepare/publish, actual Cozy.main normal Modeler/package-car and read real output/CAR entries; no source-shape/doc/status/header-only tests. Reuse two explicitly owned real CML fixture files by copying intentional fixture content into test-private canonical model/... source paths and use original explicit finite facts/contexts independently supplied. Do not import private helpers from unowned test companions or extend unowned tests. Test requests use actual BuildInfo.version dynamically, not hard-coded tracked producer version. Tests clean only their own temporary roots; never write canonical repositories/fixtures, invoke remote/warehouse publication, reflectively execute targets or start SBT from a test. Three active ScalaCheck properties min100 successful and zero discarded with checked passed/succeeded/discarded results.
 
-#### Closed request record
+#### CAP-64-PKG01 additional authored behaviors
+
+The existing suites now author C64P26 (mandatory canonical Usage owner),
+C64I17 (both normal commands with Usage-only Component packages), C64I18 (actual
+unknown/repeated/wrong-owner selection diagnostics before normal writes), C64I19
+(optional Usage absence), C64B13 (normal CAR optional absence), C64B14 (normal
+Usage-only CAR), and C64B15 (selected Usage package disagreement). C64A01 now
+partitions a real multi-owner source; C64A02 retains ordered contributing headers
+across two explicitly authored sources for one owner. Existing active properties
+retain their success and zero-discard requirements. This editing pass claims no
+executed validation, independent review or cross-repository U11 proof.
+
+#### Historical revision-1 request record (superseded for new production)
 
 The JSON root is exactly the following record. The type names denote the full
 closed records specified above and the existing R3 reference domains.
@@ -413,7 +544,7 @@ owned semantic suite. Authored cases are pending parent validation and review.
 
 | Case | Observable contract | Executable specification |
 | --- | --- | --- |
-| C64I01 | Actual normal modeler-scala reads primary original CML and produces canonical Component bundles, full Application JSON and real selected Scala artifacts before original provenance writes. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I01 | Actual normal modeler-scala reads primary original CML and produces canonical Component bundles, fixed per-package Usage JSON and real selected Scala artifacts before original provenance writes. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I02 | Actual normal modeler-scala-value uses the same opt-in route with exact independent header/definition/edge revisions retained. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I03 | No flags preserves ordinary generation; partial/duplicate/new malformed option rejects before output; Library rejects opt-in without mutation. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I04 | Strict request rejects duplicate/unknown/missing JSON fields, trailing tokens, Boolean/noninteger/unsupported versions and unknown tags without output. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
@@ -426,29 +557,33 @@ owned semantic suite. Authored cases are pending parent validation and review.
 | C64I11 | Typed explicitly Rejected Scope preserves original ordered source-correlated diagnostics exactly; no empty successful result. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I12 | Complete snapshot/package/Scala selection validates unknown/duplicate/missing coverage; every context independent domains match supplied package. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I13 | Preparation touches no output; request/selection failure preserves ordinary existing sentinel outputs before output preparation. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I20 | The same ordinary-Entity-plus-Capability selected input requires an error-free parse and actual ordinary model build with rich Capability JSON opaque to unrelated Workflow/CSM metadata parsing, then actual normal metadata baselines from both real commands before four package-equality/Scala-descent collisions against initially absent composite metadata, retaining exact field/path diagnostics and only the unchanged original Scala sentinel. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I14 | Typed multi-source actual parser acquisition preserves original document order and source selection without inventing multi-source V1 provenance. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I15 | Repeated independent normal invocations do not leak scope/request through global Modeler state; actual original provenance contains the produced Scala artifacts. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64I16 | Active property varies literal independent valid source/identity/revision/producer-context fields and proves request decoding preserves their values without aliases. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
+| C64I17 | Both real normal commands retain genuine Usage-only Component products with empty Capability Scala/context selections; parsed standard provenance exactly matches the independently observed sorted ordinary Scala inventory and source identity when nonempty, and is absent when that inventory is empty. | [CozyCapabilityProductionSpec](../../src/test/scala/cozy/CozyCapabilityProductionSpec.scala) |
 | C64B01 | Canonical selected package index order/resource contents exactly match Generated projections and original inner order. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
 | C64B02 | Separate Component releases and independent packages remain separate selected bundles; no filename-derived grouping. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
 | C64B03 | Unknown/repeated/missing snapshot/resource keys, duplicate/reserved/unsafe filenames, count overflow and overlapping output paths reject whole batch. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
 | C64B04 | Unlisted/nested JSON and symlink/nonregular existing metadata reject; unrelated nonJSON remains untouched. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
-| C64B05 | Root/ancestor traversal or symlink and cross-bundle/Application/Scala path conflicts fail full preflight before any write. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B05 | Root/ancestor traversal or symlink and cross-bundle/Scala path conflicts fail full preflight before any write. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
 | C64B06 | Repeat publication is idempotent for identical regular output; different existing sentinel bytes are never overwritten or removed. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
 | C64B07 | Typed deterministic IO failure reports actual previously written paths and preserves already written files without claiming rollback. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
 | C64B08 | Active property permutes package traversal selections while preserving each explicit index order and proves identical semantic selected image mapping. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B09 (publication) | Actual arbitrary normal-tree leaf paths reject package equality and case-aliased Scala descent with exact field/path diagnostics and no output writes. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
+| C64B11 (publication) | Non-overlapping target/cozy siblings and EmptyData leaves remain allowed; conditional descriptor overlaps from generated or already regular model files reject without changing existing bytes or inventory. | [CmlCapabilityPackagePublicationSpec](../../src/test/scala/cozy/modeler/CmlCapabilityPackagePublicationSpec.scala) |
 | C64B09 | Actual normal package-car includes exactly produced canonical index/resources with unchanged bytes and original canonical descriptor/ABI/resources. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
 | C64B10 | Actual package-car existing source-CAR canonical-prefix/index/resource collision rejects including equal content before destination ZIP creation. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
 | C64B11 | Actual package-car Component release/independent package version or coordinate/schema/ABI mismatches and malformed selected inventory fail. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
 | C64B12 | All three CAR flags required together with duplicate rejection; absent flags preserve existing normal package behavior and omit added resources. | [CozyCapabilityArchiveSpec](../../src/test/scala/cozy/archive/CozyCapabilityArchiveSpec.scala) |
-| C64A01 | Whole original ordered Validated Application definitions and all document source headers survive portable export alongside independent Component metadata. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
-| C64A02 | Literal model/vocabulary/source identities, revisions, optional positive/null line and actual producer are preserved separately. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
-| C64A03 | Authored Application demand/discovery edges and ordering survive; no reverse UseCase-requiredApplication edge is synthesized. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
-| C64A04 | Every mapping and dependency has the exact versioned COMPONENT/APPLICATION target, boundary, source and origin. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
-| C64A05 | Present(empty), all four Absent reasons/details and explicit nulls remain distinguishable, without omission/inference. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
-| C64A06 | MODEL/TERM grounding, independent relation/profile/preferred label and ordered derived/trace evidence sources survive. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
-| C64A07 | App-only and genuinely empty documents retain exact per-document selection; missing/repeated source-header coverage cannot be fabricated. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
-| C64A08 | Active property varies independent Unicode literal identities/revisions/Presence and proves semantic exported JSON values equal original IR without inferred aliases. | [CmlCapabilityApplicationProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityApplicationProjectionSpec.scala) |
+| C64A01 | Per-package selected owner records retain original contributing document order and exact source headers beside independent Component metadata. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
+| C64A02 | Literal model/vocabulary/source identities, revisions, optional positive/null line and actual producer are preserved separately. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
+| C64A03 | Authored Usage demand/discovery edges and ordering survive; no reverse UseCase-requiredUsage edge is synthesized. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
+| C64A04 | Every mapping and dependency has the exact versioned COMPONENT/COMPONENT_USAGE target, boundary, source and origin. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
+| C64A05 | Present(empty), all four Absent reasons/details and explicit nulls remain distinguishable, without omission/inference. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
+| C64A06 | MODEL/TERM grounding, independent relation/profile/preferred label and ordered derived/trace evidence sources survive. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
+| C64A07 | Usage-only Component packages need no Component context; only contributing documents export and missing/repeated/reordered headers fail. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
+| C64A08 | Active property varies independent Unicode literal identities/revisions/Presence and proves semantic exported JSON values equal original IR without inferred aliases. | [CmlCapabilityComponentUsageProjectionSpec](../../src/test/scala/cozy/modeler/CmlCapabilityComponentUsageProjectionSpec.scala) |
 
 Historical S03 authoring note as of 2026-10-14: the following parent-acceptance
 statement is superseded only for current CAP-64-05 Step acceptance recorded in
@@ -461,7 +596,7 @@ parent validation and cross-repository acceptance remain separate.
 
 | Case | Observable authored Directory behavior |
 | --- | --- |
-| C64D01 | Real normal Cozy.main produces Store/Archive schema-3 literal releases and original index/projection/Scala/full Application products. |
+| C64D01 | Real normal Cozy.main produces Store/Archive schema-3 literal releases and original Component index/projection/Scala and per-owner Usage products. |
 | C64D02 | Typed real two-source publication preserves Store/Archive/Remote independent Component releases and opaque package domains. |
 | C64D03 | Two original sources sharing one release/package publish one descriptor and complete resources in explicit second.json, first.json index order. |
 | C64D04 | Different selected descriptor sentinel yields typed OutputConflict before sibling writes and remains unchanged. |
@@ -488,7 +623,7 @@ All carriers are immutable Scala 2.12 implementation types under
 `private[cozy]` objects in `cozy.modeler`. They add no public facade or dependency.
 `CmlCapabilityModel` supplies the exact R3 definition, reference, declaration,
 mapping, dependency, grounding, realization, compatibility and traceability
-records. `ApplicationCapability.kind` is `ApplicationKind` and
+records. `ComponentUsageCapability.kind` is `ComponentUsageKind` and
 `ComponentCapability.kind` is `ComponentKind`; distinct versioned reference
 classes retain the corresponding fixed family. These tags are assigned by the
 definition container, never by a missing-field default.
@@ -502,7 +637,7 @@ existing Java `org.goldenport.cncf.component.identity.ComponentId`.
 
 | Private closed family | Scala alternatives / exact authored tags |
 | --- | --- |
-| CapabilityKind | `ApplicationKind` / APPLICATION; `ComponentKind` / COMPONENT |
+| CapabilityKind | `ComponentUsageKind` / COMPONENT_USAGE; `ComponentKind` / COMPONENT |
 | Direction | `Provided` / PROVIDED; `Required` / REQUIRED |
 | TargetKind | `Operation` / OPERATION; `Workflow` / WORKFLOW; `StateMachine` / STATE_MACHINE |
 | ModelRole | `Goal`, `UseCase`, `Scenario`, `UseCaseSlice`, `Component`, `Specification`, `Evidence` / GOAL, USE_CASE, SCENARIO, USE_CASE_SLICE, COMPONENT, SPECIFICATION, EVIDENCE |
@@ -561,7 +696,7 @@ are visited only through their original parent.
 # CAPABILITY-MODEL
 compatibility = JSON-Presence-of-Compatibility-array
 
-## APPLICATION-CAPABILITY
+## COMPONENT-USAGE-CAPABILITY
 ### arbitrary entry label
 mandatory field = one JSON value
 
@@ -586,7 +721,7 @@ child sections under records fail with contextual issues.
 | Section role | Exact mandatory body keys |
 | --- | --- |
 | Root | `compatibility` |
-| Application entry | `identity`, `contractVersion`, `name`, `summary`, `description`, `source`, `demandReferences`, `discoveryReferences`, `componentMappings`, `dependencies`, `grounding`, `traceability` |
+| Component Usage entry | `component`, `identity`, `contractVersion`, `name`, `summary`, `description`, `source`, `demandReferences`, `discoveryReferences`, `componentMappings`, `dependencies`, `grounding`, `traceability` |
 | Component entry | `identity`, `contractVersion`, `name`, `summary`, `description`, `source`, `discoveryReferences`, `grounding`, `traceability` |
 | Declaration entry | `component`, `direction`, `capability`, `source`, `realizations`, `traceability` |
 
@@ -624,7 +759,7 @@ Only Source.line and LocalizedLabel.language allow explicit null.
 | SemanticTarget / Model | `kind: MODEL`, `identity: ModelElementId` |
 | SemanticTarget / Term | `kind: TERM`, `identity: TermId` |
 | LocalizedLabel | `text: text`, `language: null or text` |
-| VersionedApplicationCapabilityReference | `kind: APPLICATION`, `identity: ModelElementId`, `contractVersion: opaque text` |
+| VersionedComponentUsageCapabilityReference | `kind: COMPONENT_USAGE`, `identity: ModelElementId`, `contractVersion: opaque text` |
 | VersionedComponentCapabilityReference / CapabilityReference | `kind: COMPONENT`, `identity: ModelElementId`, `contractVersion: opaque text` |
 | DeclarationKey | `component: ComponentRef`, `direction: PROVIDED \| REQUIRED`, `capability: VersionedComponentCapabilityReference` |
 | Declaration | `component: ComponentRef`, `direction: PROVIDED \| REQUIRED`, `capability: VersionedComponentCapabilityReference`, `source: Source`, `realizations: Presence[array[Realization]]`, `traceability: Presence[array[Traceability]]` |
@@ -633,8 +768,8 @@ Only Source.line and LocalizedLabel.language allow explicit null.
 | ModelLink | `role: GOAL \| USE_CASE \| SCENARIO \| USE_CASE_SLICE \| COMPONENT \| SPECIFICATION \| EVIDENCE`, `target: ModelReference`, `source: Source`, `origin: Origin` |
 | Traceability | `role: SPECIFICATION \| EVIDENCE`, `target: ModelReference`, `source: Source`, `origin: Origin` |
 | Grounding | `target: SemanticTarget`, `boundary: LOCAL \| EXTERNAL`, `relation: Presence[RelationId]`, `profile: Presence[ProfileId]`, `context: Presence[text]`, `preferredLabel: Presence[LocalizedLabel]`, `source: Source`, `origin: Origin` |
-| ApplicationComponentMapping | `target: VersionedComponentCapabilityReference`, `boundary: LOCAL \| EXTERNAL`, `source: Source`, `origin: Origin` |
-| ApplicationDependency | `target: VersionedApplicationCapabilityReference`, `boundary: LOCAL \| EXTERNAL`, `source: Source`, `origin: Origin` |
+| ComponentUsageCapabilityMapping | `target: VersionedComponentCapabilityReference`, `boundary: LOCAL \| EXTERNAL`, `source: Source`, `origin: Origin` |
+| ComponentUsageCapabilityDependency | `target: VersionedComponentUsageCapabilityReference`, `boundary: LOCAL \| EXTERNAL`, `source: Source`, `origin: Origin` |
 
 Demand ModelLinks permit only GOAL, USE_CASE, SCENARIO and USE_CASE_SLICE.
 Discovery permits all seven ModelLink roles. Traceability has only its two
@@ -678,7 +813,7 @@ The two real CML parser inputs are
 [secondary](../../src/test/resources/modeler/capability-model-secondary.cml).
 They are authored inputs, not generated projections or producer/consumer proof.
 [CmlCapabilityCmlSpec](../../src/test/scala/cozy/modeler/CmlCapabilityCmlSpec.scala)
-authors C64P01–23;
+authors C64P01–23 and explicit-owner C64P26;
 [CmlCapabilityModelSpec](../../src/test/scala/cozy/modeler/CmlCapabilityModelSpec.scala)
 authors C64P24–25 and immutable-carrier behavior. All cases use semantic
 should/which/in grouping and actual Given/When/Then boundaries. Active
@@ -690,7 +825,7 @@ does not certify semantic validation, generation or producer/consumer behavior.
 | Cases | Observable normalization obligation |
 | --- | --- |
 | C64P01 | Actual load and complete independent typed R3 equality. |
-| C64P02–03 | Independent Application emptiness and four explicit many-to-many demand edges. |
+| C64P02–03 | Independent Usage emptiness and four explicit many-to-many demand edges. |
 | C64P04–05 | Canonical providers/directions and three complete realization kinds. |
 | C64P06–08 | Explicit boundaries, all Presence branches and ordered independent Derived evidence. |
 | C64P09–12 | Two real sources, deterministic order, identity independence, literal Foundation vocabulary/labels and optional actual diagnostic lines. |
@@ -698,7 +833,7 @@ does not certify semantic validation, generation or producer/consumer behavior.
 | C64P14–15 | Role-aware containers, arbitrary entry labels and strict physical-field/JSON failures. |
 | C64P16–18 | Invalid lexical/source/Component domains and wrong closed reference/role/Presence/Origin branches. |
 | C64P19–20 | Direct source ownership, foreign derivation evidence, parser failures, malformed scopes and duplicate paths without partial salvage. |
-| C64P21–23 | Parsed unresolved graph facts, independent Application edges and per-document directed compatibility. |
+| C64P21–23 | Parsed unresolved graph facts, independent Usage edges and per-document directed compatibility. |
 | C64P24–25 | Active literal-ID/revision/order determinism and invalid source/identity/path with explicit Presence/Origin variation properties. |
 
 ## Private finite semantic validation
@@ -733,12 +868,12 @@ flatcase; the accepted R3 authored carriers retain their existing field names.
 | Carrier | Complete fields or alternatives |
 | --- | --- |
 | ScopeInput | `Ready(scope: Scope)` or `Rejected(diagnostics: nonempty Vector[Diagnostic])` |
-| Scope | `scopeid: String`, `source: CapabilitySource`, `modelfacts: Vector[ModelFact]`, `termfacts: Vector[TermFact]`, `relationfacts: Vector[RelationFact]`, `profilefacts: Vector[ProfileFact]`, `applicationcontracts: Vector[ApplicationContract]`, `componentcontracts: Vector[ComponentContract]`, `targetcontracts: Vector[TargetContract]` |
+| Scope | `scopeid: String`, `source: CapabilitySource`, `modelfacts: Vector[ModelFact]`, `termfacts: Vector[TermFact]`, `relationfacts: Vector[RelationFact]`, `profilefacts: Vector[ProfileFact]`, `usagecontracts: Vector[ComponentUsageContract]`, `componentcontracts: Vector[ComponentContract]`, `targetcontracts: Vector[TargetContract]` |
 | ModelFact | `identity: Foundation.ModelElementId`, `kind: ModelKind`, `source: CapabilitySource` |
 | TermFact | `identity: Foundation.TermId`, `source: CapabilitySource` |
 | RelationFact | `identity: Foundation.RelationId`, `source: CapabilitySource` |
 | ProfileFact | `identity: Foundation.ProfileId`, `source: CapabilitySource` |
-| ApplicationContract | `identity: Foundation.ModelElementId`, `contractversion: String`, `source: CapabilitySource` |
+| ComponentUsageContract | `identity: Foundation.ModelElementId`, `contractversion: String`, `source: CapabilitySource` |
 | ComponentContract | `identity: Foundation.ModelElementId`, `contractversion: String`, `source: CapabilitySource` |
 | TargetContract | `kind: CmlCapabilityModel.TargetKind`, `identity: Foundation.ModelElementId`, `component: existing Java ComponentId`, `contractversion: String`, `generatedabiversion: String`, `source: CapabilitySource` |
 
@@ -753,7 +888,7 @@ ModelKind is closed, with these exact tags and Scala alternatives:
 | USE_CASE_SLICE | UseCaseSlice |
 | COMPONENT | Component |
 | COMPONENT_CAPABILITY | ComponentCapability |
-| APPLICATION_CAPABILITY | ApplicationCapability |
+| COMPONENT_USAGE_CAPABILITY | ComponentUsageCapability |
 | SPECIFICATION | Specification |
 | EVIDENCE | Evidence |
 | OPERATION | Operation |
@@ -787,7 +922,7 @@ Repeated original document paths MUST fail.
 The combined documents form one current declaring snapshot per model authority.
 Every repeated qualified Capability identity MUST fail as DuplicateDefinition,
 including equal records, differing versions/labels, cross-file repeats and reuse
-across Application/Component families. The identity has one fixed family.
+across Usage/Component families. The identity has one fixed family.
 Historical catalog contracts MAY retain distinct versions of one fixed family.
 Exact repeated catalog identity/version candidates, or a current definition plus
 the same exact catalog identity/version, are Ambiguous. Opposite catalog/current
@@ -807,7 +942,7 @@ No first/last, provider, label, URI, synonym or descriptive-kind winner is selec
 | Local Model/Term grounding | Resolve exactly one candidate in its own domain. Model grounding retains the explicitly admitted model kind without ontology inference. |
 | Local present Relation/Profile | Resolve uniquely in the corresponding exact vocabulary domain. |
 | External model/grounding/traceability | Preserve External without Local resolution or target-availability certification, even with matching or conflicting local facts. |
-| Local Component mapping / Application dependency | Resolve one exact family/identity/version candidate. Missing identity is DanglingReference, opposite family WrongKind, absent exact version Incompatible and multiple exact candidates Ambiguous. |
+| Local Component mapping / Usage dependency | Resolve one exact family/identity/version candidate. Missing identity is DanglingReference, opposite family WrongKind, absent exact version Incompatible and multiple exact candidates Ambiguous. |
 | External mapping/dependency | Retain explicit unresolved boundary; no catalog or global cycle certificate. |
 | Component declaration | Require one exact Component Capability identity/version in current definitions or the supplied historical catalog. Compatibility cannot replace that candidate. |
 | Declaration uniqueness | Reject repeated full `(ComponentId, direction, qualified Capability identity, contractVersion)` as DuplicateDeclaration; retain distinct providers, directions and empty realization lists. |
@@ -822,7 +957,7 @@ policy is part of validation.
 
 ### Dependency graph and directed compatibility
 
-Only supplied Local ApplicationDependency edges enter cycle checks. A self-loop
+Only supplied Local ComponentUsageCapabilityDependency edges enter cycle checks. A self-loop
 or directed cycle across original files MUST issue CyclicDependency for every
 participating authored edge, preserving edge order and source. External edges
 remain excluded even when their target is current. Missing or version-invalid
@@ -884,7 +1019,7 @@ and independent protected CAP-64-03 Step acceptance are recorded in
 | Case | Observable authored behavior |
 | --- | --- |
 | C64V01 | Both unchanged real resources normalize and validate; original documents/scope/order, revisions and three realization pairs survive. |
-| C64V02 | Four Local Use Case demand links, Scenario discovery, standalone Application, equal labels and three provider/direction keys stay independent. |
+| C64V02 | Four Local Use Case demand links, Scenario discovery, standalone Usage, equal labels and three provider/direction keys stay independent. |
 | C64V03 | Real CML gaps, Local/External Domain and Term grounding, Relation/Profile/labels and ordered foreign Derived evidence remain exact. |
 | C64V04 | Each forbidden procedure/order/retry/compensation/authorization/runtimeState field yields contextual SyntaxIssue before semantic validation. |
 | C64V05 | Original parser errors and unavailable/unauthorized/stale/unsupported Rejected scope cannot become successful empty input. |
@@ -936,7 +1071,7 @@ CmlCapabilityGeneration.project(validated: CmlCapabilityValidation.Validated,
 
 `project` MUST accept only the original successful `Validated`; there is no raw
 IR overload or new validation certificate. The sole successful `Generated`
-constructor retains that original result, its Application records, scope and
+constructor retains that original result, its Usage records, scope and
 ordered bindings, plus immutable Component projections. `SyntaxFailure`,
 `SemanticFailure` and `GenerationFailure` MUST preserve their original ordered
 syntax, semantic/acquisition and generation vectors. Failure supplies no partial
@@ -976,7 +1111,7 @@ MUST remain unchanged, with no deduplication or winner. Each successful snapshot
 contains its selected document's Component definitions, declarations for its exact
 Component and compatibility Presence. Several Components selected for a document
 each receive its definitions without asserting that they provide all of them.
-Catalog definitions, synthetic edges and Application data MUST NOT enter the wire.
+Catalog definitions, synthetic edges and Usage data MUST NOT enter the wire.
 Snapshots MUST sort by exact path, authority, Component namespace and local ID.
 Authored definitions, declarations, edges, derivation inputs and compatibility
 vectors MUST retain their original order, sources and Presence; document states
@@ -996,7 +1131,7 @@ reference, label, discovery, grounding, trace, declaration, repeated realization
 key, realization and compatibility records MUST use the same complete accepted
 R11 keys and order. Null line/language, all absence reasons/detail, declared and
 ordered derived inputs, MODEL/TERM targets and separate vocabulary domains MUST
-remain exact. No alias, inferred relationship, omitted key or Application branch
+remain exact. No alias, inferred relationship, omitted key or Usage branch
 is allowed. `Projection` exposes its typed context, original selected records,
 `JsObject` and compact `Json.stringify` representation without reparsing CML.
 
@@ -1087,7 +1222,7 @@ protected Step review and independent focused closure, recorded in
 | C64G12 | Malformed context text/source/line/canonical Component/release and package fields. |
 | C64G13 | Unknown scope/path and duplicate snapshot keys with changed revisions/releases. |
 | C64G14 | Complete declaration/document coverage, explicit definitions-only selection and app-only rejection. |
-| C64G15 | Original Application records retained upstream; valid zero external projections. |
+| C64G15 | Original Usage records retained upstream; valid zero external projections. |
 | C64G16 | Original parser, target validation and acquisition vectors retained by failure wrappers. |
 | C64G17 | Authored inner definition/trace/Derived/compatibility order under canonical outer order. |
 | C64G18 | Same authority with separate paths and separate compatibility states. |
@@ -1114,15 +1249,15 @@ and separate acceptance records establish behavior under the R12 owners.
 
 | ID | Case | Expected semantic outcome | Rules |
 | --- | --- | --- | --- |
-| E1 | Standalone Application Capability has no Use Case links. | Retain the stable application record and exact present-empty or explicit absence. | R1, R2, R4, R9 |
+| E1 | Standalone Component Usage Capability has no Use Case links. | Retain the stable Usage record and exact present-empty or explicit absence. | R1, R2, R4, R9 |
 | E2 | Two Use Cases require two Capabilities with shared endpoints. | Preserve all four explicit many-to-many edges and their sources; infer no grouping or inverse edges. | R4, R7 |
-| E3 | Component Capability is discovered from a Scenario, and an Application Capability maps to it. | Keep discovery, Application mapping, and Component provided/required declaration separate. | R4, R5, R6 |
+| E3 | Component Capability is discovered from a Scenario, and a Component Usage Capability maps to it. | Keep discovery, Usage mapping, and Component provided/required declaration separate. | R4, R5, R6 |
 | E4 | Two Components provide one reference; one also requires it. | Retain three distinct full declaration keys; reject a repeated complete key. | R2, R5, R10 |
 | E5 | Equal labels occur on exact IDs, or contract versions/source revisions change. | Do not merge or issue IDs; preserve distinct contract-version, source-revision, ABI, and package domains. | R2, R7, R11 |
 | E6 | Goal narrative or local declaredId has no qualified model target. | Retain an explicit gap or reject a malformed declared reference; derive no identity from text. | R4, R9, R10 |
 | E7 | Local/External Term and Domain grounding include declared/derived edges. | Preserve exact target, relation, profile, source, and evidence; infer no ontology or synonyms. | R7, R8, R9 |
 | E8 | Realization is explicitly empty, or a declared target is unknown, wrong-kind, or incompatible. | Retain the empty architectural fact; reject failed declared binding with source-correlated diagnostics. | R6, R9, R10 |
 | E9 | Capability source revision is missing while a legacy Foundation sha256 exists. | Do not use the digest as revision or admission authority; retain an explicit missing-source diagnostic. | R7, R12 |
-| E10 | Application dependencies form a cycle, while grounding or ordinary many-to-many links also cycle. | Reject the Local Capability dependency cycle only; preserve unrelated supplied semantic relations. | R4, R8, R10 |
+| E10 | Usage dependencies form a cycle, while grounding or ordinary many-to-many links also cycle. | Reject the Local Capability dependency cycle only; preserve unrelated supplied semantic relations. | R4, R8, R10 |
 | E11 | Component versions differ and a directed compatibility edge is supplied. | Match only the same qualified identity in the supplied required-to-provided direction; infer no transitivity. | R5, R10 |
-| E12 | Application demand and Specification/Evidence references exist, but producer input is unavailable. | Keep upstream management and independent traceability facts; claim neither executed proof nor admitted-empty/NoProvider. | R9, R11, R12 |
+| E12 | Usage demand and Specification/Evidence references exist, but producer input is unavailable. | Keep upstream management and independent traceability facts; claim neither executed proof nor admitted-empty/NoProvider. | R9, R11, R12 |

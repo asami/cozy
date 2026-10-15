@@ -11,17 +11,17 @@ import CmlCapabilityValidationScopePart._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityValidationGraphPart {
   private[modeler] def _cycles(documents: Vector[CapabilityDocument]): Vector[Diagnostic] = {
     val edges = documents.zipWithIndex.flatMap { case (document, index) =>
-      document.model.applicationCapabilities.zipWithIndex.flatMap { case (value, offset) =>
+      document.model.componentUsageCapabilities.zipWithIndex.flatMap { case (value, offset) =>
         _items(value.dependencies).zipWithIndex.collect {
           case (edge, edgeindex) if edge.boundary == Local =>
             (value.identity, edge.target.identity, edge, _document(document.scope, edge.source),
-              s"documents[$index].model.applicationCapabilities[$offset].dependencies.value[$edgeindex]")
+              s"documents[$index].model.componentUsageCapabilities[$offset].dependencies.value[$edgeindex]")
         }
       }
     }
@@ -38,7 +38,7 @@ private[modeler] object CmlCapabilityValidationGraphPart {
       _visit_(List(start), Set.empty)
     }
     edges.collect { case (from, to, _, context, path) if _reachable_(to, from) =>
-      context._issue(CyclicDependency, path, "This authored Local Application dependency participates in a directed cycle.")
+      context._issue(CyclicDependency, path, "This authored Local Usage dependency participates in a directed cycle.")
     }
   }
 

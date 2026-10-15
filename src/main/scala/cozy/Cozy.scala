@@ -35,7 +35,7 @@ import scala.util.control.NonFatal
  *  version Aug.  8, 2026
  *  version Aug. 20, 2026
  *  version Sep. 28, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class Cozy(
@@ -83,10 +83,39 @@ class Cozy(
   private def _create_interpreter(
     predefinedresultcatalog: modeler.PredefinedResultCatalog,
     componentstylecatalog: modeler.ComponentStyleCatalog,
-    generationtarget: modeler.ModelGenerationTarget = modeler.ModelGenerationTarget.Cncf
+    generationtarget: modeler.ModelGenerationTarget = modeler.ModelGenerationTarget.Cncf,
+    normaloutputcheck: Option[org.goldenport.realm.Realm => Unit] = None
   ): Kaleidox = {
+    val generator = normaloutputcheck match {
+      case None => new modeler.Modeler(predefinedresultcatalog, componentstylecatalog, generationtarget)
+      case Some(check) => new modeler.Modeler(predefinedresultcatalog, componentstylecatalog, generationtarget) {
+        override def generateScala(
+          c: org.goldenport.kaleidox.lisp.Context,
+          model: org.goldenport.sexpr.SModel
+        ): org.goldenport.sexpr.SExpr = {
+          val result = super.generateScala(c, model)
+          result match {
+            case tree: org.goldenport.sexpr.STree => check(tree.tree)
+            case _ => ()
+          }
+          result
+        }
+
+        override def generateScalaValue(
+          c: org.goldenport.kaleidox.lisp.Context,
+          model: org.goldenport.sexpr.SModel
+        ): org.goldenport.sexpr.SExpr = {
+          val result = super.generateScalaValue(c, model)
+          result match {
+            case tree: org.goldenport.sexpr.STree => check(tree.tree)
+            case _ => ()
+          }
+          result
+        }
+      }
+    }
     val kconfig = org.goldenport.kaleidox.Config.create(environment).
-      setModeler(new modeler.Modeler(predefinedresultcatalog, componentstylecatalog, generationtarget)).
+      setModeler(generator).
       setPrompt("cozy> ")
     new Kaleidox(kconfig, environment)
   }
@@ -367,8 +396,23 @@ class Cozy(
             modeler.CmlCapabilityProduction.prepare(request, sourceroot, _save_path(normalized).get, sourceinput).fold(
               failure => RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(failure)), identity)
           }
+          var normalissues = Vector.empty[modeler.CmlCapabilityGenerationContext.Issue]
+          val normaloutputcheck = prepared.map { candidate =>
+            val outputroot = _save_path(normalized).get
+            (tree: org.goldenport.realm.Realm) =>
+              modeler.CmlCapabilityPackagePublication.preflightNormalTree(candidate.request, tree, outputroot) match {
+                case Left(issues) =>
+                  normalissues = issues
+                  RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(
+                    modeler.CmlCapabilityProduction.RequestOrAcquisition(issues)))
+                case Right(_) => ()
+              }
+          }
           val repl = (Vector(command) ++ _convert_args(normalized)).mkString(" ")
-          _create_interpreter(catalog, componentstylecatalog, generationtarget).execute(_operation_call(Array(repl)))
+          _create_interpreter(catalog, componentstylecatalog, generationtarget, normaloutputcheck).execute(_operation_call(Array(repl)))
+          if (normalissues.nonEmpty)
+            RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(
+              modeler.CmlCapabilityProduction.RequestOrAcquisition(normalissues)))
           _write_model_metadata(normalized, componentstylecatalog)
           prepared
         }
@@ -378,11 +422,12 @@ class Cozy(
             modeler.CmlCapabilityProduction.publish(_save_path(normalized).get, prepared).fold(
               failure => RAISE.invalidArgumentFault(modeler.CmlCapabilityProduction.diagnostic(failure)), _ => ())
           }
-          _write_generation_provenance(
-            normalized,
-            validateddescriptor,
-            sourceinput
-          )
+          if (capabilityprepared.isEmpty || _has_generated_scala(_save_path(normalized).get))
+            _write_generation_provenance(
+              normalized,
+              validateddescriptor,
+              sourceinput
+            )
         }
         true
       case _ =>
@@ -513,6 +558,20 @@ class Cozy(
         )
       }
     }
+
+  private def _has_generated_scala(outputroot: Path): Boolean = {
+    val target = outputroot.resolve("target")
+    if (!Files.isDirectory(target))
+      false
+    else {
+      val stream = Files.walk(target)
+      try {
+        stream.iterator.asScala.exists(path => Files.isRegularFile(path) && path.getFileName.toString.endsWith(".scala"))
+      } finally {
+        stream.close()
+      }
+    }
+  }
 
   private def _write_generation_provenance(
     args: List[String],
@@ -1242,9 +1301,10 @@ object Cozy {
     "\nCapability production (modeler-scala/modeler-scala-value, CNCF with explicit --save):\n" +
     "  --capability-request <closed-request.json> --capability-source-root <source-root>\n" +
     "  Both options require one literal value and exactly one selected positional CML source.\n" +
+    "  Request schema 2 selects Component resources and per-package usageCapabilities at fixed metadata paths.\n" +
     "Capability CAR input (package-car):\n" +
     "  --capability-dir <bundle> --capability-package-coordinate <coordinate> --capability-package-version <version>\n" +
-    "  All three options select the canonical index and listed projection resources.\n"
+    "  All three options select the Component index/resources and optional fixed Component Usage family.\n"
   private[cozy] val _pdf_help_text: String = cozy.scaffold.CozyHelpText._pdf_text
 
   val cozyServiceClass: CozyRuntime.CozyServiceClass.type = CozyRuntime.CozyServiceClass

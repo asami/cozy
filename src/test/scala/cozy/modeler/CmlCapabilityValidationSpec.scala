@@ -13,7 +13,7 @@ import CmlCapabilityValidationScope.DiagnosticKind._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -23,20 +23,20 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
     "preserve qualified snapshots and independent declaration keys" which {
       "C64V06 reject equal, version-changing, cross-file and cross-family current definitions" in {
         Given("repeated current qualified identities with equal or differing records, including another source file and opposite family")
-        val application = _application("same")
-        val other = application.copy(source = _source("other-revision", path = "model/other.cml"))
+        val usage = _usage("same")
+        val other = usage.copy(source = _source("other-revision", path = "model/other.cml"))
         val cases = Vector(
-          Vector(_document(applications = Vector(application, application))),
-          Vector(_document(applications = Vector(application, application.copy(contractVersion = "v2")))),
-          Vector(_document(applications = Vector(application)), _document(applications = Vector(other), path = "model/other.cml")),
-          Vector(_document(applications = Vector(application), components = Vector(_definition("same")))))
+          Vector(_document(usages = Vector(usage, usage))),
+          Vector(_document(usages = Vector(usage, usage.copy(contractVersion = "v2")))),
+          Vector(_document(usages = Vector(usage)), _document(usages = Vector(other), path = "model/other.cml")),
+          Vector(_document(usages = Vector(usage), components = Vector(_definition("same")))))
         When("each supplied snapshot is validated")
         val results = cases.map(_validate(_))
         Then("every repeat is a DuplicateDefinition without a version or source winner")
         results.foreach { result =>
           val issues = _issues(result)
           issues.exists(_.kind == DuplicateDefinition) shouldBe true
-          issues.find(_.kind == DuplicateDefinition).get.relatedsources shouldBe Vector(application.source)
+          issues.find(_.kind == DuplicateDefinition).get.relatedsources shouldBe Vector(usage.source)
         }
       }
 
@@ -63,8 +63,8 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
           UseCaseSlice -> ModelKind.UseCaseSlice, Component -> ModelKind.Component, Specification -> ModelKind.Specification, Evidence -> ModelKind.Evidence)
         val links = roles.zipWithIndex.map { case ((role, _), index) => _link(role, s"role:$index") }
         val facts = roles.zipWithIndex.map { case ((_, kind), index) => ModelFact(_id(s"role:$index"), kind, _source(s"fact:$index")) }
-        val application = _application().copy(demandReferences = Present(links.take(4)), discoveryReferences = Present(links))
-        val document = _document(applications = Vector(application))
+        val usage = _usage().copy(demandReferences = Present(links.take(4)), discoveryReferences = Present(links))
+        val document = _document(usages = Vector(usage))
         val cases = roles.indices.map { index =>
           val fact = facts(index)
           Vector(_scope.copy(modelfacts = facts.filterNot(_ == fact)),
@@ -74,7 +74,7 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
         When("the exact role matrix and every failing alternative are validated")
         val valid = _validate(Vector(document), _scope.copy(modelfacts = facts))
         val failures = cases.map(_.map(scope => _validate(Vector(document), scope)))
-        val illegal = _validate(Vector(_document(applications = Vector(_application().copy(demandReferences = Present(Vector(_link(Component, "role:4"))))))), _scope.copy(modelfacts = facts))
+        val illegal = _validate(Vector(_document(usages = Vector(_usage().copy(demandReferences = Present(Vector(_link(Component, "role:4"))))))), _scope.copy(modelfacts = facts))
         Then("all legal edges survive while each missing or wrong-kind edge retains its own source and ambiguity never chooses a candidate")
         _admitted(valid).documents shouldBe Vector(document)
         failures.zipWithIndex.foreach { case (results, index) =>
@@ -86,10 +86,10 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
       }
 
       "C64V09 keep Specification and Evidence independent on definitions and declarations" in {
-        Given("separate Local traceability lists on Application, Component and declaration with exact role facts")
+        Given("separate Local traceability lists on Usage, Component and declaration with exact role facts")
         val traces = Vector(_trace(SpecificationTrace, "spec"), _trace(EvidenceTrace, "evidence"))
         val facts = Vector(ModelFact(_id("spec"), ModelKind.Specification, _source("spec-fact")), ModelFact(_id("evidence"), ModelKind.Evidence, _source("evidence-fact")))
-        val document = _document(applications = Vector(_application().copy(traceability = Present(traces))),
+        val document = _document(usages = Vector(_usage().copy(traceability = Present(traces))),
           components = Vector(_definition().copy(traceability = Present(traces))), declarations = Vector(_declaration().copy(traceability = Present(traces))))
         val scopes = Vector(_scope.copy(modelfacts = facts), _scope.copy(modelfacts = facts.take(1)),
           _scope.copy(modelfacts = facts.map(_.copy(kind = ModelKind.Goal))), _scope.copy(modelfacts = facts ++ facts))
@@ -147,17 +147,17 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
       }
 
       "C64V12 require exact family and version for Local mapping and dependency" in {
-        Given("an Application maps to a Component and depends on another Application through two independent source-bearing edges")
-        val mapping = ApplicationComponentMapping(VersionedComponentCapabilityReference(_id("component"), "v1"), Local, _source("mapping"), Declared)
-        val dependency = ApplicationDependency(VersionedApplicationCapabilityReference(_id("remote"), "v1"), Local, _source("dependency"), Declared)
-        val application = _application().copy(componentMappings = Present(Vector(mapping)), dependencies = Present(Vector(dependency)))
-        val document = _document(applications = Vector(application, _application("remote")), components = Vector(_definition()))
+        Given("a Usage maps to a Component and depends on another Usage through two independent source-bearing edges")
+        val mapping = ComponentUsageCapabilityMapping(VersionedComponentCapabilityReference(_id("component"), "v1"), Local, _source("mapping"), Declared)
+        val dependency = ComponentUsageCapabilityDependency(VersionedComponentUsageCapabilityReference(_id("remote"), "v1"), Local, _source("dependency"), Declared)
+        val usage = _usage().copy(componentMappings = Present(Vector(mapping)), dependencies = Present(Vector(dependency)))
+        val document = _document(usages = Vector(usage, _usage("remote")), components = Vector(_definition()))
         val cases = Vector(document.copy(model = document.model.copy(componentCapabilities = Vector.empty)),
-          document.copy(model = document.model.copy(applicationCapabilities = Vector(application))),
+          document.copy(model = document.model.copy(componentUsageCapabilities = Vector(usage))),
           document.copy(model = document.model.copy(componentCapabilities = Vector(_definition().copy(contractVersion = "v2")))),
-          document.copy(model = document.model.copy(applicationCapabilities = Vector(application, _application("remote").copy(contractVersion = "v2")))),
-          _document(applications = Vector(application, _application("component")), components = Vector(_definition("remote"))))
-        val external = _document(applications = Vector(application.copy(componentMappings = Present(Vector(mapping.copy(boundary = External))),
+          document.copy(model = document.model.copy(componentUsageCapabilities = Vector(usage, _usage("remote").copy(contractVersion = "v2")))),
+          _document(usages = Vector(usage, _usage("component")), components = Vector(_definition("remote"))))
+        val external = _document(usages = Vector(usage.copy(componentMappings = Present(Vector(mapping.copy(boundary = External))),
           dependencies = Present(Vector(dependency.copy(boundary = External))))))
         When("exact, missing, version-changing, opposite-family and External references are validated")
         val valid = _validate(Vector(document))
@@ -178,7 +178,7 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
         val document = _document(components = Vector(_definition()), declarations = Vector(declaration), compatibility = Present(Vector(edge)))
         val history = ComponentContract(_id("component"), "v0", _source("historical"))
         val scope = _scope.copy(componentcontracts = Vector(history))
-        val wrongfamily = _scope.copy(applicationcontracts = Vector(ApplicationContract(history.identity, history.contractversion, history.source)))
+        val wrongfamily = _scope.copy(usagecontracts = Vector(ComponentUsageContract(history.identity, history.contractversion, history.source)))
         When("the same declaration is validated with and without the exact historical Component contract")
         val valid = _validate(Vector(document), scope)
         val absent = _validate(Vector(document))
@@ -259,16 +259,16 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
         val reasons = Vector(NotDeclared, NotRepresented, CmlSemanticFoundation.Unsupported, NotApplicable)
         val documents = reasons.map { reason =>
           val gap = Absent(reason, "Explicit semantic gap.")
-          val application = _application().copy(summary = gap, description = gap, demandReferences = gap, discoveryReferences = gap,
+          val usage = _usage().copy(summary = gap, description = gap, demandReferences = gap, discoveryReferences = gap,
             componentMappings = gap, dependencies = gap, grounding = gap, traceability = gap)
           val component = _definition().copy(summary = gap, description = gap, discoveryReferences = gap, grounding = gap, traceability = gap)
-          _document(applications = Vector(application), components = Vector(component), declarations = Vector(_declaration(realizations = gap).copy(traceability = gap)), compatibility = gap)
+          _document(usages = Vector(usage), components = Vector(component), declarations = Vector(_declaration(realizations = gap).copy(traceability = gap)), compatibility = gap)
         }
         val origin = Derived("rule:literal", Vector(_source("foreign-r9", authority = "Foreign:scope", path = "foreign/input.cml", line = Some(7)), _source("own-r3")))
         val labels = Vector(None, Some("en-X-literal")).map(language => _ground(TermTarget(TermId("Unknown:BoK", "same label")), External).copy(
           relation = Absent(NotRepresented, "No relation represented."), profile = Absent(CmlSemanticFoundation.Unsupported, "No profile represented."),
           context = Absent(NotApplicable, "No context applies."), preferredLabel = Present(LocalizedLabel("注文|α", language)), origin = origin))
-        val present = _document(applications = Vector(_application()), components = Vector(_definition().copy(grounding = Present(labels))),
+        val present = _document(usages = Vector(_usage()), components = Vector(_definition().copy(grounding = Present(labels))),
           declarations = Vector(_declaration(realizations = Present(Vector.empty))))
         When("all gap variants and the present-empty model with independent grounding are validated")
         val results = (documents :+ present).map(document => _validate(Vector(document)))
@@ -281,37 +281,37 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
       "C64V18 reject malformed mandatory literals, source paths, lines and empty derivation evidence" in {
         Given("mandatory identity, version, source and nested Presence values are null, empty, padded or contain controls")
         val badtexts = Vector(null, "", " padded", "padded\u00a0", "control\ntext")
-        val applications = badtexts.flatMap(text => Vector(_application().copy(identity = ModelElementId(text, "id")),
-          _application().copy(identity = ModelElementId("Model:scope", text)), _application().copy(contractVersion = text),
-          _application().copy(name = text), _application().copy(summary = Present(text)),
-          _application().copy(description = Absent(NotDeclared, text)), _application().copy(source = _source(text))))
+        val usages = badtexts.flatMap(text => Vector(_usage().copy(identity = ModelElementId(text, "id")),
+          _usage().copy(identity = ModelElementId("Model:scope", text)), _usage().copy(contractVersion = text),
+          _usage().copy(name = text), _usage().copy(summary = Present(text)),
+          _usage().copy(description = Absent(NotDeclared, text)), _usage().copy(source = _source(text))))
         val paths = Vector("/absolute", "C:drive", "http:uri", "a\\b", "", "a//b", "./a", "a/../b", "a\nb")
-        val malformed = applications ++ paths.map(path => _application().copy(source = _source("revision", path = path))) ++
-          Vector(_application().copy(identity = null), _application().copy(source = null), _application().copy(source = _source("rev", line = Some(0))),
-            _application().copy(source = _source("rev", line = Some(-2))), _application().copy(source = _source("rev").copy(line = null)),
-            _application().copy(discoveryReferences = Present(Vector(_link(Goal, "unknown", External).copy(origin = Derived("rule", Vector.empty))))))
+        val malformed = usages ++ paths.map(path => _usage().copy(source = _source("revision", path = path))) ++
+          Vector(_usage().copy(identity = null), _usage().copy(source = null), _usage().copy(source = _source("rev", line = Some(0))),
+            _usage().copy(source = _source("rev", line = Some(-2))), _usage().copy(source = _source("rev").copy(line = null)),
+            _usage().copy(discoveryReferences = Present(Vector(_link(Goal, "unknown", External).copy(origin = Derived("rule", Vector.empty))))))
         When("each malformed typed input is validated without fallback or repair")
-        val results = malformed.map(application => _validate(Vector(_document(applications = Vector(application)))))
+        val results = malformed.map(usage => _validate(Vector(_document(usages = Vector(usage)))))
         Then("every input yields structured Malformed diagnostics with exact supplied source context or explicit absence")
         results.foreach(result => _issues(result).exists(_.kind == Malformed) shouldBe true)
-        _issues(results(applications.size + paths.size + 1)).head.source shouldBe None
+        _issues(results(usages.size + paths.size + 1)).head.source shouldBe None
         _issues(results.last).exists(_.fieldpath.endsWith("origin.inputs")) shouldBe true
       }
 
       "C64V19 enforce direct document and qualified identity source authority without coupling revisions" in {
         Given("definition, declaration and edge sources independently disagree with owning authority or path while Derived evidence can be foreign")
         val link = _link(Goal, "goal", External)
-        val base = _document(applications = Vector(_application().copy(discoveryReferences = Present(Vector(link)))),
+        val base = _document(usages = Vector(_usage().copy(discoveryReferences = Present(Vector(link)))),
           components = Vector(_definition()), declarations = Vector(_declaration()))
         val foreign = _source("foreign-rev", authority = "Foreign:scope", path = "foreign/input.cml")
-        val cases = Vector(_document(applications = Vector(_application().copy(identity = ModelElementId("Foreign:scope", "application")))),
-          _document(applications = Vector(_application().copy(source = foreign))),
+        val cases = Vector(_document(usages = Vector(_usage().copy(identity = ModelElementId("Foreign:scope", "usage")))),
+          _document(usages = Vector(_usage().copy(source = foreign))),
           _document(declarations = Vector(_declaration().copy(source = foreign)), components = Vector(_definition())),
-          _document(applications = Vector(_application().copy(discoveryReferences = Present(Vector(link.copy(source = foreign)))))),
-          _document(applications = Vector(_application().copy(source = _source("revision", path = "other/input.cml")))))
-        val validapplication = _application().copy(discoveryReferences = Present(Vector(
+          _document(usages = Vector(_usage().copy(discoveryReferences = Present(Vector(link.copy(source = foreign)))))),
+          _document(usages = Vector(_usage().copy(source = _source("revision", path = "other/input.cml")))))
+        val validusage = _usage().copy(discoveryReferences = Present(Vector(
           link.copy(origin = Derived("rule", Vector(foreign, _source("own-independent")))))))
-        val valid = base.copy(model = base.model.copy(applicationCapabilities = Vector(validapplication)))
+        val valid = base.copy(model = base.model.copy(componentUsageCapabilities = Vector(validusage)))
         When("direct ownership violations and the independently sourced derivation are validated")
         val failures = cases.map(document => _validate(Vector(document)))
         val accepted = _validate(Vector(valid))
@@ -333,7 +333,7 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
           _scope.copy(termfacts = Vector(term.copy(identity = TermId("BoK", " padded")))),
           _scope.copy(relationfacts = Vector(relation.copy(source = null))), _scope.copy(profilefacts = Vector(profile.copy(source = _source("")))),
           _scope.copy(targetcontracts = Vector(target.copy(source = _source("target", authority = "Wrong:scope")))),
-          _scope.copy(applicationcontracts = Vector(ApplicationContract(_id("app"), "", _source("catalog")))),
+          _scope.copy(usagecontracts = Vector(ComponentUsageContract(_id("app"), "", _source("catalog")))),
           _scope.copy(componentcontracts = Vector(ComponentContract(_id("component"), "v1", null))))
         When("scope facts are checked before any document can consume them")
         val duplicates = duplicate.map(scope => _validate(Vector(_document()), scope))
@@ -355,8 +355,8 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
         val scope = _scope.copy(componentcontracts = Vector(historical, historical.copy(contractversion = "v2", source = _source("historical-r2"))))
         val cases = Vector(scope.copy(componentcontracts = Vector(historical, historical)),
           scope.copy(componentcontracts = Vector(historical.copy(contractversion = "v1"))),
-          scope.copy(applicationcontracts = Vector(ApplicationContract(historical.identity, "other-version", historical.source))),
-          _scope.copy(applicationcontracts = Vector(ApplicationContract(_id("component"), "v0", historical.source))))
+          scope.copy(usagecontracts = Vector(ComponentUsageContract(historical.identity, "other-version", historical.source))),
+          _scope.copy(usagecontracts = Vector(ComponentUsageContract(_id("component"), "v0", historical.source))))
         When("current/catalog exact collisions and opposite families are validated independently of history")
         val valid = _validate(Vector(document), scope)
         val failures = cases.map(_validate(Vector(document), _))
@@ -387,7 +387,7 @@ final class CmlCapabilityValidationSpec extends AnyWordSpec with Matchers with G
         val repeat = first.copy(source = _source("definition-second", line = None))
         val edges = Vector(_link(Goal, "missing-goal").copy(source = _source("edge-one", line = Some(41))),
           _link(UseCase, "missing-usecase").copy(source = _source("edge-two", line = None)))
-        val document = _document(applications = Vector(_application().copy(discoveryReferences = Present(edges)), _application("valid-sibling")),
+        val document = _document(usages = Vector(_usage().copy(discoveryReferences = Present(edges)), _usage("valid-sibling")),
           components = Vector(first, repeat))
         When("the same documents and scope are validated twice")
         val result = _validate(Vector(document))
@@ -435,8 +435,8 @@ private[modeler] object CmlCapabilityValidationSpec {
     ComponentNamespace.parse("org.simplemodeling.textus").value().get(), ComponentLocalId.parse(localid).value().get())
   private[modeler] def _scope: Scope = Scope("explicit-scope", _source("scope-revision"), Vector.empty, Vector.empty,
     Vector.empty, Vector.empty, Vector.empty, Vector.empty, Vector.empty)
-  private[modeler] def _application(element: String = "application", version: String = "v1", path: String = "model/input.cml"): ApplicationCapability =
-    ApplicationCapability(_id(element), version, "Same presentation", Present("Summary"), Absent(NotRepresented, "No description represented."),
+  private[modeler] def _usage(element: String = "usage", version: String = "v1", path: String = "model/input.cml"): ComponentUsageCapability =
+    ComponentUsageCapability(_component("Store"), _id(element), version, "Same presentation", Present("Summary"), Absent(NotRepresented, "No description represented."),
       _source("definition", path = path), Present(Vector.empty), Present(Vector.empty), Present(Vector.empty), Present(Vector.empty), Present(Vector.empty), Present(Vector.empty))
   private[modeler] def _definition(element: String = "component", version: String = "v1"): ComponentCapability =
     ComponentCapability(_id(element), version, "Same presentation", Present("Summary"), Absent(NotDeclared, "No description declared."),
@@ -457,10 +457,10 @@ private[modeler] object CmlCapabilityValidationSpec {
   private[modeler] def _ground(target: CmlSemanticFoundation.SemanticTarget, boundary: ReferenceBoundary = Local): GroundingReference =
     GroundingReference(target, boundary, Absent(NotDeclared, "No relation declared."), Absent(NotApplicable, "No profile applies."),
       Present("Literal context"), Present(LocalizedLabel("Same presentation", None)), _source("grounding"), Declared)
-  private[modeler] def _document(applications: Vector[ApplicationCapability] = Vector.empty,
+  private[modeler] def _document(usages: Vector[ComponentUsageCapability] = Vector.empty,
     components: Vector[ComponentCapability] = Vector.empty, declarations: Vector[ComponentDeclaration] = Vector.empty,
     compatibility: Presence[Vector[CompatibilityEdge]] = Present(Vector.empty), path: String = "model/input.cml"): CapabilityDocument =
-    CapabilityDocument(SourceScope("Model:scope", path), CapabilityModel(applications, components, declarations, compatibility))
+    CapabilityDocument(SourceScope("Model:scope", path), CapabilityModel(usages, components, declarations, compatibility))
   private[modeler] def _items[A](presence: Presence[Vector[A]]): Vector[A] = presence match {
     case Present(values) => values
     case _: Absent => Vector.empty

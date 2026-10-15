@@ -9,7 +9,7 @@ import CmlCapabilityValidationSourcePart._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityValidationShapePart {
@@ -80,7 +80,7 @@ private[modeler] object CmlCapabilityValidationShapePart {
     if (value == null) _required(value, path, context)
     else _model_id(value.identity, s"$path.identity", context) ++ _text(value.contractVersion, s"$path.contractVersion", context)
 
-  private def _application_reference(value: VersionedApplicationCapabilityReference, path: String,
+  private def _usage_reference(value: VersionedComponentUsageCapabilityReference, path: String,
     context: Context): Vector[Diagnostic] =
     if (value == null) _required(value, path, context)
     else _model_id(value.identity, s"$path.identity", context) ++ _text(value.contractVersion, s"$path.contractVersion", context)
@@ -118,15 +118,15 @@ private[modeler] object CmlCapabilityValidationShapePart {
       _direct(value.source, s"$path.source", ctx) ++ _origin(value.origin, s"$path.origin", ctx)
   }
 
-  private def _mapping(value: ApplicationComponentMapping, path: String, context: Context): Vector[Diagnostic] = {
+  private def _mapping(value: ComponentUsageCapabilityMapping, path: String, context: Context): Vector[Diagnostic] = {
     val ctx = context.copy(source = Option(value.source))
     _component_reference(value.target, s"$path.target", ctx) ++ _boundary(value.boundary, s"$path.boundary", ctx) ++
       _direct(value.source, s"$path.source", ctx) ++ _origin(value.origin, s"$path.origin", ctx)
   }
 
-  private def _dependency(value: ApplicationDependency, path: String, context: Context): Vector[Diagnostic] = {
+  private def _dependency(value: ComponentUsageCapabilityDependency, path: String, context: Context): Vector[Diagnostic] = {
     val ctx = context.copy(source = Option(value.source))
-    _application_reference(value.target, s"$path.target", ctx) ++ _boundary(value.boundary, s"$path.boundary", ctx) ++
+    _usage_reference(value.target, s"$path.target", ctx) ++ _boundary(value.boundary, s"$path.boundary", ctx) ++
       _direct(value.source, s"$path.source", ctx) ++ _origin(value.origin, s"$path.origin", ctx)
   }
 
@@ -165,11 +165,11 @@ private[modeler] object CmlCapabilityValidationShapePart {
   private[modeler] def _document_shape(document: CapabilityDocument, index: Int): Vector[Diagnostic] = {
     val model = document.model
     val path = s"documents[$index].model"
-    val applications = model.applicationCapabilities.zipWithIndex.flatMap { case (value, offset) =>
-      val location = s"$path.applicationCapabilities[$offset]"
+    val usages = model.componentUsageCapabilities.zipWithIndex.flatMap { case (value, offset) =>
+      val location = s"$path.componentUsageCapabilities[$offset]"
       val context = _document(document.scope, value.source)
       _definition(value.identity, value.contractVersion, value.name, value.summary, value.description,
-        value.source, location, context) ++
+        value.source, location, context) ++ _component(value.component, s"$location.component", context) ++
         _vector(value.demandReferences, s"$location.demandReferences", context) { (edge, p, ctx) =>
           _link(edge, p, ctx) ++ (edge.role match {
             case Goal | UseCase | Scenario | UseCaseSlice | null => Vector.empty
@@ -201,7 +201,7 @@ private[modeler] object CmlCapabilityValidationShapePart {
         _vector(value.realizations, s"$location.realizations", context)(_realization) ++
         _vector(value.traceability, s"$location.traceability", context)(_trace)
     }
-    applications ++ components ++ declarations ++
+    usages ++ components ++ declarations ++
       _vector(model.compatibility, s"$path.compatibility", Context(Some(document.scope), None))(_compatibility)
   }
 }

@@ -3,6 +3,8 @@ package cozy.modeler
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import scala.collection.JavaConverters._
+import org.goldenport.realm.Realm
 import org.scalacheck.{Gen, Prop, Test}
 import org.scalatest.GivenWhenThen
 import org.scalatest.matchers.should.Matchers
@@ -14,7 +16,7 @@ import CmlCapabilityProductionRequest._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityPackagePublicationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -25,7 +27,7 @@ final class CmlCapabilityPackagePublicationSpec extends AnyWordSpec with Matcher
           Given("the two actual original sources, explicit selected filenames and successful production preparation")
           _copy_sources(root)
           val prepared = _prepare(root, _request(multiple = true))
-          When("the complete canonical Component, Application and Scala batch is published")
+          When("the complete canonical Component, Usage and Scala batch is published")
           val paths = _right(CmlCapabilityProduction.publish(root.resolve("output"), prepared))
           Then("each explicit index and resource preserves original projection and authored inner vector order")
           prepared.request.packages.foreach { bundle =>
@@ -85,6 +87,91 @@ final class CmlCapabilityPackagePublicationSpec extends AnyWordSpec with Matcher
       }
     }
     "preflight and preserve existing filesystem content" which {
+      "C64B09 reject actual dynamic tree files at package and case-aliased Scala selections without writes" in {
+        _with_root { root =>
+          Given("an in-memory normal tree with an arbitrary exportable metadata leaf and complete conflicting request copies")
+          val normalpath = "target/cozy/dynamic-normal-metadata.json"
+          val tree = Realm.Builder().set(normalpath, "actual normal metadata").build()
+          val original = _request()
+          val variants = Vector(
+            original.copy(packages = original.packages.updated(0, original.packages.head.copy(path = normalpath))) -> "packages[0].path",
+            original.copy(scalaoutputs = original.scalaoutputs.updated(0, original.scalaoutputs.head.copy(
+              path = "target/COZY/DYNAMIC-NORMAL-METADATA.JSON/metadata.scala"))) -> "scalaOutputs[0].path")
+          val output = root.resolve("output")
+          When("pure normal-tree preflight checks each explicit selection against actual leaves")
+          val results = variants.map { case (request, field) =>
+            field -> CmlCapabilityPackagePublication.preflightNormalTree(request, tree, output)
+          }
+          Then("each OutputConflict retains the exact selected field and actual normal path without creating output")
+          results.foreach { case (field, result) =>
+            result.isLeft shouldBe true
+            val issues = result.left.get
+            issues.map(_.kind) shouldBe Vector(IssueKind.OutputConflict)
+            issues.map(_.fieldpath) shouldBe Vector(field)
+            issues.head.detail should include("actual normal destination " + normalpath)
+          }
+          Files.exists(output) shouldBe false
+        }
+      }
+      "C64B11 allow normal-tree siblings and reject only conditional component API descriptor overlaps without writes" in {
+        _with_root { root =>
+          Given("a real non-overlapping normal leaf, an EmptyData leaf and valid selected package and Scala siblings under target/cozy")
+          val original = _request()
+          val request = original.copy(
+            packages = original.packages.zipWithIndex.map { case (bundle, index) => bundle.copy(path = "target/cozy/bundle-" + index) },
+            scalaoutputs = original.scalaoutputs.zipWithIndex.map { case (selection, index) => selection.copy(path = "target/cozy/Carrier" + index + ".scala") })
+          val tree = Realm.Builder().set("target/cozy/unrelated-normal.json", "normal content").build()
+          tree.setNode(request.packages.head.path)
+          val output = root.resolve("output")
+          When("pure preflight checks the actual normal leaves rather than denying their directory")
+          val siblings = CmlCapabilityPackagePublication.preflightNormalTree(request, tree, output)
+          Then("valid siblings and a selected EmptyData leaf remain accepted without output")
+          siblings shouldBe Right(())
+          Files.exists(output) shouldBe false
+
+          Given("an actual component API model tree whose initially absent descriptor is a conditional follow-on output")
+          val modelpath = "target/cozy/component-api-model.json"
+          val descriptorpath = "target/cozy/component-api-descriptor.json"
+          val modeltree = Realm.Builder().set(modelpath, "generated model").build()
+          val variants = Vector(
+            request.copy(packages = request.packages.updated(0, request.packages.head.copy(path = descriptorpath))) -> "packages[0].path",
+            request.copy(scalaoutputs = request.scalaoutputs.updated(0, request.scalaoutputs.head.copy(
+              path = descriptorpath + "/metadata.scala"))) -> "scalaOutputs[0].path")
+          Files.exists(output.resolve(descriptorpath)) shouldBe false
+          When("pure preflight includes the descriptor that the existing post-writer would create for the generated model")
+          val generatedresults = variants.map { case (selected, field) =>
+            field -> CmlCapabilityPackagePublication.preflightNormalTree(selected, modeltree, output)
+          }
+          Then("the conditional descriptor conflicts at the exact package or Scala field without writes")
+          generatedresults.foreach { case (field, result) =>
+            result.isLeft shouldBe true
+            result.left.get.map(_.kind) shouldBe Vector(IssueKind.OutputConflict)
+            result.left.get.map(_.fieldpath) shouldBe Vector(field)
+            result.left.get.head.detail should include("actual normal destination " + descriptorpath)
+          }
+          Files.exists(output) shouldBe false
+
+          Given("an already regular component API model and the unrelated normal tree with the descriptor still absent")
+          val existingmodel = _write(output.resolve(modelpath), "existing model sentinel\n")
+          Files.exists(output.resolve(descriptorpath)) shouldBe false
+          When("pure preflight evaluates the same conditional writer edge from the existing model file")
+          val existingresults = variants.map { case (selected, field) =>
+            field -> CmlCapabilityPackagePublication.preflightNormalTree(selected, tree, output)
+          }
+          Then("the descriptor overlaps fail while the complete existing file inventory and model bytes remain unchanged")
+          existingresults.foreach { case (field, result) =>
+            result.isLeft shouldBe true
+            result.left.get.map(_.kind) shouldBe Vector(IssueKind.OutputConflict)
+            result.left.get.map(_.fieldpath) shouldBe Vector(field)
+            result.left.get.head.detail should include("actual normal destination " + descriptorpath)
+          }
+          val stream = Files.walk(output)
+          val files = try stream.iterator.asScala.filter(path => Files.isRegularFile(path)).toVector finally stream.close()
+          files shouldBe Vector(existingmodel)
+          Files.readString(existingmodel, StandardCharsets.UTF_8) shouldBe "existing model sentinel\n"
+          Files.exists(output.resolve(descriptorpath)) shouldBe false
+        }
+      }
       "C64B04 reject unlisted, nested, symlink and nonregular metadata while preserving unrelated assets" in {
         _with_root { root =>
           Given("real inputs and separate invalid metadata inventories with unrelated nonJSON assets")
@@ -121,11 +208,10 @@ final class CmlCapabilityPackagePublicationSpec extends AnyWordSpec with Matcher
           Files.createSymbolicLink(ancestor.resolve("target"), root.resolve("model"))
           val alias = root.resolve("alias")
           Files.createDirectories(alias.resolve("TARGET"))
-          val variants = Vector(original.copy(applicationoutput = "target/../outside.json"),
-            original.copy(applicationoutput = original.packages.head.path + "/application.json"),
+          val variants = Vector(original.copy(packages = original.packages.updated(0, original.packages.head.copy(path = "target/../outside"))),
             original.copy(scalaoutputs = original.scalaoutputs.updated(0, original.scalaoutputs.head.copy(path = original.packages.head.path + "/Carrier.scala"))),
             original.copy(packages = original.packages.updated(1, original.packages(1).copy(path = original.packages.head.path + "/child"))),
-            original.copy(applicationoutput = original.scalaoutputs.head.path))
+            original.copy(packages = original.packages.updated(0, original.packages.head.copy(path = original.scalaoutputs.head.path))))
           When("actual complete preparation preflights the path selections and existing roots")
           val selected = variants.map(CmlCapabilityProduction.prepare(_, root, root.resolve("output"), None))
           val roots = Vector(symlink, ancestor, alias).map(output => CmlCapabilityProduction.prepare(original, root, output, None))

@@ -13,7 +13,7 @@ import CmlCapabilityDeclarationJsonPart._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityCmlSectionsPart {
@@ -22,17 +22,17 @@ private[modeler] object CmlCapabilityCmlSectionsPart {
     def _children: Vector[Located] = section.blocks.sections.toVector.map(x => Located(x, path :+ x.nameForModel))
   }
   private val _root = "CAPABILITY-MODEL"
-  private val _containers = Vector("APPLICATION-CAPABILITY", "COMPONENT-CAPABILITY", "COMPONENT-CAPABILITY-DECLARATION")
+  private val _containers = Vector("COMPONENT-USAGE-CAPABILITY", "COMPONENT-CAPABILITY", "COMPONENT-CAPABILITY-DECLARATION")
   private val _reserved = _root +: _containers
   private val _common_fields = Vector("identity", "contractVersion", "name", "summary", "description", "source")
   private val _shared_fields = Vector("discoveryReferences", "grounding", "traceability")
-  private val _application_fields = _common_fields ++ Vector("demandReferences", "discoveryReferences", "componentMappings", "dependencies", "grounding", "traceability")
+  private val _usage_fields = _common_fields ++ Vector("component", "demandReferences", "discoveryReferences", "componentMappings", "dependencies", "grounding", "traceability")
   private val _component_fields = _common_fields ++ _shared_fields
   private val _declaration_fields = Vector("component", "direction", "capability", "source", "realizations", "traceability")
 
   def _document(input: SourceInput): Result[Option[CapabilityDocument]] = {
     val issues = Vector.newBuilder[SyntaxIssue]
-    val applications = Vector.newBuilder[ApplicationCapability]
+    val usages = Vector.newBuilder[ComponentUsageCapability]
     val components = Vector.newBuilder[ComponentCapability]
     val declarations = Vector.newBuilder[ComponentDeclaration]
     var compatibility: Option[Presence[Vector[CompatibilityEdge]]] = None
@@ -74,7 +74,7 @@ private[modeler] object CmlCapabilityCmlSectionsPart {
           container._children.foreach { entry =>
             // Entry names, even reserved-looking names, are presentation labels.
             name match {
-              case "APPLICATION-CAPABILITY" => _leaf_(entry, _application_fields, _application)(applications += _)
+              case "COMPONENT-USAGE-CAPABILITY" => _leaf_(entry, _usage_fields, _usage)(usages += _)
               case "COMPONENT-CAPABILITY" => _leaf_(entry, _component_fields, _component)(components += _)
               case "COMPONENT-CAPABILITY-DECLARATION" => _leaf_(entry, _declaration_fields, _declaration)(declarations += _)
             }
@@ -90,7 +90,7 @@ private[modeler] object CmlCapabilityCmlSectionsPart {
     val errors = issues.result()
     if (errors.nonEmpty) Left(errors)
     else if (!found) Right(None)
-    else Right(Some(CapabilityDocument(input.scope, CapabilityModel(applications.result(), components.result(),
+    else Right(Some(CapabilityDocument(input.scope, CapabilityModel(usages.result(), components.result(),
       declarations.result(), compatibility.get))))
   }
 

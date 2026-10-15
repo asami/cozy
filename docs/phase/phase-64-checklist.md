@@ -9,6 +9,32 @@ states. Their CAP-64-05 and CBD CAP-11-01 status statements are superseded only
 for current Step acceptance by
 [CAP-64-05 acceptance — 2026-10-15](phase-64.md#cap-64-05-acceptance--2026-10-15).
 
+## CAP-64-PKG01: Component Usage model and Component-owned Directory/CAR
+
+Stage Status:
+- Current status: DONE
+- Owner: Cozy generation/model owner
+- Update rule: corrected scope replaces the Application-owned package proposal;
+  preserve prior Step acceptance and require focused new-boundary evidence.
+- Closure basis: Current Component-owned source/IR/wire, normal Directory/CAR
+  generation, focused Step validation and independent protected Step review are accepted.
+
+- [x] Generate Component-owned Usage metadata with the corrected model/source/wire contract.
+- [x] Keep inductive Usage and deductive Component Capability separate; preserve
+      explicit Component ownership, source/derivation evidence and many-to-many
+      mappings. Usage observations do not create PROVIDED/REQUIRED contracts.
+- [x] Delete old Application types/APIs/fields without aliases or forwarders;
+      compile affected callers/generated code so stale typed references fail.
+      Update CML/JSON/fixtures together; no dual reader, converter or fallback.
+- [x] Prove one normal generated Directory route without requiring a CAR or loose
+      JSON; prove multi-Component owner partitioning and external references.
+- [x] Prove equivalent semantic results from that Directory and normal CAR,
+      with config and separate capability namespaces coexisting.
+- [x] Preserve optional absence and actual upstream failures; reuse lower-layer
+      guarantees. Complete focused owner review/validation and record actual
+      versions without claiming old separate-file proof accepts this change.
+
+
 ## CAP-64-01: IR and contract alignment
 
 Stage Status:

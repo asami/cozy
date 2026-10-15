@@ -18,7 +18,7 @@ import CmlCapabilityGenerationSpec._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -32,11 +32,11 @@ final class CmlCapabilityGenerationSpec extends AnyWordSpec with Matchers with G
         val validated = _validated(documents)
         When("the production composition normalizes, validates and projects those inputs")
         val generated = _right(CmlCapabilityGeneration.generate(inputs, ScopeInput.Ready(_scope), contexts))
-        Then("all original Application records, scope and bindings survive alongside canonical Component snapshots")
+        Then("all original Usage records, scope and bindings survive alongside canonical Component snapshots")
         generated.validated.documents shouldBe documents
         generated.validated.scope shouldBe validated.scope
         generated.validated.bindings shouldBe validated.bindings
-        generated.validated.documents.flatMap(_.model.applicationCapabilities).size shouldBe 4
+        generated.validated.documents.flatMap(_.model.componentUsageCapabilities).size shouldBe 4
         generated.projections.map(_.snapshotKey) shouldBe Vector(contexts(2).snapshotKey, contexts(1).snapshotKey, contexts(0).snapshotKey)
         generated.projections.foreach { projection =>
           projection.json.fields.map(_._1) shouldBe Vector("schemaVersion", "generatedAbiVersion", "producer", "component", "package", "source", "capabilities", "declarations", "compatibility")
@@ -116,7 +116,7 @@ final class CmlCapabilityGenerationSpec extends AnyWordSpec with Matchers with G
         traces.map(x => (x \ "source" \ "sourceRevision").as[String]) shouldBe Vector("spec-r3", "evidence-r4")
         traces.map(x => (x \ "origin" \ "kind").as[String]) shouldBe Vector("DECLARED", "DERIVED")
         traces.foreach(_.fields.map(_._1) shouldBe Vector("role", "target", "source", "origin"))
-        And("an explicitly Local Specification fact retains its authored boundary")
+        Given("an explicitly Local Specification fact retains its authored boundary")
         val documents = _documents(inputs)
         val definition = documents.head.model.componentCapabilities.head
         val localtrace = _items(definition.traceability).head.copy(target = ModelReference(_id("spec:1"), Local))
@@ -280,21 +280,21 @@ final class CmlCapabilityGenerationSpec extends AnyWordSpec with Matchers with G
         duplicate.left.get.head.relatedsources shouldBe Vector(context.source)
       }
 
-      "C64G14 require all declaration keys and definition documents while rejecting app-only selection" in {
-        Given("a missing Store selection, missing definitions-only remote selection and an Application-only document")
+      "C64G14 require all declaration keys and definition documents while rejecting Usage-only Component selection" in {
+        Given("a missing Store selection, missing definitions-only remote selection and a Usage-only document")
         val documents = _documents(_inputs)
         val validated = _validated(documents)
-        val appdocument = documents.head.copy(model = documents.head.model.copy(componentCapabilities = Vector.empty, componentDeclarations = Vector.empty, compatibility = Present(Vector.empty)))
-        val appvalidated = _validated(Vector(appdocument), _application_scope)
-        When("projection checks missing coverage and an extra app-only context")
+        val usagedocument = documents.head.copy(model = documents.head.model.copy(componentCapabilities = Vector.empty, componentDeclarations = Vector.empty, compatibility = Present(Vector.empty)))
+        val usagevalidated = _validated(Vector(usagedocument), _usage_scope)
+        When("projection checks missing coverage and an extra Usage-only Component context")
         val missingdecl = CmlCapabilityGeneration.project(validated, _contexts.tail)
         val missingdoc = CmlCapabilityGeneration.project(validated, _contexts.take(2))
-        val apponly = CmlCapabilityGeneration.project(appvalidated, Vector(_contexts.head))
+        val usageonly = CmlCapabilityGeneration.project(usagevalidated, Vector(_contexts.head))
         val complete = _right(CmlCapabilityGeneration.project(validated, _contexts))
         Then("missing keys/documents fail and explicit definitions-only selection retains its definition without claiming a provider")
         missingdecl.left.get.exists(_.fieldpath.endsWith("componentDeclarations")) shouldBe true
         missingdoc.left.get.exists(_.fieldpath == "documents[1]") shouldBe true
-        apponly.left.get.head.kind shouldBe IssueKind.UnknownSnapshot
+        usageonly.left.get.head.kind shouldBe IssueKind.UnknownSnapshot
         val remote = complete.projections.find(_.context.source.path == _secondary_scope.path).get
         remote.capabilities.map(_.identity.elementId) shouldBe Vector("Component:Remote")
         remote.declarations shouldBe Vector.empty
@@ -329,21 +329,21 @@ final class CmlCapabilityGenerationSpec extends AnyWordSpec with Matchers with G
         }
       }
 
-      "C64G15 retain Application data upstream and permit zero external snapshots" in {
-        Given("original Application demand, discovery, mappings and dependencies and an Application-only valid document")
+      "C64G15 retain Usage data upstream and permit zero external snapshots" in {
+        Given("original Usage demand, discovery, mappings and dependencies and a Usage-only valid document")
         val documents = _documents(_inputs)
-        val appdocuments = documents.map(x => x.copy(model = x.model.copy(componentCapabilities = Vector.empty, componentDeclarations = Vector.empty, compatibility = Present(Vector.empty))))
-        val appvalidated = _validated(appdocuments, _application_scope)
-        When("Component generation handles full inputs and an explicit empty context batch for Application-only data")
+        val usagedocuments = documents.map(x => x.copy(model = x.model.copy(componentCapabilities = Vector.empty, componentDeclarations = Vector.empty, compatibility = Present(Vector.empty))))
+        val usagevalidated = _validated(usagedocuments, _usage_scope)
+        When("Component generation handles full inputs and an explicit empty context batch for Usage-only data")
         val full = _generate(_inputs)
-        val apponly = _right(CmlCapabilityGeneration.project(appvalidated, Vector.empty))
-        Then("the complete upstream records survive while the external closed shape contains no Application branch")
+        val usageonly = _right(CmlCapabilityGeneration.project(usagevalidated, Vector.empty))
+        Then("the complete upstream records survive while the external closed shape contains no Usage branch")
         full.validated.documents shouldBe documents
-        full.validated.documents.head.model.applicationCapabilities(1).demandReferences shouldBe documents.head.model.applicationCapabilities(1).demandReferences
-        full.validated.documents.head.model.applicationCapabilities(1).dependencies shouldBe documents.head.model.applicationCapabilities(1).dependencies
+        full.validated.documents.head.model.componentUsageCapabilities(1).demandReferences shouldBe documents.head.model.componentUsageCapabilities(1).demandReferences
+        full.validated.documents.head.model.componentUsageCapabilities(1).dependencies shouldBe documents.head.model.componentUsageCapabilities(1).dependencies
         full.projections.foreach(x => x.json.keys shouldBe Set("schemaVersion", "generatedAbiVersion", "producer", "component", "package", "source", "capabilities", "declarations", "compatibility"))
-        apponly.validated shouldBe appvalidated
-        apponly.projections shouldBe Vector.empty
+        usageonly.validated shouldBe usagevalidated
+        usageonly.projections shouldBe Vector.empty
       }
 
       "C64G16 preserve original syntax, target and acquisition failure vectors" in {
@@ -515,6 +515,6 @@ private[modeler] object CmlCapabilityGenerationSpec {
       TargetContract(kind, _id(element), _component("Store"), version, abi, _source("target:" + element)) }
     Scope("explicit-generation-fixture-scope", _source("scope:r1"), models, Vector(term), Vector(relation), Vector(profile), Vector.empty, history, targets)
   }
-  private[modeler] def _application_scope: Scope = _scope.copy(componentcontracts = _scope.componentcontracts :+
-    ComponentContract(_id("Component:Store|α"), "contract:二", _source("explicit-application-mapping-catalog:r2")))
+  private[modeler] def _usage_scope: Scope = _scope.copy(componentcontracts = _scope.componentcontracts :+
+    ComponentContract(_id("Component:Store|α"), "contract:二", _source("explicit-usage-mapping-catalog:r2")))
 }

@@ -11,9 +11,11 @@ Current CAP-64-05 interoperability Step acceptance is recorded in
 [Phase 64](../phase/phase-64.md#cap-64-05-acceptance--2026-10-15).
 Separate Phase full closure and main integration remain owed.
 
-## Application and Component kinds with common Foundation identities
+## Usage and Component contract kinds with common Foundation identities
 
-Application Capability provides the application structure and management axis.
+Component Usage Capability is the inductive model of what the owning Component
+can be used for. It retains usage evidence and maps explicitly to the separate
+deductive Component Capability contract.
 Component Capability describes architectural meaning available for Component
 provided/required declarations. Separate record families keep these
 responsibilities visible while sharing the existing qualified model-element
@@ -29,23 +31,23 @@ Component identity occupy separate domains.
 
 ## Definitions, declarations, and the relationship graph
 
-The conceptual envelope has separate Application definitions, Component
+The conceptual envelope has separate Component Usage definitions, Component
 definitions, Component declarations, and supplied compatibility data.
 Definitions express meaning; declarations bind architectural meaning to an
 exact Component and direction. Relationship edges retain their own attribution
 instead of becoming flattened endpoint lists.
 
-Application demand and discovery are separate many-to-many associations.
-Application-to-Component mappings provide an architectural continuation without
+Usage demand and discovery are separate many-to-many associations.
+Usage-to-Component mappings provide an architectural continuation without
 choosing a provider. Realization edges continue from a particular Component
-declaration to an executable target contract. Application dependency edges have
+declaration to an executable target contract. Usage dependency edges have
 their own logical requirement role, independent of demand and grounding.
 
 The complete structure is specified in
 [R3](../spec/cml-capability-model.md#r3-complete-conceptual-carriers), with
 demand/discovery in [R4](../spec/cml-capability-model.md#r4-demand-and-discovery-model-links),
 declarations in [R5](../spec/cml-capability-model.md#r5-component-definitions-and-directional-declarations),
-and mapping/realization in [R6](../spec/cml-capability-model.md#r6-application-mappings-and-realization-edges).
+and mapping/realization in [R6](../spec/cml-capability-model.md#r6-component-usage-mappings-and-realization-edges).
 [R10](../spec/cml-capability-model.md#r10-validation-dependency-cycles-and-directed-compatibility)
 defines the dependency and compatibility boundary.
 
@@ -86,7 +88,7 @@ Capability semantics, concrete projection/codec/ABI admission, target binding,
 and discovery. Textus CBD Support Phase 11 owns ingestion, catalog, and queries
 over admitted upstream facts.
 
-The generator separates upstream Application management data from the Component
+The generator separates upstream Component Usage data from the Component
 projection. Its generation context carries independent producer, projection,
 ABI, Component/package, and source-revision domains. CNCF's Component Capability
 Specification R1-R10 is the external authority; CAP-78-02 supplies the concrete
@@ -98,6 +100,21 @@ assigns syntax and actual IR to CAP-64-02, validation to CAP-64-03, generation t
 CAP-64-04, and real producer/admission/consumer proof to CAP-64-05. It separates
 this conceptual contract from the implementation and executable evidence needed
 for the downstream ingestion boundary.
+
+## Component-owned package image
+
+The [current Usage contract](../spec/component-usage-capability.md) replaces the
+Application-owned package proposal. The reviewed Component owns the Directory
+image and CAR. Usage and Component contract metadata have distinct canonical
+namespaces within it. Explicit ownership partitions multi-Component source
+models; external relationships remain references rather than duplicated models.
+Development reads the Directory through CNCF; distribution packages the same
+image. No archive preparation is needed to read generated metadata.
+
+The migration removes old Application symbols instead of keeping aliases or
+forwarders. Source/IR/wire, producer, consumer, generated interfaces and fixtures
+switch together so stale typed call sites fail compilation. Earlier accepted
+implementation sections below remain history; they do not define compatibility.
 
 ## Original CML documents and normalization responsibilities
 
@@ -122,7 +139,7 @@ Kaleidox, Foundation or deployment-style integration edit.
 | [CmlCapabilityCml](../../src/main/scala/cozy/modeler/CmlCapabilityCml.scala) | Private callable SourceInput entry, parser failure/scope gate and all-or-nothing document results. |
 | [CmlCapabilityCmlSectionsPart](../../src/main/scala/cozy/modeler/CmlCapabilityCmlSectionsPart.scala) | Original-section extraction, role-aware traversal, physical field-line grammar and actual section locations. |
 | [CmlCapabilityJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityJsonPart.scala) | Duplicate-aware single JSON value boundary and shared closed fields, scalar, array and Presence decoding. |
-| [CmlCapabilityDefinitionJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityDefinitionJsonPart.scala) | Application/Component definitions and distinct versioned mapping/dependency targets. |
+| [CmlCapabilityDefinitionJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityDefinitionJsonPart.scala) | Usage/Component definitions and distinct versioned mapping/dependency targets. |
 | [CmlCapabilityReferenceJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityReferenceJsonPart.scala) | Foundation qualified identities/targets, model links, grounding, independent traceability and source/origin decoding. |
 | [CmlCapabilityDeclarationJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityDeclarationJsonPart.scala) | Shared canonical Component references, complete declarations, repeated realization keys and compatibility. |
 
@@ -178,7 +195,7 @@ providers. The specification owns the
 | [CmlCapabilityValidationShapePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationShapePart.scala) | Typed R3 lexical, Presence, closed role/reference and Component carrier checks. |
 | [CmlCapabilityValidationSourcePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationSourcePart.scala) | Source validity, original scope ownership, qualified authority and independent derivation evidence contexts. |
 | [CmlCapabilityValidationScopePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationScopePart.scala) | Scope fact validity, exact candidate sets, current snapshot uniqueness and historical family/version distinctions. |
-| [CmlCapabilityValidationReferencePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationReferencePart.scala) | Local role/grounding/vocabulary/traceability resolution and exact Application mapping/dependency references. |
+| [CmlCapabilityValidationReferencePart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationReferencePart.scala) | Local role/grounding/vocabulary/traceability resolution and exact Usage mapping/dependency references. |
 | [CmlCapabilityValidationDeclarationPart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationDeclarationPart.scala) | Complete declaration uniqueness, repeated-key agreement and exact executable target tuple binding. |
 | [CmlCapabilityValidationGraphPart](../../src/main/scala/cozy/modeler/CmlCapabilityValidationGraphPart.scala) | Finite Local dependency reachability, cycle edge attribution, direct Component compatibility and result predicate. |
 
@@ -256,9 +273,9 @@ integration remain outstanding obligations.
 
 ## Normal source production and complete publication responsibilities
 
-[R13](../spec/cml-capability-model.md#r13-normal-production-publication-and-application-handoff)
+[R13](../spec/cml-capability-model.md#r13-normal-production-publication-and-component-usage-handoff)
 owns the opt-in caller, closed request, explicit finite facts, selected outputs
-and canonical Component/Application product inputs. The normal Modeler hook
+and canonical Component and Component Usage product inputs. The normal Modeler hook
 preflights the literal primary source path and identity, then prepares the full
 Capability candidate inside the existing component-identity context before any
 ordinary writes. It executes normalized ordinary source arguments, writes model
@@ -275,9 +292,9 @@ retains source order and makes no aggregate V1 provenance claim.
 | [CmlCapabilityProductionRequest](../../src/main/scala/cozy/modeler/CmlCapabilityProductionRequest.scala) | New immutable ProductionRequest/PackageOutput/ResourceOutput and closed constants/types; no defaults or successful Prepared constructor. |
 | [CmlCapabilityProductionRequestJsonPart](../../src/main/scala/cozy/modeler/CmlCapabilityProductionRequestJsonPart.scala) | New closed strict request+scope/context/selection JSON codec using unchanged original field/reference helpers. |
 | [CmlCapabilityProductionSourcePart](../../src/main/scala/cozy/modeler/CmlCapabilityProductionSourcePart.scala) | New bounded source-root/selected original local Kaleidox parsing and honest typed failures. |
-| [CmlCapabilityPackagePublication](../../src/main/scala/cozy/modeler/CmlCapabilityPackagePublication.scala) | Sole complete descriptor/index/resource/Scala/full Application batch; exact selected Component release admitted through the existing coordinate codec and serializer, with typed descriptor failure and separate 16MiB bound. |
+| [CmlCapabilityPackagePublication](../../src/main/scala/cozy/modeler/CmlCapabilityPackagePublication.scala) | Sole complete descriptor/Component index/resources/optional fixed Usage index/resource/Scala batch; exact selected Component release admitted through the existing coordinate codec and serializer, with typed descriptor failure and separate 16MiB bound. |
 | [CmlCapabilityPackagePublicationPart](../../src/main/scala/cozy/modeler/CmlCapabilityPackagePublicationPart.scala) | Bounded filesystem/selection/inventory/atomic publication; no-follow root/immediate-meta alternative descriptor preflight and unchanged selected-leaf/idempotency checks. |
-| [CmlCapabilityApplicationProjection](../../src/main/scala/cozy/modeler/CmlCapabilityApplicationProjection.scala) | New lossless full original Application product serialization, source coverage and explicit no-inverse-edge contract. |
+| [CmlCapabilityComponentUsageProjection](../../src/main/scala/cozy/modeler/CmlCapabilityComponentUsageProjection.scala) | Owner-partitioned selected versioned Usage serialization, original contributing source headers, exact edges and no inverse demand. |
 
 Successful Prepared and publication Batch values have sole private constructors.
 The source helper consumes `GenerationProvenance.SourceInput(path,identity)` or
@@ -289,8 +306,27 @@ ordinary modeler and bounded Capability parser may each read that original
 selected file; no capture, retained source bytes or protection copy is used.
 Original normalization, finite validation, R11 projection
 and Scala rendering own their existing diagnostics and coverage checks.
-Application serialization consumes the same Generated.validated and ordered
-source headers, preserving every original definition, source and Presence value.
+Usage serialization consumes the same Generated.validated, ordered original
+source headers, actual producer and explicit PackageOutput. The closed revision-2
+request has producer/sources/scope/contexts/packages/scalaOutputs, with no loose
+Application output. Scope uses ComponentUsageContract/usageContracts and finite
+COMPONENT_USAGE_CAPABILITY. Per-package usageCapabilities are typed exact
+kind/identity/contractVersion references. Each definition has its canonical
+ComponentId owner independently of model identity. Selection resolves validated
+original definitions; unknown, ambiguous, duplicate or wrong-owner refs retain
+selection diagnostics. Only contributing documents and selected owner records
+export in original source/record order; full source/origin/Presence/edge fields
+remain exact and External boundaries stay External.
+
+The envelope has schemaVersion 1, generatedAbiVersion
+cozy.component-usage-capability.v1, producer, selected Component release,
+independent package and ordered documents of source/componentUsageCapabilities.
+Its fixed metadata family is meta/component-usage-capability/index.json with
+exact projections:[usage.json] and the sibling usage.json. Empty selection omits
+that optional family. Empty Component resources remain a genuine empty Component
+index: Usage does not require fabricated Component facts, contexts, declarations,
+realizations or a native provider. Existing cncf.component-capability.v1 behavior
+and direct version compatibility remain independent.
 
 Each selected Directory bundle includes one root `component-descriptor.json`
 from the existing CAR serializer, using only its selected namespace/local ID and
@@ -302,8 +338,18 @@ canonical formats and immediate meta/component-descriptor alternatives, includin
 case aliases and equal contents, reject without following links or selecting a
 winner. Unrelated root/meta assets remain preserved. Same-directory temporary files and atomic move provide bounded file
 publication; failures report actual written paths without rollback claims. CAR
-selection copies only the canonical index and listed siblings, checks actual
+selection reuses the same UTF8, index, resource, limit and coordinate checks for
+the existing Component family and the optional fixed Usage family from that
+selected Directory. It checks only Usage envelope context, leaving Usage record
+semantics to CBD. It copies exact bytes and ordinary config, checks actual
 Component and independent package coordinates, and rejects collisions across
 all composed archive entries before the destination ZIP is created. The existing
 public CNCF Factory owns actual Directory/CAR admission, native target binding
 and discovery; CBD owns subsequent consumption without CML reparsing.
+
+The CAP-64-PKG01 current source, request, projection, publication and normal CAR
+scenarios are authored in the existing suites, with no duplicate compatibility
+suite. Prior Step/review/test events remain historical; this editing pass claims
+no executed tests or current acceptance. Existing CLI/archive responsibility and
+Bridge naming Hygiene, and packaged provenance temporary-path Hygiene, remain
+separate follow-up work.

@@ -13,7 +13,7 @@ import CmlCapabilityProductionRequest._
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityDirectoryDescriptorSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -39,11 +39,11 @@ final class CmlCapabilityDirectoryDescriptorSpec extends AnyWordSpec with Matche
             (projection \ "package").as[JsObject] shouldBe _package_json(bundle.packagecoordinate)
           }
           request.scalaoutputs.foreach(x => Files.readString(root.resolve("output/" + x.path)) should include("def projectionJson"))
-          val application = _json(root.resolve("output/" + request.applicationoutput))
-          val definitions = (application \ "documents").as[Vector[JsObject]].head
-          definitions.keys shouldBe Set("source", "applicationCapabilities")
-          (definitions \ "applicationCapabilities").as[Vector[JsObject]].foreach(_.keys shouldBe
-            Set("kind", "identity", "contractVersion", "name", "summary", "description", "source", "demandReferences",
+          val usage = _json(root.resolve("output/" + _usage_path(request.packages.head)))
+          val definitions = (usage \ "documents").as[Vector[JsObject]].head
+          definitions.keys shouldBe Set("source", "componentUsageCapabilities")
+          (definitions \ "componentUsageCapabilities").as[Vector[JsObject]].foreach(_.keys shouldBe
+            Set("kind", "component", "identity", "contractVersion", "name", "summary", "description", "source", "demandReferences",
               "discoveryReferences", "componentMappings", "dependencies", "grounding", "traceability"))
         }
       }
@@ -88,6 +88,7 @@ final class CmlCapabilityDirectoryDescriptorSpec extends AnyWordSpec with Matche
           val request = original.copy(contexts = original.contexts.dropRight(1) :+ secondary,
             packages = Vector(bundled, original.packages(1)),
             scalaoutputs = original.scalaoutputs.updated(2, original.scalaoutputs.last.copy(key = secondary.snapshotKey)))
+          val config = _write(root.resolve("output/" + bundled.path + "/config/default.conf"), "ordinary.config = retained\n")
           When("real preparation and publication process the complete shared selection")
           val prepared = _prepare(root, request)
           val paths = _right(CmlCapabilityProduction.publish(root.resolve("output"), prepared))
@@ -103,9 +104,11 @@ final class CmlCapabilityDirectoryDescriptorSpec extends AnyWordSpec with Matche
             Files.readString(directory.resolve(METADATA_PREFIX + resource.filename)) shouldBe projection.projectionJson + "\n"
             _json(directory.resolve(METADATA_PREFIX + resource.filename)) shouldBe projection.json
           }
+          Files.readString(config) shouldBe "ordinary.config = retained\n"
           prepared.generated.projections.size shouldBe 3
           request.scalaoutputs.foreach(x => Files.isRegularFile(root.resolve("output/" + x.path)) shouldBe true)
-          _json(root.resolve("output/" + request.applicationoutput)) shouldBe prepared.batch.application
+          _json(root.resolve("output/" + _usage_path(request.packages.head))) shouldBe
+            _right(CmlCapabilityComponentUsageProjection.encode(prepared.generated, prepared.sources, request.producer, request.packages.head))
         }
       }
     }
@@ -267,6 +270,6 @@ final class CmlCapabilityDirectoryDescriptorSpec extends AnyWordSpec with Matche
         Files.exists(output.resolve(bundle.path + "/" + METADATA_PREFIX + resource.filename), LinkOption.NOFOLLOW_LINKS) shouldBe false)
     }
     request.scalaoutputs.foreach(x => Files.exists(output.resolve(x.path), LinkOption.NOFOLLOW_LINKS) shouldBe false)
-    Files.exists(output.resolve(request.applicationoutput), LinkOption.NOFOLLOW_LINKS) shouldBe false
+    Files.exists(output.resolve(_usage_path(request.packages.head)), LinkOption.NOFOLLOW_LINKS) shouldBe false
   }
 }

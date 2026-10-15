@@ -14,7 +14,7 @@ import CmlCapabilitySource._
 
 /*
  * @since   Oct. 5, 2026
- * @version Oct. 5, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -31,28 +31,46 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
         result shouldBe Right(Vector(CapabilityDocument(scope, expected)))
       }
 
-      "C64P02 retain an independent Application with explicitly empty demand and mappings" in {
-        Given("the primary source has an independent Application with no Use Cases")
+      "C64P02 retain an independent Usage with explicitly empty demand and mappings" in {
+        Given("the primary source has an independent Usage with no Use Cases")
         val source = _primary
         When("the actual source is parsed and normalized")
-        val application = _documents(_normalize(source)).head.model.applicationCapabilities.head
+        val usage = _documents(_normalize(source)).head.model.componentUsageCapabilities.head
         Then("no target, group or relationship is invented")
-        application.identity shouldBe _id("Application:Independent")
-        application.demandReferences shouldBe Present(Vector.empty)
-        application.componentMappings shouldBe Present(Vector.empty)
-        application.dependencies shouldBe Absent(NotDeclared, "No dependency declared.")
+        usage.identity shouldBe _id("Application:Independent")
+        usage.demandReferences shouldBe Present(Vector.empty)
+        usage.componentMappings shouldBe Present(Vector.empty)
+        usage.dependencies shouldBe Absent(NotDeclared, "No dependency declared.")
       }
 
       "C64P03 preserve four authored many-to-many demand edges" in {
-        Given("two Applications each explicitly require the same two qualified demand targets")
+        Given("two Usage definitions each explicitly require the same two qualified demand targets")
         val source = _primary
         When("the source is normalized")
-        val applications = _documents(_normalize(source)).head.model.applicationCapabilities.tail
-        Then("the exact role, source, target and order are retained per enclosing Application")
-        applications.map(_.identity) shouldBe Vector(_id("Application:One"), _id("Application:Two"))
-        applications.map(_.demandReferences) shouldBe Vector.fill(2)(Present(Vector(
+        val usages = _documents(_normalize(source)).head.model.componentUsageCapabilities.tail
+        Then("the exact role, source, target and order are retained per enclosing Usage")
+        usages.map(_.identity) shouldBe Vector(_id("Application:One"), _id("Application:Two"))
+        usages.map(_.demandReferences) shouldBe Vector.fill(2)(Present(Vector(
           _link(UseCase, "usecase:one", Local, "demand-r1", Declared),
           _link(Goal, "goal:two", Local, "demand-r2", _derived))))
+      }
+
+      "C64P26 require an explicit canonical Component owner for each Usage definition" in {
+        Given("a multi-Component source and Usage owner lines that are missing, malformed or carry unknown fields")
+        val source = _primary
+        val owner = "component = {\"namespace\":\"org.simplemodeling.textus\",\"id\":\"Store\"}"
+        val invalid = Vector(source.replaceFirst(java.util.regex.Pattern.quote(owner + "\n"), ""),
+          source.replaceFirst(java.util.regex.Pattern.quote(owner), "component = {\"namespace\":\"org.simplemodeling.textus\",\"id\":\"invalid/id\"}"),
+          source.replaceFirst(java.util.regex.Pattern.quote(owner), "component = {\"namespace\":\"org.simplemodeling.textus\",\"id\":\"Store\",\"inferred\":true}"))
+        When("normalization decodes each original Usage owner through the shared Component identity parser")
+        val valid = _documents(_normalize(source)).head.model.componentUsageCapabilities
+        val failures = invalid.map(_normalize(_))
+        Then("explicit owner identities survive and invalid ownership is diagnosed in its Usage field context")
+        valid.map(_.component) shouldBe Vector(_component("Store"), _component("Store"), _component("Archive"))
+        failures.foreach { result =>
+          val issues = _issues(result)
+          issues.exists(x => x.fieldPath.contains("component") && x.sectionPath.contains("COMPONENT-USAGE-CAPABILITY")) shouldBe true
+        }
       }
 
       "C64P04 retain two providers and both directions on one canonical Component" in {
@@ -81,7 +99,7 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
         val sources = Vector(_primary -> _primary_scope, _secondary -> _secondary_scope)
         When("each original document is parsed and normalized before any aggregate merge")
         val documents = _documents(_normalize_all(sources))
-        val mappings = _present(documents.head.model.applicationCapabilities(1).componentMappings)
+        val mappings = _present(documents.head.model.componentUsageCapabilities(1).componentMappings)
         val grounding = _present(documents.head.model.componentCapabilities.head.grounding)
         Then("explicit boundaries and qualified Model/Term domains remain distinct")
         mappings.map(_.boundary) shouldBe Vector(Local, External)
@@ -108,9 +126,9 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
         outcomes.foreach { case (reason, detail, model) =>
           val expected = Absent(reason, detail)
           model.compatibility shouldBe expected
-          model.applicationCapabilities.foreach { application =>
-            Vector(application.summary, application.description, application.demandReferences, application.discoveryReferences,
-              application.componentMappings, application.dependencies, application.grounding, application.traceability).foreach(_ shouldBe expected)
+          model.componentUsageCapabilities.foreach { usage =>
+            Vector(usage.summary, usage.description, usage.demandReferences, usage.discoveryReferences,
+              usage.componentMappings, usage.dependencies, usage.grounding, usage.traceability).foreach(_ shouldBe expected)
           }
           model.componentCapabilities.foreach { component =>
             Vector(component.summary, component.description, component.discoveryReferences, component.grounding, component.traceability).foreach(_ shouldBe expected)
@@ -121,7 +139,7 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
           }
         }
         empty.compatibility shouldBe Present(Vector.empty)
-        empty.applicationCapabilities.foreach(x => Vector(x.demandReferences, x.discoveryReferences, x.componentMappings,
+        empty.componentUsageCapabilities.foreach(x => Vector(x.demandReferences, x.discoveryReferences, x.componentMappings,
           x.dependencies, x.grounding, x.traceability).foreach(_ shouldBe Present(Vector.empty)))
         empty.componentCapabilities.foreach(x => Vector(x.discoveryReferences, x.grounding, x.traceability).foreach(_ shouldBe Present(Vector.empty)))
         empty.componentDeclarations.foreach(x => Vector(x.realizations, x.traceability).foreach(_ shouldBe Present(Vector.empty)))
@@ -131,7 +149,7 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
         Given("a Derived discovery edge has two ordered explicit sources from different authorities")
         val source = _primary
         When("the source and origin are normalized")
-        val edge = _present(_documents(_normalize(source)).head.model.applicationCapabilities(1).discoveryReferences).head
+        val edge = _present(_documents(_normalize(source)).head.model.componentUsageCapabilities(1).discoveryReferences).head
         Then("the primary source and the complete ordered input evidence remain independent")
         edge.source shouldBe _source("discover-r7")
         edge.origin shouldBe _derived
@@ -164,10 +182,10 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
         val changed = sources.map(x => _documents(_normalize(x)).head.model)
         Then("identities never derive from any changed presentation or provenance domain")
         changed.head shouldBe baseline
-        changed.foreach(_.applicationCapabilities.map(_.identity) shouldBe baseline.applicationCapabilities.map(_.identity))
-        changed(1).applicationCapabilities(1) shouldBe baseline.applicationCapabilities(1).copy(name = "Different name")
-        changed(2).applicationCapabilities(1) shouldBe baseline.applicationCapabilities(1).copy(contractVersion = "app:v99",
-          dependencies = Present(_present(baseline.applicationCapabilities(1).dependencies).map(x => x.copy(target = x.target.copy(contractVersion = "app:v99")))))
+        changed.foreach(_.componentUsageCapabilities.map(_.identity) shouldBe baseline.componentUsageCapabilities.map(_.identity))
+        changed(1).componentUsageCapabilities(1) shouldBe baseline.componentUsageCapabilities(1).copy(name = "Different name")
+        changed(2).componentUsageCapabilities(1) shouldBe baseline.componentUsageCapabilities(1).copy(contractVersion = "app:v99",
+          dependencies = Present(_present(baseline.componentUsageCapabilities(1).dependencies).map(x => x.copy(target = x.target.copy(contractVersion = "app:v99")))))
         changed(3).componentCapabilities.head shouldBe baseline.componentCapabilities.head.copy(source = _source("definition-r999", Some(12)))
       }
 
@@ -218,14 +236,14 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
       "C64P14 reject misplaced or repeated containers while accepting reserved-looking entry labels" in {
         Given("each structure mutation violates one container role, alongside legal entry presentation labels")
         val invalid = Vector(_primary + "\n# CAPABILITY-MODEL\ncompatibility = {\"state\":\"PRESENT\",\"value\":[]}\n",
-          _primary.replace("## APPLICATION-CAPABILITY", "## APPLICATION-CAPABILITY\n## APPLICATION-CAPABILITY"),
-          _primary.replace("## APPLICATION-CAPABILITY", "## APPLICATION-CAPABILITY\nextra = true"),
+          _primary.replace("## COMPONENT-USAGE-CAPABILITY", "## COMPONENT-USAGE-CAPABILITY\n## COMPONENT-USAGE-CAPABILITY"),
+          _primary.replace("## COMPONENT-USAGE-CAPABILITY", "## COMPONENT-USAGE-CAPABILITY\nextra = true"),
           _primary.replace("### Independent", "### Independent\n#### Child"),
           _primary.replace("# CAPABILITY-MODEL", "# capability-model"),
-          _primary.replace("## APPLICATION-CAPABILITY", "## application-capability"),
+          _primary.replace("## COMPONENT-USAGE-CAPABILITY", "## component-usage-capability"),
           _primary.replace("# CAPABILITY-MODEL", "# NOTE\n## CAPABILITY-MODEL"),
-          _primary.replace("compatibility =", "unexpected ="), "# APPLICATION-CAPABILITY\n")
-        val labels = Vector("CAPABILITY-MODEL", "APPLICATION-CAPABILITY", "COMPONENT-CAPABILITY", "COMPONENT-CAPABILITY-DECLARATION")
+          _primary.replace("compatibility =", "unexpected ="), "# COMPONENT-USAGE-CAPABILITY\n")
+        val labels = Vector("CAPABILITY-MODEL", "COMPONENT-USAGE-CAPABILITY", "COMPONENT-CAPABILITY", "COMPONENT-CAPABILITY-DECLARATION")
           .map(label => _primary.replace("### Independent", s"### $label"))
         When("the source-section roles are interpreted")
         val errors = invalid.map(x => _issues(_normalize(x)))
@@ -297,7 +315,7 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
         Then("the exact path literals survive without trimming and foreign evidence retains its independent source facts")
         outcomes.foreach { case (path, owned, foreign) =>
           owned.scope.path shouldBe path
-          owned.model.applicationCapabilities.foreach(_.source.path shouldBe path)
+          owned.model.componentUsageCapabilities.foreach(_.source.path shouldBe path)
           owned.model.componentCapabilities.foreach(_.source.path shouldBe path)
           owned.model.componentDeclarations.foreach(_.source.path shouldBe path)
           _present(owned.model.componentCapabilities.head.grounding).last.source.path shouldBe path
@@ -347,8 +365,8 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
 
       "C64P18 reject wrong reference domains and unknown closed branches" in {
         Given("each wrong-kind or unknown tag violates its role-specific authored schema")
-        val mutations = Vector("\"kind\":\"COMPONENT\"" -> "\"kind\":\"APPLICATION\"",
-          "\"kind\":\"APPLICATION\"" -> "\"kind\":\"COMPONENT\"", "\"direction\":\"PROVIDED\"" -> "\"direction\":\"provided\"",
+        val mutations = Vector("\"kind\":\"COMPONENT\"" -> "\"kind\":\"COMPONENT_USAGE\"",
+          "\"kind\":\"COMPONENT_USAGE\"" -> "\"kind\":\"COMPONENT\"", "\"direction\":\"PROVIDED\"" -> "\"direction\":\"provided\"",
           "direction = \"PROVIDED\"" -> "direction = \"MAYBE\"", "\"role\":\"USE_CASE\"" -> "\"role\":\"COMPONENT\"",
           "\"role\":\"SPECIFICATION\"" -> "\"role\":\"GOAL\"", "\"targetKind\":\"OPERATION\"" -> "\"targetKind\":\"TASK\"",
           "\"reason\":\"NotRepresented\"" -> "\"reason\":\"UNKNOWN\"", "\"state\":\"PRESENT\"" -> "\"state\":\"present\"",
@@ -414,28 +432,28 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
         When("syntax normalization preserves these facts without semantic admission")
         val model = _documents(_normalize(source)).head.model
         Then("duplicates and unresolved graph facts remain observable for CAP-64-03 with no winner selected")
-        model.applicationCapabilities.tail.map(_.identity) shouldBe Vector.fill(2)(_id("Application:One"))
+        model.componentUsageCapabilities.tail.map(_.identity) shouldBe Vector.fill(2)(_id("Application:One"))
         model.componentDeclarations.take(2).map(x => (x.component, x.direction, x.capability)).distinct.size shouldBe 1
         val first = model.componentDeclarations.head
         _present(first.realizations).head.declarationKey.direction shouldBe Required
         first.direction shouldBe Provided
-        _present(model.applicationCapabilities(1).dependencies).head.target.identity shouldBe _id("Application:One")
-        _present(model.applicationCapabilities(1).dependencies).head.boundary shouldBe Local
+        _present(model.componentUsageCapabilities(1).dependencies).head.target.identity shouldBe _id("Application:One")
+        _present(model.componentUsageCapabilities(1).dependencies).head.boundary shouldBe Local
         _present(first.realizations).head.target.identity shouldBe _id("operation:save")
       }
 
-      "C64P22 retain enclosing Application endpoints and independent edge roles" in {
-        Given("Application mappings, dependencies, discovery, grounding and traceability are independent lists")
+      "C64P22 retain enclosing Usage endpoints and independent edge roles" in {
+        Given("Usage mappings, dependencies, discovery, grounding and traceability are independent lists")
         val source = _primary
         When("the original enclosing records are normalized")
-        val application = _documents(_normalize(source)).head.model.applicationCapabilities(1)
+        val usage = _documents(_normalize(source)).head.model.componentUsageCapabilities(1)
         Then("full independent edges retain their source and origin without traceability inference")
-        application shouldBe _expected_model.applicationCapabilities(1)
-        _present(application.discoveryReferences).map(_.role) shouldBe Vector(Scenario, Component)
-        _present(application.traceability).map(_.role) shouldBe Vector(SpecificationTrace, EvidenceTrace)
-        _present(application.componentMappings).size shouldBe 2
-        _present(application.dependencies).size shouldBe 1
-        _present(application.traceability).size shouldBe 2
+        usage shouldBe _expected_model.componentUsageCapabilities(1)
+        _present(usage.discoveryReferences).map(_.role) shouldBe Vector(Scenario, Component)
+        _present(usage.traceability).map(_.role) shouldBe Vector(SpecificationTrace, EvidenceTrace)
+        _present(usage.componentMappings).size shouldBe 2
+        _present(usage.dependencies).size shouldBe 1
+        _present(usage.traceability).size shouldBe 2
       }
 
       "C64P23 retain directed compatibility and explicit per-document absence" in {
@@ -484,16 +502,16 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
       _component("Store"), "workflow:v4", "workflow.abi:v8", _source("realization-r16"), _derived),
     RealizationEdge(DeclarationKey(_component("Store"), Provided, _capability), StateMachine, ModelReference(_id("state:store"), Local),
       _component("Store"), "state:v5", "state.abi:v9", _source("realization-r17", Some(58)), Declared))
-  private def _expected_application(element: String): ApplicationCapability = ApplicationCapability(
-    _id(element), "app:v1", "Same presentation", Present("Summary = literal"), Absent(NotRepresented, "No detailed prose."), _source("definition-r1", Some(12)),
+  private def _expected_usage(element: String): ComponentUsageCapability = ComponentUsageCapability(
+    _component(if (element == "Application:Two") "Archive" else "Store"), _id(element), "app:v1", "Same presentation", Present("Summary = literal"), Absent(NotRepresented, "No detailed prose."), _source("definition-r1", Some(12)),
     Present(Vector(_link(UseCase, "usecase:one", Local, "demand-r1", Declared), _link(Goal, "goal:two", Local, "demand-r2", _derived))),
     Present(Vector(_link(Scenario, "scenario:one", External, "discover-r7", _derived), _link(Component, "component:model", External, "discover-r8", Declared))),
-    Present(Vector(ApplicationComponentMapping(_capability, Local, _source("mapping-r10"), Declared),
-      ApplicationComponentMapping(VersionedComponentCapabilityReference(ModelElementId("Other:能力/B", "Component:Remote"), "contract:二"), External, _source("mapping-r11"), _derived))),
-    Present(Vector(ApplicationDependency(VersionedApplicationCapabilityReference(ModelElementId("Other:能力/B", "Application:Remote"), "app:v1"), External, _source("dependency-r12"), Declared))),
+    Present(Vector(ComponentUsageCapabilityMapping(_capability, Local, _source("mapping-r10"), Declared),
+      ComponentUsageCapabilityMapping(VersionedComponentCapabilityReference(ModelElementId("Other:能力/B", "Component:Remote"), "contract:二"), External, _source("mapping-r11"), _derived))),
+    Present(Vector(ComponentUsageCapabilityDependency(VersionedComponentUsageCapabilityReference(ModelElementId("Other:能力/B", "Application:Remote"), "app:v1"), External, _source("dependency-r12"), Declared))),
     Present(_expected_grounding), Present(_expected_traceability))
   private def _expected_model: CapabilityModel = {
-    val independent = _expected_application("Application:Independent").copy(demandReferences = Present(Vector.empty), componentMappings = Present(Vector.empty),
+    val independent = _expected_usage("Application:Independent").copy(demandReferences = Present(Vector.empty), componentMappings = Present(Vector.empty),
       dependencies = Absent(NotDeclared, "No dependency declared."), discoveryReferences = Absent(Unsupported, "Discovery not represented."),
       grounding = Absent(NotApplicable, "Grounding does not apply."), traceability = Present(Vector.empty))
     val component = ComponentCapability(_id("Component:Store|α"), "contract:二", "Store capability", Present("Summary = literal"),
@@ -502,7 +520,7 @@ final class CmlCapabilityCmlSpec extends AnyWordSpec with Matchers with GivenWhe
     val declarations = Vector(ComponentDeclaration(_component("Store"), Provided, _capability, _source("declaration-r14", Some(44)), Present(_expected_realizations), Present(_expected_traceability)),
       ComponentDeclaration(_component("Archive"), Provided, _capability, _source("declaration-r14", Some(44)), Present(Vector.empty), Present(_expected_traceability)),
       ComponentDeclaration(_component("Store"), Required, _capability, _source("declaration-r14", Some(44)), Absent(NotRepresented, "No required realization representation."), Present(_expected_traceability)))
-    CapabilityModel(Vector(independent, _expected_application("Application:One"), _expected_application("Application:Two")), Vector(component), declarations,
+    CapabilityModel(Vector(independent, _expected_usage("Application:One"), _expected_usage("Application:Two")), Vector(component), declarations,
       Present(Vector(CompatibilityEdge(_id("Component:Store|α"), "contract:一", "contract:二", _source("compatibility-r18"), Declared),
         CompatibilityEdge(_id("Component:Store|α"), "contract:二", "contract:三", _source("compatibility-r19"), _derived))))
   }

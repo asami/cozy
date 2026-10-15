@@ -7,11 +7,11 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import CmlCapabilityGenerationContext._
 import CmlCapabilityPackagePublication.{Artifact, Batch}
-import CmlCapabilityProductionRequest.METADATA_PREFIX
+import CmlCapabilityProductionRequest.{METADATA_PREFIX, USAGE_METADATA_PREFIX}
 
 /*
  * @since   Oct. 14, 2026
- * @version Oct. 14, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[modeler] object CmlCapabilityPackagePublicationPart {
@@ -24,6 +24,8 @@ private[modeler] object CmlCapabilityPackagePublicationPart {
         batch.packages.flatMap { bundle =>
           val metadata = outputroot.resolve(bundle.path + "/" + METADATA_PREFIX)
           _inventory(metadata, (bundle.resources.map(_.filename) :+ "index.json").toSet) ++
+            _inventory(outputroot.resolve(bundle.path + "/" + USAGE_METADATA_PREFIX),
+              if (bundle.usagecapabilities.isEmpty) Set.empty[String] else Set("index.json", "usage.json")) ++
             _descriptor_inventory(outputroot.resolve(bundle.path))
         }
       if (issues.nonEmpty) Left(issues) else Right(())
