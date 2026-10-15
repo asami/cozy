@@ -107,6 +107,28 @@ original UTF-8 files from SOURCE commit
 The same original fixture paths and public CLI routes are regenerated and their
 complete path-to-byte maps compared with the captured products.
 
+The historical capture remains unchanged and is never regenerated or derived
+from the products under test. For validation against the currently configured
+dependencies, its independent expected map binds the two metadata `source.path`
+values to the actual input fixture path passed to the CLI. The existing
+description-capable SimpleModeler contract also requires each Operation
+Specification builder to carry its own `BaseContent.Builder(operationName)`,
+including operations without authored descriptions. For the original workflow
+fixture on `modeler-scala`, the expected DomainComponent therefore includes
+that content for `beginReview`, `submitReview`, `supplyInput`, and `reviseChange`.
+This is the existing upstream change from SimpleModeler commit
+`549a38c4184d428dfefb6e96ca876902e847fe44`, not a Failure Model product change.
+
+The projection changes only those two expected metadata paths in each of the
+four groups and the four named content lines in that one expected Scala file.
+It preserves all 80 product paths, every other byte, source hashes, compiler
+and version fields, request/response contracts and empty-input checks. Actual
+generated products are not normalized, filtered or used to construct expected
+data; every actual path-to-byte map still must equal the complete independently
+bound expected map. Unknown dependency changes continue to fail comparison.
+The original Phase 72 acceptance and its historical source capture remain
+historical evidence, without rewriting their completed records.
+
 The mixed CML is derived only under `target/test-generated` from the original
 `workflow-semantic-outcome.cml`: Domain selects LocalSingleWriter and refines
 concurrent-write; ReviewService narrows that scope; submitReview refines

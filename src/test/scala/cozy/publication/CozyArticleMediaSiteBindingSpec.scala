@@ -2,7 +2,7 @@ package cozy.publication
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.file.{Files, Path, StandardCopyOption}
 import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import cozy.media.CozyMedia
@@ -16,7 +16,8 @@ import org.smartdox.metadata.PublishMetadata.{ImageReference, PdfDocumentReferen
 /*
  * @since   Aug. 11, 2026
  *  version Aug. 30, 2026
- * @version Sep. 22, 2026
+ *  version Sep. 22, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private object SiteBindingPart5Fixture {
@@ -643,9 +644,7 @@ final class CozyArticleMediaSiteBindingSpec extends AnyWordSpec with Matchers wi
     intercept[RuntimeException](value)
 
   private def _with_part5_fixture[A](name: String, yaml: String = _part5_yaml())(f: SiteBindingPart5Fixture.Data => A): A = {
-    val workroot = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/cozy-article-media-site-binding/part-5")
-    Files.createDirectories(workroot)
-    val root = Files.createTempDirectory(workroot, name + "-")
+    val root = Files.createTempDirectory("cozy-article-media-site-binding-" + name + "-").toRealPath()
     val descriptor = root.resolve("media.yaml")
     val profile = root.resolve("publication")
     try {

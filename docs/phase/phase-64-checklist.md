@@ -1,8 +1,15 @@
 # Phase 64 Checklist: Capability Model IR and CNCF Projection
 
-Status: in-progress
+Status: CLOSED on 2026-10-15
 Phase: [Phase 64](phase-64.md)
 Development item: DEV-032
+
+Current Phase closure: all six declared Steps have accepted local commits;
+the independent whole-Phase review and current configured full Cozy validation
+are accepted. The [Phase closure](phase-64.md#phase-closure--2026-10-15)
+records the current ComponentUsage amendment, retained historical qualifications,
+nonblocking follow-ups and separate main integration obligation. The final
+local release binds `cozy64-phase-closure-20261015-01@1`.
 
 The earlier Step acceptance notes retain their historical facts and pending
 states. Their CAP-64-05 and CBD CAP-11-01 status statements are superseded only

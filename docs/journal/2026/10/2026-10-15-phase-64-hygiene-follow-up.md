@@ -1,0 +1,7 @@
+<!-- cncf-phase-finding:HYG-COZY64-COMPARISON-PROVENANCE-WORKROOT-001:begin -->
+非阻害 Hygiene。CozyCarRuntimeManifest.scala:281 の packaged generation provenance 検査は、比較差分で project-owned target/cozy/work 配下の一時ファイルから Files.createTempFile("cozy-car-provenance-", ".json") に変更され、通常の OS 一時領域へ作業ファイルを作る。RULE.md の Work Artifact Placement Rules は target/ 配下を要求し、docs/rules/shared-directive-exceptions.md の例外は project-discovery 用の3テスト helper のみに限定されるため、この production 経路を含まない。finally による削除と既存の provenance 検査は保持されており、この配置だけによる意味変更・製品破損・validation 不正は確認していない。別の限定した保守で、既存の packaged metadata 検査と失敗・cleanup semantics を維持して project-owned target/work 配下へ配置するか、既存の値ベース検査を利用して一時ファイルを不要にする。共有固定一時パス、広い例外追加、provenance 検査の弱化、hash/currentness 契約の再導入を行わない。本項目は比較レビュー、Step、Phase の受入を阻害せず、今回の CPB repair への付随変更を認めない。
+<!-- cncf-phase-finding:HYG-COZY64-COMPARISON-PROVENANCE-WORKROOT-001:end -->
+
+<!-- cncf-phase-finding:HYG-COZY64-COLLISION-CSM-HEADER-MONTH-001:begin -->
+Nonblocking Hygiene. CompositeStateMachineCml.scala:14 retains '*  version Oct. 3, 2026' alongside '* @version Oct. 15, 2026'. RULE.md requires history entries in the latest version's month/year to be compressed. The current version marker is present and correct; no behavior or validation impact was found. Separate header-only maintenance should remove the redundant October history entry while preserving earlier history and author attribution. This item does not block reassessment closure or authorize incidental product changes.
+<!-- cncf-phase-finding:HYG-COZY64-COLLISION-CSM-HEADER-MONTH-001:end -->

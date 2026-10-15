@@ -1,6 +1,6 @@
 # Phase 64 - Capability Model IR and CNCF Projection
 
-Status: in-progress
+Status: CLOSED on 2026-10-15
 Planned at: 2026-09-16
 Reconciled: 2026-09-18
 Development item: DEV-032
@@ -9,6 +9,36 @@ Predecessor: Phase 63.1 (after Phase 63 contract closure)
 Semantic foundation: Phase 54 / 54.5
 Upstream contract: CNCF Phase 78
 Downstream consumer: Textus CBD Support Phase 11
+
+## Phase closure — 2026-10-15
+
+All six declared Steps, CAP-64-01 through CAP-64-05 and CAP-64-PKG01, have
+accepted local Step commits. The independent whole-Phase review and current
+configured full Cozy validation are accepted. The final local release binds
+this closure as `cozy64-phase-closure-20261015-01@1`.
+
+The current contract is Component-owned ComponentUsageCapability, separate
+from provided/required Component Capability. The October 15 amendment below
+governs current source, IR, wire and producer/consumer acceptance. Earlier
+Application wording, pending statements and dated Step notes remain historical;
+they do not reopen the six committed Steps or this Phase closure.
+
+The accepted project-discovery fixture isolation and FailureModel baseline
+repairs are included in this release. The two accepted nonblocking maintenance
+items remain in the [Phase Hygiene journal](../journal/2026/10/2026-10-15-phase-64-hygiene-follow-up.md).
+Historical missing evidence and unknown original Phase counters remain unknown.
+This present-tense closure does not reconstruct them.
+
+Canonical Cozy main integration and validation of its combined inputs follow
+the dedicated-branch release. CNCF Phase 78 and Textus CBD Support Phase 11
+retain their separate closure obligations. Phase 11.1 aggregate validation and
+Phase 14 are not executed by this closure; no push or publication is implied.
+
+Execution evidence stays outside Git. Its planned local archive is
+`macmini:~/backup/journal/2026/10/cozy/phase-64/01a104a8-a1a7-77b0-aa89-6b539d074c2e/`.
+Active or unresolved evidence has no expiry; retain archived inspection material
+for 30 days after completion of the coordinated workflow. No archive completion
+is claimed here.
 
 ## Package metadata amendment — 2026-10-15
 
@@ -35,12 +65,12 @@ unchanged; they are not compatibility with the removed Application model.
 
 Earlier accepted Steps keep their historical evidence. The current amendment
 is accepted at the Step boundary: implementation, Step validation and independent
-protected Step review are complete. The local Step commit is being prepared.
-It is required before the owning Phase closes. The coordinated plan covers
+protected Step review and the local Step commit are complete. The coordinated plan covers
 the revised semantic/ownership/wire scope; the earlier transport-only estimate
 does not establish its acceptance. Each owner retains its existing
 review/full-validation duties; CBD aggregate full validation remains Phase 11.1.
-Phase full review, full validation, local release and main integration remain pending.
+Phase full review and current configured full validation are accepted by the
+closure above. Canonical main integration remains a separate subsequent action.
 
 ## Purpose
 

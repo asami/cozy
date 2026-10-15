@@ -2,7 +2,7 @@ package cozy.media
 
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 import scala.collection.JavaConverters._
 import org.scalatest.GivenWhenThen
 import org.scalatest.wordspec.AnyWordSpec
@@ -13,7 +13,8 @@ import org.goldenport.io.InputSource
 /*
  * @since   Jul. 19, 2026
  *  version Jul. 20, 2026
- * @version Sep.  7, 2026
+ *  version Sep.  7, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyMediaSpec
@@ -855,9 +856,7 @@ final class CozyMediaSpec
   }
 
   private def _with_temp_dir(name: String)(body: Path => Unit): Unit = {
-    val dir = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/media-package").resolve(name)
-    _delete(dir)
-    Files.createDirectories(dir)
+    val dir = Files.createTempDirectory("cozy-media-package-" + name + "-").toRealPath()
     try body(dir)
     finally _delete(dir)
   }
