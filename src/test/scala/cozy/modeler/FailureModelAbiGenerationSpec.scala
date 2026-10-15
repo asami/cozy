@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValu
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct. 13, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -81,11 +81,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       Given("the immutable SOURCE baseline with removed source hashes, the selected fixture path and the accepted operation content metadata")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
-      val expected = groups.map { group =>
-        val source = _base.resolve((group \ "fixture").as[String])
-        (group \ "files").as[Vector[JsObject]].map(file =>
-          (file \ "path").as[String] -> _legacy_expected_bytes((file \ "path").as[String], (file \ "text").as[String], source)).toMap
-      }
+      val expected = groups.map(group => _legacy_expected(group, _base.resolve((group \ "fixture").as[String])))
 
       When("the four original fixture and route groups generate into fresh output directories twice")
       val actual = groups.zipWithIndex.map { case (group, index) =>
@@ -154,6 +150,54 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       additions.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
       component.replace("BaseContent.Builder(\"beginReview\")", "BaseContent.Builder(\"wrongOperation\")") should not be component
       component.replace("\"ReviewResult\"", "\"ChangedResult\"") should not be component
+    }
+
+    "bind historical expected metadata to one hundred independent locations while preserving every other byte" in {
+      Given("four historical raw groups and independently chosen input locations containing spaces and Unicode")
+      val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
+      val groups = (baseline \ "groups").as[Vector[JsObject]]
+      val locations = Gen.chooseNum(1, 1000000).map(suffix =>
+        _base.resolve("target/test-generated/legacy-oracle-location-" + suffix + " 日本語"))
+      val metadatapath = "target/cozy/model-metadata.json"
+      val metadatapaths = Set(metadatapath, "target/cozy/model-metadata.yaml")
+      val componentpath = "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala"
+      val operations = Vector("beginReview", "submitReview", "supplyInput", "reviseChange")
+
+      When("ScalaCheck binds only expected input paths and the fixed existing Operation content across all four groups")
+      val property = Prop.forAll(locations) { location =>
+        groups.foreach { group =>
+          val fixture = (group \ "fixture").as[String]
+          val input = location.resolve(fixture)
+          val original = (group \ "files").as[Vector[JsObject]].map(file =>
+            (file \ "path").as[String] -> (file \ "text").as[String].getBytes(UTF_8).toVector).toMap
+          val expected = _legacy_expected(group, input)
+          val metadata = Json.parse(original(metadatapath).toArray).as[JsObject]
+          val source = (metadata \ "source").as[JsObject]
+          val boundmetadata = metadata + ("source" -> ((source - "sha256") + ("path" -> JsString(input.toAbsolutePath.normalize().toString))))
+          Json.parse(expected(metadatapath).toArray) shouldBe boundmetadata
+          expected.keySet shouldBe original.keySet
+          val componentchanged = fixture == "src/test/resources/modeler/workflow-semantic-outcome.cml" &&
+            (group \ "route").as[String] == "modeler-scala"
+          val changedpaths = metadatapaths ++ (if (componentchanged) Set(componentpath) else Set.empty[String])
+          original.filterNot { case (path, _) => changedpaths.contains(path) }.foreach { case (path, bytes) =>
+            expected(path) shouldBe bytes
+          }
+          if (componentchanged) {
+            val component = new String(expected(componentpath).toArray, UTF_8)
+            val contentlines = operations.map(name => s"""          content = org.goldenport.value.BaseContent.Builder("$name"),""")
+            contentlines.foreach(line => component.linesIterator.count(_ == line) shouldBe 1)
+            component.linesIterator.filterNot(contentlines.contains).mkString("", "\n", "\n").getBytes(UTF_8).toVector shouldBe
+              original(componentpath)
+          }
+        }
+        true
+      }
+      val result = Test.check(Test.Parameters.default.withMinSuccessfulTests(100).withInitialSeed(Seed(73L)), property)
+
+      Then("one hundred reproducible samples preserve all other metadata, compiler, versions, inventories and request/response bytes except the three adopted adaptations, without discards")
+      withClue(result.toString) { result.passed shouldBe true }
+      result.succeeded should be >= 100
+      result.discarded shouldBe 0
     }
 
     "retain null, optional provenance and safely escaped pure IR values" in {
@@ -387,6 +431,19 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       case _ => text
     }
     expected.getBytes(UTF_8).toVector
+  }
+  private def _legacy_expected(group: JsObject, input: Path): Map[String, Vector[Byte]] = {
+    val operationgroup = (group \ "fixture").as[String] == "src/test/resources/modeler/workflow-semantic-outcome.cml" &&
+      (group \ "route").as[String] == "modeler-scala"
+    (group \ "files").as[Vector[JsObject]].map { file =>
+      val path = (file \ "path").as[String]
+      val text = (file \ "text").as[String]
+      val bytes = if (path == "target/scala-3.3.8/src_managed/main/scala/domain/DomainComponent.scala" && !operationgroup)
+        text.getBytes(UTF_8).toVector
+      else
+        _legacy_expected_bytes(path, text, input.toAbsolutePath.normalize())
+      path -> bytes
+    }.toMap
   }
   private def _legacy_text(fixture: String, route: String, path: String): String = {
     val groups = (Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json"))) \ "groups").as[Vector[JsObject]]

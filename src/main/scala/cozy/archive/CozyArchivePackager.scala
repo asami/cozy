@@ -23,7 +23,7 @@ import scala.sys.process._
  *  version May. 22, 2026
  *  version Jun. 18, 2026
  *  version Aug. 26, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] object CozyArchivePackager {
@@ -85,9 +85,12 @@ private[cozy] object CozyArchivePackager {
     _build_car(args, Some(evidence -> executingcozyversion))
 
   private def _build_car(
-    args: List[String],
+    incoming: List[String],
     acceptanceoverride: Option[(GenerationCompatibilityEvidence, String)]
   ): Unit = {
+    val capabilityinvocation = CozyCapabilityArchivePart.invocation(incoming)
+    val args = capabilityinvocation._1
+    val capabilityselection = capabilityinvocation._2
     val save = _required_path(args, "save")
     val mainjar = _required_path(args, "main-jar")
     val projectdir = Some(_required_path(args, "project-dir"))
@@ -114,6 +117,7 @@ private[cozy] object CozyArchivePackager {
           )
       }
     val coordinate = CozyComponentReleaseCoordinateCodec.fromProjectMetadata(projectmetadata, "package-car")
+    val capabilityentries = capabilityselection.toVector.flatMap(CozyCapabilityArchivePart.entries(_, coordinate))
     val carrier = CozyComponentKnowledgeCarrier.fromProject(projectdir.get, coordinate)
     val outputversion = _required_value(args, "version")
     CozyComponentReleaseCoordinateCodec.requireProjection(coordinate.version, outputversion, "version", "package-car")
@@ -139,7 +143,7 @@ private[cozy] object CozyArchivePackager {
           )
       }
     }
-    _with_generation_provenance(
+    _with_validated_generation_provenance(
       projectdir,
       carcontract,
       requireprovenance = releaseoutput && generatedproject
@@ -280,10 +284,7 @@ private[cozy] object CozyArchivePackager {
             coordinate
           )
         )
-        _write_archive(
-          save,
-          projectdir,
-          Vector(
+        val composedentries = Vector(
             packagedmainjar -> "component/main.jar"
           ) ++
             carentries.filterNot(_._2 == CozyComponentKnowledgeCarrier.ARCHIVE_LOGICAL_PATH) ++
@@ -300,7 +301,13 @@ private[cozy] object CozyArchivePackager {
             webinfdescriptors ++
             generationprovenance.toVector.map(_ -> "generation-provenance.json") ++
             Vector(abimanifest -> "abi-manifest.json") ++
-            Vector(componentdescriptor -> "component-descriptor.json"),
+            Vector(componentdescriptor -> "component-descriptor.json")
+        if (capabilityselection.nonEmpty)
+          CozyCapabilityArchivePart.requireNoCollisions(composedentries, capabilityentries)
+        _write_archive(
+          save,
+          projectdir,
+          composedentries ++ capabilityentries,
           Vector("component", "lib", "spi", "config", "web"),
           runtimemanifest,
           manifesttexts
@@ -322,7 +329,7 @@ private[cozy] object CozyArchivePackager {
     }
   }
 
-  private def _with_generation_provenance[A](
+  private def _with_validated_generation_provenance[A](
     projectdir: Option[Path],
     carcontract: CarMetadataCompatibility.Contract,
     requireprovenance: Boolean
@@ -1000,6 +1007,11 @@ private[cozy] object CozyArchivePackager {
       stream.close()
     }
   }
+
+  private[cozy] def _capability_component_descriptor_json(
+    coordinate: CozyComponentReleaseCoordinateCodec.Coordinate
+  ): String =
+    _component_descriptor_json(coordinate, Map.empty, Map.empty, Vector.empty)
 
   private def _component_descriptor_json(
     coordinate: CozyComponentReleaseCoordinateCodec.Coordinate,

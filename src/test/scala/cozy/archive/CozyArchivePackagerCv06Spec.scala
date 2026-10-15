@@ -25,7 +25,7 @@ import play.api.libs.json.Json
  * @since   Jul. 28, 2026
  *  version Aug. 21, 2026
  *  version Sep. 27, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyArchivePackagerCv06Spec
@@ -101,6 +101,22 @@ final class CozyArchivePackagerCv06Spec
           Vector.empty
         (runtimemanifest \ "runtime" \ "cncf" \ "tested").as[Vector[String]] shouldBe
           Vector("0.5.17")
+        val provenance = Json.parse(_zip_text(archive, "generation-provenance.json"))
+        provenance shouldBe Json.obj(
+          "schemaVersion" -> "cozy.generation-provenance.v1",
+          "target" -> Json.obj("cncfVersion" -> "0.5.17"),
+          "generator" -> Json.obj(
+            "cozyVersion" -> org.simplemodeling.cozy.BuildInfo.version,
+            "simpleModelerBackendVersion" -> "0.2.0",
+            "simpleModelingModelVersion" -> "0.2.0"
+          ),
+          "source" -> Json.obj("identity" -> "src/main/cozy/sample.cml"),
+          "output" -> Json.obj("artifacts" -> Json.arr(
+            Json.obj("path" -> "target/scala-3.3.8/src_managed/main/domain/Sample.scala")
+          ))
+        )
+        _zip_text(archive, "component/main.jar") shouldBe "sample"
+        Files.isRegularFile(archive) shouldBe true
       }
     }
 

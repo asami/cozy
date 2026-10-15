@@ -33,7 +33,7 @@ import io.circe.syntax._
 
 /*
  * @since   Aug. 14, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 

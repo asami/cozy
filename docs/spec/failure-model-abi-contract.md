@@ -1,6 +1,6 @@
 # Failure Model generated ABI contract
 
-*Since:* Oct. 3, 2026. *Version:* Oct. 13, 2026.
+*Since:* Oct. 3, 2026. *Version:* Oct. 15, 2026.
 
 This contract is specified by `FailureModelAbiGenerationSpec`. It projects the
 accepted [SOURCE contract](failure-model-source-contract.md) into additive,
@@ -97,7 +97,8 @@ fixtures remain accepted.
 The spec authors adjacent Given/When/Then behaviors: repeated real
 normal/value products and decoded complete IR; all four original fixture/route
 groups with the explicit expected-product adaptations below; an adaptation-boundary
-regression; optional and escaped pure IR; a seeded 100-sample
+regression and a seeded 100-location expected-metadata binding property; optional
+and escaped pure IR; a seeded 100-sample
 ScalaCheck roundtrip/order property with deliberately wrong order/owner examples;
 old positional/named callers and library fixtures; all library rejection routes;
 and real mixed Workflow v5 output.
@@ -122,6 +123,31 @@ All other paths and UTF-8 bytes remain exact. The historical baseline and its
 producer identity are preserved unchanged, never regenerated from current output.
 The adaptation regression preserves unrelated metadata and historical component
 lines and keeps operation-identity and response-contract changes distinguishable.
+
+The historical capture remains unchanged and is never regenerated or derived
+from the products under test. For validation against the currently configured
+dependencies, its independent expected map removes the obsolete `source.sha256`
+line and binds `source.path` in the two metadata files to the actual input fixture
+path passed to the CLI. The existing
+description-capable SimpleModeler contract also requires each Operation
+Specification builder to carry its own `BaseContent.Builder(operationName)`,
+including operations without authored descriptions. For the original workflow
+fixture on `modeler-scala`, the expected DomainComponent therefore includes
+that content for `beginReview`, `submitReview`, `supplyInput`, and `reviseChange`.
+This is the existing upstream change from SimpleModeler commit
+`549a38c4184d428dfefb6e96ca876902e847fe44`, not a Failure Model product change.
+
+The projection applies precisely the three adaptations listed above, confined
+to the two expected metadata files in each of the four groups and the four named
+content lines in that one expected Scala file. It preserves all 80 product paths
+and every other byte, including all other metadata, compiler and version fields,
+request/response contracts and empty-input checks. The adaptation-boundary
+regression and seeded 100-location property cover this exact boundary. Actual
+generated products are not normalized, filtered or used to construct expected
+data; every actual path-to-byte map still must equal the complete independently
+bound expected map. Unknown dependency changes continue to fail comparison.
+The original Phase 72 acceptance and its historical source capture remain
+historical evidence, without rewriting their completed records.
 
 The mixed CML is derived only under `target/test-generated` from the original
 `workflow-semantic-outcome.cml`: Domain selects LocalSingleWriter and refines

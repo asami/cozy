@@ -2,7 +2,7 @@ package cozy.config
 
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, LinkOption, Path, Paths}
+import java.nio.file.{Files, LinkOption, Path}
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import org.scalatest.GivenWhenThen
@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Aug. 12, 2026
  *  version Sep. 30, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -387,10 +387,8 @@ final class CozyProjectContextSpec extends AnyWordSpec with Matchers with GivenW
 
   private def _with_work(name: String)(body: Path => Unit): Unit =
     CozyProjectContext.withUserHomeLock {
-      val root = Paths.get(sys.props("user.dir")).toAbsolutePath.normalize().resolve("target/test-generated/cozy-project-context").resolve(name)
+      val root = Files.createTempDirectory("cozy-project-context-" + name + "-").toRealPath()
       val home = Option(System.getProperty("user.home"))
-      _delete(root)
-      Files.createDirectories(root)
       try body(root)
       finally {
         home.foreach(System.setProperty("user.home", _))

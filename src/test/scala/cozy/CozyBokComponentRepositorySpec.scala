@@ -12,7 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 /*
  * @since   Jul. 13, 2026
  *  version Aug. 11, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyBokComponentRepositorySpec
@@ -175,12 +175,16 @@ class CozyBokComponentRepositorySpec
           When("Cozy publishes BOK repository metadata and public repository assets")
           CozyBok.build(config, new RepositoryCarBuildRunner)
 
-          Then("metadata declares the canonical carrier and public consumer-contract path, and the contract is available")
+          Then("metadata declares the independently expected carrier schemas and path and publishes the full consumer contract")
           val metadata = _read(dir.resolve("doxsite.d/metadata/repository/car/index.json"))
           metadata should include("\"component_knowledge\" : {")
           metadata should include("\"consumer_contract\" : \"repository/car/textus-sie/0.1.0/component-knowledge.json\"")
+          metadata should include("\"carrierSchema\" : \"cncf.component-knowledge-carrier.v1\"")
+          metadata should include("\"consumerContractSchema\" : \"cncf.component-knowledge-consumer.v1\"")
+          metadata should include("\"logicalPath\" : \"component-knowledge.json\"")
           val publiccontract = dir.resolve("website.d/repository/car/textus-sie/0.1.0/component-knowledge.json")
           publiccontract should be_regular_file
+          _read(publiccontract) shouldBe contract
         }
       }
 

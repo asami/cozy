@@ -29,7 +29,7 @@ import cozy.modeler.GenerationProvenance
  *  version Jun.  4, 2026
  *  version Jul. 28, 2026
  *  version Aug. 28, 2026
- * @version Oct.  9, 2026
+ * @version Oct. 15, 2026
  * @author  ASAMI, Tomoharu
  */
 class CozyCarPublisherSpec
@@ -391,7 +391,7 @@ class CozyCarPublisherSpec
         }
       }
 
-      "admits an intact prebuilt release CAR after readable owning generated contents change" in {
+      "admit readable generated content changes and reject a missing required artifact before publication" in {
         _with_temp_dir("cozy-publish-car-stale-generated-output") { dir =>
           Given("a release CAR and matching owning-project generation evidence")
           val projectdir = dir.resolve("project")
@@ -412,11 +412,26 @@ class CozyCarPublisherSpec
             "0.3.1"
           )
 
-          And("the owning generated Scala output changes after CAR creation")
+          And("the owning generated Scala output has different readable contents at the same selected path")
           _write(
             _generated_fixture_path(projectdir, "sample-component"),
             "final class ReplacedOutput\n"
           )
+
+          When("ordinary metadata admission validates the exact known inputs and selected path inventory")
+          val admitted = GenerationProvenance.requireValidForPackaging(
+            projectdir.resolve(GenerationProvenance.METADATA_PATH),
+            projectdir,
+            Some("0.5.17"),
+            Some("0.3.1")
+          )
+          Then("the independently expected metadata remains admissible despite readable content changes")
+          admitted shouldBe GenerationProvenance.Manifest(
+            GenerationProvenance.Inputs("0.5.17", "0.3.1", "0.2.0", "0.2.0", "src/main/cozy/sample-component.cml"),
+            Vector(GenerationProvenance.Artifact(projectdir.relativize(_generated_fixture_path(projectdir, "sample-component")).toString.replace(java.io.File.separatorChar, '/')))
+          )
+          Files.isRegularFile(_generated_fixture_path(projectdir, "sample-component")) shouldBe true
+          Files.exists(warehouse) shouldBe false
 
           When("publication admits the intact CAR with the same selected versions and required output paths")
           _publish_with_immutable_evidence(
@@ -429,6 +444,32 @@ class CozyCarPublisherSpec
 
           Then("the intact private fixture CAR is accepted independently of local generated file contents")
           stored shouldBe true
+
+          Given("that same required generated artifact is absent and a fresh warehouse is selected")
+          val missingwarehouse = dir.resolve("missing-warehouse")
+          Files.delete(_generated_fixture_path(projectdir, "sample-component"))
+          When("actual publication revalidates the prebuilt release CAR against the owning project")
+          val error = intercept[Throwable] {
+            _publish_with_immutable_evidence(
+              List(
+                projectdir.toString,
+                "--warehouse",
+                missingwarehouse.toString,
+                "--name",
+                "sample-component",
+                "--version",
+                "0.1.0",
+                "--car",
+                car.toString
+              ),
+              "0.5.17",
+              "0.3.1"
+            )
+          }
+
+          Then("the missing selected output is rejected before any warehouse writes")
+          error.getMessage should include("GENERATION_PROVENANCE_OUTPUT_TAMPERED")
+          Files.exists(missingwarehouse) shouldBe false
         }
       }
 
