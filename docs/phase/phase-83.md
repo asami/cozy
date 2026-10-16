@@ -40,3 +40,21 @@ code without application-specific security boilerplate.
 
 The Phase must not restore Phase 71.5 management hashes, artifact protection,
 whole-tree copies or speculative integrity checks.
+
+## CNCF authorization route
+
+Cozy does not generate a parallel authorization framework or scatter ad-hoc
+authorization helper calls through application code.
+
+Generated public/application execution must preserve CNCF's existing two
+authorization chokepoints: Operation authorization at execution entry and
+Entity/object authorization at the internal DSL -> UnitOfWork boundary.
+Generated Action code uses the canonical CNCF internal DSL for ordinary
+Entity read/update/search/list/mutation so UnitOfWorkInterpreter/
+OperationAccessPolicy applies authorization automatically.
+
+Generation must not introduce direct EntityStore/DataStore access that bypasses
+that UoW route. ServiceInternal/System access mode is never selected from
+untrusted request data. If CML later declares proxy/delegated operations, Cozy
+compiles them to CNCF's bounded authority model rather than inventing a second
+one.
