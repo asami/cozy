@@ -23,7 +23,8 @@ import scala.sys.process._
  * @since   May. 20, 2026
  *  version May. 22, 2026
  *  version Jun. 18, 2026
- * @version Aug. 26, 2026
+ *  version Aug. 26, 2026
+ * @version Oct. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 private[cozy] final case class ReleaseSourceVerification(
@@ -100,7 +101,12 @@ private[cozy] object CozyArchivePackager {
     val mainjar = _required_path(args, "main-jar")
     val projectdir = Some(_required_path(args, "project-dir"))
     val config = _project_config(projectdir)
-    val projectmetadata = _project_metadata(projectdir)
+    val sourceproperties = _parsed(args).request.properties
+    val projectmetadata = CozySourceBuildPackaging.project(
+      _project_metadata(projectdir),
+      sourceproperties.find(_.name == "source-cncf-version").map(_.asString),
+      sourceproperties.find(_.name == "source-cozy-version").map(_.asString)
+    )
     val alllibjars = _paths(args, "lib-jars")
     val resolvedjars = (mainjar +: alllibjars).distinct
     val resolvedcncfartifacts = _resolved_cncf_artifacts(resolvedjars)
@@ -1275,6 +1281,8 @@ private[cozy] object CozyArchivePackager {
     spec.Parameter.propertyFileOption("save"),
     spec.Parameter.propertyFileOption("main-jar"),
     spec.Parameter.propertyFileOption("project-dir"),
+    spec.Parameter.property("source-cncf-version"),
+    spec.Parameter.property("source-cozy-version"),
     spec.Parameter.propertyFileOption("lib-jars"),
     spec.Parameter.propertyFileOption("spi-jars"),
     spec.Parameter.propertyFileOption("component-api-descriptor"),
