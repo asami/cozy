@@ -1,6 +1,40 @@
 import sbt.ScriptedPlugin
 import sbt.ScriptedPlugin.autoImport._
 import org.goldenport.cozy.CozyPlugin.autoImport._
+import cozy.build.CozySimpleModelerDevelopmentBuild
+
+lazy val simpleModelerSourceDirectory =
+  CozySimpleModelerDevelopmentBuild.resolveSourceDirectory(
+    file("."), sys.env.get("TEXTUS_SIMPLEMODELER_CNCF_SOURCE_ROOT")
+  ).fold(errors => sys.error(errors.mkString("\n")), directory => directory)
+
+lazy val simpleModelerSourceProject =
+  simpleModelerSourceDirectory.map(source => RootProject(source.toURI))
+
+lazy val cozySimpleModelerDevelopmentDirectory =
+  settingKey[Option[File]]("Explicit canonical SimpleModeler development source directory")
+
+lazy val validateCozySimpleModelerDevelopment =
+  settingKey[Unit]("Validate loaded SimpleModeler development coordinates against Cozy")
+
+cozySimpleModelerDevelopmentDirectory := simpleModelerSourceDirectory
+
+validateCozySimpleModelerDevelopment := ()
+
+lazy val simpleModelerSourceSettings: Seq[Def.Setting[_]] =
+  simpleModelerSourceProject.toSeq.flatMap { source =>
+    Seq(
+      validateCozySimpleModelerDevelopment :=
+        CozySimpleModelerDevelopmentBuild.validateCoordinates(
+          (source / organization).value,
+          (source / moduleName).value,
+          (source / version).value,
+          (source / scalaVersion).value,
+          simplemodelerVersion,
+          scalaVersion.value
+        ).fold(errors => sys.error(errors.mkString("\n")), identity)
+    )
+  }
 
 cozyCoursierChannelPath := "repository/cozy/coursier-channel.json"
 
@@ -89,7 +123,14 @@ libraryDependencies += "org.goldenport" %% "kaleidox" % "0.6.20-SNAPSHOT"
 val simplemodelerVersion =
   sys.props.getOrElse("simplemodeler.version", sys.env.getOrElse("SIMPLEMODELER_VERSION", "1.1.26-SNAPSHOT"))
 
-libraryDependencies += "org.simplemodeling" %% "simplemodeler" % simplemodelerVersion
+libraryDependencies ++= (if (simpleModelerSourceProject.isDefined) Seq.empty
+  else Seq("org.simplemodeling" %% "simplemodeler" % simplemodelerVersion))
+
+excludeDependencies ++= (if (simpleModelerSourceProject.isDefined)
+  Seq(ExclusionRule("org.simplemodeling", "simplemodeler_2.12"))
+  else Seq.empty)
+
+Test / unmanagedSources += baseDirectory.value / "project" / "CozySimpleModelerDevelopmentBuild.scala"
 
 libraryDependencies += "org.goldenport" % "cncf-collaborator-api" % cncfCollaboratorApiVersion
 
@@ -416,6 +457,7 @@ lazy val root = (project in file(".")).
   enablePlugins(ScriptedPlugin).
   enablePlugins(JavaAppPackaging).
   enablePlugins(org.goldenport.cozy.CozyPlugin).
+  dependsOn(simpleModelerSourceProject.toSeq.map(source => source % "compile->compile;runtime->runtime"): _*).
   settings(
     buildInfoKeys := Seq[BuildInfoKey](
       name, version, scalaVersion, sbtVersion,
@@ -457,4 +499,5 @@ lazy val root = (project in file(".")).
         }
       }
     }.value
-  )
+  ).
+  settings(simpleModelerSourceSettings)
