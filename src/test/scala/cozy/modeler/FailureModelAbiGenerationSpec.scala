@@ -15,7 +15,7 @@ import play.api.libs.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValu
 
 /*
  * @since   Oct.  3, 2026
- * @version Oct.  3, 2026
+ * @version Oct. 17, 2026
  * @author  ASAMI, Tomoharu
  */
 final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with GivenWhenThen {
@@ -77,12 +77,20 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       save.source.line shouldBe Some(_line(Files.readString(input), "#### save"))
     }
 
-    "preserve every original file and byte when declarations are absent" in {
+    "preserve every original file and byte except relocated input provenance when declarations are absent" in {
       Given("the immutable parent baseline captured from native SOURCE commit 6c15b65cd83181fdf61aa8674c9a847f79751805")
       val baseline = Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json")))
       val groups = (baseline \ "groups").as[Vector[JsObject]]
-      val expected = groups.map(group => (group \ "files").as[Vector[JsObject]].map(file =>
-        (file \ "path").as[String] -> (file \ "text").as[String].getBytes(UTF_8).toVector).toMap)
+      val expected = groups.map { group =>
+        val input = _base.resolve((group \ "fixture").as[String])
+        val files = (group \ "files").as[Vector[JsObject]]
+        val metadata = files.find(file => (file \ "path").as[String] == "target/cozy/model-metadata.json").get
+        val sourcepath = (Json.parse((metadata \ "text").as[String]) \ "source" \ "path").as[String]
+        files.map { file =>
+          val path = (file \ "path").as[String]
+          path -> _relocated_legacy_text(path, (file \ "text").as[String], sourcepath, input).getBytes(UTF_8).toVector
+        }.toMap
+      }
 
       When("the four original fixture and route groups generate into fresh output directories twice")
       val actual = groups.zipWithIndex.map { case (group, index) =>
@@ -91,6 +99,9 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
         val outputs = Vector(1, 2).map { repetition =>
           val output = _output(s"legacy-$index-$repetition")
           _run(route, input, output)
+          Then("generated JSON provenance equals the normalized actual input path")
+          val metadata = Json.parse(Files.readString(output.resolve("target/cozy/model-metadata.json")))
+          (metadata \ "source" \ "path").as[String] shouldBe input.toAbsolutePath.normalize().toString
           _all_bytes(output)
         }
         (FailureModelCml.requireDefinitions(_load(input)), outputs)
@@ -98,7 +109,7 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
       val empty = FailureModelAbiGenerator.generate(Vector.empty)
       val emptyjson = Json.parse(FailureModelAbiGenerator.canonicalJson(Vector.empty))
 
-      Then("all inventories and UTF-8 bytes equal the independent expected files and empty input adds no artifact")
+      Then("all inventories and UTF-8 bytes equal the independent expected files with only the relocated provenance scalar and empty input adds no artifact")
       groups.size shouldBe 4
       expected.map(_.size).sum shouldBe 80
       (baseline \ "producerCommit").as[String] shouldBe "6c15b65cd83181fdf61aa8674c9a847f79751805"
@@ -320,6 +331,20 @@ final class FailureModelAbiGenerationSpec extends AnyWordSpec with Matchers with
     realm.get(path).collect { case value: Realm.StringData => value.string }.getOrElse(fail(s"Missing generated artifact: $path"))
   private def _line(source: String, heading: String): Int = source.linesIterator.toVector.indexOf(heading) + 1
   private def _scopes(contract: EffectiveFailureContract): Vector[String] = contract.entries.map(_.scope.name)
+  private def _relocated_legacy_text(path: String, text: String, sourcepath: String, input: Path): String = {
+    val oldscalar = Json.stringify(JsString(sourcepath))
+    val newscalar = Json.stringify(JsString(input.toAbsolutePath.normalize().toString))
+    val replacement = path match {
+      case "target/cozy/model-metadata.json" => Some((s"""    "path" : $oldscalar,""", s"""    "path" : $newscalar,"""))
+      case "target/cozy/model-metadata.yaml" => Some((s"  path: $oldscalar", s"  path: $newscalar"))
+      case _ => None
+    }
+    replacement.map { case (oldline, newline) =>
+      val lines = text.split("\n", -1).toVector
+      lines.count(_ == oldline) shouldBe 1
+      lines.map(line => if (line == oldline) newline else line).mkString("\n")
+    }.getOrElse(text)
+  }
   private def _legacy_text(fixture: String, route: String, path: String): String = {
     val groups = (Json.parse(Files.readString(_resources.resolve("failure-model-legacy-baseline.json"))) \ "groups").as[Vector[JsObject]]
     val group = groups.find(g => (g \ "fixture").as[String].endsWith("/" + fixture) && (g \ "route").as[String] == route).get
